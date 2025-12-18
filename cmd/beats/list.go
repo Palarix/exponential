@@ -62,6 +62,8 @@ var listCmd = &cobra.Command{
 		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
 		greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
 		redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		blueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
+		purpleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
 		strikeStyle := lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
 
 		for _, i := range issues {
@@ -95,6 +97,19 @@ var listCmd = &cobra.Command{
 				idS, stS, tiS, paS, crS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			}
 
+			// Determine Type Style (tyS)
+			var tyS lipgloss.Style
+			switch i.Kind {
+			case "BUG":
+				tyS = redStyle
+			case "EPIC":
+				tyS = purpleStyle
+			case "FEATURE":
+				tyS = blueStyle
+			default: // TASK and others
+				tyS = whiteStyle
+			}
+
 			// Helper to render cell
 			renderCell := func(content string, style lipgloss.Style, width int) string {
 				// Calculate max content width (width - 2 for padding)
@@ -114,7 +129,7 @@ var listCmd = &cobra.Command{
 
 			// Render
 			c1 := renderCell(i.ID, idS, cols[0].Width)
-			c2 := renderCell(i.Kind, idS, cols[1].Width)
+			c2 := renderCell(i.Kind, tyS, cols[1].Width)
 			c3 := renderCell(string(i.Status), stS, cols[2].Width)
 			c4 := renderCell(i.Title, tiS, cols[3].Width)
 			c5 := renderCell(i.ParentID, paS, cols[4].Width)
