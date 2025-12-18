@@ -1,1 +1,5 @@
-beats
+# Beats binary
+/beats
+
+# Snapshots
+.beats/issues.snapshot.json

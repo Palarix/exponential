@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -18,9 +19,10 @@ var initCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// 2. Check for .github/workflows
-		if _, err := os.Stat(".github/workflows"); os.IsNotExist(err) {
-			fmt.Println("Error: .github/workflows directory not found. Please setup GitHub Actions first.")
+		// 2. Check for .github/workflows/*.yml or *.yaml
+		matches, err := filepath.Glob(".github/workflows/*.y*ml")
+		if err != nil || len(matches) == 0 {
+			fmt.Println("Error: No workflow files found in .github/workflows. Please setup GitHub Actions first.")
 			os.Exit(1)
 		}
 
@@ -40,17 +42,24 @@ var initCmd = &cobra.Command{
 		}
 		f.Close()
 
-		// 5. Add .beats/ to .gitignore
+		// 5. Add .beats/issues.snapshot.json to .gitignore
 		gitignorePath := ".gitignore"
-		f, err = os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			// Don't fail hard if gitignore fails, just warn
-			fmt.Printf("Warning: Could not open .gitignore: %v\n", err)
-		} else {
-			defer f.Close()
-			// Check if already ignored (simplistic check)
-			// For now, just append
-			if _, err := f.WriteString("\n# Beats issue tracker\n.beats/\n"); err != nil {
+		content, err := os.ReadFile(gitignorePath)
+		var contentStr string
+		if err == nil {
+			contentStr = string(content)
+		}
+
+		ignoreEntry := ".beats/issues.snapshot.json"
+		if !strings.Contains(contentStr, ignoreEntry) {
+			f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err == nil {
+				defer f.Close()
+				if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
+					f.WriteString("\n")
+				}
+				f.WriteString(ignoreEntry + "\n")
+			} else {
 				fmt.Printf("Warning: Could not write to .gitignore: %v\n", err)
 			}
 		}

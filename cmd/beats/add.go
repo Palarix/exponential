@@ -32,10 +32,17 @@ var addCmd = &cobra.Command{
 		}
 
 		// Generate ID
-		id, err := gonanoid.Generate("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 6)
+		alphabet := "0123456789abcdef"
+		id, err := gonanoid.Generate(alphabet, 6)
 		if err != nil {
 			fmt.Printf("Error generating ID: %v\n", err)
 			os.Exit(1)
+		}
+
+		if addEpicFlag {
+			id = "epic-" + id
+		} else {
+			id = "task-" + id
 		}
 
 		// Get User
