@@ -75,3 +75,7 @@
 {"id":"beat-a75fb6","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T20:20:11.638296Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"beat-02772d","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T20:20:41.680911Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"beat-02772d","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T20:22:32.214821Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-2a8d04","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T20:23:48.580099Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-f197b6","type":"CREATE","payload":{"kind":"EPIC","title":"Beats Query Language (BQL) support for ls command"},"created_at":"2025-12-18T20:26:43.697575Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-2a8d04","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T20:27:28.349224Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-bfc16e","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T20:27:28.349224Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}

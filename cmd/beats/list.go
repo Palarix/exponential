@@ -17,6 +17,7 @@ var listStatusFlag string
 var listAllFlag bool
 var listSinceFlag string
 var listBeforeFlag string
+var listMatchFlag string
 
 func parseTimeFilter(input string) (time.Time, error) {
 	// Try parsing as duration (relative to now)
@@ -74,6 +75,12 @@ var listCmd = &cobra.Command{
 			beforeTime = t
 		}
 
+		// Prepare match query
+		matchQuery := ""
+		if listMatchFlag != "" {
+			matchQuery = strings.ToLower(listMatchFlag)
+		}
+
 		// Column Config
 		cols := []struct {
 			Title string
@@ -126,6 +133,31 @@ var listCmd = &cobra.Command{
 			}
 			if !beforeTime.IsZero() && i.CreatedAt.After(beforeTime) {
 				continue
+			}
+
+			// Search filter
+			if matchQuery != "" {
+				// Naive match against all fields requested: ID, Type, Status, Title, Parent, CreatedBy
+				// Description is not in the list per user request, but simple enough to add later if needed.
+				// User asked for: "id, type status, title, parent or created by"
+				matchFound := false
+				if strings.Contains(strings.ToLower(i.ID), matchQuery) {
+					matchFound = true
+				} else if strings.Contains(strings.ToLower(i.Kind), matchQuery) {
+					matchFound = true
+				} else if strings.Contains(strings.ToLower(string(i.Status)), matchQuery) {
+					matchFound = true
+				} else if strings.Contains(strings.ToLower(i.Title), matchQuery) {
+					matchFound = true
+				} else if strings.Contains(strings.ToLower(i.ParentID), matchQuery) {
+					matchFound = true
+				} else if strings.Contains(strings.ToLower(i.CreatedBy), matchQuery) {
+					matchFound = true
+				}
+
+				if !matchFound {
+					continue
+				}
 			}
 
 			// Hide DONE tasks unless --all is passed or status is explicitly DONE in the filter
@@ -215,5 +247,6 @@ func init() {
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including DONE)")
 	listCmd.Flags().StringVar(&listSinceFlag, "since", "", "Show issues created since duration/date (e.g. 24h, 2024-01-01)")
 	listCmd.Flags().StringVar(&listBeforeFlag, "before", "", "Show issues created before duration/date")
+	listCmd.Flags().StringVarP(&listMatchFlag, "match", "m", "", "Search for string in ID, title, status, etc.")
 	rootCmd.AddCommand(listCmd)
 }
