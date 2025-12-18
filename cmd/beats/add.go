@@ -70,15 +70,15 @@ var addCmd = &cobra.Command{
 
 		fmt.Printf("Created %s: %s (%s)\n", kind, id, title)
 
-		// TODO: Commit to git? The prompt mentions "Commits like before".
-		// For now we just write to file as per CLI behavior description.
-		// "Appends a new line to JSONL, git commit -am '<description>' .beats/issues.jsonl"
-		// I will auto-commit for them.
-
-		commitMsg := fmt.Sprintf("beats: create %s %s - %s", kind, id, title)
-		_ = commitMsg
-		// exec.Command("git", "add", ".beats/issues.jsonl").Run()
-		// exec.Command("git", "commit", "-m", commitMsg).Run()
+		if cfg.AutoCommit {
+			commitMsg := fmt.Sprintf("beats: create %s %s - %s", kind, id, title)
+			fmt.Println("Auto-committing...")
+			if err := exec.Command("git", "add", ".beats/issues.jsonl").Run(); err != nil {
+				fmt.Printf("Error adding to git: %v\n", err)
+			} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
+				fmt.Printf("Error committing: %v\n", err)
+			}
+		}
 	},
 }
 

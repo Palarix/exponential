@@ -411,3 +411,28 @@ A helper to view or edit the local configuration.
 
 The CLI should make sensible use of color (grey for planned, white for in progress, red for blockers, green for done). The CLI should not make use of emojis, but can expect nerdfonts icons are available (unless disabled in config).
 
+## Configuration
+
+### Locations
+Configuration is loaded from the following locations in order (precedence: high to low):
+1. Environment variables (`BEATS_...`)
+2. Local config: `.beats/config.yaml`
+3. User config: `~/.config/beats/config.yaml`
+4. Default values
+
+### Options
+
+| Key | Environment Variable | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `editor` | `BEATS_EDITOR` | `$EDITOR` or `vim` | The editor to use for entering descriptions. |
+| `auto_commit` | `BEATS_AUTO_COMMIT` | `false` | Automatically commit changes to `issues.jsonl` using git. |
+| `style.theme` | `BEATS_STYLE_THEME` | `default` | UI theme (currently only `default` supported). |
+
+### Example `config.yaml`
+
+```yaml
+editor: "nano"
+auto_commit: true
+style:
+  theme: "default"
+```

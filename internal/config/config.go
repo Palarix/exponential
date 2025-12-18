@@ -10,8 +10,9 @@ import (
 )
 
 type Config struct {
-	Editor string `mapstructure:"editor"`
-	Style  Style  `mapstructure:"style"`
+	Editor     string `mapstructure:"editor"`
+	AutoCommit bool   `mapstructure:"auto_commit"`
+	Style      Style  `mapstructure:"style"`
 }
 
 type Style struct {
@@ -27,6 +28,7 @@ func LoadConfig() (*Config, error) {
 	if v.GetString("editor") == "" {
 		v.SetDefault("editor", "vim") // Fallback
 	}
+	v.SetDefault("auto_commit", false)
 	v.SetDefault("style.theme", "default")
 
 	// Config file locations
