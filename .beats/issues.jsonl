@@ -1,1 +1,2 @@
 {"id":"epic-4303c0","type":"CREATE","payload":{"kind":"EPIC","title":"Web Interface"},"created_at":"2025-12-18T15:15:53.969544+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"task-3c5fcd","type":"CREATE","payload":{"kind":"TASK","title":"Implement Server Mode (beats board)","parent_id":"epic-4303c0"},"created_at":"2025-12-18T15:15:54.133395+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
