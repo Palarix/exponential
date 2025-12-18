@@ -84,3 +84,17 @@
 {"id":"beat-dd07ae","type":"UPDATE","payload":{"parent_id":""},"created_at":"2025-12-18T20:48:46.441988Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beat-d20e57","type":"CREATE","payload":{"kind":"TASK","title":"Improve show command for Epics","description":"Display child issues when showing an Epic"},"created_at":"2025-12-18T20:51:49.981217Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beat-d20e57","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T21:00:53.263272Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-91e404","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T23:09:34.853662189Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-6f33db","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T23:09:34.853662189Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-91e404","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T23:09:34.915641393Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-d43027","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T23:13:14.772548949Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-d43027","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T23:13:14.834612799Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-a496b5","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T23:17:31.965608204Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-a496b5","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T23:17:32.044751485Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-dc4585","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T23:20:39.29445088Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-dc4585","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T23:20:39.333163796Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-6f33db","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T23:20:39.333163796Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-7a68e2","type":"CREATE","payload":{"kind":"TASK","title":"deps command to show all Dependencies","description":"Add a new deps command that given a beats id shows all dependencies (children,parents,blocked by, blocking) as appropriate"},"created_at":"2025-12-18T23:20:46.500853652Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-91b35e","type":"CREATE","payload":{"kind":"TASK","title":"Update agent instructions for strict beats workflow","description":"Enforce beats usage: create task, start before coding, done after review"},"created_at":"2025-12-18T23:24:09.564642085Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-91b35e","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T23:24:22.139254975Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-91b35e","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T23:25:48.283382224Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}

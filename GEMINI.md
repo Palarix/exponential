@@ -4,11 +4,19 @@ This repository uses `beats`, a local JSONL-based issue tracker, to manage devel
 
 ## Core Philosophy: Project Memory
 
-`beats` serves as the persistent memory for the project. 
+`beats` serves as the persistent memory for the project.
 - **Start** by reading the backlog to understand what needs to be done.
 - **Update** the status of tasks you are working on.
 - **Record** any new tasks or bugs you discover as new issues. Do not just fix them implicitly or leave them as TODO comments in code; create a tracked issue so it can be prioritized.
 - **Persist** your planning. If a task is too big, break it down into child tasks in `beats`.
+
+## Strict Workflow Rules
+
+1. **No "Ghost" Work**: Any work done by an agent MUST be backed by a beats task/bug/epic.
+2. **Missing Tasks**: If no such task exists for your current objective, you must create it.
+   - **Timing**: Create the task *after* the user approves your initial design/plan.
+3. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding beats task to `DOING` using `beats start`.
+4. **Completion**: You MUST set the beats task to `DONE` using `beats done` *only after* the user approves the final review/walkthrough.
 
 ## Agent Identity
 When performing actions that modify the tracker (add, update), ensure you are identified as an agent if possible, or use the execution environment's git config.
@@ -67,13 +75,12 @@ If you encounter a bug or necessary refactor while working on something else, fi
 ## Workflow Example for Agents
 
 1. **Context Check**: Run `./beats list` to see what is PLANNED or DOING.
-2. **Selection**: Pick a task (e.g., `task-a1b2c3`).
-3. **Deep Dive**: Run `./beats show task-a1b2c3`.
-4. **Status Update**: Run `./beats start task-a1b2c3`.
-5. **Implementation**: Modify code.
-6. **Task Discovery**: You realize the `User` model is missing a field.
-    - Run `./beats add "Add email field to User model" -p <parent-epic-id>`.
-7. **Completion**: Run `./beats done task-a1b2c3`.
+2. **Backing Task**: Ensure a task exists for your work.
+   - If yes: `beats start <id>`.
+   - If no: Plan your work, get approval, then `beats add "..."`, then `beats start <id>`.
+3. **Implementation**: Modify code, tests, docs.
+4. **Review**: Present walkthrough/results to user.
+5. **Completion**: On approval, `beats done <id>`.
 
 
 ## Building the project

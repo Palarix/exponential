@@ -24,6 +24,7 @@ type Issue struct {
 	Status      IssueStatus
 	ParentID    string
 	Estimate    int
+	Burned      int
 	BlockedBy   string
 	BlockReason string
 	CreatedAt   time.Time
@@ -93,6 +94,19 @@ func ProjectIssues(events []Event) map[string]*Issue {
 				issue.BlockReason = *p.BlockReason
 			}
 
+			issue.Events = append(issue.Events, evt)
+
+		case EventTypeWorkLog:
+			issue, exists := issues[evt.ID]
+			if !exists {
+				continue
+			}
+
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p WorkLogPayload
+			json.Unmarshal(payloadBytes, &p)
+
+			issue.Burned += p.Amount
 			issue.Events = append(issue.Events, evt)
 		}
 	}

@@ -28,6 +28,10 @@ type CreatePayload struct {
 	Estimate    int    `json:"estimate,omitempty"`
 }
 
+type WorkLogPayload struct {
+	Amount int `json:"amount"`
+}
+
 type UpdatePayload struct {
 	Title       *string `json:"title,omitempty"`
 	Description *string `json:"description,omitempty"`
