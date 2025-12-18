@@ -7,3 +7,4 @@
 {"id":"task-478b74","type":"CREATE","payload":{"kind":"TASK","title":"Implement beats config","parent_id":"epic-8cdb8b"},"created_at":"2025-12-18T15:15:54.962179+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"task-df33a0","type":"CREATE","payload":{"kind":"TASK","title":"Add Interactive Mode (Bubble Tea)","parent_id":"epic-8cdb8b"},"created_at":"2025-12-18T15:15:55.124406+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"task-2add75","type":"CREATE","payload":{"kind":"TASK","title":"Add Git Hooks Support","parent_id":"epic-8cdb8b"},"created_at":"2025-12-18T15:15:55.291511+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"epic-75804e","type":"CREATE","payload":{"kind":"EPIC","title":"Maintenance \u0026 Lifecycle"},"created_at":"2025-12-18T15:15:55.446366+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
