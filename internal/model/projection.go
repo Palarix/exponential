@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"sort"
+	"time"
 )
 
 type IssueStatus string
@@ -25,7 +26,7 @@ type Issue struct {
 	Estimate    int
 	BlockedBy   string
 	BlockReason string
-	CreatedAt   string
+	CreatedAt   time.Time
 	CreatedBy   string
 	UpdatedAt   string
 	Events      []Event
@@ -55,7 +56,7 @@ func ProjectIssues(events []Event) map[string]*Issue {
 				ParentID:    p.ParentID,
 				Estimate:    p.Estimate,
 				Status:      StatusBacklog, // Default
-				CreatedAt:   evt.CreatedAt.Format("2006-01-02 15:04"),
+				CreatedAt:   evt.CreatedAt,
 				CreatedBy:   evt.CreatedBy,
 				Events:      []Event{evt},
 			}
@@ -106,7 +107,7 @@ func SortIssues(issues map[string]*Issue) []*Issue {
 	// Sort by CreatedAt ?? Or just random?
 	// Let's sort by ID for now or CreatedAt string
 	sort.Slice(list, func(i, j int) bool {
-		return list[i].CreatedAt < list[j].CreatedAt
+		return list[i].CreatedAt.Before(list[j].CreatedAt)
 	})
 	return list
 }
