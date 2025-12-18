@@ -158,7 +158,12 @@ var addCmd = &cobra.Command{
 }
 
 func getUser() string {
-	// Try to get from git config
+	// 1. Check config (includes BEATS_USER env via Viper)
+	if cfg != nil && cfg.User != "" {
+		return cfg.User // Already validated at config load
+	}
+
+	// 2. Fallback to git config
 	nameBytes, _ := exec.Command("git", "config", "user.name").Output()
 	emailBytes, _ := exec.Command("git", "config", "user.email").Output()
 
