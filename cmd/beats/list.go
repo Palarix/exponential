@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/dustin/go-humanize"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
 	"github.com/spf13/cobra"
@@ -28,11 +30,13 @@ var listCmd = &cobra.Command{
 		issues := model.SortIssues(issuesMap)
 
 		columns := []table.Column{
-			{Title: "ID", Width: 10},
-			{Title: "Type", Width: 10},
+			{Title: "ID", Width: 12},
+			{Title: "Type", Width: 8},
 			{Title: "Status", Width: 10},
-			{Title: "Title", Width: 40},
+			{Title: "Title", Width: 30},
 			{Title: "Parent", Width: 10},
+			{Title: "Created", Width: 15},
+			{Title: "By", Width: 20},
 		}
 
 		rows := []table.Row{}
@@ -40,12 +44,19 @@ var listCmd = &cobra.Command{
 			if listStatusFlag != "" && string(i.Status) != listStatusFlag {
 				continue
 			}
+
+			// Parse time for humanize
+			tParsed, _ := time.Parse("2006-01-02 15:04", i.CreatedAt)
+			relTime := humanize.Time(tParsed)
+
 			rows = append(rows, table.Row{
 				i.ID,
 				i.Kind,
 				string(i.Status),
 				i.Title,
 				i.ParentID,
+				relTime,
+				i.CreatedBy,
 			})
 		}
 
