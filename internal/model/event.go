@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"regexp"
 	"time"
 )
 
@@ -42,11 +44,12 @@ type UpdatePayload struct {
 	BlockReason *string `json:"block_reason,omitempty"`
 }
 
-// Helper to validate user string format
+// ValidateUser validates that a user string matches the expected format "Name <email>".
 func ValidateUser(user string) error {
-	// Simple check for now, can be more robust
-	// Expected: "Name <email>"
-	// We won't rigorously enforce regex but just check for presence of <>
-	// This can be improved.
+	// Pattern: "One or more chars" followed by space(s), then "<email@domain>"
+	re := regexp.MustCompile(`^.+\s+<[^<>]+@[^<>]+>$`)
+	if !re.MatchString(user) {
+		return fmt.Errorf("invalid user format: expected 'Name <email>', got %q", user)
+	}
 	return nil
 }

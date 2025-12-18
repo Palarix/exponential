@@ -6,10 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kuyio/beats/internal/model"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
+	User       string `mapstructure:"user"` // Override git user, format: "Name <email>"
 	Editor     string `mapstructure:"editor"`
 	AutoCommit bool   `mapstructure:"auto_commit"`
 	Style      Style  `mapstructure:"style"`
@@ -24,6 +26,7 @@ func LoadConfig() (*Config, error) {
 	v := viper.New()
 
 	// Default values
+	v.SetDefault("user", "") // BEATS_USER env will override
 	v.SetDefault("editor", os.Getenv("EDITOR"))
 	if v.GetString("editor") == "" {
 		v.SetDefault("editor", "vim") // Fallback
@@ -57,6 +60,13 @@ func LoadConfig() (*Config, error) {
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Validate user format if provided
+	if cfg.User != "" {
+		if err := model.ValidateUser(cfg.User); err != nil {
+			return nil, fmt.Errorf("config: %w", err)
+		}
 	}
 
 	return &cfg, nil
