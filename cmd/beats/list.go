@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 	"github.com/kuyio/beats/internal/model"
@@ -28,53 +28,100 @@ var listCmd = &cobra.Command{
 		issuesMap := model.ProjectIssues(events)
 		issues := model.SortIssues(issuesMap)
 
-		columns := []table.Column{
-			{Title: "ID", Width: 12},
-			{Title: "Type", Width: 8},
-			{Title: "Status", Width: 10},
-			{Title: "Title", Width: 30},
-			{Title: "Parent", Width: 10},
-			{Title: "Created", Width: 15},
-			{Title: "By", Width: 20},
+		// Column Config
+		cols := []struct {
+			Title string
+			Width int
+		}{
+			{"ID", 14},
+			{"Status", 12},
+			{"Title", 60},
+			{"Parent", 16},
+			{"Created", 20},
+			{"By", 25},
 		}
 
-		rows := []table.Row{}
+		// Header Style
+		headerStyle := lipgloss.NewStyle().
+			Bold(true).
+			Border(lipgloss.NormalBorder(), false, false, true, false).
+			BorderForeground(lipgloss.Color("240"))
+
+		// Render Header
+		var headerCells []string
+		for _, col := range cols {
+			// Pad the header cell. Width includes padding.
+			cell := lipgloss.NewStyle().Width(col.Width).Padding(0, 1).Render(col.Title)
+			headerCells = append(headerCells, cell)
+		}
+		fmt.Println(headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Left, headerCells...)))
+
+		// Row Styles
+		mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
+		greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+		redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		strikeStyle := lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
+
 		for _, i := range issues {
 			if listStatusFlag != "" && string(i.Status) != listStatusFlag {
 				continue
 			}
 
-			// Parse time for humanize
 			relTime := humanize.Time(i.CreatedAt)
 
-			rows = append(rows, table.Row{
-				i.ID,
-				i.Kind,
-				string(i.Status),
-				i.Title,
-				i.ParentID,
-				relTime,
-				i.CreatedBy,
-			})
+			// Format 'By' column to show only email if available
+			byStr := i.CreatedBy
+			if start := strings.Index(byStr, "<"); start != -1 {
+				if end := strings.LastIndex(byStr, ">"); end != -1 && start < end {
+					byStr = byStr[start+1 : end]
+				}
+			}
+
+			// Base logic: Determine base style for the row
+			var idS, stS, tiS, paS, crS, byS lipgloss.Style
+
+			switch i.Status {
+			case model.StatusBacklog:
+				idS, stS, tiS, paS, crS, byS = whiteStyle, mutedStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+			case model.StatusDoing:
+				idS, stS, tiS, paS, crS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+			case model.StatusDone:
+				idS, stS, tiS, paS, crS, byS = whiteStyle, greenStyle, strikeStyle, whiteStyle, whiteStyle, whiteStyle
+			case model.StatusBlocked:
+				idS, stS, tiS, paS, crS, byS = whiteStyle, redStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+			default:
+				idS, stS, tiS, paS, crS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+			}
+
+			// Helper to render cell
+			renderCell := func(content string, style lipgloss.Style, width int) string {
+				// Calculate max content width (width - 2 for padding)
+				maxW := width - 2
+				if maxW < 0 {
+					maxW = 0
+				}
+
+				// Truncate if necessary (naive rune-based)
+				runes := []rune(content)
+				if len(runes) > maxW {
+					content = string(runes[:maxW-1]) + "…"
+				}
+
+				return style.Width(width).Padding(0, 1).Render(content)
+			}
+
+			// Render
+			c1 := renderCell(i.ID, idS, cols[0].Width)
+			c2 := renderCell(string(i.Status), stS, cols[1].Width)
+			c3 := renderCell(i.Title, tiS, cols[2].Width)
+			c4 := renderCell(i.ParentID, paS, cols[3].Width)
+			c5 := renderCell(relTime, crS, cols[4].Width)
+			c6 := renderCell(byStr, byS, cols[5].Width)
+
+			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c5, c6)
+			fmt.Println(row)
 		}
-
-		t := table.New(
-			table.WithColumns(columns),
-			table.WithRows(rows),
-			table.WithFocused(false),
-			table.WithHeight(len(rows)+1),
-		)
-
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(true)
-		s.Selected = lipgloss.NewStyle().Padding(0, 0)
-		t.SetStyles(s)
-
-		fmt.Println(t.View())
 	},
 }
 
