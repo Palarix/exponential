@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
@@ -14,6 +15,22 @@ import (
 
 var listStatusFlag string
 var listAllFlag bool
+var listSinceFlag string
+var listBeforeFlag string
+
+func parseTimeFilter(input string) (time.Time, error) {
+	// Try parsing as duration (relative to now)
+	if d, err := time.ParseDuration(input); err == nil {
+		return time.Now().Add(-d), nil
+	}
+	// Try parsing as date (End of day assumption for "since" might be wrong, but simple date usually means 00:00)
+	// For "since 2024-01-01", we want from 2024-01-01 00:00:00.
+	if t, err := time.Parse("2006-01-02", input); err == nil {
+		return t, nil
+	}
+	// Try RFC3339
+	return time.Parse(time.RFC3339, input)
+}
 
 var listCmd = &cobra.Command{
 	Use:     "list",
@@ -36,6 +53,25 @@ var listCmd = &cobra.Command{
 			for _, p := range parts {
 				validStatuses[strings.TrimSpace(p)] = true
 			}
+		}
+
+		// Parse time flags
+		var sinceTime, beforeTime time.Time
+		if listSinceFlag != "" {
+			t, err := parseTimeFilter(listSinceFlag)
+			if err != nil {
+				fmt.Printf("Error parsing --since: %v\n", err)
+				os.Exit(1)
+			}
+			sinceTime = t
+		}
+		if listBeforeFlag != "" {
+			t, err := parseTimeFilter(listBeforeFlag)
+			if err != nil {
+				fmt.Printf("Error parsing --before: %v\n", err)
+				os.Exit(1)
+			}
+			beforeTime = t
 		}
 
 		// Column Config
@@ -82,6 +118,14 @@ var listCmd = &cobra.Command{
 				if !validStatuses[string(i.Status)] {
 					continue
 				}
+			}
+
+			// Time filters
+			if !sinceTime.IsZero() && i.CreatedAt.Before(sinceTime) {
+				continue
+			}
+			if !beforeTime.IsZero() && i.CreatedAt.After(beforeTime) {
+				continue
 			}
 
 			// Hide DONE tasks unless --all is passed or status is explicitly DONE in the filter
@@ -169,5 +213,7 @@ var listCmd = &cobra.Command{
 func init() {
 	listCmd.Flags().StringVar(&listStatusFlag, "status", "", "Filter by status")
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including DONE)")
+	listCmd.Flags().StringVar(&listSinceFlag, "since", "", "Show issues created since duration/date (e.g. 24h, 2024-01-01)")
+	listCmd.Flags().StringVar(&listBeforeFlag, "before", "", "Show issues created before duration/date")
 	rootCmd.AddCommand(listCmd)
 }
