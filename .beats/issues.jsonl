@@ -35,3 +35,10 @@
 {"id":"beat-2d8a0c","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T14:55:12.261949Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beat-404cea","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T15:11:19.746625Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beat-404cea","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T15:13:21.081405Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-92eeca","type":"CREATE","payload":{"kind":"TASK","title":"Group tasks under their EPIC","description":"beats ls should group tasks under their epic if they have a parent set"},"created_at":"2025-12-18T15:22:37.592267Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-478b74","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T15:23:10.556081Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-478b74","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T15:27:28.623851Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-17f023","type":"CREATE","payload":{"kind":"TASK","title":"Conditional Auto-Commit","description":"Enable auto-commit on create and update conditionally based on config (default=false)","parent_id":"beat-8cdb8b"},"created_at":"2025-12-18T15:28:44.782065Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-3b52ae","type":"CREATE","payload":{"kind":"TASK","title":"Style Type Cell in List","description":"Style type cell in beats ls based on type: BUG=red, Task=White, Feature=Blue, Epic=Purple","parent_id":"beat-8cdb8b"},"created_at":"2025-12-18T15:29:58.48841Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-3b52ae","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-18T15:32:00.343472Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beat-3b52ae","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-18T15:35:25.771312Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
