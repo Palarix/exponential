@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/kuyio/beats/internal/model"
@@ -112,10 +113,15 @@ func runUpdate(id string, payload model.UpdatePayload, action string) {
 
 	fmt.Printf("Updated %s\n", id)
 
-	commitMsg := fmt.Sprintf("beats: %s %s", action, id)
-	_ = commitMsg
-	// exec.Command("git", "add", ".beats/issues.jsonl").Run()
-	// exec.Command("git", "commit", "-m", commitMsg).Run()
+	if cfg.AutoCommit {
+		commitMsg := fmt.Sprintf("beats: %s %s", action, id)
+		fmt.Println("Auto-committing...")
+		if err := exec.Command("git", "add", ".beats/issues.jsonl").Run(); err != nil {
+			fmt.Printf("Error adding to git: %v\n", err)
+		} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
+			fmt.Printf("Error committing: %v\n", err)
+		}
+	}
 }
 
 func init() {
