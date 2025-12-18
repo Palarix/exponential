@@ -100,14 +100,59 @@ func ProjectIssues(events []Event) map[string]*Issue {
 }
 
 func SortIssues(issues map[string]*Issue) []*Issue {
-	list := make([]*Issue, 0, len(issues))
+	// 1. Group issues by root
+	// Map: RootID -> List of Issues in that group
+	groups := make(map[string][]*Issue)
+
 	for _, i := range issues {
-		list = append(list, i)
+		rootID := i.ID
+		if i.ParentID != "" {
+			// If parent exists in our map, use it as root
+			if _, ok := issues[i.ParentID]; ok {
+				rootID = i.ParentID
+			}
+			// If parent doesn't exist (orphan), treating as its own root for now
+		}
+		groups[rootID] = append(groups[rootID], i)
 	}
-	// Sort by CreatedAt ?? Or just random?
-	// Let's sort by ID for now or CreatedAt string
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].CreatedAt.Before(list[j].CreatedAt)
+
+	// 2. Sort the Roots
+	var roots []string
+	for rootID := range groups {
+		roots = append(roots, rootID)
+	}
+
+	sort.Slice(roots, func(i, j int) bool {
+		// Sort groups by the Root Issue's CreatedAt (Chronological)
+		rootI := issues[roots[i]]
+		rootJ := issues[roots[j]]
+		return rootI.CreatedAt.Before(rootJ.CreatedAt)
 	})
+
+	// 3. Flatten
+	list := make([]*Issue, 0, len(issues))
+	for _, rootID := range roots {
+		groupIssues := groups[rootID]
+
+		// Sort within group: Parent first, then Children by CreatedAt
+		sort.Slice(groupIssues, func(i, j int) bool {
+			a := groupIssues[i]
+			b := groupIssues[j]
+
+			// Parent always comes first
+			if a.ID == rootID {
+				return true
+			}
+			if b.ID == rootID {
+				return false
+			}
+
+			// Both are children, sort by CreatedAt
+			return a.CreatedAt.Before(b.CreatedAt)
+		})
+
+		list = append(list, groupIssues...)
+	}
+
 	return list
 }
