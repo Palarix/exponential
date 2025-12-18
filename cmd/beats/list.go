@@ -18,6 +18,8 @@ var listAllFlag bool
 var listSinceFlag string
 var listBeforeFlag string
 var listMatchFlag string
+var listMineFlag bool
+var listEpicFlag string
 
 func parseTimeFilter(input string) (time.Time, error) {
 	// Try parsing as duration (relative to now)
@@ -160,6 +162,42 @@ var listCmd = &cobra.Command{
 				}
 			}
 
+			// Mine filter
+			if listMineFlag {
+				currentUser := getUser()
+				// Basic check: CreatedBy contains "Name <email>" or just "Name"
+				// getUser returns "Name <email>"
+				// Issue.CreatedBy might match that.
+				// Let's do a loose containment check for safety, or strict if we are confident.
+				// Since getUser() returns exact string stored in CreatedBy (usually), strict might work,
+				// but let's be safer with contains since one might have "Name" and other "Name <email>".
+				// Actually, add.go stores exactly what getUser() returns.
+				// So strict equality or Contains is fine.
+				if !strings.Contains(i.CreatedBy, currentUser) && !strings.Contains(currentUser, i.CreatedBy) {
+					// Fallback: Check emails
+					// If i.CreatedBy has <email>, extract it.
+					// If currentUser has <email>, extract it.
+					// Compare emails.
+					userEmail := extractEmail(currentUser)
+					issueEmail := extractEmail(i.CreatedBy)
+					if userEmail != "" && issueEmail != "" {
+						if userEmail != issueEmail {
+							continue
+						}
+					} else {
+						// No emails, fallback to string compare which failed
+						continue
+					}
+				}
+			}
+
+			// Epic filter
+			if listEpicFlag != "" {
+				if i.ParentID != listEpicFlag {
+					continue
+				}
+			}
+
 			// Hide DONE tasks unless --all is passed or status is explicitly DONE in the filter
 			if !listAllFlag && !validStatuses[string(model.StatusDone)] && i.Status == model.StatusDone {
 				continue
@@ -248,5 +286,16 @@ func init() {
 	listCmd.Flags().StringVar(&listSinceFlag, "since", "", "Show issues created since duration/date (e.g. 24h, 2024-01-01)")
 	listCmd.Flags().StringVar(&listBeforeFlag, "before", "", "Show issues created before duration/date")
 	listCmd.Flags().StringVarP(&listMatchFlag, "match", "m", "", "Search for string in ID, title, status, etc.")
+	listCmd.Flags().BoolVar(&listMineFlag, "mine", false, "Show issues created by current user")
+	listCmd.Flags().StringVar(&listEpicFlag, "epic", "", "Filter by child of epic ID")
 	rootCmd.AddCommand(listCmd)
+}
+
+func extractEmail(s string) string {
+	start := strings.Index(s, "<")
+	end := strings.LastIndex(s, ">")
+	if start != -1 && end != -1 && start < end {
+		return s[start+1 : end]
+	}
+	return ""
 }

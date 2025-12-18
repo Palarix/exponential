@@ -57,6 +57,9 @@ var showCmd = &cobra.Command{
 		if issue.Estimate > 0 {
 			fmt.Printf("%s    %d\n", labelStyle.Render("Est:"), issue.Estimate)
 		}
+		if issue.Burned > 0 {
+			fmt.Printf("%s %d\n", labelStyle.Render("Burned:"), issue.Burned)
+		}
 		if issue.BlockedBy != "" {
 			blockStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
 			fmt.Printf("%s %s (%s)\n", blockStyle.Render("Blocked By:"), issue.BlockedBy, issue.BlockReason)
@@ -125,62 +128,71 @@ var showCmd = &cobra.Command{
 			fmt.Println()
 		}
 
-		fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("History"))
-		fmt.Println()
-
-		columns := []table.Column{
-			{Title: "Time", Width: 20},
-			{Title: "User", Width: 20},
-			{Title: "Action", Width: 10},
-			{Title: "Details", Width: 40},
-		}
-
-		rows := []table.Row{}
-		for _, evt := range issue.Events {
-			timeStr := evt.CreatedAt.Local().Format(time.RFC822)
-
-			details := ""
-			switch evt.Type {
-			case model.EventTypeCreate:
-				details = "Created"
-			case model.EventTypeUpdate:
-				payloadBytes, _ := json.Marshal(evt.Payload)
-				var p model.UpdatePayload
-				json.Unmarshal(payloadBytes, &p)
-
-				changes := []string{}
-				if p.Status != nil {
-					changes = append(changes, "Status->"+*p.Status)
-				}
-				if p.Title != nil {
-					changes = append(changes, "Title Changed")
-				}
-				if p.ParentID != nil {
-					changes = append(changes, "Parent->"+*p.ParentID)
-				}
-				details = fmt.Sprintf("%v", changes)
-			}
-			rows = append(rows, table.Row{timeStr, evt.CreatedBy, string(evt.Type), details})
-		}
-
-		t := table.New(
-			table.WithColumns(columns),
-			table.WithRows(rows),
-			table.WithFocused(false),
-			table.WithHeight(len(rows)+1),
-		)
-
-		// Re-use simple styles
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(true)
-		t.SetStyles(s)
-
-		fmt.Println(t.View())
+		renderHistory(issue.Events)
 	},
+}
+
+func renderHistory(events []model.Event) {
+	fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("History"))
+	fmt.Println()
+
+	columns := []table.Column{
+		{Title: "Time", Width: 20},
+		{Title: "User", Width: 20},
+		{Title: "Action", Width: 10},
+		{Title: "Details", Width: 40},
+	}
+
+	rows := []table.Row{}
+	for _, evt := range events {
+		timeStr := evt.CreatedAt.Local().Format(time.RFC822)
+
+		details := ""
+		switch evt.Type {
+		case model.EventTypeCreate:
+			details = "Created"
+		case model.EventTypeUpdate:
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p model.UpdatePayload
+			json.Unmarshal(payloadBytes, &p)
+
+			changes := []string{}
+			if p.Status != nil {
+				changes = append(changes, "Status->"+*p.Status)
+			}
+			if p.Title != nil {
+				changes = append(changes, "Title Changed")
+			}
+			if p.ParentID != nil {
+				changes = append(changes, "Parent->"+*p.ParentID)
+			}
+			details = fmt.Sprintf("%v", changes)
+		case model.EventTypeWorkLog:
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p model.WorkLogPayload
+			json.Unmarshal(payloadBytes, &p)
+			details = fmt.Sprintf("Logged %d SP", p.Amount)
+		}
+		rows = append(rows, table.Row{timeStr, evt.CreatedBy, string(evt.Type), details})
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(false),
+		table.WithHeight(len(rows)+1),
+	)
+
+	// Re-use simple styles
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(true)
+	t.SetStyles(s)
+
+	fmt.Println(t.View())
 }
 
 func init() {
