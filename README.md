@@ -373,6 +373,10 @@ task-10  Design Schema       DOING    epic-1
 task-12  Fix Login Bug       DOING    -
 ```
 
+#### **`beats show`**
+
+Shows the current status (and history of) the given issue. If given an epic ID, also shows the status of the child tasks (plus summary stats, like rolled up estimated SPs, rolled up burned down SPs, statuses)
+
 #### **`beats doctor`**
 
 Since `issues.jsonl` is a plain text file, developers *will* open it in VS Code and edit it manually. Sometimes they will break the JSON syntax (e.g., missing a comma or brace).
@@ -391,7 +395,7 @@ A helper to view or edit the local configuration.
   * **Actions:**
       * `beats config list`: Shows current settings.
       * `beats config set user "Alice"`: Sets the local username for event logging.
-  * **Why this matters:** When you run `beats done`, the system needs to know *who* did it. It can try to guess from `git config user.name`, but an explicit config is safer.
+  * **Why this matters:** When you run `beats done`, the system needs to know *who* did it. By defualt we try to guess from `git config user.name`, but this allows an explicit config or override.
 
 -----
 
@@ -404,4 +408,6 @@ A helper to view or edit the local configuration.
 | **Workflow** | `planned`, `start`, `done`, `blocked` |
 | **Updates** | `update`, `estimate`, `log` |
 | **View** | `list` (CLI), `board` (GUI), `history` (Audit) |
+
+The CLI should make sensible use of color (grey for planned, white for in progress, red for blockers, green for done). The CLI should not make use of emojis, but can expect nerdfonts icons are available (unless disabled in config).
 
