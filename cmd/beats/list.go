@@ -71,7 +71,7 @@ var listCmd = &cobra.Command{
 			BorderForeground(lipgloss.Color("240")).
 			BorderBottom(true).
 			Bold(true)
-		s.Selected = s.Cell
+		s.Selected = lipgloss.NewStyle().Padding(0, 0)
 		t.SetStyles(s)
 
 		fmt.Println(t.View())
