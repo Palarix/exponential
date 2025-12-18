@@ -29,6 +29,15 @@ var listCmd = &cobra.Command{
 		issuesMap := model.ProjectIssues(events)
 		issues := model.SortIssues(issuesMap)
 
+		// Parse status flags
+		validStatuses := make(map[string]bool)
+		if listStatusFlag != "" {
+			parts := strings.Split(listStatusFlag, ",")
+			for _, p := range parts {
+				validStatuses[strings.TrimSpace(p)] = true
+			}
+		}
+
 		// Column Config
 		cols := []struct {
 			Title string
@@ -68,12 +77,15 @@ var listCmd = &cobra.Command{
 		strikeStyle := lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
 
 		for _, i := range issues {
-			if listStatusFlag != "" && string(i.Status) != listStatusFlag {
-				continue
+			// Check against validStatuses if set
+			if len(validStatuses) > 0 {
+				if !validStatuses[string(i.Status)] {
+					continue
+				}
 			}
 
-			// Hide DONE tasks unless --all is passed or status is explicitly DONE
-			if !listAllFlag && listStatusFlag != string(model.StatusDone) && i.Status == model.StatusDone {
+			// Hide DONE tasks unless --all is passed or status is explicitly DONE in the filter
+			if !listAllFlag && !validStatuses[string(model.StatusDone)] && i.Status == model.StatusDone {
 				continue
 			}
 
