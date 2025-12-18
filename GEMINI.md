@@ -74,3 +74,8 @@ If you encounter a bug or necessary refactor while working on something else, fi
 6. **Task Discovery**: You realize the `User` model is missing a field.
     - Run `./beats add "Add email field to User model" -p <parent-epic-id>`.
 7. **Completion**: Run `./beats done task-a1b2c3`.
+
+
+## Building the project
+
+Use the `make build` command to compile the `beats` binary.

@@ -97,24 +97,130 @@ var plannedCmd = &cobra.Command{
 }
 
 func runUpdate(id string, payload model.UpdatePayload, action string) {
-	user := getUser()
-	event := model.Event{
-		ID:        id,
-		Type:      model.EventTypeUpdate,
-		Payload:   payload,
-		CreatedAt: time.Now().UTC(),
-		CreatedBy: user,
+	// 1. Read and Project State
+	events, err := storage.ReadEvents()
+	if err != nil {
+		fmt.Printf("Error reading events: %v\n", err)
+		os.Exit(1)
 	}
+	issues := model.ProjectIssues(events)
 
-	if err := storage.AppendEvent(event); err != nil {
-		fmt.Printf("Error updating issue: %v\n", err)
+	targetIssue, exists := issues[id]
+	if !exists {
+		fmt.Printf("Issue %s not found\n", id)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Updated %s\n", id)
+	user := getUser()
+	timestamp := time.Now().UTC()
+	var eventsToAppend []model.Event
+	var messages []string
 
+	// 2. Prepare Primary Update
+	primaryEvent := model.Event{
+		ID:        id,
+		Type:      model.EventTypeUpdate,
+		Payload:   payload,
+		CreatedAt: timestamp,
+		CreatedBy: user,
+	}
+	eventsToAppend = append(eventsToAppend, primaryEvent)
+	messages = append(messages, fmt.Sprintf("Updated %s", id))
+
+	// 3. Logic & Side Effects based on Status Change
+	if payload.Status != nil {
+		newStatus := model.IssueStatus(*payload.Status)
+
+		// --- Scenario: Start Child -> Auto-Start Parent ---
+		if newStatus == model.StatusDoing && targetIssue.ParentID != "" {
+			parent, pExists := issues[targetIssue.ParentID]
+			if pExists && parent.Status != model.StatusDoing && parent.Status != model.StatusDone {
+				// Auto-start parent
+				pStatus := string(model.StatusDoing)
+				parentEvent := model.Event{
+					ID:        parent.ID,
+					Type:      model.EventTypeUpdate,
+					Payload:   model.UpdatePayload{Status: &pStatus},
+					CreatedAt: timestamp, // Logical simultaneity
+					CreatedBy: user,
+				}
+				eventsToAppend = append(eventsToAppend, parentEvent)
+				messages = append(messages, fmt.Sprintf("Auto-started parent epic %s", parent.ID))
+			}
+		}
+
+		// --- Scenario: Manual Complete Epic -> Validation ---
+		if newStatus == model.StatusDone {
+			// Check if this issue is a parent with incomplete children
+			hasIncompleteChildren := false
+			for _, child := range issues {
+				if child.ParentID == id && child.Status != model.StatusDone {
+					hasIncompleteChildren = true
+					break
+				}
+			}
+			if hasIncompleteChildren {
+				fmt.Printf("Error: Cannot complete epic %s because it has unfinished child tasks.\n", id)
+				os.Exit(1)
+			}
+		}
+
+		// --- Scenario: Complete Child -> Auto-Complete Parent ---
+		if newStatus == model.StatusDone && targetIssue.ParentID != "" {
+			parent, pExists := issues[targetIssue.ParentID]
+			if pExists && parent.Status != model.StatusDone {
+				// Check if ALL OTHER children are done
+				allSiblingsDone := true
+				for _, other := range issues {
+					if other.ParentID == parent.ID && other.ID != id { // Skip self (we are becoming done)
+						if other.Status != model.StatusDone {
+							allSiblingsDone = false
+							break
+						}
+					}
+				}
+
+				if allSiblingsDone {
+					// Auto-complete parent
+					pStatus := string(model.StatusDone)
+					parentEvent := model.Event{
+						ID:        parent.ID,
+						Type:      model.EventTypeUpdate,
+						Payload:   model.UpdatePayload{Status: &pStatus},
+						CreatedAt: timestamp,
+						CreatedBy: user,
+					}
+					eventsToAppend = append(eventsToAppend, parentEvent)
+					messages = append(messages, fmt.Sprintf("Auto-completed parent epic %s (all children done)", parent.ID))
+				}
+			}
+		}
+	}
+
+	// 4. Commit Changes
+	for _, evt := range eventsToAppend {
+		if err := storage.AppendEvent(evt); err != nil {
+			fmt.Printf("Error appending event for %s: %v\n", evt.ID, err)
+			os.Exit(1)
+		}
+	}
+
+	// 5. Output Messages
+	for _, msg := range messages {
+		fmt.Println(msg)
+	}
+
+	// 6. Git Commit (if enabled)
 	if cfg.AutoCommit {
+		// Just simple commit message for the main action, maybe mentions side effects?
+		// Keeping it simple: "beats: <action> <id>"
 		commitMsg := fmt.Sprintf("beats: %s %s", action, id)
+
+		// If side effects occurred, maybe append to msg?
+		if len(eventsToAppend) > 1 {
+			commitMsg += " (with cascading updates)"
+		}
+
 		fmt.Println("Auto-committing...")
 		if err := exec.Command("git", "add", ".beats/issues.jsonl").Run(); err != nil {
 			fmt.Printf("Error adding to git: %v\n", err)
