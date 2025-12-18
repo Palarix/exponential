@@ -127,11 +127,17 @@ var listCmd = &cobra.Command{
 				return style.Width(width).Padding(0, 1).Render(content)
 			}
 
+			// Check for ParentID and add visual prefix
+			title := i.Title
+			if i.ParentID != "" {
+				title = " ↳ " + title
+			}
+
 			// Render
 			c1 := renderCell(i.ID, idS, cols[0].Width)
 			c2 := renderCell(i.Kind, tyS, cols[1].Width)
 			c3 := renderCell(string(i.Status), stS, cols[2].Width)
-			c4 := renderCell(i.Title, tiS, cols[3].Width)
+			c4 := renderCell(title, tiS, cols[3].Width)
 			c5 := renderCell(i.ParentID, paS, cols[4].Width)
 			c6 := renderCell(relTime, crS, cols[5].Width)
 			c7 := renderCell(byStr, byS, cols[6].Width)
