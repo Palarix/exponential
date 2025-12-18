@@ -13,6 +13,7 @@ import (
 )
 
 var listStatusFlag string
+var listAllFlag bool
 
 var listCmd = &cobra.Command{
 	Use:     "list",
@@ -68,6 +69,11 @@ var listCmd = &cobra.Command{
 
 		for _, i := range issues {
 			if listStatusFlag != "" && string(i.Status) != listStatusFlag {
+				continue
+			}
+
+			// Hide DONE tasks unless --all is passed or status is explicitly DONE
+			if !listAllFlag && listStatusFlag != string(model.StatusDone) && i.Status == model.StatusDone {
 				continue
 			}
 
@@ -150,5 +156,6 @@ var listCmd = &cobra.Command{
 
 func init() {
 	listCmd.Flags().StringVar(&listStatusFlag, "status", "", "Filter by status")
+	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including DONE)")
 	rootCmd.AddCommand(listCmd)
 }
