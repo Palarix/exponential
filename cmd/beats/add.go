@@ -15,6 +15,7 @@ import (
 
 var (
 	addEpicFlag   bool
+	addBugFlag    bool
 	addParentFlag string
 	addDescFlag   string
 	addSPFlag     int
@@ -27,8 +28,11 @@ var addCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		title := args[0]
 		kind := "TASK"
+
 		if addEpicFlag {
 			kind = "EPIC"
+		} else if addBugFlag {
+			kind = "BUG"
 		}
 
 		// Generate ID
@@ -38,12 +42,7 @@ var addCmd = &cobra.Command{
 			fmt.Printf("Error generating ID: %v\n", err)
 			os.Exit(1)
 		}
-
-		if addEpicFlag {
-			id = "epic-" + id
-		} else {
-			id = "task-" + id
-		}
+		id = "beat-" + id
 
 		// Get User
 		user := getUser()
@@ -103,6 +102,7 @@ func getUser() string {
 
 func init() {
 	addCmd.Flags().BoolVarP(&addEpicFlag, "epic", "e", false, "Create an Epic")
+	addCmd.Flags().BoolVarP(&addBugFlag, "bug", "b", false, "Create a Bug")
 	addCmd.Flags().StringVarP(&addParentFlag, "parent", "p", "", "Parent ID")
 	addCmd.Flags().StringVarP(&addDescFlag, "desc", "d", "", "Description")
 	addCmd.Flags().IntVarP(&addSPFlag, "sp", "s", 0, "Story Points")

@@ -21,7 +21,7 @@ type Event struct {
 }
 
 type CreatePayload struct {
-	Kind        string `json:"kind"` // "TASK" or "EPIC"
+	Kind        string `json:"kind"` // "TASK", "EPIC", or "BUG"
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
 	ParentID    string `json:"parent_id,omitempty"`

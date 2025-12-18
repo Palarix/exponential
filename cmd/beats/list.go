@@ -34,6 +34,7 @@ var listCmd = &cobra.Command{
 			Width int
 		}{
 			{"ID", 14},
+			{"Type", 10},
 			{"Status", 12},
 			{"Title", 60},
 			{"Parent", 16},
@@ -113,13 +114,14 @@ var listCmd = &cobra.Command{
 
 			// Render
 			c1 := renderCell(i.ID, idS, cols[0].Width)
-			c2 := renderCell(string(i.Status), stS, cols[1].Width)
-			c3 := renderCell(i.Title, tiS, cols[2].Width)
-			c4 := renderCell(i.ParentID, paS, cols[3].Width)
-			c5 := renderCell(relTime, crS, cols[4].Width)
-			c6 := renderCell(byStr, byS, cols[5].Width)
+			c2 := renderCell(i.Kind, idS, cols[1].Width)
+			c3 := renderCell(string(i.Status), stS, cols[2].Width)
+			c4 := renderCell(i.Title, tiS, cols[3].Width)
+			c5 := renderCell(i.ParentID, paS, cols[4].Width)
+			c6 := renderCell(relTime, crS, cols[5].Width)
+			c7 := renderCell(byStr, byS, cols[6].Width)
 
-			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c5, c6)
+			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c5, c6, c7)
 			fmt.Println(row)
 		}
 	},
