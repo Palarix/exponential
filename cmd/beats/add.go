@@ -60,7 +60,7 @@ var addCmd = &cobra.Command{
 			ID:        id,
 			Type:      model.EventTypeCreate,
 			Payload:   payload,
-			CreatedAt: time.Now(),
+			CreatedAt: time.Now().UTC(),
 			CreatedBy: user,
 		}
 

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
@@ -46,8 +45,7 @@ var listCmd = &cobra.Command{
 			}
 
 			// Parse time for humanize
-			tParsed, _ := time.Parse("2006-01-02 15:04", i.CreatedAt)
-			relTime := humanize.Time(tParsed)
+			relTime := humanize.Time(i.CreatedAt)
 
 			rows = append(rows, table.Row{
 				i.ID,

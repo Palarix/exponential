@@ -77,7 +77,7 @@ var showCmd = &cobra.Command{
 
 		rows := []table.Row{}
 		for _, evt := range issue.Events {
-			timeStr := evt.CreatedAt.Format(time.RFC822)
+			timeStr := evt.CreatedAt.Local().Format(time.RFC822)
 
 			details := ""
 			switch evt.Type {

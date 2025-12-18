@@ -101,7 +101,7 @@ func runUpdate(id string, payload model.UpdatePayload, action string) {
 		ID:        id,
 		Type:      model.EventTypeUpdate,
 		Payload:   payload,
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 		CreatedBy: user,
 	}
 
