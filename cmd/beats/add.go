@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
 	gonanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +22,7 @@ var (
 	addParentFlag string
 	addDescFlag   string
 	addSPFlag     int
+	addForceFlag  bool
 )
 
 var addCmd = &cobra.Command{
@@ -33,6 +37,77 @@ var addCmd = &cobra.Command{
 			kind = "EPIC"
 		} else if addBugFlag {
 			kind = "BUG"
+		}
+
+		// Duplicate detection
+		if !addForceFlag {
+			events, err := storage.ReadEvents()
+			if err != nil {
+				// Warn but don't fail, this check is optional
+				fmt.Fprintf(os.Stderr, "Warning: could not read events for duplicate check: %v\n", err)
+			} else {
+				issuesMap := model.ProjectIssues(events)
+				var issues []*model.Issue
+				for _, i := range issuesMap {
+					issues = append(issues, i)
+				}
+				// Sort by creation time desc (newest first)
+				sort.Slice(issues, func(i, j int) bool {
+					return issues[i].CreatedAt.After(issues[j].CreatedAt)
+				})
+
+				titleTokens := tokenize(title)
+				var duplicates []*model.Issue
+
+				for _, issue := range issues {
+					issueTokens := tokenize(issue.Title)
+
+					intersection := 0
+					for t := range titleTokens {
+						if issueTokens[t] {
+							intersection++
+						}
+					}
+
+					// Criteria:
+					// 1. Strict Subset: intersection == len(titleTokens) (all new words exist in old)
+					// 2. High Overlap: intersection >= 75% of min length
+
+					minLen := len(titleTokens)
+					if len(issueTokens) < minLen {
+						minLen = len(issueTokens)
+					}
+
+					if minLen > 0 {
+						ratio := float64(intersection) / float64(minLen)
+						if ratio >= 0.75 {
+							duplicates = append(duplicates, issue)
+						}
+					}
+				}
+
+				if len(duplicates) > 0 {
+					fmt.Println("Potential duplicate(s) found:")
+					for _, d := range duplicates {
+						fmt.Printf("  %s [%s] %s (Status: %s)\n", d.ID, d.Kind, d.Title, d.Status)
+					}
+					fmt.Println()
+
+					if !isatty.IsTerminal(os.Stdout.Fd()) {
+						fmt.Println("Error: potential duplicates found in non-interactive mode. Use --force to override.")
+						os.Exit(1)
+					}
+
+					fmt.Print("Create anyway? [y/N]: ")
+					reader := bufio.NewReader(os.Stdin)
+					response, _ := reader.ReadString('\n')
+					response = strings.TrimSpace(strings.ToLower(response))
+					if response != "y" && response != "yes" {
+						fmt.Println("Aborted.")
+						os.Exit(0)
+					}
+				}
+			}
 		}
 
 		// Generate ID
@@ -100,11 +175,24 @@ func getUser() string {
 	return fmt.Sprintf("%s <%s>", name, email)
 }
 
+func tokenize(s string) map[string]bool {
+	tokens := make(map[string]bool)
+	fields := strings.Fields(strings.ToLower(s))
+	for _, f := range fields {
+		f = strings.Trim(f, "(),.:;!?")
+		if len(f) > 0 {
+			tokens[f] = true
+		}
+	}
+	return tokens
+}
+
 func init() {
 	addCmd.Flags().BoolVarP(&addEpicFlag, "epic", "e", false, "Create an Epic")
 	addCmd.Flags().BoolVarP(&addBugFlag, "bug", "b", false, "Create a Bug")
 	addCmd.Flags().StringVarP(&addParentFlag, "parent", "p", "", "Parent ID")
 	addCmd.Flags().StringVarP(&addDescFlag, "desc", "d", "", "Description")
 	addCmd.Flags().IntVarP(&addSPFlag, "sp", "s", 0, "Story Points")
+	addCmd.Flags().BoolVarP(&addForceFlag, "force", "f", false, "Force create even if duplicates found")
 	rootCmd.AddCommand(addCmd)
 }
