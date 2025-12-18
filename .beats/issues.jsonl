@@ -2,3 +2,4 @@
 {"id":"task-3c5fcd","type":"CREATE","payload":{"kind":"TASK","title":"Implement Server Mode (beats board)","parent_id":"epic-4303c0"},"created_at":"2025-12-18T15:15:54.133395+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"task-bc1933","type":"CREATE","payload":{"kind":"TASK","title":"Setup React App Integration","parent_id":"epic-4303c0"},"created_at":"2025-12-18T15:15:54.293972+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"task-3285c9","type":"CREATE","payload":{"kind":"TASK","title":"Implement API Endpoints","parent_id":"epic-4303c0"},"created_at":"2025-12-18T15:15:54.490635+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"task-4f0330","type":"CREATE","payload":{"kind":"TASK","title":"Embed Static Assets in Binary","parent_id":"epic-4303c0"},"created_at":"2025-12-18T15:15:54.652432+01:00","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
