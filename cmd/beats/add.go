@@ -77,8 +77,9 @@ var addCmd = &cobra.Command{
 		// I will auto-commit for them.
 
 		commitMsg := fmt.Sprintf("beats: create %s %s - %s", kind, id, title)
-		exec.Command("git", "add", ".beats/issues.jsonl").Run()
-		exec.Command("git", "commit", "-m", commitMsg).Run()
+		_ = commitMsg
+		// exec.Command("git", "add", ".beats/issues.jsonl").Run()
+		// exec.Command("git", "commit", "-m", commitMsg).Run()
 	},
 }
 

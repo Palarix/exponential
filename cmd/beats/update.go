@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/kuyio/beats/internal/model"
@@ -114,8 +113,9 @@ func runUpdate(id string, payload model.UpdatePayload, action string) {
 	fmt.Printf("Updated %s\n", id)
 
 	commitMsg := fmt.Sprintf("beats: %s %s", action, id)
-	exec.Command("git", "add", ".beats/issues.jsonl").Run()
-	exec.Command("git", "commit", "-m", commitMsg).Run()
+	_ = commitMsg
+	// exec.Command("git", "add", ".beats/issues.jsonl").Run()
+	// exec.Command("git", "commit", "-m", commitMsg).Run()
 }
 
 func init() {
