@@ -38,12 +38,13 @@ var showCmd = &cobra.Command{
 			Bold(true).
 			Foreground(lipgloss.Color("#FFFFFF")).
 			Background(lipgloss.Color("#7D56F4")).
-			Padding(0, 1)
+			Padding(0, 0)
 
 		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 		labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
 		// Print Header
+		fmt.Println()
 		fmt.Println(titleStyle.Render(fmt.Sprintf("[%s] %s", issue.ID, issue.Title)))
 		fmt.Println()
 
@@ -63,10 +64,69 @@ var showCmd = &cobra.Command{
 
 		fmt.Println()
 		fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("Description"))
-		fmt.Println(issue.Description)
+		fmt.Println()
+		if issue.Description != "" {
+			fmt.Println(issue.Description)
+		} else {
+			fmt.Println("No description provided.")
+		}
 		fmt.Println()
 
+		// Check for child issues
+		childIssues := []*model.Issue{}
+		for _, otherIssue := range issues {
+			if otherIssue.ParentID == issue.ID {
+				childIssues = append(childIssues, otherIssue)
+			}
+		}
+
+		if len(childIssues) > 0 {
+			header := "Child Issues"
+			if issue.Kind == "EPIC" {
+				header = "Tasks"
+			}
+			fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render(header))
+			fmt.Println()
+
+			childColumns := []table.Column{
+				{Title: "ID", Width: 16},
+				{Title: "Status", Width: 16},
+				{Title: "Title", Width: 60},
+			}
+
+			childRows := []table.Row{}
+			for _, child := range childIssues {
+				// Truncate title if too long
+				title := child.Title
+				if len(title) > 47 {
+					title = title[:47] + "..."
+				}
+				childRows = append(childRows, table.Row{child.ID, string(child.Status), title})
+			}
+
+			childTable := table.New(
+				table.WithColumns(childColumns),
+				table.WithRows(childRows),
+				table.WithFocused(false),
+				table.WithHeight(len(childRows)+1),
+			)
+
+			// Helper style for child table
+			s := table.DefaultStyles()
+			s.Header = s.Header.
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("240")).
+				BorderBottom(true).
+				Bold(true)
+			s.Selected = lipgloss.NewStyle()
+			childTable.SetStyles(s)
+
+			fmt.Println(childTable.View())
+			fmt.Println()
+		}
+
 		fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("History"))
+		fmt.Println()
 
 		columns := []table.Column{
 			{Title: "Time", Width: 20},
