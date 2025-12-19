@@ -9,7 +9,7 @@ import (
 )
 
 func AppendEvent(event model.Event) error {
-	f, err := os.OpenFile(filepath.Join(".beats", "issues.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filepath.Join(".beats", "issues.db"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}

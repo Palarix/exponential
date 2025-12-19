@@ -251,7 +251,7 @@ func runUpdate(id string, payload model.UpdatePayload, action string) {
 		}
 
 		fmt.Println("Auto-committing...")
-		if err := exec.Command("git", "add", ".beats/issues.jsonl").Run(); err != nil {
+		if err := exec.Command("git", "add", ".beats/issues.db").Run(); err != nil {
 			fmt.Printf("Error adding to git: %v\n", err)
 		} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
 			fmt.Printf("Error committing: %v\n", err)

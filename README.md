@@ -42,7 +42,7 @@ Beats also has a "Checkpoint" (Snapshot) System. You do not need to replay histo
 This is how database logs (WALs) and Git itself work.
 
 How it works:
-`.beats/issues.jsonl` (The Log): Contains the immutable history (events).
+`.beats/issues.db` (The Log): Contains the immutable history (events).
 `.beats/issues.snapshot.json` (The Cache): Contains the calculated state of the board as of a specific Event ID.
 
 Beats writes a new snapshot file automatically every 5,000 issues, or manually with `beats snapshot`. This snapshot is **local only** the file is part of `.gitignore` so we don't get merge conflicts on the snapshot. It's automatically generated the first time a user views the backlog.
@@ -50,10 +50,10 @@ Beats writes a new snapshot file automatically every 5,000 issues, or manually w
 ### 5. Archive
 After 6 months, you probably have 2,000 "DONE" tickets that no one looks at. You don't need to load them into the Kanban board RAM every time.
 The "Archive" Rotation: You can split your data into two files:
-`.beats/issues.jsonl`: Only contains active events and recent history.
+`.beats/issues.db`: Only contains active events and recent history.
 `.beats/archive.jsonl`: Contains events for tasks that are archived.
 
-How to implement: When a task has been in DONE status for > 30 days, move all events related to that Entity ID from the `issues.jsonl` to `archive.jsonl`.
+How to implement: When a task has been in DONE status for > 30 days, move all events related to that Entity ID from the `issues.db` to `archive.jsonl`.
 Result: Your main file stays small (e.g., 5,000 lines).
 Trade-off: If you want to search old tickets, you have to use a special flag `beats search --all`
 
@@ -62,14 +62,14 @@ Manual archiving can be triggered with `beats archive`
 ### The 3-File Architecture
 This leaves us with the final 3-file architecture:
 
-#### 1. issues.jsonl (The "Hot" Log)
+#### 1. issues.db (The "Hot" Log)
 Content: Contains the full event history (Created, Moved, Commented) for every issue that is currently Active (PLANNED, DOING, etc.) or recently DONE.
 Role: This is the Source of Truth.
 Git Behavior: Very friendly. Developers append lines to the bottom. Merge conflicts are rare.
 
 #### 2. issues.snapshot.json (The "Checkpoint")
-Content: A single JSON object representing the calculated final state of the board as of a specific line number in issues.jsonl.
-Role: Read Optimization. When the CLI starts, it loads this first. Then it only needs to read the few lines in issues.jsonl that were added after the snapshot was generated.
+Content: A single JSON object representing the calculated final state of the board as of a specific line number in issues.db.
+Role: Read Optimization. When the CLI starts, it loads this first. Then it only needs to read the few lines in issues.db that were added after the snapshot was generated.
 Git Behavior: High conflict risk (see warning below).
 
 #### 3. archive.jsonl (The "Cold" Storage)
@@ -86,7 +86,7 @@ Here is why .beats/ is the better engineering decision:
  1. Root Directory Hygiene
   
   Your project root is prime real estate. It should only contain the absolute essentials for understanding the project (README, main.go, go.mod, Dockerfile).
-  Root: Adds 3+ files (issues.jsonl, snapshot, archive, maybe config). It looks messy.
+  Root: Adds 3+ files (issues.db, snapshot, archive, maybe config). It looks messy.
   Subdirectory: Encapsulates everything. Your root stays clean.
 
 2. The "Database" Mental Model
@@ -107,7 +107,7 @@ Here is why .beats/ is the better engineering decision:
 Here is how a user interacts with the system on a day to day basis:
 
 ### 1. Creating an issue
-Either via CLI `beats create -t <epic|task> -p <parent_id> "Description"` or Kanban UI. Appends a new line to JSONL, `git commit -am "<description>" .beats/issues.jsonl`
+Either via CLI `beats create -t <epic|task> -p <parent_id> "Description"` or Kanban UI. Appends a new line to JSONL, `git commit -am "<description>" .beats/issues.db`
 
 ### 2. Updating the status
 Either via CLI `beats update <id>` or Kanban UI. Appends a new line to JSONL with the update event. Commits like before.
@@ -122,14 +122,14 @@ The magic happens in the build process. You don't ask the user to run npm start.
 
 ### The User Experience (beats board)
 When the user types beats board, the CLI acts as a localized web server.
-Load State: The Go CLI parses issues.jsonl (and snapshots) into memory.
+Load State: The Go CLI parses issues.db (and snapshots) into memory.
 Start Server: It spins up localhost:9123.
 Auto-Open: The CLI automatically opens the user's default browser.
 Live Updates:
 Frontend: The React app fetches GET /api/issues on load.
 User Action: User drags a card from PLANNED to DOING.
 Request: React sends POST /api/move {id: "task-1", status: "DOING"}.
-Backend: Go appends the event to issues.jsonl and updates its in-memory state.
+Backend: Go appends the event to issues.db and updates its in-memory state.
 Response: Go returns 200 OK. React updates the UI.
 Pro-Tip: Auto-Open Browser Use the pkg/browser library in Go to make it seamless.
 
@@ -155,7 +155,7 @@ r.NoRoute(func(c *gin.Context) {
 Zero Dependencies: The user doesn't need Node.js installed. They just download the beats binary.
 Fast: Go serves static files incredibly fast.
 Security: The API is local-only (bound to 127.0.0.1), so it's secure by default.
-Git Friendly: You are still writing to the local issues.jsonl file. You can leave the board running, switch branches in your terminal, and simply refresh the browser to see the new branch's tickets (assuming you reload the file in Go or restart the server).
+Git Friendly: You are still writing to the local issues.db file. You can leave the board running, switch branches in your terminal, and simply refresh the browser to see the new branch's tickets (assuming you reload the file in Go or restart the server).
 
 ## The CLI
 Here is a clean, developer-friendly CLI design for `beats`.
@@ -179,7 +179,7 @@ beats [command] [arguments] [flags]
 #### Setup
 
 **`beats init`**
-Initializes the `.beats` directory and creates the initial `issues.jsonl` file.
+Initializes the `.beats` directory and creates the initial `issues.db` file.
 
   * **Check:** Fails if not inside a git repository.
   * **Action:** Adds `.beats/` to `.gitignore` (conditionally, if you decide to ignore local config).
@@ -327,9 +327,9 @@ Manually forces a regeneration of the `.beats/issues.snapshot.json` file.
 
   * **Why run this?**
       * You just merged a massive branch with 50 new tasks and the CLI feels slow.
-      * You manually edited `issues.jsonl` to fix a typo and want to ensure the cache matches.
+      * You manually edited `issues.db` to fix a typo and want to ensure the cache matches.
   * **Logic:**
-    1.  Reads `issues.jsonl` from line 0.
+    1.  Reads `issues.db` from line 0.
     2.  Reconstructs the full state in memory.
     3.  Writes the state object to `issues.snapshot.json`.
     4.  Updates the `last_processed_event` pointer.
@@ -344,9 +344,9 @@ Moves "stale" completed issues from the hot log to cold storage.
       * `--dry-run`: Show what *would* be archived without moving data.
   * **Logic:**
     1.  Identifies all tasks where `status == DONE` AND `updated_at < (Now - Days)`.
-    2.  Extracts **all** events for those IDs from `issues.jsonl`.
+    2.  Extracts **all** events for those IDs from `issues.db`.
     3.  Appends them to `.beats/archive.jsonl`.
-    4.  Removes them from `issues.jsonl`.
+    4.  Removes them from `issues.db`.
     5.  Automatically runs `beats snapshot` immediately after (to heal the state).
   * **Example:** `beats archive --days 60`
 
@@ -379,10 +379,10 @@ Shows the current status (and history of) the given issue. If given an epic ID, 
 
 #### **`beats doctor`**
 
-Since `issues.jsonl` is a plain text file, developers *will* open it in VS Code and edit it manually. Sometimes they will break the JSON syntax (e.g., missing a comma or brace).
+Since `issues.db` is a plain text file, developers *will* open it in VS Code and edit it manually. Sometimes they will break the JSON syntax (e.g., missing a comma or brace).
 
   * **Logic:**
-      * Scans `issues.jsonl` line-by-line.
+      * Scans `issues.db` line-by-line.
       * Validates that every line is valid JSON.
       * Checks for logical inconsistencies (e.g., an event referencing a `parent_id` that doesn't exist).
       * **Auto-fix:** Can offer to comment out corrupt lines.
@@ -425,7 +425,7 @@ Configuration is loaded from the following locations in order (precedence: high 
 | Key | Environment Variable | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `editor` | `BEATS_EDITOR` | `$EDITOR` or `vim` | The editor to use for entering descriptions. |
-| `auto_commit` | `BEATS_AUTO_COMMIT` | `false` | Automatically commit changes to `issues.jsonl` using git. |
+| `auto_commit` | `BEATS_AUTO_COMMIT` | `false` | Automatically commit changes to `issues.db` using git. |
 | `style.theme` | `BEATS_STYLE_THEME` | `default` | UI theme (currently only `default` supported). |
 
 ### Example `config.yaml`

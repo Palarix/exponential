@@ -33,11 +33,11 @@ var initCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// 4. Create .beats/issues.jsonl
-		issuesFile := filepath.Join(beatsDir, "issues.jsonl")
+		// 4. Create .beats/issues.db
+		issuesFile := filepath.Join(beatsDir, "issues.db")
 		f, err := os.OpenFile(issuesFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			fmt.Printf("Error creating issues.jsonl: %v\n", err)
+			fmt.Printf("Error creating issues.db: %v\n", err)
 			os.Exit(1)
 		}
 		f.Close()

@@ -10,7 +10,7 @@ import (
 )
 
 func ReadEvents() ([]model.Event, error) {
-	f, err := os.Open(filepath.Join(".beats", "issues.jsonl"))
+	f, err := os.Open(filepath.Join(".beats", "issues.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil
 	}
