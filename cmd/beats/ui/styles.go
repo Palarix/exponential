@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -52,7 +53,13 @@ var (
 	WhiteStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
 	GreenStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Bold(true)
 	YellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true)
+	CodeStyle   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#344f7cff", Dark: "#485a9aff"})
 	StrikeStyle = lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
+
+	// Shared prefixes
+	OKPrefix    = GreenStyle.Render("[✔]")
+	ErrorPrefix = RedStyle.Render("[x]")
+	NotePrefix  = YellowStyle.Render("[!]")
 )
 
 // TypeStyle returns the appropriate style for an issue kind
@@ -112,4 +119,16 @@ func FormatByString(createdBy string) string {
 		}
 	}
 	return createdBy
+}
+
+// Stylize replaces strings in backticks with CodeStyle
+// e.g. "Run `beats doctor`" -> "Run " + CodeStyle("beats doctor")
+func Stylize(s string) string {
+	re := regexp.MustCompile("`([^`]+)`")
+	return re.ReplaceAllStringFunc(s, func(match string) string {
+		// match includes the backticks, e.g. `beats doctor`
+		// Remove them and apply style
+		inner := match[1 : len(match)-1]
+		return CodeStyle.Render(inner)
+	})
 }

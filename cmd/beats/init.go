@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/palarix/beats/cmd/beats/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -15,58 +16,49 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the .beats directory",
 	Run: func(cmd *cobra.Command, args []string) {
-		// 1. Check if inside git repo
-		if _, err := os.Stat(".git"); os.IsNotExist(err) {
-			fmt.Println("Error: Not inside a git repository")
-			os.Exit(1)
-		}
+		var notes []string
 
-		// 2. Check for .github/workflows/*.yml or *.yaml
-		matches, err := filepath.Glob(".github/workflows/*.y*ml")
-		if err != nil || len(matches) == 0 {
-			fmt.Println("Error: No workflow files found in .github/workflows. Please setup GitHub Actions first.")
-			os.Exit(1)
-		}
+		// --- PHASE 1: Initialization & Informational Output ---
 
-		// 3. Check if .beats already exists
+		// 1. Create .beats directory
 		beatsDir := ".beats"
 		if _, err := os.Stat(beatsDir); err == nil {
 			if !initForce {
-				fmt.Println("Error: .beats directory already exists. Use --force to re-initialize.")
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s `.beats` directory already exists. Use `--force` to re-initialize.\n", ui.ErrorPrefix)))
 				os.Exit(1)
 			}
-			fmt.Println("Warning: Re-initializing existing .beats directory...")
-		}
-
-		// 4. Check for existing git hooks (non-sample files)
-		hookFiles, _ := filepath.Glob(".git/hooks/*")
-		var activeHooks []string
-		for _, h := range hookFiles {
-			if !strings.HasSuffix(h, ".sample") {
-				activeHooks = append(activeHooks, filepath.Base(h))
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Re-initializing existing `.beats` directory...\n", ui.NotePrefix)))
+		} else {
+			if err := os.MkdirAll(beatsDir, 0755); err != nil {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Error creating `.beats` directory: %v\n", ui.ErrorPrefix, err)))
+				os.Exit(1)
 			}
 		}
-		if len(activeHooks) > 0 {
-			fmt.Printf("Note: Found existing git hooks: %s\n", strings.Join(activeHooks, ", "))
-			fmt.Println("      beats will not modify your existing hooks.")
+
+		// 2. Derive prefix from folder name and write config.yaml
+		cwd, _ := os.Getwd()
+		folderName := filepath.Base(cwd)
+		prefix := sanitizePrefix(folderName) + "-"
+
+		configPath := filepath.Join(beatsDir, "config.yaml")
+		configContent := fmt.Sprintf("prefix: %s\n", prefix)
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			notes = append(notes, ui.Stylize(fmt.Sprintf("Could not write `config.yaml`: %v", err)))
+		} else {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Configured issue prefix: `%s`\n", ui.OKPrefix, prefix)))
 		}
 
-		// 5. Create .beats directory
-		if err := os.MkdirAll(beatsDir, 0755); err != nil {
-			fmt.Printf("Error creating .beats directory: %v\n", err)
-			os.Exit(1)
-		}
-
-		// 6. Create .beats/issues.db
+		// 3. Create .beats/issues.db
 		issuesFile := filepath.Join(beatsDir, "issues.db")
 		f, err := os.OpenFile(issuesFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
-			fmt.Printf("Error creating issues.db: %v\n", err)
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Error creating `issues.db`: %v\n", ui.ErrorPrefix, err)))
 			os.Exit(1)
 		}
 		f.Close()
+		fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `issues.db`\n", ui.OKPrefix)))
 
-		// 7. Add .beats/issues.snapshot.json to .gitignore
+		// 4. Add .beats/issues.snapshot.json to .gitignore
 		gitignorePath := ".gitignore"
 		content, err := os.ReadFile(gitignorePath)
 		var contentStr string
@@ -83,60 +75,74 @@ var initCmd = &cobra.Command{
 					f.WriteString("\n")
 				}
 				f.WriteString(ignoreEntry + "\n")
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Added local beats artifacts to `.gitignore`\n", ui.OKPrefix)))
 			} else {
-				fmt.Printf("Warning: Could not write to .gitignore: %v\n", err)
+				notes = append(notes, ui.Stylize(fmt.Sprintf("Could not write to `.gitignore`: %v", err)))
 			}
 		}
 
-		// 8. Derive prefix from folder name and write config.yaml
-		cwd, _ := os.Getwd()
-		folderName := filepath.Base(cwd)
-		prefix := sanitizePrefix(folderName) + "-"
+		// --- PHASE 2: Checks & Warnings ---
 
-		configPath := filepath.Join(beatsDir, "config.yaml")
-		configContent := fmt.Sprintf("prefix: %s\n", prefix)
-		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-			fmt.Printf("Warning: Could not write config.yaml: %v\n", err)
-		} else {
-			fmt.Printf("Configured issue prefix: %s\n", prefix)
+		// 5. Check if inside git repo
+		if _, err := os.Stat(".git"); os.IsNotExist(err) {
+			notes = append(notes, "Not a git repository")
 		}
 
-		// 9. Detect AI agent instruction files
+		// 6. Check for .github/workflows/*.yml or *.yaml
+		matches, err := filepath.Glob(".github/workflows/*.y*ml")
+		if err == nil && len(matches) > 0 {
+			notes = append(notes, "Github workflows detected")
+		}
+
+		// 7. Check for existing git hooks (non-sample files)
+		hookFiles, _ := filepath.Glob(".git/hooks/*")
+		var activeHooks []string
+		for _, h := range hookFiles {
+			if !strings.HasSuffix(h, ".sample") {
+				activeHooks = append(activeHooks, filepath.Base(h))
+			}
+		}
+		if len(activeHooks) > 0 {
+			notes = append(notes, "Existing git hooks found")
+		}
+
+		// 8. Detect AI agent instruction files
 		results := DetectAgentFiles()
-		var detected, needsConfig []string
+		var detected []string
 		for _, r := range results {
 			if r.Exists {
 				if r.HasBeatsConfig {
-					detected = append(detected, fmt.Sprintf("%s (%s) ✓", r.Agent.Name, r.Agent.File))
+					detected = append(detected, ui.Stylize(fmt.Sprintf("%s (`%s`)", r.Agent.Name, r.Agent.File)))
 				} else {
-					needsConfig = append(needsConfig, fmt.Sprintf("%s (%s)", r.Agent.Name, r.Agent.File))
+					notes = append(notes, ui.Stylize(fmt.Sprintf("Agent file `%s` needs beats config", r.Agent.File)))
 				}
 			}
 		}
 
 		if len(detected) > 0 {
-			fmt.Println("\nDetected agent files with beats config:")
+			fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Detected configured agents:\n", ui.OKPrefix)))
 			for _, d := range detected {
-				fmt.Printf("  • %s\n", d)
+				fmt.Printf("    - %s\n", d)
 			}
 		}
 
-		if len(needsConfig) > 0 {
-			fmt.Println("\nAgent files needing beats config:")
-			for _, n := range needsConfig {
-				fmt.Printf("  ○ %s\n", n)
-			}
-			fmt.Println("\nRun 'beats doctor' to add beats instructions to these files.")
-		}
-
-		// 10. Check shell completion
+		// 9. Check shell completion
 		compRes := CheckCompletionConfig()
 		if !compRes.Configured && compRes.Shell != "unknown" {
-			fmt.Printf("\n[NOTE] Shell completion for %s is not configured.\n", compRes.Shell)
-			fmt.Println("Run 'beats doctor' to get setup instructions.")
+			notes = append(notes, ui.Stylize(fmt.Sprintf("Shell completion for `%s` is not configured", compRes.Shell)))
 		}
 
-		fmt.Println("\nInitialized .beats successfully!")
+		if len(notes) > 0 {
+			// fmt.Println("") // Spacing
+			for _, note := range notes {
+				fmt.Printf("%s %s\n", ui.NotePrefix, note)
+			}
+			fmt.Print(ui.Stylize("\nRun `beats doctor` to see details and fix these issues.\n"))
+		}
+
+		// --- PHASE 3: Summary and Warnings ---
+		fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Initialized `.beats` successfully!\n", ui.OKPrefix)))
+
 	},
 }
 
