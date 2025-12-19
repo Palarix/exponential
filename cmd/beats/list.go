@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/kuyio/beats/cmd/beats/ui"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
 	"github.com/spf13/cobra"
@@ -135,6 +136,9 @@ var listCmd = &cobra.Command{
 			beforeTime = t
 		}
 
+		// Empty line at start of output
+		fmt.Println()
+
 		// Prepare match query
 		matchQuery := ""
 		if listMatchFlag != "" {
@@ -193,82 +197,18 @@ var listCmd = &cobra.Command{
 		}
 		fmt.Println(headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Left, headerCells...)))
 
-		// Row Styles
-		// mutedStyle removed
-		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
-		// greenStyle removed
-		redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
-		blueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
-		purpleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
-		strikeStyle := lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
+		// Row Styles using shared ui package
+		strikeStyle := ui.StrikeStyle
 
-		// Find recent DONE issues to always show (unless filtered out by other means)
+		// Get recent DONE issues using shared utility
 		recentDoneIDs := make(map[string]bool)
 		if !listAllFlag {
-			var doneIssues []*model.Issue
-			for _, i := range issues {
-				if i.Status == model.StatusDone {
-					doneIssues = append(doneIssues, i)
-				}
-			}
-			// Sort by UpdatedAt Desc
-			// Note: issues are already sorted by CreatedAt in SortIssues, but we want UpdatedAt for "recent"
-			// But SortIssues flattens the hierarchy, so we should just sort doneIssues locally.
-			// Actually, SortIssues sorts by Root CreatedAt, then children.
-			// Let's do a simple sort here.
-			// We need to import "sort" if not available? It is not imported in list.go (only fmt, os, strings, time - wait, check imports)
-			// list.go imports: fmt, os, strings, time, lipgloss, humanize, model, storage, cobra.
-			// Need to add "sort" import? No, I can't add imports with replace_file_content block if not already there easily without seeing top.
-			// But I can use bubble sort or just simple loop since it's small, OR I can assume "sort" is needed.
-			// Wait, simple manual selection of top 3 is O(N), easier than importing sort if I don't want to touch imports.
-			// But N is small.
-			// Let's check imports of list.go first? I probably should have checked imports.
-			// View file showed imports: fmt, os, strings, time. (See Step 21).
-			// So I cannot use `sort` package without adding it to imports.
-			// Adding imports with replace_file_content at top is annoying if I'm doing a block in the middle.
-			// I'll stick to a simple strategy: Find top 3.
-
-			type simpleIssue struct {
-				ID      string
-				Updated time.Time
-			}
-			var candidates []simpleIssue
-			for _, i := range doneIssues {
-				candidates = append(candidates, simpleIssue{i.ID, i.UpdatedAt})
-			}
-
-			// Simple sort or select top 3
-			// Selection sort 3 times
-			for k := 0; k < 3 && k < len(candidates); k++ {
-				maxIdx := k
-				for j := k + 1; j < len(candidates); j++ {
-					if candidates[j].Updated.After(candidates[maxIdx].Updated) {
-						maxIdx = j
-					}
-				}
-				// Swap
-				candidates[k], candidates[maxIdx] = candidates[maxIdx], candidates[k]
-				recentDoneIDs[candidates[k].ID] = true
-			}
+			recentDoneIDs = ui.GetRecentDoneIDs(issues, 3)
 		}
 
-		// Status Icons (Option A)
-		statusIcons := map[model.IssueStatus]string{
-			model.StatusBacklog: "•",
-			model.StatusPlanned: "●",
-			model.StatusDoing:   "●",
-			model.StatusBlocked: "x",
-			model.StatusDone:    "●",
-		}
-
-		// Status Styles (Base colors for the status column)
-		statusColors := map[model.IssueStatus]lipgloss.Style{
-			model.StatusBacklog: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}),
-			model.StatusPlanned: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}),
-			model.StatusDoing:   lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#1524ffff", Dark: "#337effff"}),
-			model.StatusBlocked: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#b30000ff", Dark: "#ff0000ff"}),
-			model.StatusDone:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#009938ff", Dark: "#00cb55ff"}),
-		}
+		// Use shared status icons and colors from ui package
+		statusIcons := ui.StatusIcons
+		statusColors := ui.StatusStyles
 
 		for _, i := range issues {
 			// Check against validStatuses if set
@@ -327,8 +267,8 @@ var listCmd = &cobra.Command{
 					// If i.CreatedBy has <email>, extract it.
 					// If currentUser has <email>, extract it.
 					// Compare emails.
-					userEmail := extractEmail(currentUser)
-					issueEmail := extractEmail(i.CreatedBy)
+					userEmail := ui.ExtractEmail(currentUser)
+					issueEmail := ui.ExtractEmail(i.CreatedBy)
 					if userEmail != "" && issueEmail != "" {
 						if userEmail != issueEmail {
 							continue
@@ -368,35 +308,29 @@ var listCmd = &cobra.Command{
 
 			updTime := humanize.CustomRelTime(i.UpdatedAt, time.Now(), "ago", "from now", listMagnitudes)
 
-			// Format 'By' column to show only email if available
-			byStr := i.CreatedBy
-			if start := strings.Index(byStr, "<"); start != -1 {
-				if end := strings.LastIndex(byStr, ">"); end != -1 && start < end {
-					byStr = byStr[start+1 : end]
-				}
-			}
+			// Format 'By' column using shared utility
+			byStr := ui.FormatByString(i.CreatedBy)
 
 			// Base logic: Determine base style for the row
 			var idS, stS, tiS, upS, byS lipgloss.Style
 
 			switch i.Status {
 			case model.StatusBacklog:
-				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle
 			case model.StatusDoing:
-				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle
 			case model.StatusDone:
-				idS, tiS, upS, byS = whiteStyle, strikeStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = ui.WhiteStyle, strikeStyle, ui.WhiteStyle, ui.WhiteStyle
 			case model.StatusBlocked:
-				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle
 			default:
-				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle, ui.WhiteStyle
 			}
 
-			// Apply Status Column Style from Map
 			if style, ok := statusColors[i.Status]; ok {
 				stS = style
 			} else {
-				stS = whiteStyle
+				stS = ui.WhiteStyle
 			}
 
 			// Prepare Status String with Icon
@@ -408,41 +342,14 @@ var listCmd = &cobra.Command{
 				// If content is " ● ", width 3.
 			}
 
-			// Determine Type Style (tyS)
-			var tyS lipgloss.Style
-			switch i.Kind {
-			case "BUG":
-				tyS = redStyle
-			case "EPIC":
-				tyS = purpleStyle
-			case "FEATURE":
-				tyS = blueStyle
-			default: // TASK and others
-				tyS = whiteStyle
-			}
+			// Determine Type Style using shared utility
+			tyS := ui.TypeStyle(i.Kind)
 
-			// Abbreviate Kind: [T], [E], [B]
-			kindStr := i.Kind
-			if len(kindStr) > 0 {
-				kindStr = fmt.Sprintf("[%c]", kindStr[0])
-			}
+			// Abbreviate Kind using shared utility
+			kindStr := ui.FormatKindTag(i.Kind)
 
-			// Helper to render cell
-			renderCell := func(content string, style lipgloss.Style, width int) string {
-				// Calculate max content width (width - 2 for padding)
-				maxW := width - 2
-				if maxW < 0 {
-					maxW = 0
-				}
-
-				// Truncate if necessary (naive rune-based)
-				runes := []rune(content)
-				if len(runes) > maxW {
-					content = string(runes[:maxW-1]) + "…"
-				}
-
-				return style.Width(width).Padding(0, 1).Render(content)
-			}
+			// Render cells using shared utility
+			renderCell := ui.RenderCell
 
 			// Check for ParentID and add visual prefix
 			title := i.Title
@@ -473,13 +380,4 @@ func init() {
 	listCmd.Flags().BoolVar(&listMineFlag, "mine", false, "Show issues created by current user")
 	listCmd.Flags().StringVar(&listEpicFlag, "epic", "", "Filter by child of epic ID")
 	rootCmd.AddCommand(listCmd)
-}
-
-func extractEmail(s string) string {
-	start := strings.Index(s, "<")
-	end := strings.LastIndex(s, ">")
-	if start != -1 && end != -1 && start < end {
-		return s[start+1 : end]
-	}
-	return ""
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kuyio/beats/cmd/beats/ui"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
 	"github.com/spf13/cobra"
@@ -38,21 +39,9 @@ var showCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Status Config (Option A icons & colors)
-		statusIcons := map[string]string{
-			"BACKLOG": "•",
-			"PLANNED": "○",
-			"DOING":   "●",
-			"BLOCKED": "x",
-			"DONE":    "✔",
-		}
-		statusColorValues := map[string]lipgloss.Style{
-			"BACKLOG": lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}),
-			"PLANNED": lipgloss.NewStyle().Foreground(lipgloss.Color("67")),
-			"DOING":   lipgloss.NewStyle().Foreground(lipgloss.Color("172")),
-			"BLOCKED": lipgloss.NewStyle().Foreground(lipgloss.Color("160")),
-			"DONE":    lipgloss.NewStyle().Foreground(lipgloss.Color("64")),
-		}
+		// Use shared status icons and colors from ui package
+		statusIcons := ui.StatusIconsStr
+		statusColorValues := ui.StatusStylesStr
 
 		// Styles
 		titleStyle := lipgloss.NewStyle().
