@@ -174,8 +174,6 @@ var addCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Created %s: %s (%s)\n", kind, id, title)
-
 		if cfg.AutoCommit {
 			commitMsg := fmt.Sprintf("beats: create %s %s - %s", kind, id, title)
 			fmt.Println("Auto-committing...")
@@ -185,6 +183,8 @@ var addCmd = &cobra.Command{
 				fmt.Printf("Error committing: %v\n", err)
 			}
 		}
+
+		showIssue(id)
 	},
 }
 
