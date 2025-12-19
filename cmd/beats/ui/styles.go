@@ -12,16 +12,16 @@ import (
 var StatusIcons = map[model.IssueStatus]string{
 	model.StatusBacklog: "•",
 	model.StatusPlanned: "●",
-	model.StatusDoing:   "●",
+	model.StatusDoing:   "⋯",
 	model.StatusBlocked: "x",
-	model.StatusDone:    "●",
+	model.StatusDone:    "✔",
 }
 
 // StatusIconsStr provides string-keyed version for show.go compatibility
 var StatusIconsStr = map[string]string{
 	"BACKLOG": "•",
-	"PLANNED": "○",
-	"DOING":   "●",
+	"PLANNED": "●",
+	"DOING":   "⋯",
 	"BLOCKED": "x",
 	"DONE":    "✔",
 }
@@ -50,6 +50,8 @@ var (
 	BlueStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
 	PurpleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
 	WhiteStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
+	GreenStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Bold(true)
+	YellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true)
 	StrikeStyle = lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
 )
 

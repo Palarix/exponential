@@ -144,7 +144,11 @@ var addCmd = &cobra.Command{
 			fmt.Printf("Error generating ID: %v\n", err)
 			os.Exit(1)
 		}
-		id = "beat-" + id
+		prefix := "beats-"
+		if cfg != nil && cfg.Prefix != "" {
+			prefix = cfg.Prefix
+		}
+		id = prefix + id
 
 		// Get User
 		user := getUser()

@@ -11,7 +11,8 @@ import (
 )
 
 type Config struct {
-	User       string `mapstructure:"user"` // Override git user, format: "Name <email>"
+	Prefix     string `mapstructure:"prefix"` // Issue ID prefix, e.g. "myproject-"
+	User       string `mapstructure:"user"`   // Override git user, format: "Name <email>"
 	Editor     string `mapstructure:"editor"`
 	AutoCommit bool   `mapstructure:"auto_commit"`
 	Style      Style  `mapstructure:"style"`
@@ -26,7 +27,8 @@ func LoadConfig() (*Config, error) {
 	v := viper.New()
 
 	// Default values
-	v.SetDefault("user", "") // BEATS_USER env will override
+	v.SetDefault("prefix", "beats-") // Default prefix for issue IDs
+	v.SetDefault("user", "")         // BEATS_USER env will override
 	v.SetDefault("editor", os.Getenv("EDITOR"))
 	if v.GetString("editor") == "" {
 		v.SetDefault("editor", "vim") // Fallback
