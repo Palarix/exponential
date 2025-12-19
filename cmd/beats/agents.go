@@ -17,6 +17,7 @@ type AgentConfig struct {
 
 // AgentRegistry contains all supported AI agent configurations
 var AgentRegistry = []AgentConfig{
+	{Name: "Generic Agent", File: "AGENTS.md", Format: "markdown"},
 	{Name: "Gemini", File: "GEMINI.md", Format: "markdown"},
 	{Name: "Cursor", File: ".cursorrules", Format: "plain"},
 	{Name: "Windsurf", File: ".windsurfrules", Format: "plain"},

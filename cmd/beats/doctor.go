@@ -130,6 +130,27 @@ var doctorCmd = &cobra.Command{
 			}
 		} else if len(configured) == 0 {
 			fmt.Print(ui.Stylize(fmt.Sprintf("\n%s No agent instruction files detected\n", ui.NotePrefix)))
+			fmt.Print(ui.Stylize("    Agent instruction files help AI assistants understand your beats issues and workflow.\n"))
+
+			if isInteractive() {
+				fmt.Print(ui.Stylize("\nCreate `AGENTS.md` with beats instructions? [y/N]: "))
+				reader := bufio.NewReader(os.Stdin)
+				response, _ := reader.ReadString('\n')
+				response = strings.TrimSpace(strings.ToLower(response))
+
+				if response == "y" || response == "yes" {
+					agent := AgentConfig{Name: "Generic Agent", File: "AGENTS.md", Format: "markdown"}
+					if err := AppendBeatsToAgentFile(agent, prefix); err != nil {
+						fmt.Print(ui.Stylize(fmt.Sprintf("%s Error creating `AGENTS.md`: %v\n", ui.ErrorPrefix, err)))
+					} else {
+						fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `AGENTS.md` with instructions\n", ui.OKPrefix)))
+					}
+				} else {
+					fmt.Println("Skipped.")
+				}
+			} else {
+				fmt.Print(ui.Stylize("    Run `beats doctor` to create a default configuration.\n"))
+			}
 		}
 
 		// Check shell completion
