@@ -304,22 +304,14 @@ func runInteractiveUpdate(id string) {
 
 func generateUpdateTemplate(i *model.Issue) string {
 	var sb strings.Builder
-	sb.WriteString("# Title\n")
-	sb.WriteString(i.Title + "\n\n")
-
-	sb.WriteString("# Description\n")
-	sb.WriteString(i.Description + "\n\n")
-
-	sb.WriteString("# Metadata (Edit values after colon)\n")
+	sb.WriteString(fmt.Sprintf("Title: %s\n", i.Title))
 	sb.WriteString(fmt.Sprintf("Status: %s\n", i.Status))
 	sb.WriteString(fmt.Sprintf("Parent: %s\n", i.ParentID))
 	sb.WriteString(fmt.Sprintf("Estimate: %d\n", i.Estimate))
 	sb.WriteString(fmt.Sprintf("Blocked By: %s\n", i.BlockedBy))
 	sb.WriteString(fmt.Sprintf("Block Reason: %s\n", i.BlockReason))
-
-	sb.WriteString("\n# Notes:\n")
-	sb.WriteString("# - Lines starting with '#' are ignored (except headers)\n")
-	sb.WriteString("# - Valid Statuses: BACKLOG, PLANNED, DOING, BLOCKED, DONE\n")
+	sb.WriteString("\n") // Double newline separates headers from description
+	sb.WriteString(i.Description)
 
 	return sb.String()
 }
@@ -361,74 +353,41 @@ func openEditor(initialContent string) (string, error) {
 }
 
 func parseUpdateContent(content string, original *model.Issue) (model.UpdatePayload, error) {
-	lines := strings.Split(content, "\n")
+	// Split into Headers and Body
+	parts := strings.SplitN(content, "\n\n", 2)
 
-	var titleLines []string
-	var descLines []string
+	headerBlock := parts[0]
+	descriptionBlock := ""
+	if len(parts) > 1 {
+		descriptionBlock = parts[1]
+	}
 
-	// State machine: 0=Start, 1=Title, 2=Description, 3=Metadata
-	state := 0
-
+	// Parse Headers
 	meta := make(map[string]string)
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		// Header transitions
-		if strings.HasPrefix(trimmed, "# Title") {
-			state = 1
-			continue
-		} else if strings.HasPrefix(trimmed, "# Description") {
-			state = 2
-			continue
-		} else if strings.HasPrefix(trimmed, "# Metadata") {
-			state = 3
+	headerLines := strings.Split(headerBlock, "\n")
+	for _, line := range headerLines {
+		line = strings.TrimSpace(line)
+		if line == "" {
 			continue
 		}
-
-		// Comment handling (ignore # comments unless in description)
-		if state != 2 && strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-
-		switch state {
-		case 1: // Title
-			if trimmed != "" {
-				titleLines = append(titleLines, trimmed)
-			}
-		case 2: // Description
-			// Keep empty lines for description markdown
-			// But maybe trimming surrounding is good?
-			// Let's just keep everything, usually desc is multiline.
-			descLines = append(descLines, line)
-		case 3: // Metadata
-			if trimmed != "" {
-				parts := strings.SplitN(trimmed, ":", 2)
-				if len(parts) == 2 {
-					key := strings.TrimSpace(parts[0])
-					val := strings.TrimSpace(parts[1])
-					meta[strings.ToLower(key)] = val
-				}
-			}
+		// Expect "Key: Value"
+		kp := strings.SplitN(line, ":", 2)
+		if len(kp) == 2 {
+			key := strings.TrimSpace(strings.ToLower(kp[0]))
+			val := strings.TrimSpace(kp[1])
+			meta[key] = val
 		}
 	}
 
 	payload := model.UpdatePayload{}
 
-	// Title
-	newTitle := strings.TrimSpace(strings.Join(titleLines, " "))
-	if newTitle != "" && newTitle != original.Title {
-		payload.Title = &newTitle
+	// Map headers to payload
+	if val, ok := meta["title"]; ok {
+		if val != original.Title {
+			payload.Title = &val
+		}
 	}
 
-	// Description
-	// Trim leading/trailing newlines from desc
-	newDesc := strings.TrimSpace(strings.Join(descLines, "\n"))
-	if newDesc != original.Description {
-		payload.Description = &newDesc
-	}
-
-	// Metadata
 	if val, ok := meta["status"]; ok {
 		if val != string(original.Status) {
 			payload.Status = &val
@@ -456,6 +415,12 @@ func parseUpdateContent(content string, original *model.Issue) (model.UpdatePayl
 		if val != original.BlockReason {
 			payload.BlockReason = &val
 		}
+	}
+
+	// Handle Description (No comment stripping logic applied anymore)
+	newDesc := strings.TrimSpace(descriptionBlock)
+	if newDesc != original.Description {
+		payload.Description = &newDesc
 	}
 
 	return payload, nil

@@ -200,10 +200,9 @@ func editInteractive() (string, error) {
 	}
 	defer os.Remove(tmpFile.Name())
 
-	template := `# Title
+	template := `<Title>
 
-# Description (may be markdown)
-
+<Description>
 `
 	if _, err := tmpFile.WriteString(template); err != nil {
 		return "", err
@@ -221,30 +220,32 @@ func editInteractive() (string, error) {
 		return "", err
 	}
 
-	content, err := os.ReadFile(tmpFile.Name())
+	// Read content
+	contentBytes, err := os.ReadFile(tmpFile.Name())
 	if err != nil {
 		return "", err
 	}
+	content := string(contentBytes)
 
-	return string(content), nil
+	// Check if content is unchanged or empty
+	if strings.TrimSpace(content) == "" || strings.TrimSpace(content) == strings.TrimSpace(template) {
+		// Also check modtime in case they saved exact same content?
+		// Actually, if it's strictly equal to template, we should probably abort or ask.
+		// Let's rely on string comparison.
+		return "", nil // Treated as empty -> abort
+	}
+
+	return content, nil
 }
 
 func parseInteractiveContent(content string) (string, string) {
-	lines := strings.Split(content, "\n")
-	var filteredLines []string
+	// Normalize newlines
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content = strings.TrimSpace(content)
 
-	for _, line := range lines {
-		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
-			filteredLines = append(filteredLines, line)
-		}
-	}
+	// Split by first double newline
+	parts := strings.SplitN(content, "\n\n", 2)
 
-	cleanContent := strings.TrimSpace(strings.Join(filteredLines, "\n"))
-	if cleanContent == "" {
-		return "", ""
-	}
-
-	parts := strings.SplitN(cleanContent, "\n", 2)
 	title := strings.TrimSpace(parts[0])
 	description := ""
 	if len(parts) > 1 {
