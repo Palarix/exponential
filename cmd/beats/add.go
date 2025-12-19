@@ -28,9 +28,36 @@ var (
 var addCmd = &cobra.Command{
 	Use:   "add [title]",
 	Short: "Create a new issue",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		title := args[0]
+		var title string
+		var description string
+
+		// 1. Interactive Mode (No Title Provided)
+		if len(args) == 0 {
+			if !isatty.IsTerminal(os.Stdout.Fd()) {
+				fmt.Fprintln(os.Stderr, "Error: title required in non-interactive mode")
+				cmd.Help()
+				os.Exit(1)
+			}
+
+			// Edit in temp file
+			content, err := editInteractive()
+			if err != nil {
+				fmt.Printf("Error editing: %v\n", err)
+				os.Exit(1)
+			}
+
+			title, description = parseInteractiveContent(content)
+			if title == "" {
+				fmt.Println("Aborted: empty title")
+				os.Exit(0)
+			}
+		} else {
+			// 2. Argument Mode
+			title = args[0]
+			description = addDescFlag
+		}
 		kind := "TASK"
 
 		if addEpicFlag {
@@ -125,7 +152,7 @@ var addCmd = &cobra.Command{
 		payload := model.CreatePayload{
 			Kind:        kind,
 			Title:       title,
-			Description: addDescFlag,
+			Description: description,
 			ParentID:    addParentFlag,
 			Estimate:    addSPFlag,
 		}
@@ -155,6 +182,72 @@ var addCmd = &cobra.Command{
 			}
 		}
 	},
+}
+
+func editInteractive() (string, error) {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+
+	tmpFile, err := os.CreateTemp("", "beats-*.txt")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	template := `# Title
+
+# Description (may be markdown)
+
+`
+	if _, err := tmpFile.WriteString(template); err != nil {
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command(editor, tmpFile.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+
+	content, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
+func parseInteractiveContent(content string) (string, string) {
+	lines := strings.Split(content, "\n")
+	var filteredLines []string
+
+	for _, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+			filteredLines = append(filteredLines, line)
+		}
+	}
+
+	cleanContent := strings.TrimSpace(strings.Join(filteredLines, "\n"))
+	if cleanContent == "" {
+		return "", ""
+	}
+
+	parts := strings.SplitN(cleanContent, "\n", 2)
+	title := strings.TrimSpace(parts[0])
+	description := ""
+	if len(parts) > 1 {
+		description = strings.TrimSpace(parts[1])
+	}
+
+	return title, description
 }
 
 func getUser() string {
