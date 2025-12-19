@@ -33,6 +33,22 @@ var showCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// Status Config (Option A icons & colors)
+		statusIcons := map[string]string{
+			"BACKLOG": "•",
+			"PLANNED": "○",
+			"DOING":   "●",
+			"BLOCKED": "x",
+			"DONE":    "✔",
+		}
+		statusColorValues := map[string]lipgloss.Style{
+			"BACKLOG": lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}),
+			"PLANNED": lipgloss.NewStyle().Foreground(lipgloss.Color("67")),
+			"DOING":   lipgloss.NewStyle().Foreground(lipgloss.Color("172")),
+			"BLOCKED": lipgloss.NewStyle().Foreground(lipgloss.Color("160")),
+			"DONE":    lipgloss.NewStyle().Foreground(lipgloss.Color("64")),
+		}
+
 		// Styles
 		titleStyle := lipgloss.NewStyle().
 			Bold(true).
@@ -40,7 +56,6 @@ var showCmd = &cobra.Command{
 			Background(lipgloss.Color("#7D56F4")).
 			Padding(0, 0)
 
-		statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 		labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
 		// Print Header
@@ -48,7 +63,18 @@ var showCmd = &cobra.Command{
 		fmt.Println(titleStyle.Render(fmt.Sprintf("[%s] %s", issue.ID, issue.Title)))
 		fmt.Println()
 
-		fmt.Printf("%s %s\n", labelStyle.Render("Status:"), statusStyle.Render(string(issue.Status)))
+		stVal := string(issue.Status)
+		stIcon := statusIcons[stVal]
+		if stIcon != "" {
+			stVal = fmt.Sprintf("%s %s", stIcon, stVal)
+		}
+
+		stStyle := statusColorValues[string(issue.Status)]
+		if stStyle.GetForeground() == nil {
+			stStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205")) // Fallback
+		}
+
+		fmt.Printf("%s %s\n", labelStyle.Render("Status:"), stStyle.Render(stVal))
 		fmt.Printf("%s   %s\n", labelStyle.Render("Kind:"), issue.Kind)
 
 		if issue.ParentID != "" {
