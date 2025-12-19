@@ -27,8 +27,19 @@ var historyCmd = &cobra.Command{
 		issues := model.ProjectIssues(events)
 		issue, exists := issues[id]
 		if !exists {
-			fmt.Printf("Issue %s not found\n", id)
-			os.Exit(1)
+			// Check archive
+			archivedEvents, err := storage.ReadArchivedEvents()
+			if err != nil {
+				fmt.Printf("Issue %s not found (and error reading archive: %v)\n", id, err)
+				os.Exit(1)
+			}
+			archivedIssues := model.ProjectIssues(archivedEvents)
+			issue, exists = archivedIssues[id]
+			if !exists {
+				fmt.Printf("Issue %s not found\n", id)
+				os.Exit(1)
+			}
+			fmt.Println("Note: This issue is archived.")
 		}
 
 		// Detect Terminal Width

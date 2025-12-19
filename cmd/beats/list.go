@@ -22,6 +22,7 @@ var listBeforeFlag string
 var listMatchFlag string
 var listMineFlag bool
 var listEpicFlag string
+var listArchivedFlag bool
 
 func parseTimeFilter(input string) (time.Time, error) {
 	// Handle custom suffixes for days (d) and weeks (w)
@@ -103,6 +104,16 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			fmt.Printf("Error reading events: %v\n", err)
 			os.Exit(1)
+			os.Exit(1)
+		}
+
+		if listArchivedFlag {
+			archivedEvents, err := storage.ReadArchivedEvents()
+			if err != nil {
+				fmt.Printf("Error reading archived events: %v\n", err)
+				os.Exit(1)
+			}
+			events = append(events, archivedEvents...)
 		}
 
 		issuesMap := model.ProjectIssues(events)
@@ -379,5 +390,6 @@ func init() {
 	listCmd.Flags().StringVarP(&listMatchFlag, "match", "m", "", "Search for string in ID, title, status, etc.")
 	listCmd.Flags().BoolVar(&listMineFlag, "mine", false, "Show issues created by current user")
 	listCmd.Flags().StringVar(&listEpicFlag, "epic", "", "Filter by child of epic ID")
+	listCmd.Flags().BoolVar(&listArchivedFlag, "archived", false, "Include archived issues")
 	rootCmd.AddCommand(listCmd)
 }
