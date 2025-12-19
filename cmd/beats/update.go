@@ -292,24 +292,6 @@ func runInteractiveUpdate(id string) {
 		payload.BlockedBy == nil && payload.BlockReason == nil {
 		fmt.Println("No changes detected.")
 		return
-	} else {
-		// Debugging changes (Temporary)
-		fmt.Println("Changes detected:")
-		if payload.Title != nil {
-			fmt.Printf("- Title: %q vs %q\n", issue.Title, *payload.Title)
-		}
-		if payload.Description != nil {
-			fmt.Printf("- Desc: %q vs %q\n", issue.Description, *payload.Description)
-		}
-		if payload.Status != nil {
-			fmt.Printf("- Status: %q vs %q\n", issue.Status, *payload.Status)
-		}
-		if payload.ParentID != nil {
-			fmt.Printf("- ParentID: %q vs %q\n", issue.ParentID, *payload.ParentID)
-		}
-		if payload.Estimate != nil {
-			fmt.Printf("- Estimate: %d vs %d\n", issue.Estimate, *payload.Estimate)
-		}
 	}
 
 	// 6. Run Update

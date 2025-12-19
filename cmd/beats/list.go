@@ -146,8 +146,8 @@ var listCmd = &cobra.Command{
 			Width int
 		}{
 			{"ID", 14},
-			{"Type", 10},
-			{"Status", 12},
+			{" ", 5},
+			{" ", 6},
 			{"Title", 50},
 			{"Parent", 16},
 			{"Created", 15},
@@ -171,9 +171,9 @@ var listCmd = &cobra.Command{
 		fmt.Println(headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Left, headerCells...)))
 
 		// Row Styles
-		mutedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+		// mutedStyle removed
 		whiteStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
-		greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+		// greenStyle removed
 		redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 		blueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
 		purpleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
@@ -227,6 +227,24 @@ var listCmd = &cobra.Command{
 				candidates[k], candidates[maxIdx] = candidates[maxIdx], candidates[k]
 				recentDoneIDs[candidates[k].ID] = true
 			}
+		}
+
+		// Status Icons (Option A)
+		statusIcons := map[model.IssueStatus]string{
+			model.StatusBacklog: "•",
+			model.StatusPlanned: "●",
+			model.StatusDoing:   "●",
+			model.StatusBlocked: "x",
+			model.StatusDone:    "●",
+		}
+
+		// Status Styles (Base colors for the status column)
+		statusColors := map[model.IssueStatus]lipgloss.Style{
+			model.StatusBacklog: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}),
+			model.StatusPlanned: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}),
+			model.StatusDoing:   lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#1524ffff", Dark: "#337effff"}),
+			model.StatusBlocked: lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#b30000ff", Dark: "#ff0000ff"}),
+			model.StatusDone:    lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#009938ff", Dark: "#00cb55ff"}),
 		}
 
 		for _, i := range issues {
@@ -341,15 +359,31 @@ var listCmd = &cobra.Command{
 
 			switch i.Status {
 			case model.StatusBacklog:
-				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, mutedStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusDoing:
-				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusDone:
-				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, greenStyle, strikeStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, paS, crS, upS, byS = whiteStyle, strikeStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusBlocked:
-				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, redStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			default:
-				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+			}
+
+			// Apply Status Column Style from Map
+			if style, ok := statusColors[i.Status]; ok {
+				stS = style
+			} else {
+				stS = whiteStyle
+			}
+
+			// Prepare Status String with Icon
+			// User requested "just show the icons in the ls"
+			stStr := string(i.Status) // Fallback
+			if icon, ok := statusIcons[i.Status]; ok {
+				stStr = fmt.Sprintf(" %s ", icon) // Center with spaces? Or just icon?
+				// Width is 3, padding 1.
+				// If content is " ● ", width 3.
 			}
 
 			// Determine Type Style (tyS)
@@ -363,6 +397,12 @@ var listCmd = &cobra.Command{
 				tyS = blueStyle
 			default: // TASK and others
 				tyS = whiteStyle
+			}
+
+			// Abbreviate Kind: [T], [E], [B]
+			kindStr := i.Kind
+			if len(kindStr) > 0 {
+				kindStr = fmt.Sprintf("[%c]", kindStr[0])
 			}
 
 			// Helper to render cell
@@ -390,8 +430,8 @@ var listCmd = &cobra.Command{
 
 			// Render
 			c1 := renderCell(i.ID, idS, cols[0].Width)
-			c2 := renderCell(i.Kind, tyS, cols[1].Width)
-			c3 := renderCell(string(i.Status), stS, cols[2].Width)
+			c2 := renderCell(kindStr, tyS, cols[1].Width)
+			c3 := renderCell(stStr, stS, cols[2].Width)
 			c4 := renderCell(title, tiS, cols[3].Width)
 			c5 := renderCell(i.ParentID, paS, cols[4].Width)
 			c6 := renderCell(relTime, crS, cols[5].Width)

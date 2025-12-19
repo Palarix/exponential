@@ -121,3 +121,11 @@
 {"id":"beat-97c75c","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-19T07:51:45.005485Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"beat-151d14","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T07:53:50.915234Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"beat-2f3521","type":"UPDATE","payload":{"description":"Perform a series of checks when running beats init:\n- Is the directory a .git repo\n- Is there already a .beats folder\n- Are there git hooks already set up\n- Instead of a static 'beat-' prefix for issues, use the parent folder name as the prefix\n- Configure the prefix in the .beats/config file\n- Check if the directory contains Agent documentation, add a new file if not, append to existing file if yes"},"created_at":"2025-12-19T07:58:15.621932Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-151d14","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-19T08:12:46.198691Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-62c55c","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T08:14:20.949355Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-62c55c","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T08:14:37.588348Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-62c55c","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-19T08:18:44.953269Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-62c55c","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T08:27:33.856056Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-7a68e2","type":"UPDATE","payload":{"status":"PLANNED"},"created_at":"2025-12-19T08:28:09.270748Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-62c55c","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-19T08:33:49.518956Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beat-3884b4","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T08:34:21.551299Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
