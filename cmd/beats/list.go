@@ -11,6 +11,7 @@ import (
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/storage"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var listStatusFlag string
@@ -140,6 +141,30 @@ var listCmd = &cobra.Command{
 			matchQuery = strings.ToLower(listMatchFlag)
 		}
 
+		// Detect Terminal Width
+		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil || termWidth <= 0 {
+			termWidth = 120 // Fallback
+		}
+
+		// Apply safety margin and cap for readability
+		termWidth -= 4
+		if termWidth > 116 {
+			termWidth = 116 // Total effective width including padding
+		}
+
+		fixedWidth := 14 + 5 + 6 + 15 + 20 + 2*6 // Col widths + padding (1 left, 1 right per column)
+		// ID(14), Type(5), Status(6), Updated(15), By(20) = 60 chars content
+		// 6 columns * 2 padding = 12 chars padding. Total fixed = 72.
+
+		titleWidth := termWidth - fixedWidth
+		if titleWidth < 20 {
+			titleWidth = 20
+		}
+		if titleWidth > 100 {
+			titleWidth = 100 // Cap for readability
+		}
+
 		// Column Config
 		cols := []struct {
 			Title string
@@ -148,7 +173,7 @@ var listCmd = &cobra.Command{
 			{"ID", 14},
 			{" ", 5},
 			{" ", 6},
-			{"Title", 60},
+			{"Title", titleWidth},
 			{"Updated", 15},
 			{"Added By", 20},
 		}

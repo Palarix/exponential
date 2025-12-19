@@ -7,6 +7,7 @@ import (
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/storage"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var historyCmd = &cobra.Command{
@@ -29,7 +30,19 @@ var historyCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		renderHistory(issue.Events)
+		// Detect Terminal Width
+		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil || termWidth <= 0 {
+			termWidth = 100 // Fallback
+		}
+
+		// Apply safety margin and cap for readability
+		termWidth -= 4
+		if termWidth > 116 {
+			termWidth = 116 // Total effective width including padding
+		}
+
+		renderHistory(issue.Events, termWidth)
 	},
 }
 
