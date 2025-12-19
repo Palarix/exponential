@@ -4,13 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var showCmd = &cobra.Command{
@@ -59,6 +63,18 @@ var showCmd = &cobra.Command{
 
 		labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
+		// Detect Terminal Width
+		termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil || termWidth <= 0 {
+			termWidth = 100 // Fallback
+		}
+
+		// Apply safety margin and cap for readability
+		termWidth -= 4
+		if termWidth > 116 {
+			termWidth = 116 // Total effective width including padding
+		}
+
 		// Print Header
 		fmt.Println()
 		fmt.Println(titleStyle.Render(fmt.Sprintf("[%s] %s", issue.ID, issue.Title)))
@@ -95,11 +111,32 @@ var showCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("Description"))
 		fmt.Println()
+
 		if issue.Description != "" {
-			fmt.Println(issue.Description)
+			// Render markdown using glamour
+			// Custom style to remove margins/indentation
+			styleConfig := styles.DarkStyleConfig
+			styleConfig.Document.Margin = uintPtr(0)
+
+			r, _ := glamour.NewTermRenderer(
+				glamour.WithStyles(styleConfig),
+				glamour.WithWordWrap(termWidth),
+			)
+			out, err := r.Render(issue.Description)
+			if err != nil {
+				// Fallback to simple wrap if glamour fails
+				fmt.Println() // Add the newline back if we fallback
+				wrapped := lipgloss.NewStyle().Width(termWidth).Render(issue.Description)
+				fmt.Println(wrapped)
+			} else {
+				fmt.Print(strings.TrimSpace(out))
+				fmt.Println()
+			}
 		} else {
+			fmt.Println()
 			fmt.Println("No description provided.")
 		}
+
 		fmt.Println()
 
 		// Check for child issues
@@ -118,10 +155,15 @@ var showCmd = &cobra.Command{
 			fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render(header))
 			fmt.Println()
 
+			childTitleWidth := termWidth - 16 - 16 - 4 // ID(16) + Status(16) + borders/padding
+			if childTitleWidth < 20 {
+				childTitleWidth = 20
+			}
+
 			childColumns := []table.Column{
 				{Title: "ID", Width: 16},
 				{Title: "Status", Width: 16},
-				{Title: "Title", Width: 60},
+				{Title: "Title", Width: childTitleWidth},
 			}
 
 			childRows := []table.Row{}
@@ -155,19 +197,24 @@ var showCmd = &cobra.Command{
 			fmt.Println()
 		}
 
-		renderHistory(issue.Events)
+		renderHistory(issue.Events, termWidth)
 	},
 }
 
-func renderHistory(events []model.Event) {
+func renderHistory(events []model.Event, termWidth int) {
 	fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("History"))
 	fmt.Println()
+
+	detailsWidth := termWidth - 20 - 20 - 10 - 6 // Time(20) + User(20) + Action(10) + borders
+	if detailsWidth < 20 {
+		detailsWidth = 20
+	}
 
 	columns := []table.Column{
 		{Title: "Time", Width: 20},
 		{Title: "User", Width: 20},
 		{Title: "Action", Width: 10},
-		{Title: "Details", Width: 40},
+		{Title: "Details", Width: detailsWidth},
 	}
 
 	rows := []table.Row{}
@@ -224,4 +271,8 @@ func renderHistory(events []model.Event) {
 
 func init() {
 	rootCmd.AddCommand(showCmd)
+}
+
+func uintPtr(u uint) *uint {
+	return &u
 }
