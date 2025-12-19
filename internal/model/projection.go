@@ -29,7 +29,7 @@ type Issue struct {
 	BlockReason string
 	CreatedAt   time.Time
 	CreatedBy   string
-	UpdatedAt   string
+	UpdatedAt   time.Time
 	Events      []Event
 }
 
@@ -59,6 +59,7 @@ func ProjectIssues(events []Event) map[string]*Issue {
 				Status:      StatusBacklog, // Default
 				CreatedAt:   evt.CreatedAt,
 				CreatedBy:   evt.CreatedBy,
+				UpdatedAt:   evt.CreatedAt,
 				Events:      []Event{evt},
 			}
 
@@ -94,6 +95,7 @@ func ProjectIssues(events []Event) map[string]*Issue {
 				issue.BlockReason = *p.BlockReason
 			}
 
+			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
 
 		case EventTypeWorkLog:
@@ -107,6 +109,7 @@ func ProjectIssues(events []Event) map[string]*Issue {
 			json.Unmarshal(payloadBytes, &p)
 
 			issue.Burned += p.Amount
+			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
 		}
 	}

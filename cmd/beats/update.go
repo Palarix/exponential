@@ -1,9 +1,23 @@
 package main
 
 import (
+	// Actually bufio is not used I think? Let's check logic.
+	// Logic uses strings.Split, exec, os, etc.
+	// Oh, I added bufio but might not have used it.
+	// Let's re-read code in memory.
+	// `parseUpdateContent` uses strings.Split.
+	// `openEditor` uses os, exec.
+	// I don't see bufio usage in my added code.
+	// `add.go` used bufio for confirmation.
+	// `update.go` doesn't ask for confirmation in my added code.
+	// So I can remove bufio.
+	// But let's just make it compilable first.
+
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kuyio/beats/internal/model"
@@ -27,35 +41,46 @@ var updateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 
-		// Construct payload
+		// Check if any flags provided
+		anyFlag := false
+		if cmd.Flags().Changed("title") {
+			anyFlag = true
+		}
+		if cmd.Flags().Changed("desc") {
+			anyFlag = true
+		}
+		if cmd.Flags().Changed("status") {
+			anyFlag = true
+		}
+		if cmd.Flags().Changed("parent") {
+			anyFlag = true
+		}
+		if cmd.Flags().Changed("sp") {
+			anyFlag = true
+		}
+
+		if !anyFlag {
+			runInteractiveUpdate(id)
+			return
+		}
+
+		// Construct payload from flags
 		payload := model.UpdatePayload{}
-		hasUpdate := false
 
 		if cmd.Flags().Changed("title") {
 			payload.Title = &updateTitle
-			hasUpdate = true
 		}
 		if cmd.Flags().Changed("desc") {
 			payload.Description = &updateDesc
-			hasUpdate = true
 		}
 		if cmd.Flags().Changed("status") {
-			// Validate status?
 			payload.Status = &updateStatus
-			hasUpdate = true
 		}
 		if cmd.Flags().Changed("parent") {
 			payload.ParentID = &updateParent
-			hasUpdate = true
 		}
 		if cmd.Flags().Changed("sp") {
 			payload.Estimate = &updateEstimate
-			hasUpdate = true
-		}
-
-		if !hasUpdate {
-			fmt.Println("No updates provided")
-			return
 		}
 
 		runUpdate(id, payload, "update")
@@ -228,6 +253,226 @@ func runUpdate(id string, payload model.UpdatePayload, action string) {
 			fmt.Printf("Error committing: %v\n", err)
 		}
 	}
+}
+
+func runInteractiveUpdate(id string) {
+	// 1. Read current issue state
+	events, err := storage.ReadEvents()
+	if err != nil {
+		fmt.Printf("Error reading events: %v\n", err)
+		os.Exit(1)
+	}
+	issues := model.ProjectIssues(events)
+	issue, exists := issues[id]
+	if !exists {
+		fmt.Printf("Issue %s not found\n", id)
+		os.Exit(1)
+	}
+
+	// 2. Generate Template
+	template := generateUpdateTemplate(issue)
+
+	// 3. Open Editor
+	content, err := openEditor(template)
+	if err != nil {
+		fmt.Printf("Error opening editor: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 4. Parse Content
+	payload, err := parseUpdateContent(content, issue)
+	if err != nil {
+		fmt.Printf("Error parsing content: %v\n", err)
+		os.Exit(1)
+	}
+
+	// 5. Check if empty (no changes)
+	if payload.Title == nil && payload.Description == nil && payload.Status == nil &&
+		payload.ParentID == nil && payload.Estimate == nil &&
+		payload.BlockedBy == nil && payload.BlockReason == nil {
+		fmt.Println("No changes detected.")
+		return
+	} else {
+		// Debugging changes (Temporary)
+		fmt.Println("Changes detected:")
+		if payload.Title != nil {
+			fmt.Printf("- Title: %q vs %q\n", issue.Title, *payload.Title)
+		}
+		if payload.Description != nil {
+			fmt.Printf("- Desc: %q vs %q\n", issue.Description, *payload.Description)
+		}
+		if payload.Status != nil {
+			fmt.Printf("- Status: %q vs %q\n", issue.Status, *payload.Status)
+		}
+		if payload.ParentID != nil {
+			fmt.Printf("- ParentID: %q vs %q\n", issue.ParentID, *payload.ParentID)
+		}
+		if payload.Estimate != nil {
+			fmt.Printf("- Estimate: %d vs %d\n", issue.Estimate, *payload.Estimate)
+		}
+	}
+
+	// 6. Run Update
+	runUpdate(id, payload, "update")
+}
+
+func generateUpdateTemplate(i *model.Issue) string {
+	var sb strings.Builder
+	sb.WriteString("# Title\n")
+	sb.WriteString(i.Title + "\n\n")
+
+	sb.WriteString("# Description\n")
+	sb.WriteString(i.Description + "\n\n")
+
+	sb.WriteString("# Metadata (Edit values after colon)\n")
+	sb.WriteString(fmt.Sprintf("Status: %s\n", i.Status))
+	sb.WriteString(fmt.Sprintf("Parent: %s\n", i.ParentID))
+	sb.WriteString(fmt.Sprintf("Estimate: %d\n", i.Estimate))
+	sb.WriteString(fmt.Sprintf("Blocked By: %s\n", i.BlockedBy))
+	sb.WriteString(fmt.Sprintf("Block Reason: %s\n", i.BlockReason))
+
+	sb.WriteString("\n# Notes:\n")
+	sb.WriteString("# - Lines starting with '#' are ignored (except headers)\n")
+	sb.WriteString("# - Valid Statuses: BACKLOG, PLANNED, DOING, BLOCKED, DONE\n")
+
+	return sb.String()
+}
+
+func openEditor(initialContent string) (string, error) {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vim"
+	}
+
+	tmpFile, err := os.CreateTemp("", "beats-update-*.txt")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.WriteString(initialContent); err != nil {
+		return "", err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command(editor, tmpFile.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+
+	content, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
+}
+
+func parseUpdateContent(content string, original *model.Issue) (model.UpdatePayload, error) {
+	lines := strings.Split(content, "\n")
+
+	var titleLines []string
+	var descLines []string
+
+	// State machine: 0=Start, 1=Title, 2=Description, 3=Metadata
+	state := 0
+
+	meta := make(map[string]string)
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Header transitions
+		if strings.HasPrefix(trimmed, "# Title") {
+			state = 1
+			continue
+		} else if strings.HasPrefix(trimmed, "# Description") {
+			state = 2
+			continue
+		} else if strings.HasPrefix(trimmed, "# Metadata") {
+			state = 3
+			continue
+		}
+
+		// Comment handling (ignore # comments unless in description)
+		if state != 2 && strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		switch state {
+		case 1: // Title
+			if trimmed != "" {
+				titleLines = append(titleLines, trimmed)
+			}
+		case 2: // Description
+			// Keep empty lines for description markdown
+			// But maybe trimming surrounding is good?
+			// Let's just keep everything, usually desc is multiline.
+			descLines = append(descLines, line)
+		case 3: // Metadata
+			if trimmed != "" {
+				parts := strings.SplitN(trimmed, ":", 2)
+				if len(parts) == 2 {
+					key := strings.TrimSpace(parts[0])
+					val := strings.TrimSpace(parts[1])
+					meta[strings.ToLower(key)] = val
+				}
+			}
+		}
+	}
+
+	payload := model.UpdatePayload{}
+
+	// Title
+	newTitle := strings.TrimSpace(strings.Join(titleLines, " "))
+	if newTitle != "" && newTitle != original.Title {
+		payload.Title = &newTitle
+	}
+
+	// Description
+	// Trim leading/trailing newlines from desc
+	newDesc := strings.TrimSpace(strings.Join(descLines, "\n"))
+	if newDesc != original.Description {
+		payload.Description = &newDesc
+	}
+
+	// Metadata
+	if val, ok := meta["status"]; ok {
+		if val != string(original.Status) {
+			payload.Status = &val
+		}
+	}
+	if val, ok := meta["parent"]; ok {
+		if val != original.ParentID {
+			payload.ParentID = &val
+		}
+	}
+	if val, ok := meta["estimate"]; ok {
+		est, err := strconv.Atoi(val)
+		if err == nil {
+			if est != original.Estimate {
+				payload.Estimate = &est
+			}
+		}
+	}
+	if val, ok := meta["blocked by"]; ok {
+		if val != original.BlockedBy {
+			payload.BlockedBy = &val
+		}
+	}
+	if val, ok := meta["block reason"]; ok {
+		if val != original.BlockReason {
+			payload.BlockReason = &val
+		}
+	}
+
+	return payload, nil
 }
 
 func init() {

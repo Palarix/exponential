@@ -22,7 +22,64 @@ var listMineFlag bool
 var listEpicFlag string
 
 func parseTimeFilter(input string) (time.Time, error) {
-	// Try parsing as duration (relative to now)
+	// Handle custom suffixes for days (d) and weeks (w)
+	if len(input) > 1 {
+		lastChar := input[len(input)-1]
+		if lastChar == 'd' || lastChar == 'w' {
+			valStr := input[:len(input)-1]
+			// We can try to convert the prefix to an int/float to verify it's a number
+			// But simpler might be to just string replace if we want to rely on ParseDuration validation later
+			// However, ParseDuration doesn't take 24*val + "h", we need to compute.
+
+			// Let's assume valid input like "1d", "2w".
+			// To be robust, we essentially want to map "1d" -> "24h", "1w" -> "168h"
+			// But complex things like "1d2h" are harder with this simple check.
+			// Let's stick to simple single unit check for now as requested.
+
+			// Actually simpler: just replace suffix with hour equivalent?
+			// "1d" -> "24h" ?? No, 2d -> 48h.
+
+			// So parsing the number is needed.
+			// But "1.5d" is valid conceptual duration.
+
+			// Let's write a helper or just do it inline.
+
+			// Try to parse the numeric part
+			// We use a small trick: standard ParseDuration supports fractional hours.
+			// So we can say: "1d" -> parse "1" -> 1.0 * 24h
+			// "1.5w" -> parse "1.5" -> 1.5 * 168h
+
+			// But we need to use strconv or similar.
+			// Or we can leverage ParseDuration itself!
+			// "1d" is not valid. But if we replace "d" with "h" -> "1h", parse it, get 1 hour, then multiply by 24?
+			// YES. "1.5d" -> "1.5h" -> 1.5 hours. 1.5 hours * 24 = 36 hours (1.5 days).
+			// This works for simple scalar + unit inputs.
+
+			modifiedInput := valStr + "h"
+			if d, err := time.ParseDuration(modifiedInput); err == nil {
+				// d is now X hours. We want X days/weeks.
+				// Since we parsed it as hours, the value 'd' represents X hours.
+				// If unit was 'd', we want X * 24 hours.
+				// d is (X * time.Hour). We want (X * 24 * time.Hour).
+				// So actualDuration = d * 24 (if days) or d * 24 * 7 (if weeks).
+
+				// However, 'd' is already time.Duration (int64 nanoseconds).
+				// So d * 24 works.
+
+				var factor int64
+				if lastChar == 'd' {
+					factor = 24
+				} else {
+					factor = 24 * 7
+				}
+
+				finalDuration := d * time.Duration(factor)
+				return time.Now().Add(-finalDuration), nil
+			}
+		}
+	}
+
+	// Try parsing as standard duration (relative to now)
 	if d, err := time.ParseDuration(input); err == nil {
 		return time.Now().Add(-d), nil
 	}
@@ -91,9 +148,10 @@ var listCmd = &cobra.Command{
 			{"ID", 14},
 			{"Type", 10},
 			{"Status", 12},
-			{"Title", 60},
+			{"Title", 50},
 			{"Parent", 16},
-			{"Created", 20},
+			{"Created", 15},
+			{"Updated", 15},
 			{"By", 25},
 		}
 
@@ -121,6 +179,56 @@ var listCmd = &cobra.Command{
 		purpleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
 		strikeStyle := lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("255"))
 
+		// Find recent DONE issues to always show (unless filtered out by other means)
+		recentDoneIDs := make(map[string]bool)
+		if !listAllFlag {
+			var doneIssues []*model.Issue
+			for _, i := range issues {
+				if i.Status == model.StatusDone {
+					doneIssues = append(doneIssues, i)
+				}
+			}
+			// Sort by UpdatedAt Desc
+			// Note: issues are already sorted by CreatedAt in SortIssues, but we want UpdatedAt for "recent"
+			// But SortIssues flattens the hierarchy, so we should just sort doneIssues locally.
+			// Actually, SortIssues sorts by Root CreatedAt, then children.
+			// Let's do a simple sort here.
+			// We need to import "sort" if not available? It is not imported in list.go (only fmt, os, strings, time - wait, check imports)
+			// list.go imports: fmt, os, strings, time, lipgloss, humanize, model, storage, cobra.
+			// Need to add "sort" import? No, I can't add imports with replace_file_content block if not already there easily without seeing top.
+			// But I can use bubble sort or just simple loop since it's small, OR I can assume "sort" is needed.
+			// Wait, simple manual selection of top 3 is O(N), easier than importing sort if I don't want to touch imports.
+			// But N is small.
+			// Let's check imports of list.go first? I probably should have checked imports.
+			// View file showed imports: fmt, os, strings, time. (See Step 21).
+			// So I cannot use `sort` package without adding it to imports.
+			// Adding imports with replace_file_content at top is annoying if I'm doing a block in the middle.
+			// I'll stick to a simple strategy: Find top 3.
+
+			type simpleIssue struct {
+				ID      string
+				Updated time.Time
+			}
+			var candidates []simpleIssue
+			for _, i := range doneIssues {
+				candidates = append(candidates, simpleIssue{i.ID, i.UpdatedAt})
+			}
+
+			// Simple sort or select top 3
+			// Selection sort 3 times
+			for k := 0; k < 3 && k < len(candidates); k++ {
+				maxIdx := k
+				for j := k + 1; j < len(candidates); j++ {
+					if candidates[j].Updated.After(candidates[maxIdx].Updated) {
+						maxIdx = j
+					}
+				}
+				// Swap
+				candidates[k], candidates[maxIdx] = candidates[maxIdx], candidates[k]
+				recentDoneIDs[candidates[k].ID] = true
+			}
+		}
+
 		for _, i := range issues {
 			// Check against validStatuses if set
 			if len(validStatuses) > 0 {
@@ -130,10 +238,10 @@ var listCmd = &cobra.Command{
 			}
 
 			// Time filters
-			if !sinceTime.IsZero() && i.CreatedAt.Before(sinceTime) {
+			if !sinceTime.IsZero() && i.UpdatedAt.Before(sinceTime) {
 				continue
 			}
-			if !beforeTime.IsZero() && i.CreatedAt.After(beforeTime) {
+			if !beforeTime.IsZero() && i.UpdatedAt.After(beforeTime) {
 				continue
 			}
 
@@ -198,12 +306,27 @@ var listCmd = &cobra.Command{
 				}
 			}
 
-			// Hide DONE tasks unless --all is passed or status is explicitly DONE in the filter
-			if !listAllFlag && !validStatuses[string(model.StatusDone)] && i.Status == model.StatusDone {
-				continue
+			// Hide DONE tasks unless:
+			// 1. --all is passed
+			// 2. Status is explicitly DONE in filter
+			// 3. It is one of the recent DONE tasks
+			if i.Status == model.StatusDone {
+				show := false
+				if listAllFlag {
+					show = true
+				} else if validStatuses[string(model.StatusDone)] {
+					show = true
+				} else if recentDoneIDs[i.ID] {
+					show = true
+				}
+
+				if !show {
+					continue
+				}
 			}
 
 			relTime := humanize.Time(i.CreatedAt)
+			updTime := humanize.Time(i.UpdatedAt)
 
 			// Format 'By' column to show only email if available
 			byStr := i.CreatedBy
@@ -214,19 +337,19 @@ var listCmd = &cobra.Command{
 			}
 
 			// Base logic: Determine base style for the row
-			var idS, stS, tiS, paS, crS, byS lipgloss.Style
+			var idS, stS, tiS, paS, crS, upS, byS lipgloss.Style
 
 			switch i.Status {
 			case model.StatusBacklog:
-				idS, stS, tiS, paS, crS, byS = whiteStyle, mutedStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, mutedStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusDoing:
-				idS, stS, tiS, paS, crS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusDone:
-				idS, stS, tiS, paS, crS, byS = whiteStyle, greenStyle, strikeStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, greenStyle, strikeStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusBlocked:
-				idS, stS, tiS, paS, crS, byS = whiteStyle, redStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, redStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			default:
-				idS, stS, tiS, paS, crS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, stS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			}
 
 			// Determine Type Style (tyS)
@@ -272,9 +395,10 @@ var listCmd = &cobra.Command{
 			c4 := renderCell(title, tiS, cols[3].Width)
 			c5 := renderCell(i.ParentID, paS, cols[4].Width)
 			c6 := renderCell(relTime, crS, cols[5].Width)
-			c7 := renderCell(byStr, byS, cols[6].Width)
+			c7 := renderCell(updTime, upS, cols[6].Width)
+			c8 := renderCell(byStr, byS, cols[7].Width)
 
-			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c5, c6, c7)
+			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c5, c6, c7, c8)
 			fmt.Println(row)
 		}
 	},
