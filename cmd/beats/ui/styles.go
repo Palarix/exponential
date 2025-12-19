@@ -15,7 +15,7 @@ var StatusIcons = map[model.IssueStatus]string{
 	model.StatusPlanned: "●",
 	model.StatusDoing:   "⋯",
 	model.StatusBlocked: "x",
-	model.StatusDone:    "✔",
+	model.StatusDone:    "✓",
 }
 
 // StatusIconsStr provides string-keyed version for show.go compatibility
@@ -24,7 +24,7 @@ var StatusIconsStr = map[string]string{
 	"PLANNED": "●",
 	"DOING":   "⋯",
 	"BLOCKED": "x",
-	"DONE":    "✔",
+	"DONE":    "✓",
 }
 
 // StatusStyles maps issue status to lipgloss style

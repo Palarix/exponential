@@ -215,7 +215,7 @@ func renderHistory(events []model.Event, termWidth int) {
 	fmt.Println(lipgloss.NewStyle().Bold(true).Underline(true).Render("History"))
 	fmt.Println()
 
-	detailsWidth := termWidth - 20 - 20 - 10 - 6 // Time(20) + User(20) + Action(10) + borders
+	detailsWidth := termWidth - 20 - 28 - 10 - 6 // Time(20) + User(20) + Action(10) + borders
 	if detailsWidth < 20 {
 		detailsWidth = 20
 	}
@@ -230,6 +230,16 @@ func renderHistory(events []model.Event, termWidth int) {
 	rows := []table.Row{}
 	for _, evt := range events {
 		timeStr := evt.CreatedAt.Local().Format(time.RFC822)
+
+		// Extract email from "Name <email>" format if present
+		user := evt.CreatedBy
+		if start := strings.LastIndex(user, "<"); start != -1 {
+			if end := strings.LastIndex(user, ">"); end != -1 && end > start {
+				if email := strings.TrimSpace(user[start+1 : end]); email != "" {
+					user = email
+				}
+			}
+		}
 
 		details := ""
 		switch evt.Type {
@@ -257,7 +267,7 @@ func renderHistory(events []model.Event, termWidth int) {
 			json.Unmarshal(payloadBytes, &p)
 			details = fmt.Sprintf("Logged %d SP", p.Amount)
 		}
-		rows = append(rows, table.Row{timeStr, evt.CreatedBy, string(evt.Type), details})
+		rows = append(rows, table.Row{timeStr, user, string(evt.Type), details})
 	}
 
 	t := table.New(
