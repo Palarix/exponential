@@ -189,3 +189,7 @@
 {"id":"beats-d1ef5a","type":"CREATE","payload":{"kind":"TASK","title":"Bug: Bash completion prints raw escape codes to terminal","description":"The bash completion engine outputs raw ANSI escape codes meant for colors/strikethrough instead of formatted text"},"created_at":"2025-12-19T19:09:16.046027937Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"beats-d1ef5a","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T19:09:26.345458236Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
 {"id":"beats-d1ef5a","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-19T19:12:09.435334664Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beats-d4299c","type":"CREATE","payload":{"kind":"TASK","title":"Refine beats history command","description":"1. Add autocomplete for issue ID.\n2. Fix table columns: Details too wide, User cut off.","parent_id":"beats-75804e"},"created_at":"2025-12-19T19:30:19.533439Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beats-d4299c","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T19:30:27.931501Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beats-75804e","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2025-12-19T19:30:27.931501Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
+{"id":"beats-d4299c","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2025-12-19T19:37:51.009623Z","created_by":"Nicolas Bettenburg \u003cnicbet@kuy.io\u003e"}
