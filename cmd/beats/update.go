@@ -35,9 +35,10 @@ var (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update [id]",
-	Short: "Update an issue",
-	Args:  cobra.ExactArgs(1),
+	Use:               "update [id]",
+	Short:             "Update an issue",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 
@@ -89,9 +90,10 @@ var updateCmd = &cobra.Command{
 
 // Shortcuts
 var startCmd = &cobra.Command{
-	Use:   "start [id]",
-	Short: "Start working on an issue (Status: DOING)",
-	Args:  cobra.ExactArgs(1),
+	Use:               "start [id]",
+	Short:             "Start working on an issue (Status: DOING)",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		status := string(model.StatusDoing)
 		payload := model.UpdatePayload{Status: &status}
@@ -100,9 +102,10 @@ var startCmd = &cobra.Command{
 }
 
 var doneCmd = &cobra.Command{
-	Use:   "done [id]",
-	Short: "Complete an issue (Status: DONE)",
-	Args:  cobra.ExactArgs(1),
+	Use:               "done [id]",
+	Short:             "Complete an issue (Status: DONE)",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		status := string(model.StatusDone)
 		payload := model.UpdatePayload{Status: &status}
@@ -111,9 +114,10 @@ var doneCmd = &cobra.Command{
 }
 
 var plannedCmd = &cobra.Command{
-	Use:   "planned [id]",
-	Short: "Mark issue as PLANNED",
-	Args:  cobra.ExactArgs(1),
+	Use:               "planned [id]",
+	Short:             "Mark issue as PLANNED",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		status := string(model.StatusPlanned)
 		payload := model.UpdatePayload{Status: &status}
