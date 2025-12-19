@@ -27,6 +27,7 @@ type Issue struct {
 	Burned      int
 	BlockedBy   string
 	BlockReason string
+	Deleted     bool
 	CreatedAt   time.Time
 	CreatedBy   string
 	UpdatedAt   time.Time
@@ -111,8 +112,26 @@ func ProjectIssues(events []Event) map[string]*Issue {
 			issue.Burned += p.Amount
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
+
+		case EventTypeDelete:
+			issue, exists := issues[evt.ID]
+			if !exists {
+				continue
+			}
+
+			issue.Deleted = true
+			issue.UpdatedAt = evt.CreatedAt
+			issue.Events = append(issue.Events, evt)
 		}
 	}
+
+	// Filter out deleted issues
+	for id, issue := range issues {
+		if issue.Deleted {
+			delete(issues, id)
+		}
+	}
+
 	return issues
 }
 

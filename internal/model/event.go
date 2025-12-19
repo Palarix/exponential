@@ -12,7 +12,12 @@ const (
 	EventTypeCreate  EventType = "CREATE"
 	EventTypeUpdate  EventType = "UPDATE"
 	EventTypeWorkLog EventType = "WORK_LOG"
+	EventTypeDelete  EventType = "DELETE"
 )
+
+type DeletePayload struct {
+	Reason string `json:"reason,omitempty"`
+}
 
 type Event struct {
 	ID        string      `json:"id"`
