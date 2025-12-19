@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -30,22 +31,51 @@ var doctorCmd = &cobra.Command{
 			prefix = cfg.Prefix
 		}
 
-		// Define styled prefixes (width 7 chars for alignment)
-		// [OK]    = 7 chars
-		// [ERROR] = 7 chars
-		// [NOTE]  = 6 chars -> needs 1 space padding
-		okPrefix := ui.GreenStyle.Render("[✔]")
-		errPrefix := ui.RedStyle.Render("[x]")
-		notePrefix := ui.YellowStyle.Render("[!]")
+		// Use shared styled prefixes (already padded/aligned in logical structure,
+		// but let's check if ui ones are padded.
+		// Current UI definition: NotePrefix = [!].
+		// Doctor previously used: [✔], [x], [!].
+		// Text alignment happened manually in doctor string args.
 
-		fmt.Println("beats doctor - Checking configuration...\n")
+		fmt.Println("beats doctor - Checking configuration...")
+		fmt.Println()
+
+		// Check for git repo
+		if _, err := os.Stat(".git"); os.IsNotExist(err) {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Not a git repository\n", ui.NotePrefix)))
+			fmt.Print(ui.Stylize("    You risk losing your issues database if you delete this directory.\n"))
+
+			if isInteractive() {
+				fmt.Print(ui.Stylize("\nInitialize git repository? [y/N]: "))
+				reader := bufio.NewReader(os.Stdin)
+				response, _ := reader.ReadString('\n')
+				response = strings.TrimSpace(strings.ToLower(response))
+
+				if response == "y" || response == "yes" {
+					cmd := exec.Command("git", "init")
+					if out, err := cmd.CombinedOutput(); err != nil {
+						fmt.Print(ui.Stylize(fmt.Sprintf("%s Error initializing git: %v\n", ui.ErrorPrefix, err)))
+						fmt.Println(string(out))
+					} else {
+						fmt.Print(ui.Stylize(fmt.Sprintf("%s Initialized git repository\n", ui.OKPrefix)))
+					}
+				} else {
+					fmt.Println("Skipped.")
+				}
+			} else {
+				fmt.Print(ui.Stylize("    Run `git init` to track your project.\n"))
+			}
+		} else {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Git repository detected\n", ui.OKPrefix)))
+		}
+		fmt.Println()
 
 		// Check for issues.db
 		issuesDB := filepath.Join(".beats", "issues.db")
 		if _, err := os.Stat(issuesDB); os.IsNotExist(err) {
-			fmt.Printf("%s Beats database not found\n", errPrefix)
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Beats database not found\n", ui.ErrorPrefix)))
 		} else {
-			fmt.Printf("%s Beats database exists\n", okPrefix)
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Beats database exists\n", ui.OKPrefix)))
 		}
 
 		// Detect AI agent files
@@ -64,22 +94,22 @@ var doctorCmd = &cobra.Command{
 
 		// Report configured agents
 		if len(configured) > 0 {
-			fmt.Printf("\n%s Agent files with beats config:\n\n", okPrefix)
+			fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Agent files with beats config:\n", ui.OKPrefix)))
 			for _, r := range configured {
-				fmt.Printf("    - %s (%s)\n", r.Agent.Name, r.Agent.File)
+				fmt.Print(ui.Stylize(fmt.Sprintf("    • %s (`%s`)\n", r.Agent.Name, r.Agent.File)))
 			}
 		}
 
 		// Report agents needing config
 		if len(needsConfig) > 0 {
-			fmt.Printf("\n%s Agent files needing beats config:\n\n", notePrefix)
+			fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Agent files needing beats config:\n", ui.NotePrefix)))
 			for _, r := range needsConfig {
-				fmt.Printf("    - %s (%s)\n", r.Agent.Name, r.Agent.File)
+				fmt.Print(ui.Stylize(fmt.Sprintf("    • %s (`%s`)\n", r.Agent.Name, r.Agent.File)))
 			}
 
 			// Prompt to fix if interactive
 			if isInteractive() {
-				fmt.Print("\nWould you like to add beats instructions to these files? [y/N]: ")
+				fmt.Print(ui.Stylize("\nWould you like to add beats instructions to these files? [y/N]: "))
 				reader := bufio.NewReader(os.Stdin)
 				response, _ := reader.ReadString('\n')
 				response = strings.TrimSpace(strings.ToLower(response))
@@ -87,31 +117,31 @@ var doctorCmd = &cobra.Command{
 				if response == "y" || response == "yes" {
 					for _, r := range needsConfig {
 						if err := AppendBeatsToAgentFile(r.Agent, prefix); err != nil {
-							fmt.Printf(" %s %s: %v\n", errPrefix, r.Agent.File, err)
+							fmt.Print(ui.Stylize(fmt.Sprintf(" %s `%s`: %v\n", ui.ErrorPrefix, r.Agent.File, err)))
 						} else {
-							fmt.Printf(" %s Added beats instructions to %s\n", okPrefix, r.Agent.File)
+							fmt.Print(ui.Stylize(fmt.Sprintf(" %s Added beats instructions to `%s`\n", ui.OKPrefix, r.Agent.File)))
 						}
 					}
 				} else {
 					fmt.Println("Skipped.")
 				}
 			} else {
-				fmt.Println("\nRun 'beats doctor' in an interactive terminal to add beats instructions.")
+				fmt.Print(ui.Stylize("\nRun `beats doctor` in an interactive terminal to add beats instructions.\n"))
 			}
 		} else if len(configured) == 0 {
-			fmt.Printf("\n%s No agent instruction files detected\n", notePrefix)
+			fmt.Print(ui.Stylize(fmt.Sprintf("\n%s No agent instruction files detected\n", ui.NotePrefix)))
 		}
 
 		// Check shell completion
 		compRes := CheckCompletionConfig()
 		if compRes.Shell != "unknown" {
 			if compRes.Configured {
-				fmt.Printf("\n%s Shell completion for %s is configured\n", okPrefix, compRes.Shell)
+				fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Shell completion for `%s` is configured\n", ui.OKPrefix, compRes.Shell)))
 			} else {
-				fmt.Printf("\n%s Shell completion for %s is not configured\n\n", notePrefix, compRes.Shell)
+				fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Shell completion for `%s` is not configured\n", ui.NotePrefix, compRes.Shell)))
 				cmd := GetCompletionInstallCmd(compRes.Shell)
-				fmt.Println("    To enable completion, run the following command and reload your shell:")
-				fmt.Printf("\n    %s\n", cmd)
+				fmt.Println("    To enable completion, run this command and reload your shell:")
+				fmt.Print(ui.Stylize(fmt.Sprintf("    `%s`\n", cmd)))
 			}
 		}
 
