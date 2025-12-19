@@ -148,11 +148,9 @@ var listCmd = &cobra.Command{
 			{"ID", 14},
 			{" ", 5},
 			{" ", 6},
-			{"Title", 50},
-			{"Parent", 16},
-			{"Created", 15},
+			{"Title", 60},
 			{"Updated", 15},
-			{"By", 25},
+			{"Added By", 20},
 		}
 
 		// Header Style
@@ -343,8 +341,7 @@ var listCmd = &cobra.Command{
 				}
 			}
 
-			relTime := humanize.Time(i.CreatedAt)
-			updTime := humanize.Time(i.UpdatedAt)
+			updTime := humanize.CustomRelTime(i.UpdatedAt, time.Now(), "ago", "from now", listMagnitudes)
 
 			// Format 'By' column to show only email if available
 			byStr := i.CreatedBy
@@ -355,19 +352,19 @@ var listCmd = &cobra.Command{
 			}
 
 			// Base logic: Determine base style for the row
-			var idS, stS, tiS, paS, crS, upS, byS lipgloss.Style
+			var idS, stS, tiS, upS, byS lipgloss.Style
 
 			switch i.Status {
 			case model.StatusBacklog:
-				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusDoing:
-				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			case model.StatusDone:
-				idS, tiS, paS, crS, upS, byS = whiteStyle, strikeStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = whiteStyle, strikeStyle, whiteStyle, whiteStyle
 			case model.StatusBlocked:
-				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			default:
-				idS, tiS, paS, crS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle, whiteStyle
+				idS, tiS, upS, byS = whiteStyle, whiteStyle, whiteStyle, whiteStyle
 			}
 
 			// Apply Status Column Style from Map
@@ -433,12 +430,10 @@ var listCmd = &cobra.Command{
 			c2 := renderCell(kindStr, tyS, cols[1].Width)
 			c3 := renderCell(stStr, stS, cols[2].Width)
 			c4 := renderCell(title, tiS, cols[3].Width)
-			c5 := renderCell(i.ParentID, paS, cols[4].Width)
-			c6 := renderCell(relTime, crS, cols[5].Width)
-			c7 := renderCell(updTime, upS, cols[6].Width)
-			c8 := renderCell(byStr, byS, cols[7].Width)
+			c7 := renderCell(updTime, upS, cols[4].Width)
+			c8 := renderCell(byStr, byS, cols[5].Width)
 
-			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c5, c6, c7, c8)
+			row := lipgloss.JoinHorizontal(lipgloss.Left, c1, c2, c3, c4, c7, c8)
 			fmt.Println(row)
 		}
 	},
