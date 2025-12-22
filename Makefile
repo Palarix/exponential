@@ -18,3 +18,6 @@ lint:
 	go vet ./...
 	# Assuming staticcheck is installed, if not, user might need to install it
 	# staticcheck ./...
+
+install:
+	sudo cp beats /usr/local/bin
