@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
-	"github.com/kuyio/beats/internal/model"
 	"github.com/spf13/viper"
 )
 
@@ -66,8 +66,10 @@ func LoadConfig() (*Config, error) {
 
 	// Validate user format if provided
 	if cfg.User != "" {
-		if err := model.ValidateUser(cfg.User); err != nil {
-			return nil, fmt.Errorf("config: %w", err)
+		// Pattern: "One or more chars" followed by space(s), then "<email@domain>"
+		re := regexp.MustCompile(`^.+\s+<[^<>]+@[^<>]+>$`)
+		if !re.MatchString(cfg.User) {
+			return nil, fmt.Errorf("config: invalid user format: expected 'Name <email>', got %q", cfg.User)
 		}
 	}
 

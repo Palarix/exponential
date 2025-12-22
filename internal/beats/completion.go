@@ -1,4 +1,4 @@
-package main
+package beats
 
 import (
 	"fmt"
@@ -58,7 +58,7 @@ func GetCompletionInstallCmd(shell string) string {
 	case "bash":
 		return fmt.Sprintf("echo 'source <(beats completion bash)' >> %s", displayRC)
 	case "fish":
-		return fmt.Sprintf("beats completion fish > ~/.config/fish/completions/beats.fish")
+		return "beats completion fish > ~/.config/fish/completions/beats.fish"
 	default:
 		return fmt.Sprintf("# Please see `beats completion %s --help`", shell)
 	}

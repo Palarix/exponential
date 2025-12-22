@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kuyio/beats/cmd/beats/ui"
-	"github.com/kuyio/beats/internal/model"
+	"github.com/kuyio/beats/internal/ui"
+"github.com/kuyio/beats/internal/model"
+	"github.com/kuyio/beats/internal/beats"
 	"github.com/kuyio/beats/internal/storage"
 	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ func completeIssueIDs(cmd *cobra.Command, args []string, toComplete string) ([]s
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	issues := model.ProjectIssues(events)
+	issues := beats.ProjectIssues(events)
 	var completions []string
 
 	// Get recent DONE items using shared utility
@@ -55,11 +56,11 @@ func completeIssueIDs(cmd *cobra.Command, args []string, toComplete string) ([]s
 				typeTag = tyStyle.Render(ui.FormatKindTag(issue.Kind))
 
 				// Get Icon using shared styles
-				icon = ui.StatusIcons[issue.Status]
+				icon = ui.StatusIcon(issue.Status)
 				if icon == "" {
 					icon = " "
 				}
-				stStyle := ui.StatusStyles[issue.Status]
+				stStyle := ui.StatusStyle(issue.Status)
 				if stStyle.GetForeground() == nil {
 					stStyle = ui.WhiteStyle
 				}
@@ -82,7 +83,7 @@ func completeIssueIDs(cmd *cobra.Command, args []string, toComplete string) ([]s
 				typeTag = ui.FormatKindTag(issue.Kind)
 
 				// Get Icon (plain text)
-				icon = ui.StatusIcons[issue.Status]
+				icon = ui.StatusIcon(issue.Status)
 				if icon == "" {
 					icon = " "
 				}

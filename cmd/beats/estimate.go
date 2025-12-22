@@ -3,19 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
-	"time"
 
+	"github.com/kuyio/beats/internal/beats"
 	"github.com/kuyio/beats/internal/model"
-	"github.com/kuyio/beats/internal/storage"
 	"github.com/spf13/cobra"
 )
 
 var estimateCmd = &cobra.Command{
-	Use:   "estimate [id] [points]",
-	Short: "Estimate story points for an issue",
-	Args:  cobra.ExactArgs(2),
+	Use:               "estimate [id] [points]",
+	Short:             "Estimate story points for an issue",
+	Args:              cobra.ExactArgs(2),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		pointsStr := args[1]
@@ -26,36 +25,20 @@ var estimateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		user := getUser()
-
+		client := beats.NewClient(cfg)
 		estimate := points
 		payload := model.UpdatePayload{
 			Estimate: &estimate,
 		}
 
-		event := model.Event{
-			ID:        id,
-			Type:      model.EventTypeUpdate,
-			Payload:   payload,
-			CreatedAt: time.Now().UTC(),
-			CreatedBy: user,
-		}
-
-		if err := storage.AppendEvent(event); err != nil {
-			fmt.Printf("Error appending event: %v\n", err)
+		msgs, err := client.UpdateIssue(id, payload, fmt.Sprintf("estimate %d", points))
+		if err != nil {
+			fmt.Printf("Error estimating issue: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Estimated %s: %d SP\n", id, points)
-
-		if cfg.AutoCommit {
-			commitMsg := fmt.Sprintf("beats: estimate %s %d", id, points)
-			fmt.Println("Auto-committing...")
-			if err := exec.Command("git", "add", ".beats/issues.db").Run(); err != nil {
-				fmt.Printf("Error adding to git: %v\n", err)
-			} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
-				fmt.Printf("Error committing: %v\n", err)
-			}
+		for _, msg := range msgs {
+			fmt.Println(msg)
 		}
 	},
 }
