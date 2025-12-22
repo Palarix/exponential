@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/beats/internal/beats"
+	"github.com/palarix/beats/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -17,28 +17,14 @@ var historyCmd = &cobra.Command{
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
+		client := beats.NewClient(cfg)
 
-		events, err := storage.ReadEvents()
+		issue, _, archived, err := client.FindIssue(id)
 		if err != nil {
-			fmt.Printf("Error reading events: %v\n", err)
+			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
-
-		issues := model.ProjectIssues(events)
-		issue, exists := issues[id]
-		if !exists {
-			// Check archive
-			archivedEvents, err := storage.ReadArchivedEvents()
-			if err != nil {
-				fmt.Printf("Issue %s not found (and error reading archive: %v)\n", id, err)
-				os.Exit(1)
-			}
-			archivedIssues := model.ProjectIssues(archivedEvents)
-			issue, exists = archivedIssues[id]
-			if !exists {
-				fmt.Printf("Issue %s not found\n", id)
-				os.Exit(1)
-			}
+		if archived {
 			fmt.Println("Note: This issue is archived.")
 		}
 
@@ -54,7 +40,7 @@ var historyCmd = &cobra.Command{
 			termWidth = 116 // Total effective width including padding
 		}
 
-		renderHistory(issue.Events, termWidth)
+		ui.RenderHistory(issue.Events, termWidth)
 	},
 }
 

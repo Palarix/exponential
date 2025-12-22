@@ -11,7 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/palarix/beats/cmd/beats/ui"
+	"github.com/palarix/beats/internal/beats"
+	"github.com/palarix/beats/internal/ui"
 )
 
 var doctorCmd = &cobra.Command{
@@ -31,17 +32,11 @@ var doctorCmd = &cobra.Command{
 			prefix = cfg.Prefix
 		}
 
-		// Use shared styled prefixes (already padded/aligned in logical structure,
-		// but let's check if ui ones are padded.
-		// Current UI definition: NotePrefix = [!].
-		// Doctor previously used: [✔], [x], [!].
-		// Text alignment happened manually in doctor string args.
-
 		fmt.Println("beats doctor - Checking configuration...")
 		fmt.Println()
 
 		// Check for git repo
-		if _, err := os.Stat(".git"); os.IsNotExist(err) {
+		if !beats.CheckGitRepo() { // Using internal logic
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s Not a git repository\n", ui.NotePrefix)))
 			fmt.Print(ui.Stylize("    You risk losing your issues database if you delete this directory.\n"))
 
@@ -79,8 +74,8 @@ var doctorCmd = &cobra.Command{
 		}
 
 		// Detect AI agent files
-		results := DetectAgentFiles()
-		var configured, needsConfig []AgentDetectionResult
+		results := beats.DetectAgentFiles()
+		var configured, needsConfig []beats.AgentDetectionResult
 
 		for _, r := range results {
 			if r.Exists {
@@ -116,7 +111,7 @@ var doctorCmd = &cobra.Command{
 
 				if response == "y" || response == "yes" {
 					for _, r := range needsConfig {
-						if err := AppendBeatsToAgentFile(r.Agent, prefix); err != nil {
+						if err := beats.AppendBeatsToAgentFile(r.Agent, prefix); err != nil {
 							fmt.Print(ui.Stylize(fmt.Sprintf(" %s `%s`: %v\n", ui.ErrorPrefix, r.Agent.File, err)))
 						} else {
 							fmt.Print(ui.Stylize(fmt.Sprintf(" %s Added beats instructions to `%s`\n", ui.OKPrefix, r.Agent.File)))
@@ -139,8 +134,8 @@ var doctorCmd = &cobra.Command{
 				response = strings.TrimSpace(strings.ToLower(response))
 
 				if response == "y" || response == "yes" {
-					agent := AgentConfig{Name: "Generic Agent", File: "AGENTS.md", Format: "markdown"}
-					if err := AppendBeatsToAgentFile(agent, prefix); err != nil {
+					agent := beats.AgentConfig{Name: "Generic Agent", File: "AGENTS.md", Format: "markdown"}
+					if err := beats.AppendBeatsToAgentFile(agent, prefix); err != nil {
 						fmt.Print(ui.Stylize(fmt.Sprintf("%s Error creating `AGENTS.md`: %v\n", ui.ErrorPrefix, err)))
 					} else {
 						fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `AGENTS.md` with instructions\n", ui.OKPrefix)))
@@ -154,13 +149,13 @@ var doctorCmd = &cobra.Command{
 		}
 
 		// Check shell completion
-		compRes := CheckCompletionConfig()
+		compRes := beats.CheckCompletionConfig()
 		if compRes.Shell != "unknown" {
 			if compRes.Configured {
 				fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Shell completion for `%s` is configured\n", ui.OKPrefix, compRes.Shell)))
 			} else {
 				fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Shell completion for `%s` is not configured\n", ui.NotePrefix, compRes.Shell)))
-				cmd := GetCompletionInstallCmd(compRes.Shell)
+				cmd := beats.GetCompletionInstallCmd(compRes.Shell)
 				fmt.Println("    To enable completion, run this command and reload your shell:")
 				fmt.Print(ui.Stylize(fmt.Sprintf("    `%s`\n", cmd)))
 			}

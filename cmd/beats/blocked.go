@@ -3,11 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"time"
 
+	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -17,12 +15,13 @@ var (
 )
 
 var blockedCmd = &cobra.Command{
-	Use:   "blocked [id]",
-	Short: "Mark an issue as BLOCKED",
-	Args:  cobra.ExactArgs(1),
+	Use:               "blocked [id]",
+	Short:             "Mark an issue as BLOCKED",
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		user := getUser()
+		client := beats.NewClient(cfg)
 
 		status := string(model.StatusBlocked)
 		payload := model.UpdatePayload{
@@ -36,29 +35,24 @@ var blockedCmd = &cobra.Command{
 			payload.BlockReason = &blockedReasonFlag
 		}
 
-		event := model.Event{
-			ID:        id,
-			Type:      model.EventTypeUpdate,
-			Payload:   payload,
-			CreatedAt: time.Now().UTC(),
-			CreatedBy: user,
-		}
-
-		if err := storage.AppendEvent(event); err != nil {
-			fmt.Printf("Error appending event: %v\n", err)
+		// Use "block" action for commit message inside UpdateIssue?
+		// UpdateIssue takes 'action' string (e.g. "update", "start").
+		// blocking logic uses "block".
+		msgs, err := client.UpdateIssue(id, payload, "block")
+		if err != nil {
+			fmt.Printf("Error marking blocked: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Marked %s as BLOCKED\n", id)
-
-		if cfg.AutoCommit {
-			commitMsg := fmt.Sprintf("beats: block %s", id)
-			fmt.Println("Auto-committing...")
-			if err := exec.Command("git", "add", ".beats/issues.db").Run(); err != nil {
-				fmt.Printf("Error adding to git: %v\n", err)
-			} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
-				fmt.Printf("Error committing: %v\n", err)
-			}
+		// Print messages or custom confirmation?
+		// UpdateIssue returns "Updated <id>" default.
+		// Detailed messages might be "Auto-started parent" etc.
+		// For blocked, we might want "Marked <id> as BLOCKED".
+		// But let's trust UpdateIssue messages + custom print if needed.
+		// Or loop logic?
+		// Usually tools print what happened.
+		for _, msg := range msgs {
+			fmt.Println(msg)
 		}
 	},
 }

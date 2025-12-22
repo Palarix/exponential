@@ -1,0 +1,95 @@
+package beats
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// InitResult contains the outcome of the initialization.
+type InitResult struct {
+	Created bool
+	Notes   []string
+}
+
+// InitBeats initializes the .beats directory structure.
+func InitBeats(force bool) (*InitResult, error) {
+	result := &InitResult{}
+	beatsDir := ".beats"
+
+	// 1. Create .beats directory
+	if _, err := os.Stat(beatsDir); err == nil {
+		if !force {
+			return nil, fmt.Errorf("directory already exists") // Caller handles UI message
+		}
+		result.Created = false
+		result.Notes = append(result.Notes, "Re-initializing existing .beats directory")
+	} else {
+		if err := os.MkdirAll(beatsDir, 0755); err != nil {
+			return nil, fmt.Errorf("error creating .beats directory: %w", err)
+		}
+		result.Created = true
+	}
+
+	// 2. Derive prefix and write config.yaml
+	cwd, _ := os.Getwd()
+	folderName := filepath.Base(cwd)
+	prefix := sanitizePrefix(folderName) + "-"
+
+	configPath := filepath.Join(beatsDir, "config.yaml")
+	configContent := fmt.Sprintf("prefix: %s\n", prefix)
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
+	} else {
+		result.Notes = append(result.Notes, fmt.Sprintf("Configured issue prefix: %s", prefix))
+	}
+
+	// 3. Create .beats/issues.db
+	issuesFile := filepath.Join(beatsDir, "issues.db")
+	f, err := os.OpenFile(issuesFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("error creating issues.db: %w", err)
+	}
+	f.Close()
+
+	// 4. Update .gitignore
+	gitignorePath := ".gitignore"
+	content, err := os.ReadFile(gitignorePath)
+	var contentStr string
+	if err == nil {
+		contentStr = string(content)
+	}
+
+	ignoreEntry := ".beats/issues.snapshot.json"
+	if !strings.Contains(contentStr, ignoreEntry) {
+		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err == nil {
+			defer f.Close()
+			if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
+				f.WriteString("\n")
+			}
+			f.WriteString(ignoreEntry + "\n")
+		} else {
+			result.Notes = append(result.Notes, fmt.Sprintf("Could not write to .gitignore: %v", err))
+		}
+	}
+
+	return result, nil
+}
+
+// sanitizePrefix converts a folder name to a valid issue ID prefix
+func sanitizePrefix(name string) string {
+	name = strings.ToLower(name)
+	var result strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			result.WriteRune(r)
+		}
+	}
+	s := result.String()
+	if s == "" {
+		s = "beats" // Fallback if folder name has no valid chars
+	}
+	return s
+}

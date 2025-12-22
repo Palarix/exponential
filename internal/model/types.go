@@ -1,8 +1,6 @@
 package model
 
 import (
-	"fmt"
-	"regexp"
 	"time"
 )
 
@@ -49,12 +47,30 @@ type UpdatePayload struct {
 	BlockReason *string `json:"block_reason,omitempty"`
 }
 
-// ValidateUser validates that a user string matches the expected format "Name <email>".
-func ValidateUser(user string) error {
-	// Pattern: "One or more chars" followed by space(s), then "<email@domain>"
-	re := regexp.MustCompile(`^.+\s+<[^<>]+@[^<>]+>$`)
-	if !re.MatchString(user) {
-		return fmt.Errorf("invalid user format: expected 'Name <email>', got %q", user)
-	}
-	return nil
+type IssueStatus string
+
+const (
+	StatusBacklog IssueStatus = "BACKLOG"
+	StatusPlanned IssueStatus = "PLANNED"
+	StatusDoing   IssueStatus = "DOING"
+	StatusBlocked IssueStatus = "BLOCKED"
+	StatusDone    IssueStatus = "DONE"
+)
+
+type Issue struct {
+	ID          string
+	Kind        string
+	Title       string
+	Description string
+	Status      IssueStatus
+	ParentID    string
+	Estimate    int
+	Burned      int
+	BlockedBy   string
+	BlockReason string
+	Deleted     bool
+	CreatedAt   time.Time
+	CreatedBy   string
+	UpdatedAt   time.Time
+	Events      []Event
 }

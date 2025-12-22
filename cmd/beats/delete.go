@@ -4,12 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
-	"time"
 
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/beats/internal/beats"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
@@ -21,29 +18,23 @@ var (
 
 var deleteCmd = &cobra.Command{
 	Use:               "delete [id]",
+	Aliases:           []string{"rm"},
 	Short:             "Delete an issue",
 	Long:              `Delete an issue from the board. The issue will no longer appear in lists or reports.`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		user := getUser()
+		client := beats.NewClient(cfg)
 
-		// Load events and project issues to verify issue exists
-		events, err := storage.ReadEvents()
+		// 1. Get Issue Details for Confirmation
+		issue, err := client.GetIssue(id)
 		if err != nil {
-			fmt.Printf("Error reading events: %v\n", err)
+			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		issuesMap := model.ProjectIssues(events)
-		issue, exists := issuesMap[id]
-		if !exists {
-			fmt.Printf("Issue %s not found\n", id)
-			os.Exit(1)
-		}
-
-		// Confirmation prompt (unless --force)
+		// 2. Confirmation prompt (unless --force)
 		if !deleteForceFlag {
 			fmt.Printf("About to delete issue:\n")
 			fmt.Printf("  ID:     %s\n", issue.ID)
@@ -66,35 +57,13 @@ var deleteCmd = &cobra.Command{
 			}
 		}
 
-		// Create delete event
-		payload := model.DeletePayload{
-			Reason: deleteReasonFlag,
-		}
-
-		event := model.Event{
-			ID:        id,
-			Type:      model.EventTypeDelete,
-			Payload:   payload,
-			CreatedAt: time.Now().UTC(),
-			CreatedBy: user,
-		}
-
-		if err := storage.AppendEvent(event); err != nil {
-			fmt.Printf("Error appending event: %v\n", err)
+		// 3. Execute Delete
+		if err := client.DeleteIssue(id, deleteReasonFlag); err != nil {
+			fmt.Printf("Error deleting issue: %v\n", err)
 			os.Exit(1)
 		}
 
 		fmt.Printf("Deleted %s\n", id)
-
-		if cfg.AutoCommit {
-			commitMsg := fmt.Sprintf("beats: delete %s", id)
-			fmt.Println("Auto-committing...")
-			if err := exec.Command("git", "add", ".beats/issues.db").Run(); err != nil {
-				fmt.Printf("Error adding to git: %v\n", err)
-			} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
-				fmt.Printf("Error committing: %v\n", err)
-			}
-		}
 	},
 }
 

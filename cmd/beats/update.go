@@ -1,27 +1,12 @@
 package main
 
 import (
-	// Actually bufio is not used I think? Let's check logic.
-	// Logic uses strings.Split, exec, os, etc.
-	// Oh, I added bufio but might not have used it.
-	// Let's re-read code in memory.
-	// `parseUpdateContent` uses strings.Split.
-	// `openEditor` uses os, exec.
-	// I don't see bufio usage in my added code.
-	// `add.go` used bufio for confirmation.
-	// `update.go` doesn't ask for confirmation in my added code.
-	// So I can remove bufio.
-	// But let's just make it compilable first.
-
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
-	"time"
 
+	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/beats/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -126,171 +111,51 @@ var plannedCmd = &cobra.Command{
 }
 
 func runUpdate(id string, payload model.UpdatePayload, action string) {
-	// 1. Read and Project State
-	events, err := storage.ReadEvents()
+	client := beats.NewClient(cfg) // cfg global from main.go/init?
+
+	msgs, err := client.UpdateIssue(id, payload, action)
 	if err != nil {
-		fmt.Printf("Error reading events: %v\n", err)
-		os.Exit(1)
-	}
-	issues := model.ProjectIssues(events)
-
-	targetIssue, exists := issues[id]
-	if !exists {
-		fmt.Printf("Issue %s not found\n", id)
+		fmt.Printf("Error updating issue: %v\n", err)
 		os.Exit(1)
 	}
 
-	user := getUser()
-	timestamp := time.Now().UTC()
-	var eventsToAppend []model.Event
-	var messages []string
-
-	// 2. Prepare Primary Update
-	primaryEvent := model.Event{
-		ID:        id,
-		Type:      model.EventTypeUpdate,
-		Payload:   payload,
-		CreatedAt: timestamp,
-		CreatedBy: user,
-	}
-	eventsToAppend = append(eventsToAppend, primaryEvent)
-	messages = append(messages, fmt.Sprintf("Updated %s", id))
-
-	// 3. Logic & Side Effects based on Status Change
-	if payload.Status != nil {
-		newStatus := model.IssueStatus(*payload.Status)
-
-		// --- Scenario: Start Child -> Auto-Start Parent ---
-		if newStatus == model.StatusDoing && targetIssue.ParentID != "" {
-			parent, pExists := issues[targetIssue.ParentID]
-			if pExists && parent.Status != model.StatusDoing && parent.Status != model.StatusDone {
-				// Auto-start parent
-				pStatus := string(model.StatusDoing)
-				parentEvent := model.Event{
-					ID:        parent.ID,
-					Type:      model.EventTypeUpdate,
-					Payload:   model.UpdatePayload{Status: &pStatus},
-					CreatedAt: timestamp, // Logical simultaneity
-					CreatedBy: user,
-				}
-				eventsToAppend = append(eventsToAppend, parentEvent)
-				messages = append(messages, fmt.Sprintf("Auto-started parent epic %s", parent.ID))
-			}
-		}
-
-		// --- Scenario: Manual Complete Epic -> Validation ---
-		if newStatus == model.StatusDone {
-			// Check if this issue is a parent with incomplete children
-			hasIncompleteChildren := false
-			for _, child := range issues {
-				if child.ParentID == id && child.Status != model.StatusDone {
-					hasIncompleteChildren = true
-					break
-				}
-			}
-			if hasIncompleteChildren {
-				fmt.Printf("Error: Cannot complete epic %s because it has unfinished child tasks.\n", id)
-				os.Exit(1)
-			}
-		}
-
-		// --- Scenario: Complete Child -> Auto-Complete Parent ---
-		if newStatus == model.StatusDone && targetIssue.ParentID != "" {
-			parent, pExists := issues[targetIssue.ParentID]
-			if pExists && parent.Status != model.StatusDone {
-				// Check if ALL OTHER children are done
-				allSiblingsDone := true
-				for _, other := range issues {
-					if other.ParentID == parent.ID && other.ID != id { // Skip self (we are becoming done)
-						if other.Status != model.StatusDone {
-							allSiblingsDone = false
-							break
-						}
-					}
-				}
-
-				if allSiblingsDone {
-					// Auto-complete parent
-					pStatus := string(model.StatusDone)
-					parentEvent := model.Event{
-						ID:        parent.ID,
-						Type:      model.EventTypeUpdate,
-						Payload:   model.UpdatePayload{Status: &pStatus},
-						CreatedAt: timestamp,
-						CreatedBy: user,
-					}
-					eventsToAppend = append(eventsToAppend, parentEvent)
-					messages = append(messages, fmt.Sprintf("Auto-completed parent epic %s (all children done)", parent.ID))
-				}
-			}
-		}
-	}
-
-	// 4. Commit Changes
-	for _, evt := range eventsToAppend {
-		if err := storage.AppendEvent(evt); err != nil {
-			fmt.Printf("Error appending event for %s: %v\n", evt.ID, err)
-			os.Exit(1)
-		}
-	}
-
-	// 5. Output Messages
-	for _, msg := range messages {
+	for _, msg := range msgs {
 		fmt.Println(msg)
-	}
-
-	// 6. Git Commit (if enabled)
-	if cfg.AutoCommit {
-		// Just simple commit message for the main action, maybe mentions side effects?
-		// Keeping it simple: "beats: <action> <id>"
-		commitMsg := fmt.Sprintf("beats: %s %s", action, id)
-
-		// If side effects occurred, maybe append to msg?
-		if len(eventsToAppend) > 1 {
-			commitMsg += " (with cascading updates)"
-		}
-
-		fmt.Println("Auto-committing...")
-		if err := exec.Command("git", "add", ".beats/issues.db").Run(); err != nil {
-			fmt.Printf("Error adding to git: %v\n", err)
-		} else if err := exec.Command("git", "commit", "-m", commitMsg).Run(); err != nil {
-			fmt.Printf("Error committing: %v\n", err)
-		}
 	}
 }
 
 func runInteractiveUpdate(id string) {
-	// 1. Read current issue state
-	events, err := storage.ReadEvents()
+	client := beats.NewClient(cfg)
+
+	// 1. Get current issue
+	issue, err := client.GetIssue(id)
 	if err != nil {
-		fmt.Printf("Error reading events: %v\n", err)
-		os.Exit(1)
-	}
-	issues := model.ProjectIssues(events)
-	issue, exists := issues[id]
-	if !exists {
-		fmt.Printf("Issue %s not found\n", id)
+		fmt.Printf("Error getting issue: %v\n", err)
 		os.Exit(1)
 	}
 
 	// 2. Generate Template
-	template := generateUpdateTemplate(issue)
+	template := beats.GenerateUpdateTemplate(issue)
 
 	// 3. Open Editor
-	content, err := openEditor(template)
+	content, err := ui.EditInteractive(template)
 	if err != nil {
 		fmt.Printf("Error opening editor: %v\n", err)
 		os.Exit(1)
 	}
 
 	// 4. Parse Content
-	payload, err := parseUpdateContent(content, issue)
+	payload, err := beats.ParseUpdateContent(content, issue)
 	if err != nil {
 		fmt.Printf("Error parsing content: %v\n", err)
 		os.Exit(1)
 	}
 
 	// 5. Check if empty (no changes)
+	// Actually ParseUpdateContent returns pointer to payload.
+	// If fields are nil, no changes?
+	// The implementation checks changes against original and sets field only if changed.
+	// So if all fields are nil, then no changes.
 	if payload.Title == nil && payload.Description == nil && payload.Status == nil &&
 		payload.ParentID == nil && payload.Estimate == nil &&
 		payload.BlockedBy == nil && payload.BlockReason == nil {
@@ -299,131 +164,12 @@ func runInteractiveUpdate(id string) {
 	}
 
 	// 6. Run Update
-	runUpdate(id, payload, "update")
-}
-
-func generateUpdateTemplate(i *model.Issue) string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Title: %s\n", i.Title))
-	sb.WriteString(fmt.Sprintf("Status: %s\n", i.Status))
-	sb.WriteString(fmt.Sprintf("Parent: %s\n", i.ParentID))
-	sb.WriteString(fmt.Sprintf("Estimate: %d\n", i.Estimate))
-	sb.WriteString(fmt.Sprintf("Blocked By: %s\n", i.BlockedBy))
-	sb.WriteString(fmt.Sprintf("Block Reason: %s\n", i.BlockReason))
-	sb.WriteString("\n") // Double newline separates headers from description
-	sb.WriteString(i.Description)
-
-	return sb.String()
-}
-
-func openEditor(initialContent string) (string, error) {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vim"
-	}
-
-	tmpFile, err := os.CreateTemp("", "beats-update-*.txt")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.WriteString(initialContent); err != nil {
-		return "", err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return "", err
-	}
-
-	cmd := exec.Command(editor, tmpFile.Name())
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return "", err
-	}
-
-	content, err := os.ReadFile(tmpFile.Name())
-	if err != nil {
-		return "", err
-	}
-
-	return string(content), nil
-}
-
-func parseUpdateContent(content string, original *model.Issue) (model.UpdatePayload, error) {
-	// Split into Headers and Body
-	parts := strings.SplitN(content, "\n\n", 2)
-
-	headerBlock := parts[0]
-	descriptionBlock := ""
-	if len(parts) > 1 {
-		descriptionBlock = parts[1]
-	}
-
-	// Parse Headers
-	meta := make(map[string]string)
-	headerLines := strings.Split(headerBlock, "\n")
-	for _, line := range headerLines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		// Expect "Key: Value"
-		kp := strings.SplitN(line, ":", 2)
-		if len(kp) == 2 {
-			key := strings.TrimSpace(strings.ToLower(kp[0]))
-			val := strings.TrimSpace(kp[1])
-			meta[key] = val
-		}
-	}
-
-	payload := model.UpdatePayload{}
-
-	// Map headers to payload
-	if val, ok := meta["title"]; ok {
-		if val != original.Title {
-			payload.Title = &val
-		}
-	}
-
-	if val, ok := meta["status"]; ok {
-		if val != string(original.Status) {
-			payload.Status = &val
-		}
-	}
-	if val, ok := meta["parent"]; ok {
-		if val != original.ParentID {
-			payload.ParentID = &val
-		}
-	}
-	if val, ok := meta["estimate"]; ok {
-		est, err := strconv.Atoi(val)
-		if err == nil {
-			if est != original.Estimate {
-				payload.Estimate = &est
-			}
-		}
-	}
-	if val, ok := meta["blocked by"]; ok {
-		if val != original.BlockedBy {
-			payload.BlockedBy = &val
-		}
-	}
-	if val, ok := meta["block reason"]; ok {
-		if val != original.BlockReason {
-			payload.BlockReason = &val
-		}
-	}
-
-	// Handle Description (No comment stripping logic applied anymore)
-	newDesc := strings.TrimSpace(descriptionBlock)
-	if newDesc != original.Description {
-		payload.Description = &newDesc
-	}
-
-	return payload, nil
+	// Note: dereference payload because runUpdate takes value? Or pointer?
+	// runUpdate below takes model.UpdatePayload (struct), but Parse returns *UpdatePayload.
+	// Let's defer to signature.
+	// internal/beats/update.go: UpdateIssue(..., payload model.UpdatePayload, ...)
+	// So we need to dereference: *payload.
+	runUpdate(id, *payload, "update")
 }
 
 func init() {

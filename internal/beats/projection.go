@@ -1,77 +1,45 @@
-package model
+package beats
 
 import (
 	"encoding/json"
 	"sort"
-	"time"
+
+	"github.com/palarix/beats/internal/model"
 )
 
-type IssueStatus string
-
-const (
-	StatusBacklog IssueStatus = "BACKLOG"
-	StatusPlanned IssueStatus = "PLANNED"
-	StatusDoing   IssueStatus = "DOING"
-	StatusBlocked IssueStatus = "BLOCKED"
-	StatusDone    IssueStatus = "DONE"
-)
-
-type Issue struct {
-	ID          string
-	Kind        string
-	Title       string
-	Description string
-	Status      IssueStatus
-	ParentID    string
-	Estimate    int
-	Burned      int
-	BlockedBy   string
-	BlockReason string
-	Deleted     bool
-	CreatedAt   time.Time
-	CreatedBy   string
-	UpdatedAt   time.Time
-	Events      []Event
-}
-
-func ProjectIssues(events []Event) map[string]*Issue {
-	issues := make(map[string]*Issue)
+func ProjectIssues(events []model.Event) map[string]*model.Issue {
+	issues := make(map[string]*model.Issue)
 
 	for _, evt := range events {
 		switch evt.Type {
-		case EventTypeCreate:
+		case model.EventTypeCreate:
 			// Unmarshal payload
-			// We need a way to look at payload as CreatePayload
-			// Since we stored it as interface{}, we need to re-marshal/unmarshal or map it.
-			// Ideally storage reads it into correct types, but plain json decoder might give map[string]interface{}
-
-			// Quick hack: encode release -> decode
 			payloadBytes, _ := json.Marshal(evt.Payload)
-			var p CreatePayload
+			var p model.CreatePayload
 			json.Unmarshal(payloadBytes, &p)
 
-			issues[evt.ID] = &Issue{
+			issues[evt.ID] = &model.Issue{
 				ID:          evt.ID,
 				Kind:        p.Kind,
 				Title:       p.Title,
 				Description: p.Description,
 				ParentID:    p.ParentID,
 				Estimate:    p.Estimate,
-				Status:      StatusBacklog, // Default
+				Status:      model.StatusBacklog, // Default
 				CreatedAt:   evt.CreatedAt,
 				CreatedBy:   evt.CreatedBy,
 				UpdatedAt:   evt.CreatedAt,
-				Events:      []Event{evt},
+				Events:      []model.Event{evt},
 			}
 
-		case EventTypeUpdate:
+		case model.EventTypeUpdate:
 			issue, exists := issues[evt.ID]
 			if !exists {
 				continue // Should not happen if log is consistent
 			}
 
 			payloadBytes, _ := json.Marshal(evt.Payload)
-			var p UpdatePayload
+			var p model.UpdatePayload
 			json.Unmarshal(payloadBytes, &p)
 
 			if p.Title != nil {
@@ -81,7 +49,7 @@ func ProjectIssues(events []Event) map[string]*Issue {
 				issue.Description = *p.Description
 			}
 			if p.Status != nil {
-				issue.Status = IssueStatus(*p.Status)
+				issue.Status = model.IssueStatus(*p.Status)
 			}
 			if p.ParentID != nil {
 				issue.ParentID = *p.ParentID
@@ -99,21 +67,21 @@ func ProjectIssues(events []Event) map[string]*Issue {
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
 
-		case EventTypeWorkLog:
+		case model.EventTypeWorkLog:
 			issue, exists := issues[evt.ID]
 			if !exists {
 				continue
 			}
 
 			payloadBytes, _ := json.Marshal(evt.Payload)
-			var p WorkLogPayload
+			var p model.WorkLogPayload
 			json.Unmarshal(payloadBytes, &p)
 
 			issue.Burned += p.Amount
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
 
-		case EventTypeDelete:
+		case model.EventTypeDelete:
 			issue, exists := issues[evt.ID]
 			if !exists {
 				continue
@@ -135,10 +103,10 @@ func ProjectIssues(events []Event) map[string]*Issue {
 	return issues
 }
 
-func SortIssues(issues map[string]*Issue) []*Issue {
+func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 	// 1. Group issues by root
 	// Map: RootID -> List of Issues in that group
-	groups := make(map[string][]*Issue)
+	groups := make(map[string][]*model.Issue)
 
 	for _, i := range issues {
 		rootID := i.ID
@@ -166,7 +134,7 @@ func SortIssues(issues map[string]*Issue) []*Issue {
 	})
 
 	// 3. Flatten
-	list := make([]*Issue, 0, len(issues))
+	list := make([]*model.Issue, 0, len(issues))
 	for _, rootID := range roots {
 		groupIssues := groups[rootID]
 
