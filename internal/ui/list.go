@@ -33,12 +33,20 @@ func RenderIssueList(issues []*model.Issue, termWidth int) {
 	}
 	effectiveWidth := termWidth - 4 // Margin
 
+	// Calculate max ID width
+	maxIDWidth := 14 // Minimum width
+	for _, i := range issues {
+		if len(i.ID) > maxIDWidth {
+			maxIDWidth = len(i.ID)
+		}
+	}
+
 	// Column Config
 	columns := []Column{
-		{Title: "ID", Width: 14},
+		{Title: "ID", Width: maxIDWidth},
 		{Title: " ", Width: 5},
 		{Title: " ", Width: 6},
-		{Title: "Title", Width: 20, Flex: true},
+		{Title: "Title", Width: 30, Flex: true},
 		{Title: "Updated", Width: 15},
 		{Title: "Added By", Width: 20},
 	}
