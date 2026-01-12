@@ -2,7 +2,32 @@
 
 This repository uses `beats`, a local JSONL-based issue tracker, to manage development tasks. As an AI agent, you should use `beats` to understand the current state of the project, plan your work, and record new findings.
 
-## Core Philosophy: Project Memory
+## Development Workflow
+
+```bash
+# 1. Check for existing tasks
+beats ls
+
+# 2a. Check task details if existing entry
+beats show <id>
+
+# 2b. Create new entry if not exists
+beats add <title>
+
+# 3. Set issue status to in progress
+beats start <id>
+
+# 4. Make changes
+
+# 5. Test changes
+go test ./...
+go build ./...
+
+# 6. Set issue status to done
+beats done <id>
+```
+
+## Project Memory
 
 `beats` serves as the persistent memory for the project.
 - **Start** by reading the backlog to understand what needs to be done.
