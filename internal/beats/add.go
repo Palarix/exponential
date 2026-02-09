@@ -12,11 +12,14 @@ import (
 
 // AddOptions contains parameters for creating an issue.
 type AddOptions struct {
-	Title       string
-	Description string
-	Kind        string
-	ParentID    string
-	Estimate    int
+	Title        string
+	Description  string
+	Kind         string
+	ParentID     string
+	Estimate     int
+	Checklist    []model.ChecklistItem
+	Dependencies []model.Dependency
+	Labels       []string
 }
 
 // AddIssue creates a new issue and persists it.
@@ -37,11 +40,14 @@ func (c *Client) AddIssue(opts AddOptions) (*model.Issue, error) {
 	user := c.GetUser()
 
 	payload := model.CreatePayload{
-		Kind:        opts.Kind,
-		Title:       opts.Title,
-		Description: opts.Description,
-		ParentID:    opts.ParentID,
-		Estimate:    opts.Estimate,
+		Kind:         opts.Kind,
+		Title:        opts.Title,
+		Description:  opts.Description,
+		ParentID:     opts.ParentID,
+		Estimate:     opts.Estimate,
+		Checklist:    opts.Checklist,
+		Dependencies: opts.Dependencies,
+		Labels:       opts.Labels,
 	}
 
 	event := model.Event{
@@ -68,15 +74,17 @@ func (c *Client) AddIssue(opts AddOptions) (*model.Issue, error) {
 	// Since we just appended the event, we can construct the Issue manually or re-project.
 	// Re-projecting is expensive. Let's construct it.
 	issue := &model.Issue{
-		ID:        id,
-		Kind:      opts.Kind,
-		Status:    model.StatusBacklog, // Default
-		Title:     opts.Title,
-		CreatedAt: event.CreatedAt,
-		CreatedBy: user,
-		ParentID:  opts.ParentID,
-		Estimate:  opts.Estimate,
-		// Description is not on issue struct usually? Let's check projection.go
+		ID:           id,
+		Kind:         opts.Kind,
+		Status:       model.StatusBacklog, // Default
+		Title:        opts.Title,
+		CreatedAt:    event.CreatedAt,
+		CreatedBy:    user,
+		ParentID:     opts.ParentID,
+		Estimate:     opts.Estimate,
+		Checklist:    opts.Checklist,
+		Dependencies: opts.Dependencies,
+		Labels:       opts.Labels,
 	}
 	return issue, nil
 }

@@ -9,7 +9,8 @@ import (
 )
 
 func AppendEvent(event model.Event) error {
-	f, err := os.OpenFile(filepath.Join(".beats", "issues.db"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	path := filepath.Join(".beats", "issues.db")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -26,6 +27,5 @@ func AppendEvent(event model.Event) error {
 	if _, err := f.WriteString("\n"); err != nil {
 		return err
 	}
-
 	return nil
 }

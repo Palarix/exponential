@@ -38,7 +38,7 @@ func InitBeats(force bool) (*InitResult, error) {
 	prefix := sanitizePrefix(folderName) + "-"
 
 	configPath := filepath.Join(beatsDir, "config.yaml")
-	configContent := fmt.Sprintf("prefix: %s\n", prefix)
+	configContent := fmt.Sprintf("prefix: %s\nversion: 1\n", prefix)
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
 	} else {
@@ -92,4 +92,30 @@ func sanitizePrefix(name string) string {
 		s = "beats" // Fallback if folder name has no valid chars
 	}
 	return s
+}
+
+// UpdateConfigVersion updates the version field in config.yaml
+func UpdateConfigVersion(newVersion int) error {
+	path := filepath.Join(".beats", "config.yaml")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	found := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, "version:") {
+			lines[i] = fmt.Sprintf("version: %d", newVersion)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		lines = append(lines, fmt.Sprintf("version: %d", newVersion))
+	}
+
+	output := strings.Join(lines, "\n")
+	return os.WriteFile(path, []byte(output), 0644)
 }

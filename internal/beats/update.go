@@ -42,33 +42,37 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 	messages = append(messages, fmt.Sprintf("Updated %s", id))
 
 	// 3. Logic & Side Effects based on Status Change
+	// 3. Logic & Side Effects based on Status Change
 	if payload.Status != nil {
 		newStatus := model.IssueStatus(*payload.Status)
 
-		// --- Scenario: Start Child -> Auto-Start Parent ---
-		if newStatus == model.StatusDoing && targetIssue.ParentID != "" {
-			parent, pExists := issues[targetIssue.ParentID]
-			if pExists && parent.Status != model.StatusDoing && parent.Status != model.StatusDone {
-				// Auto-start parent
-				pStatus := string(model.StatusDoing)
-				parentEvent := model.Event{
-					ID:        parent.ID,
-					Type:      model.EventTypeUpdate,
-					Payload:   model.UpdatePayload{Status: &pStatus},
-					CreatedAt: timestamp, // Logical simultaneity
-					CreatedBy: user,
+		// --- Scenario: Start Task -> Check Blocking ---
+		if newStatus == model.StatusDoing {
+			// Check existing blockers
+			for _, dep := range targetIssue.Dependencies {
+				if dep.Kind == model.DependencyBlockedBy {
+					blocker, bExists := issues[dep.TargetID]
+					if bExists && blocker.Status != model.StatusDone && !blocker.Deleted {
+						return nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
+					}
 				}
-				eventsToAppend = append(eventsToAppend, parentEvent)
-				messages = append(messages, fmt.Sprintf("Auto-started parent epic %s", parent.ID))
+			}
+			// Check new blocker from payload (compatibility)
+			if payload.BlockedBy != nil && *payload.BlockedBy != "" {
+				blocker, bExists := issues[*payload.BlockedBy]
+				if bExists && blocker.Status != model.StatusDone && !blocker.Deleted {
+					return nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
+				}
 			}
 		}
 
 		// --- Scenario: Manual Complete Epic -> Validation ---
-		if newStatus == model.StatusDone {
+		if newStatus == model.StatusDone && targetIssue.Kind == "EPIC" {
 			// Check if this issue is a parent with incomplete children
+			// We need to look up children. The `issues` map contains all.
 			hasIncompleteChildren := false
 			for _, child := range issues {
-				if child.ParentID == id && child.Status != model.StatusDone {
+				if child.ParentID == id && child.Status != model.StatusDone && !child.Deleted {
 					hasIncompleteChildren = true
 					break
 				}
@@ -78,36 +82,8 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 			}
 		}
 
-		// --- Scenario: Complete Child -> Auto-Complete Parent ---
-		if newStatus == model.StatusDone && targetIssue.ParentID != "" {
-			parent, pExists := issues[targetIssue.ParentID]
-			if pExists && parent.Status != model.StatusDone {
-				// Check if ALL OTHER children are done
-				allSiblingsDone := true
-				for _, other := range issues {
-					if other.ParentID == parent.ID && other.ID != id { // Skip self (we are becoming done)
-						if other.Status != model.StatusDone {
-							allSiblingsDone = false
-							break
-						}
-					}
-				}
-
-				if allSiblingsDone {
-					// Auto-complete parent
-					pStatus := string(model.StatusDone)
-					parentEvent := model.Event{
-						ID:        parent.ID,
-						Type:      model.EventTypeUpdate,
-						Payload:   model.UpdatePayload{Status: &pStatus},
-						CreatedAt: timestamp,
-						CreatedBy: user,
-					}
-					eventsToAppend = append(eventsToAppend, parentEvent)
-					messages = append(messages, fmt.Sprintf("Auto-completed parent epic %s (all children done)", parent.ID))
-				}
-			}
-		}
+		// Previous Auto-Start / Auto-Complete logic removed.
+		// Epic state is now derived on projection.
 	}
 
 	// 4. Commit Changes
@@ -134,6 +110,7 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 }
 
 // GenerateUpdateTemplate generates text content for editing an issue.
+// GenerateUpdateTemplate generates text content for editing an issue.
 func GenerateUpdateTemplate(i *model.Issue) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Title: %s\n", i.Title))
@@ -142,6 +119,10 @@ func GenerateUpdateTemplate(i *model.Issue) string {
 	sb.WriteString(fmt.Sprintf("Estimate: %d\n", i.Estimate))
 	sb.WriteString(fmt.Sprintf("Blocked By: %s\n", i.BlockedBy))
 	sb.WriteString(fmt.Sprintf("Block Reason: %s\n", i.BlockReason))
+	// Add new fields as comments or read-only for now
+	if len(i.Labels) > 0 {
+		sb.WriteString(fmt.Sprintf("Labels: %s\n", strings.Join(i.Labels, ", ")))
+	}
 	sb.WriteString("\n") // Double newline separates headers from description
 	sb.WriteString(i.Description)
 
@@ -215,6 +196,33 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 		if val != original.BlockReason {
 			valCopy := val
 			payload.BlockReason = &valCopy
+		}
+	}
+	if val, ok := meta["labels"]; ok {
+		// Simple comma separated parser
+		labels := strings.Split(val, ",")
+		for i := range labels {
+			labels[i] = strings.TrimSpace(labels[i])
+		}
+		// TODO: Compare with original to see if changed?
+		// For now always update if present in template?
+		// Actually, if simply re-saving unchanged list, it creates event.
+		// Ideally we check equality.
+		changed := false
+		if len(labels) != len(original.Labels) {
+			changed = true
+		} else {
+			// Compare content (order matters for simple equality check)
+			for i, l := range labels {
+				if l != original.Labels[i] {
+					changed = true
+					break
+				}
+			}
+		}
+
+		if changed {
+			payload.Labels = labels
 		}
 	}
 

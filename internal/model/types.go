@@ -26,11 +26,14 @@ type Event struct {
 }
 
 type CreatePayload struct {
-	Kind        string `json:"kind"` // "TASK", "EPIC", or "BUG"
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	ParentID    string `json:"parent_id,omitempty"`
-	Estimate    int    `json:"estimate,omitempty"`
+	Kind         string          `json:"kind"`
+	Title        string          `json:"title"`
+	Description  string          `json:"description,omitempty"`
+	ParentID     string          `json:"parent_id,omitempty"` // Kept for backward compat / convenience
+	Estimate     int             `json:"estimate,omitempty"`
+	Checklist    []ChecklistItem `json:"checklist,omitempty"`
+	Dependencies []Dependency    `json:"dependencies,omitempty"`
+	Labels       []string        `json:"labels,omitempty"`
 }
 
 type WorkLogPayload struct {
@@ -38,11 +41,17 @@ type WorkLogPayload struct {
 }
 
 type UpdatePayload struct {
-	Title       *string `json:"title,omitempty"`
-	Description *string `json:"description,omitempty"`
-	Status      *string `json:"status,omitempty"` // "BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"
-	ParentID    *string `json:"parent_id,omitempty"`
-	Estimate    *int    `json:"estimate,omitempty"`
+	Title        *string         `json:"title,omitempty"`
+	Description  *string         `json:"description,omitempty"`
+	Status       *string         `json:"status,omitempty"`
+	ParentID     *string         `json:"parent_id,omitempty"`
+	Estimate     *int            `json:"estimate,omitempty"`
+	Checklist    []ChecklistItem `json:"checklist,omitempty"`
+	Dependencies []Dependency    `json:"dependencies,omitempty"`
+	Labels       []string        `json:"labels,omitempty"`
+
+	// Deprecated fields, kept for parsing old events if needed,
+	// but generally we should migrate away from them.
 	BlockedBy   *string `json:"blocked_by,omitempty"`
 	BlockReason *string `json:"block_reason,omitempty"`
 }
@@ -58,19 +67,58 @@ const (
 )
 
 type Issue struct {
-	ID          string
-	Kind        string
-	Title       string
-	Description string
-	Status      IssueStatus
-	ParentID    string
-	Estimate    int
-	Burned      int
-	BlockedBy   string
-	BlockReason string
-	Deleted     bool
-	CreatedAt   time.Time
-	CreatedBy   string
-	UpdatedAt   time.Time
-	Events      []Event
+	ID           string
+	Kind         string
+	Title        string
+	Description  string
+	Status       IssueStatus
+	ParentID     string // Derived from Dependencies
+	Estimate     int
+	LoggedEffort int // Replaces Burned
+	Burned       int // Deprecated: use LoggedEffort
+	Locked       bool
+	Deleted      bool
+
+	// Derived / Compatibility Fields
+	BlockedBy   string // Derived from Dependencies
+	BlockReason string // Derived from Dependencies
+
+	// New Metadata
+	Checklist    []ChecklistItem
+	Dependencies []Dependency
+	Labels       []string
+
+	CreatedAt time.Time
+	CreatedBy string
+	UpdatedAt time.Time
+	Events    []Event
+}
+
+type ChecklistItem struct {
+	Title string `json:"title"`
+	State string `json:"state"` // "open", "done"
+}
+
+type DependencyKind string
+
+const (
+	DependencyBlocks       DependencyKind = "blocks"
+	DependencyBlockedBy    DependencyKind = "blocked_by"
+	DependencyPrecedes     DependencyKind = "precedes"
+	DependencyFollows      DependencyKind = "follows"
+	DependencyParent       DependencyKind = "parent"
+	DependencyChild        DependencyKind = "child"
+	DependencyRelatesTo    DependencyKind = "relates_to"
+	DependencyDuplicates   DependencyKind = "duplicates"
+	DependencyDuplicatedBy DependencyKind = "duplicated_by"
+	DependencyCauses       DependencyKind = "causes"
+	DependencyCausedBy     DependencyKind = "caused_by"
+	DependencyFixes        DependencyKind = "fixes"
+	DependencyFixedBy      DependencyKind = "fixed_by"
+)
+
+type Dependency struct {
+	SourceID string         `json:"source_id"`
+	TargetID string         `json:"target_id"`
+	Kind     DependencyKind `json:"kind"`
 }
