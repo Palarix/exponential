@@ -16,6 +16,7 @@ type Config struct {
 	Editor     string `mapstructure:"editor"`
 	AutoCommit bool   `mapstructure:"auto_commit"`
 	Style      Style  `mapstructure:"style"`
+	Version    int    `mapstructure:"version"` // Database version
 }
 
 type Style struct {

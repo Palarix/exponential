@@ -13,6 +13,7 @@ import (
 
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/ui"
+	"github.com/palarix/beats/internal/version"
 )
 
 var doctorCmd = &cobra.Command{
@@ -33,6 +34,22 @@ var doctorCmd = &cobra.Command{
 		}
 
 		fmt.Println("beats doctor - Checking configuration...")
+		fmt.Println()
+
+		// Check Data Model Version
+		if cfg != nil {
+			if cfg.Version < version.DataModelVersion {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Data Model Version mismatch (Project: v%d, CLI expects: v%d)\n", ui.ErrorPrefix, cfg.Version, version.DataModelVersion)))
+				fmt.Print(ui.Stylize("    Run `beats migrate` to update your project data model.\n"))
+			} else if cfg.Version > version.DataModelVersion {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Data Model Version mismatch (Project: v%d, CLI expects: v%d)\n", ui.ErrorPrefix, cfg.Version, version.DataModelVersion)))
+				fmt.Print(ui.Stylize("    Your CLI version is too old. Please upgrade beats.\n"))
+			} else {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Data Model Version matches (v%d)\n", ui.OKPrefix, cfg.Version)))
+			}
+		} else {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Could not verify Data Model Version (config not loaded)\n", ui.NotePrefix)))
+		}
 		fmt.Println()
 
 		// Check for git repo

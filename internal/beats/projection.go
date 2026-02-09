@@ -10,6 +10,7 @@ import (
 func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	issues := make(map[string]*model.Issue)
 
+	// Pass 1: Process Events
 	for _, evt := range events {
 		switch evt.Type {
 		case model.EventTypeCreate:
@@ -18,24 +19,47 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			var p model.CreatePayload
 			json.Unmarshal(payloadBytes, &p)
 
-			issues[evt.ID] = &model.Issue{
-				ID:          evt.ID,
-				Kind:        p.Kind,
-				Title:       p.Title,
-				Description: p.Description,
-				ParentID:    p.ParentID,
-				Estimate:    p.Estimate,
-				Status:      model.StatusBacklog, // Default
-				CreatedAt:   evt.CreatedAt,
-				CreatedBy:   evt.CreatedBy,
-				UpdatedAt:   evt.CreatedAt,
-				Events:      []model.Event{evt},
+			issue := &model.Issue{
+				ID:           evt.ID,
+				Kind:         p.Kind,
+				Title:        p.Title,
+				Description:  p.Description,
+				Estimate:     p.Estimate,
+				Status:       model.StatusBacklog, // Default
+				CreatedAt:    evt.CreatedAt,
+				CreatedBy:    evt.CreatedBy,
+				UpdatedAt:    evt.CreatedAt,
+				Events:       []model.Event{evt},
+				Checklist:    p.Checklist,
+				Dependencies: p.Dependencies,
+				Labels:       p.Labels,
 			}
+
+			// Backward Compatibility: ParentID from payload -> Dependency
+			if p.ParentID != "" {
+				// Deduplicate
+				exists := false
+				for _, d := range issue.Dependencies {
+					if d.Kind == model.DependencyChild && d.TargetID == p.ParentID {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					issue.Dependencies = append(issue.Dependencies, model.Dependency{
+						SourceID: issue.ID,
+						TargetID: p.ParentID,
+						Kind:     model.DependencyChild,
+					})
+				}
+			}
+
+			issues[evt.ID] = issue
 
 		case model.EventTypeUpdate:
 			issue, exists := issues[evt.ID]
 			if !exists {
-				continue // Should not happen if log is consistent
+				continue
 			}
 
 			payloadBytes, _ := json.Marshal(evt.Payload)
@@ -51,17 +75,52 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			if p.Status != nil {
 				issue.Status = model.IssueStatus(*p.Status)
 			}
-			if p.ParentID != nil {
-				issue.ParentID = *p.ParentID
-			}
 			if p.Estimate != nil {
 				issue.Estimate = *p.Estimate
 			}
-			if p.BlockedBy != nil {
-				issue.BlockedBy = *p.BlockedBy
+
+			// Lists are replaced if provided, logic could vary (merge vs replace)
+			// For now, assuming replace for simplicity and consistency with REST semantics
+			if p.Checklist != nil {
+				issue.Checklist = p.Checklist
 			}
+			if p.Dependencies != nil {
+				issue.Dependencies = p.Dependencies
+			}
+			if p.Labels != nil {
+				issue.Labels = p.Labels
+			}
+
+			// Backward Compatibility: Updates to ParentID, BlockedBy
+			if p.ParentID != nil {
+				// Deduplicate
+				exists := false
+				for _, d := range issue.Dependencies {
+					if d.Kind == model.DependencyChild && d.TargetID == *p.ParentID {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					issue.Dependencies = append(issue.Dependencies, model.Dependency{
+						SourceID: issue.ID,
+						TargetID: *p.ParentID,
+						Kind:     model.DependencyChild,
+					})
+				}
+			}
+			if p.BlockedBy != nil && *p.BlockedBy != "" {
+				issue.Dependencies = append(issue.Dependencies, model.Dependency{
+					SourceID: issue.ID,
+					TargetID: *p.BlockedBy,
+					Kind:     model.DependencyBlockedBy,
+				})
+			}
+			// BlockReason is just text, maybe attach to the dependency?
+			// Ignoring for now as it doesn't map cleanly to structure without ID.
+			// Ideally BlockReason should be part of the Dependency struct/metadata.
 			if p.BlockReason != nil {
-				issue.BlockReason = *p.BlockReason
+				issue.BlockReason = *p.BlockReason // Keep it on struct for now
 			}
 
 			issue.UpdatedAt = evt.CreatedAt
@@ -77,7 +136,8 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			var p model.WorkLogPayload
 			json.Unmarshal(payloadBytes, &p)
 
-			issue.Burned += p.Amount
+			issue.LoggedEffort += p.Amount
+			issue.Burned = issue.LoggedEffort // Sync deprecated field
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
 
@@ -93,14 +153,90 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 		}
 	}
 
-	// Filter out deleted issues
-	for id, issue := range issues {
+	// Filter out deleted issues explicitly before Pass 2?
+	// Or keep them for referential integrity?
+	// The original code filtered them at the end.
+	// Let's filter at the end, but check for deletion in loops.
+
+	// Pass 2: Derive State & Relationships
+	for _, issue := range issues {
 		if issue.Deleted {
-			delete(issues, id)
+			continue
+		}
+
+		// Derive ParentID & BlockedBy from Dependencies
+		for _, dep := range issue.Dependencies {
+			if dep.Kind == model.DependencyChild {
+				issue.ParentID = dep.TargetID
+			}
+			if dep.Kind == model.DependencyBlockedBy {
+				issue.BlockedBy = dep.TargetID // Simple "last one wins" for UI compat
+			}
 		}
 	}
 
-	return issues
+	// Pass 3: Derive Epic State (requires all children to be processed)
+	// We need to iterate again or do a graph traversal.
+	// Simple iteration over all issues is fine for now.
+	for _, issue := range issues {
+		if issue.Kind == "EPIC" && !issue.Deleted {
+			// Find children
+			var children []*model.Issue
+			for _, potentialChild := range issues {
+				if !potentialChild.Deleted && potentialChild.ParentID == issue.ID {
+					children = append(children, potentialChild)
+				}
+			}
+
+			if len(children) > 0 {
+				allDone := true
+				anyDoing := false
+				totalEstimate := 0
+
+				for _, child := range children {
+					totalEstimate += child.Estimate
+					if child.Status != model.StatusDone {
+						allDone = false
+					}
+					if child.Status == model.StatusDoing || child.Status == model.StatusPlanned {
+						anyDoing = true
+					}
+				}
+
+				issue.Estimate = totalEstimate
+
+				// State Derivation Logic:
+				// If manually set to DONE, keep it?
+				// Design doc says: "Epic status... is derived".
+				// "An Epic is IN PROGRESS if any child is PLANNED or DOING"
+				// "Only DONE when all children are DONE"
+
+				if allDone {
+					// We could auto-mark done, but doc says "prompt".
+					// However, for the "State" field on the struct, it should probably reflect reality.
+					// Let's make it DONE if all children are DONE.
+					issue.Status = model.StatusDone
+				} else if anyDoing {
+					issue.Status = model.StatusDoing
+				} else {
+					// If children exist but none are doing/done, likely Backlog/Planned
+					// We leave it as is (default or manually set) OR force to PLANNED?
+					// Let's leave it unless we want to enforce.
+					// A safe bet is: if any child is Doing, Epic is Doing.
+				}
+			}
+		}
+	}
+
+	// Filter out deleted issues
+	finalIssues := make(map[string]*model.Issue)
+	for id, issue := range issues {
+		if !issue.Deleted {
+			finalIssues[id] = issue
+		}
+	}
+
+	return finalIssues
 }
 
 func SortIssues(issues map[string]*model.Issue) []*model.Issue {
