@@ -227,3 +227,44 @@ func TestBlockingRules(t *testing.T) {
 		t.Errorf("Expected success when starting unblocked task, got error: %v", err)
 	}
 }
+
+func TestComments(t *testing.T) {
+	client := setupTestEnv(t)
+
+	// Create Issue
+	opts := AddOptions{Title: "Comment Issue", Kind: "TASK"}
+	issue, _ := client.AddIssue(opts)
+
+	// Add Comments
+	err := client.AddComment(issue.ID, "First comment")
+	if err != nil {
+		t.Fatalf("AddComment failed: %v", err)
+	}
+
+	err = client.AddComment(issue.ID, "Second comment")
+	if err != nil {
+		t.Fatalf("AddComment failed: %v", err)
+	}
+
+	// Verify
+	updated, err := client.GetIssue(issue.ID)
+	if err != nil {
+		t.Fatalf("GetIssue failed: %v", err)
+	}
+
+	if len(updated.Comments) != 2 {
+		t.Fatalf("Expected 2 comments, got %d", len(updated.Comments))
+	}
+
+	if updated.Comments[0].Text != "First comment" {
+		t.Errorf("First comment mismatch: %s", updated.Comments[0].Text)
+	}
+	if updated.Comments[1].Text != "Second comment" {
+		t.Errorf("Second comment mismatch: %s", updated.Comments[1].Text)
+	}
+
+	// Verify User
+	if updated.Comments[0].CreatedBy == "" {
+		t.Errorf("Comment user not set")
+	}
+}
