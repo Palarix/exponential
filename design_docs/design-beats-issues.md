@@ -3,6 +3,7 @@
 Beats is an opinionated issue tracking system. However, opinionated does not mean strict or rigid: beats aims to distill best practices from other issue tracking and project management tools that came before it (Jira, Trello, Linear, ...). Beats gaol is to offer a flexible enough work plane that supports the workflows of many different teams. However, beats is not a configure-everything one-tool-fits-all system like Jira.
 
 ## Issue Types
+
 Unlike other issue tracking systems that let users define any number of issue types, beats has a pre-determined set of issue types.
 
 - `EPIC` is a type of issue that contains children issues (cannot be epics). They are used to group related work together that would otherwise be too complex or lengthy for a single issue. The work in epics is intended to be completed together as a unit to deliver the intended functionality. Since epics are a container, they inherit state and metadata from their children if present.
@@ -16,19 +17,22 @@ Unlike other issue tracking systems that let users define any number of issue ty
 - `BUG` describes an error, problem or misbehaviour in the source code, program or supporting files that should be repaired. Bugs generally have precedence over other issue types when selecting the next piece of work to be worked on.
 
 ## Issue Metadata
+
 In addition to the issue `type`, issues in beats have various metadata attached to further describe the issue, their dependencies and state.
 
 All issues have the following mandatory metadata:
+
 - **ID**: a randomly generated, unique id for this issue. Consists of a project-specific prefix (e.g., `beats-`) and an nano-id component (e.g., `a7bzde`).
 - **Title**: a descriptive short summary of the issues in 80-120 characters
 
 Issues may have the following optional metadata:
+
 - **Description**: a longer explanation or description of the issue, written in Markdown
 - **Status**: a state flag describing the current lifecycle status of the issue, for example `BACKLOG`, `PLANNED`, `DOING`, `DONE` or `BLOCKED`.
 - **Checklist**: An array of checklist items of the shape `{t: "<title>", s: "<state>"}` , where the `state` can be one of `open`, `done`.
 - **Labels**: a comma-separated list of tags assigned to the issue.
 - **Estimate**: a story points estimate of the complexity or size of the issue
-- **Burned**: a record of story points logged against working on the issue
+- **LoggedEffort**: a record of story points logged against working on the issue
 - **Dependencies**: describe how issues relate to each other in the workflow. Stored as an array of `Dependency` objects with the shape `{s: "<id">, t: "<id>", k: "<kind>"}` where `s` denotes the dependency source, `t` the dependency target, and `k` the dependency kind.
 
 Issues of type `EPIC` are a special case, as they have both direct and inherited metadata. Users may initially set a story point estimate for the Epic. As child issues are added their sum of story point estimates is shown instead of the initial estimate stored on the epic. Similarly, the status of an Epic can be initially set, but a child issues are added and change state, the state of the epic is derived from its children.
@@ -38,6 +42,7 @@ An Epic should never be "Done" if any child is not "Done." An Epic automatically
 As soon as children are present, the Epic's status and story points are derived. An Epic is `IN PROGRESS` if any child is `PLANNED` or `DOING`, and is only `DONE` when all children are `DONE`.
 
 ### Dependencies
+
 - `blocks` / `blocked_by`: one issue must be completed before the other issue can start. This creates a hard stop where the "blocked" issue can not be moved to "doing" or "done" until the "blocker" issue is resolved.
 - `precedes` / `follows`: a softer version of "blocking", suggesting a logical sequence without necessary locking of state.
 - `parent` / `child`: a hierarchical relationship that allows to break down larger items (Epics) into smaller manageable pieces (Features, Tasks, Bugs, Stories). A parent cannot be marked "done" until all the children are closed.
@@ -47,7 +52,9 @@ As soon as children are present, the Epic's status and story points are derived.
 - `fixes` / `fixed_by`: used when one issue fixes another bug.
 
 ### Metadata Keys
+
 To keep file size minimal, metadata keys are the following:
+
 - `id` the story unique ID
 - `t` the story title
 - `d` the story description
@@ -59,14 +66,15 @@ To keep file size minimal, metadata keys are the following:
 - `dep` the Dependencies (`[{s: "...", t: "...", k: "..."}]`)
 
 ### Comments
-To foster collaboration in beats, users may comment on issues to provide additional context and information. Comments are recorded as events in the `issues.db` event stream and attached to the issue ordered temporally.
 
+To foster collaboration in beats, users may comment on issues to provide additional context and information. Comments are recorded as events in the `issues.db` event stream and attached to the issue ordered temporally.
 
 ## Work Modes
 
 Beats unlike previous issues tracking systems aims to be equally consumable and driven by humans and AI agents alike.
 
 For this purpose, beats offers three distinct experiences to interact with the beats system:
+
 1. a **browser-based** experience that is primarily meant to be consumed by non-technical humans
 2. an interactive, **TUI-based** terminal experience that is primarily meant to be consumed by technical humans
 3. a **CLI interface** that is primarily meant to be consumed by AI agents and automation scripts (but can be consumed by humans, too)
@@ -76,6 +84,7 @@ For this purpose, beats offers three distinct experiences to interact with the b
 By running the `beats board` command users can start a built-in web-server hosting a React app and a set of API endpoints.
 
 The browser-based experience is divided into four distinct work modes aimed at supporting different project stakeholders:
+
 - a Dashboard view,
 - a Backlog view,
 - a Board view,
@@ -96,6 +105,7 @@ The dashboard view aims at making summary statistics about the project available
 The backlog view aims at offering team leads and scrum masters an easy way to view and groom the backlog, prioritize work, add details to existing issues, update issues and create new issues, as well as working with epics.
 
 The backlog view divides the entirety of beats issues into 3 tables:
+
 1. The "Backlog" table contains all issues that have been added and have a `BACKLOG` state.
 2. The "Active" table contains all issues that have a `PLANNED`, `DOING` or `DONE` state.
 3. The "Archived" table contains all issues that have a `DONE` state and have been moved to the archive database. The "Archived" table is collapsed by default, with only the table header and a collapse icon button showing. Table headers show a count of issues in this table, for example: "Archived (14)".
