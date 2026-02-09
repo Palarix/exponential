@@ -150,6 +150,26 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			issue.Deleted = true
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
+
+		case model.EventTypeComment:
+			issue, exists := issues[evt.ID]
+			if !exists {
+				continue
+			}
+
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p model.CommentPayload
+			json.Unmarshal(payloadBytes, &p)
+
+			comment := model.Comment{
+				ID:        p.ID,
+				Text:      p.Text,
+				CreatedBy: evt.CreatedBy,
+				CreatedAt: evt.CreatedAt,
+			}
+			issue.Comments = append(issue.Comments, comment)
+			issue.UpdatedAt = evt.CreatedAt
+			issue.Events = append(issue.Events, evt)
 		}
 	}
 

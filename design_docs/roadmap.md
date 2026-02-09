@@ -9,7 +9,10 @@
 - [x] Refactor beats domain model: storage domain, issue types domain, business logic domain
 - [x] Refactor `BlockedBy` and `BlockReason` into more generic dependencies ('blocks','precedes','duplicates','fixes','parent',... )
 - [x] Encode `Epic` logic (data = sum of children if children exist, transition guards, ...) and enforce in flow
-- [ ] Add `comment` as an event type and support assembling a comments stream attached to issues
+- [x] Add `comment` as an event type and support assembling a comments stream attached to issues
+  - [x] Comment event (author `First Last <email@address.com>`, date, text: `markdown`)
+  - [x] A `comment` subcommand that takes the comment text (markdown) as input from the commandline / stdin
+  - [x] A `comments` subcommand that given a task ID prints the comment stream (ordered by date ascending)
 - [ ] Beats `boards` command that starts UI with
   - [ ] Dashboard view
   - [ ] Backlog view

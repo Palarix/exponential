@@ -11,6 +11,7 @@ const (
 	EventTypeUpdate  EventType = "UPDATE"
 	EventTypeWorkLog EventType = "WORK_LOG"
 	EventTypeDelete  EventType = "DELETE"
+	EventTypeComment EventType = "COMMENT"
 )
 
 type DeletePayload struct {
@@ -38,6 +39,18 @@ type CreatePayload struct {
 
 type WorkLogPayload struct {
 	Amount int `json:"amount"`
+}
+
+type CommentPayload struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+type Comment struct {
+	ID        string    `json:"id"`
+	Text      string    `json:"text"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type UpdatePayload struct {
@@ -92,6 +105,7 @@ type Issue struct {
 	CreatedBy string
 	UpdatedAt time.Time
 	Events    []Event
+	Comments  []Comment
 }
 
 type ChecklistItem struct {
