@@ -1,6 +1,6 @@
-# Beats Agent Instructions
+# Agent Instructions
 
-This repository uses `beats`, a local JSONL-based issue tracker, to manage development tasks. As an AI agent, you should use `beats` to understand the current state of the project, plan your work, and record new findings.
+This repository uses the `beats` issue tracker as the persistent project memory and to manage development tasks. As an AI agent, you should use `beats` to understand the current state of the project, plan your work, record new findings, and to document the rationale and work done to implement your tasks.
 
 ## Development Workflow
 
@@ -12,12 +12,13 @@ beats ls
 beats show <issue-id>
 
 # 2b. Create new entry if not exists
-beats add <title>
+beats add --label '<type>' <title>
 
 # 3. Set issue status to in progress
 beats start <issue-id>
 
 # 4. Make changes
+# ...
 
 # 5. Test changes
 go test ./...
@@ -30,87 +31,135 @@ beats comment <issue-id> "<summary>"
 beats done <issue-id>
 ```
 
-## Project Memory
+## Using `beats` to Organize Your Work
 
-`beats` serves as the persistent memory for the project.
+`beats` serves as the persistent memory and issue tracker for this project.
+
 - **Start** by reading the backlog to understand what needs to be done.
 - **Update** the status of tasks you are working on.
 - **Record** any new tasks or bugs you discover as new issues. Do not just fix them implicitly or leave them as TODO comments in code; create a tracked issue so it can be prioritized.
 - **Persist** your planning. If a task is too big, break it down into child tasks in `beats`.
+- **Organize** your work: use issues labeled as `epic` with sub-issues (`issues` with a `parent-id` set) to organize large chunks of work.
 
 ## Strict Workflow Rules
 
 1. **No "Ghost" Work**: Any work done by an agent MUST be backed by a beats task/bug/epic.
-2. **Missing Tasks**: If no such task exists for your current objective, you must create it.
-   - **Timing**: Create the task *after* the user approves your initial design/plan.
-3. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding beats task to `DOING` using `beats start`.
-4. **Completion**: You MUST set the beats task to `DONE` using `beats done` *only after* the user approves the final review/walkthrough. You MUST add a comment to the issue first that summarized your changes.
+2. **Only pick up planned work:** Do not pick up and start work on issues with the `BACKLOG` status. Issues must be `PLANNED` to be eligible for being worked on.
+3. **Missing Tasks**: If no issue exists for your current objective, you must create it first. Do this only _after_ the user approves your initial design/plan.
+4. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding beats task to `DOING` using `beats start`.
+5. **Completion**: You MUST set the beats task to `DONE` using `beats done` _only after_ the user approves the final review/walkthrough. You MUST add a comment to the issue first that summarized your changes.
 
 ## Agent Identity
-When performing actions that modify the tracker (add, update), ensure you are identified as an agent if possible, or use the execution environment's git config.
+
+When performing actions that modify the tracker (add, update), ensure you are identified as an agent if possible. For instance, if you are an `OpenCode Agent`, identify yourself as `OpenCode <agent@opencode.local>` - using the host machine name as part of the email address is highly encouraged so we can identify code contributed from different execution environments!
 
 ## Usage Guide
 
 ### 1. Discovery (Reading the State)
 
+- Before creating new issues, first ensure that there are no existing issues that already cover the same work (`beats ls`)
+- If an issue looks related, inspect issue details first (`beats show <id>`) to determine if its related
+- Only if no related issues exist, you may create a new issue in the project
+
+#### Examples:
+
 **List all issues:**
+
 ```bash
 ./beats list
 ```
+
 Use this to find your assigned task or pick the next prioritized item from the backlog.
 
 **Read a specific issue:**
+
 ```bash
 ./beats show <issue-id>
 ```
+
 Always read the full details of an issue before starting work. It may contain description, acceptance criteria, or context from previous agents.
 
 ### 2. Planning (Creating Issues)
 
+- Always add a label to new issues using the `--label <name>` option
+- When possible pick from the built-in labels ('bug', 'feature', 'epic') unless another label is more appropriate
+- Keep the title under 100 characters
+- You may use markdown for the description and are encouraged to do so. Markdown supports checklists (`- [ ] Title` format) you can use to further sub-divide the task steps.
+- When a new issue belongs conceptually to an Epic, add the corresponding epic as a parent to the new issue (`--parent <id>` option)
+
+#### Examples:
+
 **Create an Epic (High-level goal):**
+
 ```bash
-./beats add "Refactor Database Layer" --epic --desc "Move from SQLite to Postgres"
+./beats add --label "epic" "Refactor Database Layer" --desc 'Move from SQLite to Postgres'
 ```
 
 **Create a Task (Actionable item):**
+
 ```bash
-./beats add "Create Migration Script" -p <status-id-of-epic> --desc "Write SQL migration"
+./beats add --label "task" "Create Migration Script" -p <epic-id> --desc 'Write SQL migration'
 ```
 
 **Filing Bugs/Findings:**
 If you encounter a bug or necessary refactor while working on something else, file it immediately so it isn't lost.
+
 ```bash
-./beats add "Bug: Race condition in login" --desc "Observed when..."
+./beats add --label "bug" "Race condition in login" --desc 'Observed when...'
 ```
 
 ### 3. Execution (Updating Status)
 
+- Mark the issue as "in progress" by calling `beats start <id>` before starting your work and making code changes
+- Record any new tasks, issues or bugs discovered during your work as new issues using `beats add` (see above)
+- When new tasks, issue or bugs are created this way, link them to the currently worked on issue using the `dependencies` mechanism
+
+#### Examples:
+
 **Start a task:**
+
 ```bash
+# Mark the given issue-id as being in progress by starting work on that issue
 ./beats start <issue-id>
 ```
 
+**Update details:**
+
+```bash
+# Add a new comment to the given issue-id
+beats comment <issue-id> 'Updated description with new findings...'
+```
+
+**Add a dependency link between two issues**:
+
+```bash
+# Add a dependency of given type from some-id to other-id
+./beats link <some-id> <other-id> -t "<type>"
+```
+
+### 4. Completion (Finishing Work)
+
+- When work on your issue, task, or bug is complete, first add a summary of the changes together with your rationale for the changes as a comment using the `beats comment <id>` command.
+- Then mark the issue as completed using the `beats done <id>` command.
+
+#### Examples:
+
+**Add walkthrough:**
+
+```bash
+# Add a new comment to the given issue-id
+beats comment <issue-id> 'Summary of the changes and rationale followed'
+```
+
 **Mark as Done:**
+
 ```bash
 ./beats done <issue-id>
 ```
 
-**Update details:**
-```bash
-./beats update <issue-id> --desc "Updated description with new findings..."
-```
+## Building this project
 
-## Workflow Example for Agents
-
-1. **Context Check**: Run `./beats list` to see what is PLANNED or DOING.
-2. **Backing Task**: Ensure a task exists for your work.
-   - If yes: `beats start <id>`.
-   - If no: Plan your work, get approval, then `beats add "..."`, then `beats start <id>`.
-3. **Implementation**: Modify code, tests, docs.
-4. **Review**: Present walkthrough/results to user.
-5. **Completion**: On approval, `beats comment <id> <summary>` and `beats done <id>`.
-
-
-## Building the project
-
-Use the `make build` command to compile the `beats` binary.
+- Use the `make cli` command to compile the `beats` binary.
+- Use the `make frontend` command to compile the web application assets.
+- Use the `make build` command to build the CLI and embed the web application assets in the Go binary.
+- Use the `make test` command to execute the test suite
