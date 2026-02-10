@@ -12,6 +12,13 @@ import (
 
 // AddComment adds a comment to an issue.
 func (c *Client) AddComment(issueID, text string) error {
+	// Validate Issue Exists
+	issue, err := c.GetIssue(issueID)
+	if err != nil {
+		return err
+	}
+	issueID = issue.ID
+
 	// Generate Comment ID (unique)
 	commentID := fmt.Sprintf("cmt-%s", uuid.New().String())
 

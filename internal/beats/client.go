@@ -3,6 +3,7 @@ package beats
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
@@ -27,7 +28,7 @@ func NewClient(cfg *config.Config) *Client {
 	}
 }
 
-// GetIssue retrieves an issue by ID.
+// GetIssue retrieves an issue by ID, resolving short IDs if necessary.
 func (c *Client) GetIssue(id string) (*model.Issue, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {
@@ -35,11 +36,48 @@ func (c *Client) GetIssue(id string) (*model.Issue, error) {
 	}
 	issues := ProjectIssues(events)
 
-	issue, exists := issues[id]
-	if !exists {
-		return nil, fmt.Errorf("issue %s not found", id)
+	return c.resolveIssue(issues, id)
+}
+
+// resolveIssue attempts to find an issue by ID using exact match, prefix match, or short hash match.
+func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {
+	// 1. Exact Match
+	if issue, exists := issues[id]; exists {
+		return issue, nil
 	}
-	return issue, nil
+
+	// 2. Prefix Match (if configured)
+	if c.Config.Prefix != "" && !strings.HasPrefix(id, c.Config.Prefix) {
+		prefixedID := c.Config.Prefix + id
+		if issue, exists := issues[prefixedID]; exists {
+			return issue, nil
+		}
+	}
+
+	// 3. Short Hash Match (suffix)
+	// If the ID is a short hash (e.g. from git or nanoid), try to match likely candidates
+	var matches []*model.Issue
+	for _, issue := range issues {
+		// Check if the issue ID ends with the provided short ID
+		// or if the provided ID is a substring of the Issue ID (safer to check suffix for nanoid?)
+		// Nanoids are random, so suffix/prefix doesn't strictly matter like Git SHAs,
+		// but users might type the last few chars.
+		// Let's assume users might type the *unique* part.
+		// Since we use `prefix-nanoid`, checking if `issue.ID` contains `id` is a good start.
+
+		if strings.Contains(issue.ID, id) {
+			matches = append(matches, issue)
+		}
+	}
+
+	if len(matches) == 1 {
+		return matches[0], nil
+	} else if len(matches) > 1 {
+		// Ambiguous
+		return nil, fmt.Errorf("issue ID '%s' is ambiguous (matches %d issues)", id, len(matches))
+	}
+
+	return nil, fmt.Errorf("issue %s not found", id)
 }
 
 // FindIssue retrieves an issue by ID, checking the active store first, then the archive.
@@ -63,8 +101,8 @@ func (c *Client) FindIssue(id string) (*model.Issue, []*model.Issue, bool, error
 	}
 	issues := ProjectIssues(events)
 
-	if issue, exists := issues[id]; exists {
-		return issue, findChildren(id, issues), false, nil
+	if issue, err := c.resolveIssue(issues, id); err == nil {
+		return issue, findChildren(issue.ID, issues), false, nil
 	}
 
 	// 2. Check Archive
@@ -74,8 +112,8 @@ func (c *Client) FindIssue(id string) (*model.Issue, []*model.Issue, bool, error
 	}
 	archivedIssues := ProjectIssues(archivedEvents)
 
-	if issue, exists := archivedIssues[id]; exists {
-		return issue, findChildren(id, archivedIssues), true, nil
+	if issue, err := c.resolveIssue(archivedIssues, id); err == nil {
+		return issue, findChildren(issue.ID, archivedIssues), true, nil
 	}
 
 	return nil, nil, false, fmt.Errorf("issue %s not found", id)

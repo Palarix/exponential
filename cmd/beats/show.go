@@ -34,7 +34,7 @@ func showIssue(id string) {
 		termWidth = 100 // Fallback
 	}
 
-	ui.RenderIssueDetails(issue, children, archived, termWidth)
+	fmt.Println(ui.RenderIssueDetails(issue, children, archived, termWidth))
 }
 
 func init() {

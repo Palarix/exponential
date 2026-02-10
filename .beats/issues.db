@@ -8,3 +8,6 @@
 {"id":"beats-309b83","type":"CREATE","payload":{"title":"color labels with pre-defined rules for bug, feature, epic label names","labels":["feature"]},"created_at":"2026-02-10T10:28:54.601128Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beats-c9af49","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2026-02-10T10:34:16.719058Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beats-c9af49","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-02-10T10:49:44.990227Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-5a9503","type":"UPDATE","payload":{"status":"DOING"},"created_at":"2026-02-10T11:38:12.109118Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-5a9503","type":"COMMENT","payload":{"id":"cmt-004e28cd-9a93-4c55-bde9-0c0562ae93e8","text":"Fixed show command: it now prints output correctly. Also improved ID resolution to support short IDs and IDs without prefix across all commands. Verified with show, start, comment, and delete."},"created_at":"2026-02-10T11:44:05.561626Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-5a9503","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-02-10T11:44:07.457483Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
