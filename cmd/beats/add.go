@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -36,8 +37,8 @@ var addCmd = &cobra.Command{
 		} else {
 			fmt.Println("Interactive mode: Enter a title for the new issue.")
 			fmt.Print("> ")
-			var input string
-			fmt.Scanln(&input)
+			reader := bufio.NewReader(os.Stdin)
+			input, _ := reader.ReadString('\n')
 			title = strings.TrimSpace(input)
 		}
 
