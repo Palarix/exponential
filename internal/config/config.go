@@ -11,26 +11,26 @@ import (
 )
 
 type Config struct {
-	Prefix           string      `mapstructure:"prefix"`
-	User             string      `mapstructure:"user"`
-	Editor           string      `mapstructure:"editor"`
-	AutoCommit       bool        `mapstructure:"auto_commit"`
-	Style            Style       `mapstructure:"style"`
-	Version          int         `mapstructure:"version"`
-	EstimationSystem string      `mapstructure:"estimation_system"`
-	CountUnestimated bool        `mapstructure:"count_unestimated"`
-	Automations      Automations `mapstructure:"automations"`
+	Prefix           string      `mapstructure:"prefix" yaml:"prefix"`
+	User             string      `mapstructure:"user" yaml:"user"`
+	Editor           string      `mapstructure:"editor" yaml:"editor"`
+	AutoCommit       bool        `mapstructure:"auto_commit" yaml:"auto_commit"`
+	Style            Style       `mapstructure:"style" yaml:"style"`
+	Version          int         `mapstructure:"version" yaml:"version"`
+	EstimationSystem string      `mapstructure:"estimation_system" yaml:"estimation_system"`
+	CountUnestimated bool        `mapstructure:"count_unestimated" yaml:"count_unestimated"`
+	Automations      Automations `mapstructure:"automations" yaml:"automations"`
 }
 
 type Style struct {
-	Theme string `mapstructure:"theme"`
+	Theme string `mapstructure:"theme" yaml:"theme"`
 }
 
 type Automations struct {
-	AutoCompleteParent    bool `mapstructure:"auto_complete_parent"`
-	AutoCloseSubIssues    bool `mapstructure:"auto_close_sub_issues"`
-	AutoProgressSubIssues bool `mapstructure:"auto_progress_sub_issues"`
-	AutoProgressParent    bool `mapstructure:"auto_progress_parent"`
+	AutoCompleteParent    bool `mapstructure:"auto_complete_parent" yaml:"auto_complete_parent"`
+	AutoCloseSubIssues    bool `mapstructure:"auto_close_sub_issues" yaml:"auto_close_sub_issues"`
+	AutoProgressSubIssues bool `mapstructure:"auto_progress_sub_issues" yaml:"auto_progress_sub_issues"`
+	AutoProgressParent    bool `mapstructure:"auto_progress_parent" yaml:"auto_progress_parent"`
 }
 
 // Estimation system allowed values
