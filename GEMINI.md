@@ -5,17 +5,17 @@ This repository uses `beats`, a local JSONL-based issue tracker, to manage devel
 ## Development Workflow
 
 ```bash
-# 1. Check for existing tasks
+# 1. Check for existing tasks and discover issue-ids
 beats ls
 
 # 2a. Check task details if existing entry
-beats show <id>
+beats show <issue-id>
 
 # 2b. Create new entry if not exists
 beats add <title>
 
 # 3. Set issue status to in progress
-beats start <id>
+beats start <issue-id>
 
 # 4. Make changes
 
@@ -24,7 +24,7 @@ go test ./...
 go build ./...
 
 # 6. Set issue status to done
-beats done <id>
+beats done <issue-id>
 ```
 
 ## Project Memory

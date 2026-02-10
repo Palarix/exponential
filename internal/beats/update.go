@@ -20,10 +20,11 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 	}
 	issues := ProjectIssues(events)
 
-	targetIssue, exists := issues[id]
-	if !exists {
-		return nil, fmt.Errorf("issue %s not found", id)
+	targetIssue, err := c.resolveIssue(issues, id)
+	if err != nil {
+		return nil, err
 	}
+	id = targetIssue.ID // Use the resolved ID
 
 	user := c.GetUser()
 	timestamp := time.Now().UTC()

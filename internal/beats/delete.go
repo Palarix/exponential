@@ -18,9 +18,11 @@ func (c *Client) DeleteIssue(id string, reason string) error {
 	}
 	issues := ProjectIssues(events)
 
-	if _, exists := issues[id]; !exists {
-		return fmt.Errorf("issue %s not found", id)
+	targetIssue, err := c.resolveIssue(issues, id)
+	if err != nil {
+		return err
 	}
+	id = targetIssue.ID // Use resolved ID
 
 	user := c.GetUser()
 
