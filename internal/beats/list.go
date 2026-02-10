@@ -17,7 +17,9 @@ type FilterOptions struct {
 	Before   string
 	Match    string
 	Mine     bool
-	EpicID   string
+	ParentID string
+	Label    string
+	Assignee string
 	All      bool
 	Archived bool
 }
@@ -39,7 +41,7 @@ func (c *Client) ListIssues(opts FilterOptions) ([]*model.Issue, error) {
 	}
 
 	// 2. Project
-	issuesMap := ProjectIssues(events)
+	issuesMap := ProjectIssuesWithConfig(events, c.Config)
 	issues := SortIssues(issuesMap)
 
 	// 3. Filter
@@ -69,14 +71,16 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 		}
 	}
 
-	// Get Recent Done (needed for default visibility logic)
+	// Get Recent Done
 	recentDoneIDs := make(map[string]bool)
 	if !opts.All {
 		recentDoneIDs = ui.GetRecentDoneIDs(issues, 3)
 	}
 
 	matchQuery := strings.ToLower(opts.Match)
-	currentUser := c.GetUser() // Needed for Mine filter
+	labelQuery := strings.ToLower(opts.Label)
+	assigneeQuery := strings.ToLower(opts.Assignee)
+	currentUser := c.GetUser()
 
 	for _, i := range issues {
 		// Status Filter
@@ -94,17 +98,19 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 			continue
 		}
 
-		// Match Filter
+		// Match Filter (search across text fields)
 		if matchQuery != "" {
 			matchFound := false
 			fields := []string{
 				i.ID,
-				i.Kind,
 				string(i.Status),
 				i.Title,
 				i.ParentID,
 				i.CreatedBy,
+				i.Assignee,
 			}
+			// Also search labels
+			fields = append(fields, i.Labels...)
 			for _, f := range fields {
 				if strings.Contains(strings.ToLower(f), matchQuery) {
 					matchFound = true
@@ -119,7 +125,6 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 		// Mine Filter
 		if opts.Mine {
 			if !strings.Contains(i.CreatedBy, currentUser) && !strings.Contains(currentUser, i.CreatedBy) {
-				// Fallback: Check emails
 				userEmail := ui.ExtractEmail(currentUser)
 				issueEmail := ui.ExtractEmail(i.CreatedBy)
 				if userEmail == "" || issueEmail == "" || userEmail != issueEmail {
@@ -128,9 +133,30 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 			}
 		}
 
-		// Epic Filter
-		if opts.EpicID != "" {
-			if i.ParentID != opts.EpicID {
+		// Parent Filter
+		if opts.ParentID != "" {
+			if i.ParentID != opts.ParentID {
+				continue
+			}
+		}
+
+		// Label Filter
+		if labelQuery != "" {
+			labelFound := false
+			for _, l := range i.Labels {
+				if strings.Contains(strings.ToLower(l), labelQuery) {
+					labelFound = true
+					break
+				}
+			}
+			if !labelFound {
+				continue
+			}
+		}
+
+		// Assignee Filter
+		if assigneeQuery != "" {
+			if !strings.Contains(strings.ToLower(i.Assignee), assigneeQuery) {
 				continue
 			}
 		}
@@ -159,7 +185,6 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 
 // ParseTimeFilter parses a time string (duration or date) into a time.Time.
 func ParseTimeFilter(input string) (time.Time, error) {
-	// Handle custom suffixes for days (d) and weeks (w)
 	if len(input) > 1 {
 		lastChar := input[len(input)-1]
 		if lastChar == 'd' || lastChar == 'w' {
@@ -178,14 +203,11 @@ func ParseTimeFilter(input string) (time.Time, error) {
 		}
 	}
 
-	// Try parsing as standard duration (relative to now)
 	if d, err := time.ParseDuration(input); err == nil {
 		return time.Now().Add(-d), nil
 	}
-	// Try parsing as date
 	if t, err := time.Parse("2006-01-02", input); err == nil {
 		return t, nil
 	}
-	// Try RFC3339
 	return time.Parse(time.RFC3339, input)
 }

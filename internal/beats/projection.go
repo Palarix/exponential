@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sort"
 
+	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
 )
 
@@ -14,46 +15,25 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	for _, evt := range events {
 		switch evt.Type {
 		case model.EventTypeCreate:
-			// Unmarshal payload
 			payloadBytes, _ := json.Marshal(evt.Payload)
 			var p model.CreatePayload
 			json.Unmarshal(payloadBytes, &p)
 
 			issue := &model.Issue{
 				ID:           evt.ID,
-				Kind:         p.Kind,
 				Title:        p.Title,
 				Description:  p.Description,
+				ParentID:     p.ParentID,
 				Estimate:     p.Estimate,
-				Status:       model.StatusBacklog, // Default
+				Assignee:     p.Assignee,
+				Status:       model.StatusBacklog,
 				CreatedAt:    evt.CreatedAt,
 				CreatedBy:    evt.CreatedBy,
 				UpdatedAt:    evt.CreatedAt,
 				Events:       []model.Event{evt},
-				Checklist:    p.Checklist,
 				Dependencies: p.Dependencies,
 				Labels:       p.Labels,
 			}
-
-			// Backward Compatibility: ParentID from payload -> Dependency
-			if p.ParentID != "" {
-				// Deduplicate
-				exists := false
-				for _, d := range issue.Dependencies {
-					if d.Kind == model.DependencyChild && d.TargetID == p.ParentID {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					issue.Dependencies = append(issue.Dependencies, model.Dependency{
-						SourceID: issue.ID,
-						TargetID: p.ParentID,
-						Kind:     model.DependencyChild,
-					})
-				}
-			}
-
 			issues[evt.ID] = issue
 
 		case model.EventTypeUpdate:
@@ -78,11 +58,11 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			if p.Estimate != nil {
 				issue.Estimate = *p.Estimate
 			}
-
-			// Lists are replaced if provided, logic could vary (merge vs replace)
-			// For now, assuming replace for simplicity and consistency with REST semantics
-			if p.Checklist != nil {
-				issue.Checklist = p.Checklist
+			if p.ParentID != nil {
+				issue.ParentID = *p.ParentID
+			}
+			if p.Assignee != nil {
+				issue.Assignee = *p.Assignee
 			}
 			if p.Dependencies != nil {
 				issue.Dependencies = p.Dependencies
@@ -91,53 +71,6 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				issue.Labels = p.Labels
 			}
 
-			// Backward Compatibility: Updates to ParentID, BlockedBy
-			if p.ParentID != nil {
-				// Deduplicate
-				exists := false
-				for _, d := range issue.Dependencies {
-					if d.Kind == model.DependencyChild && d.TargetID == *p.ParentID {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					issue.Dependencies = append(issue.Dependencies, model.Dependency{
-						SourceID: issue.ID,
-						TargetID: *p.ParentID,
-						Kind:     model.DependencyChild,
-					})
-				}
-			}
-			if p.BlockedBy != nil && *p.BlockedBy != "" {
-				issue.Dependencies = append(issue.Dependencies, model.Dependency{
-					SourceID: issue.ID,
-					TargetID: *p.BlockedBy,
-					Kind:     model.DependencyBlockedBy,
-				})
-			}
-			// BlockReason is just text, maybe attach to the dependency?
-			// Ignoring for now as it doesn't map cleanly to structure without ID.
-			// Ideally BlockReason should be part of the Dependency struct/metadata.
-			if p.BlockReason != nil {
-				issue.BlockReason = *p.BlockReason // Keep it on struct for now
-			}
-
-			issue.UpdatedAt = evt.CreatedAt
-			issue.Events = append(issue.Events, evt)
-
-		case model.EventTypeWorkLog:
-			issue, exists := issues[evt.ID]
-			if !exists {
-				continue
-			}
-
-			payloadBytes, _ := json.Marshal(evt.Payload)
-			var p model.WorkLogPayload
-			json.Unmarshal(payloadBytes, &p)
-
-			issue.LoggedEffort += p.Amount
-			issue.Burned = issue.LoggedEffort // Sync deprecated field
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
 
@@ -146,7 +79,6 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			if !exists {
 				continue
 			}
-
 			issue.Deleted = true
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
@@ -173,81 +105,6 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 		}
 	}
 
-	// Filter out deleted issues explicitly before Pass 2?
-	// Or keep them for referential integrity?
-	// The original code filtered them at the end.
-	// Let's filter at the end, but check for deletion in loops.
-
-	// Pass 2: Derive State & Relationships
-	for _, issue := range issues {
-		if issue.Deleted {
-			continue
-		}
-
-		// Derive ParentID & BlockedBy from Dependencies
-		for _, dep := range issue.Dependencies {
-			if dep.Kind == model.DependencyChild {
-				issue.ParentID = dep.TargetID
-			}
-			if dep.Kind == model.DependencyBlockedBy {
-				issue.BlockedBy = dep.TargetID // Simple "last one wins" for UI compat
-			}
-		}
-	}
-
-	// Pass 3: Derive Epic State (requires all children to be processed)
-	// We need to iterate again or do a graph traversal.
-	// Simple iteration over all issues is fine for now.
-	for _, issue := range issues {
-		if issue.Kind == "EPIC" && !issue.Deleted {
-			// Find children
-			var children []*model.Issue
-			for _, potentialChild := range issues {
-				if !potentialChild.Deleted && potentialChild.ParentID == issue.ID {
-					children = append(children, potentialChild)
-				}
-			}
-
-			if len(children) > 0 {
-				allDone := true
-				anyDoing := false
-				totalEstimate := 0
-
-				for _, child := range children {
-					totalEstimate += child.Estimate
-					if child.Status != model.StatusDone {
-						allDone = false
-					}
-					if child.Status == model.StatusDoing || child.Status == model.StatusPlanned {
-						anyDoing = true
-					}
-				}
-
-				issue.Estimate = totalEstimate
-
-				// State Derivation Logic:
-				// If manually set to DONE, keep it?
-				// Design doc says: "Epic status... is derived".
-				// "An Epic is IN PROGRESS if any child is PLANNED or DOING"
-				// "Only DONE when all children are DONE"
-
-				if allDone {
-					// We could auto-mark done, but doc says "prompt".
-					// However, for the "State" field on the struct, it should probably reflect reality.
-					// Let's make it DONE if all children are DONE.
-					issue.Status = model.StatusDone
-				} else if anyDoing {
-					issue.Status = model.StatusDoing
-				} else {
-					// If children exist but none are doing/done, likely Backlog/Planned
-					// We leave it as is (default or manually set) OR force to PLANNED?
-					// Let's leave it unless we want to enforce.
-					// A safe bet is: if any child is Doing, Epic is Doing.
-				}
-			}
-		}
-	}
-
 	// Filter out deleted issues
 	finalIssues := make(map[string]*model.Issue)
 	for id, issue := range issues {
@@ -259,19 +116,109 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	return finalIssues
 }
 
+// ProjectIssuesWithConfig projects issues and applies config-driven automations.
+func ProjectIssuesWithConfig(events []model.Event, cfg *config.Config) map[string]*model.Issue {
+	issues := ProjectIssues(events)
+
+	if cfg == nil {
+		return issues
+	}
+
+	// Apply automations as derived state
+	applyAutomations(issues, cfg)
+
+	return issues
+}
+
+// applyAutomations applies config-driven automation rules as derived state.
+func applyAutomations(issues map[string]*model.Issue, cfg *config.Config) {
+	if cfg.Automations.AutoCompleteParent {
+		// Auto-complete parent when all children are done
+		for _, issue := range issues {
+			if issue.ParentID == "" {
+				continue
+			}
+			// Find parent
+			parent, ok := issues[issue.ParentID]
+			if !ok || parent.Status == model.StatusDone {
+				continue
+			}
+			// Check if all children of this parent are done
+			allDone := true
+			hasChildren := false
+			for _, child := range issues {
+				if child.ParentID == parent.ID {
+					hasChildren = true
+					if child.Status != model.StatusDone {
+						allDone = false
+						break
+					}
+				}
+			}
+			if hasChildren && allDone {
+				parent.Status = model.StatusDone
+			}
+		}
+	}
+
+	if cfg.Automations.AutoProgressParent {
+		// Auto-progress parent when a sub-issue is progressed
+		for _, issue := range issues {
+			if issue.ParentID == "" {
+				continue
+			}
+			parent, ok := issues[issue.ParentID]
+			if !ok {
+				continue
+			}
+			// If child is DOING/PLANNED and parent is BACKLOG, progress parent
+			if (issue.Status == model.StatusDoing || issue.Status == model.StatusPlanned) &&
+				parent.Status == model.StatusBacklog {
+				parent.Status = model.StatusPlanned
+			}
+			if issue.Status == model.StatusDoing && parent.Status == model.StatusPlanned {
+				parent.Status = model.StatusDoing
+			}
+		}
+	}
+
+	// Note: auto_close_sub_issues and auto_progress_sub_issues are applied at event-time
+	// in UpdateIssue, not at projection time, because they generate actual events.
+
+	// Aggregate parent estimates from children
+	for _, issue := range issues {
+		if issue.ParentID != "" {
+			continue // Only aggregate for potential parents
+		}
+		// Check if this issue has children
+		totalEstimate := 0
+		hasChildren := false
+		for _, child := range issues {
+			if child.ParentID == issue.ID {
+				hasChildren = true
+				est := child.Estimate
+				if est == 0 && cfg.CountUnestimated {
+					est = 1
+				}
+				totalEstimate += est
+			}
+		}
+		if hasChildren {
+			issue.Estimate = totalEstimate
+		}
+	}
+}
+
 func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 	// 1. Group issues by root
-	// Map: RootID -> List of Issues in that group
 	groups := make(map[string][]*model.Issue)
 
 	for _, i := range issues {
 		rootID := i.ID
 		if i.ParentID != "" {
-			// If parent exists in our map, use it as root
 			if _, ok := issues[i.ParentID]; ok {
 				rootID = i.ParentID
 			}
-			// If parent doesn't exist (orphan), treating as its own root for now
 		}
 		groups[rootID] = append(groups[rootID], i)
 	}
@@ -283,7 +230,6 @@ func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 	}
 
 	sort.Slice(roots, func(i, j int) bool {
-		// Sort groups by the Root Issue's CreatedAt (Chronological)
 		rootI := issues[roots[i]]
 		rootJ := issues[roots[j]]
 		return rootI.CreatedAt.Before(rootJ.CreatedAt)
@@ -294,12 +240,10 @@ func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 	for _, rootID := range roots {
 		groupIssues := groups[rootID]
 
-		// Sort within group: Parent first, then Children by CreatedAt
 		sort.Slice(groupIssues, func(i, j int) bool {
 			a := groupIssues[i]
 			b := groupIssues[j]
 
-			// Parent always comes first
 			if a.ID == rootID {
 				return true
 			}
@@ -307,7 +251,6 @@ func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 				return false
 			}
 
-			// Both are children, sort by CreatedAt
 			return a.CreatedAt.Before(b.CreatedAt)
 		})
 

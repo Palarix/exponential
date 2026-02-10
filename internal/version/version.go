@@ -1,8 +1,8 @@
 package version
 
 // CLIVersion is the current version of the beats CLI
-const CLIVersion = "0.2.0"
+const CLIVersion = "0.3.0"
 
 // DataModelVersion is the current version of the data model / config schema
-// v1: Introduced with Dependencies, Checklist, Labels
-const DataModelVersion = 1
+// v2: Simplified data model — single Issue type, labels, assignee, estimation systems, automations
+const DataModelVersion = 2

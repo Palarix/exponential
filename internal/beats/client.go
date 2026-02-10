@@ -2,11 +2,18 @@ package beats
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/storage"
 )
+
+// GitCommit stages and commits the issues.db file.
+func GitCommit(msg string) {
+	_ = exec.Command("git", "add", ".beats/issues.db").Run()
+	_ = exec.Command("git", "commit", "-m", msg).Run()
+}
 
 // Client manages the interaction with the beats issue tracker.
 type Client struct {

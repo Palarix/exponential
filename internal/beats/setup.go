@@ -38,7 +38,7 @@ func InitBeats(force bool) (*InitResult, error) {
 	prefix := sanitizePrefix(folderName) + "-"
 
 	configPath := filepath.Join(beatsDir, "config.yaml")
-	configContent := fmt.Sprintf("prefix: %s\nversion: 1\n", prefix)
+	configContent := fmt.Sprintf("prefix: %s\nversion: 2\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  auto_complete_parent: false\n  auto_close_sub_issues: false\n  auto_progress_sub_issues: false\n  auto_progress_parent: false\n", prefix)
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
 	} else {

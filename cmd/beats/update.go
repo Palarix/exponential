@@ -3,185 +3,217 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/ui"
 	"github.com/spf13/cobra"
 )
 
-// Update flags
+// --- Update Command ---
+
 var (
-	updateTitle    string
-	updateDesc     string
-	updateStatus   string
-	updateParent   string
-	updateEstimate int
+	updateStatusFlag   string
+	updateParentFlag   string
+	updateEstimateFlag int
+	updateLabelFlag    []string
+	updateAssigneeFlag string
+	updateDescFlag     string
 )
 
 var updateCmd = &cobra.Command{
 	Use:               "update [id]",
-	Short:             "Update an issue",
+	Short:             "Update an issue (flags or interactive editor)",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
+		client := beats.NewClient(cfg)
 
-		// Check if any flags provided
-		anyFlag := false
-		if cmd.Flags().Changed("title") {
-			anyFlag = true
-		}
-		if cmd.Flags().Changed("desc") {
-			anyFlag = true
-		}
-		if cmd.Flags().Changed("status") {
-			anyFlag = true
-		}
-		if cmd.Flags().Changed("parent") {
-			anyFlag = true
-		}
-		if cmd.Flags().Changed("sp") {
-			anyFlag = true
-		}
+		// Check if any flags were set
+		hasFlags := cmd.Flags().Changed("status") || cmd.Flags().Changed("parent") ||
+			cmd.Flags().Changed("sp") || cmd.Flags().Changed("desc") ||
+			cmd.Flags().Changed("label") || cmd.Flags().Changed("assignee")
 
-		if !anyFlag {
-			runInteractiveUpdate(id)
-			return
-		}
+		if hasFlags {
+			// Flag-based update
+			payload := model.UpdatePayload{}
 
-		// Construct payload from flags
-		payload := model.UpdatePayload{}
+			if cmd.Flags().Changed("status") {
+				payload.Status = &updateStatusFlag
+			}
+			if cmd.Flags().Changed("parent") {
+				payload.ParentID = &updateParentFlag
+			}
+			if cmd.Flags().Changed("sp") {
+				payload.Estimate = &updateEstimateFlag
+			}
+			if cmd.Flags().Changed("desc") {
+				payload.Description = &updateDescFlag
+			}
+			if cmd.Flags().Changed("label") {
+				payload.Labels = updateLabelFlag
+			}
+			if cmd.Flags().Changed("assignee") {
+				payload.Assignee = &updateAssigneeFlag
+			}
 
-		if cmd.Flags().Changed("title") {
-			payload.Title = &updateTitle
-		}
-		if cmd.Flags().Changed("desc") {
-			payload.Description = &updateDesc
-		}
-		if cmd.Flags().Changed("status") {
-			payload.Status = &updateStatus
-		}
-		if cmd.Flags().Changed("parent") {
-			payload.ParentID = &updateParent
-		}
-		if cmd.Flags().Changed("sp") {
-			payload.Estimate = &updateEstimate
-		}
+			msgs, err := client.UpdateIssue(id, payload, "update")
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			for _, msg := range msgs {
+				fmt.Println(msg)
+			}
+		} else {
+			// Interactive editor mode
+			issue, err := client.GetIssue(id)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
 
-		runUpdate(id, payload, "update")
+			template := beats.GenerateUpdateTemplate(issue)
+
+			// Write to temp file
+			tmpFile, err := os.CreateTemp("", "beats-edit-*.md")
+			if err != nil {
+				fmt.Printf("Error creating temp file: %v\n", err)
+				os.Exit(1)
+			}
+			defer os.Remove(tmpFile.Name())
+			tmpFile.WriteString(template)
+			tmpFile.Close()
+
+			// Open editor
+			editor := cfg.Editor
+			editorCmd := exec.Command(editor, tmpFile.Name())
+			editorCmd.Stdin = os.Stdin
+			editorCmd.Stdout = os.Stdout
+			editorCmd.Stderr = os.Stderr
+			if err := editorCmd.Run(); err != nil {
+				fmt.Printf("Error running editor: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Read edited content
+			editedContent, err := os.ReadFile(tmpFile.Name())
+			if err != nil {
+				fmt.Printf("Error reading edited file: %v\n", err)
+				os.Exit(1)
+			}
+
+			payload, err := beats.ParseUpdateContent(string(editedContent), issue)
+			if err != nil {
+				fmt.Printf("Error parsing: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Check for empty update
+			if payload.Title == nil && payload.Description == nil &&
+				payload.Status == nil && payload.Estimate == nil &&
+				payload.ParentID == nil && payload.Assignee == nil &&
+				payload.Labels == nil {
+				fmt.Println("No changes detected.")
+				return
+			}
+
+			msgs, err := client.UpdateIssue(id, *payload, "update")
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			for _, msg := range msgs {
+				fmt.Println(msg)
+			}
+		}
 	},
 }
 
-// Shortcuts
+// --- Shortcut Commands ---
+
 var startCmd = &cobra.Command{
 	Use:               "start [id]",
-	Short:             "Start working on an issue (Status: DOING)",
+	Short:             "Start working on an issue (set to DOING)",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
+		client := beats.NewClient(cfg)
 		status := string(model.StatusDoing)
 		payload := model.UpdatePayload{Status: &status}
-		runUpdate(args[0], payload, "start")
+		msgs, err := client.UpdateIssue(args[0], payload, "start")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		for _, msg := range msgs {
+			fmt.Println(msg)
+		}
 	},
 }
 
 var doneCmd = &cobra.Command{
 	Use:               "done [id]",
-	Short:             "Complete an issue (Status: DONE)",
+	Short:             "Mark an issue as DONE",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
+		client := beats.NewClient(cfg)
 		status := string(model.StatusDone)
 		payload := model.UpdatePayload{Status: &status}
-		runUpdate(args[0], payload, "done")
+		msgs, err := client.UpdateIssue(args[0], payload, "done")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		for _, msg := range msgs {
+			fmt.Println(msg)
+		}
 	},
 }
 
 var plannedCmd = &cobra.Command{
 	Use:               "planned [id]",
-	Short:             "Mark issue as PLANNED",
+	Short:             "Mark an issue as PLANNED",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
+		client := beats.NewClient(cfg)
 		status := string(model.StatusPlanned)
 		payload := model.UpdatePayload{Status: &status}
-		runUpdate(args[0], payload, "planned")
+		msgs, err := client.UpdateIssue(args[0], payload, "planned")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		for _, msg := range msgs {
+			fmt.Println(msg)
+		}
 	},
 }
 
-func runUpdate(id string, payload model.UpdatePayload, action string) {
-	client := beats.NewClient(cfg) // cfg global from main.go/init?
-
-	msgs, err := client.UpdateIssue(id, payload, action)
-	if err != nil {
-		fmt.Printf("Error updating issue: %v\n", err)
-		os.Exit(1)
-	}
-
-	for _, msg := range msgs {
-		fmt.Println(msg)
-	}
-}
-
-func runInteractiveUpdate(id string) {
-	client := beats.NewClient(cfg)
-
-	// 1. Get current issue
-	issue, err := client.GetIssue(id)
-	if err != nil {
-		fmt.Printf("Error getting issue: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 2. Generate Template
-	template := beats.GenerateUpdateTemplate(issue)
-
-	// 3. Open Editor
-	content, err := ui.EditInteractive(template)
-	if err != nil {
-		fmt.Printf("Error opening editor: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 4. Parse Content
-	payload, err := beats.ParseUpdateContent(content, issue)
-	if err != nil {
-		fmt.Printf("Error parsing content: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 5. Check if empty (no changes)
-	// Actually ParseUpdateContent returns pointer to payload.
-	// If fields are nil, no changes?
-	// The implementation checks changes against original and sets field only if changed.
-	// So if all fields are nil, then no changes.
-	if payload.Title == nil && payload.Description == nil && payload.Status == nil &&
-		payload.ParentID == nil && payload.Estimate == nil &&
-		payload.BlockedBy == nil && payload.BlockReason == nil {
-		fmt.Println("No changes detected.")
-		return
-	}
-
-	// 6. Run Update
-	// Note: dereference payload because runUpdate takes value? Or pointer?
-	// runUpdate below takes model.UpdatePayload (struct), but Parse returns *UpdatePayload.
-	// Let's defer to signature.
-	// internal/beats/update.go: UpdateIssue(..., payload model.UpdatePayload, ...)
-	// So we need to dereference: *payload.
-	runUpdate(id, *payload, "update")
-}
-
 func init() {
-	// Update flags
-	updateCmd.Flags().StringVar(&updateTitle, "title", "", "New title")
-	updateCmd.Flags().StringVar(&updateDesc, "desc", "", "New description")
-	updateCmd.Flags().StringVar(&updateStatus, "status", "", "New status")
-	updateCmd.Flags().StringVar(&updateParent, "parent", "", "New parent ID")
-	updateCmd.Flags().IntVar(&updateEstimate, "sp", 0, "New estimate")
+	updateCmd.Flags().StringVar(&updateStatusFlag, "status", "", "New status")
+	updateCmd.Flags().StringVarP(&updateParentFlag, "parent", "p", "", "Parent issue ID")
+	updateCmd.Flags().IntVar(&updateEstimateFlag, "sp", 0, "Story points")
+	updateCmd.Flags().StringVar(&updateDescFlag, "desc", "", "Description")
+	updateCmd.Flags().StringSliceVar(&updateLabelFlag, "label", nil, "Labels")
+	updateCmd.Flags().StringVar(&updateAssigneeFlag, "assignee", "", "Assignee")
 
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(doneCmd)
 	rootCmd.AddCommand(plannedCmd)
+}
+
+func joinNonEmpty(parts ...string) string {
+	var result []string
+	for _, p := range parts {
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return strings.Join(result, " ")
 }

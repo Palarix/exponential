@@ -14,10 +14,9 @@ import (
 type AddOptions struct {
 	Title        string
 	Description  string
-	Kind         string
 	ParentID     string
 	Estimate     int
-	Checklist    []model.ChecklistItem
+	Assignee     string
 	Dependencies []model.Dependency
 	Labels       []string
 }
@@ -40,12 +39,11 @@ func (c *Client) AddIssue(opts AddOptions) (*model.Issue, error) {
 	user := c.GetUser()
 
 	payload := model.CreatePayload{
-		Kind:         opts.Kind,
 		Title:        opts.Title,
 		Description:  opts.Description,
 		ParentID:     opts.ParentID,
 		Estimate:     opts.Estimate,
-		Checklist:    opts.Checklist,
+		Assignee:     opts.Assignee,
 		Dependencies: opts.Dependencies,
 		Labels:       opts.Labels,
 	}
@@ -63,28 +61,23 @@ func (c *Client) AddIssue(opts AddOptions) (*model.Issue, error) {
 	}
 
 	if c.Config.AutoCommit {
-		commitMsg := fmt.Sprintf("beats: create %s %s - %s", opts.Kind, id, opts.Title)
-		// We ignore errors here as it's a convenience feature, or should we log?
-		// Logic was: fmt.Printf("Error...")
+		commitMsg := fmt.Sprintf("beats: create %s - %s", id, opts.Title)
 		_ = exec.Command("git", "add", ".beats/issues.db").Run()
 		_ = exec.Command("git", "commit", "-m", commitMsg).Run()
 	}
 
-	// We need to return the Issue object.
-	// Since we just appended the event, we can construct the Issue manually or re-project.
-	// Re-projecting is expensive. Let's construct it.
 	issue := &model.Issue{
 		ID:           id,
-		Kind:         opts.Kind,
-		Status:       model.StatusBacklog, // Default
+		Status:       model.StatusBacklog,
 		Title:        opts.Title,
-		CreatedAt:    event.CreatedAt,
-		CreatedBy:    user,
+		Description:  opts.Description,
 		ParentID:     opts.ParentID,
 		Estimate:     opts.Estimate,
-		Checklist:    opts.Checklist,
+		Assignee:     opts.Assignee,
 		Dependencies: opts.Dependencies,
 		Labels:       opts.Labels,
+		CreatedAt:    event.CreatedAt,
+		CreatedBy:    user,
 	}
 	return issue, nil
 }

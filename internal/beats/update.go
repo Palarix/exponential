@@ -42,13 +42,11 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 	messages = append(messages, fmt.Sprintf("Updated %s", id))
 
 	// 3. Logic & Side Effects based on Status Change
-	// 3. Logic & Side Effects based on Status Change
 	if payload.Status != nil {
 		newStatus := model.IssueStatus(*payload.Status)
 
-		// --- Scenario: Start Task -> Check Blocking ---
+		// --- Check blocked_by dependencies before starting ---
 		if newStatus == model.StatusDoing {
-			// Check existing blockers
 			for _, dep := range targetIssue.Dependencies {
 				if dep.Kind == model.DependencyBlockedBy {
 					blocker, bExists := issues[dep.TargetID]
@@ -57,19 +55,10 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 					}
 				}
 			}
-			// Check new blocker from payload (compatibility)
-			if payload.BlockedBy != nil && *payload.BlockedBy != "" {
-				blocker, bExists := issues[*payload.BlockedBy]
-				if bExists && blocker.Status != model.StatusDone && !blocker.Deleted {
-					return nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
-				}
-			}
 		}
 
-		// --- Scenario: Manual Complete Epic -> Validation ---
-		if newStatus == model.StatusDone && targetIssue.Kind == "EPIC" {
-			// Check if this issue is a parent with incomplete children
-			// We need to look up children. The `issues` map contains all.
+		// --- Cannot complete parent with incomplete children (unless auto-close is on) ---
+		if newStatus == model.StatusDone && !c.Config.Automations.AutoCloseSubIssues {
 			hasIncompleteChildren := false
 			for _, child := range issues {
 				if child.ParentID == id && child.Status != model.StatusDone && !child.Deleted {
@@ -78,12 +67,65 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 				}
 			}
 			if hasIncompleteChildren {
-				return nil, fmt.Errorf("incorrect status: cannot complete epic %s because it has unfinished child tasks", id)
+				return nil, fmt.Errorf("cannot complete issue %s: it has unfinished sub-issues", id)
 			}
 		}
 
-		// Previous Auto-Start / Auto-Complete logic removed.
-		// Epic state is now derived on projection.
+		// --- Automation: auto-close sub-issues when parent is closed ---
+		if newStatus == model.StatusDone && c.Config.Automations.AutoCloseSubIssues {
+			for _, child := range issues {
+				if child.ParentID == id && child.Status != model.StatusDone && !child.Deleted {
+					childStatus := string(model.StatusDone)
+					childPayload := model.UpdatePayload{Status: &childStatus}
+					childEvent := model.Event{
+						ID:        child.ID,
+						Type:      model.EventTypeUpdate,
+						Payload:   childPayload,
+						CreatedAt: timestamp,
+						CreatedBy: user,
+					}
+					eventsToAppend = append(eventsToAppend, childEvent)
+					messages = append(messages, fmt.Sprintf("Auto-closed sub-issue %s", child.ID))
+				}
+			}
+		}
+
+		// --- Automation: auto-progress sub-issues when parent is progressed ---
+		if c.Config.Automations.AutoProgressSubIssues {
+			for _, child := range issues {
+				if child.ParentID != id || child.Deleted {
+					continue
+				}
+				// backlog -> todo: If parent moves to PLANNED, move BACKLOG children to PLANNED
+				if newStatus == model.StatusPlanned && child.Status == model.StatusBacklog {
+					childStatus := string(model.StatusPlanned)
+					childPayload := model.UpdatePayload{Status: &childStatus}
+					childEvent := model.Event{
+						ID:        child.ID,
+						Type:      model.EventTypeUpdate,
+						Payload:   childPayload,
+						CreatedAt: timestamp,
+						CreatedBy: user,
+					}
+					eventsToAppend = append(eventsToAppend, childEvent)
+					messages = append(messages, fmt.Sprintf("Auto-progressed sub-issue %s to PLANNED", child.ID))
+				}
+				// todo -> doing: If parent moves to DOING, move PLANNED children to DOING
+				if newStatus == model.StatusDoing && child.Status == model.StatusPlanned {
+					childStatus := string(model.StatusDoing)
+					childPayload := model.UpdatePayload{Status: &childStatus}
+					childEvent := model.Event{
+						ID:        child.ID,
+						Type:      model.EventTypeUpdate,
+						Payload:   childPayload,
+						CreatedAt: timestamp,
+						CreatedBy: user,
+					}
+					eventsToAppend = append(eventsToAppend, childEvent)
+					messages = append(messages, fmt.Sprintf("Auto-progressed sub-issue %s to DOING", child.ID))
+				}
+			}
+		}
 	}
 
 	// 4. Commit Changes
@@ -99,9 +141,6 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 		if len(eventsToAppend) > 1 {
 			commitMsg += " (with cascading updates)"
 		}
-		// We ignore error here but print if we could?
-		// Client logic usually shouldn't print. Maybe return warning or log?
-		// For now we just exec.
 		_ = exec.Command("git", "add", ".beats/issues.db").Run()
 		_ = exec.Command("git", "commit", "-m", commitMsg).Run()
 	}
@@ -110,16 +149,13 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 }
 
 // GenerateUpdateTemplate generates text content for editing an issue.
-// GenerateUpdateTemplate generates text content for editing an issue.
 func GenerateUpdateTemplate(i *model.Issue) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Title: %s\n", i.Title))
 	sb.WriteString(fmt.Sprintf("Status: %s\n", i.Status))
 	sb.WriteString(fmt.Sprintf("Parent: %s\n", i.ParentID))
 	sb.WriteString(fmt.Sprintf("Estimate: %d\n", i.Estimate))
-	sb.WriteString(fmt.Sprintf("Blocked By: %s\n", i.BlockedBy))
-	sb.WriteString(fmt.Sprintf("Block Reason: %s\n", i.BlockReason))
-	// Add new fields as comments or read-only for now
+	sb.WriteString(fmt.Sprintf("Assignee: %s\n", i.Assignee))
 	if len(i.Labels) > 0 {
 		sb.WriteString(fmt.Sprintf("Labels: %s\n", strings.Join(i.Labels, ", ")))
 	}
@@ -148,7 +184,6 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 		if line == "" {
 			continue
 		}
-		// Expect "Key: Value"
 		kp := strings.SplitN(line, ":", 2)
 		if len(kp) == 2 {
 			key := strings.TrimSpace(strings.ToLower(kp[0]))
@@ -159,7 +194,6 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 
 	payload := &model.UpdatePayload{}
 
-	// Map headers to payload
 	if val, ok := meta["title"]; ok {
 		if val != original.Title {
 			payload.Title = &val
@@ -168,7 +202,7 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 
 	if val, ok := meta["status"]; ok {
 		if val != string(original.Status) {
-			statusVal := val // Need addressable string
+			statusVal := val
 			payload.Status = &statusVal
 		}
 	}
@@ -186,33 +220,30 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 			}
 		}
 	}
-	if val, ok := meta["blocked by"]; ok {
-		if val != original.BlockedBy {
+	if val, ok := meta["assignee"]; ok {
+		if val != original.Assignee {
 			valCopy := val
-			payload.BlockedBy = &valCopy
-		}
-	}
-	if val, ok := meta["block reason"]; ok {
-		if val != original.BlockReason {
-			valCopy := val
-			payload.BlockReason = &valCopy
+			payload.Assignee = &valCopy
 		}
 	}
 	if val, ok := meta["labels"]; ok {
-		// Simple comma separated parser
 		labels := strings.Split(val, ",")
 		for i := range labels {
 			labels[i] = strings.TrimSpace(labels[i])
 		}
-		// TODO: Compare with original to see if changed?
-		// For now always update if present in template?
-		// Actually, if simply re-saving unchanged list, it creates event.
-		// Ideally we check equality.
+		// Filter out empty strings
+		var filtered []string
+		for _, l := range labels {
+			if l != "" {
+				filtered = append(filtered, l)
+			}
+		}
+		labels = filtered
+
 		changed := false
 		if len(labels) != len(original.Labels) {
 			changed = true
 		} else {
-			// Compare content (order matters for simple equality check)
 			for i, l := range labels {
 				if l != original.Labels[i] {
 					changed = true

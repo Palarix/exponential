@@ -11,11 +11,10 @@ frontend:
 	cp -r web/dist internal/server/static
 
 # Build the Go binary (depends on frontend)
-build: frontend
-	go build -o $(BINARY_NAME) ./cmd/beats
+build: cli frontend
 
 # Build Go binary only (skip frontend rebuild)
-build-go:
+cli:
 	go build -o $(BINARY_NAME) ./cmd/beats
 
 clean:
@@ -32,5 +31,5 @@ lint:
 	# Assuming staticcheck is installed, if not, user might need to install it
 	# staticcheck ./...
 
-install:
-	sudo cp beats /usr/local/bin
+install: cli
+	sudo cp ./beats /usr/local/bin/beats
