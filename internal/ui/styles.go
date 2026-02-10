@@ -13,7 +13,7 @@ import (
 // --- Color Constants ---
 var (
 	BacklogColor = lipgloss.Color("#6c757d") // Gray
-	PlannedColor = lipgloss.Color("#0d6efd") // Blue
+	PlannedColor = lipgloss.Color("#ffffff") // White
 	DoingColor   = lipgloss.Color("#198754") // Green
 	BlockedColor = lipgloss.Color("#dc3545") // Red
 	DoneColor    = lipgloss.Color("#adb5bd") // Light Gray
