@@ -1,5 +1,5 @@
 import type { Issue } from '../../api/client';
-import { Card, ProgressRing } from '../ui';
+import { Card, ProgressRing, StatusIcon } from '../ui';
 
 interface DashboardProps {
   issues: Issue[];
@@ -20,11 +20,11 @@ export default function Dashboard({ issues }: DashboardProps) {
   const completionRate = stats.total > 0 ? (stats.done / stats.total) * 100 : 0;
 
   const statusCards = [
-    { label: 'Backlog', value: stats.backlog, color: 'var(--color-status-backlog)' },
-    { label: 'Planned', value: stats.planned, color: 'var(--color-status-planned)' },
-    { label: 'In Progress', value: stats.doing, color: 'var(--color-status-doing)' },
-    { label: 'Blocked', value: stats.blocked, color: 'var(--color-status-blocked)' },
-    { label: 'Done', value: stats.done, color: 'var(--color-status-done)' },
+    { label: 'Backlog', status: 'BACKLOG', value: stats.backlog, color: 'var(--color-status-backlog)' },
+    { label: 'Planned', status: 'PLANNED', value: stats.planned, color: 'var(--color-status-planned)' },
+    { label: 'In Progress', status: 'DOING', value: stats.doing, color: 'var(--color-status-doing)' },
+    { label: 'Blocked', status: 'BLOCKED', value: stats.blocked, color: 'var(--color-status-blocked)' },
+    { label: 'Done', status: 'DONE', value: stats.done, color: 'var(--color-status-done)' },
   ];
 
 
@@ -98,7 +98,10 @@ export default function Dashboard({ issues }: DashboardProps) {
               interactive
               className="text-center"
             >
-              <p className="text-sm text-[var(--color-text-muted)] mb-1">{card.label}</p>
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <StatusIcon status={card.status} size={14} />
+                <p className="text-sm text-[var(--color-text-muted)]">{card.label}</p>
+              </div>
               <p
                 className="text-3xl font-bold"
                 style={{ color: card.color }}

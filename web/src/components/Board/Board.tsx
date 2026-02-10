@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Issue } from '../../api/client';
-import { Card, LabelBadge } from '../ui';
+import { Card, LabelBadge, StatusIcon } from '../ui';
 
 interface BoardProps {
   issues: Issue[];
@@ -9,10 +9,10 @@ interface BoardProps {
 }
 
 const COLUMNS = [
-  { id: 'PLANNED', label: 'Planned', color: 'var(--color-status-planned)', icon: '📋' },
-  { id: 'DOING', label: 'In Progress', color: 'var(--color-status-doing)', icon: '🔄' },
-  { id: 'BLOCKED', label: 'Blocked', color: 'var(--color-status-blocked)', icon: '🚫' },
-  { id: 'DONE', label: 'Done', color: 'var(--color-status-done)', icon: '✅' },
+  { id: 'PLANNED', label: 'Planned', color: 'var(--color-status-planned)' },
+  { id: 'DOING', label: 'In Progress', color: 'var(--color-status-doing)' },
+  { id: 'BLOCKED', label: 'Blocked', color: 'var(--color-status-blocked)' },
+  { id: 'DONE', label: 'Done', color: 'var(--color-status-done)' },
 ];
 
 export default function Board({ issues, onIssueClick }: BoardProps) {
@@ -59,6 +59,7 @@ export default function Board({ issues, onIssueClick }: BoardProps) {
                 }}
               >
                 <div className="flex items-center gap-2">
+                  <StatusIcon status={column.id} size={16} />
                   <span
                     className="font-semibold text-sm"
                     style={{ color: column.color }}
