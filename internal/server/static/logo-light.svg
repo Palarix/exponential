@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100px" height="100px" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>logo-light copy</title>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#0760DC" offset="0%"></stop>
+            <stop stop-color="#2C97EC" offset="100%"></stop>
+        </linearGradient>
+        <path d="M5.73073686,42.2885558 L53.2717433,42.2885558 L53.2717433,88.3529047 C67.9629812,88.3529047 63.6866725,88.3529047 40.4428172,88.3529047 C17.198962,88.3529047 5.6282685,72.9981217 5.73073686,42.2885558 Z" id="path-2"></path>
+        <filter x="-37.4%" y="-45.6%" width="174.9%" height="191.2%" filterUnits="objectBoundingBox" id="filter-3">
+            <feOffset dx="0" dy="0" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="7" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.117897727 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <path d="M21.8402681,29.1178513 L69.3812746,29.1178513 L69.3812746,75.1822002 C84.0725124,75.1822002 79.7962037,75.1822002 56.5523485,75.1822002 C33.3084932,75.1822002 21.7377997,59.8274172 21.8402681,29.1178513 Z" id="path-4"></path>
+        <filter x="-37.4%" y="-45.6%" width="174.9%" height="191.2%" filterUnits="objectBoundingBox" id="filter-5">
+            <feOffset dx="0" dy="0" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="7" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.117897727 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <path d="M39.6424359,14.3645169 L87.1834424,14.3645169 L87.1834424,60.4288657 C101.87468,60.4288657 97.5983715,60.4288657 74.3545163,60.4288657 C51.110661,60.4288657 39.5399675,45.0740828 39.6424359,14.3645169 Z" id="path-6"></path>
+        <filter x="-37.4%" y="-45.6%" width="174.9%" height="191.2%" filterUnits="objectBoundingBox" id="filter-7">
+            <feOffset dx="0" dy="0" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="7" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.117897727 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="logo-light-copy" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Rectangle-Copy-35" transform="translate(33.768043, 65.320730) scale(-1, 1) rotate(-270.000000) translate(-33.768043, -65.320730) ">
+            <use fill="black" fill-opacity="1" filter="url(#filter-3)" xlink:href="#path-2"></use>
+            <use fill="url(#linearGradient-1)" fill-rule="evenodd" xlink:href="#path-2"></use>
+        </g>
+        <g id="Rectangle-Copy-36" transform="translate(49.877574, 52.150026) scale(-1, 1) rotate(-270.000000) translate(-49.877574, -52.150026) ">
+            <use fill="black" fill-opacity="1" filter="url(#filter-5)" xlink:href="#path-4"></use>
+            <use fill="url(#linearGradient-1)" fill-rule="evenodd" xlink:href="#path-4"></use>
+        </g>
+        <g id="Rectangle-Copy-37" transform="translate(67.679742, 37.396691) scale(-1, 1) rotate(-270.000000) translate(-67.679742, -37.396691) ">
+            <use fill="black" fill-opacity="1" filter="url(#filter-7)" xlink:href="#path-6"></use>
+            <use fill="url(#linearGradient-1)" fill-rule="evenodd" xlink:href="#path-6"></use>
+        </g>
+    </g>
+</svg>

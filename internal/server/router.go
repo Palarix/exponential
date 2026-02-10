@@ -1,8 +1,12 @@
 package server
 
 import (
+	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 )
 
@@ -18,7 +22,25 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("POST /api/save", s.handleSave)
 	mux.HandleFunc("DELETE /api/pending", s.handleDiscardPending)
 
-	// Serve embedded static files
+	// Development mode: proxy all static requests to Vite dev server
+	if s.DevMode {
+		viteURL, err := url.Parse(fmt.Sprintf("http://localhost:%d", s.DevPort))
+		if err != nil {
+			log.Fatalf("Failed to parse Vite dev URL: %v", err)
+		}
+
+		proxy := httputil.NewSingleHostReverseProxy(viteURL)
+
+		log.Printf("Dev mode enabled: proxying static assets to http://localhost:%d", s.DevPort)
+
+		mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+
+		return mux
+	}
+
+	// Production mode: serve embedded static files
 	static, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		panic(err)
