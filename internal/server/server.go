@@ -18,15 +18,19 @@ import (
 type Server struct {
 	Config        *config.Config
 	Port          int
+	DevMode       bool
+	DevPort       int
 	pendingEvents []model.Event
 	mu            sync.RWMutex
 }
 
 // NewServer creates a new Server instance.
-func NewServer(cfg *config.Config, port int) *Server {
+func NewServer(cfg *config.Config, port int, devMode bool, devPort int) *Server {
 	return &Server{
 		Config:        cfg,
 		Port:          port,
+		DevMode:       devMode,
+		DevPort:       devPort,
 		pendingEvents: make([]model.Event, 0),
 	}
 }

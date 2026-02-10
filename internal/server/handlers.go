@@ -122,6 +122,13 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		payload = p
+	case model.EventTypeWorkLog:
+		var p model.WorkLogPayload
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid work_log payload")
+			return
+		}
+		payload = p
 	case model.EventTypeDelete:
 		var p model.DeletePayload
 		if err := json.Unmarshal(req.Payload, &p); err != nil {
