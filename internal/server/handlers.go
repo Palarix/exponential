@@ -2,52 +2,62 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/kuyio/beats/internal/beats"
+	"github.com/kuyio/beats/internal/config"
 	"github.com/kuyio/beats/internal/model"
+	"github.com/kuyio/beats/internal/storage"
 )
 
-// IssueResponse represents an issue in API responses.
+// --- Response Structures ---
+
 type IssueResponse struct {
-	ID           string                `json:"id"`
-	Kind         string                `json:"kind"`
-	Title        string                `json:"title"`
-	Description  string                `json:"description"`
-	Status       string                `json:"status"`
-	ParentID     string                `json:"parent_id,omitempty"`
-	Estimate     int                   `json:"estimate"`
-	LoggedEffort int                   `json:"logged_effort"`
-	Labels       []string              `json:"labels"`
-	Checklist    []model.ChecklistItem `json:"checklist,omitempty"`
-	Dependencies []model.Dependency    `json:"dependencies,omitempty"`
-	Comments     []model.Comment       `json:"comments,omitempty"`
-	CreatedAt    time.Time             `json:"created_at"`
-	UpdatedAt    time.Time             `json:"updated_at"`
-	IsPending    bool                  `json:"is_pending"` // True if issue has pending changes
+	ID           string               `json:"id"`
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	Status       string               `json:"status"`
+	ParentID     string               `json:"parent_id,omitempty"`
+	Estimate     int                  `json:"estimate"`
+	Assignee     string               `json:"assignee,omitempty"`
+	Labels       []string             `json:"labels,omitempty"`
+	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
+	Comments     []CommentResponse    `json:"comments,omitempty"`
+	CreatedAt    time.Time            `json:"created_at"`
+	CreatedBy    string               `json:"created_by"`
+	UpdatedAt    time.Time            `json:"updated_at"`
+	IsPending    bool                 `json:"is_pending"`
 }
 
-// PendingResponse represents the pending state.
+type DependencyResponse struct {
+	SourceID string `json:"source_id"`
+	TargetID string `json:"target_id"`
+	Kind     string `json:"kind"`
+}
+
+type CommentResponse struct {
+	ID        string    `json:"id"`
+	Text      string    `json:"text"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type PendingResponse struct {
-	Count  int           `json:"count"`
-	Events []model.Event `json:"events,omitempty"`
+	HasPending bool                `json:"has_pending"`
+	Events     []PendingEventEntry `json:"events"`
+	IssueIDs   []string            `json:"issue_ids"`
 }
 
-// SaveRequest represents a save/sync request.
-type SaveRequest struct {
-	CommitMessage string `json:"commit_message"`
+type PendingEventEntry struct {
+	IssueID   string    `json:"issue_id"`
+	Type      string    `json:"type"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
-// DraftRequest represents a draft event request.
-type DraftRequest struct {
-	IssueID string          `json:"issue_id"`
-	Type    model.EventType `json:"type"`
-	Payload json.RawMessage `json:"payload"`
-}
+// --- Handler Methods ---
 
-// handleGetIssues returns all issues.
 func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
@@ -55,19 +65,28 @@ func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to list and sort
-	sortedIssues := beats.SortIssues(issues)
+	sorted := beats.SortIssues(issues)
 
-	// Convert to response format
-	response := make([]IssueResponse, 0, len(sortedIssues))
-	for _, issue := range sortedIssues {
-		response = append(response, issueToResponse(issue))
+	// Get pending issue IDs
+	s.mu.RLock()
+	pendingIDs := make(map[string]bool)
+	for _, evt := range s.pendingEvents {
+		pendingIDs[evt.ID] = true
+	}
+	s.mu.RUnlock()
+
+	var response []IssueResponse
+	for _, issue := range sorted {
+		resp := issueToResponse(issue)
+		if pendingIDs[issue.ID] {
+			resp.IsPending = true
+		}
+		response = append(response, resp)
 	}
 
 	respondJSON(w, http.StatusOK, response)
 }
 
-// handleGetIssue returns a single issue by ID.
 func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -90,145 +109,146 @@ func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, issueToResponse(issue))
 }
 
-// handleDraft adds an event to the pending buffer.
 func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
-	var req DraftRequest
+	var req struct {
+		IssueID string          `json:"issue_id"`
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request body")
+		respondError(w, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
-	// Parse payload based on event type
+	user := getUser(s.Config)
+
 	var payload interface{}
-	switch req.Type {
-	case model.EventTypeCreate:
-		var p model.CreatePayload
-		if err := json.Unmarshal(req.Payload, &p); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid create payload")
-			return
-		}
-		payload = p
+	switch model.EventType(req.Type) {
 	case model.EventTypeUpdate:
 		var p model.UpdatePayload
-		if err := json.Unmarshal(req.Payload, &p); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid update payload")
-			return
-		}
+		json.Unmarshal(req.Payload, &p)
 		payload = p
 	case model.EventTypeComment:
 		var p model.CommentPayload
-		if err := json.Unmarshal(req.Payload, &p); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid comment payload")
-			return
-		}
-		payload = p
-	case model.EventTypeWorkLog:
-		var p model.WorkLogPayload
-		if err := json.Unmarshal(req.Payload, &p); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid work_log payload")
-			return
-		}
+		json.Unmarshal(req.Payload, &p)
 		payload = p
 	case model.EventTypeDelete:
 		var p model.DeletePayload
-		if err := json.Unmarshal(req.Payload, &p); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid delete payload")
-			return
-		}
+		json.Unmarshal(req.Payload, &p)
 		payload = p
 	default:
-		respondError(w, http.StatusBadRequest, "unsupported event type")
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Unknown event type: %s", req.Type))
 		return
 	}
 
-	// Generate ID for create events
-	eventID := req.IssueID
-	if req.Type == model.EventTypeCreate {
-		eventID = "beats-" + uuid.New().String()[:6]
-	}
-
-	// Get user from config
-	client := beats.NewClient(s.Config)
-	user := client.GetUser()
-
 	evt := model.Event{
-		ID:        eventID,
-		Type:      req.Type,
+		ID:        req.IssueID,
+		Type:      model.EventType(req.Type),
 		Payload:   payload,
 		CreatedAt: time.Now().UTC(),
 		CreatedBy: user,
 	}
 
 	s.AddPendingEvent(evt)
-
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"success":  true,
-		"event_id": eventID,
-		"pending":  s.GetPendingCount(),
-	})
+	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleGetPending returns the pending events state.
 func (s *Server) handleGetPending(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	pending := s.pendingEvents
+	s.mu.RUnlock()
 
-	respondJSON(w, http.StatusOK, PendingResponse{
-		Count:  len(s.pendingEvents),
-		Events: s.pendingEvents,
-	})
-}
-
-// handleSave persists pending events and optionally commits to git.
-func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
-	var req SaveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Default commit message if none provided
-		req.CommitMessage = time.Now().Format("Update 2006-01-02 15:04")
+	resp := PendingResponse{
+		HasPending: len(pending) > 0,
 	}
 
-	if err := s.SaveAndSync(req.CommitMessage); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+	issueIDSet := make(map[string]bool)
+	for _, evt := range pending {
+		resp.Events = append(resp.Events, PendingEventEntry{
+			IssueID:   evt.ID,
+			Type:      string(evt.Type),
+			CreatedAt: evt.CreatedAt,
+		})
+		issueIDSet[evt.ID] = true
+	}
+	for id := range issueIDSet {
+		resp.IssueIDs = append(resp.IssueIDs, id)
+	}
+
+	respondJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	pending := s.pendingEvents
+	s.mu.Unlock()
+
+	if len(pending) == 0 {
+		respondJSON(w, http.StatusOK, map[string]string{"status": "no_changes"})
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Changes saved",
-	})
-}
+	for _, evt := range pending {
+		if err := storage.AppendEvent(evt); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			return
+		}
+	}
 
-// handleDiscardPending clears all pending events.
-func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
 	s.DiscardPending()
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Pending changes discarded",
-	})
+	if s.Config.AutoCommit {
+		beats.GitCommit("beats: web UI batch save")
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "saved", "count": fmt.Sprintf("%d", len(pending))})
 }
 
-// issueToResponse converts a model.Issue to an IssueResponse.
+func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
+	s.DiscardPending()
+	respondJSON(w, http.StatusOK, map[string]string{"status": "discarded"})
+}
+
+// --- Helpers ---
+
 func issueToResponse(issue *model.Issue) IssueResponse {
-	labels := issue.Labels
-	if labels == nil {
-		labels = []string{}
+	resp := IssueResponse{
+		ID:          issue.ID,
+		Title:       issue.Title,
+		Description: issue.Description,
+		Status:      string(issue.Status),
+		ParentID:    issue.ParentID,
+		Estimate:    issue.Estimate,
+		Assignee:    issue.Assignee,
+		Labels:      issue.Labels,
+		CreatedAt:   issue.CreatedAt,
+		CreatedBy:   issue.CreatedBy,
+		UpdatedAt:   issue.UpdatedAt,
 	}
 
-	return IssueResponse{
-		ID:           issue.ID,
-		Kind:         issue.Kind,
-		Title:        issue.Title,
-		Description:  issue.Description,
-		Status:       string(issue.Status),
-		ParentID:     issue.ParentID,
-		Estimate:     issue.Estimate,
-		LoggedEffort: issue.LoggedEffort,
-		Labels:       labels,
-		Checklist:    issue.Checklist,
-		Dependencies: issue.Dependencies,
-		Comments:     issue.Comments,
-		CreatedAt:    issue.CreatedAt,
-		UpdatedAt:    issue.UpdatedAt,
+	for _, dep := range issue.Dependencies {
+		resp.Dependencies = append(resp.Dependencies, DependencyResponse{
+			SourceID: dep.SourceID,
+			TargetID: dep.TargetID,
+			Kind:     string(dep.Kind),
+		})
 	}
+
+	for _, c := range issue.Comments {
+		resp.Comments = append(resp.Comments, CommentResponse{
+			ID:        c.ID,
+			Text:      c.Text,
+			CreatedBy: c.CreatedBy,
+			CreatedAt: c.CreatedAt,
+		})
+	}
+
+	return resp
+}
+
+func getUser(cfg *config.Config) string {
+	if cfg != nil && cfg.User != "" {
+		return cfg.User
+	}
+	return "Web User <web@beats>"
 }

@@ -1,159 +1,208 @@
 package ui
 
 import (
+	"crypto/md5"
 	"fmt"
-	"regexp"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kuyio/beats/internal/model"
+	"golang.org/x/term"
 )
 
-// Base Styles
+// --- Color Constants ---
 var (
-	baseStyle = lipgloss.NewStyle().Padding(0, 1)
+	BacklogColor = lipgloss.Color("#6c757d") // Gray
+	PlannedColor = lipgloss.Color("#0d6efd") // Blue
+	DoingColor   = lipgloss.Color("#198754") // Green
+	BlockedColor = lipgloss.Color("#dc3545") // Red
+	DoneColor    = lipgloss.Color("#adb5bd") // Light Gray
 
-	// Status Colors (Adaptive)
-	StatusBacklogColor = lipgloss.AdaptiveColor{Light: "#AAAAAA", Dark: "#626262"}
-	StatusPlannedColor = lipgloss.AdaptiveColor{Light: "#8B4513", Dark: "#A0522D"} // Brownish
-	StatusDoingColor   = lipgloss.AdaptiveColor{Light: "#1524ffff", Dark: "#337effff"}
-	StatusBlockedColor = lipgloss.AdaptiveColor{Light: "#b30000ff", Dark: "#ff0000ff"}
-	StatusDoneColor    = lipgloss.AdaptiveColor{Light: "#009938ff", Dark: "#00cb55ff"}
-
-	// Type Colors
-	BugColor     = lipgloss.Color("196")
-	EpicColor    = lipgloss.Color("99")
-	FeatureColor = lipgloss.Color("39")
-	DefaultColor = lipgloss.Color("255")
+	AccentColor = lipgloss.Color("#6f42c1") // Purple
+	MutedColor  = lipgloss.Color("#6c757d") // Gray
+	WhiteColor  = lipgloss.Color("#ffffff")
 )
 
-// StatusIcons maps issue status to display icon
-var statusIcons = map[model.IssueStatus]string{
-	model.StatusBacklog: "•",
-	model.StatusPlanned: "●",
-	model.StatusDoing:   "⋯",
-	model.StatusBlocked: "x",
-	model.StatusDone:    "✓",
+// --- Predefined Label Colors ---
+var labelColors = []lipgloss.Color{
+	lipgloss.Color("#e91e63"), // Pink
+	lipgloss.Color("#9c27b0"), // Purple
+	lipgloss.Color("#673ab7"), // Deep Purple
+	lipgloss.Color("#3f51b5"), // Indigo
+	lipgloss.Color("#2196f3"), // Blue
+	lipgloss.Color("#009688"), // Teal
+	lipgloss.Color("#4caf50"), // Green
+	lipgloss.Color("#ff9800"), // Orange
+	lipgloss.Color("#ff5722"), // Deep Orange
+	lipgloss.Color("#795548"), // Brown
 }
 
-// StatusIcon returns the icon for a given status
-func StatusIcon(status model.IssueStatus) string {
-	if icon, ok := statusIcons[status]; ok {
-		return icon
-	}
-	return "•"
-}
+// --- Base Styles ---
+var (
+	WhiteStyle  = lipgloss.NewStyle().Foreground(WhiteColor)
+	AccentStyle = lipgloss.NewStyle().Foreground(AccentColor)
+	MutedStyle  = lipgloss.NewStyle().Foreground(MutedColor)
+	BoldStyle   = lipgloss.NewStyle().Bold(true)
+)
 
-// StatusStyle returns the style for a given status
+// StatusStyle returns the style for a given status.
 func StatusStyle(status model.IssueStatus) lipgloss.Style {
-	var c lipgloss.TerminalColor
 	switch status {
 	case model.StatusBacklog:
-		c = StatusBacklogColor
+		return lipgloss.NewStyle().Foreground(BacklogColor)
 	case model.StatusPlanned:
-		// Planned was Color("67") in one place and gray in another.
-		// Let's pick a distinct color. In old code:
-		// StatusIconsStr: PLANNED -> ●
-		// StatusStylesStr: PLANNED -> Color("67") (blueish)
-		// StatusStyles: PLANNED -> Gray
-		// Let's go with Blueish/Cyan distinct from Backlog. 67 is SteelBlue.
-		c = lipgloss.Color("67")
+		return lipgloss.NewStyle().Foreground(PlannedColor)
 	case model.StatusDoing:
-		c = StatusDoingColor
+		return lipgloss.NewStyle().Foreground(DoingColor).Bold(true)
 	case model.StatusBlocked:
-		c = StatusBlockedColor
+		return lipgloss.NewStyle().Foreground(BlockedColor).Bold(true)
 	case model.StatusDone:
-		c = StatusDoneColor
+		return lipgloss.NewStyle().Foreground(DoneColor).Strikethrough(true)
 	default:
-		c = StatusBacklogColor
+		return lipgloss.NewStyle()
 	}
-	return lipgloss.NewStyle().Foreground(c)
 }
 
-// Type styles
-var (
-	RedStyle    = lipgloss.NewStyle().Foreground(BugColor).Bold(true)
-	BlueStyle   = lipgloss.NewStyle().Foreground(FeatureColor).Bold(true)
-	PurpleStyle = lipgloss.NewStyle().Foreground(EpicColor).Bold(true)
-	WhiteStyle  = lipgloss.NewStyle().Foreground(DefaultColor)
-	GreenStyle  = lipgloss.NewStyle().Foreground(StatusDoneColor).Bold(true)
-	YellowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Bold(true)
-	CodeStyle   = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#ea1188ff", Dark: "#ea1188ff"})
-	StrikeStyle = lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("240")) // Darker gray for done items
+// StatusIcon returns the icon for a given status.
+func StatusIcon(status model.IssueStatus) string {
+	switch status {
+	case model.StatusBacklog:
+		return "󱥸"
+	case model.StatusPlanned:
+		return "○"
+	case model.StatusDoing:
+		return "●"
+	case model.StatusBlocked:
+		return "⊘"
+	case model.StatusDone:
+		return "✓"
+	default:
+		return " "
+	}
+}
 
-	// Shared prefixes
-	OKPrefix    = GreenStyle.Render("[✔]")
-	ErrorPrefix = RedStyle.Render("[x]")
-	NotePrefix  = YellowStyle.Render("[!]")
+// LabelColor returns a consistent color for a label based on its name hash.
+func LabelColor(label string) lipgloss.Color {
+	h := md5.Sum([]byte(label))
+	idx := int(h[0]) % len(labelColors)
+	return labelColors[idx]
+}
+
+// FormatLabels renders a list of labels as styled tags.
+func FormatLabels(labels []string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, l := range labels {
+		color := LabelColor(l)
+		style := lipgloss.NewStyle().Foreground(color)
+		parts = append(parts, style.Render(l))
+	}
+	return strings.Join(parts, " ")
+}
+
+// FormatLabelsBadge renders a list of labels as [label] badges.
+func FormatLabelsBadge(labels []string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, l := range labels {
+		color := LabelColor(l)
+		style := lipgloss.NewStyle().Foreground(color)
+		parts = append(parts, style.Render("["+l+"]"))
+	}
+	return strings.Join(parts, " ")
+}
+
+// --- Table helpers ---
+
+// WarningStyle is used for warning messages.
+var WarningStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffc107")).Bold(true)
+
+// RenderCell renders a table cell padded to a given width.
+func RenderCell(content string, width int, style lipgloss.Style) string {
+	rendered := style.Render(content)
+	visibleLen := lipgloss.Width(rendered)
+	padding := width - visibleLen
+	if padding > 0 {
+		return rendered + strings.Repeat(" ", padding)
+	}
+	return rendered
+}
+
+// Truncate truncates a string to a given width.
+func Truncate(s string, maxWidth int) string {
+	if len(s) <= maxWidth {
+		return s
+	}
+	if maxWidth <= 3 {
+		return s[:maxWidth]
+	}
+	return s[:maxWidth-3] + "..."
+}
+
+// ExtractEmail extracts the email from a "Name <email>" formatted string.
+func ExtractEmail(user string) string {
+	start := strings.Index(user, "<")
+	end := strings.Index(user, ">")
+	if start >= 0 && end > start {
+		return user[start+1 : end]
+	}
+	return ""
+}
+
+// ExtractName extracts the name from a "Name <email>" formatted string.
+func ExtractName(user string) string {
+	idx := strings.Index(user, "<")
+	if idx > 0 {
+		return strings.TrimSpace(user[:idx])
+	}
+	return user
+}
+
+// TerminalWidth returns the current terminal width with a default fallback.
+func TerminalWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width <= 0 {
+		width = 80
+	}
+	return width
+}
+
+// ScreenWidth is an alias for TerminalWidth.
+func ScreenWidth() int {
+	return TerminalWidth()
+}
+
+// FormatID formats an issue ID for display.
+func FormatID(id string, maxWidth int) string {
+	return Truncate(id, maxWidth)
+}
+
+// Indent returns a string with the given indentation level.
+func Indent(level int) string {
+	return strings.Repeat("  ", level)
+}
+
+// RenderHeader renders a section header.
+func RenderHeader(title string) string {
+	return fmt.Sprintf("\n%s\n%s\n",
+		BoldStyle.Render(title),
+		MutedStyle.Render(strings.Repeat("─", lipgloss.Width(title))))
+}
+
+// --- Doctor UI Helpers ---
+
+var (
+	ErrorPrefix = "✗"
+	OKPrefix    = "✓"
+	NotePrefix  = "ℹ"
 )
 
-// TypeStyle returns the appropriate style for an issue kind
-func TypeStyle(kind string) lipgloss.Style {
-	switch kind {
-	case "BUG":
-		return RedStyle
-	case "EPIC":
-		return PurpleStyle
-	case "FEATURE":
-		return BlueStyle
-	default:
-		return WhiteStyle
-	}
-}
-
-// FormatKindTag returns an abbreviated type tag like [T], [E], [B]
-func FormatKindTag(kind string) string {
-	if len(kind) > 0 {
-		return fmt.Sprintf("[%c]", kind[0])
-	}
-	return ""
-}
-
-// RenderCell renders a cell with truncation and padding
-func RenderCell(content string, style lipgloss.Style, width int) string {
-	// Calculate max content width (width - 2 for padding)
-	maxW := width - 2
-	if maxW < 0 {
-		maxW = 0
-	}
-
-	// Truncate if necessary (rune-based)
-	runes := []rune(content)
-	if len(runes) > maxW {
-		content = string(runes[:maxW-1]) + "…"
-	}
-
-	return style.Width(width).Padding(0, 1).Render(content)
-}
-
-// ExtractEmail extracts email from a "Name <email>" format string
-func ExtractEmail(s string) string {
-	start := strings.Index(s, "<")
-	end := strings.LastIndex(s, ">")
-	if start != -1 && end != -1 && start < end {
-		return s[start+1 : end]
-	}
-	return ""
-}
-
-// FormatByString extracts a display-friendly name from CreatedBy field
-func FormatByString(createdBy string) string {
-	if start := strings.Index(createdBy, "<"); start != -1 {
-		if end := strings.LastIndex(createdBy, ">"); end != -1 && start < end {
-			return createdBy[start+1 : end]
-		}
-	}
-	return createdBy
-}
-
-// Stylize replaces strings in backticks with CodeStyle
-// e.g. "Run `beats doctor`" -> "Run " + CodeStyle("beats doctor")
+// Stylize applies basic styling to a string for terminal output.
 func Stylize(s string) string {
-	re := regexp.MustCompile("`([^`]+)`")
-	return re.ReplaceAllStringFunc(s, func(match string) string {
-		// match includes the backticks, e.g. `beats doctor`
-		// Remove them and apply style
-		inner := match[1 : len(match)-1]
-		return CodeStyle.Render(inner)
-	})
+	return s
 }

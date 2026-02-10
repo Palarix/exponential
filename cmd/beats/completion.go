@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/kuyio/beats/internal/ui"
-"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/beats"
+	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
+	"github.com/kuyio/beats/internal/ui"
 	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 )
@@ -34,10 +34,8 @@ func completeIssueIDs(cmd *cobra.Command, args []string, toComplete string) ([]s
 	shell := os.Getenv("SHELL")
 	useColors := true
 	if strings.Contains(shell, "bash") {
-		// For bash, use plain text to avoid escape code issues
 		useColors = false
 	} else if strings.Contains(shell, "zsh") {
-		// For zsh, we can use colors
 		lipgloss.SetColorProfile(termenv.ANSI256)
 	}
 
@@ -48,12 +46,19 @@ func completeIssueIDs(cmd *cobra.Command, args []string, toComplete string) ([]s
 		}
 
 		if strings.HasPrefix(id, toComplete) {
-			var typeTag, icon string
+			var labelTag, icon string
+
+			// Format labels
+			labelStr := ""
+			if len(issue.Labels) > 0 {
+				labelStr = "[" + strings.Join(issue.Labels, ",") + "]"
+			}
 
 			if useColors {
 				// Use colored formatting for zsh and other supporting shells
-				tyStyle := ui.TypeStyle(issue.Kind)
-				typeTag = tyStyle.Render(ui.FormatKindTag(issue.Kind))
+				if labelStr != "" {
+					labelTag = ui.AccentStyle.Render(labelStr)
+				}
 
 				// Get Icon using shared styles
 				icon = ui.StatusIcon(issue.Status)
@@ -69,34 +74,24 @@ func completeIssueIDs(cmd *cobra.Command, args []string, toComplete string) ([]s
 				// Render Title (Strikethrough if Done)
 				title := issue.Title
 				if issue.Status == model.StatusDone {
-					// Manual ANSI codes to ensure correct resetting in Zsh
-					// \x1b[9m = Strikethrough, \x1b[29m = Strikethrough Off
 					title = fmt.Sprintf("\x1b[9m%s\x1b[29m", title)
 				}
 
-				// Format: "id\t[Type] Icon Title"
-				// Append explicit reset \x1b[0m to prevent style leaking
-				desc := fmt.Sprintf("%s %s %s\x1b[0m", typeTag, icon, title)
+				desc := fmt.Sprintf("%s %s %s\x1b[0m", labelTag, icon, title)
 				completions = append(completions, fmt.Sprintf("%s\t%s", id, desc))
 			} else {
 				// Use plain text for bash
-				typeTag = ui.FormatKindTag(issue.Kind)
-
-				// Get Icon (plain text)
 				icon = ui.StatusIcon(issue.Status)
 				if icon == "" {
 					icon = " "
 				}
 
-				// Render Title (plain text)
 				title := issue.Title
 				if issue.Status == model.StatusDone {
-					// Use simple text indicator for done items
 					title = title + " (DONE)"
 				}
 
-				// Format: "id\t[Type] Icon Title" (plain text)
-				desc := fmt.Sprintf("%s %s %s", typeTag, icon, title)
+				desc := fmt.Sprintf("%s %s %s", labelStr, icon, title)
 				completions = append(completions, fmt.Sprintf("%s\t%s", id, desc))
 			}
 		}

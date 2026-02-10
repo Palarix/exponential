@@ -11,16 +11,98 @@ import (
 )
 
 type Config struct {
-	Prefix     string `mapstructure:"prefix"` // Issue ID prefix, e.g. "myproject-"
-	User       string `mapstructure:"user"`   // Override git user, format: "Name <email>"
-	Editor     string `mapstructure:"editor"`
-	AutoCommit bool   `mapstructure:"auto_commit"`
-	Style      Style  `mapstructure:"style"`
-	Version    int    `mapstructure:"version"` // Database version
+	Prefix           string      `mapstructure:"prefix"`
+	User             string      `mapstructure:"user"`
+	Editor           string      `mapstructure:"editor"`
+	AutoCommit       bool        `mapstructure:"auto_commit"`
+	Style            Style       `mapstructure:"style"`
+	Version          int         `mapstructure:"version"`
+	EstimationSystem string      `mapstructure:"estimation_system"`
+	CountUnestimated bool        `mapstructure:"count_unestimated"`
+	Automations      Automations `mapstructure:"automations"`
 }
 
 type Style struct {
 	Theme string `mapstructure:"theme"`
+}
+
+type Automations struct {
+	AutoCompleteParent    bool `mapstructure:"auto_complete_parent"`
+	AutoCloseSubIssues    bool `mapstructure:"auto_close_sub_issues"`
+	AutoProgressSubIssues bool `mapstructure:"auto_progress_sub_issues"`
+	AutoProgressParent    bool `mapstructure:"auto_progress_parent"`
+}
+
+// Estimation system allowed values
+var EstimationSystems = map[string][]int{
+	"fibonacci":   {1, 2, 3, 5, 8},
+	"exponential": {1, 2, 4, 8, 16},
+	"linear":      {1, 2, 3, 4, 5},
+	"shirt":       {1, 2, 3, 5, 8},
+}
+
+// ShirtLabels maps shirt-size estimate values to display labels
+var ShirtLabels = map[int]string{
+	1: "XS",
+	2: "S",
+	3: "M",
+	5: "L",
+	8: "XL",
+}
+
+// ShirtValues maps shirt-size display labels to estimate values
+var ShirtValues = map[string]int{
+	"XS": 1,
+	"S":  2,
+	"M":  3,
+	"L":  5,
+	"XL": 8,
+}
+
+// ValidateEstimate checks if a value is valid for the given estimation system.
+func ValidateEstimate(system string, value int) error {
+	if value == 0 {
+		return fmt.Errorf("zero estimates are not allowed")
+	}
+	allowed, ok := EstimationSystems[system]
+	if !ok {
+		return fmt.Errorf("unknown estimation system: %s", system)
+	}
+	for _, v := range allowed {
+		if v == value {
+			return nil
+		}
+	}
+	return fmt.Errorf("estimate %d is not valid for %s system (allowed: %v)", value, system, allowed)
+}
+
+// EstimateDisplayValue returns the display string for an estimate value.
+// For shirt system, returns the shirt label; for others, returns the number as string.
+func EstimateDisplayValue(system string, value int) string {
+	if system == "shirt" {
+		if label, ok := ShirtLabels[value]; ok {
+			return label
+		}
+	}
+	return fmt.Sprintf("%d", value)
+}
+
+// ParseEstimateInput parses user input into an int estimate value.
+// For shirt system, accepts both numeric and shirt-size labels (XS, S, M, L, XL).
+func ParseEstimateInput(system string, input string) (int, error) {
+	// Try shirt label first
+	if system == "shirt" {
+		upper := strings.ToUpper(strings.TrimSpace(input))
+		if val, ok := ShirtValues[upper]; ok {
+			return val, nil
+		}
+	}
+	// Try as integer
+	var val int
+	if _, err := fmt.Sscanf(input, "%d", &val); err != nil {
+		return 0, fmt.Errorf("invalid estimate value: %s", input)
+	}
+	return val, nil
 }
 
 // LoadConfig reads configuration from file or environment variables.
@@ -28,14 +110,20 @@ func LoadConfig() (*Config, error) {
 	v := viper.New()
 
 	// Default values
-	v.SetDefault("prefix", "beats-") // Default prefix for issue IDs
-	v.SetDefault("user", "")         // BEATS_USER env will override
+	v.SetDefault("prefix", "beats-")
+	v.SetDefault("user", "")
 	v.SetDefault("editor", os.Getenv("EDITOR"))
 	if v.GetString("editor") == "" {
-		v.SetDefault("editor", "vim") // Fallback
+		v.SetDefault("editor", "vim")
 	}
 	v.SetDefault("auto_commit", false)
 	v.SetDefault("style.theme", "default")
+	v.SetDefault("estimation_system", "fibonacci")
+	v.SetDefault("count_unestimated", true)
+	v.SetDefault("automations.auto_complete_parent", false)
+	v.SetDefault("automations.auto_close_sub_issues", false)
+	v.SetDefault("automations.auto_progress_sub_issues", false)
+	v.SetDefault("automations.auto_progress_parent", false)
 
 	// Config file locations
 	v.SetConfigName("config")
@@ -57,7 +145,6 @@ func LoadConfig() (*Config, error) {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, fmt.Errorf("failed to read config file: %w", err)
 		}
-		// Config file not found is fine, we use defaults
 	}
 
 	var cfg Config
@@ -67,11 +154,15 @@ func LoadConfig() (*Config, error) {
 
 	// Validate user format if provided
 	if cfg.User != "" {
-		// Pattern: "One or more chars" followed by space(s), then "<email@domain>"
 		re := regexp.MustCompile(`^.+\s+<[^<>]+@[^<>]+>$`)
 		if !re.MatchString(cfg.User) {
 			return nil, fmt.Errorf("config: invalid user format: expected 'Name <email>', got %q", cfg.User)
 		}
+	}
+
+	// Validate estimation system
+	if _, ok := EstimationSystems[cfg.EstimationSystem]; !ok {
+		return nil, fmt.Errorf("config: invalid estimation_system: %q (allowed: fibonacci, exponential, linear, shirt)", cfg.EstimationSystem)
 	}
 
 	return &cfg, nil

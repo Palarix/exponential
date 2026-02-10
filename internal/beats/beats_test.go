@@ -2,92 +2,114 @@ package beats
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kuyio/beats/internal/config"
 	"github.com/kuyio/beats/internal/model"
+	"github.com/kuyio/beats/internal/storage"
 )
 
-func setupTestEnv(t *testing.T) *Client {
-	// Create temp dir
-	tmpDir, err := os.MkdirTemp("", "beats-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
+func setupTestEnv(t *testing.T) (*Client, func()) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	beatsDir := filepath.Join(tmpDir, ".beats")
+	os.MkdirAll(beatsDir, 0755)
 
-	// Change to temp dir
-	originalWd, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to chdir: %v", err)
-	}
+	issuesDB := filepath.Join(beatsDir, "issues.db")
+	os.WriteFile(issuesDB, []byte{}, 0644)
 
-	// Setup cleanup
-	t.Cleanup(func() {
-		os.Chdir(originalWd)
-		os.RemoveAll(tmpDir)
-	})
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
 
-	// Init beats
-	_, err = InitBeats(false)
-	if err != nil {
-		t.Fatalf("Failed to init beats: %v", err)
-	}
-
-	// Create client
 	cfg := &config.Config{
-		Prefix:     "TEST-",
-		AutoCommit: false, // Don't try to run git in tests
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
 	}
-	client := NewClient(cfg)
 
-	return client
+	client := NewClient(cfg)
+	cleanup := func() {
+		os.Chdir(origDir)
+	}
+
+	return client, cleanup
 }
 
 func TestAddIssue(t *testing.T) {
-	client := setupTestEnv(t)
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
 
-	opts := AddOptions{
-		Title:       "Test Issue",
-		Description: "Description",
-		Kind:        "TASK",
-		Estimate:    5,
-	}
-
-	issue, err := client.AddIssue(opts)
+	issue, err := client.AddIssue(AddOptions{
+		Title:    "Test Issue",
+		Labels:   []string{"feature"},
+		Assignee: "Dev <dev@test.com>",
+		Estimate: 3,
+	})
 	if err != nil {
 		t.Fatalf("AddIssue failed: %v", err)
 	}
 
-	if issue.Title != opts.Title {
-		t.Errorf("Expected title %s, got %s", opts.Title, issue.Title)
+	if issue.Title != "Test Issue" {
+		t.Errorf("Expected title 'Test Issue', got %q", issue.Title)
 	}
 	if issue.Status != model.StatusBacklog {
 		t.Errorf("Expected status BACKLOG, got %s", issue.Status)
 	}
-
-	// Verify retrieval
-	retrieved, err := client.GetIssue(issue.ID)
-	if err != nil {
-		t.Fatalf("GetIssue failed: %v", err)
+	if len(issue.Labels) != 1 || issue.Labels[0] != "feature" {
+		t.Errorf("Expected labels [feature], got %v", issue.Labels)
 	}
-	if retrieved.Title != opts.Title {
-		t.Errorf("Retrieved title mismatch")
+	if issue.Assignee != "Dev <dev@test.com>" {
+		t.Errorf("Expected assignee 'Dev <dev@test.com>', got %q", issue.Assignee)
+	}
+	if issue.Estimate != 3 {
+		t.Errorf("Expected estimate 3, got %d", issue.Estimate)
+	}
+}
+
+func TestAddIssueWithParent(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	parent, err := client.AddIssue(AddOptions{
+		Title:  "Parent Issue",
+		Labels: []string{"epic"},
+	})
+	if err != nil {
+		t.Fatalf("AddIssue (parent) failed: %v", err)
+	}
+
+	child, err := client.AddIssue(AddOptions{
+		Title:    "Child Issue",
+		ParentID: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("AddIssue (child) failed: %v", err)
+	}
+
+	if child.ParentID != parent.ID {
+		t.Errorf("Expected ParentID %s, got %s", parent.ID, child.ParentID)
 	}
 }
 
 func TestUpdateIssue(t *testing.T) {
-	client := setupTestEnv(t)
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
 
-	// Create
-	opts := AddOptions{Title: "To Update", Kind: "TASK"}
-	issue, _ := client.AddIssue(opts)
+	issue, _ := client.AddIssue(AddOptions{
+		Title:  "Original Title",
+		Labels: []string{"bug"},
+	})
 
-	// Update
 	newTitle := "Updated Title"
-	newStatus := string(model.StatusPlanned)
+	newLabels := []string{"bug", "critical"}
+	newAssignee := "Dev <dev@test.com>"
 	payload := model.UpdatePayload{
-		Title:  &newTitle,
-		Status: &newStatus,
+		Title:    &newTitle,
+		Labels:   newLabels,
+		Assignee: &newAssignee,
 	}
 
 	_, err := client.UpdateIssue(issue.ID, payload, "update")
@@ -95,176 +117,340 @@ func TestUpdateIssue(t *testing.T) {
 		t.Fatalf("UpdateIssue failed: %v", err)
 	}
 
-	// Verify
-	updated, _ := client.GetIssue(issue.ID)
-	if updated.Title != newTitle {
-		t.Errorf("Expected title %s, got %s", newTitle, updated.Title)
+	// Verify by reading back
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+	updated := issues[issue.ID]
+
+	if updated.Title != "Updated Title" {
+		t.Errorf("Expected title 'Updated Title', got %q", updated.Title)
 	}
-	if updated.Status != model.StatusPlanned {
-		t.Errorf("Expected status PLANNED, got %s", updated.Status)
+	if len(updated.Labels) != 2 {
+		t.Errorf("Expected 2 labels, got %d", len(updated.Labels))
+	}
+	if updated.Assignee != "Dev <dev@test.com>" {
+		t.Errorf("Expected assignee 'Dev <dev@test.com>', got %q", updated.Assignee)
 	}
 }
 
-func TestEpicAutoStart(t *testing.T) {
-	client := setupTestEnv(t)
+func TestParentChildRelationship(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
 
-	// Create Epic
-	epic, _ := client.AddIssue(AddOptions{Title: "Epic", Kind: "EPIC"})
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent", Labels: []string{"epic"}})
+	child1, _ := client.AddIssue(AddOptions{Title: "Child 1", ParentID: parent.ID})
+	child2, _ := client.AddIssue(AddOptions{Title: "Child 2", ParentID: parent.ID})
 
-	// Create Child
-	child, _ := client.AddIssue(AddOptions{Title: "Child", Kind: "TASK", ParentID: epic.ID})
-
-	// Start Child
-	statusDoing := string(model.StatusDoing)
-	_, err := client.UpdateIssue(child.ID, model.UpdatePayload{Status: &statusDoing}, "start child")
+	// Verify children
+	_, children, _, err := client.FindIssue(parent.ID)
 	if err != nil {
-		t.Fatalf("UpdateIssue failed: %v", err)
+		t.Fatalf("FindIssue failed: %v", err)
+	}
+	if len(children) != 2 {
+		t.Errorf("Expected 2 children, got %d", len(children))
 	}
 
-	// Verify Epic Auto-Started
-	updatedEpic, _ := client.GetIssue(epic.ID)
-	if updatedEpic.Status != model.StatusDoing {
-		t.Errorf("Expected Epic to auto-start (DOING), got %s", updatedEpic.Status)
+	// Verify parent reference
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+	if issues[child1.ID].ParentID != parent.ID {
+		t.Errorf("Child 1 ParentID mismatch")
 	}
-}
-
-func TestEpicAutoComplete(t *testing.T) {
-	client := setupTestEnv(t)
-
-	// Create Epic & Children
-	epic, _ := client.AddIssue(AddOptions{Title: "Epic", Kind: "EPIC"})
-	child1, _ := client.AddIssue(AddOptions{Title: "Child 1", Kind: "TASK", ParentID: epic.ID})
-	child2, _ := client.AddIssue(AddOptions{Title: "Child 2", Kind: "TASK", ParentID: epic.ID})
-
-	// Complete Child 1
-	statusDone := string(model.StatusDone)
-	client.UpdateIssue(child1.ID, model.UpdatePayload{Status: &statusDone}, "done c1")
-
-	// Verify Epic NOT done yet
-	updatedEpic, _ := client.GetIssue(epic.ID)
-	if updatedEpic.Status == model.StatusDone {
-		t.Errorf("Epic should not be done yet")
-	}
-
-	// Complete Child 2
-	client.UpdateIssue(child2.ID, model.UpdatePayload{Status: &statusDone}, "done c2")
-
-	// Verify Epic Auto-Complete (Existing Behavior)
-	updatedEpic, _ = client.GetIssue(epic.ID)
-	if updatedEpic.Status != model.StatusDone {
-		t.Errorf("Expected Epic to auto-complete (DONE), got %s", updatedEpic.Status)
+	if issues[child2.ID].ParentID != parent.ID {
+		t.Errorf("Child 2 ParentID mismatch")
 	}
 }
 
-func TestMetadata(t *testing.T) {
-	client := setupTestEnv(t)
+func TestCannotCompleteParentWithIncompleteChildren(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
 
-	// Create with Metadata
-	checklist := []model.ChecklistItem{{Title: "Item 1", State: "open"}}
-	labels := []string{"bug", "critical"}
-	opts := AddOptions{Title: "Meta Issue", Kind: "TASK", Estimate: 1}
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
+	client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
 
-	// We need to support passing metadata in AddOptions.
-	// Since AddOptions struct in add.go wasn't updated in previous steps (I only updated CreatePayload in types.go),
-	// I need to update AddOptions first!
-	// Checking the plan... "Update AddIssue to support creation with Dependencies...".
-	// I missed updating AddOptions/AddIssue in add.go.
-	// I will update the test to expect this, and then fix add.go.
-
-	// For now let's test *Update* metadata since Add isn't updated yet.
-	issue, _ := client.AddIssue(opts)
-
-	updatePayload := model.UpdatePayload{
-		Checklist: checklist,
-		Labels:    labels,
-	}
-	client.UpdateIssue(issue.ID, updatePayload, "add metadata")
-
-	updated, _ := client.GetIssue(issue.ID)
-	if len(updated.Checklist) != 1 || updated.Checklist[0].Title != "Item 1" {
-		t.Errorf("Checklist mismatch")
-	}
-	if len(updated.Labels) != 2 || updated.Labels[0] != "bug" {
-		t.Errorf("Labels mismatch")
+	// Try to complete parent - should fail
+	status := string(model.StatusDone)
+	_, err := client.UpdateIssue(parent.ID, model.UpdatePayload{Status: &status}, "done")
+	if err == nil {
+		t.Error("Expected error when completing parent with incomplete children")
 	}
 }
 
 func TestBlockingRules(t *testing.T) {
-	client := setupTestEnv(t)
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
 
-	// Create Blocker (Review)
-	blockerOpts := AddOptions{Title: "Review", Kind: "TASK"}
-	blocker, _ := client.AddIssue(blockerOpts)
+	blocker, _ := client.AddIssue(AddOptions{Title: "Blocker Issue"})
+	blocked, _ := client.AddIssue(AddOptions{
+		Title: "Blocked Issue",
+		Dependencies: []model.Dependency{
+			{SourceID: "", TargetID: blocker.ID, Kind: model.DependencyBlockedBy},
+		},
+	})
 
-	// Create Blocked Task (Dev)
-	blockedOpts := AddOptions{Title: "Dev", Kind: "TASK"}
-	blocked, _ := client.AddIssue(blockedOpts)
-
-	// Add Dependency: Blocked is blocked by Blocker
-	// We use the compatibility field Update since we haven't exposed Dependencies update properly via opts yet
-	// But UpdatePayload supports Dependencies list.
-	deps := []model.Dependency{{
-		SourceID: blocked.ID,
-		TargetID: blocker.ID,
-		Kind:     model.DependencyBlockedBy,
-	}}
-	client.UpdateIssue(blocked.ID, model.UpdatePayload{Dependencies: deps}, "block dev")
-
-	// Try to start Blocked Task -> Should Fail
-	statusDoing := string(model.StatusDoing)
-	_, err := client.UpdateIssue(blocked.ID, model.UpdatePayload{Status: &statusDoing}, "try start")
+	// Try to start blocked issue - should fail
+	status := string(model.StatusDoing)
+	_, err := client.UpdateIssue(blocked.ID, model.UpdatePayload{Status: &status}, "start")
 	if err == nil {
-		t.Errorf("Expected error when starting blocked task, got nil")
+		t.Error("Expected error when starting blocked issue")
 	}
 
-	// Complete Blocker
-	statusDone := string(model.StatusDone)
-	client.UpdateIssue(blocker.ID, model.UpdatePayload{Status: &statusDone}, "finish review")
+	// Complete blocker
+	doneStatus := string(model.StatusDone)
+	client.UpdateIssue(blocker.ID, model.UpdatePayload{Status: &doneStatus}, "done")
 
-	// Try to start Blocked Task -> Should Succeed
-	_, err = client.UpdateIssue(blocked.ID, model.UpdatePayload{Status: &statusDoing}, "retry start")
+	// Now should succeed
+	_, err = client.UpdateIssue(blocked.ID, model.UpdatePayload{Status: &status}, "start")
 	if err != nil {
-		t.Errorf("Expected success when starting unblocked task, got error: %v", err)
+		t.Errorf("Expected success starting issue after blocker done: %v", err)
+	}
+}
+
+func TestAutoCompleteParent(t *testing.T) {
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
+		Automations: config.Automations{
+			AutoCompleteParent: true,
+		},
+	}
+
+	tmpDir := t.TempDir()
+	beatsDir := filepath.Join(tmpDir, ".beats")
+	os.MkdirAll(beatsDir, 0755)
+	os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644)
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	client := NewClient(cfg)
+
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
+	child, _ := client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+
+	// Complete the child
+	doneStatus := string(model.StatusDone)
+	client.UpdateIssue(child.ID, model.UpdatePayload{Status: &doneStatus}, "done")
+
+	// Read with config - parent should be auto-completed
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssuesWithConfig(events, cfg)
+
+	if issues[parent.ID].Status != model.StatusDone {
+		t.Errorf("Expected parent to be auto-completed, got status %s", issues[parent.ID].Status)
+	}
+}
+
+func TestAutoCloseSubIssues(t *testing.T) {
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
+		Automations: config.Automations{
+			AutoCloseSubIssues: true,
+		},
+	}
+
+	tmpDir := t.TempDir()
+	beatsDir := filepath.Join(tmpDir, ".beats")
+	os.MkdirAll(beatsDir, 0755)
+	os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644)
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	client := NewClient(cfg)
+
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
+	child, _ := client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+
+	// Complete the parent - should auto-close child
+	doneStatus := string(model.StatusDone)
+	msgs, err := client.UpdateIssue(parent.ID, model.UpdatePayload{Status: &doneStatus}, "done")
+	if err != nil {
+		t.Fatalf("UpdateIssue failed: %v", err)
+	}
+
+	// Should have auto-close message
+	found := false
+	for _, msg := range msgs {
+		if msg == "Auto-closed sub-issue "+child.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("Expected auto-close message for child, got: %v", msgs)
+	}
+
+	// Verify child is done
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+	if issues[child.ID].Status != model.StatusDone {
+		t.Errorf("Expected child to be auto-closed, got status %s", issues[child.ID].Status)
+	}
+}
+
+func TestAutomationsOff(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
+	child, _ := client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+
+	// Complete the child
+	doneStatus := string(model.StatusDone)
+	client.UpdateIssue(child.ID, model.UpdatePayload{Status: &doneStatus}, "done")
+
+	// Read WITHOUT automations - parent should NOT be auto-completed
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+
+	if issues[parent.ID].Status == model.StatusDone {
+		t.Error("Parent should NOT be auto-completed when automations are off")
+	}
+}
+
+func TestEstimateAggregation(t *testing.T) {
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
+	}
+
+	tmpDir := t.TempDir()
+	beatsDir := filepath.Join(tmpDir, ".beats")
+	os.MkdirAll(beatsDir, 0755)
+	os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644)
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	client := NewClient(cfg)
+
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
+	client.AddIssue(AddOptions{Title: "Child 1", ParentID: parent.ID, Estimate: 3})
+	client.AddIssue(AddOptions{Title: "Child 2", ParentID: parent.ID, Estimate: 5})
+	client.AddIssue(AddOptions{Title: "Child 3 (unestimated)", ParentID: parent.ID})
+
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssuesWithConfig(events, cfg)
+
+	// Parent should sum: 3 + 5 + 1 (unestimated default) = 9
+	if issues[parent.ID].Estimate != 9 {
+		t.Errorf("Expected parent estimate 9, got %d", issues[parent.ID].Estimate)
+	}
+}
+
+func TestCountUnestimatedFalse(t *testing.T) {
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: false,
+		Version:          2,
+	}
+
+	tmpDir := t.TempDir()
+	beatsDir := filepath.Join(tmpDir, ".beats")
+	os.MkdirAll(beatsDir, 0755)
+	os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644)
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	client := NewClient(cfg)
+
+	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
+	client.AddIssue(AddOptions{Title: "Child 1", ParentID: parent.ID, Estimate: 3})
+	client.AddIssue(AddOptions{Title: "Child 2 (unestimated)", ParentID: parent.ID})
+
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssuesWithConfig(events, cfg)
+
+	// Parent should sum: 3 + 0 (unestimated not counted) = 3
+	if issues[parent.ID].Estimate != 3 {
+		t.Errorf("Expected parent estimate 3, got %d", issues[parent.ID].Estimate)
 	}
 }
 
 func TestComments(t *testing.T) {
-	client := setupTestEnv(t)
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
 
-	// Create Issue
-	opts := AddOptions{Title: "Comment Issue", Kind: "TASK"}
-	issue, _ := client.AddIssue(opts)
+	issue, _ := client.AddIssue(AddOptions{Title: "Comment Test"})
 
-	// Add Comments
-	err := client.AddComment(issue.ID, "First comment")
-	if err != nil {
-		t.Fatalf("AddComment failed: %v", err)
+	// Add comment via event
+	evt := model.Event{
+		ID:   issue.ID,
+		Type: model.EventTypeComment,
+		Payload: model.CommentPayload{
+			ID:   "c1",
+			Text: "Hello, world!",
+		},
+		CreatedBy: "Test User <test@test.com>",
+	}
+	storage.AppendEvent(evt)
+
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+	updated := issues[issue.ID]
+
+	if len(updated.Comments) != 1 {
+		t.Fatalf("Expected 1 comment, got %d", len(updated.Comments))
+	}
+	if updated.Comments[0].Text != "Hello, world!" {
+		t.Errorf("Expected comment text 'Hello, world!', got %q", updated.Comments[0].Text)
+	}
+}
+
+func TestDependencies(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	issue1, _ := client.AddIssue(AddOptions{Title: "Issue 1"})
+	issue2, _ := client.AddIssue(AddOptions{
+		Title: "Issue 2",
+		Dependencies: []model.Dependency{
+			{TargetID: issue1.ID, Kind: model.DependencyDependsOn},
+		},
+	})
+
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+
+	deps := issues[issue2.ID].Dependencies
+	if len(deps) != 1 {
+		t.Fatalf("Expected 1 dependency, got %d", len(deps))
+	}
+	if deps[0].Kind != model.DependencyDependsOn {
+		t.Errorf("Expected depends_on, got %s", deps[0].Kind)
+	}
+	if deps[0].TargetID != issue1.ID {
+		t.Errorf("Expected target %s, got %s", issue1.ID, deps[0].TargetID)
+	}
+}
+
+func TestInverseKind(t *testing.T) {
+	pairs := map[model.DependencyKind]model.DependencyKind{
+		model.DependencyDependsOn:    model.DependencyDependencyOf,
+		model.DependencyDependencyOf: model.DependencyDependsOn,
+		model.DependencyBlockedBy:    model.DependencyBlocks,
+		model.DependencyBlocks:       model.DependencyBlockedBy,
+		model.DependencyDuplicatedBy: model.DependencyDuplicates,
+		model.DependencyDuplicates:   model.DependencyDuplicatedBy,
 	}
 
-	err = client.AddComment(issue.ID, "Second comment")
-	if err != nil {
-		t.Fatalf("AddComment failed: %v", err)
-	}
-
-	// Verify
-	updated, err := client.GetIssue(issue.ID)
-	if err != nil {
-		t.Fatalf("GetIssue failed: %v", err)
-	}
-
-	if len(updated.Comments) != 2 {
-		t.Fatalf("Expected 2 comments, got %d", len(updated.Comments))
-	}
-
-	if updated.Comments[0].Text != "First comment" {
-		t.Errorf("First comment mismatch: %s", updated.Comments[0].Text)
-	}
-	if updated.Comments[1].Text != "Second comment" {
-		t.Errorf("Second comment mismatch: %s", updated.Comments[1].Text)
-	}
-
-	// Verify User
-	if updated.Comments[0].CreatedBy == "" {
-		t.Errorf("Comment user not set")
+	for input, expected := range pairs {
+		result := model.InverseKind(input)
+		if result != expected {
+			t.Errorf("InverseKind(%s) = %s, want %s", input, result, expected)
+		}
 	}
 }
