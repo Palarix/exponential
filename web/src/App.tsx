@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getIssues, getPending, save, discardPending } from './api/client';
+import { fetchIssues, fetchPending, saveAll, discardAll } from './api/client';
 import type { Issue, PendingState } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -15,7 +15,7 @@ type View = 'dashboard' | 'backlog' | 'board' | 'dependencies';
 function App() {
   const [view, setView] = useState<View>('board');
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [pending, setPending] = useState<PendingState>({ count: 0 });
+  const [pending, setPending] = useState<PendingState>({ has_pending: false, events: [], issue_ids: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,8 +26,8 @@ function App() {
   const fetchData = useCallback(async () => {
     try {
       const [issuesData, pendingData] = await Promise.all([
-        getIssues(),
-        getPending(),
+        fetchIssues(),
+        fetchPending(),
       ]);
       setIssues(issuesData);
       setPending(pendingData);
@@ -46,9 +46,9 @@ function App() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const handleSave = async (commitMessage: string) => {
+  const handleSave = async (_commitMessage: string) => {
     try {
-      await save(commitMessage);
+      await saveAll();
       setShowPendingPanel(false);
       await fetchData();
     } catch (err) {
@@ -58,7 +58,7 @@ function App() {
 
   const handleDiscard = async () => {
     try {
-      await discardPending();
+      await discardAll();
       setShowPendingPanel(false);
       await fetchData();
     } catch (err) {
@@ -93,7 +93,7 @@ function App() {
       <Layout
         currentView={view}
         onViewChange={setView}
-        pendingCount={pending.count}
+        pendingCount={pending.events?.length || 0}
         onSave={handleSave}
         onDiscard={handleDiscard}
       >

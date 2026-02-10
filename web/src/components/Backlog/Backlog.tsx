@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Issue } from '../../api/client';
-import { Card, KindBadge, StatusBadge } from '../ui';
+import { Card, LabelBadge, StatusBadge } from '../ui';
 
 interface BacklogProps {
   issues: Issue[];
@@ -108,7 +108,7 @@ function IssueTable({
             <thead>
               <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]/30">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">ID</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Type</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Labels</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Title</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Status</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Estimate</th>
@@ -146,7 +146,11 @@ function IssueTable({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <KindBadge kind={issue.kind} />
+                      <div className="flex gap-1 overflow-hidden">
+                        {issue.labels?.map(label => (
+                          <LabelBadge key={label} label={label} />
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-sm text-[var(--color-text-primary)] group-hover:text-[var(--color-text-accent)] transition-colors">

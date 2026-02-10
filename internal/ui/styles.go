@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"crypto/md5"
 	"fmt"
 	"os"
 	"strings"
@@ -82,11 +81,20 @@ func StatusIcon(status model.IssueStatus) string {
 	}
 }
 
-// LabelColor returns a consistent color for a label based on its name hash.
+// LabelColor returns a consistent color for a label based on its name.
 func LabelColor(label string) lipgloss.Color {
-	h := md5.Sum([]byte(label))
-	idx := int(h[0]) % len(labelColors)
-	return labelColors[idx]
+	l := strings.ToLower(label)
+	if strings.Contains(l, "bug") {
+		return BlockedColor // Red
+	}
+	if strings.Contains(l, "feature") {
+		return PlannedColor // Blue
+	}
+	if strings.Contains(l, "epic") {
+		return AccentColor // Purple
+	}
+	// Default to white for everything else
+	return WhiteColor
 }
 
 // FormatLabels renders a list of labels as styled tags.

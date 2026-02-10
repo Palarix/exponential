@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { addDraft } from '../api/client';
 import type { Issue } from '../api/client';
-import { Modal, Button, KindBadge, Progress } from './ui';
+import { Modal, Button, LabelBadge } from './ui';
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -18,14 +18,12 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onRefresh }: 
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editEstimate, setEditEstimate] = useState(0);
-  const [workLogAmount, setWorkLogAmount] = useState(1);
   const [newComment, setNewComment] = useState('');
   const [saving, setSaving] = useState(false);
 
   if (!issue) return null;
 
-  const checklistTotal = issue.checklist?.length || 0;
-  const checklistDone = issue.checklist?.filter((c) => c.state === 'done').length || 0;
+
 
   const startEditing = (field: string) => {
     setEditingField(field);
@@ -79,12 +77,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onRefresh }: 
     }
   };
 
-  const handleLogWork = () => {
-    if (workLogAmount > 0) {
-      saveDraft('WORK_LOG', { amount: workLogAmount });
-      setWorkLogAmount(1);
-    }
-  };
+
 
   const handleAddComment = () => {
     if (newComment.trim()) {
@@ -127,7 +120,11 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onRefresh }: 
             )}
             <div className="flex items-center gap-2 mt-2">
               <span className="text-xs font-mono text-[var(--color-text-muted)]">{issue.id}</span>
-              <KindBadge kind={issue.kind} />
+              <div className="flex gap-1">
+                {issue.labels?.map(label => (
+                  <LabelBadge key={label} label={label} />
+                ))}
+              </div>
               {issue.is_pending && (
                 <span className="text-xs px-2 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]">
                   Pending changes
@@ -171,40 +168,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onRefresh }: 
             )}
           </div>
 
-          {/* Checklist */}
-          {checklistTotal > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Checklist</h3>
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  {checklistDone}/{checklistTotal}
-                </span>
-              </div>
-              <Progress value={checklistDone} max={checklistTotal} variant="success" size="sm" />
-              <div className="mt-2 space-y-1">
-                {issue.checklist?.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 p-1.5 rounded-[var(--radius-sm)] text-sm">
-                    <div className={`
-                      w-4 h-4 rounded-sm border-2 flex items-center justify-center flex-shrink-0
-                      ${item.state === 'done'
-                        ? 'bg-[var(--color-success)] border-[var(--color-success)]'
-                        : 'border-[var(--color-border-default)]'
-                      }
-                    `}>
-                      {item.state === 'done' && (
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className={item.state === 'done' ? 'text-[var(--color-text-muted)] line-through' : 'text-[var(--color-text-primary)]'}>
-                      {item.title}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {/* Comments */}
           <div>
@@ -314,43 +278,9 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onRefresh }: 
             )}
           </div>
 
-          {/* Logged Effort */}
-          <div>
-            <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Work Logged</h3>
-            <div className="p-3 rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] mb-2">
-              <span className="text-lg font-bold text-[var(--color-text-primary)]">{issue.logged_effort || 0}</span>
-              <span className="text-xs text-[var(--color-text-muted)] ml-1">pts</span>
-            </div>
-            <div className="flex gap-1">
-              <input
-                type="number"
-                min={1}
-                value={workLogAmount}
-                onChange={(e) => setWorkLogAmount(parseInt(e.target.value) || 1)}
-                className="w-full text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] border border-[var(--color-border-subtle)] rounded-[var(--radius-md)] px-2 py-1.5 outline-none focus:border-[var(--color-accent-primary)]"
-              />
-              <Button size="sm" variant="secondary" onClick={handleLogWork} disabled={saving}>
-                Log
-              </Button>
-            </div>
-          </div>
 
-          {/* Labels */}
-          {issue.labels && issue.labels.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Labels</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {issue.labels.map((label, i) => (
-                  <span
-                    key={i}
-                    className="px-2 py-0.5 text-xs rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)]/20 text-[var(--color-accent-primary)]"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+
+
 
           {/* Dependencies */}
           {issue.dependencies && issue.dependencies.length > 0 && (

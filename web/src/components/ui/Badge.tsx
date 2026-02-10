@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'epic' | 'task' | 'bug' |
+type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' |
+  'feature' | 'bug' | 'epic' |
   'backlog' | 'planned' | 'doing' | 'blocked' | 'done';
 
 interface BadgeProps {
@@ -16,10 +17,12 @@ const variantStyles: Record<BadgeVariant, string> = {
   warning: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   error: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
   info: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
-  // Kind badges
-  epic: 'bg-[oklch(0.30_0.08_300)] text-[var(--color-kind-epic)]',
-  task: 'bg-[oklch(0.30_0.08_250)] text-[var(--color-kind-task)]',
-  bug: 'bg-[oklch(0.30_0.08_25)] text-[var(--color-kind-bug)]',
+
+  // Label badges
+  feature: 'bg-blue-300 text-blue-900 dark:bg-blue-900/30 dark:text-blue-300',
+  bug: 'bg-red-300 text-red-900 dark:bg-red-900/30 dark:text-red-300',
+  epic: 'bg-purple-300 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300',
+
   // Status badges
   backlog: 'bg-[oklch(0.25_0.04_260)] text-[var(--color-status-backlog)]',
   planned: 'bg-[oklch(0.28_0.08_250)] text-[var(--color-status-planned)]',
@@ -29,7 +32,7 @@ const variantStyles: Record<BadgeVariant, string> = {
 };
 
 const sizeStyles: Record<string, string> = {
-  sm: 'px-1.5 py-0.5 text-[10px]',
+  sm: 'px-2 py-0.5 text-[10px]',
   md: 'px-2 py-1 text-xs',
 };
 
@@ -57,10 +60,16 @@ export default function Badge({
   );
 }
 
-// Convenience components for common badge types
-export function KindBadge({ kind }: { kind: string }) {
-  const variant = kind.toLowerCase() as BadgeVariant;
-  return <Badge variant={['epic', 'task', 'bug'].includes(variant) ? variant : 'default'}>{kind}</Badge>;
+export function LabelBadge({ label }: { label: string }) {
+  let variant: BadgeVariant = 'default';
+  const lowerLabel = label.toLowerCase();
+  const upperLabel = label.toUpperCase()
+
+  if (lowerLabel === 'feature') variant = 'feature';
+  if (lowerLabel === 'bug') variant = 'bug';
+  if (lowerLabel === 'epic') variant = 'epic';
+
+  return <Badge size="sm" variant={variant}>{upperLabel}</Badge>;
 }
 
 export function StatusBadge({ status }: { status: string }) {

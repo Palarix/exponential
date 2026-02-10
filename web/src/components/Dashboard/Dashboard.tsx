@@ -1,5 +1,5 @@
 import type { Issue } from '../../api/client';
-import { Card, ProgressRing, Progress } from '../ui';
+import { Card, ProgressRing } from '../ui';
 
 interface DashboardProps {
   issues: Issue[];
@@ -14,13 +14,9 @@ export default function Dashboard({ issues }: DashboardProps) {
     doing: issues.filter((i) => i.status === 'DOING').length,
     blocked: issues.filter((i) => i.status === 'BLOCKED').length,
     done: issues.filter((i) => i.status === 'DONE').length,
-    epics: issues.filter((i) => i.kind === 'EPIC').length,
-    tasks: issues.filter((i) => i.kind === 'TASK').length,
-    bugs: issues.filter((i) => i.kind === 'BUG').length,
   };
 
-  const totalEstimate = issues.reduce((sum, i) => sum + (i.estimate || 0), 0);
-  const totalLogged = issues.reduce((sum, i) => sum + (i.logged_effort || 0), 0);
+
   const completionRate = stats.total > 0 ? (stats.done / stats.total) * 100 : 0;
 
   const statusCards = [
@@ -31,11 +27,7 @@ export default function Dashboard({ issues }: DashboardProps) {
     { label: 'Done', value: stats.done, color: 'var(--color-status-done)' },
   ];
 
-  const kindCards = [
-    { label: 'Epics', value: stats.epics, color: 'var(--color-kind-epic)', icon: '🎯' },
-    { label: 'Tasks', value: stats.tasks, color: 'var(--color-kind-task)', icon: '📋' },
-    { label: 'Bugs', value: stats.bugs, color: 'var(--color-kind-bug)', icon: '🐛' },
-  ];
+
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -71,21 +63,7 @@ export default function Dashboard({ issues }: DashboardProps) {
           </div>
         </Card>
 
-        {/* Effort Overview */}
-        <Card variant="elevated">
-          <p className="text-sm text-[var(--color-text-muted)] mb-2">Effort Tracking</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-[var(--color-text-primary)]">{totalLogged}</span>
-            <span className="text-lg text-[var(--color-text-muted)]">/ {totalEstimate} pts</span>
-          </div>
-          <Progress
-            value={totalLogged}
-            max={totalEstimate || 1}
-            variant="accent"
-            size="lg"
-            showLabel
-          />
-        </Card>
+
 
         {/* Active Work */}
         <Card variant="elevated">
@@ -105,30 +83,7 @@ export default function Dashboard({ issues }: DashboardProps) {
 
 
 
-      {/* Issue Types */}
-      <div>
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
-          Issue Types
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {kindCards.map((card) => (
-            <Card key={card.label} variant="glass" interactive>
-              <div className="flex items-center gap-4">
 
-                <div>
-                  <p className="text-sm text-[var(--color-text-muted)]">{card.label}</p>
-                  <p
-                    className="text-2xl font-bold"
-                    style={{ color: card.color }}
-                  >
-                    {card.value}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
 
       {/* Status Distribution */}
       <div>

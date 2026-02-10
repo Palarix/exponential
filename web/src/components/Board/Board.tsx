@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Issue } from '../../api/client';
-import { Card, KindBadge, Progress } from '../ui';
+import { Card, LabelBadge } from '../ui';
 
 interface BoardProps {
   issues: Issue[];
@@ -104,9 +104,7 @@ export default function Board({ issues, onIssueClick }: BoardProps) {
 }
 
 function IssueCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
-  // Calculate checklist progress
-  const checklistTotal = issue.checklist?.length || 0;
-  const checklistDone = issue.checklist?.filter((c) => c.state === 'done').length || 0;
+
 
   return (
     <Card
@@ -119,7 +117,11 @@ function IssueCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <KindBadge kind={issue.kind} />
+        <div className="flex gap-1 overflow-hidden">
+          {issue.labels?.map(label => (
+            <LabelBadge key={label} label={label} />
+          ))}
+        </div>
         <span className="text-[10px] font-mono text-[var(--color-text-muted)] opacity-60 group-hover:opacity-100 transition-opacity">
           {issue.id}
         </span>
@@ -141,14 +143,6 @@ function IssueCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
               {issue.estimate} pts
             </span>
           )}
-          {checklistTotal > 0 && (
-            <span className="flex items-center gap-1">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {checklistDone}/{checklistTotal}
-            </span>
-          )}
         </div>
         {issue.is_pending && (
           <span className="px-1.5 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-warning-bg)] text-[var(--color-warning)] text-[10px]">
@@ -157,17 +151,7 @@ function IssueCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
         )}
       </div>
 
-      {/* Checklist Progress Bar */}
-      {checklistTotal > 0 && (
-        <div className="mt-2">
-          <Progress
-            value={checklistDone}
-            max={checklistTotal}
-            variant="success"
-            size="sm"
-          />
-        </div>
-      )}
+
     </Card>
   );
 }
