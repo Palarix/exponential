@@ -19,9 +19,10 @@ const variantStyles: Record<BadgeVariant, string> = {
   info: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
 
   // Label badges
-  feature: 'bg-blue-300 text-blue-900 dark:bg-blue-900/30 dark:text-blue-300',
-  bug: 'bg-red-300 text-red-900 dark:bg-red-900/30 dark:text-red-300',
-  epic: 'bg-purple-300 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300',
+  feature: 'bg-blue-500/10 text-blue-500 dark:bg-blue-900/30 dark:text-blue-300',
+  bug: 'bg-red-500/10 text-red-500 dark:bg-red-900/30 dark:text-red-300',
+  epic: 'bg-violet-900/30 text-violet-500 dark:bg-violet-900/30 dark:text-violet-300',
+
 
   // Status badges
   backlog: 'bg-[oklch(0.25_0.04_260)] text-[var(--color-status-backlog)]',

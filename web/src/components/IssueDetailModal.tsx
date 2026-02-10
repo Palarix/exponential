@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { addDraft } from '../api/client';
 import type { Issue } from '../api/client';
-import { Modal, Button, LabelBadge } from './ui';
+import { Modal, Button, LabelBadge, StatusIcon } from './ui';
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -227,7 +227,11 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onRefresh }: 
         <div className="w-52 flex-shrink-0 space-y-5">
           {/* Status */}
           <div>
-            <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Status</h3>
+            <div className="flex items-center gap-2 mb-2">
+              <StatusIcon status={issue.status} size={14} />
+              <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Status</h3>
+            </div>
+
             <select
               value={issue.status}
               onChange={(e) => handleStatusChange(e.target.value)}
