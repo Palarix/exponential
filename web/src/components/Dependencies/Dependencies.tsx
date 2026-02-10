@@ -1,5 +1,5 @@
 import type { Issue } from '../../api/client';
-import { Card, KindBadge, StatusBadge } from '../ui';
+import { Card, LabelBadge, StatusBadge } from '../ui';
 
 interface DependenciesProps {
   issues: Issue[];
@@ -177,7 +177,11 @@ function IssueLink({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <KindBadge kind={issue.kind} />
+            <div className="flex gap-1 overflow-hidden">
+              {issue.labels?.map((label: string) => (
+                <LabelBadge key={label} label={label} />
+              ))}
+            </div>
             <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
               {issue.id}
             </span>

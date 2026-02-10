@@ -30,7 +30,9 @@ export default function PendingEventsPanel({
     DELETE: 'var(--color-error)',
   };
 
-  if (pending.count === 0) return null;
+  const eventCount = pending.events?.length || 0;
+
+  if (eventCount === 0) return null;
 
   return (
     <>
@@ -54,7 +56,7 @@ export default function PendingEventsPanel({
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
           <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
         </span>
-        {pending.count} pending change{pending.count !== 1 ? 's' : ''}
+        {eventCount} pending change{eventCount !== 1 ? 's' : ''}
       </button>
 
       {/* Slide-out Panel */}
@@ -81,7 +83,7 @@ export default function PendingEventsPanel({
               Pending Changes
             </h2>
             <span className="px-2 py-0.5 text-xs font-medium rounded-[var(--radius-full)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]">
-              {pending.count}
+              {eventCount}
             </span>
           </div>
           <button
@@ -97,7 +99,7 @@ export default function PendingEventsPanel({
         {/* Events List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {pending.events && pending.events.length > 0 ? (
-            pending.events.map((event, i) => (
+            pending.events.map((event: any, i: number) => (
               <Card key={i} variant="default" padding="sm">
                 <div className="flex items-start gap-3">
                   <span
@@ -118,11 +120,11 @@ export default function PendingEventsPanel({
                         {event.type}
                       </span>
                       <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
-                        {event.id}
+                        {event.issue_id}
                       </span>
                     </div>
                     <p className="text-xs text-[var(--color-text-muted)]">
-                      by {event.created_by} • {new Date(event.created_at).toLocaleTimeString()}
+                      {new Date(event.created_at).toLocaleTimeString()}
                     </p>
                   </div>
                 </div>
@@ -130,7 +132,7 @@ export default function PendingEventsPanel({
             ))
           ) : (
             <div className="text-center py-8 text-[var(--color-text-muted)]">
-              <p className="text-sm">{pending.count} change{pending.count !== 1 ? 's' : ''} pending</p>
+              <p className="text-sm">{eventCount} change{eventCount !== 1 ? 's' : ''} pending</p>
               <p className="text-xs mt-1">Event details loading...</p>
             </div>
           )}

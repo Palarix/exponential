@@ -23,7 +23,10 @@ beats start <issue-id>
 go test ./...
 go build ./...
 
-# 6. Set issue status to done
+# 6. Add a comment with a summary of the changes or walkthrough
+beats comment <issue-id> "<summary>"
+
+# 7. Set issue status to done
 beats done <issue-id>
 ```
 
@@ -41,7 +44,7 @@ beats done <issue-id>
 2. **Missing Tasks**: If no such task exists for your current objective, you must create it.
    - **Timing**: Create the task *after* the user approves your initial design/plan.
 3. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding beats task to `DOING` using `beats start`.
-4. **Completion**: You MUST set the beats task to `DONE` using `beats done` *only after* the user approves the final review/walkthrough.
+4. **Completion**: You MUST set the beats task to `DONE` using `beats done` *only after* the user approves the final review/walkthrough. You MUST add a comment to the issue first that summarized your changes.
 
 ## Agent Identity
 When performing actions that modify the tracker (add, update), ensure you are identified as an agent if possible, or use the execution environment's git config.
@@ -105,7 +108,7 @@ If you encounter a bug or necessary refactor while working on something else, fi
    - If no: Plan your work, get approval, then `beats add "..."`, then `beats start <id>`.
 3. **Implementation**: Modify code, tests, docs.
 4. **Review**: Present walkthrough/results to user.
-5. **Completion**: On approval, `beats done <id>`.
+5. **Completion**: On approval, `beats comment <id> <summary>` and `beats done <id>`.
 
 
 ## Building the project

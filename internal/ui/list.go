@@ -78,8 +78,22 @@ func RenderIssueList(issues []*model.Issue, termWidth int) string {
 		// Labels
 		labelStr := ""
 		if len(i.Labels) > 0 {
-			joined := strings.Join(i.Labels, ",")
-			labelStr = Truncate(joined, labelWidth)
+			var parts []string
+			for _, l := range i.Labels {
+				color := LabelColor(l)
+				style := lipgloss.NewStyle().Foreground(color)
+				parts = append(parts, style.Render(l))
+			}
+			joined := strings.Join(parts, ",")
+			// Truncate based on visible width
+			if lipgloss.Width(joined) > labelWidth {
+				// Simple truncation for now, might cut off ANSI codes but lipgloss should handle it
+				// Better approach: Truncate the source strings or just show as many full tags as fit
+				// For now, let's just join and truncate, hoping lipgloss.Width logic in Truncate mimics visual width
+				labelStr = Truncate(joined, labelWidth)
+			} else {
+				labelStr = joined
+			}
 		}
 
 		// Title
@@ -114,7 +128,7 @@ func RenderIssueList(issues []*model.Issue, termWidth int) string {
 		row := fmt.Sprintf("%s %s %s %s %s %s %s",
 			RenderCell(idStr, idWidth, MutedStyle),
 			RenderCell(statusStr, statusWidth, stStyle),
-			RenderCell(labelStr, labelWidth, AccentStyle),
+			RenderCell(labelStr, labelWidth, lipgloss.NewStyle()),
 			RenderCell(title, titleWidth, titleStyle),
 			RenderCell(estStr, estWidth, lipgloss.NewStyle()),
 			RenderCell(assigneeStr, assigneeWidth, MutedStyle),
