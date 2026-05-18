@@ -2,25 +2,14 @@ import type { ReactNode, HTMLAttributes } from 'react';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  variant?: 'default' | 'elevated' | 'glass';
+  variant?: 'default' | 'elevated';
   interactive?: boolean;
-  glow?: boolean;
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
 const variantStyles: Record<string, string> = {
-  default: `
-    bg-[var(--color-surface)] 
-    border border-[var(--color-border-subtle)]
-  `,
-  elevated: `
-    bg-[var(--color-surface-elevated)] 
-    border border-[var(--color-border-default)]
-    shadow-[var(--shadow-md)]
-  `,
-  glass: `
-    glass
-  `,
+  default: 'bg-[var(--color-surface)] border border-[var(--color-border-subtle)]',
+  elevated: 'bg-[var(--color-surface-elevated)] border border-[var(--color-border-default)]',
 };
 
 const paddingStyles: Record<string, string> = {
@@ -34,7 +23,6 @@ export default function Card({
   children,
   variant = 'default',
   interactive = false,
-  glow = false,
   padding = 'md',
   className = '',
   ...props
@@ -42,12 +30,11 @@ export default function Card({
   return (
     <div
       className={`
-        rounded-[var(--radius-lg)]
-        transition-all duration-[var(--duration-normal)]
+        rounded-[var(--radius-md)]
+        transition-colors duration-[var(--duration-fast)]
         ${variantStyles[variant]}
         ${paddingStyles[padding]}
-        ${interactive ? 'cursor-pointer hover:bg-[var(--color-bg-hover)] hover:border-[var(--color-border-accent)]' : ''}
-        ${glow ? 'hover:shadow-[var(--shadow-glow-sm)]' : ''}
+        ${interactive ? 'cursor-pointer hover:bg-[var(--color-bg-hover)]' : ''}
         ${className}
       `.trim().replace(/\s+/g, ' ')}
       {...props}

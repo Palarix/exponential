@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Issue } from '../../api/client';
-import { Card, LabelBadge, StatusIcon } from '../ui';
+import { LabelBadge, StatusIcon } from '../ui';
 
 interface BoardProps {
   issues: Issue[];
@@ -9,150 +9,110 @@ interface BoardProps {
 }
 
 const COLUMNS = [
-  { id: 'PLANNED', label: 'Planned', color: 'var(--color-status-planned)' },
-  { id: 'DOING', label: 'In Progress', color: 'var(--color-status-doing)' },
-  { id: 'BLOCKED', label: 'Blocked', color: 'var(--color-status-blocked)' },
-  { id: 'DONE', label: 'Done', color: 'var(--color-status-done)' },
+  { id: 'PLANNED', label: 'Planned' },
+  { id: 'DOING', label: 'In Progress' },
+  { id: 'BLOCKED', label: 'Blocked' },
+  { id: 'DONE', label: 'Done' },
 ];
 
-export default function Board({ issues, onIssueClick }: BoardProps) {
-  const [hoveredColumn, setHoveredColumn] = useState<string | null>(null);
+const DONE_VISIBLE_COUNT = 5;
 
-  // Filter out BACKLOG by default and group by status
+export default function Board({ issues, onIssueClick }: BoardProps) {
   const boardIssues = issues.filter((i) => i.status !== 'BACKLOG');
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Board</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            {boardIssues.length} issue{boardIssues.length !== 1 ? 's' : ''} on board
-          </p>
-        </div>
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
+        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Board</span>
+        <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
+          {boardIssues.length} issue{boardIssues.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      {/* Kanban Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {COLUMNS.map((column) => {
-          const columnIssues = boardIssues.filter((i) => i.status === column.id);
-
-          return (
-            <div
-              key={column.id}
-              className={`
-                flex flex-col rounded-[var(--radius-lg)] 
-                bg-[var(--color-bg-secondary)]/50
-                border border-[var(--color-border-subtle)]
-                transition-all duration-[var(--duration-normal)]
-                ${hoveredColumn === column.id ? 'border-[var(--color-border-accent)]' : ''}
-              `.trim().replace(/\s+/g, ' ')}
-              onMouseEnter={() => setHoveredColumn(column.id)}
-              onMouseLeave={() => setHoveredColumn(null)}
-            >
-              {/* Column Header */}
-              <div
-                className="px-4 py-3 border-b border-[var(--color-border-subtle)] flex items-center justify-between"
-                style={{
-                  background: `linear-gradient(135deg, ${column.color}20, transparent)`
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <StatusIcon status={column.id} size={16} />
-                  <span
-                    className="font-semibold text-sm"
-                    style={{ color: column.color }}
-                  >
-                    {column.label}
-                  </span>
-                </div>
-                <span
-                  className="px-2 py-0.5 text-xs font-medium rounded-[var(--radius-full)]"
-                  style={{
-                    background: `${column.color}30`,
-                    color: column.color
-                  }}
-                >
-                  {columnIssues.length}
-                </span>
-              </div>
-
-              {/* Cards */}
-              <div className="p-2 space-y-2 flex-1 min-h-[300px] overflow-y-auto">
-                {columnIssues.map((issue) => (
-                  <IssueCard
-                    key={issue.id}
-                    issue={issue}
-                    onClick={() => onIssueClick?.(issue)}
-                  />
-                ))}
-                {columnIssues.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full py-8 text-[var(--color-text-muted)]">
-                    <svg className="w-8 h-8 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                    </svg>
-                    <span className="text-xs">No issues</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+      <div className="flex-1 overflow-hidden p-3">
+        <div className="flex gap-2.5 h-full">
+          {COLUMNS.map((column) => {
+            const columnIssues = boardIssues.filter((i) => i.status === column.id);
+            return (
+              <BoardColumn
+                key={column.id}
+                column={column}
+                issues={columnIssues}
+                onIssueClick={onIssueClick}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
 
-function IssueCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
-
+function BoardColumn({ column, issues, onIssueClick }: { column: { id: string; label: string }; issues: Issue[]; onIssueClick?: (issue: Issue) => void }) {
+  const [showAll, setShowAll] = useState(false);
+  const isDone = column.id === 'DONE';
+  const shouldTruncate = isDone && issues.length > DONE_VISIBLE_COUNT && !showAll;
+  const visibleIssues = shouldTruncate ? issues.slice(0, DONE_VISIBLE_COUNT) : issues;
+  const hiddenCount = issues.length - DONE_VISIBLE_COUNT;
 
   return (
-    <Card
-      variant="elevated"
-      interactive
-      glow
-      padding="sm"
-      onClick={onClick}
-      className="group"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex gap-1 overflow-hidden">
-          {issue.labels?.map(label => (
-            <LabelBadge key={label} label={label} />
-          ))}
+    <div className="flex flex-col flex-1 min-w-0 rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)]/60">
+      {/* Column header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-subtle)]">
+        <div className="flex items-center gap-2">
+          <StatusIcon status={column.id} size={14} />
+          <span className="text-[13px] font-medium text-[var(--color-text-primary)]">{column.label}</span>
         </div>
-        <span className="text-[10px] font-mono text-[var(--color-text-muted)] opacity-60 group-hover:opacity-100 transition-opacity">
-          {issue.id}
-        </span>
+        <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">{issues.length}</span>
       </div>
 
-      {/* Title */}
-      <p className="text-sm font-medium text-[var(--color-text-primary)] line-clamp-2 mb-2 group-hover:text-[var(--color-text-accent)] transition-colors">
+      {/* Cards */}
+      <div className="flex-1 p-1.5 space-y-1 overflow-y-auto">
+        {visibleIssues.map((issue) => (
+          <BoardCard key={issue.id} issue={issue} onClick={() => onIssueClick?.(issue)} />
+        ))}
+        {shouldTruncate && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="w-full py-2 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+          >
+            + {hiddenCount} more
+          </button>
+        )}
+        {issues.length === 0 && (
+          <div className="flex items-center justify-center h-16 text-[var(--color-text-muted)] text-[11px]">
+            No issues
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BoardCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      className="px-2.5 py-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)]"
+    >
+      {/* Title first — it's the most important thing */}
+      <p className="text-[13px] text-[var(--color-text-primary)] leading-snug line-clamp-2 mb-1.5">
         {issue.title}
       </p>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-[var(--color-text-muted)]">
-        <div className="flex items-center gap-3">
-          {issue.estimate !== undefined && issue.estimate > 0 && (
-            <span className="flex items-center gap-1">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {issue.estimate} pts
-            </span>
-          )}
-        </div>
+      {/* Meta row */}
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="font-mono text-[var(--color-text-muted)]">{issue.id.replace('beats-', '')}</span>
+        {issue.labels?.map((label) => (
+          <LabelBadge key={label} label={label} />
+        ))}
+        {issue.estimate > 0 && (
+          <span className="text-[var(--color-text-muted)] ml-auto tabular-nums">{issue.estimate}pt</span>
+        )}
         {issue.is_pending && (
-          <span className="px-1.5 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-warning-bg)] text-[var(--color-warning)] text-[10px]">
-            pending
-          </span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] ml-auto" />
         )}
       </div>
-
-
-    </Card>
+    </div>
   );
 }

@@ -15,9 +15,9 @@ const variantColors: Record<string, string> = {
 };
 
 const sizeStyles: Record<string, string> = {
-  sm: 'h-1',
-  md: 'h-2',
-  lg: 'h-3',
+  sm: 'h-0.5',
+  md: 'h-1',
+  lg: 'h-1.5',
 };
 
 export default function Progress({
@@ -45,24 +45,14 @@ export default function Progress({
         </div>
       )}
       <div
-        className={`
-          w-full bg-[var(--color-bg-tertiary)] 
-          rounded-[var(--radius-full)] 
-          overflow-hidden
-          ${sizeStyles[size]}
-        `.trim().replace(/\s+/g, ' ')}
+        className={`w-full bg-[var(--color-bg-tertiary)] rounded-full overflow-hidden ${sizeStyles[size]}`}
         role="progressbar"
         aria-valuenow={value}
         aria-valuemin={0}
         aria-valuemax={max}
       >
         <div
-          className={`
-            h-full 
-            rounded-[var(--radius-full)]
-            transition-all duration-500 ease-out
-            ${variantColors[variant]}
-          `.trim().replace(/\s+/g, ' ')}
+          className={`h-full rounded-full transition-all duration-500 ease-out ${variantColors[variant]}`}
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -70,7 +60,6 @@ export default function Progress({
   );
 }
 
-// Ring progress for dashboard charts
 interface ProgressRingProps {
   value: number;
   max?: number;
@@ -98,7 +87,6 @@ export function ProgressRing({
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size} className="-rotate-90">
-        {/* Background circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -107,7 +95,6 @@ export function ProgressRing({
           stroke="var(--color-bg-tertiary)"
           strokeWidth={strokeWidth}
         />
-        {/* Progress circle */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -124,14 +111,10 @@ export function ProgressRing({
       {(label || sublabel) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           {label && (
-            <span className="text-lg font-bold text-[var(--color-text-primary)]">
-              {label}
-            </span>
+            <span className="text-lg font-bold text-[var(--color-text-primary)]">{label}</span>
           )}
           {sublabel && (
-            <span className="text-xs text-[var(--color-text-muted)]">
-              {sublabel}
-            </span>
+            <span className="text-[10px] text-[var(--color-text-muted)]">{sublabel}</span>
           )}
         </div>
       )}

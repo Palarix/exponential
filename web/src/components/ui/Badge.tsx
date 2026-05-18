@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' |
-  'feature' | 'bug' | 'epic' |
   'backlog' | 'planned' | 'doing' | 'blocked' | 'done';
 
 interface BadgeProps {
@@ -17,37 +16,28 @@ const variantStyles: Record<BadgeVariant, string> = {
   warning: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   error: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
   info: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
-
-  // Label badges
-  feature: 'bg-blue-500/10 text-blue-500 dark:bg-blue-900/30 dark:text-blue-300',
-  bug: 'bg-red-500/10 text-red-500 dark:bg-red-900/30 dark:text-red-300',
-  epic: 'bg-violet-900/30 text-violet-500 dark:bg-violet-900/30 dark:text-violet-300',
-
-
-  // Status badges
-  backlog: 'bg-[oklch(0.25_0.04_260)] text-[var(--color-status-backlog)]',
-  planned: 'bg-[oklch(0.28_0.08_250)] text-[var(--color-status-planned)]',
-  doing: 'bg-[oklch(0.32_0.08_85)] text-[var(--color-status-doing)]',
-  blocked: 'bg-[oklch(0.28_0.08_25)] text-[var(--color-status-blocked)]',
-  done: 'bg-[oklch(0.28_0.08_145)] text-[var(--color-status-done)]',
+  backlog: 'bg-[var(--color-bg-tertiary)] text-[var(--color-status-backlog)]',
+  planned: 'bg-[var(--color-bg-tertiary)] text-[var(--color-status-planned)]',
+  doing: 'bg-[var(--color-warning-bg)] text-[var(--color-status-doing)]',
+  blocked: 'bg-[var(--color-error-bg)] text-[var(--color-status-blocked)]',
+  done: 'bg-[var(--color-success-bg)] text-[var(--color-status-done)]',
 };
 
 const sizeStyles: Record<string, string> = {
-  sm: 'px-2 py-0.5 text-[10px]',
-  md: 'px-2 py-1 text-xs',
+  sm: 'px-1.5 py-0.5 text-[10px]',
+  md: 'px-2 py-0.5 text-[11px]',
 };
 
 export default function Badge({
   children,
   variant = 'default',
   size = 'md',
-  dot = false
+  dot = false,
 }: BadgeProps) {
   return (
     <span
       className={`
-        inline-flex items-center gap-1
-        font-medium
+        inline-flex items-center gap-1 font-medium
         rounded-[var(--radius-sm)]
         ${variantStyles[variant]}
         ${sizeStyles[size]}
@@ -61,16 +51,29 @@ export default function Badge({
   );
 }
 
+const LABEL_COLORS: Record<string, string> = {
+  bug: 'var(--color-label-bug)',
+  feature: 'var(--color-label-feature)',
+  epic: 'var(--color-label-epic)',
+  improvement: 'var(--color-label-improvement)',
+};
+
 export function LabelBadge({ label }: { label: string }) {
-  let variant: BadgeVariant = 'default';
-  const lowerLabel = label.toLowerCase();
-  const upperLabel = label.toUpperCase()
+  const color = LABEL_COLORS[label.toLowerCase()] || 'var(--color-text-muted)';
+  const displayLabel = label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
 
-  if (lowerLabel === 'feature') variant = 'feature';
-  if (lowerLabel === 'bug') variant = 'bug';
-  if (lowerLabel === 'epic') variant = 'epic';
-
-  return <Badge size="sm" variant={variant}>{upperLabel}</Badge>;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full"
+      style={{ background: `color-mix(in srgb, ${color} 15%, transparent)`, color }}
+    >
+      <span
+        className="w-[6px] h-[6px] rounded-full shrink-0"
+        style={{ background: color }}
+      />
+      {displayLabel}
+    </span>
+  );
 }
 
 export function StatusBadge({ status }: { status: string }) {

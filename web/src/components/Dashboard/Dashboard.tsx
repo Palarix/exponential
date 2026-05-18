@@ -6,7 +6,6 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ issues }: DashboardProps) {
-  // Calculate stats
   const stats = {
     total: issues.length,
     backlog: issues.filter((i) => i.status === 'BACKLOG').length,
@@ -15,7 +14,6 @@ export default function Dashboard({ issues }: DashboardProps) {
     blocked: issues.filter((i) => i.status === 'BLOCKED').length,
     done: issues.filter((i) => i.status === 'DONE').length,
   };
-
 
   const completionRate = stats.total > 0 ? (stats.done / stats.total) * 100 : 0;
 
@@ -27,116 +25,86 @@ export default function Dashboard({ issues }: DashboardProps) {
     { label: 'Done', status: 'DONE', value: stats.done, color: 'var(--color-status-done)' },
   ];
 
-
-
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Dashboard</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            Project overview and metrics
-          </p>
-        </div>
+      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
+        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Dashboard</span>
       </div>
 
-      {/* Key Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Completion Ring */}
-        <Card variant="elevated" className="flex items-center gap-6">
-          <ProgressRing
-            value={stats.done}
-            max={stats.total || 1}
-            size={100}
-            strokeWidth={8}
-            color="var(--color-success)"
-            label={`${Math.round(completionRate)}%`}
-            sublabel="complete"
-          />
-          <div>
-            <p className="text-sm text-[var(--color-text-muted)]">Overall Progress</p>
-            <p className="text-3xl font-bold text-[var(--color-text-primary)]">
-              {stats.done}<span className="text-lg text-[var(--color-text-muted)]">/{stats.total}</span>
-            </p>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">issues completed</p>
-          </div>
-        </Card>
-
-
-
-        {/* Active Work */}
-        <Card variant="elevated">
-          <p className="text-sm text-[var(--color-text-muted)] mb-2">Active Work</p>
-          <p className="text-3xl font-bold text-[var(--color-warning)]">{stats.doing}</p>
-          <p className="text-xs text-[var(--color-text-muted)] mt-1">issues in progress</p>
-          {stats.blocked > 0 && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-[var(--color-error)]">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              {stats.blocked} blocked
-            </div>
-          )}
-        </Card>
-      </div>
-
-
-
-
-
-      {/* Status Distribution */}
-      <div>
-        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">
-          Status Distribution
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {statusCards.map((card) => (
-            <Card
-              key={card.label}
-              variant="default"
-              interactive
-              className="text-center"
-            >
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <StatusIcon status={card.status} size={14} />
-                <p className="text-sm text-[var(--color-text-muted)]">{card.label}</p>
-              </div>
-              <p
-                className="text-3xl font-bold"
-                style={{ color: card.color }}
-              >
-                {card.value}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl">
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Completion Ring */}
+          <Card variant="elevated" className="flex items-center gap-5">
+            <ProgressRing
+              value={stats.done}
+              max={stats.total || 1}
+              size={80}
+              strokeWidth={6}
+              color="var(--color-success)"
+              label={`${Math.round(completionRate)}%`}
+              sublabel="complete"
+            />
+            <div>
+              <p className="text-[12px] text-[var(--color-text-muted)]">Overall Progress</p>
+              <p className="text-2xl font-bold text-[var(--color-text-primary)]">
+                {stats.done}<span className="text-sm text-[var(--color-text-muted)]">/{stats.total}</span>
               </p>
-              <div
-                className="h-1 mt-3 rounded-full"
-                style={{
-                  background: card.color,
-                  opacity: 0.3,
-                }}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    background: card.color,
-                    width: `${stats.total ? (card.value / stats.total) * 100 : 0}%`
-                  }}
-                />
+              <p className="text-[11px] text-[var(--color-text-muted)]">issues completed</p>
+            </div>
+          </Card>
+
+          {/* Active Work */}
+          <Card variant="elevated">
+            <p className="text-[12px] text-[var(--color-text-muted)] mb-1">Active Work</p>
+            <p className="text-2xl font-bold text-[var(--color-warning)]">{stats.doing}</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">issues in progress</p>
+            {stats.blocked > 0 && (
+              <div className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--color-error)]">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {stats.blocked} blocked
               </div>
-            </Card>
-          ))}
+            )}
+          </Card>
+
+          {/* Pipeline */}
+          <Card variant="elevated">
+            <p className="text-[12px] text-[var(--color-text-muted)] mb-1">Pipeline</p>
+            <p className="text-2xl font-bold text-[var(--color-text-primary)]">{stats.backlog + stats.planned}</p>
+            <p className="text-[11px] text-[var(--color-text-muted)]">in backlog & planned</p>
+          </Card>
+        </div>
+
+        {/* Status Distribution */}
+        <div>
+          <h2 className="text-[13px] font-medium text-[var(--color-text-primary)] mb-3">Status Distribution</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {statusCards.map((card) => (
+              <Card key={card.label} variant="default" className="text-center">
+                <div className="flex items-center justify-center gap-1.5 mb-1">
+                  <StatusIcon status={card.status} size={12} />
+                  <p className="text-[12px] text-[var(--color-text-muted)]">{card.label}</p>
+                </div>
+                <p className="text-2xl font-bold" style={{ color: card.color }}>
+                  {card.value}
+                </p>
+                <div className="h-0.5 mt-2 rounded-full bg-[var(--color-bg-tertiary)]">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      background: card.color,
+                      width: `${stats.total ? (card.value / stats.total) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Recent Activity Placeholder */}
-      <Card variant="default" className="border-dashed border-2">
-        <div className="text-center py-8 text-[var(--color-text-muted)]">
-          <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm">Activity timeline coming soon</p>
-        </div>
-      </Card>
     </div>
   );
 }

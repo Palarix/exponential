@@ -1,5 +1,5 @@
 import type { Issue } from '../../api/client';
-import { Card, LabelBadge, StatusBadge } from '../ui';
+import { LabelBadge, StatusBadge } from '../ui';
 
 interface DependenciesProps {
   issues: Issue[];
@@ -7,7 +7,6 @@ interface DependenciesProps {
 }
 
 export default function Dependencies({ issues, onIssueClick }: DependenciesProps) {
-  // Find all dependency relationships
   const dependencies: { source: Issue; target: Issue; kind: string }[] = [];
 
   for (const issue of issues) {
@@ -15,84 +14,66 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
       for (const dep of issue.dependencies) {
         const target = issues.find((i) => i.id === dep.target_id);
         if (target) {
-          dependencies.push({
-            source: issue,
-            target,
-            kind: dep.kind,
-          });
+          dependencies.push({ source: issue, target, kind: dep.kind });
         }
       }
     }
   }
 
-  // Group by kind
   const byKind = dependencies.reduce((acc, dep) => {
     if (!acc[dep.kind]) acc[dep.kind] = [];
     acc[dep.kind].push(dep);
     return acc;
   }, {} as Record<string, typeof dependencies>);
 
-  const kindIcons: Record<string, string> = {
-    blocked_by: '🚫',
-    blocks: '⛔',
-    child: '📎',
-    parent: '📂',
-    related: '🔗',
-  };
-
   const kindColors: Record<string, string> = {
     blocked_by: 'var(--color-error)',
     blocks: 'var(--color-error)',
-    child: 'var(--color-kind-epic)',
-    parent: 'var(--color-kind-epic)',
+    child: 'var(--color-label-epic)',
+    parent: 'var(--color-label-epic)',
     related: 'var(--color-info)',
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Dependencies</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            {dependencies.length} relationship{dependencies.length !== 1 ? 's' : ''} found
-          </p>
-        </div>
+      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
+        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Dependencies</span>
+        <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
+          {dependencies.length} relationship{dependencies.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      {dependencies.length === 0 ? (
-        <Card variant="default" className="border-dashed border-2">
-          <div className="text-center py-12 text-[var(--color-text-muted)]">
-            <svg className="w-16 h-16 mx-auto mb-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+      <div className="flex-1 overflow-y-auto p-5 space-y-6 max-w-5xl">
+        {dependencies.length === 0 ? (
+          <div className="text-center py-16 text-[var(--color-text-muted)]">
+            <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
-            <p className="text-lg font-medium mb-1">No dependencies</p>
-            <p className="text-sm">Issues aren't linked to each other yet</p>
+            <p className="text-sm">No dependencies</p>
+            <p className="text-[12px] mt-1">Issues aren't linked to each other yet</p>
           </div>
-        </Card>
-      ) : (
-        <div className="space-y-8">
-          {Object.entries(byKind).map(([kind, deps]) => (
+        ) : (
+          Object.entries(byKind).map(([kind, deps]) => (
             <div key={kind}>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xl">{kindIcons[kind] || '🔗'}</span>
-                <h2 className="text-lg font-semibold text-[var(--color-text-primary)] capitalize">
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-[13px] font-medium text-[var(--color-text-primary)] capitalize">
                   {kind.replace('_', ' ')}
                 </h2>
                 <span
-                  className="px-2 py-0.5 text-xs font-medium rounded-[var(--radius-full)]"
+                  className="text-[11px] tabular-nums px-1.5 py-0.5 rounded-[var(--radius-sm)]"
                   style={{
-                    background: `${kindColors[kind] || 'var(--color-text-muted)'}20`,
-                    color: kindColors[kind] || 'var(--color-text-muted)'
+                    background: `${kindColors[kind] || 'var(--color-text-muted)'}15`,
+                    color: kindColors[kind] || 'var(--color-text-muted)',
                   }}
                 >
                   {deps.length}
                 </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {deps.map((dep, i) => (
-                  <DependencyCard
+                  <DependencyRow
                     key={i}
                     source={dep.source}
                     target={dep.target}
@@ -103,19 +84,19 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
                 ))}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
 
-function DependencyCard({
+function DependencyRow({
   source,
   target,
   kind,
   color,
-  onIssueClick
+  onIssueClick,
 }: {
   source: Issue;
   target: Issue;
@@ -124,74 +105,41 @@ function DependencyCard({
   onIssueClick?: (issue: Issue) => void;
 }) {
   return (
-    <Card variant="default" padding="none" className="overflow-hidden">
-      <div className="flex items-stretch">
-        {/* Source Issue */}
-        <IssueLink issue={source} onClick={() => onIssueClick?.(source)} />
+    <div className="flex items-center border border-[var(--color-border-subtle)] rounded-[var(--radius-md)] overflow-hidden">
+      {/* Source */}
+      <IssueLink issue={source} onClick={() => onIssueClick?.(source)} />
 
-        {/* Relationship Arrow */}
-        <div
-          className="flex items-center justify-center px-4 min-w-[140px]"
-          style={{ background: `${color}10` }}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-0.5 rounded-full" style={{ background: color }} />
-            <span
-              className="text-xs font-medium whitespace-nowrap"
-              style={{ color }}
-            >
-              {kind.replace('_', ' ')}
-            </span>
-            <svg
-              className="w-4 h-4"
-              style={{ color }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Target Issue */}
-        <IssueLink issue={target} onClick={() => onIssueClick?.(target)} />
+      {/* Arrow */}
+      <div className="flex items-center gap-1.5 px-3 shrink-0" style={{ color }}>
+        <div className="w-5 h-px" style={{ background: color }} />
+        <span className="text-[11px] font-medium whitespace-nowrap">{kind.replace('_', ' ')}</span>
+        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
       </div>
-    </Card>
+
+      {/* Target */}
+      <IssueLink issue={target} onClick={() => onIssueClick?.(target)} />
+    </div>
   );
 }
 
 function IssueLink({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
   return (
     <div
-      className="
-        flex-1 p-4 
-        hover:bg-[var(--color-bg-hover)] 
-        cursor-pointer 
-        transition-colors duration-[var(--duration-fast)]
-        group
-      "
+      className="flex-1 flex items-center gap-2 px-3 py-2 hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)] min-w-0"
       onClick={onClick}
     >
-      <div className="flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="flex gap-1 overflow-hidden">
-              {issue.labels?.map((label: string) => (
-                <LabelBadge key={label} label={label} />
-              ))}
-            </div>
-            <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
-              {issue.id}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-text-accent)] transition-colors">
-            {issue.title}
-          </p>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="text-[10px] font-mono text-[var(--color-text-muted)]">{issue.id}</span>
+          {issue.labels?.map((label: string) => (
+            <LabelBadge key={label} label={label} />
+          ))}
         </div>
-        <StatusBadge status={issue.status} />
+        <p className="text-[13px] text-[var(--color-text-primary)] truncate">{issue.title}</p>
       </div>
+      <StatusBadge status={issue.status} />
     </div>
   );
 }

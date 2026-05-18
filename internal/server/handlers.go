@@ -1,9 +1,12 @@
 package server
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/kuyio/beats/internal/beats"
@@ -51,9 +54,10 @@ type PendingResponse struct {
 }
 
 type PendingEventEntry struct {
-	IssueID   string    `json:"issue_id"`
-	Type      string    `json:"type"`
-	CreatedAt time.Time `json:"created_at"`
+	IssueID   string      `json:"issue_id"`
+	Type      string      `json:"type"`
+	Payload   interface{} `json:"payload,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 // --- Handler Methods ---
@@ -124,6 +128,10 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 
 	var payload interface{}
 	switch model.EventType(req.Type) {
+	case model.EventTypeCreate:
+		var p model.CreatePayload
+		json.Unmarshal(req.Payload, &p)
+		payload = p
 	case model.EventTypeUpdate:
 		var p model.UpdatePayload
 		json.Unmarshal(req.Payload, &p)
@@ -141,8 +149,20 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	issueID := req.IssueID
+	if model.EventType(req.Type) == model.EventTypeCreate && issueID == "" {
+		prefix := "beats-"
+		if s.Config.Prefix != "" {
+			prefix = s.Config.Prefix
+		}
+		b := make([]byte, 3)
+		if _, err := rand.Read(b); err == nil {
+			issueID = prefix + fmt.Sprintf("%x", b)
+		}
+	}
+
 	evt := model.Event{
-		ID:        req.IssueID,
+		ID:        issueID,
 		Type:      model.EventType(req.Type),
 		Payload:   payload,
 		CreatedAt: time.Now().UTC(),
@@ -150,7 +170,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.AddPendingEvent(evt)
-	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issueID})
 }
 
 func (s *Server) handleGetPending(w http.ResponseWriter, r *http.Request) {
@@ -167,6 +187,7 @@ func (s *Server) handleGetPending(w http.ResponseWriter, r *http.Request) {
 		resp.Events = append(resp.Events, PendingEventEntry{
 			IssueID:   evt.ID,
 			Type:      string(evt.Type),
+			Payload:   evt.Payload,
 			CreatedAt: evt.CreatedAt,
 		})
 		issueIDSet[evt.ID] = true
@@ -250,5 +271,16 @@ func getUser(cfg *config.Config) string {
 	if cfg != nil && cfg.User != "" {
 		return cfg.User
 	}
-	return "Web User <web@beats>"
+
+	nameBytes, _ := exec.Command("git", "config", "user.name").Output()
+	emailBytes, _ := exec.Command("git", "config", "user.email").Output()
+	name := strings.TrimSpace(string(nameBytes))
+	email := strings.TrimSpace(string(emailBytes))
+	if name == "" {
+		name = "Unknown"
+	}
+	if email == "" {
+		email = "unknown@example.com"
+	}
+	return fmt.Sprintf("%s <%s>", name, email)
 }
