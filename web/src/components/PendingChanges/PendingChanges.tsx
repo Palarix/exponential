@@ -4,13 +4,14 @@ import { StatusIcon, LabelBadge } from '../ui';
 interface PendingChangesProps {
   pending: PendingState;
   issues: Issue[];
+  autoCommit: boolean;
   onClose: () => void;
   onSave: () => void;
   onDiscard: () => void;
   onIssueClick: (issue: Issue) => void;
 }
 
-export default function PendingChanges({ pending, issues, onClose, onSave, onDiscard, onIssueClick }: PendingChangesProps) {
+export default function PendingChanges({ pending, issues, autoCommit, onClose, onSave, onDiscard, onIssueClick }: PendingChangesProps) {
   const events = pending.events || [];
   const issueMap = new Map(issues.map(i => [i.id, i]));
 
@@ -42,7 +43,7 @@ export default function PendingChanges({ pending, issues, onClose, onSave, onDis
             onClick={onSave}
             className="px-2.5 py-1 text-[12px] text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
           >
-            Save & Commit
+            {autoCommit ? 'Save & Commit' : 'Save'}
           </button>
         </div>
       </div>

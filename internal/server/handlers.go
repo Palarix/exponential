@@ -200,6 +200,11 @@ func (s *Server) handleGetPending(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Message string `json:"message"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
 	s.mu.Lock()
 	pending := s.pendingEvents
 	s.mu.Unlock()
@@ -218,16 +223,32 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 
 	s.DiscardPending()
 
+	committed := false
 	if s.Config.AutoCommit {
-		beats.GitCommit("beats: web UI batch save")
+		msg := req.Message
+		if msg == "" {
+			msg = "beats: web UI batch save"
+		}
+		beats.GitCommit(msg)
+		committed = true
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"status": "saved", "count": fmt.Sprintf("%d", len(pending))})
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "saved",
+		"count":     len(pending),
+		"committed": committed,
+	})
 }
 
 func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
 	s.DiscardPending()
 	respondJSON(w, http.StatusOK, map[string]string{"status": "discarded"})
+}
+
+func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"auto_commit": s.Config.AutoCommit,
+	})
 }
 
 // --- Helpers ---

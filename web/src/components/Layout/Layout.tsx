@@ -14,6 +14,7 @@ interface LayoutProps {
   onSearch: () => void;
   onNewIssue: () => void;
   onPendingClick: () => void;
+  autoCommit: boolean;
 }
 
 const PRIMARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
@@ -89,14 +90,19 @@ export default function Layout({
   onSearch,
   onNewIssue,
   onPendingClick,
+  autoCommit,
 }: LayoutProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
 
   const handleSave = () => {
-    const now = new Date().toISOString().split('T')[0];
-    setCommitMessage(`Update ${now}`);
-    setShowSaveModal(true);
+    if (autoCommit) {
+      const now = new Date().toISOString().split('T')[0];
+      setCommitMessage(`Update ${now}`);
+      setShowSaveModal(true);
+    } else {
+      onSave('');
+    }
   };
 
   const confirmSave = () => {
@@ -173,17 +179,22 @@ export default function Layout({
               <div className="flex gap-1.5">
                 <button
                   onClick={onDiscard}
-                  className="flex-1 px-2 py-1 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-sm)] transition-colors"
+                  className="flex-1 h-7 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-sm)] transition-colors"
                 >
                   Discard
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex-1 px-2 py-1 text-[11px] text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-sm)] transition-colors"
+                  className="flex-1 h-7 text-[11px] text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-sm)] transition-colors"
                 >
-                  Save
+                  {autoCommit ? 'Save & Commit' : 'Save'}
                 </button>
               </div>
+              {!autoCommit && (
+                <p className="text-[10px] text-[var(--color-text-muted)] px-0.5 mt-1.5">
+                  Writes to issues.db only. Enable auto_commit in config to also create git commits.
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-1.5 px-0.5 text-[11px] text-[var(--color-text-muted)]">
