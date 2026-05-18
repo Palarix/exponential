@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchIssues, fetchPending, saveAll, discardAll, createIssue } from './api/client';
+import { fetchIssues, fetchPending, fetchConfig, saveAll, discardAll, createIssue } from './api/client';
 import type { Issue, PendingState } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -23,6 +23,7 @@ function App() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPending, setShowPending] = useState(false);
+  const [autoCommit, setAutoCommit] = useState(false);
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
 
@@ -44,13 +45,14 @@ function App() {
 
   useEffect(() => {
     fetchData();
+    fetchConfig().then(c => setAutoCommit(c.auto_commit)).catch(() => {});
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const handleSave = async (_commitMessage: string) => {
+  const handleSave = async (commitMessage: string) => {
     try {
-      await saveAll();
+      await saveAll(commitMessage);
       await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
@@ -126,6 +128,7 @@ function App() {
         <PendingChanges
           pending={pending}
           issues={issues}
+          autoCommit={autoCommit}
           onClose={() => setShowPending(false)}
           onSave={() => { handleSave(`Update ${new Date().toISOString().split('T')[0]}`); setShowPending(false); }}
           onDiscard={() => { handleDiscard(); setShowPending(false); }}
@@ -178,6 +181,7 @@ function App() {
         onSearch={handleSearch}
         onNewIssue={handleNewIssue}
         onPendingClick={() => setShowPending(true)}
+        autoCommit={autoCommit}
       >
         {renderContent()}
       </Layout>

@@ -36,9 +36,19 @@ export async function createIssue(payload: { title: string; description?: string
   return data.issue_id;
 }
 
-export async function saveAll(): Promise<void> {
-  const res = await fetch(`${API_BASE}/save`, { method: 'POST' });
+export async function saveAll(message?: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: message || '' }),
+  });
   if (!res.ok) throw new Error('Failed to save');
+}
+
+export async function fetchConfig(): Promise<{ auto_commit: boolean }> {
+  const res = await fetch(`${API_BASE}/config`);
+  if (!res.ok) throw new Error('Failed to fetch config');
+  return res.json();
 }
 
 export async function discardAll(): Promise<void> {
