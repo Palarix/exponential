@@ -11,7 +11,7 @@ frontend:
 	cp -r web/dist internal/server/static
 
 # Build the Go binary (depends on frontend)
-build: cli frontend
+build: frontend cli
 
 # Build Go binary only (skip frontend rebuild)
 cli:

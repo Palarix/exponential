@@ -50,7 +50,7 @@ export default function Modal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-black/50 animate-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -60,7 +60,7 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
-        className="relative bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] animate-scale-in flex flex-col"
+        className="relative bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] animate-fade-in flex flex-col"
         style={{
           minWidth: sizeStyles[size].minWidth,
           maxWidth: sizeStyles[size].maxWidth,
@@ -70,11 +70,11 @@ export default function Modal({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border-subtle)]">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border-subtle)]">
             {title && (
               <h2
                 id="modal-title"
-                className="text-lg font-semibold text-[var(--color-text-primary)]"
+                className="text-sm font-semibold text-[var(--color-text-primary)]"
               >
                 {title}
               </h2>
@@ -82,27 +82,10 @@ export default function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="
-                  p-1.5 rounded-[var(--radius-md)]
-                  text-[var(--color-text-muted)]
-                  hover:text-[var(--color-text-primary)]
-                  hover:bg-[var(--color-bg-hover)]
-                  transition-colors duration-[var(--duration-fast)]
-                  ml-auto
-                "
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors duration-[var(--duration-fast)] ml-auto"
                 aria-label="Close modal"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />
                 </svg>
@@ -112,7 +95,7 @@ export default function Modal({
         )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           {children}
         </div>
       </div>
@@ -121,10 +104,9 @@ export default function Modal({
   );
 }
 
-// Modal sub-components for composition
 export function ModalFooter({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]/50 rounded-b-[var(--radius-xl)]">
+    <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[var(--color-border-subtle)]">
       {children}
     </div>
   );

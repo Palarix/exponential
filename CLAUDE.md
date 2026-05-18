@@ -84,7 +84,7 @@ Always read the full details of an issue before starting work. It may contain de
 - Always add a label to new issues using the `--label <name>` option
 - When possible pick from the built-in labels ('bug', 'feature', 'epic') unless another label is more appropriate
 - Keep the title under 100 characters
-- You may use markdown for the description and are encouraged to do so. Markdown supports checklists (`- [ ] Title` format) you can use to further sub-divide the task steps.
+- Descriptions and comments are rendered as **Markdown** in the web UI. Always write them in proper markdown: use headings, lists, code blocks, bold/italic, and links where appropriate. Use double newlines between paragraphs. Markdown checklists (`- [ ] Title` format) can sub-divide task steps.
 - When a new issue belongs conceptually to an Epic, add the corresponding epic as a parent to the new issue (`--parent <id>` option)
 
 #### Examples:
@@ -140,6 +140,7 @@ beats comment <issue-id> 'Updated description with new findings...'
 ### 4. Completion (Finishing Work)
 
 - When work on your issue, task, or bug is complete, first add a summary of the changes together with your rationale for the changes as a comment using the `beats comment <id>` command.
+- Comments are rendered as **Markdown** in the web UI. Use proper markdown formatting: headings for sections, bullet or numbered lists for changes, backtick code spans for file/function names. Use double newlines between paragraphs to ensure correct rendering.
 - Then mark the issue as completed using the `beats done <id>` command.
 
 #### Examples:
@@ -147,8 +148,14 @@ beats comment <issue-id> 'Updated description with new findings...'
 **Add walkthrough:**
 
 ```bash
-# Add a new comment to the given issue-id
-beats comment <issue-id> 'Summary of the changes and rationale followed'
+# Add a new comment with markdown formatting
+beats comment <issue-id> "## Summary
+
+- Fixed the login race condition in \`auth/session.go\`
+- Added mutex lock around session token refresh
+- Verified with concurrent request test
+
+**Root cause:** The session refresh was not atomic."
 ```
 
 **Mark as Done:**

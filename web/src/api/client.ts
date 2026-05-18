@@ -25,12 +25,23 @@ export async function addDraft(issueId: string, type: string, payload: unknown):
   if (!res.ok) throw new Error('Failed to add draft');
 }
 
+export async function createIssue(payload: { title: string; description?: string; labels?: string[] }): Promise<string> {
+  const res = await fetch(`${API_BASE}/draft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ issue_id: '', type: 'CREATE', payload }),
+  });
+  if (!res.ok) throw new Error('Failed to create issue');
+  const data = await res.json();
+  return data.issue_id;
+}
+
 export async function saveAll(): Promise<void> {
   const res = await fetch(`${API_BASE}/save`, { method: 'POST' });
   if (!res.ok) throw new Error('Failed to save');
 }
 
 export async function discardAll(): Promise<void> {
-  const res = await fetch(`${API_BASE}/discard`, { method: 'POST' });
+  const res = await fetch(`${API_BASE}/pending`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to discard');
 }

@@ -37,5 +37,6 @@ export interface PendingState {
 export interface Event {
   issue_id: string;
   type: string;
+  payload?: Record<string, unknown>;
   created_at: string;
 }
