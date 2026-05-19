@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { addDraft, fetchIssueHistory } from "../../api/client";
@@ -47,12 +47,50 @@ export default function IssueDetail({
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
+  const [popoverIndex, setPopoverIndex] = useState(0);
+  const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setEditingField(null);
     setOpenPopover(null);
     setNewComment("");
   }, [issue.id]);
+
+  const saveDraft = useCallback(async (type: string, payload: unknown) => {
+    setSaving(true);
+    try {
+      await addDraft(issue.id, type, payload);
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+    } finally {
+      setSaving(false);
+      setEditingField(null);
+      setOpenPopover(null);
+    }
+  }, [issue.id, onRefresh]);
+
+  const handleStatusChange = useCallback((newStatus: string) => {
+    if (newStatus !== issue.status) saveDraft("UPDATE", { status: newStatus });
+    else setOpenPopover(null);
+  }, [issue.status, saveDraft]);
+
+  const handleEstimateChange = useCallback((est: number) => {
+    if (est !== (issue.estimate || 0)) saveDraft("UPDATE", { estimate: est });
+    else setOpenPopover(null);
+  }, [issue.estimate, saveDraft]);
+
+  const handleLabelToggle = useCallback((label: string) => {
+    const current = issue.labels || [];
+    const next = current.includes(label)
+      ? current.filter((l) => l !== label)
+      : [...current, label];
+    saveDraft("UPDATE", { labels: next });
+  }, [issue.labels, saveDraft]);
+
+  const allKnownLabels = Array.from(
+    new Set([...BUILTIN_LABELS, ...issues.flatMap((i) => i.labels || [])]),
+  ).sort();
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -65,27 +103,44 @@ export default function IssueDetail({
         if (openPopover) setOpenPopover(null);
         else if (editingField) setEditingField(null);
         else onClose();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey) return;
+      // Keyboard nav inside open popovers
+      if (openPopover) {
+        const len = openPopover === "status" ? STATUS_OPTIONS.length
+          : openPopover === "estimate" ? ESTIMATE_OPTIONS.length
+          : openPopover === "labels" ? allKnownLabels.length : 0;
+        if (e.key === "ArrowDown") { e.preventDefault(); setPopoverIndex(i => Math.min(i + 1, len - 1)); return; }
+        if (e.key === "ArrowUp") { e.preventDefault(); setPopoverIndex(i => Math.max(i - 1, 0)); return; }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (openPopover === "status") handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
+          else if (openPopover === "estimate") handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
+          else if (openPopover === "labels") handleLabelToggle(allKnownLabels[popoverIndex]);
+          return;
+        }
+        if (openPopover === "status") {
+          const num = parseInt(e.key);
+          if (num >= 1 && num <= 5 && STATUS_OPTIONS[num - 1]) { handleStatusChange(STATUS_OPTIONS[num - 1].value); return; }
+        }
+        return;
       }
       if (e.key === "ArrowLeft" || e.key === "k") onNavigate("prev");
       if (e.key === "ArrowRight" || e.key === "j") onNavigate("next");
+      if (e.key === "s") { setOpenPopover("status"); setPopoverIndex(STATUS_OPTIONS.findIndex(o => o.value === issue.status)); }
+      if (e.key === "l") { setOpenPopover("labels"); setPopoverIndex(0); }
+      if (e.key === "e") { setOpenPopover("estimate"); setPopoverIndex(ESTIMATE_OPTIONS.indexOf(issue.estimate || 0)); }
+      if (e.key === "m") { e.preventDefault(); commentRef.current?.focus(); commentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 5) {
+        const status = STATUS_OPTIONS[num - 1];
+        if (status && status.value !== issue.status) saveDraft("UPDATE", { status: status.value });
+      }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose, onNavigate, openPopover, editingField]);
-
-  const saveDraft = async (type: string, payload: unknown) => {
-    setSaving(true);
-    try {
-      await addDraft(issue.id, type, payload);
-      onRefresh();
-    } catch (err) {
-      console.error("Failed to save draft:", err);
-    } finally {
-      setSaving(false);
-      setEditingField(null);
-      setOpenPopover(null);
-    }
-  };
+  }, [onClose, onNavigate, openPopover, editingField, issue.status, issue.estimate, saveDraft, handleStatusChange, handleEstimateChange, handleLabelToggle, allKnownLabels, popoverIndex]);
 
   const startEditing = (field: string) => {
     setEditingField(field);
@@ -108,28 +163,6 @@ export default function IssueDetail({
       setEditingField(null);
     }
   };
-
-  const handleStatusChange = (newStatus: string) => {
-    if (newStatus !== issue.status) saveDraft("UPDATE", { status: newStatus });
-    else setOpenPopover(null);
-  };
-
-  const handleEstimateChange = (est: number) => {
-    if (est !== (issue.estimate || 0)) saveDraft("UPDATE", { estimate: est });
-    else setOpenPopover(null);
-  };
-
-  const handleLabelToggle = (label: string) => {
-    const current = issue.labels || [];
-    const next = current.includes(label)
-      ? current.filter((l) => l !== label)
-      : [...current, label];
-    saveDraft("UPDATE", { labels: next });
-  };
-
-  const allKnownLabels = Array.from(
-    new Set([...BUILTIN_LABELS, ...issues.flatMap((i) => i.labels || [])]),
-  ).sort();
 
   const handleAddComment = () => {
     if (newComment.trim()) {
@@ -330,6 +363,7 @@ export default function IssueDetail({
               onNewCommentChange={setNewComment}
               onAddComment={handleAddComment}
               saving={saving}
+              commentRef={commentRef}
             />
           </div>
         </div>
@@ -354,19 +388,28 @@ export default function IssueDetail({
                 {openPopover === "status" && (
                   <Popover onClose={() => setOpenPopover(null)}>
                     <PopoverHeader>Change status...</PopoverHeader>
-                    {STATUS_OPTIONS.map((opt, i) => (
-                      <PopoverItem
-                        key={opt.value}
-                        selected={opt.value === issue.status}
-                        onClick={() => handleStatusChange(opt.value)}
-                      >
-                        <StatusIcon status={opt.value} size={14} />
-                        <span>{opt.label}</span>
-                        <span className="ml-auto text-[11px] text-[var(--color-text-muted)]">
-                          {i + 1}
-                        </span>
-                      </PopoverItem>
-                    ))}
+                    {STATUS_OPTIONS.map((opt, i) => {
+                      const isCurrent = opt.value === issue.status;
+                      const isFocused = i === popoverIndex;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleStatusChange(opt.value)}
+                          onMouseEnter={() => setPopoverIndex(i)}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                        >
+                          <StatusIcon status={opt.value} size={14} />
+                          <span>{opt.label}</span>
+                          {isCurrent ? (
+                            <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <span className="ml-auto text-[11px] text-[var(--color-text-muted)]">{i + 1}</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </Popover>
                 )}
               </div>
@@ -393,19 +436,25 @@ export default function IssueDetail({
                 {openPopover === "estimate" && (
                   <Popover onClose={() => setOpenPopover(null)}>
                     <PopoverHeader>Change estimate to...</PopoverHeader>
-                    {ESTIMATE_OPTIONS.map((est) => (
-                      <PopoverItem
-                        key={est}
-                        selected={est === (issue.estimate || 0)}
-                        onClick={() => handleEstimateChange(est)}
-                      >
-                        <span>
-                          {est === 0
-                            ? "No estimate"
-                            : `${est} Point${est !== 1 ? "s" : ""}`}
-                        </span>
-                      </PopoverItem>
-                    ))}
+                    {ESTIMATE_OPTIONS.map((est, i) => {
+                      const isCurrent = est === (issue.estimate || 0);
+                      const isFocused = i === popoverIndex;
+                      return (
+                        <button
+                          key={est}
+                          onClick={() => handleEstimateChange(est)}
+                          onMouseEnter={() => setPopoverIndex(i)}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                        >
+                          <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
+                          {isCurrent && (
+                            <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
                   </Popover>
                 )}
               </div>
@@ -433,13 +482,15 @@ export default function IssueDetail({
                 {openPopover === "labels" && (
                   <Popover onClose={() => setOpenPopover(null)}>
                     <PopoverHeader>Change or add labels...</PopoverHeader>
-                    {allKnownLabels.map((label) => {
+                    {allKnownLabels.map((label, i) => {
                       const isActive = (issue.labels || []).includes(label);
+                      const isFocused = i === popoverIndex;
                       return (
                         <button
                           key={label}
                           onClick={() => handleLabelToggle(label)}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[13px] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                          onMouseEnter={() => setPopoverIndex(i)}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] text-[var(--color-text-primary)] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''}`}
                         >
                           <span
                             className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
@@ -606,39 +657,7 @@ function PopoverHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-function PopoverItem({
-  children,
-  selected,
-  onClick,
-}: {
-  children: React.ReactNode;
-  selected?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 w-full px-3 py-1.5 text-[13px] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
-    >
-      {children}
-      {selected && (
-        <svg
-          className="w-3.5 h-3.5 ml-auto text-[var(--color-accent-primary)]"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5 13l4 4L19 7"
-          />
-        </svg>
-      )}
-    </button>
-  );
-}
+
 
 type ActivityEntry =
   | { kind: "system"; author: string; content: React.ReactNode; time: string }
@@ -696,12 +715,14 @@ function ActivityTimeline({
   onNewCommentChange,
   onAddComment,
   saving,
+  commentRef,
 }: {
   issue: Issue;
   newComment: string;
   onNewCommentChange: (v: string) => void;
   onAddComment: () => void;
   saving: boolean;
+  commentRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [sortNewest, setSortNewest] = useState(true);
@@ -788,6 +809,7 @@ function ActivityTimeline({
       {/* Comment input */}
       <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] overflow-hidden">
         <textarea
+          ref={commentRef}
           value={newComment}
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."

@@ -71,7 +71,7 @@ export default function PendingEventsPanel({
         {/* Events List */}
         <div className="flex-1 overflow-y-auto">
           {pending.events && pending.events.length > 0 ? (
-            pending.events.map((event: any, i: number) => (
+            pending.events.map((event, i) => (
               <div
                 key={i}
                 className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--color-border-subtle)]"
