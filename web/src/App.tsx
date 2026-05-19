@@ -323,7 +323,7 @@ const ESTIMATE_OPTIONS: DropdownOption[] = [
 function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClose: () => void; onCreated: () => void }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [label, setLabel] = useState('');
+  const [label, setLabel] = useState('feature');
   const [status, setStatus] = useState('BACKLOG');
   const [estimate, setEstimate] = useState('0');
   const [saving, setSaving] = useState(false);
@@ -341,7 +341,7 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
       });
       setTitle('');
       setDescription('');
-      setLabel('');
+      setLabel('feature');
       setStatus('BACKLOG');
       setEstimate('0');
       onCreated();
@@ -352,9 +352,16 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
     }
   };
 
+  const handleModalKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canCreate) {
+      e.preventDefault();
+      handleCreate();
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New Issue" size="2xl">
-      <div className="space-y-3">
+      <div className="space-y-3" onKeyDown={handleModalKeyDown}>
         {/* Properties row: label, status, estimate */}
         <div className="flex items-center gap-2">
           <InlineDropdown

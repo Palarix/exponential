@@ -11,7 +11,9 @@
       "Bash(make cli *)",
       "Bash(./beats planned *)",
       "Bash(npx tsc *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(beats show *)",
+      "Bash(beats start *)"
     ]
   }
 }
