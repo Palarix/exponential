@@ -320,18 +320,18 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     <div className="h-full flex flex-col relative">
       {/* Toast */}
       {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-[12px] text-[var(--color-text-primary)] animate-fade-in">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
           {toast}
         </div>
       )}
       {/* Tab bar */}
-      <div className="flex items-center gap-4 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
+      <div className="flex items-center gap-4 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
         {(Object.entries(TAB_CONFIGS) as [Tab, { label: string }][]).map(([id, config]) => (
           <button
             key={id}
             onClick={() => setActiveTab(id)}
             className={`
-              text-[13px] font-medium h-full border-b-[1.5px] -mb-px transition-colors duration-[var(--duration-fast)]
+              text-sm font-medium h-full border-b-[1.5px] -mb-px transition-colors duration-[var(--duration-fast)]
               ${activeTab === id
                 ? 'text-[var(--color-text-primary)] border-[var(--color-text-primary)]'
                 : 'text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]'
@@ -354,7 +354,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                 onBlur={() => { if (!search) onSearchBlur?.(); }}
                 onKeyDown={(e) => { if (e.key === 'Escape') { setSearch(''); onSearchBlur?.(); } }}
                 placeholder="Filter issues..."
-                className="bg-transparent text-[12px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none w-36"
+                className="bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none w-36"
               />
             </div>
           )}
@@ -362,7 +362,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
             <button
               ref={sortBtnRef}
               onClick={() => setShowSortMenu(v => !v)}
-              className="flex items-center gap-1 h-6 px-1.5 rounded-[var(--radius-sm)] text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-1 h-6 px-1.5 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h6M3 12h10M3 17h14" />
@@ -375,7 +375,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                   <button
                     key={opt.value}
                     onClick={() => { onSortChange(opt.value); setShowSortMenu(false); }}
-                    className={`flex items-center gap-2 w-full h-7 px-3 text-[12px] transition-colors ${
+                    className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${
                       opt.value === sortKey
                         ? 'text-[var(--color-text-primary)] bg-[var(--color-bg-hover)]'
                         : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
@@ -392,7 +392,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
               </div>
             )}
           </div>
-          <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
             {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -425,8 +425,8 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                   <StatusIcon status={row.status} size={14} />
-                  <span className="text-[13px] font-medium text-[var(--color-text-primary)]">{row.label}</span>
-                  <span className="text-[12px] text-[var(--color-text-muted)] tabular-nums">{row.count}</span>
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{row.label}</span>
+                  <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{row.count}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); startInlineCreate(row.status); }}
                     className="ml-auto p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
@@ -455,7 +455,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                       }}
                       onBlur={() => { if (!inlineTitle.trim()) { setInlineCreateStatus(null); setInlineTitle(''); } }}
                       placeholder="New issue title... (Enter to create, Esc to cancel)"
-                      className="flex-1 bg-transparent text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+                      className="flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
                     />
                   </div>
                 )}
@@ -513,27 +513,27 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                 </span>
               )}
 
-              <CopyableId id={issue.id} className="text-[11px] w-[88px] shrink-0 truncate tabular-nums" />
+              <CopyableId id={issue.id} className="text-xs w-[88px] shrink-0 truncate tabular-nums" />
               <StatusIcon status={issue.status} size={14} className="shrink-0" />
-              <span className="text-[13px] font-medium text-[var(--color-text-primary)] truncate flex-1 min-w-0">{issue.title}</span>
+              <span className="text-sm font-medium text-[var(--color-text-primary)] truncate flex-1 min-w-0">{issue.title}</span>
 
               {hasChildren && (
-                <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] shrink-0">
+                <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
                   <SubProgress done={childDone} total={childTotal} />
                   {childDone}/{childTotal}
                 </span>
               )}
               {issue.is_pending && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />}
               {issue.priority > 0 && (
-                <span className={`text-[11px] font-medium shrink-0 ${issue.priority === 1 ? 'text-[var(--color-error)]' : issue.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
+                <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? 'text-[var(--color-error)]' : issue.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
                   {issue.priority === 1 ? '!!!' : issue.priority === 2 ? '!!' : issue.priority === 3 ? '!' : ''}
                 </span>
               )}
               <div className="flex items-center gap-2.5 shrink-0">
                 {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
               </div>
-              {issue.estimate > 0 && <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums shrink-0">{issue.estimate}</span>}
-              <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums shrink-0 w-12 text-right">{formatShortDate(issue.created_at)}</span>
+              {issue.estimate > 0 && <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">{issue.estimate}</span>}
+              <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-12 text-right">{formatShortDate(issue.created_at)}</span>
               </div>
               {showDropBelow && <div className="absolute bottom-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
             </div>

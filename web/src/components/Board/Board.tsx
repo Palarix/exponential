@@ -22,9 +22,9 @@ export default function Board({ issues, onIssueClick }: BoardProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
-        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Board</span>
-        <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
+      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+        <span className="text-sm font-medium text-[var(--color-text-primary)]">Board</span>
+        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
           {boardIssues.length} issue{boardIssues.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -61,9 +61,9 @@ function BoardColumn({ column, issues, onIssueClick }: { column: { id: string; l
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center gap-2">
           <StatusIcon status={column.id} size={14} />
-          <span className="text-[13px] font-medium text-[var(--color-text-primary)]">{column.label}</span>
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">{column.label}</span>
         </div>
-        <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">{issues.length}</span>
+        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{issues.length}</span>
       </div>
 
       {/* Cards */}
@@ -74,13 +74,13 @@ function BoardColumn({ column, issues, onIssueClick }: { column: { id: string; l
         {shouldTruncate && (
           <button
             onClick={() => setShowAll(true)}
-            className="w-full py-2 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+            className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
           >
             + {hiddenCount} more
           </button>
         )}
         {issues.length === 0 && (
-          <div className="flex items-center justify-center h-16 text-[var(--color-text-muted)] text-[11px]">
+          <div className="flex items-center justify-center h-16 text-[var(--color-text-muted)] text-xs">
             No issues
           </div>
         )}
@@ -96,12 +96,12 @@ function BoardCard({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
       className="px-2.5 py-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)]"
     >
       {/* Title first — it's the most important thing */}
-      <p className="text-[13px] text-[var(--color-text-primary)] leading-snug line-clamp-2 mb-1.5">
+      <p className="text-sm text-[var(--color-text-primary)] leading-snug line-clamp-2 mb-1.5">
         {issue.title}
       </p>
 
       {/* Meta row */}
-      <div className="flex items-center gap-2 text-[11px]">
+      <div className="flex items-center gap-2 text-xs">
         <span className="font-mono text-[var(--color-text-muted)]">{issue.id.replace('beats-', '')}</span>
         {issue.labels?.map((label) => (
           <LabelBadge key={label} label={label} />

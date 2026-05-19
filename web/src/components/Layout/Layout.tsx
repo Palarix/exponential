@@ -65,7 +65,7 @@ function NavItem({ item, isActive, onClick }: { item: { id: View; label: string;
       onClick={onClick}
       className={`
         flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-[var(--radius-md)]
-        text-[13px] transition-colors duration-[var(--duration-fast)]
+        text-sm transition-colors duration-[var(--duration-fast)]
         ${isActive
           ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)] font-medium'
           : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]'
@@ -112,13 +112,13 @@ export default function Layout({
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[var(--color-bg-sidebar)]">
       {/* Sidebar */}
-      <aside className="w-[220px] flex-shrink-0 bg-[var(--color-bg-sidebar)] border-r border-[var(--color-border-subtle)] flex flex-col select-none">
+      <aside className="w-[245px] flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none">
         {/* Workspace header */}
         <div className="flex items-center gap-2 px-3.5 h-12">
           <img src="/logo-light.svg" alt="Beats" className="w-[18px] h-[18px] opacity-80" />
-          <span className="font-semibold text-[var(--color-text-primary)] text-[14px] tracking-tight flex-1">
+          <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
             Beats
           </span>
           <button
@@ -150,7 +150,7 @@ export default function Layout({
 
         {/* Section label */}
         <div className="px-4 pt-5 pb-1">
-          <span className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Insights</span>
+          <span className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Insights</span>
         </div>
 
         {/* Secondary nav */}
@@ -172,32 +172,32 @@ export default function Layout({
                 className="flex items-center gap-2 px-0.5 w-full text-left hover:opacity-80 transition-opacity"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                <span className="text-[11px] text-[var(--color-warning)]">
+                <span className="text-xs text-[var(--color-warning)]">
                   {pendingCount} unsaved change{pendingCount !== 1 ? 's' : ''}
                 </span>
               </button>
               <div className="flex gap-1.5">
                 <button
                   onClick={onDiscard}
-                  className="flex-1 h-7 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-sm)] transition-colors"
+                  className="flex-1 h-7 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-sm)] transition-colors"
                 >
                   Discard
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex-1 h-7 text-[11px] text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-sm)] transition-colors"
+                  className="flex-1 h-7 text-xs text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-sm)] transition-colors"
                 >
                   {autoCommit ? 'Save & Commit' : 'Save'}
                 </button>
               </div>
               {!autoCommit && (
-                <p className="text-[10px] text-[var(--color-text-muted)] px-0.5 mt-1.5">
+                <p className="text-xs text-[var(--color-text-muted)] px-0.5 mt-1.5">
                   Writes to issues.db only. Enable auto_commit in config to also create git commits.
                 </p>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-0.5 text-[11px] text-[var(--color-text-muted)]">
+            <div className="flex items-center gap-1.5 px-0.5 text-xs text-[var(--color-text-muted)]">
               <svg className="w-3 h-3 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
@@ -208,9 +208,11 @@ export default function Layout({
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-hidden bg-[var(--color-bg-primary)]">
-        {children}
-      </main>
+      <div className="flex-1 p-2 pl-0 overflow-hidden">
+        <main className="h-full overflow-hidden bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)]">
+          {children}
+        </main>
+      </div>
 
       {/* Save modal */}
       <Modal
@@ -220,14 +222,14 @@ export default function Layout({
         size="md"
       >
         <div className="space-y-3">
-          <p className="text-[13px] text-[var(--color-text-secondary)]">
+          <p className="text-sm text-[var(--color-text-secondary)]">
             Enter a commit message for your changes.
           </p>
           <input
             type="text"
             value={commitMessage}
             onChange={(e) => setCommitMessage(e.target.value)}
-            className="w-full h-9 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
+            className="w-full h-9 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
             placeholder="e.g., Daily standup updates..."
             autoFocus
             onKeyDown={(e) => { if (e.key === 'Enter' && commitMessage.trim()) confirmSave(); }}

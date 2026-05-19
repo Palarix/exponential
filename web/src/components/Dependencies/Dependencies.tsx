@@ -37,9 +37,9 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
-        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Dependencies</span>
-        <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
+      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+        <span className="text-sm font-medium text-[var(--color-text-primary)]">Dependencies</span>
+        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
           {dependencies.length} relationship{dependencies.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -51,17 +51,17 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
             <p className="text-sm">No dependencies</p>
-            <p className="text-[12px] mt-1">Issues aren't linked to each other yet</p>
+            <p className="text-sm mt-1">Issues aren't linked to each other yet</p>
           </div>
         ) : (
           Object.entries(byKind).map(([kind, deps]) => (
             <div key={kind}>
               <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-[13px] font-medium text-[var(--color-text-primary)] capitalize">
+                <h2 className="text-sm font-medium text-[var(--color-text-primary)] capitalize">
                   {kind.replace('_', ' ')}
                 </h2>
                 <span
-                  className="text-[11px] tabular-nums px-1.5 py-0.5 rounded-[var(--radius-sm)]"
+                  className="text-xs tabular-nums px-1.5 py-0.5 rounded-[var(--radius-sm)]"
                   style={{
                     background: `${kindColors[kind] || 'var(--color-text-muted)'}15`,
                     color: kindColors[kind] || 'var(--color-text-muted)',
@@ -112,7 +112,7 @@ function DependencyRow({
       {/* Arrow */}
       <div className="flex items-center gap-1.5 px-3 shrink-0" style={{ color }}>
         <div className="w-5 h-px" style={{ background: color }} />
-        <span className="text-[11px] font-medium whitespace-nowrap">{kind.replace('_', ' ')}</span>
+        <span className="text-xs font-medium whitespace-nowrap">{kind.replace('_', ' ')}</span>
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
         </svg>
@@ -132,12 +132,12 @@ function IssueLink({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="text-[10px] font-mono text-[var(--color-text-muted)]">{issue.id}</span>
+          <span className="text-xs font-mono text-[var(--color-text-muted)]">{issue.id}</span>
           {issue.labels?.map((label: string) => (
             <LabelBadge key={label} label={label} />
           ))}
         </div>
-        <p className="text-[13px] text-[var(--color-text-primary)] truncate">{issue.title}</p>
+        <p className="text-sm text-[var(--color-text-primary)] truncate">{issue.title}</p>
       </div>
       <StatusBadge status={issue.status} />
     </div>

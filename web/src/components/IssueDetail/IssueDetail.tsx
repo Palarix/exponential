@@ -6,8 +6,11 @@ import type { Issue, HistoryEvent } from "../../api/client";
 import { LabelBadge, StatusIcon, CopyableId } from "../ui";
 
 function linkifyIssueIds(text: string, prefix: string): string {
-  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(`\\b(${escaped}[a-f0-9]{6})\\b`, 'g'), '[$1](#/issues/$1)');
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(
+    new RegExp(`\\b(${escaped}[a-f0-9]{6})\\b`, "g"),
+    "[$1](#/issues/$1)",
+  );
 }
 
 interface IssueDetailProps {
@@ -74,42 +77,58 @@ export default function IssueDetail({
     setNewComment("");
   }, [issue.id]);
 
-  const saveDraft = useCallback(async (type: string, payload: unknown) => {
-    setSaving(true);
-    try {
-      await addDraft(issue.id, type, payload);
-      onRefresh();
-    } catch (err) {
-      console.error("Failed to save draft:", err);
-    } finally {
-      setSaving(false);
-      setEditingField(null);
-      setOpenPopover(null);
-    }
-  }, [issue.id, onRefresh]);
+  const saveDraft = useCallback(
+    async (type: string, payload: unknown) => {
+      setSaving(true);
+      try {
+        await addDraft(issue.id, type, payload);
+        onRefresh();
+      } catch (err) {
+        console.error("Failed to save draft:", err);
+      } finally {
+        setSaving(false);
+        setEditingField(null);
+        setOpenPopover(null);
+      }
+    },
+    [issue.id, onRefresh],
+  );
 
-  const handleStatusChange = useCallback((newStatus: string) => {
-    if (newStatus !== issue.status) saveDraft("UPDATE", { status: newStatus });
-    else setOpenPopover(null);
-  }, [issue.status, saveDraft]);
+  const handleStatusChange = useCallback(
+    (newStatus: string) => {
+      if (newStatus !== issue.status)
+        saveDraft("UPDATE", { status: newStatus });
+      else setOpenPopover(null);
+    },
+    [issue.status, saveDraft],
+  );
 
-  const handleEstimateChange = useCallback((est: number) => {
-    if (est !== (issue.estimate || 0)) saveDraft("UPDATE", { estimate: est });
-    else setOpenPopover(null);
-  }, [issue.estimate, saveDraft]);
+  const handleEstimateChange = useCallback(
+    (est: number) => {
+      if (est !== (issue.estimate || 0)) saveDraft("UPDATE", { estimate: est });
+      else setOpenPopover(null);
+    },
+    [issue.estimate, saveDraft],
+  );
 
-  const handlePriorityChange = useCallback((pri: number) => {
-    if (pri !== (issue.priority || 0)) saveDraft("UPDATE", { priority: pri });
-    else setOpenPopover(null);
-  }, [issue.priority, saveDraft]);
+  const handlePriorityChange = useCallback(
+    (pri: number) => {
+      if (pri !== (issue.priority || 0)) saveDraft("UPDATE", { priority: pri });
+      else setOpenPopover(null);
+    },
+    [issue.priority, saveDraft],
+  );
 
-  const handleLabelToggle = useCallback((label: string) => {
-    const current = issue.labels || [];
-    const next = current.includes(label)
-      ? current.filter((l) => l !== label)
-      : [...current, label];
-    saveDraft("UPDATE", { labels: next });
-  }, [issue.labels, saveDraft]);
+  const handleLabelToggle = useCallback(
+    (label: string) => {
+      const current = issue.labels || [];
+      const next = current.includes(label)
+        ? current.filter((l) => l !== label)
+        : [...current, label];
+      saveDraft("UPDATE", { labels: next });
+    },
+    [issue.labels, saveDraft],
+  );
 
   const allKnownLabels = Array.from(
     new Set([...BUILTIN_LABELS, ...issues.flatMap((i) => i.labels || [])]),
@@ -131,43 +150,108 @@ export default function IssueDetail({
       if (e.metaKey || e.ctrlKey) return;
       // Keyboard nav inside open popovers
       if (openPopover) {
-        const len = openPopover === "status" ? STATUS_OPTIONS.length
-          : openPopover === "estimate" ? ESTIMATE_OPTIONS.length
-          : openPopover === "priority" ? PRIORITY_OPTIONS.length
-          : openPopover === "labels" ? allKnownLabels.length : 0;
-        if (e.key === "ArrowDown") { e.preventDefault(); setPopoverIndex(i => Math.min(i + 1, len - 1)); return; }
-        if (e.key === "ArrowUp") { e.preventDefault(); setPopoverIndex(i => Math.max(i - 1, 0)); return; }
+        const len =
+          openPopover === "status"
+            ? STATUS_OPTIONS.length
+            : openPopover === "estimate"
+              ? ESTIMATE_OPTIONS.length
+              : openPopover === "priority"
+                ? PRIORITY_OPTIONS.length
+                : openPopover === "labels"
+                  ? allKnownLabels.length
+                  : 0;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setPopoverIndex((i) => Math.min(i + 1, len - 1));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setPopoverIndex((i) => Math.max(i - 1, 0));
+          return;
+        }
         if (e.key === "Enter") {
           e.preventDefault();
-          if (openPopover === "status") handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
-          else if (openPopover === "estimate") handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
-          else if (openPopover === "priority") handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
-          else if (openPopover === "labels") handleLabelToggle(allKnownLabels[popoverIndex]);
+          if (openPopover === "status")
+            handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
+          else if (openPopover === "estimate")
+            handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
+          else if (openPopover === "priority")
+            handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
+          else if (openPopover === "labels")
+            handleLabelToggle(allKnownLabels[popoverIndex]);
           return;
         }
         if (openPopover === "status") {
           const num = parseInt(e.key);
-          if (num >= 1 && num <= 5 && STATUS_OPTIONS[num - 1]) { handleStatusChange(STATUS_OPTIONS[num - 1].value); return; }
+          if (num >= 1 && num <= 5 && STATUS_OPTIONS[num - 1]) {
+            handleStatusChange(STATUS_OPTIONS[num - 1].value);
+            return;
+          }
         }
         return;
       }
       if (e.key === "ArrowLeft" || e.key === "k") onNavigate("prev");
       if (e.key === "ArrowRight" || e.key === "j") onNavigate("next");
-      if (e.key === "s") { setOpenPopover("status"); setPopoverIndex(STATUS_OPTIONS.findIndex(o => o.value === issue.status)); }
-      if (e.key === "l") { setOpenPopover("labels"); setPopoverIndex(0); }
-      if (e.key === "e") { setOpenPopover("estimate"); setPopoverIndex(ESTIMATE_OPTIONS.indexOf(issue.estimate || 0)); }
-      if (e.key === "p") { setOpenPopover("priority"); setPopoverIndex(PRIORITY_OPTIONS.findIndex(o => o.value === (issue.priority || 0))); }
-      if (e.key === "m") { e.preventDefault(); commentRef.current?.focus(); commentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
-      if (e.key === ".") { navigator.clipboard.writeText(issue.id); setToast("Copied issue ID"); setTimeout(() => setToast(null), 1500); }
+      if (e.key === "s") {
+        setOpenPopover("status");
+        setPopoverIndex(
+          STATUS_OPTIONS.findIndex((o) => o.value === issue.status),
+        );
+      }
+      if (e.key === "l") {
+        setOpenPopover("labels");
+        setPopoverIndex(0);
+      }
+      if (e.key === "e") {
+        setOpenPopover("estimate");
+        setPopoverIndex(ESTIMATE_OPTIONS.indexOf(issue.estimate || 0));
+      }
+      if (e.key === "p") {
+        setOpenPopover("priority");
+        setPopoverIndex(
+          PRIORITY_OPTIONS.findIndex((o) => o.value === (issue.priority || 0)),
+        );
+      }
+      if (e.key === "m") {
+        e.preventDefault();
+        commentRef.current?.focus();
+        commentRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+      if (e.key === ".") {
+        navigator.clipboard.writeText(issue.id);
+        setToast("Copied issue ID");
+        setTimeout(() => setToast(null), 1500);
+      }
       const num = parseInt(e.key);
       if (num >= 1 && num <= 5) {
         const status = STATUS_OPTIONS[num - 1];
-        if (status && status.value !== issue.status) saveDraft("UPDATE", { status: status.value });
+        if (status && status.value !== issue.status)
+          saveDraft("UPDATE", { status: status.value });
       }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose, onNavigate, openPopover, editingField, issue.status, issue.estimate, issue.priority, issue.id, saveDraft, handleStatusChange, handleEstimateChange, handlePriorityChange, handleLabelToggle, allKnownLabels, popoverIndex]);
+  }, [
+    onClose,
+    onNavigate,
+    openPopover,
+    editingField,
+    issue.status,
+    issue.estimate,
+    issue.priority,
+    issue.id,
+    saveDraft,
+    handleStatusChange,
+    handleEstimateChange,
+    handlePriorityChange,
+    handleLabelToggle,
+    allKnownLabels,
+    popoverIndex,
+  ]);
 
   const startEditing = (field: string) => {
     setEditingField(field);
@@ -209,13 +293,13 @@ export default function IssueDetail({
     <div className="h-full flex flex-col relative">
       {/* Toast */}
       {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-[12px] text-[var(--color-text-primary)] animate-fade-in">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
           {toast}
         </div>
       )}
       {/* Top bar: breadcrumb + nav */}
-      <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
-        <div className="flex items-center gap-1.5 text-[13px] min-w-0">
+      <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+        <div className="flex items-center gap-1.5 text-sm min-w-0">
           <button
             onClick={onClose}
             className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
@@ -235,14 +319,14 @@ export default function IssueDetail({
               d="M9 5l7 7-7 7"
             />
           </svg>
-          <CopyableId id={issue.id} className="text-[11px] shrink-0" />
+          <CopyableId id={issue.id} className="text-xs shrink-0" />
           <span className="text-[var(--color-text-primary)] truncate">
             {issue.title}
           </span>
         </div>
 
         <div className="flex items-center gap-1 shrink-0 ml-4">
-          <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums mr-1">
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
             {currentIndex + 1} / {totalCount}
           </span>
           <button
@@ -290,10 +374,10 @@ export default function IssueDetail({
       <div className="flex-1 flex overflow-hidden">
         {/* Main content */}
         <div className="flex-1 overflow-y-auto min-w-0">
-          <div className="max-w-4xl mx-auto px-8 py-6">
+          <div className="max-w-4xl mx-auto px-8 py-12">
             {/* Parent reference */}
             {issue.parent_id && (
-              <div className="flex items-center gap-1.5 text-[12px] text-[var(--color-text-muted)] mb-3">
+              <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] mb-3">
                 <span>Sub-issue of</span>
                 <span className="font-mono text-[var(--color-accent-primary)]">
                   {issue.parent_id}
@@ -312,13 +396,13 @@ export default function IssueDetail({
                   if (e.key === "Escape") setEditingField(null);
                 }}
                 onBlur={handleSaveTitle}
-                className="w-full text-[22px] font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none mb-1 leading-tight"
+                className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none mb-1 leading-tight"
                 style={{ caretColor: "var(--color-accent-primary)" }}
               />
             ) : (
               <h1
                 onClick={() => startEditing("title")}
-                className="text-[22px] font-semibold text-[var(--color-text-primary)] mb-1 leading-tight cursor-text"
+                className="text-xl font-semibold text-[var(--color-text-primary)] mb-1 leading-tight cursor-text"
               >
                 {issue.title}
               </h1>
@@ -331,7 +415,7 @@ export default function IssueDetail({
                   <LabelBadge key={label} label={label} />
                 ))}
                 {issue.is_pending && (
-                  <span className="text-[10px] text-[var(--color-warning)]">
+                  <span className="text-xs text-[var(--color-warning)]">
                     unsaved changes
                   </span>
                 )}
@@ -350,20 +434,20 @@ export default function IssueDetail({
                       if (e.key === "Escape") setEditingField(null);
                     }}
                     rows={8}
-                    className="w-full text-[14px] leading-relaxed bg-transparent text-[var(--color-text-secondary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] px-3 py-2.5 outline-none focus:border-[var(--color-border-focus)] resize-y"
+                    className="w-full text-base leading-relaxed bg-transparent text-[var(--color-text-secondary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] px-3 py-2.5 outline-none focus:border-[var(--color-border-focus)] resize-y"
                     placeholder="Add a description..."
                   />
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={handleSaveDescription}
                       disabled={saving}
-                      className="px-2.5 py-1 text-[12px] bg-[var(--color-accent-primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40"
+                      className="px-2.5 py-1 text-sm bg-[var(--color-accent-primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40"
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setEditingField(null)}
-                      className="px-2.5 py-1 text-[12px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                      className="px-2.5 py-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                     >
                       Cancel
                     </button>
@@ -375,9 +459,11 @@ export default function IssueDetail({
                   className="cursor-text min-h-[40px] prose-beats"
                 >
                   {issue.description ? (
-                    <Markdown remarkPlugins={[remarkBreaks]}>{linkifyIssueIds(issue.description, prefix)}</Markdown>
+                    <Markdown remarkPlugins={[remarkBreaks]}>
+                      {linkifyIssueIds(issue.description, prefix)}
+                    </Markdown>
                   ) : (
-                    <p className="text-[14px] text-[var(--color-text-muted)]">
+                    <p className="text-base text-[var(--color-text-muted)]">
                       Add a description...
                     </p>
                   )}
@@ -411,7 +497,7 @@ export default function IssueDetail({
                   className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
                 >
                   <StatusIcon status={issue.status} size={14} />
-                  <span className="text-[13px] text-[var(--color-text-primary)]">
+                  <span className="text-sm text-[var(--color-text-primary)]">
                     {statusMeta?.label || issue.status}
                   </span>
                 </button>
@@ -426,16 +512,28 @@ export default function IssueDetail({
                           key={opt.value}
                           onClick={() => handleStatusChange(opt.value)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <StatusIcon status={opt.value} size={14} />
                           <span>{opt.label}</span>
                           {isCurrent ? (
-                            <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            <svg
+                              className="w-3.5 h-3.5 ml-auto"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2.5}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
                             </svg>
                           ) : (
-                            <span className="ml-auto text-[11px] text-[var(--color-text-muted)]">{i + 1}</span>
+                            <span className="ml-auto text-xs text-[var(--color-text-muted)]">
+                              {i + 1}
+                            </span>
                           )}
                         </button>
                       );
@@ -457,7 +555,7 @@ export default function IssueDetail({
                   className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
                 >
                   <EstimateIcon />
-                  <span className="text-[13px] text-[var(--color-text-primary)]">
+                  <span className="text-sm text-[var(--color-text-primary)]">
                     {issue.estimate
                       ? `${issue.estimate} Point${issue.estimate !== 1 ? "s" : ""}`
                       : "No estimate"}
@@ -474,12 +572,26 @@ export default function IssueDetail({
                           key={est}
                           onClick={() => handleEstimateChange(est)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
-                          <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
+                          <span>
+                            {est === 0
+                              ? "No estimate"
+                              : `${est} Point${est !== 1 ? "s" : ""}`}
+                          </span>
                           {isCurrent && (
-                            <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            <svg
+                              className="w-3.5 h-3.5 ml-auto"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2.5}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
                             </svg>
                           )}
                         </button>
@@ -495,13 +607,17 @@ export default function IssueDetail({
               <div className="relative">
                 <button
                   onClick={() =>
-                    setOpenPopover(openPopover === "priority" ? null : "priority")
+                    setOpenPopover(
+                      openPopover === "priority" ? null : "priority",
+                    )
                   }
                   className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
                 >
                   <PriorityIcon priority={issue.priority || 0} />
-                  <span className="text-[13px] text-[var(--color-text-primary)]">
-                    {PRIORITY_OPTIONS.find(o => o.value === (issue.priority || 0))?.label || "No priority"}
+                  <span className="text-sm text-[var(--color-text-primary)]">
+                    {PRIORITY_OPTIONS.find(
+                      (o) => o.value === (issue.priority || 0),
+                    )?.label || "No priority"}
                   </span>
                 </button>
                 {openPopover === "priority" && (
@@ -515,13 +631,23 @@ export default function IssueDetail({
                           key={opt.value}
                           onClick={() => handlePriorityChange(opt.value)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <PriorityIcon priority={opt.value} />
                           <span>{opt.label}</span>
                           {isCurrent && (
-                            <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            <svg
+                              className="w-3.5 h-3.5 ml-auto"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2.5}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
                             </svg>
                           )}
                         </button>
@@ -546,7 +672,7 @@ export default function IssueDetail({
                       <LabelBadge key={label} label={label} />
                     ))
                   ) : (
-                    <span className="text-[13px] text-[var(--color-text-muted)]">
+                    <span className="text-sm text-[var(--color-text-muted)]">
                       No labels
                     </span>
                   )}
@@ -562,7 +688,7 @@ export default function IssueDetail({
                           key={label}
                           onClick={() => handleLabelToggle(label)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] text-[var(--color-text-primary)] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''}`}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""}`}
                         >
                           <span
                             className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
@@ -596,10 +722,10 @@ export default function IssueDetail({
             {issue.assignee && (
               <PropertyRow label="Assignee">
                 <div className="flex items-center gap-2 px-1.5 py-1">
-                  <div className="w-5 h-5 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center text-[9px] font-medium text-[var(--color-text-muted)]">
+                  <div className="w-5 h-5 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center text-xs font-medium text-[var(--color-text-muted)]">
                     {issue.assignee.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-[13px] text-[var(--color-text-primary)]">
+                  <span className="text-sm text-[var(--color-text-primary)]">
                     {issue.assignee}
                   </span>
                 </div>
@@ -611,10 +737,7 @@ export default function IssueDetail({
               <PropertyRow label="Relations">
                 <div className="space-y-1 px-1.5">
                   {issue.dependencies.map((dep, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-1.5 text-[13px]"
-                    >
+                    <div key={i} className="flex items-center gap-1.5 text-sm">
                       <span className="text-[var(--color-text-muted)]">
                         {dep.kind.replace("_", " ")}
                       </span>
@@ -664,7 +787,7 @@ function PropertyRow({
 }) {
   return (
     <div>
-      <div className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5 px-1.5">
+      <div className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5 px-1.5">
         {label}
       </div>
       {children}
@@ -674,14 +797,20 @@ function PropertyRow({
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between text-[13px] px-1.5">
+    <div className="flex items-baseline justify-between text-sm px-1.5">
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <span className="text-[var(--color-text-secondary)]">{value}</span>
     </div>
   );
 }
 
-function PriorityIcon({ priority, size = 14 }: { priority: number; size?: number }) {
+function PriorityIcon({
+  priority,
+  size = 14,
+}: {
+  priority: number;
+  size?: number;
+}) {
   const colors: Record<number, string> = {
     0: "var(--color-text-muted)",
     1: "var(--color-error)",
@@ -693,26 +822,87 @@ function PriorityIcon({ priority, size = 14 }: { priority: number; size?: number
 
   if (priority === 0) {
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
-        <rect x="1" y="7" width="3" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
-        <rect x="5" y="7" width="3" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
-        <rect x="9" y="7" width="3" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
-        <rect x="13" y="7" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 16 16"
+        fill="none"
+        style={{ color }}
+      >
+        <rect
+          x="1"
+          y="7"
+          width="3"
+          height="2"
+          rx="0.5"
+          fill="currentColor"
+          opacity="0.4"
+        />
+        <rect
+          x="5"
+          y="7"
+          width="3"
+          height="2"
+          rx="0.5"
+          fill="currentColor"
+          opacity="0.4"
+        />
+        <rect
+          x="9"
+          y="7"
+          width="3"
+          height="2"
+          rx="0.5"
+          fill="currentColor"
+          opacity="0.4"
+        />
+        <rect
+          x="13"
+          y="7"
+          width="2"
+          height="2"
+          rx="0.5"
+          fill="currentColor"
+          opacity="0.4"
+        />
       </svg>
     );
   }
   if (priority === 1) {
     return (
-      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
-        <path d="M3 2.5L8 1l5 1.5v6c0 3-2.5 5-5 6.5-2.5-1.5-5-3.5-5-6.5v-6z" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.15" />
-        <path d="M7.5 4.5v4M7.5 10.5v0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 16 16"
+        fill="none"
+        style={{ color }}
+      >
+        <path
+          d="M3 2.5L8 1l5 1.5v6c0 3-2.5 5-5 6.5-2.5-1.5-5-3.5-5-6.5v-6z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="currentColor"
+          fillOpacity="0.15"
+        />
+        <path
+          d="M7.5 4.5v4M7.5 10.5v0"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
   const filled = priority === 2 ? 3 : priority === 3 ? 2 : 1;
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
-      {[0, 1, 2].map(i => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      style={{ color }}
+    >
+      {[0, 1, 2].map((i) => (
         <rect
           key={i}
           x={1 + i * 5}
@@ -774,27 +964,31 @@ function Popover({
 
 function PopoverHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-3 py-1.5 text-[11px] text-[var(--color-text-muted)]">
+    <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)]">
       {children}
     </div>
   );
 }
-
-
 
 type ActivityEntry =
   | { kind: "system"; author: string; content: React.ReactNode; time: string }
   | { kind: "comment"; author: string; text: string; time: string };
 
 const STATUS_LABELS: Record<string, string> = {
-  BACKLOG: "Backlog", PLANNED: "Planned", DOING: "In Progress", BLOCKED: "Blocked", DONE: "Done",
+  BACKLOG: "Backlog",
+  PLANNED: "Planned",
+  DOING: "In Progress",
+  BLOCKED: "Blocked",
+  DONE: "Done",
 };
 
 function StatusChip({ status }: { status: string }) {
   return (
     <span className="flex items-center gap-1">
       <StatusIcon status={status} size={12} />
-      <span className="font-medium text-[var(--color-text-primary)]">{STATUS_LABELS[status] || status}</span>
+      <span className="font-medium text-[var(--color-text-primary)]">
+        {STATUS_LABELS[status] || status}
+      </span>
     </span>
   );
 }
@@ -802,7 +996,14 @@ function StatusChip({ status }: { status: string }) {
 function EstimateChip({ points }: { points: number }) {
   return (
     <span className="flex items-center gap-1 font-medium text-[var(--color-text-primary)]">
-      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M8 2L14 14H2L8 2Z"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+      </svg>
       {points} {points === 1 ? "Point" : "Points"}
     </span>
   );
@@ -811,15 +1012,43 @@ function EstimateChip({ points }: { points: number }) {
 function describeEvent(evt: HistoryEvent): React.ReactNode | null {
   const p = evt.payload || {};
   switch (evt.type) {
-    case "CREATE": return "created this issue";
+    case "CREATE":
+      return "created this issue";
     case "UPDATE": {
       const fragments: React.ReactNode[] = [];
-      if (p.status) fragments.push(<>changed status to <StatusChip status={String(p.status)} /></>);
-      if (p.estimate !== undefined) fragments.push(<>set estimate to <EstimateChip points={Number(p.estimate)} /></>);
+      if (p.status)
+        fragments.push(
+          <>
+            changed status to <StatusChip status={String(p.status)} />
+          </>,
+        );
+      if (p.estimate !== undefined)
+        fragments.push(
+          <>
+            set estimate to <EstimateChip points={Number(p.estimate)} />
+          </>,
+        );
       if (p.title) fragments.push(<>updated the title</>);
-      if (p.description !== undefined) fragments.push(<>updated the description</>);
-      if (p.labels) fragments.push(<>updated labels to {(p.labels as string[]).map(l => <LabelBadge key={l} label={l} />)}</>);
-      if (p.assignee) fragments.push(<>assigned to <span className="font-medium text-[var(--color-text-primary)]">{String(p.assignee)}</span></>);
+      if (p.description !== undefined)
+        fragments.push(<>updated the description</>);
+      if (p.labels)
+        fragments.push(
+          <>
+            updated labels to{" "}
+            {(p.labels as string[]).map((l) => (
+              <LabelBadge key={l} label={l} />
+            ))}
+          </>,
+        );
+      if (p.assignee)
+        fragments.push(
+          <>
+            assigned to{" "}
+            <span className="font-medium text-[var(--color-text-primary)]">
+              {String(p.assignee)}
+            </span>
+          </>,
+        );
       if (fragments.length === 0) return null;
       return fragments.reduce<React.ReactNode[]>((acc, f, i) => {
         if (i > 0) acc.push(<span key={`sep-${i}`}> and </span>);
@@ -827,8 +1056,10 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
         return acc;
       }, []);
     }
-    case "DELETE": return "deleted this issue";
-    default: return null;
+    case "DELETE":
+      return "deleted this issue";
+    default:
+      return null;
   }
 }
 
@@ -853,7 +1084,9 @@ function ActivityTimeline({
   const [sortNewest, setSortNewest] = useState(true);
 
   useEffect(() => {
-    fetchIssueHistory(issue.id).then(setHistory).catch(() => {});
+    fetchIssueHistory(issue.id)
+      .then(setHistory)
+      .catch(() => {});
   }, [issue.id, issue.updated_at]);
 
   const entries = useMemo(() => {
@@ -882,22 +1115,36 @@ function ActivityTimeline({
     }
 
     const dir = sortNewest ? -1 : 1;
-    items.sort((a, b) => dir * (new Date(a.time).getTime() - new Date(b.time).getTime()));
+    items.sort(
+      (a, b) => dir * (new Date(a.time).getTime() - new Date(b.time).getTime()),
+    );
     return items;
   }, [history, sortNewest]);
 
   return (
     <div className="mt-8 pt-6 border-t border-[var(--color-border-subtle)]">
       <div className="flex items-center justify-between mb-5">
-        <h3 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Activity</h3>
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+          Activity
+        </h3>
         <button
           onClick={() => setSortNewest(!sortNewest)}
-          className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+          className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
           title={sortNewest ? "Showing newest first" : "Showing oldest first"}
         >
           {sortNewest ? "Newest" : "Oldest"}
-          <svg className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          <svg
+            className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </button>
       </div>
@@ -906,7 +1153,10 @@ function ActivityTimeline({
         {entries.map((entry, i) => {
           if (entry.kind === "system") {
             return (
-              <div key={`sys-${i}`} className="flex items-center gap-2 px-3.5 py-1.5 flex-wrap text-[12px] text-[var(--color-text-muted)]">
+              <div
+                key={`sys-${i}`}
+                className="flex items-center gap-2 px-3.5 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
+              >
                 <Avatar name={entry.author} />
                 <span>{shortName(entry.author)}</span>
                 {entry.content}
@@ -917,14 +1167,23 @@ function ActivityTimeline({
           }
 
           return (
-            <div key={`cmt-${i}`} className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-3.5">
+            <div
+              key={`cmt-${i}`}
+              className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-3.5 border border-[var(--color-border-card)]"
+            >
               <div className="flex items-center gap-2.5 mb-2">
                 <Avatar name={entry.author} />
-                <span className="text-[12px] font-medium text-[var(--color-text-primary)]">{shortName(entry.author)}</span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">{formatRelativeTime(entry.time)}</span>
+                <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                  {shortName(entry.author)}
+                </span>
+                <span className="text-sm text-[var(--color-text-muted)]">
+                  {formatRelativeTime(entry.time)}
+                </span>
               </div>
-              <div className="prose-beats text-[15px]">
-                <Markdown remarkPlugins={[remarkBreaks]}>{linkifyIssueIds(entry.text, prefix)}</Markdown>
+              <div className="prose-beats text-base">
+                <Markdown remarkPlugins={[remarkBreaks]}>
+                  {linkifyIssueIds(entry.text, prefix)}
+                </Markdown>
               </div>
             </div>
           );
@@ -932,14 +1191,14 @@ function ActivityTimeline({
       </div>
 
       {/* Comment input */}
-      <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] overflow-hidden">
+      <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-card)] overflow-hidden">
         <textarea
           ref={commentRef}
           value={newComment}
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."
-          rows={3}
-          className="w-full text-[14px] bg-transparent text-[var(--color-text-primary)] px-3.5 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none leading-relaxed"
+          rows={1}
+          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-3.5 py-2.5 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAddComment();
           }}
@@ -950,8 +1209,18 @@ function ActivityTimeline({
             disabled={!newComment.trim() || saving}
             className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-white disabled:opacity-20 hover:bg-[var(--color-accent-primary-hover)] transition-colors"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"
+              />
             </svg>
           </button>
         </div>
@@ -964,7 +1233,9 @@ function Avatar({ name }: { name: string }) {
   const [imgFailed, setImgFailed] = useState(false);
   const emailMatch = name.match(/<([^>]+)>/);
   const email = emailMatch ? emailMatch[1].toLowerCase().trim() : null;
-  const gravatarUrl = email ? `https://www.gravatar.com/avatar/${md5(email)}?s=48&d=404` : null;
+  const gravatarUrl = email
+    ? `https://www.gravatar.com/avatar/${md5(email)}?s=48&d=404`
+    : null;
 
   if (gravatarUrl && !imgFailed) {
     return (
@@ -978,7 +1249,7 @@ function Avatar({ name }: { name: string }) {
   }
 
   return (
-    <div className="w-6 h-6 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center text-[10px] font-medium text-[var(--color-text-muted)] shrink-0">
+    <div className="w-6 h-6 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center text-xs font-medium text-[var(--color-text-muted)] shrink-0">
       {name.charAt(0).toUpperCase()}
     </div>
   );
@@ -996,45 +1267,83 @@ function md5(input: string): string {
   bytes.push(0x80);
   while (bytes.length % 64 !== 56) bytes.push(0);
   const bitLen = input.length * 8;
-  bytes.push(bitLen & 0xff, (bitLen >> 8) & 0xff, (bitLen >> 16) & 0xff, (bitLen >> 24) & 0xff, 0, 0, 0, 0);
+  bytes.push(
+    bitLen & 0xff,
+    (bitLen >> 8) & 0xff,
+    (bitLen >> 16) & 0xff,
+    (bitLen >> 24) & 0xff,
+    0,
+    0,
+    0,
+    0,
+  );
 
   const rl = (v: number, s: number) => (v << s) | (v >>> (32 - s));
 
   const K = [
-    0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
-    0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
-    0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,
-    0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,
-    0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,
-    0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,
-    0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,
-    0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391,
+    0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a,
+    0xa8304613, 0xfd469501, 0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
+    0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821, 0xf61e2562, 0xc040b340,
+    0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+    0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8,
+    0x676f02d9, 0x8d2a4c8a, 0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
+    0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70, 0x289b7ec6, 0xeaa127fa,
+    0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+    0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92,
+    0xffeff47d, 0x85845dd1, 0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
+    0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
   ];
-  const S = [7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  const S = [
+    7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5,
+    9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11,
+    16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10,
+    15, 21,
+  ];
 
   for (let off = 0; off < bytes.length; off += 64) {
     const M: number[] = [];
     for (let j = 0; j < 16; j++) {
-      M[j] = bytes[off+j*4] | (bytes[off+j*4+1]<<8) | (bytes[off+j*4+2]<<16) | (bytes[off+j*4+3]<<24);
+      M[j] =
+        bytes[off + j * 4] |
+        (bytes[off + j * 4 + 1] << 8) |
+        (bytes[off + j * 4 + 2] << 16) |
+        (bytes[off + j * 4 + 3] << 24);
     }
-    let aa = hash, bb = a, cc = b, dd = c;
+    let aa = hash,
+      bb = a,
+      cc = b,
+      dd = c;
     for (let i = 0; i < 64; i++) {
       let f: number, g: number;
-      if (i < 16) { f = (bb & cc) | (~bb & dd); g = i; }
-      else if (i < 32) { f = (dd & bb) | (~dd & cc); g = (5*i+1)%16; }
-      else if (i < 48) { f = bb ^ cc ^ dd; g = (3*i+5)%16; }
-      else { f = cc ^ (bb | ~dd); g = (7*i)%16; }
+      if (i < 16) {
+        f = (bb & cc) | (~bb & dd);
+        g = i;
+      } else if (i < 32) {
+        f = (dd & bb) | (~dd & cc);
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        f = bb ^ cc ^ dd;
+        g = (3 * i + 5) % 16;
+      } else {
+        f = cc ^ (bb | ~dd);
+        g = (7 * i) % 16;
+      }
       const tmp = dd;
-      dd = cc; cc = bb;
+      dd = cc;
+      cc = bb;
       bb = (bb + rl((aa + f + K[i] + M[g]) | 0, S[i])) | 0;
       aa = tmp;
     }
-    hash = (hash + aa) | 0; a = (a + bb) | 0; b = (b + cc) | 0; c = (c + dd) | 0;
+    hash = (hash + aa) | 0;
+    a = (a + bb) | 0;
+    b = (b + cc) | 0;
+    c = (c + dd) | 0;
   }
 
   const hex = (v: number) => {
-    let s = '';
-    for (let i = 0; i < 4; i++) s += ((v >> (i*8)) & 0xff).toString(16).padStart(2, '0');
+    let s = "";
+    for (let i = 0; i < 4; i++)
+      s += ((v >> (i * 8)) & 0xff).toString(16).padStart(2, "0");
     return s;
   };
   return hex(hash) + hex(a) + hex(b) + hex(c);

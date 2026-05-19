@@ -114,7 +114,7 @@ export function ProgressRing({
             <span className="text-lg font-bold text-[var(--color-text-primary)]">{label}</span>
           )}
           {sublabel && (
-            <span className="text-[10px] text-[var(--color-text-muted)]">{sublabel}</span>
+            <span className="text-xs text-[var(--color-text-muted)]">{sublabel}</span>
           )}
         </div>
       )}
