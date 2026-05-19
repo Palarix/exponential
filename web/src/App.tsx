@@ -9,23 +9,91 @@ import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import PendingChanges from './components/PendingChanges/PendingChanges';
+import CommandPalette from './components/CommandPalette/CommandPalette';
 import { Modal, Button } from './components/ui';
 
 type View = 'dashboard' | 'backlog' | 'board' | 'dependencies';
 
+const VIEW_ROUTES: Record<string, View> = {
+  'issues': 'backlog',
+  'board': 'board',
+  'dashboard': 'dashboard',
+  'dependencies': 'dependencies',
+};
+const ROUTE_VIEWS: Record<View, string> = {
+  backlog: 'issues',
+  board: 'board',
+  dashboard: 'dashboard',
+  dependencies: 'dependencies',
+};
+
+function parseHash(): { view: View; issueId: string | null } {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  const parts = hash.split('/');
+  if (parts[0] === 'issues' && parts[1]) {
+    return { view: 'backlog', issueId: parts[1] };
+  }
+  const view = VIEW_ROUTES[parts[0]];
+  return { view: view || 'backlog', issueId: null };
+}
+
+function setHash(view: View, issueId: string | null) {
+  const route = issueId ? `issues/${issueId}` : ROUTE_VIEWS[view];
+  const newHash = `#/${route}`;
+  if (window.location.hash !== newHash) {
+    window.location.hash = newHash;
+  }
+}
+
 function App() {
-  const [view, setView] = useState<View>('backlog');
+  const initial = parseHash();
+  const [view, setView] = useState<View>(initial.view);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [pending, setPending] = useState<PendingState>({ has_pending: false, events: [], issue_ids: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(initial.issueId);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPending, setShowPending] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
   const [autoCommit, setAutoCommit] = useState(false);
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
+
+  // Sync state -> hash
+  useEffect(() => {
+    setHash(view, showPending ? null : selectedIssueId);
+  }, [view, selectedIssueId, showPending]);
+
+  // Sync hash -> state (browser back/forward)
+  useEffect(() => {
+    const onHashChange = () => {
+      const { view: v, issueId } = parseHash();
+      setView(v);
+      setSelectedIssueId(issueId);
+      setShowPending(false);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowPalette(true);
+        return;
+      }
+      if (e.key === 'c' && !e.metaKey && !e.ctrlKey && !showNewIssue && !showPalette) {
+        setShowNewIssue(true);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [showNewIssue, showPalette]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -78,9 +146,7 @@ function App() {
   };
 
   const handleSearch = () => {
-    setSelectedIssueId(null);
-    setView('backlog');
-    setSearchFocused(true);
+    setShowPalette(true);
   };
 
   const handleNewIssue = () => {
@@ -193,6 +259,15 @@ function App() {
           setShowNewIssue(false);
           await fetchData();
         }}
+      />
+
+      <CommandPalette
+        isOpen={showPalette}
+        onClose={() => setShowPalette(false)}
+        issues={issues}
+        onIssueSelect={(issue) => setSelectedIssueId(issue.id)}
+        onViewChange={handleViewChange}
+        onNewIssue={handleNewIssue}
       />
     </>
   );
