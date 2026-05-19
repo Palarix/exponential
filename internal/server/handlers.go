@@ -251,6 +251,39 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "issue ID required")
+		return
+	}
+
+	events, err := storage.ReadEvents()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.mu.RLock()
+	allEvents := append(events, s.pendingEvents...)
+	s.mu.RUnlock()
+
+	var history []map[string]interface{}
+	for _, evt := range allEvents {
+		if evt.ID != id {
+			continue
+		}
+		history = append(history, map[string]interface{}{
+			"type":       evt.Type,
+			"payload":    evt.Payload,
+			"created_at": evt.CreatedAt,
+			"created_by": evt.CreatedBy,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, history)
+}
+
 // --- Helpers ---
 
 func issueToResponse(issue *model.Issue) IssueResponse {

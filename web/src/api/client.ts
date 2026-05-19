@@ -36,6 +36,19 @@ export async function createIssue(payload: { title: string; description?: string
   return data.issue_id;
 }
 
+export interface HistoryEvent {
+  type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+  created_by: string;
+}
+
+export async function fetchIssueHistory(issueId: string): Promise<HistoryEvent[]> {
+  const res = await fetch(`${API_BASE}/issues/${issueId}/history`);
+  if (!res.ok) throw new Error('Failed to fetch history');
+  return res.json();
+}
+
 export async function saveAll(message?: string): Promise<void> {
   const res = await fetch(`${API_BASE}/save`, {
     method: 'POST',
