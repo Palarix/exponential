@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { addDraft } from "../../api/client";
-import type { Issue } from "../../api/client";
+import { addDraft, fetchIssueHistory } from "../../api/client";
+import type { Issue, HistoryEvent } from "../../api/client";
 import { LabelBadge, StatusIcon } from "../ui";
 
 interface IssueDetailProps {
@@ -641,8 +641,54 @@ function PopoverItem({
 }
 
 type ActivityEntry =
-  | { type: "system"; author: string; text: string; time: string }
-  | { type: "comment"; id: string; author: string; text: string; time: string };
+  | { kind: "system"; author: string; content: React.ReactNode; time: string }
+  | { kind: "comment"; author: string; text: string; time: string };
+
+const STATUS_LABELS: Record<string, string> = {
+  BACKLOG: "Backlog", PLANNED: "Planned", DOING: "In Progress", BLOCKED: "Blocked", DONE: "Done",
+};
+
+function StatusChip({ status }: { status: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <StatusIcon status={status} size={12} />
+      <span className="font-medium text-[var(--color-text-primary)]">{STATUS_LABELS[status] || status}</span>
+    </span>
+  );
+}
+
+function EstimateChip({ points }: { points: number }) {
+  return (
+    <span className="flex items-center gap-1 font-medium text-[var(--color-text-primary)]">
+      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+      {points} {points === 1 ? "Point" : "Points"}
+    </span>
+  );
+}
+
+function describeEvent(evt: HistoryEvent): React.ReactNode | null {
+  const p = evt.payload || {};
+  switch (evt.type) {
+    case "CREATE": return "created this issue";
+    case "UPDATE": {
+      const fragments: React.ReactNode[] = [];
+      if (p.status) fragments.push(<>changed status to <StatusChip status={String(p.status)} /></>);
+      if (p.estimate !== undefined) fragments.push(<>set estimate to <EstimateChip points={Number(p.estimate)} /></>);
+      if (p.title) fragments.push(<>updated the title</>);
+      if (p.description !== undefined) fragments.push(<>updated the description</>);
+      if (p.labels) fragments.push(<>updated labels to {(p.labels as string[]).map(l => <LabelBadge key={l} label={l} />)}</>);
+      if (p.assignee) fragments.push(<>assigned to <span className="font-medium text-[var(--color-text-primary)]">{String(p.assignee)}</span></>);
+      if (fragments.length === 0) return null;
+      return fragments.reduce<React.ReactNode[]>((acc, f, i) => {
+        if (i > 0) acc.push(<span key={`sep-${i}`}> and </span>);
+        acc.push(f);
+        return acc;
+      }, []);
+    }
+    case "DELETE": return "deleted this issue";
+    default: return null;
+  }
+}
 
 function ActivityTimeline({
   issue,
@@ -657,71 +703,79 @@ function ActivityTimeline({
   onAddComment: () => void;
   saving: boolean;
 }) {
+  const [history, setHistory] = useState<HistoryEvent[]>([]);
+  const [sortNewest, setSortNewest] = useState(true);
+
+  useEffect(() => {
+    fetchIssueHistory(issue.id).then(setHistory).catch(() => {});
+  }, [issue.id, issue.updated_at]);
+
   const entries = useMemo(() => {
     const items: ActivityEntry[] = [];
 
-    items.push({
-      type: "system",
-      author: issue.created_by,
-      text: "created the issue",
-      time: issue.created_at,
-    });
-
-    if (issue.comments) {
-      for (const c of issue.comments) {
+    for (const evt of history) {
+      if (evt.type === "COMMENT") {
+        const p = evt.payload || {};
         items.push({
-          type: "comment",
-          id: c.id,
-          author: c.created_by,
-          text: c.text,
-          time: c.created_at,
+          kind: "comment",
+          author: evt.created_by,
+          text: String(p.text || ""),
+          time: evt.created_at,
         });
+      } else {
+        const desc = describeEvent(evt);
+        if (desc) {
+          items.push({
+            kind: "system",
+            author: evt.created_by,
+            content: desc,
+            time: evt.created_at,
+          });
+        }
       }
     }
 
-    items.sort(
-      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime(),
-    );
+    const dir = sortNewest ? -1 : 1;
+    items.sort((a, b) => dir * (new Date(a.time).getTime() - new Date(b.time).getTime()));
     return items;
-  }, [issue]);
+  }, [history, sortNewest]);
 
   return (
     <div className="mt-8 pt-6 border-t border-[var(--color-border-subtle)]">
-      <h3 className="text-[13px] font-semibold text-[var(--color-text-primary)] mb-5">
-        Activity
-      </h3>
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Activity</h3>
+        <button
+          onClick={() => setSortNewest(!sortNewest)}
+          className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+          title={sortNewest ? "Showing newest first" : "Showing oldest first"}
+        >
+          {sortNewest ? "Newest" : "Oldest"}
+          <svg className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
 
       <div className="space-y-4">
         {entries.map((entry, i) => {
-          if (entry.type === "system") {
+          if (entry.kind === "system") {
             return (
-              <div
-                key={`sys-${i}`}
-                className="flex items-center gap-2.5 px-3.5 py-1.5"
-              >
+              <div key={`sys-${i}`} className="flex items-center gap-2 px-3.5 py-1.5 flex-wrap text-[12px] text-[var(--color-text-muted)]">
                 <Avatar name={entry.author} />
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  {shortName(entry.author)} {entry.text}
-                  <span className="mx-1">·</span>
-                  {formatRelativeTime(entry.time)}
-                </span>
+                <span>{shortName(entry.author)}</span>
+                {entry.content}
+                <span>·</span>
+                <span>{formatRelativeTime(entry.time)}</span>
               </div>
             );
           }
 
           return (
-            <div
-              key={entry.id}
-              className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-3.5"
-            >
+            <div key={`cmt-${i}`} className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-3.5">
               <div className="flex items-center gap-2.5 mb-2">
                 <Avatar name={entry.author} />
-                <span className="text-[12px] font-medium text-[var(--color-text-primary)]">
-                  {shortName(entry.author)}
-                </span>
-                <span className="text-[12px] text-[var(--color-text-muted)]">
-                  {formatRelativeTime(entry.time)}
-                </span>
+                <span className="text-[12px] font-medium text-[var(--color-text-primary)]">{shortName(entry.author)}</span>
+                <span className="text-[12px] text-[var(--color-text-muted)]">{formatRelativeTime(entry.time)}</span>
               </div>
               <div className="prose-beats text-[15px]">
                 <Markdown remarkPlugins={[remarkBreaks]}>{entry.text}</Markdown>
@@ -747,20 +801,10 @@ function ActivityTimeline({
           <button
             onClick={onAddComment}
             disabled={!newComment.trim() || saving}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-bg-tertiary text-white disabled:opacity-20 hover:bg-bg-hover transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-white disabled:opacity-20 hover:bg-[var(--color-accent-primary-hover)] transition-colors"
           >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"
-              />
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
             </svg>
           </button>
         </div>

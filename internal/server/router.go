@@ -22,6 +22,7 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("POST /api/save", s.handleSave)
 	mux.HandleFunc("DELETE /api/pending", s.handleDiscardPending)
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
+	mux.HandleFunc("GET /api/issues/{id}/history", s.handleGetIssueHistory)
 
 	// Development mode: proxy all static requests to Vite dev server
 	if s.DevMode {
