@@ -44,6 +44,15 @@ export default function Backlog({ issues, onIssueClick, searchFocused, onSearchB
     (!query || i.title.toLowerCase().includes(query) || i.id.toLowerCase().includes(query) || i.labels?.some(l => l.toLowerCase().includes(query)))
   );
 
+  const childrenByParent = new Map<string, Issue[]>();
+  for (const issue of issues) {
+    if (issue.parent_id) {
+      const siblings = childrenByParent.get(issue.parent_id) || [];
+      siblings.push(issue);
+      childrenByParent.set(issue.parent_id, siblings);
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Tab bar */}
@@ -100,6 +109,8 @@ export default function Backlog({ issues, onIssueClick, searchFocused, onSearchB
               status={status}
               label={meta.label}
               issues={groupIssues}
+              allIssues={issues}
+              childrenByParent={childrenByParent}
               onIssueClick={onIssueClick}
               defaultExpanded={groupIssues.length > 0 && status !== 'DONE'}
             />
@@ -120,22 +131,25 @@ interface StatusGroupProps {
   status: string;
   label: string;
   issues: Issue[];
+  allIssues: Issue[];
+  childrenByParent: Map<string, Issue[]>;
   onIssueClick?: (issue: Issue) => void;
   defaultExpanded: boolean;
 }
 
-function StatusGroup({ status, label, issues, onIssueClick, defaultExpanded }: StatusGroupProps) {
+function StatusGroup({ status, label, issues, allIssues, childrenByParent, onIssueClick, defaultExpanded }: StatusGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const isEmpty = issues.length === 0;
 
+  const topLevel = issues.filter(i => !i.parent_id || !allIssues.some(p => p.id === i.parent_id));
+
   return (
     <div>
-      {/* Group header */}
       <button
         onClick={() => !isEmpty && setIsExpanded(!isExpanded)}
         className={`
           flex items-center gap-2 w-full px-5 py-2 border-b border-[var(--color-border-subtle)]
-          transition-colors duration-[var(--duration-fast)] select-none
+          bg-[var(--color-bg-secondary)] transition-colors duration-[var(--duration-fast)] select-none
           ${isEmpty ? 'opacity-40 cursor-default' : 'hover:bg-[var(--color-bg-hover)] cursor-pointer'}
         `.trim().replace(/\s+/g, ' ')}
       >
@@ -150,28 +164,99 @@ function StatusGroup({ status, label, issues, onIssueClick, defaultExpanded }: S
         <span className="text-[12px] text-[var(--color-text-muted)] tabular-nums">{issues.length}</span>
       </button>
 
-      {/* Rows */}
-      {isExpanded && !isEmpty && issues.map((issue) => (
-        <IssueRow key={issue.id} issue={issue} onClick={() => onIssueClick?.(issue)} />
+      {isExpanded && !isEmpty && topLevel.map((issue) => (
+        <IssueTree
+          key={issue.id}
+          issue={issue}
+          childrenByParent={childrenByParent}
+          onIssueClick={onIssueClick}
+          depth={0}
+        />
       ))}
     </div>
   );
 }
 
-function IssueRow({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
+function IssueTree({ issue, childrenByParent, onIssueClick, depth }: {
+  issue: Issue;
+  childrenByParent: Map<string, Issue[]>;
+  onIssueClick?: (issue: Issue) => void;
+  depth: number;
+}) {
+  const children = childrenByParent.get(issue.id) || [];
+  const hasChildren = children.length > 0;
+  const [expanded, setExpanded] = useState(true);
+  const doneChildren = children.filter(c => c.status === 'DONE').length;
+
+  return (
+    <>
+      <IssueRow
+        issue={issue}
+        depth={depth}
+        hasChildren={hasChildren}
+        expanded={expanded}
+        onToggle={() => setExpanded(!expanded)}
+        subProgress={hasChildren ? { done: doneChildren, total: children.length } : undefined}
+        onClick={() => onIssueClick?.(issue)}
+      />
+      {hasChildren && expanded && children.map((child) => (
+        <IssueTree
+          key={child.id}
+          issue={child}
+          childrenByParent={childrenByParent}
+          onIssueClick={onIssueClick}
+          depth={depth + 1}
+        />
+      ))}
+    </>
+  );
+}
+
+function IssueRow({ issue, depth, hasChildren, expanded, onToggle, subProgress, onClick }: {
+  issue: Issue;
+  depth: number;
+  hasChildren: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  subProgress?: { done: number; total: number };
+  onClick?: () => void;
+}) {
+  const indent = depth * 24;
+
   return (
     <div
       onClick={onClick}
       className="flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)] group"
+      style={{ paddingLeft: `${20 + indent}px` }}
     >
-      {/* Priority/drag placeholder - visible on hover */}
-      <span className="text-[var(--color-text-muted)] opacity-0 group-hover:opacity-30 transition-opacity w-3 shrink-0">
-        <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor">
-          <circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" />
-          <circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" />
-          <circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" />
-        </svg>
-      </span>
+      {/* Tree toggle or connector */}
+      {hasChildren ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          className="w-4 shrink-0 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+        >
+          <svg
+            className={`w-3 h-3 transition-transform duration-100 ${expanded ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      ) : depth > 0 ? (
+        <span className="w-4 shrink-0 flex items-center justify-center text-[var(--color-border-default)]">
+          <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M1 0v9h10" />
+          </svg>
+        </span>
+      ) : (
+        <span className="text-[var(--color-text-muted)] opacity-0 group-hover:opacity-30 transition-opacity w-4 shrink-0 flex items-center justify-center">
+          <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor">
+            <circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" />
+            <circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" />
+            <circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" />
+          </svg>
+        </span>
+      )}
 
       {/* Issue ID */}
       <span className="text-[11px] font-mono text-[var(--color-text-muted)] w-[88px] shrink-0 truncate tabular-nums">
@@ -181,10 +266,18 @@ function IssueRow({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
       {/* Status icon */}
       <StatusIcon status={issue.status} size={14} className="shrink-0" />
 
-      {/* Title — dominant element */}
+      {/* Title */}
       <span className="text-[13px] font-medium text-[var(--color-text-primary)] truncate flex-1 min-w-0 group-hover:text-white">
         {issue.title}
       </span>
+
+      {/* Sub-issue progress */}
+      {subProgress && (
+        <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-muted)] shrink-0">
+          <SubProgress done={subProgress.done} total={subProgress.total} />
+          {subProgress.done}/{subProgress.total}
+        </span>
+      )}
 
       {/* Pending dot */}
       {issue.is_pending && (
@@ -210,5 +303,22 @@ function IssueRow({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
         {formatShortDate(issue.created_at)}
       </span>
     </div>
+  );
+}
+
+function SubProgress({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0">
+      <circle cx="8" cy="8" r="6" fill="none" stroke="var(--color-bg-tertiary)" strokeWidth="2" />
+      <circle
+        cx="8" cy="8" r="6" fill="none"
+        stroke={pct === 100 ? 'var(--color-success)' : 'var(--color-accent-primary)'}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray={`${pct * 0.377} 100`}
+        transform="rotate(-90 8 8)"
+      />
+    </svg>
   );
 }
