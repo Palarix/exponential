@@ -5,6 +5,8 @@ export interface Issue {
   status: string;
   parent_id?: string;
   estimate: number;
+  priority: number;
+  sort_order: string;
   assignee?: string;
   labels?: string[];
   dependencies?: Dependency[];

@@ -25,6 +25,8 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				Description:  p.Description,
 				ParentID:     p.ParentID,
 				Estimate:     p.Estimate,
+				Priority:     p.Priority,
+				SortOrder:    p.SortOrder,
 				Assignee:     p.Assignee,
 				Status:       model.StatusBacklog,
 				CreatedAt:    evt.CreatedAt,
@@ -57,6 +59,12 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			}
 			if p.Estimate != nil {
 				issue.Estimate = *p.Estimate
+			}
+			if p.Priority != nil {
+				issue.Priority = *p.Priority
+			}
+			if p.SortOrder != nil {
+				issue.SortOrder = *p.SortOrder
 			}
 			if p.ParentID != nil {
 				issue.ParentID = *p.ParentID
