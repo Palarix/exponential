@@ -24,6 +24,8 @@ type IssueResponse struct {
 	Status       string               `json:"status"`
 	ParentID     string               `json:"parent_id,omitempty"`
 	Estimate     int                  `json:"estimate"`
+	Priority     int                  `json:"priority"`
+	SortOrder    string               `json:"sort_order"`
 	Assignee     string               `json:"assignee,omitempty"`
 	Labels       []string             `json:"labels,omitempty"`
 	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
@@ -246,8 +248,13 @@ func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
+	prefix := "beats-"
+	if s.Config.Prefix != "" {
+		prefix = s.Config.Prefix
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"auto_commit": s.Config.AutoCommit,
+		"prefix":      prefix,
 	})
 }
 
@@ -294,6 +301,8 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		Status:      string(issue.Status),
 		ParentID:    issue.ParentID,
 		Estimate:    issue.Estimate,
+		Priority:    issue.Priority,
+		SortOrder:   issue.SortOrder,
 		Assignee:    issue.Assignee,
 		Labels:      issue.Labels,
 		CreatedAt:   issue.CreatedAt,

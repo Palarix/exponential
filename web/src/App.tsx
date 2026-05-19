@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { fetchIssues, fetchPending, fetchConfig, saveAll, discardAll, createIssue } from './api/client';
 import type { Issue, PendingState } from './api/client';
@@ -11,6 +11,8 @@ import IssueDetail from './components/IssueDetail/IssueDetail';
 import PendingChanges from './components/PendingChanges/PendingChanges';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import { Modal, Button } from './components/ui';
+import { sortIssuesWithinGroups } from './utils/sort';
+import type { SortKey } from './utils/sort';
 
 type View = 'dashboard' | 'backlog' | 'board' | 'dependencies';
 
@@ -58,8 +60,19 @@ function App() {
   const [showPending, setShowPending] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [autoCommit, setAutoCommit] = useState(false);
+  const [prefix, setPrefix] = useState('beats-');
+  const [sortKey, setSortKey] = useState<SortKey>(() =>
+    (localStorage.getItem('beats-sort') as SortKey) || 'manual'
+  );
+  const [backlogNavOrder, setBacklogNavOrder] = useState<string[]>([]);
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
+
+  const defaultNavOrder = useMemo(() =>
+    sortIssuesWithinGroups(issues, sortKey).map(i => i.id),
+    [issues, sortKey]
+  );
+  const navigationOrder = backlogNavOrder.length > 0 ? backlogNavOrder : defaultNavOrder;
 
   // Sync state -> hash
   useEffect(() => {
@@ -88,6 +101,7 @@ function App() {
         return;
       }
       if (e.key === 'c' && !e.metaKey && !e.ctrlKey && !showNewIssue && !showPalette) {
+        e.preventDefault();
         setShowNewIssue(true);
       }
     };
@@ -113,7 +127,7 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    fetchConfig().then(c => setAutoCommit(c.auto_commit)).catch(() => {});
+    fetchConfig().then(c => { setAutoCommit(c.auto_commit); setPrefix(c.prefix); }).catch(() => {});
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
@@ -153,16 +167,20 @@ function App() {
     setShowNewIssue(true);
   };
 
-  const allIssues = issues;
-  const selectedIssueIndex = selectedIssue ? allIssues.findIndex(i => i.id === selectedIssue.id) : -1;
+  const selectedNavIndex = selectedIssueId ? navigationOrder.indexOf(selectedIssueId) : -1;
 
   const navigateIssue = (direction: 'prev' | 'next') => {
-    if (selectedIssueIndex === -1) return;
-    const nextIndex = direction === 'prev' ? selectedIssueIndex - 1 : selectedIssueIndex + 1;
-    if (nextIndex >= 0 && nextIndex < allIssues.length) {
-      setSelectedIssueId(allIssues[nextIndex].id);
+    if (selectedNavIndex === -1) return;
+    const nextIndex = direction === 'prev' ? selectedNavIndex - 1 : selectedNavIndex + 1;
+    if (nextIndex >= 0 && nextIndex < navigationOrder.length) {
+      setSelectedIssueId(navigationOrder[nextIndex]);
     }
   };
+
+  const handleSortChange = useCallback((key: SortKey) => {
+    setSortKey(key);
+    localStorage.setItem('beats-sort', key);
+  }, []);
 
   const renderContent = () => {
     if (loading) {
@@ -207,11 +225,13 @@ function App() {
       return (
         <IssueDetail
           issue={selectedIssue}
-          issues={allIssues}
-          currentIndex={selectedIssueIndex}
+          issues={issues}
+          currentIndex={selectedNavIndex}
+          totalCount={navigationOrder.length}
           onClose={() => setSelectedIssueId(null)}
           onNavigate={navigateIssue}
           onRefresh={fetchData}
+          prefix={prefix}
         />
       );
     }
@@ -227,6 +247,9 @@ function App() {
             onIssueClick={handleIssueClick}
             searchFocused={searchFocused}
             onSearchBlur={() => setSearchFocused(false)}
+            sortKey={sortKey}
+            onSortChange={handleSortChange}
+            onNavigationOrderChange={setBacklogNavOrder}
           />
         );
       case 'board':

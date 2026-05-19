@@ -30,6 +30,8 @@ type CreatePayload struct {
 	Description  string       `json:"description,omitempty"`
 	ParentID     string       `json:"parent_id,omitempty"`
 	Estimate     int          `json:"estimate,omitempty"`
+	Priority     int          `json:"priority,omitempty"`
+	SortOrder    string       `json:"sort_order,omitempty"`
 	Assignee     string       `json:"assignee,omitempty"`
 	Dependencies []Dependency `json:"dependencies,omitempty"`
 	Labels       []string     `json:"labels,omitempty"`
@@ -53,6 +55,8 @@ type UpdatePayload struct {
 	Status       *string      `json:"status,omitempty"`
 	ParentID     *string      `json:"parent_id,omitempty"`
 	Estimate     *int         `json:"estimate,omitempty"`
+	Priority     *int         `json:"priority,omitempty"`
+	SortOrder    *string      `json:"sort_order,omitempty"`
 	Assignee     *string      `json:"assignee,omitempty"`
 	Dependencies []Dependency `json:"dependencies,omitempty"`
 	Labels       []string     `json:"labels,omitempty"`
@@ -75,6 +79,8 @@ type Issue struct {
 	Status       IssueStatus
 	ParentID     string
 	Estimate     int
+	Priority     int
+	SortOrder    string
 	Assignee     string
 	Deleted      bool
 

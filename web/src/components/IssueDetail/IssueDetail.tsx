@@ -3,15 +3,22 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { addDraft, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
-import { LabelBadge, StatusIcon } from "../ui";
+import { LabelBadge, StatusIcon, CopyableId } from "../ui";
+
+function linkifyIssueIds(text: string, prefix: string): string {
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`\\b(${escaped}[a-f0-9]{6})\\b`, 'g'), '[$1](#/issues/$1)');
+}
 
 interface IssueDetailProps {
   issue: Issue;
   issues: Issue[];
   currentIndex: number;
+  totalCount: number;
   onClose: () => void;
   onNavigate: (direction: "prev" | "next") => void;
   onRefresh: () => void;
+  prefix: string;
 }
 
 const STATUS_OPTIONS = [
@@ -23,6 +30,14 @@ const STATUS_OPTIONS = [
 ];
 
 const ESTIMATE_OPTIONS = [0, 1, 2, 3, 5, 8];
+
+const PRIORITY_OPTIONS = [
+  { value: 0, label: "No priority" },
+  { value: 1, label: "Urgent" },
+  { value: 2, label: "High" },
+  { value: 3, label: "Medium" },
+  { value: 4, label: "Low" },
+];
 
 const BUILTIN_LABELS = [
   "bug",
@@ -37,9 +52,11 @@ export default function IssueDetail({
   issue,
   issues,
   currentIndex,
+  totalCount,
   onClose,
   onNavigate,
   onRefresh,
+  prefix,
 }: IssueDetailProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -48,6 +65,7 @@ export default function IssueDetail({
   const [saving, setSaving] = useState(false);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [popoverIndex, setPopoverIndex] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -80,6 +98,11 @@ export default function IssueDetail({
     else setOpenPopover(null);
   }, [issue.estimate, saveDraft]);
 
+  const handlePriorityChange = useCallback((pri: number) => {
+    if (pri !== (issue.priority || 0)) saveDraft("UPDATE", { priority: pri });
+    else setOpenPopover(null);
+  }, [issue.priority, saveDraft]);
+
   const handleLabelToggle = useCallback((label: string) => {
     const current = issue.labels || [];
     const next = current.includes(label)
@@ -110,6 +133,7 @@ export default function IssueDetail({
       if (openPopover) {
         const len = openPopover === "status" ? STATUS_OPTIONS.length
           : openPopover === "estimate" ? ESTIMATE_OPTIONS.length
+          : openPopover === "priority" ? PRIORITY_OPTIONS.length
           : openPopover === "labels" ? allKnownLabels.length : 0;
         if (e.key === "ArrowDown") { e.preventDefault(); setPopoverIndex(i => Math.min(i + 1, len - 1)); return; }
         if (e.key === "ArrowUp") { e.preventDefault(); setPopoverIndex(i => Math.max(i - 1, 0)); return; }
@@ -117,6 +141,7 @@ export default function IssueDetail({
           e.preventDefault();
           if (openPopover === "status") handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
           else if (openPopover === "estimate") handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
+          else if (openPopover === "priority") handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
           else if (openPopover === "labels") handleLabelToggle(allKnownLabels[popoverIndex]);
           return;
         }
@@ -131,7 +156,9 @@ export default function IssueDetail({
       if (e.key === "s") { setOpenPopover("status"); setPopoverIndex(STATUS_OPTIONS.findIndex(o => o.value === issue.status)); }
       if (e.key === "l") { setOpenPopover("labels"); setPopoverIndex(0); }
       if (e.key === "e") { setOpenPopover("estimate"); setPopoverIndex(ESTIMATE_OPTIONS.indexOf(issue.estimate || 0)); }
+      if (e.key === "p") { setOpenPopover("priority"); setPopoverIndex(PRIORITY_OPTIONS.findIndex(o => o.value === (issue.priority || 0))); }
       if (e.key === "m") { e.preventDefault(); commentRef.current?.focus(); commentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      if (e.key === ".") { navigator.clipboard.writeText(issue.id); setToast("Copied issue ID"); setTimeout(() => setToast(null), 1500); }
       const num = parseInt(e.key);
       if (num >= 1 && num <= 5) {
         const status = STATUS_OPTIONS[num - 1];
@@ -140,7 +167,7 @@ export default function IssueDetail({
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose, onNavigate, openPopover, editingField, issue.status, issue.estimate, saveDraft, handleStatusChange, handleEstimateChange, handleLabelToggle, allKnownLabels, popoverIndex]);
+  }, [onClose, onNavigate, openPopover, editingField, issue.status, issue.estimate, issue.priority, issue.id, saveDraft, handleStatusChange, handleEstimateChange, handlePriorityChange, handleLabelToggle, allKnownLabels, popoverIndex]);
 
   const startEditing = (field: string) => {
     setEditingField(field);
@@ -176,10 +203,16 @@ export default function IssueDetail({
 
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === issue.status);
   const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < issues.length - 1;
+  const hasNext = currentIndex < totalCount - 1;
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* Toast */}
+      {toast && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-[12px] text-[var(--color-text-primary)] animate-fade-in">
+          {toast}
+        </div>
+      )}
       {/* Top bar: breadcrumb + nav */}
       <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
         <div className="flex items-center gap-1.5 text-[13px] min-w-0">
@@ -202,9 +235,7 @@ export default function IssueDetail({
               d="M9 5l7 7-7 7"
             />
           </svg>
-          <span className="text-[var(--color-text-muted)] font-mono text-[11px] shrink-0">
-            {issue.id}
-          </span>
+          <CopyableId id={issue.id} className="text-[11px] shrink-0" />
           <span className="text-[var(--color-text-primary)] truncate">
             {issue.title}
           </span>
@@ -212,7 +243,7 @@ export default function IssueDetail({
 
         <div className="flex items-center gap-1 shrink-0 ml-4">
           <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums mr-1">
-            {currentIndex + 1} / {issues.length}
+            {currentIndex + 1} / {totalCount}
           </span>
           <button
             onClick={() => onNavigate("prev")}
@@ -344,9 +375,7 @@ export default function IssueDetail({
                   className="cursor-text min-h-[40px] prose-beats"
                 >
                   {issue.description ? (
-                    <Markdown remarkPlugins={[remarkBreaks]}>
-                      {issue.description}
-                    </Markdown>
+                    <Markdown remarkPlugins={[remarkBreaks]}>{linkifyIssueIds(issue.description, prefix)}</Markdown>
                   ) : (
                     <p className="text-[14px] text-[var(--color-text-muted)]">
                       Add a description...
@@ -364,6 +393,7 @@ export default function IssueDetail({
               onAddComment={handleAddComment}
               saving={saving}
               commentRef={commentRef}
+              prefix={prefix}
             />
           </div>
         </div>
@@ -447,6 +477,48 @@ export default function IssueDetail({
                           className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
                         >
                           <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
+                          {isCurrent && (
+                            <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </Popover>
+                )}
+              </div>
+            </PropertyRow>
+
+            {/* Priority */}
+            <PropertyRow label="Priority">
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setOpenPopover(openPopover === "priority" ? null : "priority")
+                  }
+                  className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+                >
+                  <PriorityIcon priority={issue.priority || 0} />
+                  <span className="text-[13px] text-[var(--color-text-primary)]">
+                    {PRIORITY_OPTIONS.find(o => o.value === (issue.priority || 0))?.label || "No priority"}
+                  </span>
+                </button>
+                {openPopover === "priority" && (
+                  <Popover onClose={() => setOpenPopover(null)}>
+                    <PopoverHeader>Set priority...</PopoverHeader>
+                    {PRIORITY_OPTIONS.map((opt, i) => {
+                      const isCurrent = opt.value === (issue.priority || 0);
+                      const isFocused = i === popoverIndex;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => handlePriorityChange(opt.value)}
+                          onMouseEnter={() => setPopoverIndex(i)}
+                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-[13px] transition-colors ${isFocused ? 'bg-[var(--color-bg-hover)]' : ''} ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                        >
+                          <PriorityIcon priority={opt.value} />
+                          <span>{opt.label}</span>
                           {isCurrent && (
                             <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -546,9 +618,13 @@ export default function IssueDetail({
                       <span className="text-[var(--color-text-muted)]">
                         {dep.kind.replace("_", " ")}
                       </span>
-                      <span className="font-mono text-[var(--color-accent-primary)]">
+                      <a
+                        href={`#/issues/${dep.target_id}`}
+                        className="font-mono text-[var(--color-accent-primary)] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {dep.target_id}
-                      </span>
+                      </a>
                     </div>
                   ))}
                 </div>
@@ -602,6 +678,53 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <span className="text-[var(--color-text-secondary)]">{value}</span>
     </div>
+  );
+}
+
+function PriorityIcon({ priority, size = 14 }: { priority: number; size?: number }) {
+  const colors: Record<number, string> = {
+    0: "var(--color-text-muted)",
+    1: "var(--color-error)",
+    2: "var(--color-warning)",
+    3: "var(--color-text-secondary)",
+    4: "var(--color-text-muted)",
+  };
+  const color = colors[priority] || colors[0];
+
+  if (priority === 0) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+        <rect x="1" y="7" width="3" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
+        <rect x="5" y="7" width="3" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
+        <rect x="9" y="7" width="3" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
+        <rect x="13" y="7" width="2" height="2" rx="0.5" fill="currentColor" opacity="0.4" />
+      </svg>
+    );
+  }
+  if (priority === 1) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+        <path d="M3 2.5L8 1l5 1.5v6c0 3-2.5 5-5 6.5-2.5-1.5-5-3.5-5-6.5v-6z" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.15" />
+        <path d="M7.5 4.5v4M7.5 10.5v0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  const filled = priority === 2 ? 3 : priority === 3 ? 2 : 1;
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={{ color }}>
+      {[0, 1, 2].map(i => (
+        <rect
+          key={i}
+          x={1 + i * 5}
+          y={11 - (i + 1) * 3}
+          width="4"
+          height={(i + 1) * 3}
+          rx="1"
+          fill="currentColor"
+          opacity={i < filled ? 1 : 0.2}
+        />
+      ))}
+    </svg>
   );
 }
 
@@ -716,6 +839,7 @@ function ActivityTimeline({
   onAddComment,
   saving,
   commentRef,
+  prefix,
 }: {
   issue: Issue;
   newComment: string;
@@ -723,6 +847,7 @@ function ActivityTimeline({
   onAddComment: () => void;
   saving: boolean;
   commentRef: React.RefObject<HTMLTextAreaElement | null>;
+  prefix: string;
 }) {
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [sortNewest, setSortNewest] = useState(true);
@@ -799,7 +924,7 @@ function ActivityTimeline({
                 <span className="text-[12px] text-[var(--color-text-muted)]">{formatRelativeTime(entry.time)}</span>
               </div>
               <div className="prose-beats text-[15px]">
-                <Markdown remarkPlugins={[remarkBreaks]}>{entry.text}</Markdown>
+                <Markdown remarkPlugins={[remarkBreaks]}>{linkifyIssueIds(entry.text, prefix)}</Markdown>
               </div>
             </div>
           );

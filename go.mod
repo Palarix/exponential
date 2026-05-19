@@ -26,6 +26,7 @@ require (
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	golang.org/x/net v0.33.0 // indirect
+	roci.dev/fracdex v0.0.0-20241211175510-82d7df79e312 // indirect
 )
 
 require (
