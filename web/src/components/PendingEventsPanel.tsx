@@ -51,10 +51,10 @@ export default function PendingEventsPanel({
         <div className="flex items-center justify-between px-4 h-11 border-b border-[var(--color-border-subtle)]">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-            <h2 className="text-[13px] font-medium text-[var(--color-text-primary)]">
+            <h2 className="text-sm font-medium text-[var(--color-text-primary)]">
               Pending Changes
             </h2>
-            <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
               {eventCount}
             </span>
           </div>
@@ -82,21 +82,21 @@ export default function PendingEventsPanel({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+                    <span className="text-sm font-medium text-[var(--color-text-secondary)]">
                       {eventTypeLabels[event.type] || event.type}
                     </span>
-                    <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
+                    <span className="text-xs font-mono text-[var(--color-text-muted)]">
                       {event.issue_id}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[var(--color-text-muted)]">
+                  <p className="text-xs text-[var(--color-text-muted)]">
                     {new Date(event.created_at).toLocaleTimeString()}
                   </p>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center py-8 text-[var(--color-text-muted)] text-[13px]">
+            <div className="text-center py-8 text-[var(--color-text-muted)] text-sm">
               {eventCount} change{eventCount !== 1 ? 's' : ''} pending
             </div>
           )}
@@ -104,19 +104,19 @@ export default function PendingEventsPanel({
 
         {/* Footer */}
         <div className="p-3 border-t border-[var(--color-border-subtle)] space-y-2">
-          <p className="text-[11px] text-[var(--color-text-muted)] text-center">
+          <p className="text-xs text-[var(--color-text-muted)] text-center">
             Changes are stored locally until you save
           </p>
           <div className="flex gap-2">
             <button
               onClick={onDiscard}
-              className="flex-1 px-3 py-1.5 text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
+              className="flex-1 px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
             >
               Discard
             </button>
             <button
               onClick={onSave}
-              className="flex-1 px-3 py-1.5 text-[13px] text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
+              className="flex-1 px-3 py-1.5 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
             >
               Save & Sync
             </button>

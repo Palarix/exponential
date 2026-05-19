@@ -187,7 +187,7 @@ function App() {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
           <div className="w-5 h-5 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[var(--color-text-muted)] text-[13px]">Loading...</p>
+          <p className="text-[var(--color-text-muted)] text-sm">Loading...</p>
         </div>
       );
     }
@@ -195,11 +195,11 @@ function App() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
-          <p className="text-[var(--color-error)] text-[13px] font-medium">Failed to load</p>
-          <p className="text-[var(--color-text-muted)] text-[12px]">{error}</p>
+          <p className="text-[var(--color-error)] text-sm font-medium">Failed to load</p>
+          <p className="text-[var(--color-text-muted)] text-sm">{error}</p>
           <button
             onClick={fetchData}
-            className="mt-1 px-3 py-1.5 text-[12px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            className="mt-1 px-3 py-1.5 text-sm bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
           >
             Retry
           </button>
@@ -392,7 +392,7 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Issue title *"
-          className="w-full h-9 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
+          className="w-full h-9 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && canCreate) handleCreate(); }}
         />
 
@@ -402,7 +402,7 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Add description (markdown supported)..."
           rows={8}
-          className="w-full px-3 py-2 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[13px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors resize-y"
+          className="w-full px-3 py-2 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors resize-y"
         />
 
         {/* Actions — inline, no divider */}
@@ -457,7 +457,7 @@ function InlineDropdown({ placeholder, options, value, onChange, required }: {
         type="button"
         onClick={handleOpen}
         className={`
-          flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-[13px] transition-colors
+          flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors
           border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)]
           ${!selected && required ? 'border-[var(--color-error)]/40' : ''}
         `.trim().replace(/\s+/g, ' ')}
@@ -484,7 +484,7 @@ function InlineDropdown({ placeholder, options, value, onChange, required }: {
             <button
               key={opt.value}
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className="flex items-center gap-2 w-full h-8 px-3 text-[13px] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-2 w-full h-8 px-3 text-sm hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               {opt.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opt.dot }} />}
               <span className="text-[var(--color-text-primary)]">{opt.label}</span>

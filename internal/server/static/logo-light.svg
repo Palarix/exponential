@@ -6,8 +6,8 @@
     </defs>
     <g id="Frame-2" stroke="none" fill="none" xlink:href="#path-1" fill-rule="evenodd">
         <use fill="#000000" xlink:href="#path-1"></use>
-        <circle id="Oval" fill-opacity="0.89" fill="#FFFFFF" cx="106.5" cy="62.5" r="50.5"></circle>
-        <circle id="Oval-Copy" fill-opacity="0.83" fill="#FFFFFF" cx="122.5" cy="163.5" r="70.5"></circle>
-        <rect id="Rectangle" fill="#FFFFFF" x="48" y="12" width="64" height="222"></rect>
+        <circle id="Oval" fill-opacity="0.89" fill="#FFFFFF" cx="114" cy="64" r="45"></circle>
+        <circle id="Oval-Copy" fill-opacity="0.83" fill="#FFFFFF" cx="124.5" cy="154.5" r="70.5"></circle>
+        <path d="M84,19 L114,19 L114,19 L114,225 L50,225 L50,53 C50,34.2223185 65.2223185,19 84,19 Z" id="Rectangle" fill-opacity="0.88" fill="#FFFFFF"></path>
     </g>
 </svg>

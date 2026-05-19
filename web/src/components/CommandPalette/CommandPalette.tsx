@@ -102,7 +102,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
         label: issue.title,
         meta: (
           <span className="flex items-center gap-2">
-            <span className="font-mono text-[11px] text-[var(--color-text-muted)]">{issue.id.replace('beats-', '')}</span>
+            <span className="font-mono text-xs text-[var(--color-text-muted)]">{issue.id.replace('beats-', '')}</span>
             {issue.labels?.map(l => <LabelBadge key={l} label={l} />)}
           </span>
         ),
@@ -170,21 +170,21 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search issues, actions, navigation..."
-            className="flex-1 bg-transparent text-[14px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+            className="flex-1 bg-transparent text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
           />
-          <kbd className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded-[var(--radius-sm)]">ESC</kbd>
+          <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded-[var(--radius-sm)]">ESC</kbd>
         </div>
 
         {/* Results */}
         <div ref={listRef} className="max-h-[400px] overflow-y-auto py-1">
           {items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-[13px] text-[var(--color-text-muted)]">
+            <div className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
               No results for "{query}"
             </div>
           ) : (
             groups.map(([group, groupItems]) => (
               <div key={group}>
-                <div className="px-4 pt-2 pb-1 text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
+                <div className="px-4 pt-2 pb-1 text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                   {group}
                 </div>
                 {groupItems.map((item) => {
@@ -199,10 +199,10 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
                       className={`flex items-center gap-3 w-full px-4 h-10 text-left transition-colors ${isSelected ? 'bg-[var(--color-bg-hover)]' : ''}`}
                     >
                       <span className="text-[var(--color-text-muted)] shrink-0">{item.icon}</span>
-                      <span className="text-[13px] text-[var(--color-text-primary)] truncate flex-1">{item.label}</span>
+                      <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.label}</span>
                       {item.meta}
                       {item.shortcut && (
-                        <kbd className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded-[var(--radius-sm)] ml-auto shrink-0">
+                        <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded-[var(--radius-sm)] ml-auto shrink-0">
                           {item.shortcut}
                         </kbd>
                       )}
@@ -215,7 +215,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
         </div>
 
         {/* Footer hints */}
-        <div className="flex items-center gap-4 px-4 h-8 border-t border-[var(--color-border-subtle)] text-[10px] text-[var(--color-text-muted)]">
+        <div className="flex items-center gap-4 px-4 h-8 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1">
             <kbd className="bg-[var(--color-bg-tertiary)] px-1 rounded">↑↓</kbd> navigate
           </span>

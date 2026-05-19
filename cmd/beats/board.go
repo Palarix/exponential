@@ -41,17 +41,14 @@ func init() {
 func runBoard(cmd *cobra.Command, args []string) error {
 	srv := server.NewServer(cfg, boardPort, boardDev, boardDevPort)
 
-	// Open browser if not disabled
 	if !boardNoOpen {
 		url := fmt.Sprintf("http://localhost:%d", boardPort)
 		go openBrowser(url)
 	}
 
-	// Start server (blocks)
 	return srv.Start()
 }
 
-// openBrowser opens the default browser to the specified URL.
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 

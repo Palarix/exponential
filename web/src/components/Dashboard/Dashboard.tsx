@@ -28,8 +28,8 @@ export default function Dashboard({ issues }: DashboardProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)] shrink-0">
-        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Dashboard</span>
+      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+        <span className="text-sm font-medium text-[var(--color-text-primary)]">Dashboard</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-5xl">
@@ -47,21 +47,21 @@ export default function Dashboard({ issues }: DashboardProps) {
               sublabel="complete"
             />
             <div>
-              <p className="text-[12px] text-[var(--color-text-muted)]">Overall Progress</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Overall Progress</p>
               <p className="text-2xl font-bold text-[var(--color-text-primary)]">
                 {stats.done}<span className="text-sm text-[var(--color-text-muted)]">/{stats.total}</span>
               </p>
-              <p className="text-[11px] text-[var(--color-text-muted)]">issues completed</p>
+              <p className="text-xs text-[var(--color-text-muted)]">issues completed</p>
             </div>
           </Card>
 
           {/* Active Work */}
           <Card variant="elevated">
-            <p className="text-[12px] text-[var(--color-text-muted)] mb-1">Active Work</p>
+            <p className="text-sm text-[var(--color-text-muted)] mb-1">Active Work</p>
             <p className="text-2xl font-bold text-[var(--color-warning)]">{stats.doing}</p>
-            <p className="text-[11px] text-[var(--color-text-muted)]">issues in progress</p>
+            <p className="text-xs text-[var(--color-text-muted)]">issues in progress</p>
             {stats.blocked > 0 && (
-              <div className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--color-error)]">
+              <div className="mt-2 flex items-center gap-1.5 text-sm text-[var(--color-error)]">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
@@ -72,21 +72,21 @@ export default function Dashboard({ issues }: DashboardProps) {
 
           {/* Pipeline */}
           <Card variant="elevated">
-            <p className="text-[12px] text-[var(--color-text-muted)] mb-1">Pipeline</p>
+            <p className="text-sm text-[var(--color-text-muted)] mb-1">Pipeline</p>
             <p className="text-2xl font-bold text-[var(--color-text-primary)]">{stats.backlog + stats.planned}</p>
-            <p className="text-[11px] text-[var(--color-text-muted)]">in backlog & planned</p>
+            <p className="text-xs text-[var(--color-text-muted)]">in backlog & planned</p>
           </Card>
         </div>
 
         {/* Status Distribution */}
         <div>
-          <h2 className="text-[13px] font-medium text-[var(--color-text-primary)] mb-3">Status Distribution</h2>
+          <h2 className="text-sm font-medium text-[var(--color-text-primary)] mb-3">Status Distribution</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {statusCards.map((card) => (
               <Card key={card.label} variant="default" className="text-center">
                 <div className="flex items-center justify-center gap-1.5 mb-1">
                   <StatusIcon status={card.status} size={12} />
-                  <p className="text-[12px] text-[var(--color-text-muted)]">{card.label}</p>
+                  <p className="text-sm text-[var(--color-text-muted)]">{card.label}</p>
                 </div>
                 <p className="text-2xl font-bold" style={{ color: card.color }}>
                   {card.value}

@@ -5,21 +5,22 @@
    ======================================== */
 
 @theme {
-  /* Backgrounds — ultra dark, no chroma */
-  --color-bg-primary: #0a0a0a;
+  /* Backgrounds — Linear surface levels
+     L0  7,7,7     sidebar + app chrome
+     L1  15,15,16  main content + aside
+     L2  22,23,24  cards, group headers, inputs
+     L3  27,27,28  popovers */
+  --color-bg-primary: #0f0f10;
   --color-bg-secondary: #161718;
-  --color-bg-tertiary: #1c1d1e;
-  --color-bg-elevated: #222324;
-  --color-bg-hover: #28292a;
-  --color-bg-sidebar: #0d0d0d;
-
-  /* Surfaces — flat, no alpha */
-  --color-surface: #1c1d1e;
-  --color-surface-elevated: #222324;
+  --color-bg-tertiary: #161718;
+  --color-bg-elevated: #1b1b1c;
+  --color-bg-hover: #1b1b1c;
+  --color-bg-sidebar: #070707;
 
   /* Borders */
-  --color-border-default: rgba(255, 255, 255, 0.1);
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: #28292a;
+  --color-border-subtle: #1b1b1c;
+  --color-border-card: #1e1f20;
   --color-border-focus: rgba(94, 106, 210, 0.5);
 
   /* Text */
@@ -57,6 +58,18 @@
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Font Scale — */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
 
   /* Border Radius */
   --radius-sm: 4px;
@@ -96,7 +109,8 @@ body {
 
 .prose-beats {
   color: var(--color-text-primary);
-  line-height: 1.65;
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
 }
 
 .prose-beats p {
