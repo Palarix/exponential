@@ -58,7 +58,7 @@ export async function saveAll(message?: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to save');
 }
 
-export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string }> {
+export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string }> {
   const res = await fetch(`${API_BASE}/config`);
   if (!res.ok) throw new Error('Failed to fetch config');
   return res.json();

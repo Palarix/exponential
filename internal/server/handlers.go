@@ -13,6 +13,7 @@ import (
 	"github.com/kuyio/beats/internal/config"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/storage"
+	"github.com/kuyio/beats/internal/version"
 )
 
 // --- Response Structures ---
@@ -171,7 +172,10 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		CreatedBy: user,
 	}
 
-	s.AddPendingEvent(evt)
+	if err := storage.AppendEvent(evt); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issueID})
 }
 
@@ -255,6 +259,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"auto_commit": s.Config.AutoCommit,
 		"prefix":      prefix,
+		"version":     version.CLIVersion,
 	})
 }
 

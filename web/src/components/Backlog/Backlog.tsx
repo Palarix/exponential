@@ -52,7 +52,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
 
   const handleInlineCreate = useCallback(async (status: string, title: string) => {
     if (!title.trim()) return;
-    const issueId = await createIssue({ title: title.trim() });
+    const issueId = await createIssue({ title: title.trim(), labels: ['feature'] });
     if (status !== 'BACKLOG') {
       await addDraft(issueId, 'UPDATE', { status });
     }
