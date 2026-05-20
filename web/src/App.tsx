@@ -10,8 +10,10 @@ import Dependencies from './components/Dependencies/Dependencies';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import { Modal, Button } from './components/ui';
+import MarkdownEditor from './components/MarkdownEditor';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
+import { isEditableTarget } from './utils/keyboard';
 
 type View = 'dashboard' | 'backlog' | 'board' | 'dependencies';
 
@@ -87,7 +89,7 @@ function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (isEditableTarget(e)) return;
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowPalette(true);
@@ -322,7 +324,7 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New Issue" size="2xl">
-      <div className="space-y-3" onKeyDown={handleModalKeyDown}>
+      <div className="space-y-4" onKeyDown={handleModalKeyDown}>
         {/* Properties row: label, status, estimate */}
         <div className="flex items-center gap-2">
           <InlineDropdown
@@ -353,17 +355,16 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Issue title *"
-          className="w-full h-10 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-lg text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
+          className="w-full h-10 text-lg bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none border-none p-0"
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && canCreate) handleCreate(); }}
         />
 
         {/* Description */}
-        <textarea
+        <MarkdownEditor
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={setDescription}
           placeholder="Add description (markdown supported)..."
-          rows={8}
-          className="w-full px-3 py-2 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors resize-y"
+          className="prose-beats min-h-50"
         />
 
         {/* Actions — inline, no divider */}

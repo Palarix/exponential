@@ -103,6 +103,37 @@ body {
   background: var(--color-bg-primary);
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
 /* ========================================
    MARKDOWN (prose-beats)
    ======================================== */
@@ -110,11 +141,11 @@ body {
 .prose-beats {
   color: var(--color-text-primary);
   font-size: var(--text-base);
-  line-height: var(--text-base--line-height);
+  line-height: 1.75;
 }
 
 .prose-beats p {
-  margin: 0.5em 0;
+  margin: 0.75em 0;
 }
 
 .prose-beats p:first-child {
@@ -128,7 +159,7 @@ body {
 .prose-beats h1, .prose-beats h2, .prose-beats h3, .prose-beats h4 {
   color: var(--color-text-primary);
   font-weight: 600;
-  margin: 1.2em 0 0.4em;
+  margin: 1.5em 0 0.5em;
 }
 
 .prose-beats h1 { font-size: 1.25em; }
@@ -170,11 +201,11 @@ body {
 
 .prose-beats ul, .prose-beats ol {
   padding-left: 1.5em;
-  margin: 0.5em 0;
+  margin: 0.75em 0;
 }
 
 .prose-beats li {
-  margin: 0.2em 0;
+  margin: 0.35em 0;
 }
 
 .prose-beats ul li {
@@ -203,6 +234,27 @@ body {
   border-top: 1px solid var(--color-border-subtle);
   margin: 1em 0;
 }
+
+/* ========================================
+   TIPTAP EDITOR
+   ======================================== */
+
+.prose-beats .tiptap {
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.prose-beats .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+.prose-beats .tiptap > *:first-child { margin-top: 0; }
+.prose-beats .tiptap > *:last-child { margin-bottom: 0; }
 
 /* ========================================
    ANIMATIONS

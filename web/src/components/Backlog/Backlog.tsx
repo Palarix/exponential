@@ -5,6 +5,7 @@ import type { Issue } from '../../api/client';
 import { LabelBadge, StatusIcon, CopyableId } from '../ui';
 import { sortGroup, getEffectiveKeys, SORT_OPTIONS } from '../../utils/sort';
 import type { SortKey } from '../../utils/sort';
+import { isEditableTarget } from '../../utils/keyboard';
 
 interface BacklogProps {
   issues: Issue[];
@@ -264,7 +265,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   // Keyboard nav
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
 
       if (e.key === 'ArrowDown' || e.key === 'j') {

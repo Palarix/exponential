@@ -6,7 +6,7 @@ all: build
 
 # Build the frontend with Vite and copy to Go static folder
 frontend:
-	cd web && npm run build
+	cd web && bun run build
 	rm -rf internal/server/static
 	cp -r web/dist internal/server/static
 
