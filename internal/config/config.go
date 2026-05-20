@@ -120,10 +120,10 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("style.theme", "default")
 	v.SetDefault("estimation_system", "fibonacci")
 	v.SetDefault("count_unestimated", true)
-	v.SetDefault("automations.auto_complete_parent", false)
-	v.SetDefault("automations.auto_close_sub_issues", false)
-	v.SetDefault("automations.auto_progress_sub_issues", false)
-	v.SetDefault("automations.auto_progress_parent", false)
+	v.SetDefault("automations.auto_complete_parent", true)
+	v.SetDefault("automations.auto_close_sub_issues", true)
+	v.SetDefault("automations.auto_progress_sub_issues", true)
+	v.SetDefault("automations.auto_progress_parent", true)
 
 	// Config file locations
 	v.SetConfigName("config")
