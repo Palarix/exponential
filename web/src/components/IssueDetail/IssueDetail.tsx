@@ -434,7 +434,7 @@ export default function IssueDetail({
                       if (e.key === "Escape") setEditingField(null);
                     }}
                     rows={8}
-                    className="w-full text-base leading-relaxed bg-transparent text-[var(--color-text-secondary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] px-3 py-2.5 outline-none focus:border-[var(--color-border-focus)] resize-y"
+                    className="w-full text-base leading-relaxed bg-transparent text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] px-3 py-2.5 outline-none focus:border-[var(--color-border-focus)] resize-y"
                     placeholder="Add a description..."
                   />
                   <div className="flex gap-2 mt-2">

@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button, Modal, ModalFooter } from '../ui';
 
 type View = 'dashboard' | 'backlog' | 'board' | 'dependencies';
 
@@ -8,13 +6,10 @@ interface LayoutProps {
   children: ReactNode;
   currentView: View;
   onViewChange: (view: View) => void;
-  pendingCount: number;
-  onSave: (commitMessage: string) => void;
-  onDiscard: () => void;
   onSearch: () => void;
   onNewIssue: () => void;
-  onPendingClick: () => void;
-  autoCommit: boolean;
+  version: string;
+  connected: boolean;
 }
 
 const PRIMARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
@@ -84,33 +79,11 @@ export default function Layout({
   children,
   currentView,
   onViewChange,
-  pendingCount,
-  onSave,
-  onDiscard,
   onSearch,
   onNewIssue,
-  onPendingClick,
-  autoCommit,
+  version,
+  connected,
 }: LayoutProps) {
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [commitMessage, setCommitMessage] = useState('');
-
-  const handleSave = () => {
-    if (autoCommit) {
-      const now = new Date().toISOString().split('T')[0];
-      setCommitMessage(`Update ${now}`);
-      setShowSaveModal(true);
-    } else {
-      onSave('');
-    }
-  };
-
-  const confirmSave = () => {
-    onSave(commitMessage);
-    setShowSaveModal(false);
-    setCommitMessage('');
-  };
-
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-sidebar)]">
       {/* Sidebar */}
@@ -160,86 +133,24 @@ export default function Layout({
           ))}
         </nav>
 
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Pending footer */}
-        <div className="px-3 py-3 border-t border-[var(--color-border-subtle)]">
-          {pendingCount > 0 ? (
-            <div className="space-y-2">
-              <button
-                onClick={onPendingClick}
-                className="flex items-center gap-2 px-0.5 w-full text-left hover:opacity-80 transition-opacity"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-                <span className="text-xs text-[var(--color-warning)]">
-                  {pendingCount} unsaved change{pendingCount !== 1 ? 's' : ''}
-                </span>
-              </button>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={onDiscard}
-                  className="flex-1 h-7 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-sm)] transition-colors"
-                >
-                  Discard
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 h-7 text-xs text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-sm)] transition-colors"
-                >
-                  {autoCommit ? 'Save & Commit' : 'Save'}
-                </button>
-              </div>
-              {!autoCommit && (
-                <p className="text-xs text-[var(--color-text-muted)] px-0.5 mt-1.5">
-                  Writes to issues.db only. Enable auto_commit in config to also create git commits.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-0.5 text-xs text-[var(--color-text-muted)]">
-              <svg className="w-3 h-3 text-[var(--color-success)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              All synced
-            </div>
-          )}
-        </div>
       </aside>
 
       {/* Main */}
-      <div className="flex-1 p-2 pl-0 overflow-hidden">
-        <main className="h-full overflow-hidden bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)]">
+      <div className="flex-1 pt-2 pr-2 overflow-hidden flex flex-col">
+        <main className="flex-1 overflow-hidden bg-[var(--color-bg-primary)] rounded-t-[var(--radius-lg)] border border-[var(--color-border-subtle)] border-b-0">
           {children}
         </main>
-      </div>
-
-      {/* Save modal */}
-      <Modal
-        isOpen={showSaveModal}
-        onClose={() => setShowSaveModal(false)}
-        title="Commit Changes"
-        size="md"
-      >
-        <div className="space-y-3">
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Enter a commit message for your changes.
-          </p>
-          <input
-            type="text"
-            value={commitMessage}
-            onChange={(e) => setCommitMessage(e.target.value)}
-            className="w-full h-9 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
-            placeholder="e.g., Daily standup updates..."
-            autoFocus
-            onKeyDown={(e) => { if (e.key === 'Enter' && commitMessage.trim()) confirmSave(); }}
-          />
+        <div className="flex items-center justify-end px-4 py-2 shrink-0">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-error)]'}`} />
+            {connected ? (
+              <span className="text-[var(--color-text-muted)]">Beats {version && `v${version}`}</span>
+            ) : (
+              <span className="text-[var(--color-error)]">Disconnected</span>
+            )}
+          </div>
         </div>
-        <ModalFooter>
-          <Button variant="ghost" size="sm" onClick={() => setShowSaveModal(false)}>Cancel</Button>
-          <Button size="sm" onClick={confirmSave} disabled={!commitMessage.trim()}>Commit</Button>
-        </ModalFooter>
-      </Modal>
+      </div>
     </div>
   );
 }

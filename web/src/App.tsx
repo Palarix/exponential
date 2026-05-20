@@ -1,14 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchIssues, fetchPending, fetchConfig, saveAll, discardAll, createIssue } from './api/client';
-import type { Issue, PendingState } from './api/client';
+import { fetchIssues, fetchConfig, createIssue } from './api/client';
+import type { Issue } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
 import Backlog from './components/Backlog/Backlog';
 import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
 import IssueDetail from './components/IssueDetail/IssueDetail';
-import PendingChanges from './components/PendingChanges/PendingChanges';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import { Modal, Button } from './components/ui';
 import { sortIssuesWithinGroups } from './utils/sort';
@@ -51,16 +50,14 @@ function App() {
   const initial = parseHash();
   const [view, setView] = useState<View>(initial.view);
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [pending, setPending] = useState<PendingState>({ has_pending: false, events: [], issue_ids: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(initial.issueId);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNewIssue, setShowNewIssue] = useState(false);
-  const [showPending, setShowPending] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
-  const [autoCommit, setAutoCommit] = useState(false);
   const [prefix, setPrefix] = useState('beats-');
+  const [version, setVersion] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>(() =>
     (localStorage.getItem('beats-sort') as SortKey) || 'manual'
   );
@@ -74,24 +71,20 @@ function App() {
   );
   const navigationOrder = backlogNavOrder.length > 0 ? backlogNavOrder : defaultNavOrder;
 
-  // Sync state -> hash
   useEffect(() => {
-    setHash(view, showPending ? null : selectedIssueId);
-  }, [view, selectedIssueId, showPending]);
+    setHash(view, selectedIssueId);
+  }, [view, selectedIssueId]);
 
-  // Sync hash -> state (browser back/forward)
   useEffect(() => {
     const onHashChange = () => {
       const { view: v, issueId } = parseHash();
       setView(v);
       setSelectedIssueId(issueId);
-      setShowPending(false);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -111,12 +104,8 @@ function App() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [issuesData, pendingData] = await Promise.all([
-        fetchIssues(),
-        fetchPending(),
-      ]);
+      const issuesData = await fetchIssues();
       setIssues(issuesData);
-      setPending(pendingData);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -127,28 +116,10 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    fetchConfig().then(c => { setAutoCommit(c.auto_commit); setPrefix(c.prefix); }).catch(() => {});
+    fetchConfig().then(c => { setPrefix(c.prefix); setVersion(c.version || ''); }).catch(() => {});
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
-
-  const handleSave = async (commitMessage: string) => {
-    try {
-      await saveAll(commitMessage);
-      await fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
-    }
-  };
-
-  const handleDiscard = async () => {
-    try {
-      await discardAll();
-      await fetchData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to discard');
-    }
-  };
 
   const handleIssueClick = (issue: Issue) => {
     setSelectedIssueId(issue.id);
@@ -157,14 +128,6 @@ function App() {
   const handleViewChange = (v: View) => {
     setSelectedIssueId(null);
     setView(v);
-  };
-
-  const handleSearch = () => {
-    setShowPalette(true);
-  };
-
-  const handleNewIssue = () => {
-    setShowNewIssue(true);
   };
 
   const selectedNavIndex = selectedIssueId ? navigationOrder.indexOf(selectedIssueId) : -1;
@@ -194,30 +157,31 @@ function App() {
 
     if (error) {
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-3">
-          <p className="text-[var(--color-error)] text-sm font-medium">Failed to load</p>
-          <p className="text-[var(--color-text-muted)] text-sm">{error}</p>
+        <div className="flex flex-col items-center justify-center h-full gap-6 px-8">
+          {/* Illustration */}
+          <svg width="160" height="120" viewBox="0 0 160 120" fill="none" className="opacity-30">
+            <rect x="30" y="20" width="100" height="70" rx="8" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <circle cx="80" cy="48" r="12" stroke="var(--color-text-muted)" strokeWidth="1.5" />
+            <path d="M76 48h8M80 44v8" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M50 100h60" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 4" />
+            <path d="M55 106h50" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 4" />
+            <circle cx="80" cy="72" r="2" fill="var(--color-text-muted)" />
+          </svg>
+
+          <div className="flex flex-col items-center gap-2 max-w-[320px] text-center">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Server Offline</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+              Unable to reach the Beats server. Make sure <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded-[var(--radius-sm)]">beats board</code> is running in your terminal.
+            </p>
+          </div>
+
           <button
             onClick={fetchData}
-            className="mt-1 px-3 py-1.5 text-sm bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            className="px-4 py-2 text-sm bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
           >
-            Retry
+            Retry Connection
           </button>
         </div>
-      );
-    }
-
-    if (showPending) {
-      return (
-        <PendingChanges
-          pending={pending}
-          issues={issues}
-          autoCommit={autoCommit}
-          onClose={() => setShowPending(false)}
-          onSave={() => { handleSave(`Update ${new Date().toISOString().split('T')[0]}`); setShowPending(false); }}
-          onDiscard={() => { handleDiscard(); setShowPending(false); }}
-          onIssueClick={(issue) => { setShowPending(false); setSelectedIssueId(issue.id); }}
-        />
       );
     }
 
@@ -264,13 +228,10 @@ function App() {
       <Layout
         currentView={view}
         onViewChange={handleViewChange}
-        pendingCount={pending.events?.length || 0}
-        onSave={handleSave}
-        onDiscard={handleDiscard}
-        onSearch={handleSearch}
-        onNewIssue={handleNewIssue}
-        onPendingClick={() => setShowPending(true)}
-        autoCommit={autoCommit}
+        onSearch={() => setShowPalette(true)}
+        onNewIssue={() => setShowNewIssue(true)}
+        version={version}
+        connected={!error}
       >
         {renderContent()}
       </Layout>
@@ -290,7 +251,7 @@ function App() {
         issues={issues}
         onIssueSelect={(issue) => setSelectedIssueId(issue.id)}
         onViewChange={handleViewChange}
-        onNewIssue={handleNewIssue}
+        onNewIssue={() => setShowNewIssue(true)}
       />
     </>
   );
@@ -392,7 +353,7 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Issue title *"
-          className="w-full h-9 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
+          className="w-full h-10 px-3 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-lg text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors"
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && canCreate) handleCreate(); }}
         />
 
@@ -402,7 +363,7 @@ function NewIssueModal({ isOpen, onClose, onCreated }: { isOpen: boolean; onClos
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Add description (markdown supported)..."
           rows={8}
-          className="w-full px-3 py-2 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors resize-y"
+          className="w-full px-3 py-2 bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)] transition-colors resize-y"
         />
 
         {/* Actions — inline, no divider */}

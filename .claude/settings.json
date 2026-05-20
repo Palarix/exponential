@@ -13,7 +13,12 @@
       "Bash(npx tsc *)",
       "Bash(npx eslint *)",
       "Bash(beats show *)",
-      "Bash(beats start *)"
+      "Bash(beats start *)",
+      "Bash(beats ls *)",
+      "Bash(make build *)",
+      "Bash(beats comment *)",
+      "Bash(beats done *)",
+      "Bash(go build *)"
     ]
   }
 }
