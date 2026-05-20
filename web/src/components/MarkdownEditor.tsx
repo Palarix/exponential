@@ -3,7 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 
 interface MarkdownEditorProps {
   value: string;
@@ -39,21 +39,25 @@ export default function MarkdownEditor({
     onSaveRef.current?.();
   }, []);
 
+  const initialValue = useRef(value);
+
+  const extensions = useMemo(() => [
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3, 4] },
+    }),
+    Placeholder.configure({ placeholder }),
+    Link.configure({ openOnClick: false }),
+    TiptapMarkdown.configure({
+      html: false,
+      breaks: true,
+      transformPastedText: true,
+      transformCopiedText: true,
+    }),
+  ], [placeholder]);
+
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4] },
-      }),
-      Placeholder.configure({ placeholder }),
-      Link.configure({ openOnClick: false }),
-      TiptapMarkdown.configure({
-        html: false,
-        breaks: true,
-        transformPastedText: true,
-        transformCopiedText: true,
-      }),
-    ],
-    content: value,
+    extensions,
+    content: initialValue.current,
     autofocus: autoFocus && !clickEvent ? "end" : false,
     editorProps: {
       attributes: {

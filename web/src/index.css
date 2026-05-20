@@ -105,10 +105,6 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-*:hover {
   scrollbar-color: var(--color-border-default) transparent;
 }
 
@@ -122,12 +118,8 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 3px;
-}
-
-*:hover::-webkit-scrollbar-thumb {
   background: var(--color-border-default);
+  border-radius: 3px;
 }
 
 *::-webkit-scrollbar-thumb:hover {

@@ -104,10 +104,15 @@ function App() {
     return () => document.removeEventListener('keydown', handler);
   }, [showNewIssue, showPalette]);
 
+  const lastJsonRef = useRef('');
   const fetchData = useCallback(async () => {
     try {
       const issuesData = await fetchIssues();
-      setIssues(issuesData);
+      const json = JSON.stringify(issuesData);
+      if (json !== lastJsonRef.current) {
+        lastJsonRef.current = json;
+        setIssues(issuesData);
+      }
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch data');

@@ -3,9 +3,10 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { addDraft, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
-import { LabelBadge, StatusIcon, CopyableId } from "../ui";
+import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
+import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS, BUILTIN_LABELS } from "../../constants";
 
 function linkifyIssueIds(text: string, prefix: string): string {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25,33 +26,6 @@ interface IssueDetailProps {
   onRefresh: () => void;
   prefix: string;
 }
-
-const STATUS_OPTIONS = [
-  { value: "BACKLOG", label: "Backlog" },
-  { value: "PLANNED", label: "Planned" },
-  { value: "DOING", label: "In Progress" },
-  { value: "BLOCKED", label: "Blocked" },
-  { value: "DONE", label: "Done" },
-];
-
-const ESTIMATE_OPTIONS = [0, 1, 2, 3, 5, 8];
-
-const PRIORITY_OPTIONS = [
-  { value: 0, label: "No priority" },
-  { value: 1, label: "Urgent" },
-  { value: 2, label: "High" },
-  { value: 3, label: "Medium" },
-  { value: 4, label: "Low" },
-];
-
-const BUILTIN_LABELS = [
-  "bug",
-  "feature",
-  "epic",
-  "improvement",
-  "UI",
-  "refactor",
-];
 
 export default function IssueDetail({
   issue,
@@ -374,16 +348,6 @@ export default function IssueDetail({
         {/* Main content */}
         <div className="flex-1 overflow-y-auto min-w-0">
           <div className="max-w-3xl mx-auto px-8 py-12">
-            {/* Parent reference */}
-            {issue.parent_id && (
-              <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] mb-3">
-                <span>Sub-issue of</span>
-                <span className="font-mono text-[var(--color-accent-primary)]">
-                  {issue.parent_id}
-                </span>
-              </div>
-            )}
-
             {/* Title */}
             {editingField === "title" ? (
               <input
@@ -406,6 +370,25 @@ export default function IssueDetail({
                 {issue.title}
               </h1>
             )}
+
+            {/* Parent reference */}
+            {issue.parent_id && (() => {
+              const parent = issues.find(i => i.id === issue.parent_id);
+              const siblings = parent ? issues.filter(i => i.parent_id === parent.id) : [];
+              const siblingsDone = siblings.filter(i => i.status === 'DONE').length;
+              return (
+                <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
+                  <span>Sub-issue of</span>
+                  <a href={`#/issues/${issue.parent_id}`} className="font-mono text-[var(--color-accent-primary)] hover:underline" onClick={(e) => e.stopPropagation()}>
+                    {issue.parent_id}
+                  </a>
+                  {parent && <span className="text-[var(--color-text-secondary)]">{parent.title}</span>}
+                  {siblings.length > 0 && (
+                    <span className="text-[var(--color-text-muted)]">({siblingsDone}/{siblings.length})</span>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Description */}
             <div className="mt-4">
@@ -436,6 +419,9 @@ export default function IssueDetail({
                 </div>
               )}
             </div>
+
+            {/* Sub-issues table */}
+            <SubIssuesTable issue={issue} issues={issues} />
 
             {/* Activity */}
             <ActivityTimeline
@@ -745,6 +731,65 @@ export default function IssueDetail({
   );
 }
 
+function SubIssuesTable({ issue, issues }: { issue: Issue; issues: Issue[] }) {
+  const children = useMemo(() => issues.filter(i => i.parent_id === issue.id), [issues, issue.id]);
+  const [expanded, setExpanded] = useState(true);
+
+  if (children.length === 0) return null;
+
+  const doneCount = children.filter(c => c.status === 'DONE').length;
+
+  return (
+    <div className="mt-6">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)] mb-3 hover:text-[var(--color-text-secondary)] transition-colors"
+      >
+        <svg
+          className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${expanded ? 'rotate-90' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        Sub-issues
+        <span className="text-xs font-normal text-[var(--color-text-muted)]">{doneCount}/{children.length}</span>
+      </button>
+      {expanded && (
+        <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+          {children.map((child, i) => (
+            <a
+              key={child.id}
+              href={`#/issues/${child.id}`}
+              className={`flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[var(--color-bg-hover)] transition-colors ${i > 0 ? 'border-t border-[var(--color-border-subtle)]' : ''}`}
+            >
+              <StatusIcon status={child.status} size={14} />
+              <span className="text-[var(--color-text-primary)] truncate min-w-0">{child.title}</span>
+              {child.priority > 0 && (
+                <span className={`text-xs font-medium shrink-0 ${child.priority === 1 ? 'text-[var(--color-error)]' : child.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
+                  {child.priority === 1 ? '!!!' : child.priority === 2 ? '!!' : '!'}
+                </span>
+              )}
+              <div className="flex-1" />
+              {child.labels?.map(label => <LabelBadge key={label} label={label} />)}
+              {child.estimate > 0 && (
+                <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
+                  <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                  {child.estimate}
+                </span>
+              )}
+              {child.created_by && (
+                <span className="shrink-0">
+                  <GravatarIcon name={child.created_by} size={16} />
+                </span>
+              )}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PropertyRow({ children }: { children: React.ReactNode }) {
   return <div>{children}</div>;
 }
@@ -919,41 +964,6 @@ function GravatarIcon({ name, size = 14 }: { name: string; size?: number }) {
       className="rounded-full shrink-0"
       onError={() => setFailed(true)}
     />
-  );
-}
-
-function Popover({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
-
-  return (
-    <div
-      ref={ref}
-      className="absolute left-0 top-full mt-1 z-50 min-w-[200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
-    >
-      {children}
-    </div>
-  );
-}
-
-function PopoverHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)]">
-      {children}
-    </div>
   );
 }
 
