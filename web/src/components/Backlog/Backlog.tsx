@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { generateKeyBetween } from 'fractional-indexing';
 import { createIssue, addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { LabelBadge, StatusIcon, CopyableId } from '../ui';
+import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader } from '../ui';
 import { sortGroup, getEffectiveKeys, SORT_OPTIONS } from '../../utils/sort';
 import type { SortKey } from '../../utils/sort';
 import { isEditableTarget } from '../../utils/keyboard';
+import { STATUS_OPTIONS, ESTIMATE_OPTIONS, BUILTIN_LABELS } from '../../constants';
 
 interface BacklogProps {
   issues: Issue[];
@@ -47,6 +48,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   const [inlineCreateStatus, setInlineCreateStatus] = useState<string | null>(null);
   const [inlineTitle, setInlineTitle] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [openPopover, setOpenPopover] = useState<{ issueId: string; type: 'status' | 'estimate' | 'labels' } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
@@ -60,6 +62,33 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     setInlineTitle('');
     onRefresh();
   }, [onRefresh]);
+
+  const handleQuickStatus = useCallback(async (issueId: string, status: string) => {
+    await addDraft(issueId, 'UPDATE', { status });
+    setOpenPopover(null);
+    onRefresh();
+  }, [onRefresh]);
+
+  const handleQuickEstimate = useCallback(async (issueId: string, estimate: number) => {
+    await addDraft(issueId, 'UPDATE', { estimate });
+    setOpenPopover(null);
+    onRefresh();
+  }, [onRefresh]);
+
+  const handleQuickLabelToggle = useCallback(async (issue: Issue, label: string) => {
+    const current = issue.labels || [];
+    const labels = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
+    await addDraft(issue.id, 'UPDATE', { labels });
+    onRefresh();
+  }, [onRefresh]);
+
+  const allKnownLabels = useMemo(() => {
+    const set = new Set(BUILTIN_LABELS);
+    for (const issue of issues) {
+      for (const l of issue.labels || []) set.add(l);
+    }
+    return Array.from(set);
+  }, [issues]);
 
   const startInlineCreate = useCallback((status: string) => {
     setInlineCreateStatus(status);
@@ -159,9 +188,14 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   }, [visibleStatuses, filteredIssues, activeTab, expandedGroups, expandedNodes, issues, childrenByParent, sortKey]);
 
   // Report navigation order to parent
+  const prevNavOrder = useRef<string>('');
   useEffect(() => {
     const ids = rows.filter(r => r.kind === 'issue').map(r => (r as { kind: 'issue'; issue: Issue }).issue.id);
-    onNavigationOrderChange?.(ids);
+    const key = ids.join(',');
+    if (key !== prevNavOrder.current) {
+      prevNavOrder.current = key;
+      onNavigationOrderChange?.(ids);
+    }
   }, [rows, onNavigationOrderChange]);
 
   // Drag-and-drop for manual reordering
@@ -514,9 +548,25 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                 </span>
               )}
 
-              <CopyableId id={issue.id} className="text-xs w-[88px] shrink-0 truncate tabular-nums" />
-              <StatusIcon status={issue.status} size={14} className="shrink-0" />
-              <span className="text-sm font-medium text-[var(--color-text-primary)] truncate flex-1 min-w-0">{issue.title}</span>
+              <CopyableId id={issue.id} className="text-xs w-[110px] shrink-0 truncate tabular-nums" />
+              <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'status' ? null : { issueId: issue.id, type: 'status' })} className="hover:opacity-70 transition-opacity">
+                  <StatusIcon status={issue.status} size={14} />
+                </button>
+                {openPopover?.issueId === issue.id && openPopover?.type === 'status' && (
+                  <Popover onClose={() => setOpenPopover(null)}>
+                    <PopoverHeader>Set status...</PopoverHeader>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <button key={opt.value} onClick={() => handleQuickStatus(issue.id, opt.value)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                        <StatusIcon status={opt.value} size={14} />
+                        <span>{opt.label}</span>
+                        {opt.value === issue.status && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      </button>
+                    ))}
+                  </Popover>
+                )}
+              </div>
+              <span className="text-sm font-medium text-[var(--color-text-primary)] truncate min-w-0">{issue.title}</span>
 
               {hasChildren && (
                 <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
@@ -524,17 +574,59 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                   {childDone}/{childTotal}
                 </span>
               )}
+              <div className="flex-1" />
               {issue.is_pending && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />}
               {issue.priority > 0 && (
                 <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? 'text-[var(--color-error)]' : issue.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
                   {issue.priority === 1 ? '!!!' : issue.priority === 2 ? '!!' : issue.priority === 3 ? '!' : ''}
                 </span>
               )}
-              <div className="flex items-center gap-2.5 shrink-0">
-                {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
+              <div className="relative flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'labels' ? null : { issueId: issue.id, type: 'labels' })} className="flex items-center gap-2.5 hover:opacity-70 transition-opacity">
+                  {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
+                  {(!issue.labels || issue.labels.length === 0) && <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">+ label</span>}
+                </button>
+                {openPopover?.issueId === issue.id && openPopover?.type === 'labels' && (
+                  <Popover onClose={() => setOpenPopover(null)}>
+                    <PopoverHeader>Toggle labels...</PopoverHeader>
+                    {allKnownLabels.map((label) => {
+                      const isActive = (issue.labels || []).includes(label);
+                      return (
+                        <button key={label} onClick={() => handleQuickLabelToggle(issue, label)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)]">
+                          <span className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? 'bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]' : 'border-[var(--color-border-default)]'}`}>
+                            {isActive && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          </span>
+                          <LabelBadge label={label} />
+                        </button>
+                      );
+                    })}
+                  </Popover>
+                )}
               </div>
-              {issue.estimate > 0 && <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">{issue.estimate}</span>}
-              <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-12 text-right">{formatShortDate(issue.created_at)}</span>
+              <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'estimate' ? null : { issueId: issue.id, type: 'estimate' })} className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums w-10 justify-end hover:opacity-70 transition-opacity">
+                  {issue.estimate > 0 ? (<>
+                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                    {issue.estimate}
+                  </>) : (
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                    </span>
+                  )}
+                </button>
+                {openPopover?.issueId === issue.id && openPopover?.type === 'estimate' && (
+                  <Popover onClose={() => setOpenPopover(null)}>
+                    <PopoverHeader>Set estimate...</PopoverHeader>
+                    {ESTIMATE_OPTIONS.map((est) => (
+                      <button key={est} onClick={() => handleQuickEstimate(issue.id, est)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                        <span>{est === 0 ? 'No estimate' : `${est} Point${est !== 1 ? 's' : ''}`}</span>
+                        {est === (issue.estimate || 0) && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      </button>
+                    ))}
+                  </Popover>
+                )}
+              </div>
+              <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">{formatShortDate(issue.created_at)}</span>
               </div>
               {showDropBelow && <div className="absolute bottom-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
             </div>

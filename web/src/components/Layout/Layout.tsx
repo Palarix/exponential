@@ -36,7 +36,7 @@ const PRIMARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
 const SECONDARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
   {
     id: 'dashboard',
-    label: 'Dashboard',
+    label: 'Analytics',
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -89,7 +89,7 @@ export default function Layout({
       {/* Sidebar */}
       <aside className="w-[245px] flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none">
         {/* Workspace header */}
-        <div className="flex items-center gap-2 px-3.5 h-12">
+        <div className="flex items-center gap-2 px-3.5 pt-2 h-[52px]">
           <img src="/logo-light.svg" alt="Beats" className="w-[18px] h-[18px] opacity-80" />
           <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
             Beats
@@ -114,20 +114,11 @@ export default function Layout({
           </button>
         </div>
 
-        {/* Primary nav */}
-        <nav className="px-2 space-y-0.5">
+        {/* Nav */}
+        <nav className="px-2 pt-1 space-y-0.5">
           {PRIMARY_NAV.map((item) => (
             <NavItem key={item.id} item={item} isActive={currentView === item.id} onClick={() => onViewChange(item.id)} />
           ))}
-        </nav>
-
-        {/* Section label */}
-        <div className="px-4 pt-5 pb-1">
-          <span className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">Insights</span>
-        </div>
-
-        {/* Secondary nav */}
-        <nav className="px-2 space-y-0.5">
           {SECONDARY_NAV.map((item) => (
             <NavItem key={item.id} item={item} isActive={currentView === item.id} onClick={() => onViewChange(item.id)} />
           ))}
