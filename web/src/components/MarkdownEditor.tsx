@@ -1,0 +1,108 @@
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import Link from "@tiptap/extension-link";
+import { Markdown as TiptapMarkdown } from "tiptap-markdown";
+import { useRef, useCallback, useEffect } from "react";
+
+interface MarkdownEditorProps {
+  value: string;
+  onChange?: (markdown: string) => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  clickEvent?: { clientX: number; clientY: number } | null;
+  className?: string;
+}
+
+export default function MarkdownEditor({
+  value,
+  onChange,
+  onSave,
+  onCancel,
+  placeholder = "Add a description...",
+  autoFocus = false,
+  clickEvent = null,
+  className = "",
+}: MarkdownEditorProps) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const suppressBlurSave = useRef(false);
+
+  const handleSave = useCallback(() => {
+    suppressBlurSave.current = true;
+    onSaveRef.current?.();
+  }, []);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3, 4] },
+      }),
+      Placeholder.configure({ placeholder }),
+      Link.configure({ openOnClick: false }),
+      TiptapMarkdown.configure({
+        html: false,
+        breaks: true,
+        transformPastedText: true,
+        transformCopiedText: true,
+      }),
+    ],
+    content: value,
+    autofocus: autoFocus && !clickEvent ? "end" : false,
+    editorProps: {
+      attributes: {
+        class: "outline-none",
+      },
+      handleKeyDown: (_view, event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          suppressBlurSave.current = true;
+          onCancelRef.current?.();
+          return true;
+        }
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          event.preventDefault();
+          handleSave();
+          return true;
+        }
+        return false;
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      const md = (ed.storage as Record<string, any>).markdown.getMarkdown() as string;
+      onChangeRef.current?.(md);
+    },
+  });
+
+  useEffect(() => {
+    if (!editor || !clickEvent) return;
+    editor.commands.focus();
+    const pos = editor.view.posAtCoords({ left: clickEvent.clientX, top: clickEvent.clientY });
+    if (pos) {
+      editor.commands.setTextSelection(pos.pos);
+    }
+  }, [editor, clickEvent]);
+
+  return (
+    <div className={className}>
+      <div
+        onBlur={(e) => {
+          if (suppressBlurSave.current) { suppressBlurSave.current = false; return; }
+          if (e.currentTarget.contains(e.relatedTarget)) return;
+          onSaveRef.current?.();
+        }}
+      >
+        <EditorContent editor={editor} />
+      </div>
+      {(onSave || onCancel) && (
+        <p className="text-xs text-[var(--color-text-muted)] mt-6 select-none">⌘ Enter to save · Esc to cancel</p>
+      )}
+    </div>
+  );
+}

@@ -4,6 +4,8 @@ import remarkBreaks from "remark-breaks";
 import { addDraft, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { LabelBadge, StatusIcon, CopyableId } from "../ui";
+import MarkdownEditor from "../MarkdownEditor";
+import { isEditableTarget } from "../../utils/keyboard";
 
 function linkifyIssueIds(text: string, prefix: string): string {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -64,6 +66,7 @@ export default function IssueDetail({
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [descClickEvent, setDescClickEvent] = useState<{ clientX: number; clientY: number } | null>(null);
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -136,11 +139,7 @@ export default function IssueDetail({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      )
-        return;
+      if (isEditableTarget(e)) return;
       if (e.key === "Escape") {
         if (openPopover) setOpenPopover(null);
         else if (editingField) setEditingField(null);
@@ -374,7 +373,7 @@ export default function IssueDetail({
       <div className="flex-1 flex overflow-hidden">
         {/* Main content */}
         <div className="flex-1 overflow-y-auto min-w-0">
-          <div className="max-w-4xl mx-auto px-8 py-12">
+          <div className="max-w-3xl mx-auto px-8 py-12">
             {/* Parent reference */}
             {issue.parent_id && (
               <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] mb-3">
@@ -396,66 +395,33 @@ export default function IssueDetail({
                   if (e.key === "Escape") setEditingField(null);
                 }}
                 onBlur={handleSaveTitle}
-                className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none mb-1 leading-tight"
-                style={{ caretColor: "var(--color-accent-primary)" }}
+                className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none m-0 p-0 leading-tight block"
+                style={{ caretColor: "var(--color-accent-primary)", height: "auto" }}
               />
             ) : (
               <h1
                 onClick={() => startEditing("title")}
-                className="text-xl font-semibold text-[var(--color-text-primary)] mb-1 leading-tight cursor-text"
+                className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text"
               >
                 {issue.title}
               </h1>
             )}
 
-            {/* Labels row */}
-            {issue.labels && issue.labels.length > 0 && (
-              <div className="flex items-center gap-3 mt-2 mb-5">
-                {issue.labels.map((label) => (
-                  <LabelBadge key={label} label={label} />
-                ))}
-                {issue.is_pending && (
-                  <span className="text-xs text-[var(--color-warning)]">
-                    unsaved changes
-                  </span>
-                )}
-              </div>
-            )}
-
             {/* Description */}
             <div className="mt-4">
               {editingField === "description" ? (
-                <div>
-                  <textarea
-                    autoFocus
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") setEditingField(null);
-                    }}
-                    rows={8}
-                    className="w-full text-base leading-relaxed bg-transparent text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] px-3 py-2.5 outline-none focus:border-[var(--color-border-focus)] resize-y"
-                    placeholder="Add a description..."
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={handleSaveDescription}
-                      disabled={saving}
-                      className="px-2.5 py-1 text-sm bg-[var(--color-accent-primary)] text-white rounded-[var(--radius-md)] hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => setEditingField(null)}
-                      className="px-2.5 py-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+                <MarkdownEditor
+                  value={editDescription}
+                  onChange={setEditDescription}
+                  onSave={handleSaveDescription}
+                  onCancel={() => setEditingField(null)}
+                  autoFocus
+                  clickEvent={descClickEvent}
+                  className="prose-beats"
+                />
               ) : (
                 <div
-                  onClick={() => startEditing("description")}
+                  onClick={(e) => { setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description"); }}
                   className="cursor-text min-h-[40px] prose-beats"
                 >
                   {issue.description ? (
@@ -485,187 +451,207 @@ export default function IssueDetail({
         </div>
 
         {/* Properties sidebar */}
-        <div className="w-80 border-l border-[var(--color-border-subtle)] overflow-y-auto shrink-0">
-          <div className="p-4 space-y-5">
-            {/* Status */}
-            <PropertyRow label="Status">
-              <div className="relative">
-                <button
-                  onClick={() =>
-                    setOpenPopover(openPopover === "status" ? null : "status")
-                  }
-                  className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
-                >
-                  <StatusIcon status={issue.status} size={14} />
-                  <span className="text-sm text-[var(--color-text-primary)]">
-                    {statusMeta?.label || issue.status}
-                  </span>
-                </button>
-                {openPopover === "status" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
-                    <PopoverHeader>Change status...</PopoverHeader>
-                    {STATUS_OPTIONS.map((opt, i) => {
-                      const isCurrent = opt.value === issue.status;
-                      const isFocused = i === popoverIndex;
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => handleStatusChange(opt.value)}
-                          onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                        >
-                          <StatusIcon status={opt.value} size={14} />
-                          <span>{opt.label}</span>
-                          {isCurrent ? (
-                            <svg
-                              className="w-3.5 h-3.5 ml-auto"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          ) : (
-                            <span className="ml-auto text-xs text-[var(--color-text-muted)]">
-                              {i + 1}
+        <div className="w-80 overflow-y-auto shrink-0">
+          <div className="p-5 space-y-3">
+            {/* Properties card */}
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] p-3">
+              <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Properties</div>
+              <div className="space-y-1">
+              {/* Status */}
+              <PropertyRow>
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenPopover(openPopover === "status" ? null : "status")
+                    }
+                    className="flex items-center gap-2 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+                  >
+                    <StatusIcon status={issue.status} size={14} />
+                    <span className="text-sm text-[var(--color-text-primary)]">
+                      {statusMeta?.label || issue.status}
+                    </span>
+                  </button>
+                  {openPopover === "status" && (
+                    <Popover onClose={() => setOpenPopover(null)}>
+                      <PopoverHeader>Change status...</PopoverHeader>
+                      {STATUS_OPTIONS.map((opt, i) => {
+                        const isCurrent = opt.value === issue.status;
+                        const isFocused = i === popoverIndex;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => handleStatusChange(opt.value)}
+                            onMouseEnter={() => setPopoverIndex(i)}
+                            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          >
+                            <StatusIcon status={opt.value} size={14} />
+                            <span>{opt.label}</span>
+                            {isCurrent ? (
+                              <svg
+                                className="w-3.5 h-3.5 ml-auto"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            ) : (
+                              <span className="ml-auto text-xs text-[var(--color-text-muted)]">
+                                {i + 1}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </Popover>
+                  )}
+                </div>
+              </PropertyRow>
+
+              {/* Estimate */}
+              <PropertyRow>
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenPopover(
+                        openPopover === "estimate" ? null : "estimate",
+                      )
+                    }
+                    className="flex items-center gap-2 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+                  >
+                    <EstimateIcon />
+                    <span className="text-sm text-[var(--color-text-primary)]">
+                      {issue.estimate
+                        ? `${issue.estimate} Point${issue.estimate !== 1 ? "s" : ""}`
+                        : "No estimate"}
+                    </span>
+                  </button>
+                  {openPopover === "estimate" && (
+                    <Popover onClose={() => setOpenPopover(null)}>
+                      <PopoverHeader>Change estimate to...</PopoverHeader>
+                      {ESTIMATE_OPTIONS.map((est, i) => {
+                        const isCurrent = est === (issue.estimate || 0);
+                        const isFocused = i === popoverIndex;
+                        return (
+                          <button
+                            key={est}
+                            onClick={() => handleEstimateChange(est)}
+                            onMouseEnter={() => setPopoverIndex(i)}
+                            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          >
+                            <span>
+                              {est === 0
+                                ? "No estimate"
+                                : `${est} Point${est !== 1 ? "s" : ""}`}
                             </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </Popover>
-                )}
-              </div>
-            </PropertyRow>
+                            {isCurrent && (
+                              <svg
+                                className="w-3.5 h-3.5 ml-auto"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </Popover>
+                  )}
+                </div>
+              </PropertyRow>
 
-            {/* Estimate */}
-            <PropertyRow label="Estimate">
-              <div className="relative">
-                <button
-                  onClick={() =>
-                    setOpenPopover(
-                      openPopover === "estimate" ? null : "estimate",
-                    )
-                  }
-                  className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
-                >
-                  <EstimateIcon />
-                  <span className="text-sm text-[var(--color-text-primary)]">
-                    {issue.estimate
-                      ? `${issue.estimate} Point${issue.estimate !== 1 ? "s" : ""}`
-                      : "No estimate"}
-                  </span>
-                </button>
-                {openPopover === "estimate" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
-                    <PopoverHeader>Change estimate to...</PopoverHeader>
-                    {ESTIMATE_OPTIONS.map((est, i) => {
-                      const isCurrent = est === (issue.estimate || 0);
-                      const isFocused = i === popoverIndex;
-                      return (
-                        <button
-                          key={est}
-                          onClick={() => handleEstimateChange(est)}
-                          onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                        >
-                          <span>
-                            {est === 0
-                              ? "No estimate"
-                              : `${est} Point${est !== 1 ? "s" : ""}`}
-                          </span>
-                          {isCurrent && (
-                            <svg
-                              className="w-3.5 h-3.5 ml-auto"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </Popover>
-                )}
-              </div>
-            </PropertyRow>
+              {/* Priority */}
+              <PropertyRow>
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenPopover(
+                        openPopover === "priority" ? null : "priority",
+                      )
+                    }
+                    className="flex items-center gap-2 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+                  >
+                    <PriorityIcon priority={issue.priority || 0} />
+                    <span className="text-sm text-[var(--color-text-primary)]">
+                      {PRIORITY_OPTIONS.find(
+                        (o) => o.value === (issue.priority || 0),
+                      )?.label || "No priority"}
+                    </span>
+                  </button>
+                  {openPopover === "priority" && (
+                    <Popover onClose={() => setOpenPopover(null)}>
+                      <PopoverHeader>Set priority...</PopoverHeader>
+                      {PRIORITY_OPTIONS.map((opt, i) => {
+                        const isCurrent = opt.value === (issue.priority || 0);
+                        const isFocused = i === popoverIndex;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => handlePriorityChange(opt.value)}
+                            onMouseEnter={() => setPopoverIndex(i)}
+                            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          >
+                            <PriorityIcon priority={opt.value} />
+                            <span>{opt.label}</span>
+                            {isCurrent && (
+                              <svg
+                                className="w-3.5 h-3.5 ml-auto"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2.5}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </Popover>
+                  )}
+                </div>
+              </PropertyRow>
 
-            {/* Priority */}
-            <PropertyRow label="Priority">
-              <div className="relative">
-                <button
-                  onClick={() =>
-                    setOpenPopover(
-                      openPopover === "priority" ? null : "priority",
-                    )
-                  }
-                  className="flex items-center gap-2 px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
-                >
-                  <PriorityIcon priority={issue.priority || 0} />
-                  <span className="text-sm text-[var(--color-text-primary)]">
-                    {PRIORITY_OPTIONS.find(
-                      (o) => o.value === (issue.priority || 0),
-                    )?.label || "No priority"}
-                  </span>
-                </button>
-                {openPopover === "priority" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
-                    <PopoverHeader>Set priority...</PopoverHeader>
-                    {PRIORITY_OPTIONS.map((opt, i) => {
-                      const isCurrent = opt.value === (issue.priority || 0);
-                      const isFocused = i === popoverIndex;
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => handlePriorityChange(opt.value)}
-                          onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                        >
-                          <PriorityIcon priority={opt.value} />
-                          <span>{opt.label}</span>
-                          {isCurrent && (
-                            <svg
-                              className="w-3.5 h-3.5 ml-auto"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </Popover>
-                )}
-              </div>
-            </PropertyRow>
+              {/* Author */}
+              {issue.created_by && (
+                <PropertyRow>
+                  <div className="flex items-center gap-2 py-1">
+                    <GravatarIcon name={issue.created_by} size={14} />
+                    <span className="text-sm text-[var(--color-text-primary)]">
+                      {issue.created_by.split(" <")[0]}
+                    </span>
+                  </div>
+                </PropertyRow>
+              )}
 
-            {/* Labels */}
-            <PropertyRow label="Labels">
+              </div>
+            </div>
+
+            {/* Labels card */}
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] p-3">
+              <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Labels</div>
               <div className="relative">
                 <button
                   onClick={() =>
                     setOpenPopover(openPopover === "labels" ? null : "labels")
                   }
-                  className="flex items-center gap-2 flex-wrap px-1.5 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+                  className="flex items-center gap-2 flex-wrap py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
                 >
                   {issue.labels && issue.labels.length > 0 ? (
                     issue.labels.map((label) => (
@@ -716,26 +702,25 @@ export default function IssueDetail({
                   </Popover>
                 )}
               </div>
-            </PropertyRow>
+            </div>
 
-            {/* Assignee */}
-            {issue.assignee && (
-              <PropertyRow label="Assignee">
-                <div className="flex items-center gap-2 px-1.5 py-1">
-                  <div className="w-5 h-5 rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center text-xs font-medium text-[var(--color-text-muted)]">
-                    {issue.assignee.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-sm text-[var(--color-text-primary)]">
-                    {issue.assignee}
-                  </span>
-                </div>
-              </PropertyRow>
-            )}
+            {/* Metadata card */}
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] p-3 space-y-1.5">
+              <MetaRow
+                label="Created"
+                value={formatRelativeTime(issue.created_at)}
+              />
+              <MetaRow
+                label="Updated"
+                value={formatRelativeTime(issue.updated_at)}
+              />
+            </div>
 
-            {/* Dependencies */}
+            {/* Dependencies card */}
             {issue.dependencies && issue.dependencies.length > 0 && (
-              <PropertyRow label="Relations">
-                <div className="space-y-1 px-1.5">
+              <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] p-3">
+                <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Relations</div>
+                <div className="space-y-1">
                   {issue.dependencies.map((dep, i) => (
                     <div key={i} className="flex items-center gap-1.5 text-sm">
                       <span className="text-[var(--color-text-muted)]">
@@ -751,26 +736,8 @@ export default function IssueDetail({
                     </div>
                   ))}
                 </div>
-              </PropertyRow>
+              </div>
             )}
-
-            {/* Metadata */}
-            <div className="pt-4 border-t border-[var(--color-border-subtle)] space-y-2.5">
-              <MetaRow
-                label="Created"
-                value={formatRelativeTime(issue.created_at)}
-              />
-              <MetaRow
-                label="Updated"
-                value={formatRelativeTime(issue.updated_at)}
-              />
-              {issue.created_by && (
-                <MetaRow
-                  label="Created by"
-                  value={issue.created_by.split(" <")[0]}
-                />
-              )}
-            </div>
           </div>
         </div>
       </div>
@@ -778,26 +745,13 @@ export default function IssueDetail({
   );
 }
 
-function PropertyRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5 px-1.5">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
+function PropertyRow({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>;
 }
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between text-sm px-1.5">
+    <div className="flex items-baseline justify-between text-sm">
       <span className="text-[var(--color-text-muted)]">{label}</span>
       <span className="text-[var(--color-text-secondary)]">{value}</span>
     </div>
@@ -932,6 +886,39 @@ function EstimateIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function UserIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      className="shrink-0 text-[var(--color-text-muted)]"
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <circle cx="8" cy="8" r="7.25" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="8" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function GravatarIcon({ name, size = 14 }: { name: string; size?: number }) {
+  const email = name.match(/<(.+?)>/)?.[1] || "";
+  const [failed, setFailed] = useState(!email);
+
+  if (failed) return <UserIcon size={size} />;
+
+  return (
+    <img
+      src={`https://www.gravatar.com/avatar/${encodeURIComponent(email.trim().toLowerCase())}?s=${size * 2}&d=404`}
+      width={size}
+      height={size}
+      className="rounded-full shrink-0"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
