@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -127,56 +126,56 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := getUser(s.Config)
+	client := beats.NewClient(s.Config)
 
-	var payload interface{}
 	switch model.EventType(req.Type) {
 	case model.EventTypeCreate:
 		var p model.CreatePayload
 		json.Unmarshal(req.Payload, &p)
-		payload = p
+		issue, err := client.AddIssue(beats.AddOptions{
+			Title:       p.Title,
+			Description: p.Description,
+			ParentID:    p.ParentID,
+			Estimate:    p.Estimate,
+			Assignee:    p.Assignee,
+			Labels:      p.Labels,
+		})
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issue.ID})
+
 	case model.EventTypeUpdate:
 		var p model.UpdatePayload
 		json.Unmarshal(req.Payload, &p)
-		payload = p
+		if _, err := client.UpdateIssue(req.IssueID, p, "update"); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
+
 	case model.EventTypeComment:
 		var p model.CommentPayload
 		json.Unmarshal(req.Payload, &p)
-		payload = p
+		if err := client.AddComment(req.IssueID, p.Text); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
+
 	case model.EventTypeDelete:
 		var p model.DeletePayload
 		json.Unmarshal(req.Payload, &p)
-		payload = p
+		if err := client.DeleteIssue(req.IssueID, p.Reason); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
+
 	default:
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Unknown event type: %s", req.Type))
-		return
 	}
-
-	issueID := req.IssueID
-	if model.EventType(req.Type) == model.EventTypeCreate && issueID == "" {
-		prefix := "beats-"
-		if s.Config.Prefix != "" {
-			prefix = s.Config.Prefix
-		}
-		b := make([]byte, 3)
-		if _, err := rand.Read(b); err == nil {
-			issueID = prefix + fmt.Sprintf("%x", b)
-		}
-	}
-
-	evt := model.Event{
-		ID:        issueID,
-		Type:      model.EventType(req.Type),
-		Payload:   payload,
-		CreatedAt: time.Now().UTC(),
-		CreatedBy: user,
-	}
-
-	if err := storage.AppendEvent(evt); err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
-		return
-	}
-	respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issueID})
 }
 
 func (s *Server) handleGetPending(w http.ResponseWriter, r *http.Request) {
