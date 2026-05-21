@@ -29,8 +29,8 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
   const kindColors: Record<string, string> = {
     blocked_by: 'var(--color-error)',
     blocks: 'var(--color-error)',
-    child: 'var(--color-label-epic)',
-    parent: 'var(--color-label-epic)',
+    child: 'var(--color-accent-primary)',
+    parent: 'var(--color-accent-primary)',
     related: 'var(--color-info)',
   };
 

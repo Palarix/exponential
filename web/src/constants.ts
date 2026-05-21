@@ -16,11 +16,12 @@ export const PRIORITY_OPTIONS = [
   { value: 4, label: "Low" },
 ];
 
-export const BUILTIN_LABELS = [
-  "bug",
-  "feature",
-  "epic",
-  "improvement",
-  "UI",
-  "refactor",
+export const LABEL_PRESET_COLORS = [
+  '#26b5b0',
+  '#e06091',
+  '#d4a030',
+  '#7ab030',
+  '#8891a5',
+  '#e07058',
 ];
+

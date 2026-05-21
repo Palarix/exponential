@@ -255,11 +255,43 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	if s.Config.Prefix != "" {
 		prefix = s.Config.Prefix
 	}
+	labels := s.Config.Labels
+	if labels == nil {
+		labels = map[string]string{}
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"auto_commit": s.Config.AutoCommit,
 		"prefix":      prefix,
 		"version":     version.CLIVersion,
+		"labels":      labels,
 	})
+}
+
+func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name  string `json:"name"`
+		Color string `json:"color"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if req.Name == "" || req.Color == "" {
+		respondError(w, http.StatusBadRequest, "name and color required")
+		return
+	}
+
+	if err := config.AddLabel(req.Name, req.Color); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if s.Config.Labels == nil {
+		s.Config.Labels = make(map[string]string)
+	}
+	s.Config.Labels[req.Name] = req.Color
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -19,7 +20,8 @@ type Config struct {
 	Version          int         `mapstructure:"version" yaml:"version"`
 	EstimationSystem string      `mapstructure:"estimation_system" yaml:"estimation_system"`
 	CountUnestimated bool        `mapstructure:"count_unestimated" yaml:"count_unestimated"`
-	Automations      Automations `mapstructure:"automations" yaml:"automations"`
+	Automations      Automations       `mapstructure:"automations" yaml:"automations"`
+	Labels           map[string]string `mapstructure:"labels" yaml:"labels"`
 }
 
 type Style struct {
@@ -105,6 +107,69 @@ func ParseEstimateInput(system string, input string) (int, error) {
 	return val, nil
 }
 
+// AddLabel writes a label and its color to the project config file,
+// preserving existing formatting via yaml.Node manipulation.
+func AddLabel(name, color string) error {
+	configPath := filepath.Join(".beats", "config.yaml")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		data = []byte{}
+	}
+
+	var doc yaml.Node
+	if len(data) > 0 {
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			return fmt.Errorf("failed to parse config file: %w", err)
+		}
+	}
+
+	if doc.Kind == 0 {
+		doc.Kind = yaml.DocumentNode
+		doc.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+	}
+
+	root := doc.Content[0]
+
+	var labelsNode *yaml.Node
+	for i := 0; i < len(root.Content)-1; i += 2 {
+		if root.Content[i].Value == "labels" {
+			labelsNode = root.Content[i+1]
+			break
+		}
+	}
+
+	if labelsNode == nil {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "labels"},
+			&yaml.Node{Kind: yaml.MappingNode},
+		)
+		labelsNode = root.Content[len(root.Content)-1]
+	}
+
+	found := false
+	for i := 0; i < len(labelsNode.Content)-1; i += 2 {
+		if labelsNode.Content[i].Value == name {
+			labelsNode.Content[i+1].Value = color
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		labelsNode.Content = append(labelsNode.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: name},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: color, Style: yaml.DoubleQuotedStyle},
+		)
+	}
+
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	return os.WriteFile(configPath, out, 0644)
+}
+
 // LoadConfig reads configuration from file or environment variables.
 func LoadConfig() (*Config, error) {
 	v := viper.New()
@@ -163,6 +228,18 @@ func LoadConfig() (*Config, error) {
 	// Validate estimation system
 	if _, ok := EstimationSystems[cfg.EstimationSystem]; !ok {
 		return nil, fmt.Errorf("config: invalid estimation_system: %q (allowed: fibonacci, exponential, linear, shirt)", cfg.EstimationSystem)
+	}
+
+	// Re-read labels from YAML directly to preserve key casing (Viper lowercases all keys)
+	if configFile := v.ConfigFileUsed(); configFile != "" {
+		if raw, err := os.ReadFile(configFile); err == nil {
+			var rawCfg struct {
+				Labels map[string]string `yaml:"labels"`
+			}
+			if err := yaml.Unmarshal(raw, &rawCfg); err == nil && rawCfg.Labels != nil {
+				cfg.Labels = rawCfg.Labels
+			}
+		}
 	}
 
 	return &cfg, nil
