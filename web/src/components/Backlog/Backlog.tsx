@@ -201,7 +201,12 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   // Drag-and-drop for manual reordering
   const isDndEnabled = sortKey === 'manual';
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dropIndicator, setDropIndicator] = useState<{ rowIndex: number; position: 'above' | 'below' } | null>(null);
+  const [dropIndicator, _setDropIndicator] = useState<{ rowIndex: number; position: 'above' | 'below' } | null>(null);
+  const [dropGroupStatus, _setDropGroupStatus] = useState<string | null>(null);
+  const dropIndicatorRef = useRef(dropIndicator);
+  const dropGroupStatusRef = useRef(dropGroupStatus);
+  const setDropIndicator = useCallback((v: typeof dropIndicator) => { dropIndicatorRef.current = v; _setDropIndicator(v); }, []);
+  const setDropGroupStatus = useCallback((v: typeof dropGroupStatus) => { dropGroupStatusRef.current = v; _setDropGroupStatus(v); }, []);
 
   const getRowStatusGroup = useCallback((rowIndex: number): string | null => {
     for (let j = rowIndex; j >= 0; j--) {
@@ -212,47 +217,75 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   }, [rows]);
 
   const handleDragStart = useCallback((e: React.DragEvent, issueId: string) => {
+    dropHandledRef.current = false;
     setDraggedId(issueId);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = 'all';
     e.dataTransfer.setData('text/plain', issueId);
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '0.4';
     }
   }, []);
 
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '';
-    }
-    setDraggedId(null);
-    setDropIndicator(null);
-  }, []);
-
   const handleDragOver = useCallback((e: React.DragEvent, rowIndex: number) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
     if (!draggedId) return;
 
     const row = rows[rowIndex];
     if (row.kind !== 'issue' || row.depth > 0) return;
-    if (row.issue.id === draggedId) { setDropIndicator(null); return; }
+    if (row.issue.id === draggedId) { setDropIndicator(null); setDropGroupStatus(null); return; }
 
     const draggedStatus = issues.find(i => i.id === draggedId)?.status;
     const targetStatus = getRowStatusGroup(rowIndex);
-    if (draggedStatus !== targetStatus) { setDropIndicator(null); return; }
+    const isCrossGroup = draggedStatus !== targetStatus;
 
+    if (isCrossGroup && !e.metaKey) {
+      setDropIndicator(null);
+      setDropGroupStatus(targetStatus);
+      return;
+    }
+
+    setDropGroupStatus(null);
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const position = e.clientY < rect.top + rect.height / 2 ? 'above' : 'below';
     setDropIndicator({ rowIndex, position });
   }, [draggedId, rows, issues, getRowStatusGroup]);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggedId || !dropIndicator) { setDraggedId(null); setDropIndicator(null); return; }
+  const dropHandledRef = useRef(false);
 
-    const targetRow = rows[dropIndicator.rowIndex];
-    if (targetRow.kind !== 'issue') { setDraggedId(null); setDropIndicator(null); return; }
+  const performDrop = useCallback(async (
+    droppedId: string,
+    groupTarget: string | null,
+    indicatorTarget: { rowIndex: number; position: 'above' | 'below' } | null,
+  ) => {
+    if (dropHandledRef.current) return;
+    dropHandledRef.current = true;
 
-    const status = getRowStatusGroup(dropIndicator.rowIndex);
+    if (groupTarget) {
+      const groupIssues = rows
+        .filter((r): r is typeof r & { kind: 'issue' } => r.kind === 'issue' && r.depth === 0)
+        .filter(r => {
+          const idx = rows.indexOf(r);
+          return getRowStatusGroup(idx) === groupTarget;
+        })
+        .map(r => r.issue);
+
+      const effectiveKeys = getEffectiveKeys(groupIssues);
+      const last = groupIssues[groupIssues.length - 1];
+      const lastKey = last ? (effectiveKeys.get(last.id) || null) : null;
+      const newKey = generateKeyBetween(lastKey, null);
+
+      await addDraft(droppedId, 'UPDATE', { status: groupTarget, sort_order: newKey });
+      onRefresh();
+      return;
+    }
+
+    if (!indicatorTarget) return;
+
+    const targetRow = rows[indicatorTarget.rowIndex];
+    if (targetRow.kind !== 'issue') return;
+
+    const status = getRowStatusGroup(indicatorTarget.rowIndex);
     const groupTopLevel = rows
       .filter((r): r is typeof r & { kind: 'issue' } => r.kind === 'issue' && r.depth === 0)
       .filter(r => {
@@ -262,10 +295,10 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
       .map(r => r.issue);
 
     const effectiveKeys = getEffectiveKeys(groupTopLevel);
-    const withoutDragged = groupTopLevel.filter(i => i.id !== draggedId);
+    const withoutDragged = groupTopLevel.filter(i => i.id !== droppedId);
     let insertIdx = withoutDragged.findIndex(i => i.id === targetRow.issue.id);
     if (insertIdx === -1) insertIdx = withoutDragged.length;
-    if (dropIndicator.position === 'below') insertIdx++;
+    if (indicatorTarget.position === 'below') insertIdx++;
 
     const prev = withoutDragged[insertIdx - 1];
     const next = withoutDragged[insertIdx];
@@ -273,12 +306,36 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     const nextKey = next ? (effectiveKeys.get(next.id) || null) : null;
     const newKey = generateKeyBetween(prevKey, nextKey);
 
-    await addDraft(draggedId, 'UPDATE', { sort_order: newKey });
+    const draggedStatus = issues.find(i => i.id === droppedId)?.status;
+    const update: Record<string, unknown> = { sort_order: newKey };
+    if (draggedStatus !== status) update.status = status;
 
+    await addDraft(droppedId, 'UPDATE', update);
+    onRefresh();
+  }, [rows, getRowStatusGroup, issues, onRefresh]);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggedId) { setDraggedId(null); setDropIndicator(null); setDropGroupStatus(null); return; }
+    await performDrop(draggedId, dropGroupStatusRef.current, dropIndicatorRef.current);
     setDraggedId(null);
     setDropIndicator(null);
-    onRefresh();
-  }, [draggedId, dropIndicator, rows, getRowStatusGroup, onRefresh]);
+    setDropGroupStatus(null);
+  }, [draggedId, performDrop]);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '';
+    }
+    const currentDropGroup = dropGroupStatusRef.current;
+    const currentDropIndicator = dropIndicatorRef.current;
+    if (draggedId && (currentDropGroup || currentDropIndicator)) {
+      performDrop(draggedId, currentDropGroup, currentDropIndicator);
+    }
+    setDraggedId(null);
+    setDropIndicator(null);
+    setDropGroupStatus(null);
+  }, [draggedId, performDrop]);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
@@ -435,37 +492,65 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
 
       {/* Rows */}
       <div ref={listRef} className="flex-1 overflow-y-auto">
-        {rows.map((row, i) => {
-          const isFocused = i === focusedIndex;
-          if (row.kind === 'group') {
-            const isExpanded = expandedGroups.has(row.status);
-            const isInlineActive = inlineCreateStatus === row.status;
+        {(() => {
+          const sections: { groupRow: RowItem & { kind: 'group' }; groupIndex: number; issueRows: { row: RowItem & { kind: 'issue' }; index: number }[] }[] = [];
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.kind === 'group') {
+              sections.push({ groupRow: row, groupIndex: i, issueRows: [] });
+            } else if (sections.length > 0) {
+              sections[sections.length - 1].issueRows.push({ row, index: i });
+            }
+          }
+          return sections.map(({ groupRow, groupIndex, issueRows }) => {
+            const isFocused = groupIndex === focusedIndex;
+            const isExpanded = expandedGroups.has(groupRow.status);
+            const isInlineActive = inlineCreateStatus === groupRow.status;
+            const isDropGroup = dropGroupStatus === groupRow.status;
+            const handleGroupDragOver = isDndEnabled && draggedId ? (e: React.DragEvent) => {
+              e.preventDefault();
+              const draggedStatus = issues.find(ii => ii.id === draggedId)?.status;
+              const isCrossGroup = draggedStatus !== groupRow.status;
+              if (isCrossGroup && !e.metaKey) {
+                setDropIndicator(null);
+                setDropGroupStatus(groupRow.status);
+                return;
+              }
+              setDropGroupStatus(null);
+              const firstIssueIdx = rows.findIndex((r, j) => j > groupIndex && r.kind === 'issue' && r.depth === 0);
+              if (firstIssueIdx !== -1) setDropIndicator({ rowIndex: firstIssueIdx, position: 'above' });
+            } : undefined;
             return (
-              <div key={`g-${row.status}`}>
+              <div
+                key={`g-${groupRow.status}`}
+                className={`${isDropGroup ? 'ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5' : ''}`}
+              >
                 <div
-                  data-row={i}
-                  onClick={() => !row.isEmpty && toggleGroup(row.status)}
-                  onMouseEnter={() => setFocusedIndex(i)}
+                  data-row={groupIndex}
+                  onClick={() => !groupRow.isEmpty && toggleGroup(groupRow.status)}
+                  onMouseEnter={() => setFocusedIndex(groupIndex)}
+                  onDragOver={handleGroupDragOver}
+                  onDrop={handleGroupDragOver ? handleDrop : undefined}
                   className={`
                     flex items-center gap-2 w-full px-5 py-2 border-b border-[var(--color-border-subtle)]
                     transition-colors duration-[var(--duration-fast)] select-none
-                    ${row.isEmpty ? 'opacity-40 cursor-default' : 'cursor-pointer'}
-                    ${isFocused ? 'bg-[var(--color-bg-hover)]' : 'bg-[var(--color-bg-secondary)]'}
+                    ${groupRow.isEmpty ? 'opacity-40 cursor-default' : 'cursor-pointer'}
+                    ${!isDropGroup && isFocused ? 'bg-[var(--color-bg-hover)]' : !isDropGroup ? 'bg-[var(--color-bg-secondary)]' : ''}
                   `.trim().replace(/\s+/g, ' ')}
                 >
                   <svg
-                    className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${isExpanded && !row.isEmpty ? 'rotate-90' : ''}`}
+                    className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${isExpanded && !groupRow.isEmpty ? 'rotate-90' : ''}`}
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
-                  <StatusIcon status={row.status} size={14} />
-                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{row.label}</span>
-                  <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{row.count}</span>
+                  <StatusIcon status={groupRow.status} size={14} />
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{groupRow.label}</span>
+                  <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{groupRow.count}</span>
                   <button
-                    onClick={(e) => { e.stopPropagation(); startInlineCreate(row.status); }}
+                    onClick={(e) => { e.stopPropagation(); startInlineCreate(groupRow.status); }}
                     className="ml-auto p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
-                    title={`New ${row.label} issue`}
+                    title={`New ${groupRow.label} issue`}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -474,14 +559,14 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                 </div>
                 {isInlineActive && (
                   <div className="flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
-                    <StatusIcon status={row.status} size={14} className="shrink-0 ml-7" />
+                    <StatusIcon status={groupRow.status} size={14} className="shrink-0 ml-7" />
                     <input
                       ref={inlineRef}
                       value={inlineTitle}
                       onChange={(e) => setInlineTitle(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && inlineTitle.trim()) {
-                          handleInlineCreate(row.status, inlineTitle);
+                          handleInlineCreate(groupRow.status, inlineTitle);
                         }
                         if (e.key === 'Escape') {
                           setInlineCreateStatus(null);
@@ -494,144 +579,146 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                     />
                   </div>
                 )}
+                {issueRows.map(({ row, index: i }) => {
+                  const { issue, depth, hasChildren, childDone, childTotal } = row;
+                  const isRowFocused = i === focusedIndex;
+                  const isNodeExpanded = expandedNodes.has(issue.id);
+                  const indent = depth * 24;
+                  const canDrag = isDndEnabled && depth === 0;
+                  const isDropTarget = isDndEnabled && depth === 0 && !!draggedId;
+                  const showDropAbove = dropIndicator?.rowIndex === i && dropIndicator.position === 'above';
+                  const showDropBelow = dropIndicator?.rowIndex === i && dropIndicator.position === 'below';
+                  return (
+                    <div key={issue.id} className="relative">
+                      {showDropAbove && <div className="absolute top-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
+                      <div
+                        data-row={i}
+                        draggable={canDrag}
+                        onDragStart={canDrag ? (e) => handleDragStart(e, issue.id) : undefined}
+                        onDragEnd={canDrag ? handleDragEnd : undefined}
+                        onDragOver={isDropTarget ? (e) => handleDragOver(e, i) : undefined}
+                        onDrop={isDropTarget ? handleDrop : undefined}
+                        onClick={() => onIssueClick?.(issue)}
+                        onMouseEnter={() => setFocusedIndex(i)}
+                        className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isRowFocused ? 'bg-[var(--color-bg-hover)]' : 'hover:bg-[var(--color-bg-hover)]'} ${draggedId === issue.id ? 'opacity-40' : ''}`}
+                        style={{ paddingLeft: `${20 + indent}px` }}
+                      >
+                      {hasChildren ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleNode(issue.id); }}
+                          className="w-4 shrink-0 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                        >
+                          <svg
+                            className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? 'rotate-90' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      ) : depth > 0 ? (
+                        <span className="w-4 shrink-0 flex items-center justify-center text-[var(--color-border-default)]">
+                          <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M1 0v9h10" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span className={`text-[var(--color-text-muted)] transition-opacity w-4 shrink-0 flex items-center justify-center ${canDrag ? 'opacity-30 cursor-grab active:cursor-grabbing' : 'opacity-0 group-hover:opacity-30'}`}>
+                          <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor">
+                            <circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" />
+                            <circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" />
+                            <circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" />
+                          </svg>
+                        </span>
+                      )}
+
+                      <CopyableId id={issue.id} className="text-xs w-[110px] shrink-0 truncate tabular-nums" />
+                      <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'status' ? null : { issueId: issue.id, type: 'status' })} className="hover:opacity-70 transition-opacity">
+                          <StatusIcon status={issue.status} size={14} />
+                        </button>
+                        {openPopover?.issueId === issue.id && openPopover?.type === 'status' && (
+                          <Popover onClose={() => setOpenPopover(null)}>
+                            <PopoverHeader>Set status...</PopoverHeader>
+                            {STATUS_OPTIONS.map((opt) => (
+                              <button key={opt.value} onClick={() => handleQuickStatus(issue.id, opt.value)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                                <StatusIcon status={opt.value} size={14} />
+                                <span>{opt.label}</span>
+                                {opt.value === issue.status && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </button>
+                            ))}
+                          </Popover>
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)] truncate min-w-0">{issue.title}</span>
+
+                      {hasChildren && (
+                        <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
+                          <SubProgress done={childDone} total={childTotal} />
+                          {childDone}/{childTotal}
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      {issue.is_pending && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />}
+                      {issue.priority > 0 && (
+                        <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? 'text-[var(--color-error)]' : issue.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
+                          {issue.priority === 1 ? '!!!' : issue.priority === 2 ? '!!' : issue.priority === 3 ? '!' : ''}
+                        </span>
+                      )}
+                      <div className="relative flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'labels' ? null : { issueId: issue.id, type: 'labels' })} className="flex items-center gap-2.5 hover:opacity-70 transition-opacity">
+                          {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
+                          {(!issue.labels || issue.labels.length === 0) && <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">+ label</span>}
+                        </button>
+                        {openPopover?.issueId === issue.id && openPopover?.type === 'labels' && (
+                          <Popover onClose={() => setOpenPopover(null)}>
+                            <PopoverHeader>Toggle labels...</PopoverHeader>
+                            {allKnownLabels.map((label) => {
+                              const isActive = (issue.labels || []).includes(label);
+                              return (
+                                <button key={label} onClick={() => handleQuickLabelToggle(issue, label)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)]">
+                                  <span className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? 'bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]' : 'border-[var(--color-border-default)]'}`}>
+                                    {isActive && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                  </span>
+                                  <LabelBadge label={label} />
+                                </button>
+                              );
+                            })}
+                          </Popover>
+                        )}
+                      </div>
+                      <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'estimate' ? null : { issueId: issue.id, type: 'estimate' })} className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums w-10 justify-end hover:opacity-70 transition-opacity">
+                          {issue.estimate > 0 ? (<>
+                            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                            {issue.estimate}
+                          </>) : (
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                            </span>
+                          )}
+                        </button>
+                        {openPopover?.issueId === issue.id && openPopover?.type === 'estimate' && (
+                          <Popover onClose={() => setOpenPopover(null)}>
+                            <PopoverHeader>Set estimate...</PopoverHeader>
+                            {ESTIMATE_OPTIONS.map((est) => (
+                              <button key={est} onClick={() => handleQuickEstimate(issue.id, est)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                                <span>{est === 0 ? 'No estimate' : `${est} Point${est !== 1 ? 's' : ''}`}</span>
+                                {est === (issue.estimate || 0) && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </button>
+                            ))}
+                          </Popover>
+                        )}
+                      </div>
+                      <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">{formatShortDate(issue.created_at)}</span>
+                      </div>
+                      {showDropBelow && <div className="absolute bottom-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
+                    </div>
+                  );
+                })}
               </div>
             );
-          }
-
-          const { issue, depth, hasChildren, childDone, childTotal } = row;
-          const isNodeExpanded = expandedNodes.has(issue.id);
-          const indent = depth * 24;
-          const canDrag = isDndEnabled && depth === 0;
-          const showDropAbove = dropIndicator?.rowIndex === i && dropIndicator.position === 'above';
-          const showDropBelow = dropIndicator?.rowIndex === i && dropIndicator.position === 'below';
-          return (
-            <div key={issue.id} className="relative">
-              {showDropAbove && <div className="absolute top-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
-              <div
-                data-row={i}
-                draggable={canDrag}
-                onDragStart={canDrag ? (e) => handleDragStart(e, issue.id) : undefined}
-                onDragEnd={canDrag ? handleDragEnd : undefined}
-                onDragOver={canDrag ? (e) => handleDragOver(e, i) : undefined}
-                onDrop={canDrag ? handleDrop : undefined}
-                onClick={() => onIssueClick?.(issue)}
-                onMouseEnter={() => setFocusedIndex(i)}
-                className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isFocused ? 'bg-[var(--color-bg-hover)]' : 'hover:bg-[var(--color-bg-hover)]'} ${draggedId === issue.id ? 'opacity-40' : ''}`}
-                style={{ paddingLeft: `${20 + indent}px` }}
-              >
-              {/* Tree toggle or connector */}
-              {hasChildren ? (
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleNode(issue.id); }}
-                  className="w-4 shrink-0 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                >
-                  <svg
-                    className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? 'rotate-90' : ''}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              ) : depth > 0 ? (
-                <span className="w-4 shrink-0 flex items-center justify-center text-[var(--color-border-default)]">
-                  <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M1 0v9h10" />
-                  </svg>
-                </span>
-              ) : (
-                <span className={`text-[var(--color-text-muted)] transition-opacity w-4 shrink-0 flex items-center justify-center ${canDrag ? 'opacity-30 cursor-grab active:cursor-grabbing' : 'opacity-0 group-hover:opacity-30'}`}>
-                  <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor">
-                    <circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" />
-                    <circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" />
-                    <circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" />
-                  </svg>
-                </span>
-              )}
-
-              <CopyableId id={issue.id} className="text-xs w-[110px] shrink-0 truncate tabular-nums" />
-              <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'status' ? null : { issueId: issue.id, type: 'status' })} className="hover:opacity-70 transition-opacity">
-                  <StatusIcon status={issue.status} size={14} />
-                </button>
-                {openPopover?.issueId === issue.id && openPopover?.type === 'status' && (
-                  <Popover onClose={() => setOpenPopover(null)}>
-                    <PopoverHeader>Set status...</PopoverHeader>
-                    {STATUS_OPTIONS.map((opt) => (
-                      <button key={opt.value} onClick={() => handleQuickStatus(issue.id, opt.value)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
-                        <StatusIcon status={opt.value} size={14} />
-                        <span>{opt.label}</span>
-                        {opt.value === issue.status && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </button>
-                    ))}
-                  </Popover>
-                )}
-              </div>
-              <span className="text-sm font-medium text-[var(--color-text-primary)] truncate min-w-0">{issue.title}</span>
-
-              {hasChildren && (
-                <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
-                  <SubProgress done={childDone} total={childTotal} />
-                  {childDone}/{childTotal}
-                </span>
-              )}
-              <div className="flex-1" />
-              {issue.is_pending && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />}
-              {issue.priority > 0 && (
-                <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? 'text-[var(--color-error)]' : issue.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
-                  {issue.priority === 1 ? '!!!' : issue.priority === 2 ? '!!' : issue.priority === 3 ? '!' : ''}
-                </span>
-              )}
-              <div className="relative flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'labels' ? null : { issueId: issue.id, type: 'labels' })} className="flex items-center gap-2.5 hover:opacity-70 transition-opacity">
-                  {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
-                  {(!issue.labels || issue.labels.length === 0) && <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">+ label</span>}
-                </button>
-                {openPopover?.issueId === issue.id && openPopover?.type === 'labels' && (
-                  <Popover onClose={() => setOpenPopover(null)}>
-                    <PopoverHeader>Toggle labels...</PopoverHeader>
-                    {allKnownLabels.map((label) => {
-                      const isActive = (issue.labels || []).includes(label);
-                      return (
-                        <button key={label} onClick={() => handleQuickLabelToggle(issue, label)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)]">
-                          <span className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? 'bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]' : 'border-[var(--color-border-default)]'}`}>
-                            {isActive && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                          </span>
-                          <LabelBadge label={label} />
-                        </button>
-                      );
-                    })}
-                  </Popover>
-                )}
-              </div>
-              <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === 'estimate' ? null : { issueId: issue.id, type: 'estimate' })} className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums w-10 justify-end hover:opacity-70 transition-opacity">
-                  {issue.estimate > 0 ? (<>
-                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-                    {issue.estimate}
-                  </>) : (
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-                    </span>
-                  )}
-                </button>
-                {openPopover?.issueId === issue.id && openPopover?.type === 'estimate' && (
-                  <Popover onClose={() => setOpenPopover(null)}>
-                    <PopoverHeader>Set estimate...</PopoverHeader>
-                    {ESTIMATE_OPTIONS.map((est) => (
-                      <button key={est} onClick={() => handleQuickEstimate(issue.id, est)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
-                        <span>{est === 0 ? 'No estimate' : `${est} Point${est !== 1 ? 's' : ''}`}</span>
-                        {est === (issue.estimate || 0) && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </button>
-                    ))}
-                  </Popover>
-                )}
-              </div>
-              <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">{formatShortDate(issue.created_at)}</span>
-              </div>
-              {showDropBelow && <div className="absolute bottom-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
-            </div>
-          );
-        })}
+          });
+        })()}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { addDraft, fetchIssueHistory } from "../../api/client";
+import { addDraft, createIssue, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
@@ -46,13 +46,25 @@ export default function IssueDetail({
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setEditingField(null);
     setOpenPopover(null);
     setNewComment("");
+    setConfirmDelete(false);
   }, [issue.id]);
+
+  const handleDelete = useCallback(async () => {
+    try {
+      await addDraft(issue.id, 'DELETE', {});
+      onClose();
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to delete:', err);
+    }
+  }, [issue.id, onClose, onRefresh]);
 
   const saveDraft = useCallback(
     async (type: string, payload: unknown) => {
@@ -106,6 +118,37 @@ export default function IssueDetail({
     },
     [issue.labels, saveDraft],
   );
+
+  const handleParentChange = useCallback(
+    (parentId: string | null) => {
+      saveDraft("UPDATE", { parent_id: parentId || "" });
+    },
+    [saveDraft],
+  );
+
+  const [parentSearch, setParentSearch] = useState("");
+
+  const parentCandidates = useMemo(() => {
+    const descendants = new Set<string>();
+    const collectDescendants = (id: string) => {
+      for (const i of issues) {
+        if (i.parent_id === id) {
+          descendants.add(i.id);
+          collectDescendants(i.id);
+        }
+      }
+    };
+    collectDescendants(issue.id);
+
+    const q = parentSearch.toLowerCase();
+    return issues.filter(i =>
+      i.id !== issue.id &&
+      !descendants.has(i.id) &&
+      !i.parent_id &&
+      i.status !== 'DONE' &&
+      (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
+    );
+  }, [issues, issue.id, parentSearch]);
 
   const allKnownLabels = Array.from(
     new Set([...BUILTIN_LABELS, ...issues.flatMap((i) => i.labels || [])]),
@@ -421,7 +464,7 @@ export default function IssueDetail({
             </div>
 
             {/* Sub-issues table */}
-            <SubIssuesTable issue={issue} issues={issues} />
+            <SubIssuesTable issue={issue} issues={issues} onRefresh={onRefresh} />
 
             {/* Activity */}
             <ActivityTimeline
@@ -614,6 +657,73 @@ export default function IssueDetail({
                 </div>
               </PropertyRow>
 
+              {/* Parent */}
+              <PropertyRow>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setOpenPopover(openPopover === "parent" ? null : "parent");
+                      setParentSearch("");
+                    }}
+                    className="flex items-center gap-2 py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
+                  >
+                    <svg className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                    </svg>
+                    <span className="text-sm text-[var(--color-text-primary)] truncate">
+                      {issue.parent_id
+                        ? (issues.find(i => i.id === issue.parent_id)?.title || issue.parent_id)
+                        : "No parent"}
+                    </span>
+                  </button>
+                  {openPopover === "parent" && (
+                    <Popover onClose={() => setOpenPopover(null)}>
+                      <div className="px-3 py-1.5">
+                        <input
+                          autoFocus
+                          value={parentSearch}
+                          onChange={(e) => setParentSearch(e.target.value)}
+                          placeholder="Search issues..."
+                          className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+                        />
+                      </div>
+                      <div className="border-t border-[var(--color-border-subtle)]" />
+                      <div className="max-h-[240px] overflow-y-auto">
+                        {issue.parent_id && (
+                          <button
+                            onClick={() => handleParentChange(null)}
+                            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                          >
+                            Remove parent
+                          </button>
+                        )}
+                        {parentCandidates.slice(0, 15).map((candidate) => {
+                          const isCurrent = candidate.id === issue.parent_id;
+                          return (
+                            <button
+                              key={candidate.id}
+                              onClick={() => handleParentChange(candidate.id)}
+                              className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                            >
+                              <StatusIcon status={candidate.status} size={12} />
+                              <span className="truncate">{candidate.title}</span>
+                              {isCurrent && (
+                                <svg className="w-3.5 h-3.5 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {parentCandidates.length === 0 && (
+                          <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching issues</div>
+                        )}
+                      </div>
+                    </Popover>
+                  )}
+                </div>
+              </PropertyRow>
+
               {/* Author */}
               {issue.created_by && (
                 <PropertyRow>
@@ -724,6 +834,39 @@ export default function IssueDetail({
                 </div>
               </div>
             )}
+
+            {/* Delete */}
+            <div className="pt-2">
+              {confirmDelete ? (
+                <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-error)] p-3">
+                  <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue? This cannot be undone.</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDelete}
+                      className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  Delete issue
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -731,29 +874,72 @@ export default function IssueDetail({
   );
 }
 
-function SubIssuesTable({ issue, issues }: { issue: Issue; issues: Issue[] }) {
+function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
   const children = useMemo(() => issues.filter(i => i.parent_id === issue.id), [issues, issue.id]);
   const [expanded, setExpanded] = useState(true);
+  const [inlineTitle, setInlineTitle] = useState("");
+  const [showInline, setShowInline] = useState(false);
+  const inlineRef = useRef<HTMLInputElement>(null);
 
-  if (children.length === 0) return null;
-
+  const hasChildren = children.length > 0;
   const doneCount = children.filter(c => c.status === 'DONE').length;
+
+  const handleInlineCreate = useCallback(async (title: string) => {
+    if (!title.trim()) return;
+    await createIssue({ title: title.trim(), labels: ['feature'], parent_id: issue.id });
+    setInlineTitle("");
+    setShowInline(false);
+    onRefresh();
+  }, [issue.id, onRefresh]);
+
+  const startInline = useCallback(() => {
+    setShowInline(true);
+    setExpanded(true);
+    setTimeout(() => inlineRef.current?.focus(), 0);
+  }, []);
+
+  if (!hasChildren && !showInline) {
+    return (
+      <div className="mt-6">
+        <button
+          onClick={startInline}
+          className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Add sub-issue
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6">
-      <button
-        onClick={() => setExpanded(v => !v)}
-        className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)] mb-3 hover:text-[var(--color-text-secondary)] transition-colors"
-      >
-        <svg
-          className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${expanded ? 'rotate-90' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)] hover:text-[var(--color-text-secondary)] transition-colors"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-        Sub-issues
-        <span className="text-xs font-normal text-[var(--color-text-muted)]">{doneCount}/{children.length}</span>
-      </button>
+          <svg
+            className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${expanded ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          Sub-issues
+          {hasChildren && <span className="text-xs font-normal text-[var(--color-text-muted)]">{doneCount}/{children.length}</span>}
+        </button>
+        <button
+          onClick={startInline}
+          className="p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+          title="Add sub-issue"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </button>
+      </div>
       {expanded && (
         <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
           {children.map((child, i) => (
@@ -784,6 +970,23 @@ function SubIssuesTable({ issue, issues }: { issue: Issue; issues: Issue[] }) {
               )}
             </a>
           ))}
+          {showInline && (
+            <div className={`flex items-center gap-2.5 px-3 py-2 ${hasChildren ? 'border-t border-[var(--color-border-subtle)]' : ''}`}>
+              <StatusIcon status="BACKLOG" size={14} />
+              <input
+                ref={inlineRef}
+                value={inlineTitle}
+                onChange={(e) => setInlineTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && inlineTitle.trim()) handleInlineCreate(inlineTitle);
+                  if (e.key === 'Escape') { setShowInline(false); setInlineTitle(""); }
+                }}
+                onBlur={() => { if (!inlineTitle.trim()) { setShowInline(false); setInlineTitle(""); } }}
+                placeholder="Sub-issue title... (Enter to create, Esc to cancel)"
+                className="flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
