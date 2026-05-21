@@ -256,16 +256,28 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     return null;
   }, [rows]);
 
+  const getDragGroup = useCallback((issueId: string): string[] => {
+    const issue = issues.find(i => i.id === issueId);
+    if (!issue) return [issueId];
+    const children = (childrenByParent.get(issueId) || []).filter(c => c.status === issue.status);
+    if (children.length === 0) return [issueId];
+    return [issueId, ...children.map(c => c.id)];
+  }, [issues, childrenByParent]);
+
+  const dragGroupRef = useRef<string[]>([]);
+
   const handleDragStart = useCallback((e: React.DragEvent, issueId: string) => {
     dropHandledRef.current = false;
     setDropNestTargetId(null);
+    const group = getDragGroup(issueId);
+    dragGroupRef.current = group;
     setDraggedId(issueId);
     e.dataTransfer.effectAllowed = 'all';
     e.dataTransfer.setData('text/plain', issueId);
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '0.4';
     }
-  }, []);
+  }, [getDragGroup]);
 
   const handleDragOver = useCallback((e: React.DragEvent, rowIndex: number) => {
     e.preventDefault();
@@ -334,6 +346,8 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     if (dropHandledRef.current) return;
     dropHandledRef.current = true;
 
+    const batchIds = dragGroupRef.current;
+
     if (nestTarget) {
       await addDraft(droppedId, 'UPDATE', { parent_id: nestTarget });
       onRefresh();
@@ -354,10 +368,15 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
       const lastKey = last ? (effectiveKeys.get(last.id) || null) : null;
       const newKey = generateKeyBetween(lastKey, null);
 
-      const dragged = issues.find(i => i.id === droppedId);
-      const groupUpdate: Record<string, unknown> = { status: groupTarget, sort_order: newKey };
-      if (dragged?.parent_id) groupUpdate.parent_id = '';
-      await addDraft(droppedId, 'UPDATE', groupUpdate);
+      for (const id of batchIds) {
+        const issue = issues.find(i => i.id === id);
+        const update: Record<string, unknown> = { status: groupTarget };
+        if (id === droppedId) {
+          update.sort_order = newKey;
+          if (issue?.parent_id) update.parent_id = '';
+        }
+        await addDraft(id, 'UPDATE', update);
+      }
       onRefresh();
       return;
     }
@@ -411,6 +430,13 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     }
 
     await addDraft(droppedId, 'UPDATE', update);
+    // Batch-move same-status children
+    for (const id of batchIds) {
+      if (id === droppedId) continue;
+      const childUpdate: Record<string, unknown> = {};
+      if (update.status) childUpdate.status = update.status;
+      if (Object.keys(childUpdate).length > 0) await addDraft(id, 'UPDATE', childUpdate);
+    }
     onRefresh();
   }, [rows, getRowStatusGroup, issues, onRefresh]);
 
@@ -692,6 +718,8 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                   const showDropAbove = dropIndicator?.rowIndex === i && dropIndicator.position === 'above';
                   const showDropBelow = dropIndicator?.rowIndex === i && dropIndicator.position === 'below';
                   const isNestTarget = dropNestTargetId === issue.id;
+                  const isDraggedOrBatch = draggedId !== null && dragGroupRef.current.includes(issue.id);
+                  const dragBatchCount = draggedId === issue.id ? dragGroupRef.current.length : 0;
                   return (
                     <div key={issue.id} className="relative">
                       {showDropAbove && <div className="absolute top-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" style={{ left: `${20 + depth * 24}px` }} />}
@@ -704,7 +732,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                         onDrop={isDropTarget ? handleDrop : undefined}
                         onClick={() => onIssueClick?.(issue)}
                         onMouseEnter={() => setFocusedIndex(i)}
-                        className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? 'opacity-50' : ''} ${isNestTarget ? 'ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10' : isRowFocused ? 'bg-[var(--color-bg-hover)]' : 'hover:bg-[var(--color-bg-hover)]'} ${draggedId === issue.id ? 'opacity-40' : ''}`}
+                        className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? 'opacity-50' : ''} ${isNestTarget ? 'ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10' : isRowFocused ? 'bg-[var(--color-bg-hover)]' : 'hover:bg-[var(--color-bg-hover)]'} ${isDraggedOrBatch ? 'opacity-40' : ''}`}
                         style={{ paddingLeft: `${20 + indent}px` }}
                       >
                       {hasChildren ? (
@@ -762,6 +790,9 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                         </svg>
                       )}
                       <span className={`text-sm font-medium truncate min-w-0 ${isGhostParent ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-primary)]'}`}>{issue.title}</span>
+                      {dragBatchCount > 1 && (
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">{dragBatchCount}</span>
+                      )}
 
                       {hasChildren && (
                         <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
