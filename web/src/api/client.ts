@@ -25,7 +25,7 @@ export async function addDraft(issueId: string, type: string, payload: unknown):
   if (!res.ok) throw new Error('Failed to add draft');
 }
 
-export async function createIssue(payload: { title: string; description?: string; labels?: string[] }): Promise<string> {
+export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string }): Promise<string> {
   const res = await fetch(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
