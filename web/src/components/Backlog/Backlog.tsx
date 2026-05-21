@@ -23,8 +23,8 @@ type Tab = 'all' | 'active' | 'backlog';
 
 const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
   all: { label: 'All Issues', statuses: ['BACKLOG', 'PLANNED', 'DOING', 'BLOCKED', 'DONE'] },
-  active: { label: 'Active', statuses: ['DOING', 'BLOCKED'] },
-  backlog: { label: 'Backlog', statuses: ['BACKLOG', 'PLANNED'] },
+  active: { label: 'Active', statuses: ['PLANNED', 'DOING', 'BLOCKED'] },
+  backlog: { label: 'Backlog', statuses: ['BACKLOG'] },
 };
 
 const STATUS_META: Record<string, { label: string }> = {
@@ -37,7 +37,7 @@ const STATUS_META: Record<string, { label: string }> = {
 
 type RowItem =
   | { kind: 'group'; status: string; label: string; count: number; isEmpty: boolean }
-  | { kind: 'issue'; issue: Issue; depth: number; hasChildren: boolean; childDone: number; childTotal: number };
+  | { kind: 'issue'; issue: Issue; depth: number; hasChildren: boolean; childDone: number; childTotal: number; parentBreadcrumb?: string; isGhostParent?: boolean };
 
 export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused, onSearchBlur, sortKey, onSortChange, onNavigationOrderChange }: BacklogProps) {
   const [activeTab, setActiveTab] = useState<Tab>('all');
@@ -162,26 +162,63 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   // Build flat row list
   const rows = useMemo(() => {
     const result: RowItem[] = [];
+    const isAllTab = activeTab === 'all';
+
     for (const status of visibleStatuses) {
       const groupIssues = filteredIssues.filter(i => i.status === status);
-      if (groupIssues.length === 0 && activeTab !== 'all') continue;
+      if (groupIssues.length === 0 && !isAllTab) continue;
 
       result.push({ kind: 'group', status, label: STATUS_META[status]?.label || status, count: groupIssues.length, isEmpty: groupIssues.length === 0 });
 
       if (expandedGroups.has(status) && groupIssues.length > 0) {
-        const topLevel = sortGroup(
-          groupIssues.filter(i => !i.parent_id || !issues.some(p => p.id === i.parent_id)),
-          sortKey
-        );
-        const addTree = (issue: Issue, depth: number) => {
-          const children = childrenByParent.get(issue.id) || [];
-          const doneCount = children.filter(c => c.status === 'DONE').length;
-          result.push({ kind: 'issue', issue, depth, hasChildren: children.length > 0, childDone: doneCount, childTotal: children.length });
-          if (children.length > 0 && expandedNodes.has(issue.id)) {
-            for (const child of children) addTree(child, depth + 1);
+        const groupIssueIds = new Set(groupIssues.map(i => i.id));
+
+        if (isAllTab) {
+          // All Issues tab: flat with breadcrumbs for orphaned children
+          const topLevel = sortGroup(
+            groupIssues.filter(i => !i.parent_id || !groupIssueIds.has(i.parent_id)),
+            sortKey
+          );
+          const addTree = (issue: Issue, depth: number, breadcrumb?: string) => {
+            const allChildren = childrenByParent.get(issue.id) || [];
+            const doneCount = allChildren.filter(c => c.status === 'DONE').length;
+            result.push({ kind: 'issue', issue, depth, hasChildren: allChildren.length > 0, childDone: doneCount, childTotal: allChildren.length, parentBreadcrumb: breadcrumb });
+            const visibleChildren = sortGroup(allChildren.filter(c => groupIssueIds.has(c.id)), sortKey);
+            if (visibleChildren.length > 0 && expandedNodes.has(issue.id)) {
+              for (const child of visibleChildren) addTree(child, depth + 1);
+            }
+          };
+          for (const issue of topLevel) {
+            const parent = issue.parent_id ? issues.find(i => i.id === issue.parent_id) : null;
+            addTree(issue, 0, parent ? parent.title : undefined);
           }
-        };
-        for (const issue of topLevel) addTree(issue, 0);
+        } else {
+          // Active/Backlog tabs: tree with ghost parents
+          const topLevel = sortGroup(
+            groupIssues.filter(i => !i.parent_id),
+            sortKey
+          );
+          // Find children whose parent is NOT in this group → need ghost parents
+          const orphanedChildren = groupIssues.filter(i => i.parent_id && !groupIssueIds.has(i.parent_id));
+          const ghostParentIds = new Set(orphanedChildren.map(i => i.parent_id!));
+
+          const addTree = (issue: Issue, depth: number, isGhost?: boolean) => {
+            const allChildren = childrenByParent.get(issue.id) || [];
+            const doneCount = allChildren.filter(c => c.status === 'DONE').length;
+            result.push({ kind: 'issue', issue, depth, hasChildren: allChildren.length > 0, childDone: doneCount, childTotal: allChildren.length, isGhostParent: isGhost });
+            const visibleChildren = sortGroup(allChildren.filter(c => groupIssueIds.has(c.id)), sortKey);
+            if (visibleChildren.length > 0 && (isGhost || expandedNodes.has(issue.id))) {
+              for (const child of visibleChildren) addTree(child, depth + 1);
+            }
+          };
+
+          for (const issue of topLevel) addTree(issue, 0);
+          // Add ghost parent rows for orphaned children
+          for (const parentId of ghostParentIds) {
+            const parent = issues.find(i => i.id === parentId);
+            if (parent) addTree(parent, 0, true);
+          }
+        }
       }
     }
     return result;
@@ -205,8 +242,11 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
   const [dropGroupStatus, _setDropGroupStatus] = useState<string | null>(null);
   const dropIndicatorRef = useRef(dropIndicator);
   const dropGroupStatusRef = useRef(dropGroupStatus);
+  const [dropNestTargetId, _setDropNestTargetId] = useState<string | null>(null);
+  const dropNestTargetIdRef = useRef(dropNestTargetId);
   const setDropIndicator = useCallback((v: typeof dropIndicator) => { dropIndicatorRef.current = v; _setDropIndicator(v); }, []);
   const setDropGroupStatus = useCallback((v: typeof dropGroupStatus) => { dropGroupStatusRef.current = v; _setDropGroupStatus(v); }, []);
+  const setDropNestTargetId = useCallback((v: typeof dropNestTargetId) => { dropNestTargetIdRef.current = v; _setDropNestTargetId(v); }, []);
 
   const getRowStatusGroup = useCallback((rowIndex: number): string | null => {
     for (let j = rowIndex; j >= 0; j--) {
@@ -218,6 +258,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
 
   const handleDragStart = useCallback((e: React.DragEvent, issueId: string) => {
     dropHandledRef.current = false;
+    setDropNestTargetId(null);
     setDraggedId(issueId);
     e.dataTransfer.effectAllowed = 'all';
     e.dataTransfer.setData('text/plain', issueId);
@@ -232,9 +273,30 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     if (!draggedId) return;
 
     const row = rows[rowIndex];
-    if (row.kind !== 'issue' || row.depth > 0) return;
-    if (row.issue.id === draggedId) { setDropIndicator(null); setDropGroupStatus(null); return; }
+    if (row.kind !== 'issue') return;
+    if (row.issue.id === draggedId) { setDropIndicator(null); setDropGroupStatus(null); setDropNestTargetId(null); return; }
 
+    // ALT+drag: nest as child
+    if (e.altKey) {
+      const targetId = row.issue.id;
+      const isDescendant = (parentId: string, childId: string): boolean => {
+        for (const i of issues) {
+          if (i.parent_id === parentId) {
+            if (i.id === childId) return true;
+            if (isDescendant(i.id, childId)) return true;
+          }
+        }
+        return false;
+      };
+      if (!row.issue.parent_id && !isDescendant(draggedId, targetId)) {
+        setDropIndicator(null);
+        setDropGroupStatus(null);
+        setDropNestTargetId(targetId);
+        return;
+      }
+    }
+
+    setDropNestTargetId(null);
     const draggedStatus = issues.find(i => i.id === draggedId)?.status;
     const targetStatus = getRowStatusGroup(rowIndex);
     const isCrossGroup = draggedStatus !== targetStatus;
@@ -247,9 +309,19 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
 
     setDropGroupStatus(null);
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const position = e.clientY < rect.top + rect.height / 2 ? 'above' : 'below';
+    let position: 'above' | 'below' = e.clientY < rect.top + rect.height / 2 ? 'above' : 'below';
+
+    // "Below" a parent with expanded children → redirect to "above first child"
+    if (position === 'below' && row.hasChildren && expandedNodes.has(row.issue.id)) {
+      const firstChildIdx = rows.findIndex((r, j) => j > rowIndex && r.kind === 'issue' && r.depth > row.depth);
+      if (firstChildIdx !== -1) {
+        setDropIndicator({ rowIndex: firstChildIdx, position: 'above' });
+        return;
+      }
+    }
+
     setDropIndicator({ rowIndex, position });
-  }, [draggedId, rows, issues, getRowStatusGroup]);
+  }, [draggedId, rows, issues, getRowStatusGroup, expandedNodes]);
 
   const dropHandledRef = useRef(false);
 
@@ -257,9 +329,16 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     droppedId: string,
     groupTarget: string | null,
     indicatorTarget: { rowIndex: number; position: 'above' | 'below' } | null,
+    nestTarget: string | null,
   ) => {
     if (dropHandledRef.current) return;
     dropHandledRef.current = true;
+
+    if (nestTarget) {
+      await addDraft(droppedId, 'UPDATE', { parent_id: nestTarget });
+      onRefresh();
+      return;
+    }
 
     if (groupTarget) {
       const groupIssues = rows
@@ -275,7 +354,10 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
       const lastKey = last ? (effectiveKeys.get(last.id) || null) : null;
       const newKey = generateKeyBetween(lastKey, null);
 
-      await addDraft(droppedId, 'UPDATE', { status: groupTarget, sort_order: newKey });
+      const dragged = issues.find(i => i.id === droppedId);
+      const groupUpdate: Record<string, unknown> = { status: groupTarget, sort_order: newKey };
+      if (dragged?.parent_id) groupUpdate.parent_id = '';
+      await addDraft(droppedId, 'UPDATE', groupUpdate);
       onRefresh();
       return;
     }
@@ -286,29 +368,47 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     if (targetRow.kind !== 'issue') return;
 
     const status = getRowStatusGroup(indicatorTarget.rowIndex);
-    const groupTopLevel = rows
-      .filter((r): r is typeof r & { kind: 'issue' } => r.kind === 'issue' && r.depth === 0)
-      .filter(r => {
-        const idx = rows.indexOf(r);
-        return getRowStatusGroup(idx) === status;
-      })
-      .map(r => r.issue);
-
-    const effectiveKeys = getEffectiveKeys(groupTopLevel);
-    const withoutDragged = groupTopLevel.filter(i => i.id !== droppedId);
-    let insertIdx = withoutDragged.findIndex(i => i.id === targetRow.issue.id);
-    if (insertIdx === -1) insertIdx = withoutDragged.length;
-    if (indicatorTarget.position === 'below') insertIdx++;
-
-    const prev = withoutDragged[insertIdx - 1];
-    const next = withoutDragged[insertIdx];
-    const prevKey = prev ? (effectiveKeys.get(prev.id) || null) : null;
-    const nextKey = next ? (effectiveKeys.get(next.id) || null) : null;
-    const newKey = generateKeyBetween(prevKey, nextKey);
-
     const draggedStatus = issues.find(i => i.id === droppedId)?.status;
-    const update: Record<string, unknown> = { sort_order: newKey };
+    const update: Record<string, unknown> = {};
     if (draggedStatus !== status) update.status = status;
+
+    if (targetRow.depth > 0) {
+      // Dropping between children → nest under that parent
+      const targetParentId = targetRow.issue.parent_id!;
+      update.parent_id = targetParentId;
+      const siblings = issues.filter(i => i.parent_id === targetParentId);
+      const effectiveKeys = getEffectiveKeys(siblings);
+      const withoutDragged = siblings.filter(i => i.id !== droppedId);
+      let insertIdx = withoutDragged.findIndex(i => i.id === targetRow.issue.id);
+      if (insertIdx === -1) insertIdx = withoutDragged.length;
+      if (indicatorTarget.position === 'below') insertIdx++;
+      const prev = withoutDragged[insertIdx - 1];
+      const next = withoutDragged[insertIdx];
+      const prevKey = prev ? (effectiveKeys.get(prev.id) || null) : null;
+      const nextKey = next ? (effectiveKeys.get(next.id) || null) : null;
+      update.sort_order = generateKeyBetween(prevKey, nextKey);
+    } else {
+      // Dropping between top-level issues → un-nest
+      const dragged = issues.find(i => i.id === droppedId);
+      if (dragged?.parent_id) update.parent_id = '';
+      const groupTopLevel = rows
+        .filter((r): r is typeof r & { kind: 'issue' } => r.kind === 'issue' && r.depth === 0)
+        .filter(r => {
+          const idx = rows.indexOf(r);
+          return getRowStatusGroup(idx) === status;
+        })
+        .map(r => r.issue);
+      const effectiveKeys = getEffectiveKeys(groupTopLevel);
+      const withoutDragged = groupTopLevel.filter(i => i.id !== droppedId);
+      let insertIdx = withoutDragged.findIndex(i => i.id === targetRow.issue.id);
+      if (insertIdx === -1) insertIdx = withoutDragged.length;
+      if (indicatorTarget.position === 'below') insertIdx++;
+      const prev = withoutDragged[insertIdx - 1];
+      const next = withoutDragged[insertIdx];
+      const prevKey = prev ? (effectiveKeys.get(prev.id) || null) : null;
+      const nextKey = next ? (effectiveKeys.get(next.id) || null) : null;
+      update.sort_order = generateKeyBetween(prevKey, nextKey);
+    }
 
     await addDraft(droppedId, 'UPDATE', update);
     onRefresh();
@@ -316,11 +416,12 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
-    if (!draggedId) { setDraggedId(null); setDropIndicator(null); setDropGroupStatus(null); return; }
-    await performDrop(draggedId, dropGroupStatusRef.current, dropIndicatorRef.current);
+    if (!draggedId) { setDraggedId(null); setDropIndicator(null); setDropGroupStatus(null); setDropNestTargetId(null); return; }
+    await performDrop(draggedId, dropGroupStatusRef.current, dropIndicatorRef.current, dropNestTargetIdRef.current);
     setDraggedId(null);
     setDropIndicator(null);
     setDropGroupStatus(null);
+    setDropNestTargetId(null);
   }, [draggedId, performDrop]);
 
   const handleDragEnd = useCallback((e: React.DragEvent) => {
@@ -329,12 +430,14 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     }
     const currentDropGroup = dropGroupStatusRef.current;
     const currentDropIndicator = dropIndicatorRef.current;
-    if (draggedId && (currentDropGroup || currentDropIndicator)) {
-      performDrop(draggedId, currentDropGroup, currentDropIndicator);
+    const currentNestTarget = dropNestTargetIdRef.current;
+    if (draggedId && (currentDropGroup || currentDropIndicator || currentNestTarget)) {
+      performDrop(draggedId, currentDropGroup, currentDropIndicator, currentNestTarget);
     }
     setDraggedId(null);
     setDropIndicator(null);
     setDropGroupStatus(null);
+    setDropNestTargetId(null);
   }, [draggedId, performDrop]);
 
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -580,17 +683,18 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                   </div>
                 )}
                 {issueRows.map(({ row, index: i }) => {
-                  const { issue, depth, hasChildren, childDone, childTotal } = row;
+                  const { issue, depth, hasChildren, childDone, childTotal, parentBreadcrumb, isGhostParent } = row;
                   const isRowFocused = i === focusedIndex;
                   const isNodeExpanded = expandedNodes.has(issue.id);
                   const indent = depth * 24;
-                  const canDrag = isDndEnabled && depth === 0;
-                  const isDropTarget = isDndEnabled && depth === 0 && !!draggedId;
+                  const canDrag = isDndEnabled && !isGhostParent;
+                  const isDropTarget = isDndEnabled && !!draggedId;
                   const showDropAbove = dropIndicator?.rowIndex === i && dropIndicator.position === 'above';
                   const showDropBelow = dropIndicator?.rowIndex === i && dropIndicator.position === 'below';
+                  const isNestTarget = dropNestTargetId === issue.id;
                   return (
                     <div key={issue.id} className="relative">
-                      {showDropAbove && <div className="absolute top-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
+                      {showDropAbove && <div className="absolute top-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" style={{ left: `${20 + depth * 24}px` }} />}
                       <div
                         data-row={i}
                         draggable={canDrag}
@@ -600,7 +704,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                         onDrop={isDropTarget ? handleDrop : undefined}
                         onClick={() => onIssueClick?.(issue)}
                         onMouseEnter={() => setFocusedIndex(i)}
-                        className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isRowFocused ? 'bg-[var(--color-bg-hover)]' : 'hover:bg-[var(--color-bg-hover)]'} ${draggedId === issue.id ? 'opacity-40' : ''}`}
+                        className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? 'opacity-50' : ''} ${isNestTarget ? 'ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10' : isRowFocused ? 'bg-[var(--color-bg-hover)]' : 'hover:bg-[var(--color-bg-hover)]'} ${draggedId === issue.id ? 'opacity-40' : ''}`}
                         style={{ paddingLeft: `${20 + indent}px` }}
                       >
                       {hasChildren ? (
@@ -616,7 +720,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                           </svg>
                         </button>
                       ) : depth > 0 ? (
-                        <span className="w-4 shrink-0 flex items-center justify-center text-[var(--color-border-default)]">
+                        <span className={`w-4 shrink-0 flex items-center justify-center text-[var(--color-border-default)] ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                           <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M1 0v9h10" />
                           </svg>
@@ -649,7 +753,15 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                           </Popover>
                         )}
                       </div>
-                      <span className="text-sm font-medium text-[var(--color-text-primary)] truncate min-w-0">{issue.title}</span>
+                      {parentBreadcrumb && (
+                        <span className="text-sm text-[var(--color-text-muted)] truncate shrink-0 max-w-[150px]">{parentBreadcrumb}</span>
+                      )}
+                      {parentBreadcrumb && (
+                        <svg className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                      <span className={`text-sm font-medium truncate min-w-0 ${isGhostParent ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-primary)]'}`}>{issue.title}</span>
 
                       {hasChildren && (
                         <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
@@ -711,7 +823,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                       </div>
                       <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">{formatShortDate(issue.created_at)}</span>
                       </div>
-                      {showDropBelow && <div className="absolute bottom-0 left-5 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" />}
+                      {showDropBelow && <div className="absolute bottom-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" style={{ left: `${20 + depth * 24}px` }} />}
                     </div>
                   );
                 })}
