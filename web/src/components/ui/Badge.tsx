@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 
 type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' |
   'backlog' | 'planned' | 'doing' | 'blocked' | 'done';
@@ -51,16 +51,14 @@ export default function Badge({
   );
 }
 
-const LABEL_COLORS: Record<string, string> = {
-  bug: 'var(--color-label-bug)',
-  feature: 'var(--color-label-feature)',
-  epic: 'var(--color-label-epic)',
-  improvement: 'var(--color-label-improvement)',
-};
+export const LabelColorsContext = createContext<Record<string, string>>({});
 
 export function LabelBadge({ label }: { label: string }) {
-  const color = LABEL_COLORS[label.toLowerCase()] || 'var(--color-text-muted)';
-  const displayLabel = label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+  const configColors = useContext(LabelColorsContext);
+  const color = configColors[label] || configColors[label.toLowerCase()] || 'var(--color-text-muted)';
+  const displayLabel = label === label.toLowerCase()
+    ? label.charAt(0).toUpperCase() + label.slice(1)
+    : label;
 
   return (
     <span

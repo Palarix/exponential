@@ -6,7 +6,7 @@ import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader } from '../u
 import { sortGroup, getEffectiveKeys, SORT_OPTIONS } from '../../utils/sort';
 import type { SortKey } from '../../utils/sort';
 import { isEditableTarget } from '../../utils/keyboard';
-import { STATUS_OPTIONS, ESTIMATE_OPTIONS, BUILTIN_LABELS } from '../../constants';
+import { STATUS_OPTIONS, ESTIMATE_OPTIONS } from '../../constants';
 
 interface BacklogProps {
   issues: Issue[];
@@ -82,13 +82,10 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
     onRefresh();
   }, [onRefresh]);
 
-  const allKnownLabels = useMemo(() => {
-    const set = new Set(BUILTIN_LABELS);
-    for (const issue of issues) {
-      for (const l of issue.labels || []) set.add(l);
-    }
-    return Array.from(set);
-  }, [issues]);
+  const allKnownLabels = useMemo(() =>
+    Array.from(new Set(issues.flatMap(i => i.labels || []))).sort(),
+    [issues]
+  );
 
   const startInlineCreate = useCallback((status: string) => {
     setInlineCreateStatus(status);

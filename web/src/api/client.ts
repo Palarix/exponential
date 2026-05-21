@@ -58,10 +58,19 @@ export async function saveAll(message?: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to save');
 }
 
-export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string }> {
+export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string> }> {
   const res = await fetch(`${API_BASE}/config`);
   if (!res.ok) throw new Error('Failed to fetch config');
   return res.json();
+}
+
+export async function addConfigLabel(name: string, color: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/config/labels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, color }),
+  });
+  if (!res.ok) throw new Error('Failed to add label');
 }
 
 export async function discardAll(): Promise<void> {
