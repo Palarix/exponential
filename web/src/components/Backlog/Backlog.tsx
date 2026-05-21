@@ -8,6 +8,8 @@ import type { SortKey } from '../../utils/sort';
 import { isEditableTarget } from '../../utils/keyboard';
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS } from '../../constants';
 
+export type Tab = 'all' | 'active' | 'backlog';
+
 interface BacklogProps {
   issues: Issue[];
   onRefresh: () => void;
@@ -17,9 +19,9 @@ interface BacklogProps {
   sortKey: SortKey;
   onSortChange: (key: SortKey) => void;
   onNavigationOrderChange?: (ids: string[]) => void;
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
 }
-
-type Tab = 'all' | 'active' | 'backlog';
 
 const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
   all: { label: 'All Issues', statuses: ['BACKLOG', 'PLANNED', 'DOING', 'BLOCKED', 'DONE'] },
@@ -39,8 +41,7 @@ type RowItem =
   | { kind: 'group'; status: string; label: string; count: number; isEmpty: boolean }
   | { kind: 'issue'; issue: Issue; depth: number; hasChildren: boolean; childDone: number; childTotal: number; parentBreadcrumb?: string; isGhostParent?: boolean };
 
-export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused, onSearchBlur, sortKey, onSortChange, onNavigationOrderChange }: BacklogProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('all');
+export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused, onSearchBlur, sortKey, onSortChange, onNavigationOrderChange, activeTab, onTabChange }: BacklogProps) {
   const [search, setSearch] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set());
@@ -547,7 +548,7 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
         {(Object.entries(TAB_CONFIGS) as [Tab, { label: string }][]).map(([id, config]) => (
           <button
             key={id}
-            onClick={() => setActiveTab(id)}
+            onClick={() => onTabChange(id)}
             className={`
               text-sm font-medium h-full border-b-[1.5px] -mb-px transition-colors duration-[var(--duration-fast)]
               ${activeTab === id

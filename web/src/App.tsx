@@ -5,6 +5,7 @@ import type { Issue } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
 import Backlog from './components/Backlog/Backlog';
+import type { Tab } from './components/Backlog/Backlog';
 import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
 import IssueDetail from './components/IssueDetail/IssueDetail';
@@ -66,6 +67,7 @@ function App() {
     (localStorage.getItem('beats-sort') as SortKey) || 'manual'
   );
   const [backlogNavOrder, setBacklogNavOrder] = useState<string[]>([]);
+  const [backlogTab, setBacklogTab] = useState<Tab>('all');
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
 
@@ -225,6 +227,8 @@ function App() {
             sortKey={sortKey}
             onSortChange={handleSortChange}
             onNavigationOrderChange={setBacklogNavOrder}
+            activeTab={backlogTab}
+            onTabChange={setBacklogTab}
           />
         );
       case 'board':
