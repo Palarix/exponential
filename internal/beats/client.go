@@ -18,7 +18,8 @@ func GitCommit(msg string) {
 
 // Client manages the interaction with the beats issue tracker.
 type Client struct {
-	Config *config.Config
+	Config   *config.Config
+	Collapse bool
 }
 
 // NewClient creates a new Client with the given configuration.
@@ -26,6 +27,13 @@ func NewClient(cfg *config.Config) *Client {
 	return &Client{
 		Config: cfg,
 	}
+}
+
+func (c *Client) appendEvent(evt model.Event) error {
+	if c.Collapse {
+		return storage.AppendEventCollapsed(evt)
+	}
+	return storage.AppendEvent(evt)
 }
 
 // GetIssue retrieves an issue by ID, resolving short IDs if necessary.

@@ -131,7 +131,7 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 
 	// 4. Commit Changes
 	for _, evt := range eventsToAppend {
-		if err := storage.AppendEvent(evt); err != nil {
+		if err := c.appendEvent(evt); err != nil {
 			return nil, fmt.Errorf("error appending event for %s: %w", evt.ID, err)
 		}
 	}

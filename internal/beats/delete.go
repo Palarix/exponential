@@ -39,7 +39,7 @@ func (c *Client) DeleteIssue(id string, reason string) error {
 		CreatedBy: user,
 	}
 
-	if err := storage.AppendEvent(event); err != nil {
+	if err := c.appendEvent(event); err != nil {
 		return fmt.Errorf("error appending event: %w", err)
 	}
 
