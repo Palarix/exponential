@@ -12,3 +12,6 @@ labels:
     feature: "#b36cd9"
     epic: "#5e6ad2"
     improvement: "#4da6e8"
+    CLI: "#26b5b0"
+    Backend: "#e07058"
+    WebApp: "#e06091"
