@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchIssues, fetchConfig, createIssue, addConfigLabel } from './api/client';
+import { fetchIssues, fetchConfig, createIssue } from './api/client';
 import type { Issue } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -10,9 +10,8 @@ import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
-import { Modal, Button, LabelBadge, LabelColorsContext } from './components/ui';
+import { Modal, Button, LabelBadge, LabelColorsContext, LabelPicker } from './components/ui';
 import MarkdownEditor from './components/MarkdownEditor';
-import { LABEL_PRESET_COLORS } from './constants';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
@@ -207,7 +206,6 @@ function App() {
           onNavigate={navigateIssue}
           onRefresh={fetchData}
           prefix={prefix}
-          configLabels={configLabels}
           onConfigLabelsChange={setConfigLabels}
         />
       );
@@ -229,6 +227,7 @@ function App() {
             onNavigationOrderChange={setBacklogNavOrder}
             activeTab={backlogTab}
             onTabChange={setBacklogTab}
+            onConfigLabelsChange={setConfigLabels}
           />
         );
       case 'board':
@@ -259,7 +258,6 @@ function App() {
           await fetchData();
         }}
         issues={issues}
-        configLabels={configLabels}
         onConfigLabelsChange={setConfigLabels}
       />
 
@@ -292,17 +290,14 @@ const ESTIMATE_OPTIONS: DropdownOption[] = [
   { value: '8', label: '8 Points' },
 ];
 
-function NewIssueModal({ isOpen, onClose, onCreated, issues, configLabels, onConfigLabelsChange }: { isOpen: boolean; onClose: () => void; onCreated: () => void; issues: Issue[]; configLabels: Record<string, string>; onConfigLabelsChange: (labels: Record<string, string>) => void }) {
+function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChange }: { isOpen: boolean; onClose: () => void; onCreated: () => void; issues: Issue[]; onConfigLabelsChange: (labels: Record<string, string>) => void }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [label, setLabel] = useState('feature');
+  const [labels, setLabels] = useState<string[]>(['feature']);
   const [status, setStatus] = useState('BACKLOG');
   const [estimate, setEstimate] = useState('0');
   const [saving, setSaving] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
-  const [labelSearch, setLabelSearch] = useState('');
-  const [labelIndex, setLabelIndex] = useState(0);
-  const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const labelMenuRef = useRef<HTMLDivElement>(null);
   const [labelPos, setLabelPos] = useState({ top: 0, left: 0 });
@@ -312,26 +307,14 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, configLabels, onCon
     [issues]
   );
 
-  const filteredLabels = useMemo(() => {
-    const q = labelSearch.toLowerCase().trim();
-    if (!q) return allKnownLabels;
-    return allKnownLabels.filter(l => l.toLowerCase().includes(q));
-  }, [allKnownLabels, labelSearch]);
-
-  const canCreateLabel = labelSearch.trim().length > 0 &&
-    !allKnownLabels.some(l => l.toLowerCase() === labelSearch.trim().toLowerCase());
-
-  const selectLabel = (l: string) => {
-    setLabel(l);
-    setLabelOpen(false);
-    setLabelSearch('');
-    setCreatingLabel(null);
-  };
-
-  const handleCreateLabel = async (name: string, color: string) => {
-    await addConfigLabel(name, color);
-    onConfigLabelsChange({ ...configLabels, [name]: color });
-    selectLabel(name);
+  const toggleLabel = (l: string) => {
+    setLabels(prev => {
+      if (prev.includes(l)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter(x => x !== l);
+      }
+      return [...prev, l];
+    });
   };
 
   useEffect(() => {
@@ -351,12 +334,10 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, configLabels, onCon
       const rect = labelBtnRef.current.getBoundingClientRect();
       setLabelPos({ top: rect.bottom + 4, left: rect.left });
     }
-    setLabelSearch('');
-    setLabelIndex(0);
     setLabelOpen(!labelOpen);
   };
 
-  const canCreate = title.trim() && label;
+  const canCreate = title.trim() && labels.length > 0;
 
   const handleCreate = async () => {
     if (!canCreate) return;
@@ -365,11 +346,11 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, configLabels, onCon
       await createIssue({
         title: title.trim(),
         description: description.trim() || undefined,
-        labels: [label],
+        labels,
       });
       setTitle('');
       setDescription('');
-      setLabel('feature');
+      setLabels(['feature']);
       setStatus('BACKLOG');
       setEstimate('0');
       onCreated();
@@ -400,11 +381,13 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, configLabels, onCon
               className={`
                 flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors
                 border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)]
-                ${!label ? 'border-[var(--color-error)]/40' : ''}
+                ${labels.length === 0 ? 'border-[var(--color-error)]/40' : ''}
               `.trim().replace(/\s+/g, ' ')}
             >
-              {label ? (
-                <LabelBadge label={label} />
+              {labels.length > 0 ? (
+                <span className="flex items-center gap-1.5">
+                  {labels.map(l => <LabelBadge key={l} label={l} />)}
+                </span>
               ) : (
                 <span className="text-[var(--color-text-muted)]">Label *</span>
               )}
@@ -418,97 +401,13 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, configLabels, onCon
                 className="fixed z-[100] min-w-[200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
                 style={{ top: labelPos.top, left: labelPos.left }}
               >
-                {creatingLabel ? (
-                  <>
-                    <div className="px-3 py-1.5 flex items-center gap-2">
-                      <button
-                        onClick={() => setCreatingLabel(null)}
-                        className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <span className="text-xs text-[var(--color-text-muted)]">Pick a color for</span>
-                      <LabelBadge label={creatingLabel} />
-                    </div>
-                    <div className="border-t border-[var(--color-border-subtle)]" />
-                    <div className="flex items-center gap-2 px-3 py-2.5">
-                      {LABEL_PRESET_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => handleCreateLabel(creatingLabel, color)}
-                          className="w-6 h-6 rounded-full border-2 border-transparent hover:border-[var(--color-text-primary)] transition-colors hover:scale-110"
-                          style={{ background: color }}
-                        />
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="px-3 py-1.5">
-                      <input
-                        autoFocus
-                        value={labelSearch}
-                        onChange={(e) => { setLabelSearch(e.target.value); setLabelIndex(0); }}
-                        onKeyDown={(e) => {
-                          const total = filteredLabels.length + (canCreateLabel ? 1 : 0);
-                          if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            setLabelIndex(i => Math.min(i + 1, total - 1));
-                          } else if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            setLabelIndex(i => Math.max(i - 1, 0));
-                          } else if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (canCreateLabel && labelIndex === filteredLabels.length) {
-                              const name = labelSearch.trim();
-                              const hasColor = configLabels[name] || configLabels[name.toLowerCase()];
-                              if (hasColor) { selectLabel(name); } else { setCreatingLabel(name); }
-                            } else if (filteredLabels[labelIndex]) {
-                              selectLabel(filteredLabels[labelIndex]);
-                            }
-                          } else if (e.key === 'Escape') {
-                            setLabelOpen(false);
-                          }
-                        }}
-                        placeholder="Filter or create label..."
-                        className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
-                      />
-                    </div>
-                    <div className="border-t border-[var(--color-border-subtle)]" />
-                    {filteredLabels.map((l, i) => (
-                      <button
-                        key={l}
-                        onClick={() => selectLabel(l)}
-                        onMouseEnter={() => setLabelIndex(i)}
-                        className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm hover:bg-[var(--color-bg-hover)] transition-colors ${i === labelIndex ? 'bg-[var(--color-bg-hover)]' : ''}`}
-                      >
-                        <LabelBadge label={l} />
-                        {l === label && (
-                          <svg className="w-3.5 h-3.5 ml-auto text-[var(--color-accent-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                    {canCreateLabel && (
-                      <button
-                        onClick={() => {
-                          const name = labelSearch.trim();
-                          const hasColor = configLabels[name] || configLabels[name.toLowerCase()];
-                          if (hasColor) { selectLabel(name); } else { setCreatingLabel(name); }
-                        }}
-                        onMouseEnter={() => setLabelIndex(filteredLabels.length)}
-                        className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${labelIndex === filteredLabels.length ? 'bg-[var(--color-bg-hover)]' : ''}`}
-                      >
-                        <span className="text-[var(--color-text-muted)]">Create</span>
-                        <LabelBadge label={labelSearch.trim()} />
-                      </button>
-                    )}
-                  </>
-                )}
+                <LabelPicker
+                  allLabels={allKnownLabels}
+                  selected={labels}
+                  onToggle={toggleLabel}
+                  onConfigLabelsChange={onConfigLabelsChange}
+                  onClose={() => setLabelOpen(false)}
+                />
               </div>,
               document.body
             )}
