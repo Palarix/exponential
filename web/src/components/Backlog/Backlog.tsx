@@ -3,6 +3,7 @@ import { generateKeyBetween } from "fractional-indexing";
 import { createIssue, addDraft } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
+  Avatar,
   LabelBadge,
   StatusIcon,
   CopyableId,
@@ -1430,6 +1431,9 @@ export default function Backlog({
                               </Popover>
                             )}
                         </div>
+                        {issue.assignee && (
+                          <Avatar name={issue.assignee} size="sm" />
+                        )}
                         <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
                           {formatShortDate(issue.created_at)}
                         </span>
