@@ -705,17 +705,35 @@ export default function Backlog({
     return () => document.removeEventListener("mousedown", handler);
   }, [showSortMenu]);
 
-  // Keyboard nav
+  // Stable refs for keyboard handler — avoids re-registering the listener on every state change
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const focusedIndexRef = useRef(focusedIndex);
+  focusedIndexRef.current = focusedIndex;
+  const expandedGroupsRef = useRef(expandedGroups);
+  expandedGroupsRef.current = expandedGroups;
+  const expandedNodesRef = useRef(expandedNodes);
+  expandedNodesRef.current = expandedNodes;
+  const openPopoverRef = useRef(openPopover);
+  openPopoverRef.current = openPopover;
+  const onIssueClickRef = useRef(onIssueClick);
+  onIssueClickRef.current = onIssueClick;
+  const toggleGroupRef = useRef(toggleGroup);
+  toggleGroupRef.current = toggleGroup;
+  const toggleNodeRef = useRef(toggleNode);
+  toggleNodeRef.current = toggleNode;
+
+  // Keyboard nav — registered once, reads current values via refs
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (openPopover) return;
+      if (openPopoverRef.current) return;
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
 
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);
-        setFocusedIndex((i) => Math.min(i + 1, rows.length - 1));
+        setFocusedIndex((i) => Math.min(i + 1, rowsRef.current.length - 1));
         return;
       }
       if (e.key === "ArrowUp" || e.key === "k") {
@@ -725,13 +743,13 @@ export default function Backlog({
         return;
       }
 
-      const row = rows[focusedIndex];
+      const row = rowsRef.current[focusedIndexRef.current];
       if (!row) return;
 
       if (e.key === "Enter") {
         e.preventDefault();
-        if (row.kind === "group" && !row.isEmpty) toggleGroup(row.status);
-        else if (row.kind === "issue") onIssueClick?.(row.issue);
+        if (row.kind === "group" && !row.isEmpty) toggleGroupRef.current(row.status);
+        else if (row.kind === "issue") onIssueClickRef.current?.(row.issue);
         return;
       }
       if (e.key === "ArrowRight") {
@@ -739,27 +757,27 @@ export default function Backlog({
         if (
           row.kind === "group" &&
           !row.isEmpty &&
-          !expandedGroups.has(row.status)
+          !expandedGroupsRef.current.has(row.status)
         )
-          toggleGroup(row.status);
+          toggleGroupRef.current(row.status);
         else if (
           row.kind === "issue" &&
           row.hasChildren &&
-          !expandedNodes.has(row.issue.id)
+          !expandedNodesRef.current.has(row.issue.id)
         )
-          toggleNode(row.issue.id);
+          toggleNodeRef.current(row.issue.id);
         return;
       }
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        if (row.kind === "group" && expandedGroups.has(row.status))
-          toggleGroup(row.status);
+        if (row.kind === "group" && expandedGroupsRef.current.has(row.status))
+          toggleGroupRef.current(row.status);
         else if (
           row.kind === "issue" &&
           row.hasChildren &&
-          expandedNodes.has(row.issue.id)
+          expandedNodesRef.current.has(row.issue.id)
         )
-          toggleNode(row.issue.id);
+          toggleNodeRef.current(row.issue.id);
         return;
       }
       if (e.key === "." && row.kind === "issue") {
@@ -788,16 +806,7 @@ export default function Backlog({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [
-    rows,
-    focusedIndex,
-    expandedGroups,
-    expandedNodes,
-    toggleGroup,
-    toggleNode,
-    onIssueClick,
-    openPopover,
-  ]);
+  }, []);
 
   // Scroll focused row into view
   useEffect(() => {

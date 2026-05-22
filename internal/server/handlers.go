@@ -295,6 +295,102 @@ func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (s *Server) handleUpdateLabel(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OldName string `json:"old_name"`
+		NewName string `json:"new_name"`
+		Color   string `json:"color"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if req.OldName == "" || req.NewName == "" || req.Color == "" {
+		respondError(w, http.StatusBadRequest, "old_name, new_name, and color required")
+		return
+	}
+
+	if err := config.UpdateLabel(req.OldName, req.NewName, req.Color); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	delete(s.Config.Labels, req.OldName)
+	if s.Config.Labels == nil {
+		s.Config.Labels = make(map[string]string)
+	}
+	s.Config.Labels[req.NewName] = req.Color
+
+	if req.OldName != req.NewName {
+		client := beats.NewClient(s.Config)
+		client.Collapse = true
+		issues, err := s.GetProjectedIssues()
+		if err == nil {
+			for _, issue := range issues {
+				for _, l := range issue.Labels {
+					if l == req.OldName {
+						newLabels := make([]string, 0, len(issue.Labels))
+						for _, ll := range issue.Labels {
+							if ll == req.OldName {
+								newLabels = append(newLabels, req.NewName)
+							} else {
+								newLabels = append(newLabels, ll)
+							}
+						}
+						client.UpdateIssue(issue.ID, model.UpdatePayload{Labels: newLabels}, "update")
+						break
+					}
+				}
+			}
+		}
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+	if req.Name == "" {
+		respondError(w, http.StatusBadRequest, "name required")
+		return
+	}
+
+	if err := config.DeleteLabel(req.Name); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	delete(s.Config.Labels, req.Name)
+
+	client := beats.NewClient(s.Config)
+	client.Collapse = true
+	issues, err := s.GetProjectedIssues()
+	if err == nil {
+		for _, issue := range issues {
+			for _, l := range issue.Labels {
+				if l == req.Name {
+					newLabels := make([]string, 0, len(issue.Labels))
+					for _, ll := range issue.Labels {
+						if ll != req.Name {
+							newLabels = append(newLabels, ll)
+						}
+					}
+					client.UpdateIssue(issue.ID, model.UpdatePayload{Labels: newLabels}, "update")
+					break
+				}
+			}
+		}
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
