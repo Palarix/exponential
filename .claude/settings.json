@@ -18,7 +18,8 @@
       "Bash(make build *)",
       "Bash(beats comment *)",
       "Bash(beats done *)",
-      "Bash(go build *)"
+      "Bash(go build *)",
+      "Bash(./beats show *)"
     ]
   }
 }

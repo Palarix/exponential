@@ -40,11 +40,18 @@ export default function Popover({
   }, []);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent) => {
       if (popRef.current && !popRef.current.contains(e.target as Node)) onClose();
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [onClose]);
 
   return (
