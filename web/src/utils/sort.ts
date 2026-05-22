@@ -70,6 +70,7 @@ export function sortIssuesWithinGroups(issues: Issue[], sortKey: SortKey): Issue
       const sa = STATUS_ORDER.indexOf(a.status);
       const sb = STATUS_ORDER.indexOf(b.status);
       if (sa !== sb) return sa - sb;
+      if (a.status === 'DONE') return compareBySortKey(a, b, 'updated');
       return compareKeys(keyMap.get(a.id) || '', keyMap.get(b.id) || '');
     });
   }
@@ -78,6 +79,7 @@ export function sortIssuesWithinGroups(issues: Issue[], sortKey: SortKey): Issue
     const sa = STATUS_ORDER.indexOf(a.status);
     const sb = STATUS_ORDER.indexOf(b.status);
     if (sa !== sb) return sa - sb;
+    if (a.status === 'DONE') return compareBySortKey(a, b, 'updated');
     return compareBySortKey(a, b, sortKey);
   });
   return sorted;

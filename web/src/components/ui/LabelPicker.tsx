@@ -1,4 +1,4 @@
-import { useState, useMemo, useContext, useCallback } from "react";
+import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "react";
 import { LabelBadge, LabelColorsContext } from "./Badge";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { addConfigLabel } from "../../api/client";
@@ -22,6 +22,11 @@ export default function LabelPicker({
   const [search, setSearch] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -74,6 +79,16 @@ export default function LabelPicker({
           handleSelect(search.trim());
         } else if (filtered[focusIndex]) {
           onToggle(filtered[focusIndex]);
+        }
+      } else if (e.key === " ") {
+        const endsWithSpace = search.length > 0 && search[search.length - 1] === " ";
+        if (search.length === 0 || endsWithSpace) {
+          e.preventDefault();
+          if (canCreate && focusIndex === filtered.length) {
+            handleSelect(search.trim());
+          } else if (filtered[focusIndex]) {
+            onToggle(filtered[focusIndex]);
+          }
         }
       } else if (e.key === "Escape") {
         onClose?.();
@@ -128,7 +143,7 @@ export default function LabelPicker({
     <>
       <div className="px-3 py-1.5">
         <input
-          autoFocus
+          ref={inputRef}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
