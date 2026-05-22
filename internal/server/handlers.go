@@ -127,6 +127,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := beats.NewClient(s.Config)
+	client.Collapse = true
 
 	switch model.EventType(req.Type) {
 	case model.EventTypeCreate:

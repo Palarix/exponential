@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
 )
 
 // AddComment adds a comment to an issue.
@@ -37,7 +36,7 @@ func (c *Client) AddComment(issueID, text string) error {
 	}
 
 	// Append Event
-	if err := storage.AppendEvent(event); err != nil {
+	if err := c.appendEvent(event); err != nil {
 		return fmt.Errorf("error appending event: %w", err)
 	}
 

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
@@ -56,7 +55,7 @@ func (c *Client) AddIssue(opts AddOptions) (*model.Issue, error) {
 		CreatedBy: user,
 	}
 
-	if err := storage.AppendEvent(event); err != nil {
+	if err := c.appendEvent(event); err != nil {
 		return nil, fmt.Errorf("error appending event: %w", err)
 	}
 
