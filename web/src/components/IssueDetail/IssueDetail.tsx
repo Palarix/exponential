@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
-import { addDraft, createIssue, fetchIssueHistory, addConfigLabel } from "../../api/client";
+import { addDraft, createIssue, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
-import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader } from "../ui";
+import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader, LabelPicker } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
-import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS, LABEL_PRESET_COLORS } from "../../constants";
+import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 
 function linkifyIssueIds(text: string, prefix: string): string {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25,7 +25,6 @@ interface IssueDetailProps {
   onNavigate: (direction: "prev" | "next") => void;
   onRefresh: () => void;
   prefix: string;
-  configLabels: Record<string, string>;
   onConfigLabelsChange: (labels: Record<string, string>) => void;
 }
 
@@ -38,7 +37,6 @@ export default function IssueDetail({
   onNavigate,
   onRefresh,
   prefix,
-  configLabels,
   onConfigLabelsChange,
 }: IssueDetailProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -51,7 +49,6 @@ export default function IssueDetail({
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -124,17 +121,6 @@ export default function IssueDetail({
     [issue.labels, saveDraft],
   );
 
-  const handleCreateLabel = useCallback(
-    async (name: string, color: string) => {
-      await addConfigLabel(name, color);
-      onConfigLabelsChange({ ...configLabels, [name]: color });
-      setCreatingLabel(null);
-      setLabelSearch("");
-      handleLabelToggle(name);
-    },
-    [handleLabelToggle, configLabels, onConfigLabelsChange],
-  );
-
   const handleParentChange = useCallback(
     (parentId: string | null) => {
       saveDraft("UPDATE", { parent_id: parentId || "" });
@@ -143,7 +129,6 @@ export default function IssueDetail({
   );
 
   const [parentSearch, setParentSearch] = useState("");
-  const [labelSearch, setLabelSearch] = useState("");
 
   const parentCandidates = useMemo(() => {
     const descendants = new Set<string>();
@@ -172,15 +157,6 @@ export default function IssueDetail({
     [issues]
   );
 
-  const filteredLabels = useMemo(() => {
-    const q = labelSearch.toLowerCase().trim();
-    if (!q) return allKnownLabels;
-    return allKnownLabels.filter(l => l.toLowerCase().includes(q));
-  }, [allKnownLabels, labelSearch]);
-
-  const canCreateLabel = labelSearch.trim().length > 0 &&
-    !allKnownLabels.some(l => l.toLowerCase() === labelSearch.trim().toLowerCase());
-
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (isEditableTarget(e)) return;
@@ -193,6 +169,7 @@ export default function IssueDetail({
       if (e.metaKey || e.ctrlKey) return;
       // Keyboard nav inside open popovers
       if (openPopover) {
+        if (openPopover === "labels") return;
         const len =
           openPopover === "status"
             ? STATUS_OPTIONS.length
@@ -200,9 +177,7 @@ export default function IssueDetail({
               ? ESTIMATE_OPTIONS.length
               : openPopover === "priority"
                 ? PRIORITY_OPTIONS.length
-                : openPopover === "labels"
-                  ? filteredLabels.length + (canCreateLabel ? 1 : 0)
-                  : 0;
+                : 0;
         if (e.key === "ArrowDown") {
           e.preventDefault();
           setPopoverIndex((i) => Math.min(i + 1, len - 1));
@@ -221,15 +196,6 @@ export default function IssueDetail({
             handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
           else if (openPopover === "priority")
             handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
-          else if (openPopover === "labels") {
-            if (canCreateLabel && popoverIndex === filteredLabels.length) {
-              const name = labelSearch.trim();
-              const hasColor = configLabels[name] || configLabels[name.toLowerCase()];
-              if (hasColor) { handleLabelToggle(name); setLabelSearch(""); } else { setCreatingLabel(name); }
-            } else if (filteredLabels[popoverIndex]) {
-              handleLabelToggle(filteredLabels[popoverIndex]);
-            }
-          }
           return;
         }
         if (openPopover === "status") {
@@ -252,7 +218,6 @@ export default function IssueDetail({
       if (e.key === "l") {
         setOpenPopover("labels");
         setPopoverIndex(0);
-        setLabelSearch("");
       }
       if (e.key === "e") {
         setOpenPopover("estimate");
@@ -301,9 +266,6 @@ export default function IssueDetail({
     handlePriorityChange,
     handleLabelToggle,
     allKnownLabels,
-    filteredLabels,
-    canCreateLabel,
-    labelSearch,
     popoverIndex,
   ]);
 
@@ -786,7 +748,7 @@ export default function IssueDetail({
                   onClick={() => {
                     const next = openPopover === "labels" ? null : "labels";
                     setOpenPopover(next);
-                    if (next) { setLabelSearch(""); setPopoverIndex(0); }
+                    if (next) { setPopoverIndex(0); }
                   }}
                   className="flex items-center gap-2 flex-wrap py-1 rounded-[var(--radius-sm)] hover:bg-[var(--color-bg-hover)] transition-colors w-full text-left"
                 >
@@ -801,118 +763,14 @@ export default function IssueDetail({
                   )}
                 </button>
                 {openPopover === "labels" && (
-                  <Popover onClose={() => { setOpenPopover(null); setCreatingLabel(null); }}>
-                    {creatingLabel ? (
-                      <>
-                        <div className="px-3 py-1.5 flex items-center gap-2">
-                          <button
-                            onClick={() => setCreatingLabel(null)}
-                            className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                            </svg>
-                          </button>
-                          <span className="text-xs text-[var(--color-text-muted)]">Pick a color for</span>
-                          <LabelBadge label={creatingLabel} />
-                        </div>
-                        <div className="border-t border-[var(--color-border-subtle)]" />
-                        <div className="flex items-center gap-2 px-3 py-2.5">
-                          {LABEL_PRESET_COLORS.map((color) => (
-                            <button
-                              key={color}
-                              onClick={() => handleCreateLabel(creatingLabel, color)}
-                              className="w-6 h-6 rounded-full border-2 border-transparent hover:border-[var(--color-text-primary)] transition-colors hover:scale-110"
-                              style={{ background: color }}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="px-3 py-1.5">
-                          <input
-                            autoFocus
-                            value={labelSearch}
-                            onChange={(e) => { setLabelSearch(e.target.value); setPopoverIndex(0); }}
-                            onKeyDown={(e) => {
-                              const total = filteredLabels.length + (canCreateLabel ? 1 : 0);
-                              if (e.key === "ArrowDown") {
-                                e.preventDefault();
-                                setPopoverIndex(i => Math.min(i + 1, total - 1));
-                              } else if (e.key === "ArrowUp") {
-                                e.preventDefault();
-                                setPopoverIndex(i => Math.max(i - 1, 0));
-                              } else if (e.key === "Enter") {
-                                e.preventDefault();
-                                if (canCreateLabel && popoverIndex === filteredLabels.length) {
-                                  const name = labelSearch.trim();
-                                  const hasColor = configLabels[name] || configLabels[name.toLowerCase()];
-                                  if (hasColor) { handleLabelToggle(name); setLabelSearch(""); } else { setCreatingLabel(name); }
-                                } else if (filteredLabels[popoverIndex]) {
-                                  handleLabelToggle(filteredLabels[popoverIndex]);
-                                }
-                              } else if (e.key === "Escape") {
-                                setOpenPopover(null);
-                              }
-                            }}
-                            placeholder="Filter or create label..."
-                            className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
-                          />
-                        </div>
-                        <div className="border-t border-[var(--color-border-subtle)]" />
-                        {filteredLabels.map((label, i) => {
-                          const isActive = (issue.labels || []).includes(label);
-                          const isFocused = i === popoverIndex;
-                          return (
-                            <button
-                              key={label}
-                              onClick={() => handleLabelToggle(label)}
-                              onMouseEnter={() => setPopoverIndex(i)}
-                              className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""}`}
-                            >
-                              <span
-                                className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
-                              >
-                                {isActive && (
-                                  <svg
-                                    className="w-2.5 h-2.5 text-white"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={3}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                )}
-                              </span>
-                              <LabelBadge label={label} />
-                            </button>
-                          );
-                        })}
-                        {canCreateLabel && (
-                          <button
-                            onClick={() => {
-                              const name = labelSearch.trim();
-                              const hasColor = configLabels[name] || configLabels[name.toLowerCase()];
-                              if (hasColor) { handleLabelToggle(name); setLabelSearch(""); } else { setCreatingLabel(name); }
-                            }}
-                            onMouseEnter={() => setPopoverIndex(filteredLabels.length)}
-                            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${popoverIndex === filteredLabels.length ? "bg-[var(--color-bg-hover)]" : ""}`}
-                          >
-                            <span className="text-[var(--color-text-muted)]">Create</span>
-                            <LabelBadge label={labelSearch.trim()} />
-                          </button>
-                        )}
-                        {filteredLabels.length === 0 && !canCreateLabel && (
-                          <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching labels</div>
-                        )}
-                      </>
-                    )}
+                  <Popover onClose={() => setOpenPopover(null)}>
+                    <LabelPicker
+                      allLabels={allKnownLabels}
+                      selected={issue.labels || []}
+                      onToggle={handleLabelToggle}
+                      onConfigLabelsChange={onConfigLabelsChange}
+                      onClose={() => setOpenPopover(null)}
+                    />
                   </Popover>
                 )}
               </div>

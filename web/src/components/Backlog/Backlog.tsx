@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { generateKeyBetween } from 'fractional-indexing';
 import { createIssue, addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader } from '../ui';
+import { LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader, LabelPicker } from '../ui';
 import { sortGroup, getEffectiveKeys, SORT_OPTIONS } from '../../utils/sort';
 import type { SortKey } from '../../utils/sort';
 import { isEditableTarget } from '../../utils/keyboard';
@@ -21,6 +21,7 @@ interface BacklogProps {
   onNavigationOrderChange?: (ids: string[]) => void;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  onConfigLabelsChange?: (labels: Record<string, string>) => void;
 }
 
 const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
@@ -41,7 +42,7 @@ type RowItem =
   | { kind: 'group'; status: string; label: string; count: number; isEmpty: boolean }
   | { kind: 'issue'; issue: Issue; depth: number; hasChildren: boolean; childDone: number; childTotal: number; parentBreadcrumb?: string; isGhostParent?: boolean };
 
-export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused, onSearchBlur, sortKey, onSortChange, onNavigationOrderChange, activeTab, onTabChange }: BacklogProps) {
+export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused, onSearchBlur, sortKey, onSortChange, onNavigationOrderChange, activeTab, onTabChange, onConfigLabelsChange }: BacklogProps) {
   const [search, setSearch] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => new Set());
@@ -812,18 +813,13 @@ export default function Backlog({ issues, onRefresh, onIssueClick, searchFocused
                         </button>
                         {openPopover?.issueId === issue.id && openPopover?.type === 'labels' && (
                           <Popover onClose={() => setOpenPopover(null)}>
-                            <PopoverHeader>Toggle labels...</PopoverHeader>
-                            {allKnownLabels.map((label) => {
-                              const isActive = (issue.labels || []).includes(label);
-                              return (
-                                <button key={label} onClick={() => handleQuickLabelToggle(issue, label)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)]">
-                                  <span className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? 'bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]' : 'border-[var(--color-border-default)]'}`}>
-                                    {isActive && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                                  </span>
-                                  <LabelBadge label={label} />
-                                </button>
-                              );
-                            })}
+                            <LabelPicker
+                              allLabels={allKnownLabels}
+                              selected={issue.labels || []}
+                              onToggle={(label) => handleQuickLabelToggle(issue, label)}
+                              onConfigLabelsChange={onConfigLabelsChange}
+                              onClose={() => setOpenPopover(null)}
+                            />
                           </Popover>
                         )}
                       </div>
