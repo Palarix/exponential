@@ -3,10 +3,20 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import { addDraft, createIssue, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
-import { Avatar, Button, LabelBadge, StatusIcon, CopyableId, Popover, PopoverHeader, LabelPicker } from "../ui";
+import { Avatar, Button, LabelBadge, Modal, StatusIcon, CopyableId, Popover, PopoverHeader, LabelPicker } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
+
+const RELATION_TYPES = [
+  { value: "blocks", label: "Blocks" },
+  { value: "blocked_by", label: "Blocked by" },
+  { value: "depends_on", label: "Depends on" },
+  { value: "dependency_of", label: "Dependency of" },
+  { value: "duplicates", label: "Duplicates" },
+  { value: "duplicated_by", label: "Duplicated by" },
+  { value: "relates_to", label: "Relates to" },
+];
 
 function linkifyIssueIds(text: string, prefix: string): string {
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -49,6 +59,9 @@ export default function IssueDetail({
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [addRelStep, setAddRelStep] = useState<"kind" | "issue" | null>(null);
+  const [addRelKind, setAddRelKind] = useState("");
+  const [addRelSearch, setAddRelSearch] = useState("");
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -56,6 +69,9 @@ export default function IssueDetail({
     setOpenPopover(null);
     setNewComment("");
     setConfirmDelete(false);
+    setAddRelStep(null);
+    setAddRelKind("");
+    setAddRelSearch("");
   }, [issue.id]);
 
   const handleDelete = useCallback(async () => {
@@ -134,6 +150,39 @@ export default function IssueDetail({
     },
     [saveDraft],
   );
+
+  const handleAddRelation = useCallback(
+    (targetId: string, kind: string) => {
+      const existing = issue.dependencies || [];
+      saveDraft("UPDATE", {
+        dependencies: [...existing, { source_id: issue.id, target_id: targetId, kind }],
+      });
+      setAddRelStep(null);
+      setAddRelKind("");
+      setAddRelSearch("");
+    },
+    [issue.id, issue.dependencies, saveDraft],
+  );
+
+  const handleRemoveRelation = useCallback(
+    (index: number) => {
+      const existing = issue.dependencies || [];
+      saveDraft("UPDATE", {
+        dependencies: existing.filter((_, i) => i !== index),
+      });
+    },
+    [issue.dependencies, saveDraft],
+  );
+
+  const relCandidates = useMemo(() => {
+    const linkedIds = new Set((issue.dependencies || []).map(d => d.target_id));
+    const q = addRelSearch.toLowerCase();
+    return issues.filter(i =>
+      i.id !== issue.id &&
+      !linkedIds.has(i.id) &&
+      (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
+    );
+  }, [issues, issue.id, issue.dependencies, addRelSearch]);
 
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
@@ -774,7 +823,14 @@ export default function IssueDetail({
                     }}
                     className="w-full justify-start"
                   >
-                    <Avatar name={issue.assignee || ""} size="xs" />
+                    {issue.assignee ? (
+                      <Avatar name={issue.assignee} size="xs" />
+                    ) : (
+                      <svg className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="8" cy="6" r="2.5" />
+                        <path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" strokeLinecap="round" />
+                      </svg>
+                    )}
                     <span className="text-sm text-[var(--color-text-primary)] truncate">
                       {issue.assignee
                         ? issue.assignee.split(" <")[0]
@@ -886,28 +942,131 @@ export default function IssueDetail({
               />
             </div>
 
-            {/* Dependencies card */}
-            {issue.dependencies && issue.dependencies.length > 0 && (
-              <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
-                <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Relations</div>
-                <div className="space-y-1">
-                  {issue.dependencies.map((dep, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-sm">
-                      <span className="text-[var(--color-text-muted)]">
-                        {dep.kind.replace("_", " ")}
-                      </span>
-                      <a
-                        href={`#/issues/${dep.target_id}`}
-                        className="font-mono text-[var(--color-accent-primary)] hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {dep.target_id}
-                      </a>
-                    </div>
-                  ))}
+            {/* Relations card */}
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
+              <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Relations</div>
+              {issue.dependencies && issue.dependencies.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {issue.dependencies.map((dep, i) => {
+                    const target = issues.find(t => t.id === dep.target_id);
+                    return (
+                      <div key={i} className="group flex items-center gap-1.5 text-sm">
+                        <span className="text-[var(--color-text-muted)] shrink-0">
+                          {dep.kind.replace(/_/g, " ")}
+                        </span>
+                        {target && <StatusIcon status={target.status} size={12} />}
+                        <a
+                          href={`#/issues/${dep.target_id}`}
+                          className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {target ? target.title : dep.target_id}
+                        </a>
+                        <button
+                          onClick={() => handleRemoveRelation(i)}
+                          className="ml-auto shrink-0 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              )}
+              <button
+                onClick={() => {
+                  setAddRelStep("kind");
+                  setAddRelKind("");
+                  setAddRelSearch("");
+                }}
+                className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Add relation
+              </button>
+              <Modal
+                isOpen={addRelStep !== null}
+                onClose={() => { setAddRelStep(null); setAddRelKind(""); setAddRelSearch(""); }}
+                title="Add relation"
+                size="2xl"
+              >
+                <div className="space-y-4">
+                  {/* Relation type selector */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {RELATION_TYPES.map((rt) => (
+                      <button
+                        key={rt.value}
+                        onClick={() => { setAddRelKind(rt.value); setAddRelSearch(""); }}
+                        className={`px-3 py-1.5 text-sm rounded-[var(--radius-md)] border transition-colors ${addRelKind === rt.value ? "border-[var(--color-accent-primary)] text-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : "border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-focus)] hover:text-[var(--color-text-primary)]"}`}
+                      >
+                        {rt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search */}
+                  {addRelKind && (
+                    <>
+                      <input
+                        autoFocus
+                        value={addRelSearch}
+                        onChange={(e) => setAddRelSearch(e.target.value)}
+                        placeholder="Search issues by title or ID..."
+                        className="w-full text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2"
+                      />
+
+                      {/* Issue table */}
+                      <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+                        <div className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)]">
+                          <span className="w-4" />
+                          <span className="flex-1">Title</span>
+                          <span className="w-24 shrink-0">Labels</span>
+                          <span className="w-12 shrink-0 text-right">Est</span>
+                          <span className="w-8 shrink-0" />
+                        </div>
+                        <div className="max-h-[50vh] overflow-y-auto">
+                          {relCandidates.slice(0, 30).map((candidate) => (
+                            <button
+                              key={candidate.id}
+                              onClick={() => handleAddRelation(candidate.id, addRelKind)}
+                              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-left hover:bg-[var(--color-bg-hover)] transition-colors border-b border-[var(--color-border-subtle)] last:border-b-0"
+                            >
+                              <StatusIcon status={candidate.status} size={14} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[var(--color-text-primary)] truncate">{candidate.title}</div>
+                                <div className="text-xs text-[var(--color-text-muted)] font-mono">{candidate.id}</div>
+                              </div>
+                              <div className="w-24 shrink-0 flex items-center gap-1 flex-wrap">
+                                {candidate.labels?.slice(0, 2).map(l => <LabelBadge key={l} label={l} />)}
+                              </div>
+                              <span className="w-12 shrink-0 text-right text-xs text-[var(--color-text-muted)] tabular-nums">
+                                {candidate.estimate > 0 ? candidate.estimate : "—"}
+                              </span>
+                              {candidate.assignee ? (
+                                <Avatar name={candidate.assignee} size="sm" />
+                              ) : <span className="w-4 shrink-0" />}
+                            </button>
+                          ))}
+                          {relCandidates.length === 0 && (
+                            <div className="px-3 py-6 text-sm text-[var(--color-text-muted)] text-center">No matching issues</div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {!addRelKind && (
+                    <div className="text-sm text-[var(--color-text-muted)] text-center py-6">
+                      Select a relationship type above to continue
+                    </div>
+                  )}
+                </div>
+              </Modal>
+            </div>
 
             {/* Delete */}
             <div className="pt-2">
