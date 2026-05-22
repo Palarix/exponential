@@ -73,6 +73,24 @@ export async function addConfigLabel(name: string, color: string): Promise<void>
   if (!res.ok) throw new Error('Failed to add label');
 }
 
+export async function updateConfigLabel(oldName: string, newName: string, color: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/config/labels`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_name: oldName, new_name: newName, color }),
+  });
+  if (!res.ok) throw new Error('Failed to update label');
+}
+
+export async function deleteConfigLabel(name: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/config/labels`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error('Failed to delete label');
+}
+
 export async function discardAll(): Promise<void> {
   const res = await fetch(`${API_BASE}/pending`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to discard');

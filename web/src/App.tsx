@@ -8,6 +8,7 @@ import Backlog from './components/Backlog/Backlog';
 import type { Tab } from './components/Backlog/Backlog';
 import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
+import Labels from './components/Labels/Labels';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import { Modal, Button, LabelBadge, LabelColorsContext, LabelPicker } from './components/ui';
@@ -16,19 +17,21 @@ import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
 
-type View = 'dashboard' | 'backlog' | 'board' | 'dependencies';
+type View = 'dashboard' | 'backlog' | 'board' | 'dependencies' | 'labels';
 
 const VIEW_ROUTES: Record<string, View> = {
   'issues': 'backlog',
   'board': 'board',
   'dashboard': 'dashboard',
   'dependencies': 'dependencies',
+  'labels': 'labels',
 };
 const ROUTE_VIEWS: Record<View, string> = {
   backlog: 'issues',
   board: 'board',
   dashboard: 'dashboard',
   dependencies: 'dependencies',
+  labels: 'labels',
 };
 
 function parseHash(): { view: View; issueId: string | null } {
@@ -234,6 +237,8 @@ function App() {
         return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} />;
       case 'dependencies':
         return <Dependencies issues={issues} onIssueClick={handleIssueClick} />;
+      case 'labels':
+        return <Labels issues={issues} onConfigLabelsChange={setConfigLabels} onRefresh={fetchData} />;
     }
   };
 

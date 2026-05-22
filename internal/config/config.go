@@ -170,6 +170,85 @@ func AddLabel(name, color string) error {
 	return os.WriteFile(configPath, out, 0644)
 }
 
+// DeleteLabel removes a label from the project config file.
+func DeleteLabel(name string) error {
+	configPath := filepath.Join(".beats", "config.yaml")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil
+	}
+
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	if doc.Kind == 0 || len(doc.Content) == 0 {
+		return nil
+	}
+
+	root := doc.Content[0]
+	for i := 0; i < len(root.Content)-1; i += 2 {
+		if root.Content[i].Value == "labels" {
+			labelsNode := root.Content[i+1]
+			for j := 0; j < len(labelsNode.Content)-1; j += 2 {
+				if labelsNode.Content[j].Value == name {
+					labelsNode.Content = append(labelsNode.Content[:j], labelsNode.Content[j+2:]...)
+					break
+				}
+			}
+			break
+		}
+	}
+
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	return os.WriteFile(configPath, out, 0644)
+}
+
+// UpdateLabel renames a label and/or changes its color in the project config file.
+func UpdateLabel(oldName, newName, color string) error {
+	configPath := filepath.Join(".beats", "config.yaml")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("config file not found: %w", err)
+	}
+
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	if doc.Kind == 0 || len(doc.Content) == 0 {
+		return fmt.Errorf("label %q not found", oldName)
+	}
+
+	root := doc.Content[0]
+	for i := 0; i < len(root.Content)-1; i += 2 {
+		if root.Content[i].Value == "labels" {
+			labelsNode := root.Content[i+1]
+			for j := 0; j < len(labelsNode.Content)-1; j += 2 {
+				if labelsNode.Content[j].Value == oldName {
+					labelsNode.Content[j].Value = newName
+					labelsNode.Content[j+1].Value = color
+					break
+				}
+			}
+			break
+		}
+	}
+
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	return os.WriteFile(configPath, out, 0644)
+}
+
 // LoadConfig reads configuration from file or environment variables.
 func LoadConfig() (*Config, error) {
 	v := viper.New()
