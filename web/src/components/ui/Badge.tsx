@@ -76,7 +76,7 @@ export function LabelBadge({ label }: { label: string }) {
       : label;
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-bg-elevated">
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-[var(--color-border-default)]">
       <span
         className="w-2 h-2 rounded-full shrink-0"
         style={{ background: color }}
