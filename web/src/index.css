@@ -202,6 +202,51 @@ body {
   list-style: decimal;
 }
 
+.prose-beats ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25em;
+}
+
+.prose-beats li.task-list-item {
+  list-style: none;
+}
+
+.prose-beats li.task-list-item input[type="checkbox"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--color-border-default);
+  border-radius: 3px;
+  background: var(--color-bg-primary);
+  position: relative;
+  top: 2px;
+  margin-right: 0.25em;
+  cursor: default;
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.prose-beats li.task-list-item input[type="checkbox"]:checked {
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+}
+
+.prose-beats li.task-list-item input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.prose-beats li.task-list-item > p {
+  margin: 0;
+}
+
 .prose-beats a {
   color: var(--color-accent-primary);
   text-decoration: underline;
@@ -229,6 +274,56 @@ body {
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25em;
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: baseline;
+  list-style: none;
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] li > label {
+  margin-right: 0.5em;
+  display: flex;
+  align-items: baseline;
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--color-border-default);
+  border-radius: 3px;
+  background: var(--color-bg-primary);
+  position: relative;
+  top: 2px;
+  cursor: pointer;
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] li label input[type="checkbox"]:checked {
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] li label input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.prose-beats .tiptap ul[data-type="taskList"] li > div > p {
+  margin: 0;
 }
 
 .prose-beats .tiptap p.is-editor-empty:first-child::before {

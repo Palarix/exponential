@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 import { addDraft, createIssue, fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { Avatar, Button, LabelBadge, Modal, StatusIcon, CopyableId, Popover, PopoverHeader, LabelPicker } from "../ui";
@@ -530,7 +531,7 @@ export default function IssueDetail({
                   className="cursor-text min-h-[40px] prose-beats"
                 >
                   {issue.description ? (
-                    <Markdown remarkPlugins={[remarkBreaks]}>
+                    <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                       {linkifyIssueIds(issue.description, prefix)}
                     </Markdown>
                   ) : (
@@ -1579,7 +1580,7 @@ function ActivityTimeline({
                 </span>
               </div>
               <div className="prose-beats text-base">
-                <Markdown remarkPlugins={[remarkBreaks]}>
+                <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                   {linkifyIssueIds(entry.text, prefix)}
                 </Markdown>
               </div>
