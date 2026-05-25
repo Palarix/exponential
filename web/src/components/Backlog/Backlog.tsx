@@ -1147,7 +1147,7 @@ export default function Backlog({
                               e.stopPropagation();
                               toggleNode(issue.id);
                             }}
-                            className="w-4 shrink-0 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                            className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10"
                           >
                             <svg
                               className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`}
