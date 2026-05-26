@@ -129,7 +129,12 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    fetchConfig().then(c => { setPrefix(c.prefix); setVersion(c.version || ''); setConfigLabels(c.labels || {}); }).catch(() => {});
+    fetchConfig().then(c => {
+      setPrefix(c.prefix);
+      setVersion(c.version || '');
+      setConfigLabels(c.labels || {});
+      document.title = c.name ? `${c.name} | Beats` : 'Beats';
+    }).catch(() => {});
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);

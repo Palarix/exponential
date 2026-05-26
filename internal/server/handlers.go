@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -260,11 +262,18 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	if labels == nil {
 		labels = map[string]string{}
 	}
+	name := s.Config.Name
+	if name == "" {
+		if cwd, err := os.Getwd(); err == nil {
+			name = filepath.Base(cwd)
+		}
+	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"auto_commit": s.Config.AutoCommit,
 		"prefix":      prefix,
 		"version":     version.CLIVersion,
 		"labels":      labels,
+		"name":        name,
 	})
 }
 
