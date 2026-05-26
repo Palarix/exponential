@@ -10,6 +10,7 @@ interface LabelPickerProps {
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
   onClose?: () => void;
   singleSelect?: boolean;
+  exclude?: string[];
 }
 
 export default function LabelPicker({
@@ -19,6 +20,7 @@ export default function LabelPicker({
   onConfigLabelsChange,
   onClose,
   singleSelect = false,
+  exclude,
 }: LabelPickerProps) {
   const configLabels = useContext(LabelColorsContext);
   const hideDefaultLabels = useContext(HideDefaultLabelsContext);
@@ -31,18 +33,26 @@ export default function LabelPicker({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
+  const excludeSet = useMemo(
+    () => new Set((exclude || []).map((l) => l.toLowerCase())),
+    [exclude],
+  );
+
   // Defaults first (in canonical order), then the rest sorted alphabetically. Case-insensitive dedup.
   const orderedLabels = useMemo(() => {
+    const keep = (l: string) => !excludeSet.has(l.toLowerCase());
     if (hideDefaultLabels) {
-      return [...allLabels].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+      return [...allLabels]
+        .filter(keep)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     }
-    const defaultNames = DEFAULT_LABELS.map((d) => d.name);
+    const defaultNames = DEFAULT_LABELS.map((d) => d.name).filter(keep);
     const defaultSet = new Set(defaultNames.map((n) => n.toLowerCase()));
     const others = allLabels
-      .filter((l) => !defaultSet.has(l.toLowerCase()))
+      .filter((l) => !defaultSet.has(l.toLowerCase()) && keep(l))
       .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     return [...defaultNames, ...others];
-  }, [allLabels, hideDefaultLabels]);
+  }, [allLabels, hideDefaultLabels, excludeSet]);
 
   const defaultLabelSet = useMemo(
     () => new Set(DEFAULT_LABELS.map((d) => d.name.toLowerCase())),
