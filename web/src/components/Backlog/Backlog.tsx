@@ -1215,7 +1215,7 @@ export default function Backlog({
                                   : { issueId: issue.id, type: "status" },
                               )
                             }
-                            className="hover:opacity-70 transition-opacity"
+                            className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
                           >
                             <StatusIcon status={issue.status} size={14} />
                           </button>
