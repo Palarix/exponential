@@ -19,7 +19,8 @@
       "Bash(beats comment *)",
       "Bash(beats done *)",
       "Bash(go build *)",
-      "Bash(./beats show *)"
+      "Bash(./beats show *)",
+      "Bash(beats list *)"
     ]
   }
 }

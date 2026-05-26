@@ -544,3 +544,6 @@
 {"id":"beats-a79a91","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-05-26T15:27:05.045405196Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beats-52bad2","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-05-26T15:27:05.089233218Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beats-6958d5","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-05-26T15:27:05.117469569Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-4faf3d","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-05-26T15:28:08.507579505Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-e1ee26","type":"UPDATE","payload":{"status":"PLANNED"},"created_at":"2026-05-26T15:28:19.849480866Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-7ec710","type":"UPDATE","payload":{"status":"PLANNED"},"created_at":"2026-05-26T15:28:21.134523817Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
