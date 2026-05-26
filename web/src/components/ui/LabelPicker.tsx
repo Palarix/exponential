@@ -1,6 +1,6 @@
 import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "react";
-import { LabelBadge, LabelColorsContext } from "./Badge";
-import { LABEL_PRESET_COLORS } from "../../constants";
+import { LabelBadge, LabelColorsContext, HideDefaultLabelsContext } from "./Badge";
+import { LABEL_PRESET_COLORS, DEFAULT_LABELS } from "../../constants";
 import { addConfigLabel } from "../../api/client";
 
 interface LabelPickerProps {
@@ -9,6 +9,7 @@ interface LabelPickerProps {
   onToggle: (label: string) => void;
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
   onClose?: () => void;
+  singleSelect?: boolean;
 }
 
 export default function LabelPicker({
@@ -17,8 +18,10 @@ export default function LabelPicker({
   onToggle,
   onConfigLabelsChange,
   onClose,
+  singleSelect = false,
 }: LabelPickerProps) {
   const configLabels = useContext(LabelColorsContext);
+  const hideDefaultLabels = useContext(HideDefaultLabelsContext);
   const [search, setSearch] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
@@ -28,15 +31,33 @@ export default function LabelPicker({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, []);
 
+  // Defaults first (in canonical order), then the rest sorted alphabetically. Case-insensitive dedup.
+  const orderedLabels = useMemo(() => {
+    if (hideDefaultLabels) {
+      return [...allLabels].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    }
+    const defaultNames = DEFAULT_LABELS.map((d) => d.name);
+    const defaultSet = new Set(defaultNames.map((n) => n.toLowerCase()));
+    const others = allLabels
+      .filter((l) => !defaultSet.has(l.toLowerCase()))
+      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    return [...defaultNames, ...others];
+  }, [allLabels, hideDefaultLabels]);
+
+  const defaultLabelSet = useMemo(
+    () => new Set(DEFAULT_LABELS.map((d) => d.name.toLowerCase())),
+    [],
+  );
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return allLabels;
-    return allLabels.filter((l) => l.toLowerCase().includes(q));
-  }, [allLabels, search]);
+    if (!q) return orderedLabels;
+    return orderedLabels.filter((l) => l.toLowerCase().includes(q));
+  }, [orderedLabels, search]);
 
   const canCreate =
     search.trim().length > 0 &&
-    !allLabels.some((l) => l.toLowerCase() === search.trim().toLowerCase());
+    !orderedLabels.some((l) => l.toLowerCase() === search.trim().toLowerCase());
 
   const handleSelect = useCallback(
     (name: string) => {
@@ -158,34 +179,53 @@ export default function LabelPicker({
       {filtered.map((label, i) => {
         const isActive = selected.includes(label);
         const isFocused = i === focusIndex;
+        const isDefault = !hideDefaultLabels && defaultLabelSet.has(label.toLowerCase());
+        const prev = i > 0 ? filtered[i - 1] : null;
+        const prevIsDefault =
+          !hideDefaultLabels && prev !== null && defaultLabelSet.has(prev.toLowerCase());
+        const showDivider = !isDefault && prevIsDefault;
         return (
+          <div key={label}>
+            {showDivider && (
+              <div className="my-1 border-t border-[var(--color-border-default)]" />
+            )}
           <button
-            key={label}
             onClick={() => onToggle(label)}
             onMouseEnter={() => setFocusIndex(i)}
             className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${isFocused ? "bg-[var(--color-bg-hover)]" : ""}`}
           >
-            <span
-              className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
-            >
-              {isActive && (
-                <svg
-                  className="w-2.5 h-2.5 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              )}
-            </span>
+            {singleSelect ? (
+              <span
+                className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isActive ? "border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
+              >
+                {isActive && (
+                  <span className="w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+                )}
+              </span>
+            ) : (
+              <span
+                className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
+              >
+                {isActive && (
+                  <svg
+                    className="w-2.5 h-2.5 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                )}
+              </span>
+            )}
             <LabelBadge label={label} />
           </button>
+          </div>
         );
       })}
       {canCreate && onConfigLabelsChange && (

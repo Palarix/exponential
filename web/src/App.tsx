@@ -11,7 +11,8 @@ import Dependencies from './components/Dependencies/Dependencies';
 import Labels from './components/Labels/Labels';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
-import { Modal, Button, LabelBadge, LabelColorsContext, LabelPicker } from './components/ui';
+import { Modal, Button, LabelBadge, LabelColorsContext, HideDefaultLabelsContext, LabelPicker } from './components/ui';
+import { DEFAULT_LABELS } from './constants';
 import MarkdownEditor from './components/MarkdownEditor';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
@@ -65,6 +66,7 @@ function App() {
   const [prefix, setPrefix] = useState('beats-');
   const [version, setVersion] = useState('');
   const [configLabels, setConfigLabels] = useState<Record<string, string>>({});
+  const [hideDefaultLabels, setHideDefaultLabels] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(() =>
     (localStorage.getItem('beats-sort') as SortKey) || 'manual'
   );
@@ -133,6 +135,7 @@ function App() {
       setPrefix(c.prefix);
       setVersion(c.version || '');
       setConfigLabels(c.labels || {});
+      setHideDefaultLabels(!!c.hide_default_labels);
       document.title = c.name ? `${c.name} | Beats` : 'Beats';
     }).catch(() => {});
     const interval = setInterval(fetchData, 5000);
@@ -247,8 +250,15 @@ function App() {
     }
   };
 
+  const effectiveLabelColors = useMemo(() => {
+    if (hideDefaultLabels) return configLabels;
+    const defaults = Object.fromEntries(DEFAULT_LABELS.map(d => [d.name, d.color]));
+    return { ...defaults, ...configLabels };
+  }, [configLabels, hideDefaultLabels]);
+
   return (
-    <LabelColorsContext.Provider value={configLabels}>
+    <HideDefaultLabelsContext.Provider value={hideDefaultLabels}>
+    <LabelColorsContext.Provider value={effectiveLabelColors}>
       <Layout
         currentView={view}
         onViewChange={handleViewChange}
@@ -280,6 +290,7 @@ function App() {
         onNewIssue={() => setShowNewIssue(true)}
       />
     </LabelColorsContext.Provider>
+    </HideDefaultLabelsContext.Provider>
   );
 }
 
@@ -317,14 +328,9 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
     [issues]
   );
 
-  const toggleLabel = (l: string) => {
-    setLabels(prev => {
-      if (prev.includes(l)) {
-        if (prev.length <= 1) return prev;
-        return prev.filter(x => x !== l);
-      }
-      return [...prev, l];
-    });
+  const selectLabel = (l: string) => {
+    setLabels([l]);
+    setLabelOpen(false);
   };
 
   useEffect(() => {
@@ -401,10 +407,8 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
                 ${labels.length === 0 ? 'border-[var(--color-error)]/40' : ''}
               `.trim().replace(/\s+/g, ' ')}
             >
-              {labels.length > 0 ? (
-                <span className="flex items-center gap-1.5">
-                  {labels.map(l => <LabelBadge key={l} label={l} />)}
-                </span>
+              {labels[0] ? (
+                <LabelBadge label={labels[0]} />
               ) : (
                 <span className="text-[var(--color-text-muted)]">Label *</span>
               )}
@@ -421,9 +425,10 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
                 <LabelPicker
                   allLabels={allKnownLabels}
                   selected={labels}
-                  onToggle={toggleLabel}
+                  onToggle={selectLabel}
                   onConfigLabelsChange={onConfigLabelsChange}
                   onClose={() => setLabelOpen(false)}
+                  singleSelect
                 />
               </div>,
               document.body
