@@ -11,7 +11,7 @@ import Dependencies from './components/Dependencies/Dependencies';
 import Labels from './components/Labels/Labels';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
-import { Modal, Button, LabelBadge, LabelColorsContext, HideDefaultLabelsContext, LabelPicker } from './components/ui';
+import { Modal, Button, LabelBadge, LabelColorsContext, HideDefaultLabelsContext, LabelPicker, Avatar, Popover, StatusIcon } from './components/ui';
 import { DEFAULT_LABELS } from './constants';
 import MarkdownEditor from './components/MarkdownEditor';
 import { sortIssuesWithinGroups } from './utils/sort';
@@ -323,14 +323,55 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
   const labelMenuRef = useRef<HTMLDivElement>(null);
   const [labelPos, setLabelPos] = useState({ top: 0, left: 0 });
 
+  // More options (collapsible) state
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [parentId, setParentId] = useState('');
+  const [assignee, setAssignee] = useState('');
+  const [additionalLabels, setAdditionalLabels] = useState<string[]>([]);
+  const [morePopover, setMorePopover] = useState<'parent' | 'assignee' | 'labels' | null>(null);
+  const [parentSearch, setParentSearch] = useState('');
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+
   const allKnownLabels = useMemo(() =>
     Array.from(new Set(issues.flatMap(i => i.labels || []))).sort(),
     [issues]
   );
 
+  const knownPeople = useMemo(() => {
+    const byEmail = new Map<string, string>();
+    for (const i of issues) {
+      for (const val of [i.created_by, i.assignee]) {
+        if (!val) continue;
+        const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
+        if (!byEmail.has(email)) byEmail.set(email, val);
+      }
+    }
+    const all = Array.from(byEmail.values()).sort((a, b) =>
+      a.split(' <')[0].localeCompare(b.split(' <')[0])
+    );
+    const q = assigneeSearch.toLowerCase();
+    if (!q) return all;
+    return all.filter(p => p.toLowerCase().includes(q));
+  }, [issues, assigneeSearch]);
+
+  const parentCandidates = useMemo(() => {
+    const q = parentSearch.toLowerCase();
+    return issues.filter(i =>
+      !i.parent_id &&
+      i.status !== 'DONE' &&
+      (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
+    );
+  }, [issues, parentSearch]);
+
   const selectLabel = (l: string) => {
     setLabels([l]);
     setLabelOpen(false);
+  };
+
+  const toggleAdditionalLabel = (l: string) => {
+    setAdditionalLabels(prev =>
+      prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]
+    );
   };
 
   useEffect(() => {
@@ -359,10 +400,16 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
     if (!canCreate) return;
     setSaving(true);
     try {
+      const combinedLabels = [
+        ...labels,
+        ...additionalLabels.filter(l => !labels.includes(l)),
+      ];
       const issueId = await createIssue({
         title: title.trim(),
         description: description.trim() || undefined,
-        labels,
+        labels: combinedLabels,
+        parent_id: parentId || undefined,
+        assignee: assignee || undefined,
       });
       const update: Record<string, unknown> = {};
       if (status !== 'BACKLOG') update.status = status;
@@ -376,6 +423,10 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
       setLabels(['feature']);
       setStatus('BACKLOG');
       setEstimate('0');
+      setParentId('');
+      setAssignee('');
+      setAdditionalLabels([]);
+      setMoreOpen(false);
       onCreated();
     } catch (err) {
       console.error('Failed to create issue:', err);
@@ -466,6 +517,198 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
           placeholder="Add description (markdown supported)..."
           className="prose-beats min-h-50"
         />
+
+        {/* More options (collapsible) */}
+        <div className="border-t border-[var(--color-border-subtle)] pt-3">
+          <button
+            type="button"
+            onClick={() => setMoreOpen(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform duration-100 ${moreOpen ? 'rotate-90' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            More options
+          </button>
+
+          {moreOpen && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {/* Parent issue */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMorePopover(morePopover === 'parent' ? null : 'parent');
+                    setParentSearch('');
+                  }}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                  </svg>
+                  <span className={`truncate max-w-[200px] ${parentId ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'}`}>
+                    {parentId
+                      ? (issues.find(i => i.id === parentId)?.title || parentId)
+                      : 'No parent'}
+                  </span>
+                </button>
+                {morePopover === 'parent' && (
+                  <Popover onClose={() => setMorePopover(null)}>
+                    <div className="px-3 py-1.5">
+                      <input
+                        autoFocus
+                        value={parentSearch}
+                        onChange={(e) => setParentSearch(e.target.value)}
+                        placeholder="Search issues..."
+                        className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+                      />
+                    </div>
+                    <div className="border-t border-[var(--color-border-default)]" />
+                    <div className="max-h-[240px] overflow-y-auto">
+                      {parentId && (
+                        <button
+                          onClick={() => { setParentId(''); setMorePopover(null); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                        >
+                          Remove parent
+                        </button>
+                      )}
+                      {parentCandidates.slice(0, 15).map((candidate) => {
+                        const isCurrent = candidate.id === parentId;
+                        return (
+                          <button
+                            key={candidate.id}
+                            onClick={() => { setParentId(candidate.id); setMorePopover(null); }}
+                            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                          >
+                            <StatusIcon status={candidate.status} size={12} />
+                            <span className="truncate">{candidate.title}</span>
+                            {isCurrent && (
+                              <svg className="w-3.5 h-3.5 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {parentCandidates.length === 0 && (
+                        <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching issues</div>
+                      )}
+                    </div>
+                  </Popover>
+                )}
+              </div>
+
+              {/* Assignee */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMorePopover(morePopover === 'assignee' ? null : 'assignee');
+                    setAssigneeSearch('');
+                  }}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors"
+                >
+                  {assignee ? (
+                    <Avatar name={assignee} size="xs" />
+                  ) : (
+                    <svg className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="8" cy="6" r="2.5" />
+                      <path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  <span className={`truncate max-w-[160px] ${assignee ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-muted)]'}`}>
+                    {assignee ? assignee.split(' <')[0] : 'No assignee'}
+                  </span>
+                </button>
+                {morePopover === 'assignee' && (
+                  <Popover onClose={() => setMorePopover(null)}>
+                    <div className="px-3 py-1.5">
+                      <input
+                        autoFocus
+                        value={assigneeSearch}
+                        onChange={(e) => setAssigneeSearch(e.target.value)}
+                        placeholder="Search people..."
+                        className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+                      />
+                    </div>
+                    <div className="border-t border-[var(--color-border-default)]" />
+                    <div className="max-h-[240px] overflow-y-auto">
+                      {assignee && (
+                        <button
+                          onClick={() => { setAssignee(''); setMorePopover(null); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                        >
+                          Remove assignee
+                        </button>
+                      )}
+                      {knownPeople.map((person) => {
+                        const isCurrent = person === assignee;
+                        return (
+                          <button
+                            key={person}
+                            onClick={() => { setAssignee(person); setMorePopover(null); }}
+                            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}
+                          >
+                            <Avatar name={person} size="sm" />
+                            <span className="truncate">{person.split(' <')[0]}</span>
+                            {isCurrent && (
+                              <svg className="w-3.5 h-3.5 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {knownPeople.length === 0 && (
+                        <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching people</div>
+                      )}
+                    </div>
+                  </Popover>
+                )}
+              </div>
+
+              {/* Additional labels */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMorePopover(morePopover === 'labels' ? null : 'labels')}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+                  </svg>
+                  {additionalLabels.length > 0 ? (
+                    <span className="flex items-center gap-1.5">
+                      {additionalLabels.map(l => <LabelBadge key={l} label={l} />)}
+                    </span>
+                  ) : (
+                    <span className="text-[var(--color-text-muted)]">Additional labels</span>
+                  )}
+                </button>
+                {morePopover === 'labels' && (
+                  <Popover onClose={() => setMorePopover(null)}>
+                    <LabelPicker
+                      allLabels={allKnownLabels}
+                      selected={additionalLabels}
+                      onToggle={toggleAdditionalLabel}
+                      onConfigLabelsChange={onConfigLabelsChange}
+                      onClose={() => setMorePopover(null)}
+                      exclude={labels}
+                    />
+                  </Popover>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Actions — inline, no divider */}
         <div className="flex items-center justify-end gap-2 pt-2">
