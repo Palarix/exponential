@@ -2,9 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
+	"os/signal"
+	"path/filepath"
 	"runtime"
+	"syscall"
 
+	"github.com/palarix/beats/internal/registry"
 	"github.com/palarix/beats/internal/server"
 	"github.com/spf13/cobra"
 )
@@ -41,12 +47,35 @@ func init() {
 func runBoard(cmd *cobra.Command, args []string) error {
 	srv := server.NewServer(cfg, boardPort, boardDev, boardDevPort)
 
+	listener, err := srv.Bind()
+	if err != nil {
+		return err
+	}
+
+	name := cfg.Name
+	cwd, _ := os.Getwd()
+	if name == "" {
+		name = filepath.Base(cwd)
+	}
+	if err := registry.Register(name, srv.Port, cwd); err != nil {
+		log.Printf("warning: failed to register instance: %v", err)
+	}
+	defer func() { _ = registry.UnregisterByPID(os.Getpid()) }()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		_ = registry.UnregisterByPID(os.Getpid())
+		os.Exit(0)
+	}()
+
 	if !boardNoOpen {
-		url := fmt.Sprintf("http://localhost:%d", boardPort)
+		url := fmt.Sprintf("http://localhost:%d", srv.Port)
 		go openBrowser(url)
 	}
 
-	return srv.Start()
+	return srv.ServeOn(listener)
 }
 
 func openBrowser(url string) {

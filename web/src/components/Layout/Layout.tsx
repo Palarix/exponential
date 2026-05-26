@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { fetchInstances, type Instance } from '../../api/client';
 
 type View = 'dashboard' | 'backlog' | 'board' | 'dependencies' | 'labels';
 
@@ -64,6 +65,38 @@ const SECONDARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
   },
 ];
 
+function ProjectItem({ instance }: { instance: Instance }) {
+  const icon = (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+    </svg>
+  );
+  const baseClass = `flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-[var(--radius-md)] text-sm transition-colors duration-[var(--duration-fast)]`;
+  if (instance.is_current) {
+    return (
+      <div
+        title={instance.root_dir}
+        className={`${baseClass} bg-[var(--color-bg-hover)] text-[var(--color-text-primary)] font-medium cursor-default`}
+      >
+        <span className="text-[var(--color-text-primary)]">{icon}</span>
+        <span className="truncate flex-1">{instance.name}</span>
+        <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">:{instance.port}</span>
+      </div>
+    );
+  }
+  return (
+    <a
+      href={`http://localhost:${instance.port}/`}
+      title={instance.root_dir}
+      className={`${baseClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]`}
+    >
+      <span className="text-[var(--color-text-muted)]">{icon}</span>
+      <span className="truncate flex-1">{instance.name}</span>
+      <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">:{instance.port}</span>
+    </a>
+  );
+}
+
 function NavItem({ item, isActive, onClick }: { item: { id: View; label: string; icon: ReactNode }; isActive: boolean; onClick: () => void }) {
   return (
     <button
@@ -94,6 +127,20 @@ export default function Layout({
   version,
   connected,
 }: LayoutProps) {
+  const [instances, setInstances] = useState<Instance[]>([]);
+
+  useEffect(() => {
+    const load = () => fetchInstances().then(setInstances).catch(() => {});
+    load();
+    const interval = setInterval(load, 10000);
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-sidebar)]">
       {/* Sidebar */}
@@ -133,6 +180,21 @@ export default function Layout({
             <NavItem key={item.id} item={item} isActive={currentView === item.id} onClick={() => onViewChange(item.id)} />
           ))}
         </nav>
+
+        {/* Projects */}
+        {instances.length > 0 && (
+          <>
+            <div className="mx-4 my-2 border-t border-[var(--color-border-subtle)]" />
+            <div className="px-2 space-y-0.5">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] px-2.5 mb-1 mt-1">
+                Projects
+              </div>
+              {instances.map(p => (
+                <ProjectItem key={`${p.pid}-${p.port}`} instance={p} />
+              ))}
+            </div>
+          </>
+        )}
 
       </aside>
 

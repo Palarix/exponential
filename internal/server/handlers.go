@@ -13,6 +13,7 @@ import (
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/beats/internal/registry"
 	"github.com/palarix/beats/internal/storage"
 	"github.com/palarix/beats/internal/version"
 )
@@ -251,6 +252,36 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
 	s.DiscardPending()
 	respondJSON(w, http.StatusOK, map[string]string{"status": "discarded"})
+}
+
+// handleListInstances returns the list of currently running beats board
+// instances (peers + self), pruning any stale entries from the shared registry.
+func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
+	entries, err := registry.List()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list instances: %v", err))
+		return
+	}
+	type respEntry struct {
+		Name      string `json:"name"`
+		Port      int    `json:"port"`
+		PID       int    `json:"pid"`
+		RootDir   string `json:"root_dir"`
+		StartedAt string `json:"started_at"`
+		IsCurrent bool   `json:"is_current"`
+	}
+	out := make([]respEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, respEntry{
+			Name:      e.Name,
+			Port:      e.Port,
+			PID:       e.PID,
+			RootDir:   e.RootDir,
+			StartedAt: e.StartedAt.Format(time.RFC3339),
+			IsCurrent: e.Port == s.Port,
+		})
+	}
+	respondJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
