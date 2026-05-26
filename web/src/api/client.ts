@@ -58,6 +58,78 @@ export async function saveAll(message?: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to save');
 }
 
+export interface AttentionItem {
+  issue_id: string;
+  title: string;
+  kind: 'blocker' | 'stale_wip' | 'high_priority';
+  age_days?: number;
+  priority?: number;
+}
+
+export interface WorkloadEntry {
+  assignee: string;
+  in_progress: number;
+  open_points: number;
+  blocked: number;
+  last_completed?: string;
+}
+
+export interface ActivityEvent {
+  issue_id: string;
+  issue_title: string;
+  type: 'CREATE' | 'UPDATE' | 'COMMENT';
+  payload: Record<string, unknown>;
+  created_at: string;
+  created_by: string;
+}
+
+export async function fetchActivity(): Promise<ActivityEvent[]> {
+  const res = await fetch(`${API_BASE}/activity`);
+  if (!res.ok) throw new Error('Failed to fetch activity');
+  return res.json();
+}
+
+export interface EpicProgress {
+  issue_id: string;
+  title: string;
+  children_done: number;
+  children_total: number;
+  points_done: number;
+  points_total: number;
+  points_remaining: number;
+  stale: boolean;
+}
+
+export interface PulseMetrics {
+  velocity: {
+    last_7d_points: number;
+    weekly_buckets: { week_start: string; points: number }[];
+  };
+  throughput: {
+    last_7d: number;
+    prior_7d: number;
+    delta: number;
+  };
+  wip: {
+    total: number;
+    stale: number;
+    stale_threshold_days: number;
+  };
+  blockers: {
+    total: number;
+    oldest_days: number;
+  };
+  attention: AttentionItem[];
+  workload: WorkloadEntry[];
+  epics: EpicProgress[];
+}
+
+export async function fetchMetrics(): Promise<PulseMetrics> {
+  const res = await fetch(`${API_BASE}/metrics`);
+  if (!res.ok) throw new Error('Failed to fetch metrics');
+  return res.json();
+}
+
 export interface Instance {
   name: string;
   port: number;

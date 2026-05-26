@@ -432,6 +432,84 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// handleActivity returns the most recent project-wide events for the Dashboard
+// activity feed. Sort_order-only UPDATE events are filtered out as noise.
+// Returns up to 30 events, newest first, with the originating issue's current title.
+func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
+	const maxItems = 30
+
+	events, err := storage.ReadEvents()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.mu.RLock()
+	allEvents := append(events, s.pendingEvents...)
+	s.mu.RUnlock()
+
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	titles := make(map[string]string, len(issues))
+	for id, issue := range issues {
+		titles[id] = issue.Title
+	}
+
+	type activityItem struct {
+		IssueID    string      `json:"issue_id"`
+		IssueTitle string      `json:"issue_title"`
+		Type       string      `json:"type"`
+		Payload    interface{} `json:"payload"`
+		CreatedAt  time.Time   `json:"created_at"`
+		CreatedBy  string      `json:"created_by"`
+	}
+
+	// Walk events newest → oldest, keep the first maxItems meaningful ones.
+	out := make([]activityItem, 0, maxItems)
+	for i := len(allEvents) - 1; i >= 0 && len(out) < maxItems; i-- {
+		evt := allEvents[i]
+		if !isMeaningfulActivityEvent(evt) {
+			continue
+		}
+		out = append(out, activityItem{
+			IssueID:    evt.ID,
+			IssueTitle: titles[evt.ID],
+			Type:       string(evt.Type),
+			Payload:    evt.Payload,
+			CreatedAt:  evt.CreatedAt,
+			CreatedBy:  evt.CreatedBy,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, out)
+}
+
+// isMeaningfulActivityEvent returns true for events that should appear in the
+// project-wide activity feed. Filters out sort_order-only UPDATE events (drag-
+// reorder noise) and DELETE events (rare and destructive — out of scope here).
+func isMeaningfulActivityEvent(evt model.Event) bool {
+	switch evt.Type {
+	case model.EventTypeCreate, model.EventTypeComment:
+		return true
+	case model.EventTypeUpdate:
+		payload, ok := evt.Payload.(map[string]interface{})
+		if !ok {
+			return true
+		}
+		// If the only key set is sort_order, this is reorder noise.
+		if len(payload) == 1 {
+			if _, hasOnlySortOrder := payload["sort_order"]; hasOnlySortOrder {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
