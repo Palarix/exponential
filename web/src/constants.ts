@@ -25,3 +25,13 @@ export const LABEL_PRESET_COLORS = [
   '#e07058',
 ];
 
+// Canonical "default" labels — match the seeded set in internal/beats/setup.go.
+// Shown at the top of label pickers in this fixed order. Suppressed when the
+// project config sets `hide_default_labels: true`.
+export const DEFAULT_LABELS: { name: string; color: string }[] = [
+  { name: 'epic',        color: '#5e6ad2' },
+  { name: 'feature',     color: '#b36cd9' },
+  { name: 'bug',         color: '#eb5757' },
+  { name: 'improvement', color: '#4da6e8' },
+];
+

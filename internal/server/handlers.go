@@ -269,11 +269,12 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"auto_commit": s.Config.AutoCommit,
-		"prefix":      prefix,
-		"version":     version.CLIVersion,
-		"labels":      labels,
-		"name":        name,
+		"auto_commit":         s.Config.AutoCommit,
+		"prefix":              prefix,
+		"version":             version.CLIVersion,
+		"labels":              labels,
+		"name":                name,
+		"hide_default_labels": s.Config.HideDefaultLabels,
 	})
 }
 

@@ -12,17 +12,18 @@ import (
 )
 
 type Config struct {
-	Name             string      `mapstructure:"name" yaml:"name"`
-	Prefix           string      `mapstructure:"prefix" yaml:"prefix"`
-	User             string      `mapstructure:"user" yaml:"user"`
-	Editor           string      `mapstructure:"editor" yaml:"editor"`
-	AutoCommit       bool        `mapstructure:"auto_commit" yaml:"auto_commit"`
-	Style            Style       `mapstructure:"style" yaml:"style"`
-	Version          int         `mapstructure:"version" yaml:"version"`
-	EstimationSystem string      `mapstructure:"estimation_system" yaml:"estimation_system"`
-	CountUnestimated bool        `mapstructure:"count_unestimated" yaml:"count_unestimated"`
-	Automations      Automations       `mapstructure:"automations" yaml:"automations"`
-	Labels           map[string]string `mapstructure:"labels" yaml:"labels"`
+	Name              string            `mapstructure:"name" yaml:"name"`
+	Prefix            string            `mapstructure:"prefix" yaml:"prefix"`
+	User              string            `mapstructure:"user" yaml:"user"`
+	HideDefaultLabels bool              `mapstructure:"hide_default_labels" yaml:"hide_default_labels"`
+	Editor            string            `mapstructure:"editor" yaml:"editor"`
+	AutoCommit        bool              `mapstructure:"auto_commit" yaml:"auto_commit"`
+	Style             Style             `mapstructure:"style" yaml:"style"`
+	Version           int               `mapstructure:"version" yaml:"version"`
+	EstimationSystem  string            `mapstructure:"estimation_system" yaml:"estimation_system"`
+	CountUnestimated  bool              `mapstructure:"count_unestimated" yaml:"count_unestimated"`
+	Automations       Automations       `mapstructure:"automations" yaml:"automations"`
+	Labels            map[string]string `mapstructure:"labels" yaml:"labels"`
 }
 
 type Style struct {
