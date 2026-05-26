@@ -42,7 +42,7 @@ function parseHash(): { view: View; issueId: string | null } {
     return { view: 'backlog', issueId: parts[1] };
   }
   const view = VIEW_ROUTES[parts[0]];
-  return { view: view || 'backlog', issueId: null };
+  return { view: view || 'dashboard', issueId: null };
 }
 
 function setHash(view: View, issueId: string | null) {
@@ -224,7 +224,7 @@ function App() {
 
     switch (view) {
       case 'dashboard':
-        return <Dashboard issues={issues} />;
+        return <Dashboard issues={issues} onIssueClick={handleIssueClick} />;
       case 'backlog':
         return (
           <Backlog
