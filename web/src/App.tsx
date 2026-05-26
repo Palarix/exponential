@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { fetchIssues, fetchConfig, createIssue } from './api/client';
+import { fetchIssues, fetchConfig, createIssue, addDraft } from './api/client';
 import type { Issue } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
@@ -348,11 +348,18 @@ function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChang
     if (!canCreate) return;
     setSaving(true);
     try {
-      await createIssue({
+      const issueId = await createIssue({
         title: title.trim(),
         description: description.trim() || undefined,
         labels,
       });
+      const update: Record<string, unknown> = {};
+      if (status !== 'BACKLOG') update.status = status;
+      const estimateNum = parseInt(estimate, 10);
+      if (estimateNum > 0) update.estimate = estimateNum;
+      if (Object.keys(update).length > 0) {
+        await addDraft(issueId, 'UPDATE', update);
+      }
       setTitle('');
       setDescription('');
       setLabels(['feature']);
