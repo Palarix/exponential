@@ -58,6 +58,21 @@ export async function saveAll(message?: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to save');
 }
 
+export interface Instance {
+  name: string;
+  port: number;
+  pid: number;
+  root_dir: string;
+  started_at: string;
+  is_current: boolean;
+}
+
+export async function fetchInstances(): Promise<Instance[]> {
+  const res = await fetch(`${API_BASE}/instances`);
+  if (!res.ok) throw new Error('Failed to fetch instances');
+  return res.json();
+}
+
 export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean }> {
   const res = await fetch(`${API_BASE}/config`);
   if (!res.ok) throw new Error('Failed to fetch config');
