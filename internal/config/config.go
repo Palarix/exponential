@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	Name             string      `mapstructure:"name" yaml:"name"`
 	Prefix           string      `mapstructure:"prefix" yaml:"prefix"`
 	User             string      `mapstructure:"user" yaml:"user"`
 	Editor           string      `mapstructure:"editor" yaml:"editor"`
