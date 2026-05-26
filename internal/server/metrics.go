@@ -36,6 +36,28 @@ type workloadEntry struct {
 	LastCompleted string `json:"last_completed,omitempty"` // YYYY-MM-DD
 }
 
+type weeklyTrend struct {
+	WeekStart string `json:"week_start"`
+	Created   int    `json:"created"`
+	Completed int    `json:"completed"`
+}
+
+type bugAgeBuckets struct {
+	Under24h int `json:"under_24h"`
+	Under48h int `json:"under_48h"`
+	Under5d  int `json:"under_5d"`
+	Under14d int `json:"under_14d"`
+	Under1mo int `json:"under_1mo"`
+	Over1mo  int `json:"over_1mo"`
+}
+
+type trendsBlock struct {
+	Weekly             []weeklyTrend `json:"weekly"`
+	MedianTriageMins   int           `json:"median_triage_mins"`
+	TriagedCount       int           `json:"triaged_count"`
+	BugAge             bugAgeBuckets `json:"bug_age"`
+}
+
 type epicProgress struct {
 	IssueID         string `json:"issue_id"`
 	Title           string `json:"title"`
@@ -77,6 +99,7 @@ type pulseMetrics struct {
 	Attention []attentionItem `json:"attention"`
 	Workload  []workloadEntry `json:"workload"`
 	Epics     []epicProgress  `json:"epics"`
+	Trends    trendsBlock     `json:"trends"`
 }
 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
@@ -105,6 +128,15 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 			bucketOrder = append(bucketOrder, key)
 		}
 	}
+
+	// Trend buckets (created/completed issue counts per week, same 8-week window).
+	trendByKey := make(map[string]*weeklyTrend, len(bucketOrder))
+	for _, k := range bucketOrder {
+		trendByKey[k] = &weeklyTrend{WeekStart: k}
+	}
+
+	var triageDurations []time.Duration
+	var bugAge bugAgeBuckets
 
 	var blockerCandidates, staleCandidates, highPriorityCandidates []attentionItem
 	type workAccum struct {
@@ -136,6 +168,51 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 			weekKey := startOfWeek(*doneAt).Format("2006-01-02")
 			if _, ok := bucketsByKey[weekKey]; ok {
 				bucketsByKey[weekKey] += points
+			}
+			if t, ok := trendByKey[weekKey]; ok {
+				t.Completed++
+			}
+		}
+
+		// Trend "created" count: bucket by CreatedAt week.
+		createdWeekKey := startOfWeek(issue.CreatedAt).Format("2006-01-02")
+		if t, ok := trendByKey[createdWeekKey]; ok {
+			t.Created++
+		}
+
+		// Triage time: from CreatedAt to the first UPDATE event that sets status away from BACKLOG.
+		for _, evt := range issue.Events {
+			if evt.Type != model.EventTypeUpdate {
+				continue
+			}
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p model.UpdatePayload
+			if err := json.Unmarshal(payloadBytes, &p); err != nil || p.Status == nil {
+				continue
+			}
+			if *p.Status == string(model.StatusBacklog) {
+				continue
+			}
+			triageDurations = append(triageDurations, evt.CreatedAt.Sub(issue.CreatedAt))
+			break
+		}
+
+		// Bug age: open issues (non-DONE) labeled "bug", bucketed by age from CreatedAt.
+		if issue.Status != model.StatusDone && hasBugLabel(issue.Labels) {
+			age := now.Sub(issue.CreatedAt)
+			switch {
+			case age < 24*time.Hour:
+				bugAge.Under24h++
+			case age < 48*time.Hour:
+				bugAge.Under48h++
+			case age < 5*24*time.Hour:
+				bugAge.Under5d++
+			case age < 14*24*time.Hour:
+				bugAge.Under14d++
+			case age < 30*24*time.Hour:
+				bugAge.Under1mo++
+			default:
+				bugAge.Over1mo++
 			}
 		}
 
@@ -254,7 +331,29 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 
 	m.Epics = computeEpicProgress(issues, now)
 
+	// Trends block.
+	m.Trends.Weekly = make([]weeklyTrend, 0, len(bucketOrder))
+	for _, k := range bucketOrder {
+		m.Trends.Weekly = append(m.Trends.Weekly, *trendByKey[k])
+	}
+	m.Trends.TriagedCount = len(triageDurations)
+	if len(triageDurations) > 0 {
+		sort.Slice(triageDurations, func(i, j int) bool { return triageDurations[i] < triageDurations[j] })
+		median := triageDurations[len(triageDurations)/2]
+		m.Trends.MedianTriageMins = int(median.Minutes())
+	}
+	m.Trends.BugAge = bugAge
+
 	return m
+}
+
+func hasBugLabel(labels []string) bool {
+	for _, l := range labels {
+		if strings.EqualFold(l, "bug") {
+			return true
+		}
+	}
+	return false
 }
 
 // computeEpicProgress returns one row per active epic. An "epic" is an issue
