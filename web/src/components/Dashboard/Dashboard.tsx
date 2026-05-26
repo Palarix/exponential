@@ -314,7 +314,7 @@ function Section({
   };
 
   return (
-    <section className="border-b border-[var(--color-border-subtle)]">
+    <section>
       <div
         onClick={toggle}
         className={`flex items-center gap-2 px-5 py-2 bg-[var(--color-bg-secondary)] select-none ${collapsible ? 'cursor-pointer hover:bg-[var(--color-bg-hover)] transition-colors duration-[var(--duration-fast)]' : ''}`}
@@ -356,7 +356,57 @@ const SECTION_ICONS = {
   epics: 'M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z',
   activity: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
   composition: 'M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z',
+  trends: 'M2.25 18L9 11.25l4.306 4.306a11.95 11.95 0 015.814-5.518l2.74-1.22m0 0l-5.94-2.281m5.94 2.281l-2.28 5.941',
 };
+
+function TrendChart({ weekly }: { weekly: { week_start: string; created: number; completed: number }[] }) {
+  const max = Math.max(1, ...weekly.flatMap(w => [w.created, w.completed]));
+  const barW = 6;
+  const innerGap = 2;
+  const groupGap = 6;
+  const height = 56;
+  const groupW = barW * 2 + innerGap;
+  const width = weekly.length * (groupW + groupGap) - groupGap;
+  return (
+    <svg width={width} height={height} className="shrink-0" aria-label="created vs completed, last 8 weeks">
+      {weekly.map((w, i) => {
+        const x = i * (groupW + groupGap);
+        const ch = (w.created / max) * height;
+        const dh = (w.completed / max) * height;
+        return (
+          <g key={w.week_start}>
+            <rect
+              x={x}
+              y={height - Math.max(1, ch)}
+              width={barW}
+              height={Math.max(1, ch)}
+              className="fill-[var(--color-text-muted)]"
+              rx={1}
+            />
+            <rect
+              x={x + barW + innerGap}
+              y={height - Math.max(1, dh)}
+              width={barW}
+              height={Math.max(1, dh)}
+              className="fill-[var(--color-accent-primary)]"
+              rx={1}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function formatTriage(mins: number): string {
+  if (mins <= 0) return '—';
+  if (mins < 60) return `${mins}m`;
+  const hours = mins / 60;
+  if (hours < 24) return `${Math.round(hours)}h`;
+  const days = hours / 24;
+  if (days < 10) return `${days.toFixed(1)}d`;
+  return `${Math.round(days)}d`;
+}
 
 const PRIORITY_LABELS: { value: number; label: string; marker: string; markerClass: string }[] = [
   { value: 1, label: 'Urgent', marker: '!!!', markerClass: 'text-[var(--color-error)]' },
@@ -526,7 +576,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto space-y-3 py-3">
         {/* Pulse */}
         <Section
           title="Pulse"
@@ -596,6 +646,136 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
           </div>
         </Section>
 
+        {/* Trends — three visual cards in one row */}
+        <Section
+          title="Trends"
+          icon={<SectionIcon d={SECTION_ICONS.trends} />}
+          collapsible
+          storageKey="beats-dashboard-trends-open"
+        >
+          <div className="px-5 py-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {/* Created vs Completed */}
+            <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
+                <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)]" />created
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed
+                  </span>
+                </div>
+              </div>
+              {metrics ? (
+                <div className="flex items-end justify-center">
+                  <TrendChart weekly={metrics.trends.weekly} />
+                </div>
+              ) : (
+                <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+              )}
+              <p className="mt-auto text-xs text-[var(--color-text-muted)]">last 8 weeks</p>
+            </Card>
+
+            {/* Median Triage Time */}
+            <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
+              <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-1.5">Median Triage Time</p>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">
+                {metrics ? formatTriage(metrics.trends.median_triage_mins) : '—'}
+              </p>
+              <p className="mt-auto text-xs text-[var(--color-text-muted)]">
+                {metrics && metrics.trends.triaged_count > 0
+                  ? `across ${metrics.trends.triaged_count} triaged ${metrics.trends.triaged_count === 1 ? 'issue' : 'issues'}`
+                  : 'no triaged issues yet'}
+              </p>
+            </Card>
+
+            {/* Bug Age */}
+            <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
+              <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Bug Age</p>
+              {(() => {
+                const buckets = metrics?.trends.bug_age;
+                const total = buckets
+                  ? buckets.under_24h + buckets.under_48h + buckets.under_5d + buckets.under_14d + buckets.under_1mo + buckets.over_1mo
+                  : 0;
+                if (!metrics || total === 0) {
+                  return (
+                    <>
+                      <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">0</p>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-2">no open bugs</p>
+                    </>
+                  );
+                }
+                const bars = [
+                  { label: '<24h', count: buckets!.under_24h, cls: 'bg-[var(--color-text-secondary)]' },
+                  { label: '<48h', count: buckets!.under_48h, cls: 'bg-[var(--color-text-secondary)]' },
+                  { label: '<5d',  count: buckets!.under_5d,  cls: 'bg-[var(--color-warning)]' },
+                  { label: '<14d', count: buckets!.under_14d, cls: 'bg-[var(--color-warning)]' },
+                  { label: '<1mo', count: buckets!.under_1mo, cls: 'bg-[var(--color-error)]' },
+                  { label: '>1mo', count: buckets!.over_1mo,  cls: 'bg-[var(--color-error)]' },
+                ];
+                const max = Math.max(1, ...bars.map(b => b.count));
+                return (
+                  <div className="mt-auto">
+                    <div className="flex items-end gap-1 h-12">
+                      {bars.map(b => (
+                        <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
+                          <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums leading-none mb-0.5">
+                            {b.count > 0 ? b.count : ''}
+                          </span>
+                          <div
+                            className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`}
+                            style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-1 mt-1.5">
+                      {bars.map(b => (
+                        <span key={b.label} className="flex-1 text-center text-[10px] text-[var(--color-text-muted)] tabular-nums">
+                          {b.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </Card>
+          </div>
+        </Section>
+
+        {/* Needs Attention — only renders when there's something to surface */}
+        {metrics && metrics.attention.length > 0 && (
+          <Section
+            title="Needs Attention"
+            icon={<SectionIcon d={SECTION_ICONS.attention} />}
+            count={metrics.attention.length}
+            collapsible
+            storageKey="beats-dashboard-attention-open"
+          >
+            <div className="py-2">
+              {metrics.attention.map(item => {
+                const issue = issues.find(i => i.id === item.issue_id);
+                return (
+                  <button
+                    key={item.issue_id}
+                    onClick={() => issue && onIssueClick?.(issue)}
+                    className="flex items-center gap-3 w-full px-5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-hover)]"
+                  >
+                    <AttentionBadge item={item} />
+                    <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">
+                      {item.title}
+                    </span>
+                    <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
+                      {attentionMeta(item)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+        )}
+
         {/* Workload */}
         <Section
           title="Workload"
@@ -639,44 +819,6 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                   </span>
                 </div>
               ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Needs Attention */}
-        <Section
-          title="Needs Attention"
-          icon={<SectionIcon d={SECTION_ICONS.attention} />}
-          count={metrics?.attention.length}
-          collapsible
-          storageKey="beats-dashboard-attention-open"
-        >
-          {!metrics || metrics.attention.length === 0 ? (
-            <div className="px-5 py-10 flex items-center justify-center">
-              <p className="text-sm text-[var(--color-text-muted)] text-center max-w-[36ch]">
-                Nothing urgent — no blockers, no stale work, no high-priority items waiting.
-              </p>
-            </div>
-          ) : (
-            <div className="py-2">
-              {metrics.attention.map(item => {
-                const issue = issues.find(i => i.id === item.issue_id);
-                return (
-                  <button
-                    key={item.issue_id}
-                    onClick={() => issue && onIssueClick?.(issue)}
-                    className="flex items-center gap-3 w-full px-5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-hover)]"
-                  >
-                    <AttentionBadge item={item} />
-                    <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">
-                      {item.title}
-                    </span>
-                    <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
-                      {attentionMeta(item)}
-                    </span>
-                  </button>
-                );
-              })}
             </div>
           )}
         </Section>
@@ -752,7 +894,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 const isExpanded = expandedComments.has(key);
                 const previewText = desc.preview ? stripMarkdown(desc.preview) : '';
                 return (
-                  <div key={key} className="px-5 py-1.5">
+                  <div key={key} className="px-5 py-2">
                     <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
                       <Avatar name={evt.created_by} size="xs" />
                       <span className="text-[var(--color-text-primary)] font-medium shrink-0">

@@ -122,6 +122,19 @@ export interface PulseMetrics {
   attention: AttentionItem[];
   workload: WorkloadEntry[];
   epics: EpicProgress[];
+  trends: {
+    weekly: { week_start: string; created: number; completed: number }[];
+    median_triage_mins: number;
+    triaged_count: number;
+    bug_age: {
+      under_24h: number;
+      under_48h: number;
+      under_5d: number;
+      under_14d: number;
+      under_1mo: number;
+      over_1mo: number;
+    };
+  };
 }
 
 export async function fetchMetrics(): Promise<PulseMetrics> {
