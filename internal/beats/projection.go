@@ -19,6 +19,11 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			var p model.CreatePayload
 			json.Unmarshal(payloadBytes, &p)
 
+			status := model.IssueStatus(p.Status)
+			if status == "" {
+				status = model.StatusBacklog
+			}
+
 			issue := &model.Issue{
 				ID:           evt.ID,
 				Title:        p.Title,
@@ -28,7 +33,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				Priority:     p.Priority,
 				SortOrder:    p.SortOrder,
 				Assignee:     p.Assignee,
-				Status:       model.StatusBacklog,
+				Status:       status,
 				CreatedAt:    evt.CreatedAt,
 				CreatedBy:    evt.CreatedBy,
 				UpdatedAt:    evt.CreatedAt,

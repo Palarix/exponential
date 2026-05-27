@@ -2,18 +2,18 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/kuyio/beats/internal/beats"
 	"github.com/spf13/cobra"
 )
 
+var commentJSONFlag bool
+
 var commentCmd = &cobra.Command{
 	Use:               "comment [issue ID] [text]",
 	Short:             "Add a comment to an issue",
-	Long:              `Add a comment to an existing issue. content can be provided as an argument or via stdin.`,
+	Long:              `Add a comment to an existing issue. Text can be passed as a positional argument, piped via stdin, or read from stdin explicitly with '-' as the second argument. Pass --json to read a structured payload {"body": "..."} from stdin.`,
 	Args:              cobra.RangeArgs(1, 2),
 	ValidArgsFunction: completeIssueIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -21,23 +21,35 @@ var commentCmd = &cobra.Command{
 		var text string
 
 		// 1. Get Comment Text
-		if len(args) == 2 {
-			text = args[1]
-		} else {
-			// Read from Stdin
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				bytes, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("failed to read from stdin: %w", err)
-				}
-				text = string(bytes)
-			} else {
-				return fmt.Errorf("comment text is required (provide as argument or pipe to stdin)")
+		switch {
+		case commentJSONFlag:
+			content, err := readStdinExplicit()
+			if err != nil {
+				return err
 			}
+			var input commentJSONInput
+			if err := decodeStrict(content, &input); err != nil {
+				return err
+			}
+			text = input.Body
+		case len(args) == 2 && args[1] == "-":
+			content, err := readStdinExplicit()
+			if err != nil {
+				return err
+			}
+			text = content
+		case len(args) == 2:
+			text = strings.TrimSpace(args[1])
+		case isStdinPiped():
+			content, err := readAllStdin()
+			if err != nil {
+				return err
+			}
+			text = content
+		default:
+			return fmt.Errorf("comment text is required (provide as argument, pipe to stdin, or use '-' to read stdin explicitly)")
 		}
 
-		text = strings.TrimSpace(text)
 		if text == "" {
 			return fmt.Errorf("comment text cannot be empty")
 		}
@@ -64,5 +76,6 @@ var commentCmd = &cobra.Command{
 }
 
 func init() {
+	commentCmd.Flags().BoolVar(&commentJSONFlag, "json", false, "Read a structured comment payload as JSON from stdin")
 	rootCmd.AddCommand(commentCmd)
 }

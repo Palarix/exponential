@@ -20,6 +20,7 @@ var (
 	updateLabelFlag    []string
 	updateAssigneeFlag string
 	updateDescFlag     string
+	updateJSONFlag     bool
 )
 
 var updateCmd = &cobra.Command{
@@ -31,10 +32,66 @@ var updateCmd = &cobra.Command{
 		id := args[0]
 		client := beats.NewClient(cfg)
 
+		// JSON payload mode: read a structured patch from stdin. Other
+		// field flags are ignored when --json is set.
+		if updateJSONFlag {
+			content, err := readStdinExplicit()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			var input updateJSONInput
+			if err := decodeStrict(content, &input); err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			payload, err := input.toUpdatePayload()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			if updatePayloadEmpty(payload) {
+				fmt.Println("No changes in payload.")
+				return
+			}
+			msgs, err := client.UpdateIssue(id, payload, "update")
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			for _, msg := range msgs {
+				fmt.Println(msg)
+			}
+			return
+		}
+
+		// Resolve --desc - explicit stdin opt-in before computing hasFlags.
+		descFromStdin := false
+		if cmd.Flags().Changed("desc") && updateDescFlag == "-" {
+			content, err := readStdinExplicit()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			updateDescFlag = content
+		}
+
 		// Check if any flags were set
 		hasFlags := cmd.Flags().Changed("status") || cmd.Flags().Changed("parent") ||
 			cmd.Flags().Changed("sp") || cmd.Flags().Changed("desc") ||
 			cmd.Flags().Changed("label") || cmd.Flags().Changed("assignee")
+
+		// Auto-detect piped stdin when no flags were passed: treat as --desc.
+		if !hasFlags && isStdinPiped() {
+			content, err := readAllStdin()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			updateDescFlag = content
+			descFromStdin = true
+			hasFlags = true
+		}
 
 		if hasFlags {
 			// Flag-based update
@@ -49,7 +106,7 @@ var updateCmd = &cobra.Command{
 			if cmd.Flags().Changed("sp") {
 				payload.Estimate = &updateEstimateFlag
 			}
-			if cmd.Flags().Changed("desc") {
+			if cmd.Flags().Changed("desc") || descFromStdin {
 				payload.Description = &updateDescFlag
 			}
 			if cmd.Flags().Changed("label") {
@@ -201,6 +258,7 @@ func init() {
 	updateCmd.Flags().StringVar(&updateDescFlag, "desc", "", "Description")
 	updateCmd.Flags().StringSliceVar(&updateLabelFlag, "label", nil, "Labels")
 	updateCmd.Flags().StringVar(&updateAssigneeFlag, "assignee", "", "Assignee")
+	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured update patch as JSON from stdin")
 
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(startCmd)
