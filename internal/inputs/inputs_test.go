@@ -1,4 +1,4 @@
-package main
+package inputs
 
 import (
 	"strings"
@@ -8,8 +8,8 @@ import (
 )
 
 func TestDecodeStrictRejectsUnknownFields(t *testing.T) {
-	var got addJSONInput
-	err := decodeStrict(`{"title":"x","bogus":1}`, &got)
+	var got AddInput
+	err := DecodeStrict(`{"title":"x","bogus":1}`, &got)
 	if err == nil {
 		t.Fatal("expected error for unknown field, got nil")
 	}
@@ -18,8 +18,8 @@ func TestDecodeStrictRejectsUnknownFields(t *testing.T) {
 	}
 }
 
-func TestAddJSONInputToCreatePayload(t *testing.T) {
-	in := addJSONInput{
+func TestAddInputToCreatePayload(t *testing.T) {
+	in := AddInput{
 		Title:       "My Issue",
 		Description: "## Body\n\nWith `code` and \"quotes\" and $vars",
 		Status:      "PLANNED",
@@ -28,15 +28,15 @@ func TestAddJSONInputToCreatePayload(t *testing.T) {
 		Priority:    2,
 		Assignee:    "Dev <dev@example.com>",
 		Labels:      []string{"feature", "CLI"},
-		Links: []linkInput{
+		Links: []LinkInput{
 			{Target: "beats-def456", Type: "relates_to"},
 			{Target: "beats-ghi789", Type: "blocks"},
 		},
 	}
 
-	got, err := in.toCreatePayload()
+	got, err := in.ToCreatePayload()
 	if err != nil {
-		t.Fatalf("toCreatePayload failed: %v", err)
+		t.Fatalf("ToCreatePayload failed: %v", err)
 	}
 
 	if got.Title != in.Title {
@@ -74,46 +74,46 @@ func TestAddJSONInputToCreatePayload(t *testing.T) {
 	}
 }
 
-func TestAddJSONInputRequiresTitle(t *testing.T) {
-	_, err := addJSONInput{}.toCreatePayload()
+func TestAddInputRequiresTitle(t *testing.T) {
+	_, err := AddInput{}.ToCreatePayload()
 	if err == nil {
 		t.Fatal("expected error for missing title")
 	}
 }
 
-func TestAddJSONInputInvalidStatus(t *testing.T) {
-	_, err := addJSONInput{Title: "x", Status: "GARBAGE"}.toCreatePayload()
+func TestAddInputInvalidStatus(t *testing.T) {
+	_, err := AddInput{Title: "x", Status: "GARBAGE"}.ToCreatePayload()
 	if err == nil {
 		t.Fatal("expected error for invalid status")
 	}
 }
 
-func TestAddJSONInputInvalidLinkType(t *testing.T) {
-	_, err := addJSONInput{
+func TestAddInputInvalidLinkType(t *testing.T) {
+	_, err := AddInput{
 		Title: "x",
-		Links: []linkInput{{Target: "beats-abc", Type: "wat"}},
-	}.toCreatePayload()
+		Links: []LinkInput{{Target: "beats-abc", Type: "wat"}},
+	}.ToCreatePayload()
 	if err == nil {
 		t.Fatal("expected error for invalid link type")
 	}
 }
 
-func TestAddJSONInputLinkMissingTarget(t *testing.T) {
-	_, err := addJSONInput{
+func TestAddInputLinkMissingTarget(t *testing.T) {
+	_, err := AddInput{
 		Title: "x",
-		Links: []linkInput{{Type: "blocks"}},
-	}.toCreatePayload()
+		Links: []LinkInput{{Type: "blocks"}},
+	}.ToCreatePayload()
 	if err == nil {
 		t.Fatal("expected error for missing link target")
 	}
 }
 
-func TestUpdateJSONInputPartial(t *testing.T) {
+func TestUpdateInputPartial(t *testing.T) {
 	newTitle := "Updated"
-	in := updateJSONInput{Title: &newTitle}
-	got, err := in.toUpdatePayload()
+	in := UpdateInput{Title: &newTitle}
+	got, err := in.ToUpdatePayload()
 	if err != nil {
-		t.Fatalf("toUpdatePayload failed: %v", err)
+		t.Fatalf("ToUpdatePayload failed: %v", err)
 	}
 	if got.Title == nil || *got.Title != "Updated" {
 		t.Errorf("Title not set: %+v", got.Title)
@@ -123,19 +123,19 @@ func TestUpdateJSONInputPartial(t *testing.T) {
 	}
 }
 
-func TestUpdateJSONInputEmpty(t *testing.T) {
-	got, err := updateJSONInput{}.toUpdatePayload()
+func TestUpdateInputEmpty(t *testing.T) {
+	got, err := UpdateInput{}.ToUpdatePayload()
 	if err != nil {
-		t.Fatalf("toUpdatePayload failed: %v", err)
+		t.Fatalf("ToUpdatePayload failed: %v", err)
 	}
-	if !updatePayloadEmpty(got) {
+	if !UpdatePayloadEmpty(got) {
 		t.Error("expected empty payload, got non-empty")
 	}
 }
 
-func TestUpdateJSONInputInvalidStatus(t *testing.T) {
+func TestUpdateInputInvalidStatus(t *testing.T) {
 	bad := "WRONG"
-	_, err := updateJSONInput{Status: &bad}.toUpdatePayload()
+	_, err := UpdateInput{Status: &bad}.ToUpdatePayload()
 	if err == nil {
 		t.Fatal("expected error for invalid status")
 	}
@@ -143,38 +143,38 @@ func TestUpdateJSONInputInvalidStatus(t *testing.T) {
 
 func TestValidateStatus(t *testing.T) {
 	for _, s := range []string{"BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"} {
-		if err := validateStatus(s); err != nil {
-			t.Errorf("validateStatus(%q) returned error: %v", s, err)
+		if err := ValidateStatus(s); err != nil {
+			t.Errorf("ValidateStatus(%q) returned error: %v", s, err)
 		}
 	}
 	for _, s := range []string{"", "backlog", "TODO", "INVALID"} {
-		if err := validateStatus(s); err == nil {
-			t.Errorf("validateStatus(%q) accepted invalid status", s)
+		if err := ValidateStatus(s); err == nil {
+			t.Errorf("ValidateStatus(%q) accepted invalid status", s)
 		}
 	}
 }
 
 func TestUpdatePayloadEmpty(t *testing.T) {
-	if !updatePayloadEmpty(model.UpdatePayload{}) {
+	if !UpdatePayloadEmpty(model.UpdatePayload{}) {
 		t.Error("zero payload should be empty")
 	}
 	s := "DOING"
-	if updatePayloadEmpty(model.UpdatePayload{Status: &s}) {
+	if UpdatePayloadEmpty(model.UpdatePayload{Status: &s}) {
 		t.Error("payload with Status should not be empty")
 	}
-	if updatePayloadEmpty(model.UpdatePayload{Labels: []string{"x"}}) {
+	if UpdatePayloadEmpty(model.UpdatePayload{Labels: []string{"x"}}) {
 		t.Error("payload with Labels should not be empty")
 	}
-	if updatePayloadEmpty(model.UpdatePayload{Dependencies: []model.Dependency{{}}}) {
+	if UpdatePayloadEmpty(model.UpdatePayload{Dependencies: []model.Dependency{{}}}) {
 		t.Error("payload with Dependencies should not be empty")
 	}
 }
 
-func TestCommentJSONInput(t *testing.T) {
-	var got commentJSONInput
-	err := decodeStrict(`{"body":"hello\n\nworld"}`, &got)
+func TestCommentInput(t *testing.T) {
+	var got CommentInput
+	err := DecodeStrict(`{"body":"hello\n\nworld"}`, &got)
 	if err != nil {
-		t.Fatalf("decodeStrict failed: %v", err)
+		t.Fatalf("DecodeStrict failed: %v", err)
 	}
 	if got.Body != "hello\n\nworld" {
 		t.Errorf("Body: got %q want %q", got.Body, "hello\n\nworld")
@@ -182,24 +182,41 @@ func TestCommentJSONInput(t *testing.T) {
 }
 
 func TestMultilineMarkdownRoundTrip(t *testing.T) {
-	// The whole point of JSON mode: arbitrary markdown survives the trip
-	// from JSON-encoded payload into a CreatePayload without mangling.
 	body := "## Heading\n\nA paragraph with `code`, \"quotes\", $vars, and `!` bangs.\n\n- item 1\n- item 2\n"
 	jsonStr := `{"title":"x","description":` + jsonQuote(body) + `}`
-	var in addJSONInput
-	if err := decodeStrict(jsonStr, &in); err != nil {
-		t.Fatalf("decodeStrict failed: %v", err)
+	var in AddInput
+	if err := DecodeStrict(jsonStr, &in); err != nil {
+		t.Fatalf("DecodeStrict failed: %v", err)
 	}
-	got, err := in.toCreatePayload()
+	got, err := in.ToCreatePayload()
 	if err != nil {
-		t.Fatalf("toCreatePayload failed: %v", err)
+		t.Fatalf("ToCreatePayload failed: %v", err)
 	}
 	if got.Description != body {
 		t.Errorf("description round-trip mismatch:\n got: %q\nwant: %q", got.Description, body)
 	}
 }
 
-// jsonQuote returns a JSON-encoded string literal for use in test fixtures.
+func TestNormalizeDependencyKindForms(t *testing.T) {
+	cases := map[string]string{
+		"blocks":        "blocks",
+		"blocked_by":    "blocked_by",
+		"BlockedBy":     "blocked_by",
+		"depends_on":    "depends_on",
+		"DEPENDS_ON":    "depends_on",
+		"relates_to":    "relates_to",
+		"relatesTo":     "relates_to",
+		"duplicated_by": "duplicated_by",
+		"unknown":       "",
+		"":              "",
+	}
+	for in, want := range cases {
+		if got := model.NormalizeDependencyKind(in); got != want {
+			t.Errorf("NormalizeDependencyKind(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func jsonQuote(s string) string {
 	var b strings.Builder
 	b.WriteByte('"')

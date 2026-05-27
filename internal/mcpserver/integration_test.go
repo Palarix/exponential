@@ -1,0 +1,172 @@
+package mcpserver
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/kuyio/beats/internal/config"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// TestEndToEndAddViaMCP wires a real MCP client to a real MCP server
+// (both in-memory) and exercises beats_add → beats_show through the
+// protocol. This catches schema-generation or JSON-marshalling bugs
+// that the direct handler unit tests can't.
+func TestEndToEndAddViaMCP(t *testing.T) {
+	tmpDir := t.TempDir()
+	beatsDir := filepath.Join(tmpDir, ".beats")
+	if err := os.MkdirAll(beatsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	cfg := &config.Config{
+		Prefix:           "e2e-",
+		User:             "E2E User <e2e@test>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
+	}
+
+	ctx := context.Background()
+	serverTransport, clientTransport := mcp.NewInMemoryTransports()
+
+	srv := mcp.NewServer(&mcp.Implementation{Name: "beats-test", Version: "v0"}, nil)
+	newToolset(cfg).register(srv)
+	serverSession, err := srv.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatalf("server.Connect: %v", err)
+	}
+	defer serverSession.Close()
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "v0"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client.Connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	// Call beats_add via JSON arguments — exercises the schema-derived
+	// unmarshaling path.
+	addArgs, _ := json.Marshal(map[string]interface{}{
+		"title":        "Created via MCP",
+		"description":  "## Body\n\nWith `code` and \"quotes\".",
+		"status":       "PLANNED",
+		"labels":       []string{"feature"},
+		"story_points": 5,
+	})
+	addRes, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "beats_add",
+		Arguments: json.RawMessage(addArgs),
+	})
+	if err != nil {
+		t.Fatalf("CallTool beats_add: %v", err)
+	}
+	if addRes.IsError {
+		t.Fatalf("beats_add returned error: %s", textOf(addRes))
+	}
+	var addOutput addOut
+	if err := remarshal(addRes.StructuredContent, &addOutput); err != nil {
+		t.Fatalf("unmarshal addOut: %v", err)
+	}
+	if addOutput.ID == "" {
+		t.Fatalf("expected non-empty issue ID, got: %+v", addOutput)
+	}
+	if !strings.HasPrefix(addOutput.ID, "e2e-") {
+		t.Errorf("expected prefix e2e-, got %q", addOutput.ID)
+	}
+	if addOutput.Status != "PLANNED" {
+		t.Errorf("Status: got %q want PLANNED", addOutput.Status)
+	}
+
+	// Round-trip the issue back via beats_show.
+	showArgs, _ := json.Marshal(map[string]interface{}{"id": addOutput.ID})
+	showRes, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "beats_show",
+		Arguments: json.RawMessage(showArgs),
+	})
+	if err != nil {
+		t.Fatalf("CallTool beats_show: %v", err)
+	}
+	if showRes.IsError {
+		t.Fatalf("beats_show returned error: %s", textOf(showRes))
+	}
+	var showOutput showOut
+	if err := remarshal(showRes.StructuredContent, &showOutput); err != nil {
+		t.Fatalf("unmarshal showOut: %v", err)
+	}
+	wantDesc := "## Body\n\nWith `code` and \"quotes\"."
+	if showOutput.Description != wantDesc {
+		t.Errorf("description round-trip mismatch:\n got: %q\nwant: %q", showOutput.Description, wantDesc)
+	}
+}
+
+// TestEndToEndListsAllTools verifies tools/list returns our full registered
+// surface. If a registration call is dropped during refactoring this catches it.
+func TestEndToEndListsAllTools(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpDir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, ".beats", "issues.db"), []byte{}, 0644)
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	cfg := &config.Config{Prefix: "e2e-", User: "x", EstimationSystem: "fibonacci", Version: 2}
+	ctx := context.Background()
+	st, ct := mcp.NewInMemoryTransports()
+	srv := mcp.NewServer(&mcp.Implementation{Name: "beats", Version: "v0"}, nil)
+	newToolset(cfg).register(srv)
+	srvSess, _ := srv.Connect(ctx, st, nil)
+	defer srvSess.Close()
+	cli := mcp.NewClient(&mcp.Implementation{Name: "c", Version: "v0"}, nil)
+	cliSess, _ := cli.Connect(ctx, ct, nil)
+	defer cliSess.Close()
+
+	res, err := cliSess.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	want := map[string]bool{
+		"beats_list": false, "beats_show": false, "beats_history": false,
+		"beats_add": false, "beats_update": false, "beats_comment": false, "beats_link": false,
+	}
+	for _, tool := range res.Tools {
+		if _, ok := want[tool.Name]; ok {
+			want[tool.Name] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Errorf("tool %q not registered", name)
+		}
+	}
+}
+
+func textOf(r *mcp.CallToolResult) string {
+	var b strings.Builder
+	for _, c := range r.Content {
+		if tc, ok := c.(*mcp.TextContent); ok {
+			b.WriteString(tc.Text)
+		}
+	}
+	return b.String()
+}
+
+// remarshal round-trips a value through JSON so we can decode the SDK's
+// any-typed StructuredContent into our typed struct.
+func remarshal(src interface{}, dst interface{}) error {
+	b, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dst)
+}

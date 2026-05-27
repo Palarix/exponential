@@ -24,7 +24,8 @@
       "Bash(beats add *)",
       "Bash(beats link *)",
       "Bash(beats planned *)",
-      "Bash(go test *)"
+      "Bash(go test *)",
+      "mcp__beats__beats_list"
     ]
   }
 }

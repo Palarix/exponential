@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kuyio/beats/internal/beats"
+	"github.com/kuyio/beats/internal/inputs"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +28,8 @@ var commentCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			var input commentJSONInput
-			if err := decodeStrict(content, &input); err != nil {
+			var input inputs.CommentInput
+			if err := inputs.DecodeStrict(content, &input); err != nil {
 				return err
 			}
 			text = input.Body

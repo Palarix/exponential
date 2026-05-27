@@ -8,6 +8,7 @@ import (
 
 	"github.com/kuyio/beats/internal/beats"
 	"github.com/kuyio/beats/internal/config"
+	"github.com/kuyio/beats/internal/inputs"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/ui"
 	"github.com/spf13/cobra"
@@ -38,12 +39,12 @@ var addCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			var input addJSONInput
-			if err := decodeStrict(content, &input); err != nil {
+			var input inputs.AddInput
+			if err := inputs.DecodeStrict(content, &input); err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			payload, err := input.toCreatePayload()
+			payload, err := input.ToCreatePayload()
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
