@@ -25,7 +25,12 @@
       "Bash(beats link *)",
       "Bash(beats planned *)",
       "Bash(go test *)",
-      "mcp__beats__beats_list"
+      "mcp__beats__beats_*",
+      "mcp__beats__beats_comment",
+      "mcp__beats__beats_add",
+      "mcp__beats__beats_update",
+      "Bash(make test *)",
+      "mcp__beats__beats_show"
     ]
   }
 }
