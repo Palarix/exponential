@@ -20,7 +20,9 @@
       "Bash(beats done *)",
       "Bash(go build *)",
       "Bash(./beats show *)",
-      "Bash(beats list *)"
+      "Bash(beats list *)",
+      "Bash(beats add *)",
+      "Bash(beats link *)"
     ]
   }
 }
