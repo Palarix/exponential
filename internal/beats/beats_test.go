@@ -42,7 +42,7 @@ func TestAddIssue(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	issue, err := client.AddIssue(AddOptions{
+	issue, err := client.AddIssue(model.CreatePayload{
 		Title:    "Test Issue",
 		Labels:   []string{"feature"},
 		Assignee: "Dev <dev@test.com>",
@@ -73,7 +73,7 @@ func TestAddIssueWithParent(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	parent, err := client.AddIssue(AddOptions{
+	parent, err := client.AddIssue(model.CreatePayload{
 		Title:  "Parent Issue",
 		Labels: []string{"epic"},
 	})
@@ -81,7 +81,7 @@ func TestAddIssueWithParent(t *testing.T) {
 		t.Fatalf("AddIssue (parent) failed: %v", err)
 	}
 
-	child, err := client.AddIssue(AddOptions{
+	child, err := client.AddIssue(model.CreatePayload{
 		Title:    "Child Issue",
 		ParentID: parent.ID,
 	})
@@ -98,7 +98,7 @@ func TestUpdateIssue(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	issue, _ := client.AddIssue(AddOptions{
+	issue, _ := client.AddIssue(model.CreatePayload{
 		Title:  "Original Title",
 		Labels: []string{"bug"},
 	})
@@ -137,9 +137,9 @@ func TestParentChildRelationship(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent", Labels: []string{"epic"}})
-	child1, _ := client.AddIssue(AddOptions{Title: "Child 1", ParentID: parent.ID})
-	child2, _ := client.AddIssue(AddOptions{Title: "Child 2", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent", Labels: []string{"epic"}})
+	child1, _ := client.AddIssue(model.CreatePayload{Title: "Child 1", ParentID: parent.ID})
+	child2, _ := client.AddIssue(model.CreatePayload{Title: "Child 2", ParentID: parent.ID})
 
 	// Verify children
 	_, children, _, err := client.FindIssue(parent.ID)
@@ -165,8 +165,8 @@ func TestCannotCompleteParentWithIncompleteChildren(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
-	client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
+	client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
 
 	// Try to complete parent - should fail
 	status := string(model.StatusDone)
@@ -180,8 +180,8 @@ func TestBlockingRules(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	blocker, _ := client.AddIssue(AddOptions{Title: "Blocker Issue"})
-	blocked, _ := client.AddIssue(AddOptions{
+	blocker, _ := client.AddIssue(model.CreatePayload{Title: "Blocker Issue"})
+	blocked, _ := client.AddIssue(model.CreatePayload{
 		Title: "Blocked Issue",
 		Dependencies: []model.Dependency{
 			{SourceID: "", TargetID: blocker.ID, Kind: model.DependencyBlockedBy},
@@ -228,8 +228,8 @@ func TestAutoCompleteParent(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
-	child, _ := client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
+	child, _ := client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
 
 	// Complete the child
 	doneStatus := string(model.StatusDone)
@@ -266,8 +266,8 @@ func TestAutoCloseSubIssues(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
-	child, _ := client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
+	child, _ := client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
 
 	// Complete the parent - should auto-close child
 	doneStatus := string(model.StatusDone)
@@ -299,8 +299,8 @@ func TestAutomationsOff(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
-	child, _ := client.AddIssue(AddOptions{Title: "Child", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
+	child, _ := client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
 
 	// Complete the child
 	doneStatus := string(model.StatusDone)
@@ -334,10 +334,10 @@ func TestEstimateAggregation(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
-	client.AddIssue(AddOptions{Title: "Child 1", ParentID: parent.ID, Estimate: 3})
-	client.AddIssue(AddOptions{Title: "Child 2", ParentID: parent.ID, Estimate: 5})
-	client.AddIssue(AddOptions{Title: "Child 3 (unestimated)", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
+	client.AddIssue(model.CreatePayload{Title: "Child 1", ParentID: parent.ID, Estimate: 3})
+	client.AddIssue(model.CreatePayload{Title: "Child 2", ParentID: parent.ID, Estimate: 5})
+	client.AddIssue(model.CreatePayload{Title: "Child 3 (unestimated)", ParentID: parent.ID})
 
 	events, _ := storage.ReadEvents()
 	issues := ProjectIssuesWithConfig(events, cfg)
@@ -367,9 +367,9 @@ func TestCountUnestimatedFalse(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	parent, _ := client.AddIssue(AddOptions{Title: "Parent"})
-	client.AddIssue(AddOptions{Title: "Child 1", ParentID: parent.ID, Estimate: 3})
-	client.AddIssue(AddOptions{Title: "Child 2 (unestimated)", ParentID: parent.ID})
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
+	client.AddIssue(model.CreatePayload{Title: "Child 1", ParentID: parent.ID, Estimate: 3})
+	client.AddIssue(model.CreatePayload{Title: "Child 2 (unestimated)", ParentID: parent.ID})
 
 	events, _ := storage.ReadEvents()
 	issues := ProjectIssuesWithConfig(events, cfg)
@@ -384,7 +384,7 @@ func TestComments(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	issue, _ := client.AddIssue(AddOptions{Title: "Comment Test"})
+	issue, _ := client.AddIssue(model.CreatePayload{Title: "Comment Test"})
 
 	// Add comment via event
 	evt := model.Event{
@@ -414,8 +414,8 @@ func TestDependencies(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
 
-	issue1, _ := client.AddIssue(AddOptions{Title: "Issue 1"})
-	issue2, _ := client.AddIssue(AddOptions{
+	issue1, _ := client.AddIssue(model.CreatePayload{Title: "Issue 1"})
+	issue2, _ := client.AddIssue(model.CreatePayload{
 		Title: "Issue 2",
 		Dependencies: []model.Dependency{
 			{TargetID: issue1.ID, Kind: model.DependencyDependsOn},
@@ -434,6 +434,64 @@ func TestDependencies(t *testing.T) {
 	}
 	if deps[0].TargetID != issue1.ID {
 		t.Errorf("Expected target %s, got %s", issue1.ID, deps[0].TargetID)
+	}
+}
+
+func TestAddIssueWithStatus(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	issue, err := client.AddIssue(model.CreatePayload{
+		Title:  "Planned at creation",
+		Status: string(model.StatusPlanned),
+	})
+	if err != nil {
+		t.Fatalf("AddIssue failed: %v", err)
+	}
+	if issue.Status != model.StatusPlanned {
+		t.Errorf("expected status PLANNED on returned issue, got %s", issue.Status)
+	}
+
+	events, _ := storage.ReadEvents()
+	projected := ProjectIssues(events)[issue.ID]
+	if projected.Status != model.StatusPlanned {
+		t.Errorf("expected projected status PLANNED, got %s", projected.Status)
+	}
+}
+
+func TestAddIssueDefaultStatus(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	issue, err := client.AddIssue(model.CreatePayload{Title: "Default"})
+	if err != nil {
+		t.Fatalf("AddIssue failed: %v", err)
+	}
+	if issue.Status != model.StatusBacklog {
+		t.Errorf("expected default status BACKLOG, got %s", issue.Status)
+	}
+}
+
+func TestAddIssueAutoFillsSourceID(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	target, _ := client.AddIssue(model.CreatePayload{Title: "Target"})
+
+	issue, err := client.AddIssue(model.CreatePayload{
+		Title: "With deps",
+		Dependencies: []model.Dependency{
+			{TargetID: target.ID, Kind: model.DependencyBlocks},
+			{TargetID: target.ID, Kind: model.DependencyBlockedBy},
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddIssue failed: %v", err)
+	}
+	for i, d := range issue.Dependencies {
+		if d.SourceID != issue.ID {
+			t.Errorf("dep[%d] SourceID: got %q want %q", i, d.SourceID, issue.ID)
+		}
 	}
 }
 

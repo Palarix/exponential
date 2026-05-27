@@ -28,6 +28,7 @@ type Event struct {
 type CreatePayload struct {
 	Title        string       `json:"title"`
 	Description  string       `json:"description,omitempty"`
+	Status       string       `json:"status,omitempty"`
 	ParentID     string       `json:"parent_id,omitempty"`
 	Estimate     int          `json:"estimate,omitempty"`
 	Priority     int          `json:"priority,omitempty"`

@@ -136,14 +136,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	case model.EventTypeCreate:
 		var p model.CreatePayload
 		json.Unmarshal(req.Payload, &p)
-		issue, err := client.AddIssue(beats.AddOptions{
-			Title:       p.Title,
-			Description: p.Description,
-			ParentID:    p.ParentID,
-			Estimate:    p.Estimate,
-			Assignee:    p.Assignee,
-			Labels:      p.Labels,
-		})
+		issue, err := client.AddIssue(p)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
 			return
