@@ -74,3 +74,4 @@ Comments are markdown. A good completion comment includes:
 - `make frontend` — build the web application assets.
 - `make build` — build the CLI with the web assets embedded.
 - `make test` — run the test suite.
+- always use `bun` and `bunx` over `npm` and `npmx` when available

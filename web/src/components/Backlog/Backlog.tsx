@@ -485,7 +485,7 @@ export default function Backlog({
       const targetStatus = getRowStatusGroup(rowIndex);
       const isCrossGroup = draggedStatus !== targetStatus;
 
-      if (isCrossGroup && !e.metaKey) {
+      if (isCrossGroup && !(e.metaKey || e.ctrlKey)) {
         setDropIndicator(null);
         setDropGroupStatus(targetStatus);
         return;
@@ -554,11 +554,9 @@ export default function Backlog({
         const newKey = generateKeyBetween(lastKey, null);
 
         for (const id of batchIds) {
-          const issue = issues.find((i) => i.id === id);
           const update: Record<string, unknown> = { status: groupTarget };
           if (id === droppedId) {
             update.sort_order = newKey;
-            if (issue?.parent_id) update.parent_id = "";
           }
           await addDraft(id, "UPDATE", update);
         }
@@ -975,7 +973,7 @@ export default function Backlog({
                       (ii) => ii.id === draggedId,
                     )?.status;
                     const isCrossGroup = draggedStatus !== groupRow.status;
-                    if (isCrossGroup && !e.metaKey) {
+                    if (isCrossGroup && !(e.metaKey || e.ctrlKey)) {
                       setDropIndicator(null);
                       setDropGroupStatus(groupRow.status);
                       return;

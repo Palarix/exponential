@@ -35,8 +35,8 @@ export default function Avatar({ name, size = "md" }: AvatarProps) {
 
   return (
     <div
-      className="rounded-full bg-[var(--color-bg-tertiary)] flex items-center justify-center font-medium text-[var(--color-text-muted)] shrink-0"
-      style={{ width: px, height: px, fontSize: px * 0.45 }}
+      className="rounded-full bg-white flex items-center justify-center font-medium text-[var(--color-text-muted)] shrink-0 -m-0.5"
+      style={{ width: px, height: px, fontSize: px * 0.5 }}
       title={name}
     >
       {name.charAt(0).toUpperCase()}
