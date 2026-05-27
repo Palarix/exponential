@@ -112,6 +112,83 @@ Either via CLI `beats create -t <epic|task> -p <parent_id> "Description"` or Kan
 ### 2. Updating the status
 Either via CLI `beats update <id>` or Kanban UI. Appends a new line to JSONL with the update event. Commits like before.
 
+## MCP (Model Context Protocol) server
+
+Beats ships with an MCP server so AI agents can manage issues with structured tool calls instead of shelling out to the CLI (which historically suffered from shell-escaping breakage on multi-line markdown). The server is just another beats subcommand:
+
+```bash
+beats mcp
+```
+
+It speaks the MCP stdio protocol; you wire it into a compatible client via that client's config.
+
+### Setup for Claude Code
+
+Claude Code can pick up the MCP server from any of three places. Pick whichever fits your workflow:
+
+**1. Project-local (recommended) — `.mcp.json` at the repo root.** Checked in alongside the code, so every contributor with `beats` on their `PATH` gets the same tools without setup. Claude Code auto-loads it when you open the project.
+
+```json
+{
+  "mcpServers": {
+    "beats": {
+      "command": "beats",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**2. User-level — `claude mcp add`.** The fastest path if you don't want a checked-in file. From inside the project directory:
+
+```bash
+claude mcp add beats beats mcp
+```
+
+This appends an entry under `mcpServers` in your user-level Claude Code settings (`~/.claude.json` or `~/.claude/settings.json` depending on platform). It applies to every project you open until you remove it with `claude mcp remove beats`.
+
+**3. Manual user-level edit.** If you'd rather edit the file directly, add the same JSON snippet from option 1 under `mcpServers` in `~/.claude/settings.json`.
+
+After any of these, restart Claude Code (or run `/mcp` in-session) and the seven `beats_*` tools become available to the agent.
+
+### Available tools
+
+| Tool             | What it does                                                                |
+| ---------------- | --------------------------------------------------------------------------- |
+| `beats_list`     | List issues with filters (status, label, assignee, parent, free-text match) |
+| `beats_show`     | Fetch one issue with description, dependencies, comments, optional events   |
+| `beats_history`  | Return the event audit trail for an issue                                   |
+| `beats_add`      | Create an issue, including status/labels/parent/story_points/links in one call |
+| `beats_update`   | Patch any subset of fields; status transitions go through here              |
+| `beats_comment`  | Add a markdown comment                                                      |
+| `beats_link`     | Add a dependency/relationship between two existing issues                   |
+
+Status shortcuts (`beats_start`, `beats_done`, etc.) are intentionally absent — agents transition status via `beats_update` with `status: "DOING"` etc., which keeps the tool surface tight and matches the CLI's own shortcut commands underneath.
+
+### Agent identity
+
+Writes performed through MCP are recorded with this precedence:
+
+1. `$BEATS_AGENT_IDENTITY` (e.g. `Claude Code <agent@nicspc.local>`) — operator-controlled, wins if set
+2. MCP `clientInfo` from the initialize handshake — best-effort attribution, e.g. `claude-code/1.x <agent@mcp>`
+3. The configured beats user — same default the CLI uses
+
+Set `BEATS_AGENT_IDENTITY` in the `env` block of `.mcp.json` if you want a fixed identity per agent:
+
+```json
+{
+  "mcpServers": {
+    "beats": {
+      "command": "beats",
+      "args": ["mcp"],
+      "env": {
+        "BEATS_AGENT_IDENTITY": "Claude Code <agent@nicspc.local>"
+      }
+    }
+  }
+}
+```
+
 ## The GUI
 We follow the Single Binary Web App" pattern. Tools like Docker Desktop, Syncthing, and Hugo use similar concepts to provide a GUI without requiring the user to install Node.js or a web server.
 Since you are using Go, you have a "superpower" for this: go:embed.

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/palarix/beats/internal/beats"
+	"github.com/palarix/beats/internal/inputs"
 	"github.com/palarix/beats/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -40,17 +41,17 @@ var updateCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			var input updateJSONInput
-			if err := decodeStrict(content, &input); err != nil {
+			var input inputs.UpdateInput
+			if err := inputs.DecodeStrict(content, &input); err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			payload, err := input.toUpdatePayload()
+			payload, err := input.ToUpdatePayload()
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			if updatePayloadEmpty(payload) {
+			if inputs.UpdatePayloadEmpty(payload) {
 				fmt.Println("No changes in payload.")
 				return
 			}

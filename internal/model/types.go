@@ -131,3 +131,36 @@ type Dependency struct {
 	TargetID string         `json:"target_id"`
 	Kind     DependencyKind `json:"kind"`
 }
+
+// NormalizeDependencyKind maps loose user input ("blocks", "blocked_by",
+// "BlockedBy", "relates_to", etc.) onto canonical kind strings. Returns an
+// empty string for unrecognized inputs.
+func NormalizeDependencyKind(kind string) string {
+	lower := ""
+	for _, r := range kind {
+		if r == '_' || r == '-' || r == ' ' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			r += 32
+		}
+		lower += string(r)
+	}
+	switch lower {
+	case "blocks":
+		return string(DependencyBlocks)
+	case "blockedby":
+		return string(DependencyBlockedBy)
+	case "dependson":
+		return string(DependencyDependsOn)
+	case "dependencyof":
+		return string(DependencyDependencyOf)
+	case "duplicates":
+		return string(DependencyDuplicates)
+	case "duplicatedby":
+		return string(DependencyDuplicatedBy)
+	case "relatesto":
+		return "relates_to"
+	}
+	return ""
+}

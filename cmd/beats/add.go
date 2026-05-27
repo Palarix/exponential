@@ -8,6 +8,7 @@ import (
 
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/config"
+	"github.com/palarix/beats/internal/inputs"
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/ui"
 	"github.com/spf13/cobra"
@@ -38,12 +39,12 @@ var addCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			var input addJSONInput
-			if err := decodeStrict(content, &input); err != nil {
+			var input inputs.AddInput
+			if err := inputs.DecodeStrict(content, &input); err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			payload, err := input.toCreatePayload()
+			payload, err := input.ToCreatePayload()
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)

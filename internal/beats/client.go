@@ -20,6 +20,10 @@ func GitCommit(msg string) {
 type Client struct {
 	Config   *config.Config
 	Collapse bool
+	// UserOverride, when non-empty, is returned by GetUser instead of the
+	// configured user. The MCP server uses this to record the calling
+	// agent's identity on writes.
+	UserOverride string
 }
 
 // NewClient creates a new Client with the given configuration.

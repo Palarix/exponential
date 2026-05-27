@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "beats": {
+      "command": "beats",
+      "args": ["mcp"]
+    }
+  }
+}

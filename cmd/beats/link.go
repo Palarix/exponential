@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/model"
@@ -37,7 +36,7 @@ var linkCmd = &cobra.Command{
 		}
 
 		// Validate dependency type
-		depKind := normalizeDependencyKind(linkTypeFlag)
+		depKind := model.NormalizeDependencyKind(linkTypeFlag)
 		if depKind == "" {
 			fmt.Printf("Error: Invalid dependency type '%s'\n", linkTypeFlag)
 			cmd.Help()
@@ -66,27 +65,6 @@ var linkCmd = &cobra.Command{
 		}
 		fmt.Printf("Linked %s %s %s\n", sourceIssue.ID, depKind, targetIssue.ID)
 	},
-}
-
-func normalizeDependencyKind(kind string) string {
-	lower := strings.ToLower(strings.ReplaceAll(kind, "_", ""))
-	switch lower {
-	case "blocks":
-		return string(model.DependencyBlocks)
-	case "blockedby":
-		return string(model.DependencyBlockedBy)
-	case "dependson":
-		return string(model.DependencyDependsOn)
-	case "dependencyof":
-		return string(model.DependencyDependencyOf)
-	case "duplicates":
-		return string(model.DependencyDuplicates)
-	case "duplicatedby":
-		return string(model.DependencyDuplicatedBy)
-	case "relatesto":
-		return "relates_to" // Add relates_to if not already in model
-	}
-	return ""
 }
 
 func init() {

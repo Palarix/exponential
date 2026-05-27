@@ -6,9 +6,16 @@ import (
 	"strings"
 )
 
-// GetUser returns the configured user or falls back to git config.
+// GetUser returns the recorded author for new events. Resolution order:
+// caller-provided override (used by MCP for agent identity), configured
+// user, then git config as a last resort.
 func (c *Client) GetUser() string {
-	// 1. Check config
+	// 1. Caller-provided override (e.g. MCP agent identity)
+	if c.UserOverride != "" {
+		return c.UserOverride
+	}
+
+	// 2. Check config
 	if c.Config.User != "" {
 		return c.Config.User
 	}
