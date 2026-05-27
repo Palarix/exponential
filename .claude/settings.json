@@ -30,7 +30,12 @@
       "mcp__beats__beats_add",
       "mcp__beats__beats_update",
       "Bash(make test *)",
-      "mcp__beats__beats_show"
+      "mcp__beats__beats_show",
+      "mcp__beats__beats_history",
+      "mcp__beats__beats_list",
+      "Bash(bun run *)",
+      "Bash(bunx eslint *)"
     ]
-  }
+  },
+  "model": "claude-opus-4-6[1M]"
 }

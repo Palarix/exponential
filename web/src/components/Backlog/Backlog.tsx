@@ -1,5 +1,21 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { generateKeyBetween } from "fractional-indexing";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  closestCenter,
+  type CollisionDetection,
+  type DragStartEvent,
+  type DragOverEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import { createIssue, addDraft } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
@@ -376,32 +392,52 @@ export default function Backlog({
     }
   }, [rows, onNavigationOrderChange]);
 
-  // Drag-and-drop for manual reordering
+  // Drag-and-drop for manual reordering (powered by @dnd-kit)
   const isDndEnabled = sortKey === "manual";
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dropIndicator, _setDropIndicator] = useState<{
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{
     rowIndex: number;
     position: "above" | "below";
   } | null>(null);
-  const [dropGroupStatus, _setDropGroupStatus] = useState<string | null>(null);
-  const dropIndicatorRef = useRef(dropIndicator);
-  const dropGroupStatusRef = useRef(dropGroupStatus);
-  const [dropNestTargetId, _setDropNestTargetId] = useState<string | null>(
-    null,
+  const [dropGroupStatus, setDropGroupStatus] = useState<string | null>(null);
+  const [dropNestTargetId, setDropNestTargetId] = useState<string | null>(null);
+  const dragBatchRef = useRef<string[]>([]);
+  const modifiersRef = useRef({ alt: false, meta: false, ctrl: false });
+  const pointerYRef = useRef<number>(0);
+
+  // Track modifier keys and pointer Y via window listeners while a drag is in
+  // flight. dnd-kit's drag events only expose the original activator event,
+  // so we poll modifier state from the global keyboard, and we use the live
+  // cursor Y for above/below decisions (the source rect's translated center
+  // depends on where the user grabbed the row).
+  useEffect(() => {
+    if (!activeId) return;
+    const syncKeys = (e: KeyboardEvent) => {
+      modifiersRef.current = {
+        alt: e.altKey,
+        meta: e.metaKey,
+        ctrl: e.ctrlKey,
+      };
+    };
+    const syncPointer = (e: PointerEvent) => {
+      pointerYRef.current = e.clientY;
+    };
+    window.addEventListener("keydown", syncKeys);
+    window.addEventListener("keyup", syncKeys);
+    window.addEventListener("pointermove", syncPointer);
+    return () => {
+      window.removeEventListener("keydown", syncKeys);
+      window.removeEventListener("keyup", syncKeys);
+      window.removeEventListener("pointermove", syncPointer);
+    };
+  }, [activeId]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 3 },
+    }),
+    useSensor(KeyboardSensor),
   );
-  const dropNestTargetIdRef = useRef(dropNestTargetId);
-  const setDropIndicator = useCallback((v: typeof dropIndicator) => {
-    dropIndicatorRef.current = v;
-    _setDropIndicator(v);
-  }, []);
-  const setDropGroupStatus = useCallback((v: typeof dropGroupStatus) => {
-    dropGroupStatusRef.current = v;
-    _setDropGroupStatus(v);
-  }, []);
-  const setDropNestTargetId = useCallback((v: typeof dropNestTargetId) => {
-    dropNestTargetIdRef.current = v;
-    _setDropNestTargetId(v);
-  }, []);
 
   const getRowStatusGroup = useCallback(
     (rowIndex: number): string | null => {
@@ -427,109 +463,14 @@ export default function Backlog({
     [issues, childrenByParent],
   );
 
-  const dragGroupRef = useRef<string[]>([]);
-
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, issueId: string) => {
-      dropHandledRef.current = false;
-      setDropNestTargetId(null);
-      const group = getDragGroup(issueId);
-      dragGroupRef.current = group;
-      setDraggedId(issueId);
-      e.dataTransfer.effectAllowed = "all";
-      e.dataTransfer.setData("text/plain", issueId);
-      if (e.currentTarget instanceof HTMLElement) {
-        e.currentTarget.style.opacity = "0.4";
-      }
-    },
-    [getDragGroup],
-  );
-
-  const handleDragOver = useCallback(
-    (e: React.DragEvent, rowIndex: number) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      if (!draggedId) return;
-
-      const row = rows[rowIndex];
-      if (row.kind !== "issue") return;
-      if (row.issue.id === draggedId) {
-        setDropIndicator(null);
-        setDropGroupStatus(null);
-        setDropNestTargetId(null);
-        return;
-      }
-
-      // ALT+drag: nest as child
-      if (e.altKey) {
-        const targetId = row.issue.id;
-        const isDescendant = (parentId: string, childId: string): boolean => {
-          for (const i of issues) {
-            if (i.parent_id === parentId) {
-              if (i.id === childId) return true;
-              if (isDescendant(i.id, childId)) return true;
-            }
-          }
-          return false;
-        };
-        if (!row.issue.parent_id && !isDescendant(draggedId, targetId)) {
-          setDropIndicator(null);
-          setDropGroupStatus(null);
-          setDropNestTargetId(targetId);
-          return;
-        }
-      }
-
-      setDropNestTargetId(null);
-      const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
-      const targetStatus = getRowStatusGroup(rowIndex);
-      const isCrossGroup = draggedStatus !== targetStatus;
-
-      if (isCrossGroup && !(e.metaKey || e.ctrlKey)) {
-        setDropIndicator(null);
-        setDropGroupStatus(targetStatus);
-        return;
-      }
-
-      setDropGroupStatus(null);
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const position: "above" | "below" =
-        e.clientY < rect.top + rect.height / 2 ? "above" : "below";
-
-      // "Below" a parent with expanded children → redirect to "above first child"
-      if (
-        position === "below" &&
-        row.hasChildren &&
-        expandedNodes.has(row.issue.id)
-      ) {
-        const firstChildIdx = rows.findIndex(
-          (r, j) => j > rowIndex && r.kind === "issue" && r.depth > row.depth,
-        );
-        if (firstChildIdx !== -1) {
-          setDropIndicator({ rowIndex: firstChildIdx, position: "above" });
-          return;
-        }
-      }
-
-      setDropIndicator({ rowIndex, position });
-    },
-    [draggedId, rows, issues, getRowStatusGroup, expandedNodes],
-  );
-
-  const dropHandledRef = useRef(false);
-
   const performDrop = useCallback(
     async (
       droppedId: string,
       groupTarget: string | null,
       indicatorTarget: { rowIndex: number; position: "above" | "below" } | null,
       nestTarget: string | null,
+      batchIds: string[],
     ) => {
-      if (dropHandledRef.current) return;
-      dropHandledRef.current = true;
-
-      const batchIds = dragGroupRef.current;
-
       if (nestTarget) {
         await addDraft(droppedId, "UPDATE", { parent_id: nestTarget });
         onRefresh();
@@ -633,55 +574,156 @@ export default function Backlog({
     [rows, getRowStatusGroup, issues, onRefresh],
   );
 
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      if (!draggedId) {
-        setDraggedId(null);
+  const resetDropState = useCallback(() => {
+    setActiveId(null);
+    setDropIndicator(null);
+    setDropGroupStatus(null);
+    setDropNestTargetId(null);
+    modifiersRef.current = { alt: false, meta: false, ctrl: false };
+  }, []);
+
+  const handleDndStart = useCallback(
+    (event: DragStartEvent) => {
+      const id = String(event.active.id);
+      const orig = event.activatorEvent as MouseEvent | KeyboardEvent;
+      modifiersRef.current = {
+        alt: !!orig.altKey,
+        meta: !!orig.metaKey,
+        ctrl: !!orig.ctrlKey,
+      };
+      if (typeof (orig as PointerEvent).clientY === "number") {
+        pointerYRef.current = (orig as PointerEvent).clientY;
+      }
+      dragBatchRef.current = getDragGroup(id);
+      setActiveId(id);
+      setDropIndicator(null);
+      setDropGroupStatus(null);
+      setDropNestTargetId(null);
+    },
+    [getDragGroup],
+  );
+
+  const handleDndOver = useCallback(
+    (event: DragOverEvent) => {
+      const draggedId = String(event.active.id);
+      const overRaw = event.over?.id ? String(event.over.id) : null;
+      if (!overRaw) {
         setDropIndicator(null);
         setDropGroupStatus(null);
         setDropNestTargetId(null);
         return;
       }
-      await performDrop(
-        draggedId,
-        dropGroupStatusRef.current,
-        dropIndicatorRef.current,
-        dropNestTargetIdRef.current,
+
+      // Group header droppable IDs are prefixed "group-"
+      if (overRaw.startsWith("group-")) {
+        const status = overRaw.slice("group-".length);
+        const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
+        if (draggedStatus !== status) {
+          setDropIndicator(null);
+          setDropGroupStatus(status);
+          setDropNestTargetId(null);
+        } else {
+          setDropGroupStatus(null);
+        }
+        return;
+      }
+
+      // Otherwise overRaw is an issue id
+      const overRowIndex = rows.findIndex(
+        (r) => r.kind === "issue" && r.issue.id === overRaw,
       );
-      setDraggedId(null);
-      setDropIndicator(null);
-      setDropGroupStatus(null);
+      if (overRowIndex < 0) return;
+      const overRow = rows[overRowIndex];
+      if (overRow.kind !== "issue") return;
+      if (overRow.issue.id === draggedId) {
+        setDropIndicator(null);
+        setDropGroupStatus(null);
+        setDropNestTargetId(null);
+        return;
+      }
+
+      // ALT-drag: nest as child of a top-level issue
+      if (modifiersRef.current.alt) {
+        const isDescendant = (parentId: string, childId: string): boolean => {
+          for (const i of issues) {
+            if (i.parent_id === parentId) {
+              if (i.id === childId) return true;
+              if (isDescendant(i.id, childId)) return true;
+            }
+          }
+          return false;
+        };
+        if (!overRow.issue.parent_id && !isDescendant(draggedId, overRaw)) {
+          setDropIndicator(null);
+          setDropGroupStatus(null);
+          setDropNestTargetId(overRaw);
+          return;
+        }
+      }
       setDropNestTargetId(null);
+
+      const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
+      const targetStatus = getRowStatusGroup(overRowIndex);
+      const isCrossGroup = draggedStatus !== targetStatus;
+
+      if (
+        isCrossGroup &&
+        !(modifiersRef.current.meta || modifiersRef.current.ctrl)
+      ) {
+        setDropIndicator(null);
+        setDropGroupStatus(targetStatus);
+        return;
+      }
+      setDropGroupStatus(null);
+
+      // Above/below relative to the over row's center, using the actual
+      // pointer Y rather than the source rect's translated center (which
+      // depends on where the user grabbed the row).
+      const overRect = event.over?.rect;
+      if (!overRect) return;
+      const overCenterY = overRect.top + overRect.height / 2;
+      const position: "above" | "below" =
+        pointerYRef.current < overCenterY ? "above" : "below";
+
+      // "Below" a parent with expanded children → redirect to "above first child"
+      if (
+        position === "below" &&
+        overRow.hasChildren &&
+        expandedNodes.has(overRow.issue.id)
+      ) {
+        const firstChildIdx = rows.findIndex(
+          (r, j) =>
+            j > overRowIndex && r.kind === "issue" && r.depth > overRow.depth,
+        );
+        if (firstChildIdx !== -1) {
+          setDropIndicator({ rowIndex: firstChildIdx, position: "above" });
+          return;
+        }
+      }
+
+      setDropIndicator({ rowIndex: overRowIndex, position });
     },
-    [draggedId, performDrop],
+    [rows, issues, getRowStatusGroup, expandedNodes],
   );
 
-  const handleDragEnd = useCallback(
-    (e: React.DragEvent) => {
-      if (e.currentTarget instanceof HTMLElement) {
-        e.currentTarget.style.opacity = "";
-      }
-      const currentDropGroup = dropGroupStatusRef.current;
-      const currentDropIndicator = dropIndicatorRef.current;
-      const currentNestTarget = dropNestTargetIdRef.current;
-      if (
-        draggedId &&
-        (currentDropGroup || currentDropIndicator || currentNestTarget)
-      ) {
-        performDrop(
-          draggedId,
-          currentDropGroup,
-          currentDropIndicator,
-          currentNestTarget,
-        );
-      }
-      setDraggedId(null);
-      setDropIndicator(null);
-      setDropGroupStatus(null);
-      setDropNestTargetId(null);
+  const handleDndEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const droppedId = String(event.active.id);
+      const groupTarget = dropGroupStatus;
+      const indicatorTarget = dropIndicator;
+      const nestTarget = dropNestTargetId;
+      const batchIds = dragBatchRef.current;
+      resetDropState();
+      if (!groupTarget && !indicatorTarget && !nestTarget) return;
+      await performDrop(
+        droppedId,
+        groupTarget,
+        indicatorTarget,
+        nestTarget,
+        batchIds,
+      );
     },
-    [draggedId, performDrop],
+    [dropGroupStatus, dropIndicator, dropNestTargetId, performDrop, resetDropState],
   );
 
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -945,6 +987,14 @@ export default function Backlog({
       </div>
 
       {/* Rows */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={backlogCollision}
+        onDragStart={handleDndStart}
+        onDragOver={handleDndOver}
+        onDragEnd={handleDndEnd}
+        onDragCancel={resetDropState}
+      >
       <div ref={listRef} className="flex-1 overflow-y-auto" onMouseLeave={() => { if (!keyboardNav) setFocusedIndex(-1); }}>
         {(() => {
           const sections: {
@@ -965,44 +1015,23 @@ export default function Backlog({
             const isExpanded = expandedGroups.has(groupRow.status);
             const isInlineActive = inlineCreateStatus === groupRow.status;
             const isDropGroup = dropGroupStatus === groupRow.status;
-            const handleGroupDragOver =
-              isDndEnabled && draggedId
-                ? (e: React.DragEvent) => {
-                    e.preventDefault();
-                    const draggedStatus = issues.find(
-                      (ii) => ii.id === draggedId,
-                    )?.status;
-                    const isCrossGroup = draggedStatus !== groupRow.status;
-                    if (isCrossGroup && !(e.metaKey || e.ctrlKey)) {
-                      setDropIndicator(null);
-                      setDropGroupStatus(groupRow.status);
-                      return;
-                    }
-                    setDropGroupStatus(null);
-                    const firstIssueIdx = rows.findIndex(
-                      (r, j) =>
-                        j > groupIndex && r.kind === "issue" && r.depth === 0,
-                    );
-                    if (firstIssueIdx !== -1)
-                      setDropIndicator({
-                        rowIndex: firstIssueIdx,
-                        position: "above",
-                      });
-                  }
-                : undefined;
             return (
               <div
                 key={`g-${groupRow.status}`}
                 className={`${isDropGroup ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5" : ""}`}
               >
+                <GroupHeaderDnd
+                  status={groupRow.status}
+                  enabled={isDndEnabled && !!activeId}
+                >
+                {(setHeaderRef) => (
                 <div
+                  ref={setHeaderRef}
                   data-row={groupIndex}
                   onClick={() =>
                     !groupRow.isEmpty && toggleGroup(groupRow.status)
                   }
                   onMouseEnter={() => { setKeyboardNav(false); setFocusedIndex(groupIndex); }}
-                  onDragOver={handleGroupDragOver}
-                  onDrop={handleGroupDragOver ? handleDrop : undefined}
                   className={`
                     flex items-center gap-2 w-full px-5 py-2 border-b border-[var(--color-border-subtle)]
                     transition-colors duration-[var(--duration-fast)] select-none
@@ -1055,6 +1084,8 @@ export default function Backlog({
                     </svg>
                   </button>
                 </div>
+                )}
+                </GroupHeaderDnd>
                 {isInlineActive && (
                   <div className="flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
                     <StatusIcon
@@ -1100,7 +1131,7 @@ export default function Backlog({
                   const isNodeExpanded = expandedNodes.has(issue.id);
                   const indent = depth * 24;
                   const canDrag = isDndEnabled && !isGhostParent;
-                  const isDropTarget = isDndEnabled && !!draggedId;
+                  const isDropTarget = isDndEnabled && !!activeId;
                   const showDropAbove =
                     dropIndicator?.rowIndex === i &&
                     dropIndicator.position === "above";
@@ -1109,10 +1140,10 @@ export default function Backlog({
                     dropIndicator.position === "below";
                   const isNestTarget = dropNestTargetId === issue.id;
                   const isDraggedOrBatch =
-                    draggedId !== null &&
-                    dragGroupRef.current.includes(issue.id);
+                    activeId !== null &&
+                    dragBatchRef.current.includes(issue.id);
                   const dragBatchCount =
-                    draggedId === issue.id ? dragGroupRef.current.length : 0;
+                    activeId === issue.id ? dragBatchRef.current.length : 0;
                   return (
                     <div key={issue.id} className="relative">
                       {showDropAbove && (
@@ -1121,19 +1152,17 @@ export default function Backlog({
                           style={{ left: `${20 + depth * 24}px` }}
                         />
                       )}
+                      <IssueRowDnd
+                        id={issue.id}
+                        canDrag={canDrag}
+                        enabled={isDropTarget}
+                      >
+                      {(setRowRef, dragProps) => (
                       <div
+                        ref={setRowRef}
                         data-row={i}
-                        draggable={canDrag}
-                        onDragStart={
-                          canDrag
-                            ? (e) => handleDragStart(e, issue.id)
-                            : undefined
-                        }
-                        onDragEnd={canDrag ? handleDragEnd : undefined}
-                        onDragOver={
-                          isDropTarget ? (e) => handleDragOver(e, i) : undefined
-                        }
-                        onDrop={isDropTarget ? handleDrop : undefined}
+                        {...dragProps.attributes}
+                        {...dragProps.listeners}
                         onClick={() => onIssueClick?.(issue)}
                         onMouseEnter={() => { setKeyboardNav(false); setFocusedIndex(i); }}
                         className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
@@ -1436,6 +1465,8 @@ export default function Backlog({
                           {formatShortDate(issue.created_at)}
                         </span>
                       </div>
+                      )}
+                      </IssueRowDnd>
                       {showDropBelow && (
                         <div
                           className="absolute bottom-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
@@ -1450,6 +1481,108 @@ export default function Backlog({
           });
         })()}
       </div>
+      <DragOverlay dropAnimation={null}>
+        {activeId
+          ? (() => {
+              const dragged = issues.find((i) => i.id === activeId);
+              if (!dragged) return null;
+              const batchCount = dragBatchRef.current.length;
+              return (
+                <DragOverlayCard issue={dragged} batchCount={batchCount} />
+              );
+            })()
+          : null}
+      </DragOverlay>
+      </DndContext>
+    </div>
+  );
+}
+
+// Prefer row collisions over group-header collisions so the drop indicator
+// tracks the nearest row even when the pointer is in the slim padding above
+// the first row or below the last row of a populated group. Groups win only
+// when no rows are colliding (i.e. the group is empty).
+const backlogCollision: CollisionDetection = (args) => {
+  const all = closestCenter(args);
+  const rows = all.filter((c) => !String(c.id).startsWith("group-"));
+  return rows.length > 0 ? rows : all;
+};
+
+function GroupHeaderDnd({
+  status,
+  enabled,
+  children,
+}: {
+  status: string;
+  enabled: boolean;
+  children: (
+    setNodeRef: (el: HTMLElement | null) => void,
+  ) => React.ReactElement;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: `group-${status}`,
+    disabled: !enabled,
+  });
+  return children(setNodeRef);
+}
+
+function IssueRowDnd({
+  id,
+  canDrag,
+  enabled,
+  children,
+}: {
+  id: string;
+  canDrag: boolean;
+  enabled: boolean;
+  children: (
+    setNodeRef: (el: HTMLElement | null) => void,
+    dragProps: {
+      attributes: React.HTMLAttributes<HTMLElement>;
+      listeners: React.HTMLAttributes<HTMLElement>;
+    },
+  ) => React.ReactElement;
+}) {
+  const draggable = useDraggable({ id, disabled: !canDrag });
+  const droppable = useDroppable({ id, disabled: !enabled });
+  const setNodeRef = (el: HTMLElement | null) => {
+    draggable.setNodeRef(el);
+    droppable.setNodeRef(el);
+  };
+  return children(setNodeRef, {
+    attributes: draggable.attributes as React.HTMLAttributes<HTMLElement>,
+    listeners: (draggable.listeners ?? {}) as React.HTMLAttributes<HTMLElement>,
+  });
+}
+
+function DragOverlayCard({
+  issue,
+  batchCount,
+}: {
+  issue: Issue;
+  batchCount: number;
+}) {
+  return (
+    <div
+      style={{
+        transform: CSS.Translate.toString({ x: 0, y: 0, scaleX: 1, scaleY: 1 }),
+      }}
+      className="flex items-center gap-2.5 px-5 h-[38px] border border-[var(--color-border-default)] bg-[var(--color-surface-elevated)] rounded-[var(--radius-sm)] shadow-lg pointer-events-none"
+    >
+      <CopyableId
+        id={issue.id}
+        className="text-xs w-[110px] shrink-0 truncate tabular-nums"
+      />
+      <StatusIcon status={issue.status} size={14} />
+      <span className="text-sm text-[var(--color-text-primary)] truncate">
+        {issue.title}
+      </span>
+      {batchCount > 1 && (
+        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">
+          {batchCount}
+        </span>
+      )}
+      {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
     </div>
   );
 }
