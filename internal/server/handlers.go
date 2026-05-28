@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/palarix/beats/internal/beats"
@@ -18,55 +16,6 @@ import (
 	"github.com/palarix/beats/internal/version"
 )
 
-// --- Response Structures ---
-
-type IssueResponse struct {
-	ID           string               `json:"id"`
-	Title        string               `json:"title"`
-	Description  string               `json:"description"`
-	Status       string               `json:"status"`
-	ParentID     string               `json:"parent_id,omitempty"`
-	Estimate     int                  `json:"estimate"`
-	Priority     int                  `json:"priority"`
-	SortOrder    string               `json:"sort_order"`
-	Assignee     string               `json:"assignee,omitempty"`
-	Labels       []string             `json:"labels,omitempty"`
-	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
-	Comments     []CommentResponse    `json:"comments,omitempty"`
-	CreatedAt    time.Time            `json:"created_at"`
-	CreatedBy    string               `json:"created_by"`
-	UpdatedAt    time.Time            `json:"updated_at"`
-	IsPending    bool                 `json:"is_pending"`
-}
-
-type DependencyResponse struct {
-	SourceID string `json:"source_id"`
-	TargetID string `json:"target_id"`
-	Kind     string `json:"kind"`
-}
-
-type CommentResponse struct {
-	ID        string    `json:"id"`
-	Text      string    `json:"text"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type PendingResponse struct {
-	HasPending bool                `json:"has_pending"`
-	Events     []PendingEventEntry `json:"events"`
-	IssueIDs   []string            `json:"issue_ids"`
-}
-
-type PendingEventEntry struct {
-	IssueID   string      `json:"issue_id"`
-	Type      string      `json:"type"`
-	Payload   interface{} `json:"payload,omitempty"`
-	CreatedAt time.Time   `json:"created_at"`
-}
-
-// --- Handler Methods ---
-
 func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
@@ -76,7 +25,6 @@ func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 
 	sorted := beats.SortIssues(issues)
 
-	// Get pending issue IDs
 	s.mu.RLock()
 	pendingIDs := make(map[string]bool)
 	for _, evt := range s.pendingEvents {
@@ -247,8 +195,6 @@ func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "discarded"})
 }
 
-// handleListInstances returns the list of currently running beats board
-// instances (peers + self), pruning any stale entries from the shared registry.
 func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 	entries, err := registry.List()
 	if err != nil {
@@ -425,9 +371,6 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleActivity returns the most recent project-wide events for the Dashboard
-// activity feed. Sort_order-only UPDATE events are filtered out as noise.
-// Returns up to 30 events, newest first, with the originating issue's current title.
 func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	const maxItems = 30
 
@@ -459,7 +402,6 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 		CreatedBy  string      `json:"created_by"`
 	}
 
-	// Walk events newest → oldest, keep the first maxItems meaningful ones.
 	out := make([]activityItem, 0, maxItems)
 	for i := len(allEvents) - 1; i >= 0 && len(out) < maxItems; i-- {
 		evt := allEvents[i]
@@ -477,30 +419,6 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, out)
-}
-
-// isMeaningfulActivityEvent returns true for events that should appear in the
-// project-wide activity feed. Filters out sort_order-only UPDATE events (drag-
-// reorder noise) and DELETE events (rare and destructive — out of scope here).
-func isMeaningfulActivityEvent(evt model.Event) bool {
-	switch evt.Type {
-	case model.EventTypeCreate, model.EventTypeComment:
-		return true
-	case model.EventTypeUpdate:
-		payload, ok := evt.Payload.(map[string]interface{})
-		if !ok {
-			return true
-		}
-		// If the only key set is sort_order, this is reorder noise.
-		if len(payload) == 1 {
-			if _, hasOnlySortOrder := payload["sort_order"]; hasOnlySortOrder {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
 }
 
 func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
@@ -534,61 +452,4 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, history)
-}
-
-// --- Helpers ---
-
-func issueToResponse(issue *model.Issue) IssueResponse {
-	resp := IssueResponse{
-		ID:          issue.ID,
-		Title:       issue.Title,
-		Description: issue.Description,
-		Status:      string(issue.Status),
-		ParentID:    issue.ParentID,
-		Estimate:    issue.Estimate,
-		Priority:    issue.Priority,
-		SortOrder:   issue.SortOrder,
-		Assignee:    issue.Assignee,
-		Labels:      issue.Labels,
-		CreatedAt:   issue.CreatedAt,
-		CreatedBy:   issue.CreatedBy,
-		UpdatedAt:   issue.UpdatedAt,
-	}
-
-	for _, dep := range issue.Dependencies {
-		resp.Dependencies = append(resp.Dependencies, DependencyResponse{
-			SourceID: dep.SourceID,
-			TargetID: dep.TargetID,
-			Kind:     string(dep.Kind),
-		})
-	}
-
-	for _, c := range issue.Comments {
-		resp.Comments = append(resp.Comments, CommentResponse{
-			ID:        c.ID,
-			Text:      c.Text,
-			CreatedBy: c.CreatedBy,
-			CreatedAt: c.CreatedAt,
-		})
-	}
-
-	return resp
-}
-
-func getUser(cfg *config.Config) string {
-	if cfg != nil && cfg.User != "" {
-		return cfg.User
-	}
-
-	nameBytes, _ := exec.Command("git", "config", "user.name").Output()
-	emailBytes, _ := exec.Command("git", "config", "user.email").Output()
-	name := strings.TrimSpace(string(nameBytes))
-	email := strings.TrimSpace(string(emailBytes))
-	if name == "" {
-		name = "Unknown"
-	}
-	if email == "" {
-		email = "unknown@example.com"
-	}
-	return fmt.Sprintf("%s <%s>", name, email)
 }

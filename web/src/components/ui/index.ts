@@ -9,3 +9,6 @@ export { default as StatusIcon } from './StatusIcon';
 export { default as CopyableId } from './CopyableId';
 export { default as Popover, PopoverHeader } from './Popover';
 export { default as LabelPicker } from './LabelPicker';
+export { default as SubProgress } from './SubProgress';
+export { default as InlineDropdown, type DropdownOption } from './InlineDropdown';
+export { default as ErrorBoundary } from './ErrorBoundary';

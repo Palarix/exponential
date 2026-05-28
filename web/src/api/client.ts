@@ -4,35 +4,54 @@ const API_BASE = '/api';
 
 export type { Issue, Dependency, Comment, PendingState, Event };
 
+export class ApiError extends Error {
+  status: number;
+  statusText: string;
+  body: string;
+
+  constructor(res: Response, body: string) {
+    const msg = body || `${res.status} ${res.statusText}`;
+    super(msg);
+    this.name = 'ApiError';
+    this.status = res.status;
+    this.statusText = res.statusText;
+    this.body = body;
+  }
+}
+
+async function request<T = void>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new ApiError(res, body);
+  }
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
 export async function fetchIssues(): Promise<Issue[]> {
-  const res = await fetch(`${API_BASE}/issues`);
-  if (!res.ok) throw new Error('Failed to fetch issues');
-  return res.json();
+  return request(`${API_BASE}/issues`);
 }
 
 export async function fetchPending(): Promise<PendingState> {
-  const res = await fetch(`${API_BASE}/pending`);
-  if (!res.ok) throw new Error('Failed to fetch pending state');
-  return res.json();
+  return request(`${API_BASE}/pending`);
 }
 
 export async function addDraft(issueId: string, type: string, payload: unknown): Promise<void> {
-  const res = await fetch(`${API_BASE}/draft`, {
+  return request(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ issue_id: issueId, type, payload }),
   });
-  if (!res.ok) throw new Error('Failed to add draft');
 }
 
 export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string }): Promise<string> {
-  const res = await fetch(`${API_BASE}/draft`, {
+  const data = await request<{ issue_id: string }>(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ issue_id: '', type: 'CREATE', payload }),
   });
-  if (!res.ok) throw new Error('Failed to create issue');
-  const data = await res.json();
   return data.issue_id;
 }
 
@@ -44,18 +63,15 @@ export interface HistoryEvent {
 }
 
 export async function fetchIssueHistory(issueId: string): Promise<HistoryEvent[]> {
-  const res = await fetch(`${API_BASE}/issues/${issueId}/history`);
-  if (!res.ok) throw new Error('Failed to fetch history');
-  return res.json();
+  return request(`${API_BASE}/issues/${issueId}/history`);
 }
 
 export async function saveAll(message?: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/save`, {
+  return request(`${API_BASE}/save`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: message || '' }),
   });
-  if (!res.ok) throw new Error('Failed to save');
 }
 
 export interface AttentionItem {
@@ -84,9 +100,7 @@ export interface ActivityEvent {
 }
 
 export async function fetchActivity(): Promise<ActivityEvent[]> {
-  const res = await fetch(`${API_BASE}/activity`);
-  if (!res.ok) throw new Error('Failed to fetch activity');
-  return res.json();
+  return request(`${API_BASE}/activity`);
 }
 
 export interface EpicProgress {
@@ -138,9 +152,7 @@ export interface PulseMetrics {
 }
 
 export async function fetchMetrics(): Promise<PulseMetrics> {
-  const res = await fetch(`${API_BASE}/metrics`);
-  if (!res.ok) throw new Error('Failed to fetch metrics');
-  return res.json();
+  return request(`${API_BASE}/metrics`);
 }
 
 export interface Instance {
@@ -153,45 +165,37 @@ export interface Instance {
 }
 
 export async function fetchInstances(): Promise<Instance[]> {
-  const res = await fetch(`${API_BASE}/instances`);
-  if (!res.ok) throw new Error('Failed to fetch instances');
-  return res.json();
+  return request(`${API_BASE}/instances`);
 }
 
 export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean }> {
-  const res = await fetch(`${API_BASE}/config`);
-  if (!res.ok) throw new Error('Failed to fetch config');
-  return res.json();
+  return request(`${API_BASE}/config`);
 }
 
 export async function addConfigLabel(name: string, color: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/config/labels`, {
+  return request(`${API_BASE}/config/labels`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, color }),
   });
-  if (!res.ok) throw new Error('Failed to add label');
 }
 
 export async function updateConfigLabel(oldName: string, newName: string, color: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/config/labels`, {
+  return request(`${API_BASE}/config/labels`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ old_name: oldName, new_name: newName, color }),
   });
-  if (!res.ok) throw new Error('Failed to update label');
 }
 
 export async function deleteConfigLabel(name: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/config/labels`, {
+  return request(`${API_BASE}/config/labels`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error('Failed to delete label');
 }
 
 export async function discardAll(): Promise<void> {
-  const res = await fetch(`${API_BASE}/pending`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to discard');
+  return request(`${API_BASE}/pending`, { method: 'DELETE' });
 }
