@@ -378,9 +378,9 @@ export default function ContextMenu({
   }
 
   return createPortal(
-    <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] flex">
+    <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] flex items-start">
       {/* Main menu */}
-      <div className="min-w-[200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1">
+      <div className="min-w-[200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
         {MENU_ITEMS.map((item, i) => (
           <button
             key={item.id}
@@ -391,8 +391,10 @@ export default function ContextMenu({
           >
             <span className="text-[var(--color-text-muted)] w-4 shrink-0 flex items-center justify-center">{item.icon}</span>
             <span>{item.label}</span>
-            <span className="ml-auto text-xs text-[var(--color-text-muted)] mr-1">{item.shortcut}</span>
-            <Chevron />
+            <span className="ml-auto flex items-center gap-1.5">
+              <span className="text-xs text-[var(--color-text-muted)]">{item.shortcut}</span>
+              <Chevron />
+            </span>
           </button>
         ))}
         <div className="my-1 border-t border-[var(--color-border-subtle)]" />
@@ -414,7 +416,7 @@ export default function ContextMenu({
       {/* Flyout sub-menu */}
       {subMenu && (
         <div
-          className="min-w-[200px] max-w-[280px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1 ml-1"
+          className="min-w-[200px] max-w-[280px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden ml-1"
           style={{ marginTop: Math.max(0, subMenuOffset - 30) }}
         >
           {renderSubMenuPanel()}
