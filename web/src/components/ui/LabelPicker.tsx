@@ -1,6 +1,6 @@
 import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "react";
-import { LabelBadge, LabelColorsContext, HideDefaultLabelsContext } from "./Badge";
-import { LABEL_PRESET_COLORS, DEFAULT_LABELS } from "../../constants";
+import { LabelBadge, LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./Badge";
+import { LABEL_PRESET_COLORS } from "../../constants";
 import { addConfigLabel } from "../../api/client";
 
 interface LabelPickerProps {
@@ -24,6 +24,7 @@ export default function LabelPicker({
 }: LabelPickerProps) {
   const configLabels = useContext(LabelColorsContext);
   const hideDefaultLabels = useContext(HideDefaultLabelsContext);
+  const defaultLabels = useContext(DefaultLabelsContext);
   const [search, setSearch] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
@@ -46,17 +47,17 @@ export default function LabelPicker({
         .filter(keep)
         .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     }
-    const defaultNames = DEFAULT_LABELS.map((d) => d.name).filter(keep);
+    const defaultNames = defaultLabels.map((d) => d.name).filter(keep);
     const defaultSet = new Set(defaultNames.map((n) => n.toLowerCase()));
     const others = allLabels
       .filter((l) => !defaultSet.has(l.toLowerCase()) && keep(l))
       .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     return [...defaultNames, ...others];
-  }, [allLabels, hideDefaultLabels, excludeSet]);
+  }, [allLabels, hideDefaultLabels, excludeSet, defaultLabels]);
 
   const defaultLabelSet = useMemo(
-    () => new Set(DEFAULT_LABELS.map((d) => d.name.toLowerCase())),
-    [],
+    () => new Set(defaultLabels.map((d) => d.name.toLowerCase())),
+    [defaultLabels],
   );
 
   const filtered = useMemo(() => {

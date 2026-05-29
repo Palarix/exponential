@@ -11,8 +11,7 @@ import Labels from './components/Labels/Labels';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
-import { LabelColorsContext, HideDefaultLabelsContext, ErrorBoundary } from './components/ui';
-import { DEFAULT_LABELS } from './constants';
+import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary } from './components/ui';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
@@ -66,6 +65,7 @@ function App() {
   const [version, setVersion] = useState('');
   const [configLabels, setConfigLabels] = useState<Record<string, string>>({});
   const [hideDefaultLabels, setHideDefaultLabels] = useState(false);
+  const [defaultLabels, setDefaultLabels] = useState<{ name: string; color: string }[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>(() =>
     (localStorage.getItem('beats-sort') as SortKey) || 'manual'
   );
@@ -135,6 +135,10 @@ function App() {
       setVersion(c.version || '');
       setConfigLabels(c.labels || {});
       setHideDefaultLabels(!!c.hide_default_labels);
+      if (c.default_labels) {
+        const colors = c.labels || {};
+        setDefaultLabels(c.default_labels.map(name => ({ name, color: colors[name] || colors[name.toLowerCase()] || '' })));
+      }
       document.title = c.name ? `${c.name} | Beats` : 'Beats';
     }).catch(() => {});
     const interval = setInterval(fetchData, 5000);
@@ -251,11 +255,12 @@ function App() {
 
   const effectiveLabelColors = useMemo(() => {
     if (hideDefaultLabels) return configLabels;
-    const defaults = Object.fromEntries(DEFAULT_LABELS.map(d => [d.name, d.color]));
+    const defaults = Object.fromEntries(defaultLabels.map(d => [d.name, d.color]));
     return { ...defaults, ...configLabels };
-  }, [configLabels, hideDefaultLabels]);
+  }, [configLabels, hideDefaultLabels, defaultLabels]);
 
   return (
+    <DefaultLabelsContext.Provider value={defaultLabels}>
     <HideDefaultLabelsContext.Provider value={hideDefaultLabels}>
     <LabelColorsContext.Provider value={effectiveLabelColors}>
       <Layout
@@ -292,6 +297,7 @@ function App() {
       />
     </LabelColorsContext.Provider>
     </HideDefaultLabelsContext.Provider>
+    </DefaultLabelsContext.Provider>
   );
 }
 

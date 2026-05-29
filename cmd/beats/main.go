@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/palarix/beats/internal/config"
+	"github.com/palarix/beats/internal/ui"
 	"github.com/palarix/beats/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -27,6 +28,10 @@ var rootCmd = &cobra.Command{
 				}
 			}
 			return err
+		}
+
+		if cfg.Labels != nil {
+			ui.SetLabelColors(cfg.Labels)
 		}
 
 		// Check Data Model Version

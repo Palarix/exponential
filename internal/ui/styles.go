@@ -37,6 +37,14 @@ var labelColors = []lipgloss.Color{
 	lipgloss.Color("#795548"), // Brown
 }
 
+var configLabelColors map[string]string
+
+// SetLabelColors sets the label color map from config.
+// Call this once after loading config to enable config-driven label colors in CLI output.
+func SetLabelColors(labels map[string]string) {
+	configLabelColors = labels
+}
+
 // --- Base Styles ---
 var (
 	WhiteStyle  = lipgloss.NewStyle().Foreground(WhiteColor)
@@ -81,20 +89,22 @@ func StatusIcon(status model.IssueStatus) string {
 	}
 }
 
-// LabelColor returns a consistent color for a label based on its name.
+// LabelColor returns a color for a label, checking config colors first,
+// then falling back to a deterministic hash-based color.
 func LabelColor(label string) lipgloss.Color {
-	l := strings.ToLower(label)
-	if strings.Contains(l, "bug") {
-		return BlockedColor // Red
+	if configLabelColors != nil {
+		if c, ok := configLabelColors[label]; ok {
+			return lipgloss.Color(c)
+		}
+		if c, ok := configLabelColors[strings.ToLower(label)]; ok {
+			return lipgloss.Color(c)
+		}
 	}
-	if strings.Contains(l, "feature") {
-		return PlannedColor // Blue
+	hash := uint32(0)
+	for _, r := range label {
+		hash = hash*31 + uint32(r)
 	}
-	if strings.Contains(l, "epic") {
-		return AccentColor // Purple
-	}
-	// Default to white for everything else
-	return WhiteColor
+	return labelColors[hash%uint32(len(labelColors))]
 }
 
 // FormatLabels renders a list of labels as styled tags.

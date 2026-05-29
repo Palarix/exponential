@@ -168,7 +168,7 @@ export async function fetchInstances(): Promise<Instance[]> {
   return request(`${API_BASE}/instances`);
 }
 
-export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean }> {
+export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean; default_labels: string[] }> {
   return request(`${API_BASE}/config`);
 }
 
