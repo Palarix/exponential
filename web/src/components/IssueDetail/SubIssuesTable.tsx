@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { createIssue } from "../../api/client";
 import type { Issue } from "../../api/client";
+import { computeAppendKey } from "../../utils/sort";
 import { Avatar, LabelBadge, StatusIcon } from "../ui";
 
 export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
@@ -15,11 +16,12 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
 
   const handleInlineCreate = useCallback(async (title: string) => {
     if (!title.trim()) return;
-    await createIssue({ title: title.trim(), labels: ['feature'], parent_id: issue.id });
+    const sortOrder = computeAppendKey(issues, "BACKLOG", issue.id);
+    await createIssue({ title: title.trim(), labels: ['feature'], parent_id: issue.id, sort_order: sortOrder });
     setInlineTitle("");
     setShowInline(false);
     onRefresh();
-  }, [issue.id, onRefresh]);
+  }, [issue.id, issues, onRefresh]);
 
   const startInline = useCallback(() => {
     setShowInline(true);
