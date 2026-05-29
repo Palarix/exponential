@@ -6,6 +6,7 @@ import (
 
 	"github.com/kuyio/beats/internal/config"
 	"github.com/kuyio/beats/internal/model"
+	"github.com/kuyio/beats/internal/sortorder"
 )
 
 func ProjectIssues(events []model.Event) map[string]*model.Issue {
@@ -126,7 +127,50 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 		}
 	}
 
+	backfillSortOrder(finalIssues)
+
 	return finalIssues
+}
+
+// backfillSortOrder assigns sort_order to issues that don't have one.
+// Within each status group, unkeyed issues are appended after the last
+// keyed issue in creation-time order.
+func backfillSortOrder(issues map[string]*model.Issue) {
+	byStatus := make(map[model.IssueStatus][]*model.Issue)
+	for _, issue := range issues {
+		byStatus[issue.Status] = append(byStatus[issue.Status], issue)
+	}
+
+	for _, group := range byStatus {
+		maxKey := ""
+		for _, issue := range group {
+			if issue.SortOrder != "" && issue.SortOrder > maxKey {
+				maxKey = issue.SortOrder
+			}
+		}
+
+		var unkeyed []*model.Issue
+		for _, issue := range group {
+			if issue.SortOrder == "" {
+				unkeyed = append(unkeyed, issue)
+			}
+		}
+		if len(unkeyed) == 0 {
+			continue
+		}
+
+		sort.Slice(unkeyed, func(i, j int) bool {
+			return unkeyed[i].CreatedAt.Before(unkeyed[j].CreatedAt)
+		})
+
+		keys, err := sortorder.GenerateNKeysBetween(maxKey, "", len(unkeyed))
+		if err != nil {
+			continue
+		}
+		for i, issue := range unkeyed {
+			issue.SortOrder = keys[i]
+		}
+	}
 }
 
 // ProjectIssuesWithConfig projects issues and applies config-driven automations.

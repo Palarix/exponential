@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { createIssue, addDraft, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
+import { computeAppendKey } from "../../utils/sort";
 import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, InlineDropdown } from "../ui";
 import type { DropdownOption } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
@@ -95,7 +96,8 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, onCo
     setSaving(true);
     try {
       const combinedLabels = [...labels, ...additionalLabels.filter((l) => !labels.includes(l))];
-      const issueId = await createIssue({ title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined });
+      const sortOrder = computeAppendKey(issues, status, parentId || undefined);
+      const issueId = await createIssue({ title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, sort_order: sortOrder });
       const update: Record<string, unknown> = {};
       if (status !== "BACKLOG") update.status = status;
       const estimateNum = parseInt(estimate, 10);

@@ -1,4 +1,4 @@
-import { generateNKeysBetween } from 'fractional-indexing';
+import { generateKeyBetween } from 'fractional-indexing';
 import type { Issue } from '../api/types';
 
 export type SortKey = 'manual' | 'priority' | 'created' | 'updated' | 'title' | 'estimate';
@@ -28,17 +28,18 @@ function compareKeys(a: string, b: string): number {
   return 0;
 }
 
-export function getEffectiveKeys(issues: Issue[]): Map<string, string> {
-  const byCreated = [...issues].sort((a, b) =>
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
-  if (byCreated.length === 0) return new Map();
-  const virtualKeys = generateNKeysBetween(null, null, byCreated.length);
-  const keyMap = new Map<string, string>();
-  for (let i = 0; i < byCreated.length; i++) {
-    keyMap.set(byCreated[i].id, byCreated[i].sort_order || virtualKeys[i]);
+/** Compute a sort_order key that appends after all existing issues in a group. */
+export function computeAppendKey(issues: Issue[], status: string, parentId?: string): string {
+  const group = parentId
+    ? issues.filter(i => i.parent_id === parentId)
+    : issues.filter(i => i.status === status && !i.parent_id);
+  let maxKey: string | null = null;
+  for (const i of group) {
+    if (i.sort_order && (maxKey === null || i.sort_order > maxKey)) {
+      maxKey = i.sort_order;
+    }
   }
-  return keyMap;
+  return generateKeyBetween(maxKey, null);
 }
 
 function compareBySortKey(a: Issue, b: Issue, sortKey: SortKey): number {
@@ -65,13 +66,12 @@ function compareBySortKey(a: Issue, b: Issue, sortKey: SortKey): number {
 
 export function sortIssuesWithinGroups(issues: Issue[], sortKey: SortKey): Issue[] {
   if (sortKey === 'manual') {
-    const keyMap = getEffectiveKeys(issues);
     return [...issues].sort((a, b) => {
       const sa = STATUS_ORDER.indexOf(a.status);
       const sb = STATUS_ORDER.indexOf(b.status);
       if (sa !== sb) return sa - sb;
       if (a.status === 'DONE') return compareBySortKey(a, b, 'updated');
-      return compareKeys(keyMap.get(a.id) || '', keyMap.get(b.id) || '');
+      return compareKeys(a.sort_order || '', b.sort_order || '');
     });
   }
   const sorted = [...issues];
@@ -87,9 +87,8 @@ export function sortIssuesWithinGroups(issues: Issue[], sortKey: SortKey): Issue
 
 export function sortGroup(issues: Issue[], sortKey: SortKey): Issue[] {
   if (sortKey === 'manual') {
-    const keyMap = getEffectiveKeys(issues);
     return [...issues].sort((a, b) =>
-      compareKeys(keyMap.get(a.id) || '', keyMap.get(b.id) || '')
+      compareKeys(a.sort_order || '', b.sort_order || '')
     );
   }
   return [...issues].sort((a, b) => compareBySortKey(a, b, sortKey));

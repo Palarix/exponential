@@ -15,7 +15,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { sortGroup, getEffectiveKeys } from '../../utils/sort';
+import { sortGroup } from '../../utils/sort';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
 
@@ -184,14 +184,11 @@ export default function Board({ issues, onRefresh, onIssueClick }: BoardProps) {
         targetStatus = overContainer;
       }
 
-      const allNonBacklog = issues.filter((i) => i.status !== 'BACKLOG');
-      const effectiveKeys = getEffectiveKeys(allNonBacklog);
-
-      const columnIssues = allNonBacklog
+      const columnIssues = issues
         .filter((i) => i.status === targetStatus && i.id !== draggedId)
         .sort((a, b) => {
-          const ka = effectiveKeys.get(a.id) || '';
-          const kb = effectiveKeys.get(b.id) || '';
+          const ka = a.sort_order || '';
+          const kb = b.sort_order || '';
           return ka < kb ? -1 : ka > kb ? 1 : 0;
         });
 
@@ -203,8 +200,9 @@ export default function Board({ issues, onRefresh, onIssueClick }: BoardProps) {
         if (targetIdx === -1) {
           insertIdx = columnIssues.length;
         } else if (dragged.status === targetStatus) {
-          const draggedKey = effectiveKeys.get(draggedId) || '';
-          const overKey = effectiveKeys.get(overId) || '';
+          const draggedKey = dragged.sort_order || '';
+          const overIssue = columnIssues[targetIdx];
+          const overKey = overIssue?.sort_order || '';
           insertIdx = draggedKey < overKey ? targetIdx + 1 : targetIdx;
         } else {
           const overRect = event.over?.rect;
@@ -218,8 +216,8 @@ export default function Board({ issues, onRefresh, onIssueClick }: BoardProps) {
 
       const prev = columnIssues[insertIdx - 1];
       const next = columnIssues[insertIdx];
-      const prevKey = prev ? effectiveKeys.get(prev.id) ?? null : null;
-      const nextKey = next ? effectiveKeys.get(next.id) ?? null : null;
+      const prevKey = prev?.sort_order || null;
+      const nextKey = next?.sort_order || null;
       const newKey = generateKeyBetween(prevKey, nextKey);
 
       const update: Record<string, unknown> = { sort_order: newKey };

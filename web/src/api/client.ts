@@ -46,7 +46,7 @@ export async function addDraft(issueId: string, type: string, payload: unknown):
   });
 }
 
-export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string }): Promise<string> {
+export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string; sort_order?: string }): Promise<string> {
   const data = await request<{ issue_id: string }>(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

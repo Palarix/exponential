@@ -24,7 +24,7 @@ import {
   SubProgress,
 } from "../ui";
 import { formatShortDate } from "../../utils/format";
-import { getEffectiveKeys, SORT_OPTIONS } from "../../utils/sort";
+import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isEditableTarget } from "../../utils/keyboard";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS } from "../../constants";
@@ -82,12 +82,13 @@ export default function Backlog({
   const handleInlineCreate = useCallback(
     async (status: string, title: string) => {
       if (!title.trim()) return;
-      const issueId = await createIssue({ title: title.trim(), labels: ["feature"] });
+      const sortOrder = computeAppendKey(issues, status);
+      const issueId = await createIssue({ title: title.trim(), labels: ["feature"], sort_order: sortOrder });
       if (status !== "BACKLOG") await addDraft(issueId, "UPDATE", { status });
       setInlineTitle("");
       onRefresh();
     },
-    [onRefresh],
+    [onRefresh, issues],
   );
 
   const handleQuickStatus = useCallback(async (issueId: string, status: string) => { await addDraft(issueId, "UPDATE", { status }); setOpenPopover(null); onRefresh(); }, [onRefresh]);
@@ -213,9 +214,8 @@ export default function Backlog({
     if (nestTarget) { await addDraft(droppedId, "UPDATE", { parent_id: nestTarget }); onRefresh(); return; }
     if (groupTarget) {
       const groupIssues = rows.filter((r): r is typeof r & { kind: "issue" } => r.kind === "issue" && r.depth === 0).filter((r) => { const idx = rows.indexOf(r); return getRowStatusGroup(idx) === groupTarget; }).map((r) => r.issue);
-      const effectiveKeys = getEffectiveKeys(groupIssues);
       const last = groupIssues[groupIssues.length - 1];
-      const lastKey = last ? effectiveKeys.get(last.id) || null : null;
+      const lastKey = last?.sort_order || null;
       const newKey = generateKeyBetween(lastKey, null);
       for (const id of batchIds) { const update: Record<string, unknown> = { status: groupTarget }; if (id === droppedId) update.sort_order = newKey; await addDraft(id, "UPDATE", update); }
       onRefresh(); return;
@@ -231,26 +231,24 @@ export default function Backlog({
       const targetParentId = targetRow.issue.parent_id!;
       update.parent_id = targetParentId;
       const siblings = issues.filter((i) => i.parent_id === targetParentId);
-      const effectiveKeys = getEffectiveKeys(siblings);
       const withoutDragged = siblings.filter((i) => i.id !== droppedId);
       let insertIdx = withoutDragged.findIndex((i) => i.id === targetRow.issue.id);
       if (insertIdx === -1) insertIdx = withoutDragged.length;
       if (indicatorTarget.position === "below") insertIdx++;
       const prev = withoutDragged[insertIdx - 1];
       const next = withoutDragged[insertIdx];
-      update.sort_order = generateKeyBetween(prev ? effectiveKeys.get(prev.id) || null : null, next ? effectiveKeys.get(next.id) || null : null);
+      update.sort_order = generateKeyBetween(prev?.sort_order || null, next?.sort_order || null);
     } else {
       const dragged = issues.find((i) => i.id === droppedId);
       if (dragged?.parent_id) update.parent_id = "";
       const groupTopLevel = rows.filter((r): r is typeof r & { kind: "issue" } => r.kind === "issue" && r.depth === 0).filter((r) => { const idx = rows.indexOf(r); return getRowStatusGroup(idx) === status; }).map((r) => r.issue);
-      const effectiveKeys = getEffectiveKeys(groupTopLevel);
       const withoutDragged = groupTopLevel.filter((i) => i.id !== droppedId);
       let insertIdx = withoutDragged.findIndex((i) => i.id === targetRow.issue.id);
       if (insertIdx === -1) insertIdx = withoutDragged.length;
       if (indicatorTarget.position === "below") insertIdx++;
       const prev = withoutDragged[insertIdx - 1];
       const next = withoutDragged[insertIdx];
-      update.sort_order = generateKeyBetween(prev ? effectiveKeys.get(prev.id) || null : null, next ? effectiveKeys.get(next.id) || null : null);
+      update.sort_order = generateKeyBetween(prev?.sort_order || null, next?.sort_order || null);
     }
     await addDraft(droppedId, "UPDATE", update);
     for (const id of batchIds) {
