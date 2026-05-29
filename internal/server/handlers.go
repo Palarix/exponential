@@ -245,6 +245,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		"labels":              labels,
 		"name":                name,
 		"hide_default_labels": s.Config.HideDefaultLabels,
+		"default_labels":      s.Config.DefaultLabels,
 	})
 }
 

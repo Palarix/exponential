@@ -64,6 +64,7 @@ export default function Badge({
 
 export const LabelColorsContext = createContext<Record<string, string>>({});
 export const HideDefaultLabelsContext = createContext<boolean>(false);
+export const DefaultLabelsContext = createContext<{ name: string; color: string }[]>([]);
 
 export function LabelBadge({ label }: { label: string }) {
   const configColors = useContext(LabelColorsContext);

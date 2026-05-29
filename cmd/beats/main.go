@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kuyio/beats/internal/config"
+	"github.com/kuyio/beats/internal/ui"
 	"github.com/kuyio/beats/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -27,6 +28,10 @@ var rootCmd = &cobra.Command{
 				}
 			}
 			return err
+		}
+
+		if cfg.Labels != nil {
+			ui.SetLabelColors(cfg.Labels)
 		}
 
 		// Check Data Model Version

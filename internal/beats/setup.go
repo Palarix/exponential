@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kuyio/beats/internal/config"
 )
 
 // InitResult contains the outcome of the initialization.
@@ -38,7 +40,16 @@ func InitBeats(force bool) (*InitResult, error) {
 	prefix := sanitizePrefix(folderName) + "-"
 
 	configPath := filepath.Join(beatsDir, "config.yaml")
-	configContent := fmt.Sprintf("prefix: %s\nversion: 2\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  auto_complete_parent: false\n  auto_close_sub_issues: false\n  auto_progress_sub_issues: false\n  auto_progress_parent: false\nlabels:\n  bug: \"#eb5757\"\n  feature: \"#b36cd9\"\n  epic: \"#5e6ad2\"\n  improvement: \"#4da6e8\"\n", prefix)
+	var defaultLabelLines strings.Builder
+	for _, name := range config.BuiltinLabelOrder {
+		defaultLabelLines.WriteString(fmt.Sprintf("  - %s\n", name))
+	}
+	var labelLines strings.Builder
+	for _, name := range config.BuiltinLabelOrder {
+		color := config.BuiltinLabels[name]
+		labelLines.WriteString(fmt.Sprintf("  %s: \"%s\"\n", name, color))
+	}
+	configContent := fmt.Sprintf("prefix: %s\nversion: 2\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  auto_complete_parent: false\n  auto_close_sub_issues: false\n  auto_progress_sub_issues: false\n  auto_progress_parent: false\ndefault_labels:\n%slabels:\n%s", prefix, defaultLabelLines.String(), labelLines.String())
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
 	} else {

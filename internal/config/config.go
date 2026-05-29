@@ -15,6 +15,7 @@ type Config struct {
 	Name              string            `mapstructure:"name" yaml:"name"`
 	Prefix            string            `mapstructure:"prefix" yaml:"prefix"`
 	User              string            `mapstructure:"user" yaml:"user"`
+	DefaultLabels     []string          `mapstructure:"default_labels" yaml:"default_labels"`
 	HideDefaultLabels bool              `mapstructure:"hide_default_labels" yaml:"hide_default_labels"`
 	Editor            string            `mapstructure:"editor" yaml:"editor"`
 	AutoCommit        bool              `mapstructure:"auto_commit" yaml:"auto_commit"`
@@ -36,6 +37,18 @@ type Automations struct {
 	AutoProgressSubIssues bool `mapstructure:"auto_progress_sub_issues" yaml:"auto_progress_sub_issues"`
 	AutoProgressParent    bool `mapstructure:"auto_progress_parent" yaml:"auto_progress_parent"`
 }
+
+// BuiltinLabels are the default labels seeded into new projects.
+// Config labels take precedence over these when both exist.
+var BuiltinLabels = map[string]string{
+	"bug":         "#eb5757",
+	"feature":     "#b36cd9",
+	"epic":        "#5e6ad2",
+	"improvement": "#4da6e8",
+}
+
+// BuiltinLabelOrder defines the canonical display order for built-in labels.
+var BuiltinLabelOrder = []string{"bug", "feature", "epic", "improvement"}
 
 // Estimation system allowed values
 var EstimationSystems = map[string][]int{
@@ -321,6 +334,10 @@ func LoadConfig() (*Config, error) {
 				cfg.Labels = rawCfg.Labels
 			}
 		}
+	}
+
+	if len(cfg.DefaultLabels) == 0 {
+		cfg.DefaultLabels = BuiltinLabelOrder
 	}
 
 	return &cfg, nil

@@ -22,6 +22,7 @@ import {
   PopoverHeader,
   LabelPicker,
   SubProgress,
+  ContextMenu,
 } from "../ui";
 import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
@@ -75,6 +76,7 @@ export default function Backlog({
   const [inlineTitle, setInlineTitle] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [openPopover, setOpenPopover] = useState<{ issueId: string; type: "status" | "estimate" | "labels" } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ issue: Issue; x: number; y: number } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
@@ -363,6 +365,26 @@ export default function Backlog({
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
+  const issuesRef = useRef(issues); issuesRef.current = issues;
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const row = target.closest<HTMLElement>("[data-context-issue]");
+      if (!row) return;
+      const issueId = row.getAttribute("data-context-issue");
+      if (!issueId) return;
+      const issue = issuesRef.current.find(i => i.id === issueId);
+      if (!issue) return;
+      e.preventDefault();
+      setOpenPopover(null);
+      setContextMenu({ issue, x: e.clientX, y: e.clientY });
+    };
+    container.addEventListener("contextmenu", handler);
+    return () => container.removeEventListener("contextmenu", handler);
+  }, []);
+
   useEffect(() => {
     const el = listRef.current?.querySelector(`[data-row="${focusedIndex}"]`);
     el?.scrollIntoView({ block: "nearest" });
@@ -499,7 +521,7 @@ export default function Backlog({
                     const isDraggedOrBatch = activeId !== null && dragBatchRef.current.includes(issue.id);
                     const dragBatchCount = activeId === issue.id ? dragBatchRef.current.length : 0;
                     return (
-                      <div key={issue.id} className="relative">
+                      <div key={issue.id} className="relative" data-context-issue={issue.id}>
                         {showDropAbove && <div className="absolute top-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full" style={{ left: `${20 + depth * 24}px` }} />}
                         <IssueRowDnd id={issue.id} canDrag={canDrag} enabled={isDropTarget}>
                           {(setRowRef, dragProps) => (
@@ -596,6 +618,18 @@ export default function Backlog({
           {activeId ? (() => { const dragged = issues.find((i) => i.id === activeId); if (!dragged) return null; return <DragOverlayCard issue={dragged} batchCount={dragBatchRef.current.length} />; })() : null}
         </DragOverlay>
       </DndContext>
+      {contextMenu && (
+        <ContextMenu
+          issue={contextMenu.issue}
+          issues={issues}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onRefresh={onRefresh}
+          allLabels={allKnownLabels}
+          onConfigLabelsChange={onConfigLabelsChange}
+        />
+      )}
     </div>
   );
 }
