@@ -510,7 +510,8 @@ export default function Backlog({
                   )}
                   {issueRows.map(({ row, index: i }) => {
                     const { issue, depth, hasChildren, childDone, childTotal, parentBreadcrumb, isGhostParent } = row;
-                    const isRowFocused = i === focusedIndex;
+                    const isContextTarget = contextMenu?.issue.id === issue.id;
+                    const isRowFocused = i === focusedIndex || isContextTarget;
                     const isNodeExpanded = expandedNodes.has(issue.id);
                     const indent = depth * 24;
                     const canDrag = isDndEnabled && !isGhostParent;
