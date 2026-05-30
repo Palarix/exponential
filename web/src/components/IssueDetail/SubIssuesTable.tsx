@@ -63,7 +63,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
         </button>
         <button
           onClick={startInline}
-          className="p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+          className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
           title="Add sub-issue"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -77,7 +77,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
             <a
               key={child.id}
               href={`#/issues/${child.id}`}
-              className={`flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[var(--color-bg-hover)] transition-colors ${i > 0 ? 'border-t border-[var(--color-border-subtle)]' : ''}`}
+              className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--color-bg-hover)] transition-colors ${i > 0 ? 'border-t border-[var(--color-border-subtle)]' : ''}`}
             >
               <StatusIcon status={child.status} size={14} />
               <span className="text-[var(--color-text-primary)] truncate min-w-0">{child.title}</span>
@@ -100,7 +100,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
             </a>
           ))}
           {showInline && (
-            <div className={`flex items-center gap-2.5 px-3 py-2 ${hasChildren ? 'border-t border-[var(--color-border-subtle)]' : ''}`}>
+            <div className={`flex items-center gap-3 px-3 py-2 ${hasChildren ? 'border-t border-[var(--color-border-subtle)]' : ''}`}>
               <StatusIcon status="BACKLOG" size={14} />
               <input
                 ref={inlineRef}

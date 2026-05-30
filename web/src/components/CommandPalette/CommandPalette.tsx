@@ -173,7 +173,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
             placeholder="Search issues, actions, navigation..."
             className="flex-1 bg-transparent text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
           />
-          <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded-[var(--radius-sm)]">ESC</kbd>
+          <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-2 py-1 rounded-[var(--radius-sm)]">ESC</kbd>
         </div>
 
         {/* Results */}
@@ -203,7 +203,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
                       <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.label}</span>
                       {item.meta}
                       {item.shortcut && (
-                        <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-1.5 py-0.5 rounded-[var(--radius-sm)] ml-auto shrink-0">
+                        <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-2 py-1 rounded-[var(--radius-sm)] ml-auto shrink-0">
                           {item.shortcut}
                         </kbd>
                       )}

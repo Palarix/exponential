@@ -218,7 +218,7 @@ export default function PropertySidebar({
                           key={opt.value}
                           onClick={() => handleStatusChange(opt.value)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <StatusIcon status={opt.value} size={14} />
                           <span>{opt.label}</span>
@@ -264,7 +264,7 @@ export default function PropertySidebar({
                           key={est}
                           onClick={() => handleEstimateChange(est)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
                           {isCurrent && (
@@ -305,7 +305,7 @@ export default function PropertySidebar({
                           key={opt.value}
                           onClick={() => handlePriorityChange(opt.value)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <PriorityIcon priority={opt.value} />
                           <span>{opt.label}</span>
@@ -345,20 +345,20 @@ export default function PropertySidebar({
                 </Button>
                 {openPopover === "parent" && (
                   <Popover onClose={() => setOpenPopover(null)}>
-                    <div className="px-3 py-1.5">
+                    <div className="px-3 py-2">
                       <input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                     </div>
                     <div className="border-t border-[var(--color-border-subtle)]" />
                     <div className="max-h-[240px] overflow-y-auto">
                       {issue.parent_id && (
-                        <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                        <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
                           Remove parent
                         </button>
                       )}
                       {parentCandidates.slice(0, 15).map((candidate) => {
                         const isCurrent = candidate.id === issue.parent_id;
                         return (
-                          <button key={candidate.id} onClick={() => handleParentChange(candidate.id)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                          <button key={candidate.id} onClick={() => handleParentChange(candidate.id)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
                             <StatusIcon status={candidate.status} size={12} />
                             <span className="truncate">{candidate.title}</span>
                             {isCurrent && (
@@ -370,7 +370,7 @@ export default function PropertySidebar({
                         );
                       })}
                       {parentCandidates.length === 0 && (
-                        <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching issues</div>
+                        <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching issues</div>
                       )}
                     </div>
                   </Popover>
@@ -404,20 +404,20 @@ export default function PropertySidebar({
                 </Button>
                 {openPopover === "assignee" && (
                   <Popover onClose={() => setOpenPopover(null)}>
-                    <div className="px-3 py-1.5">
+                    <div className="px-3 py-2">
                       <input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                     </div>
                     <div className="border-t border-[var(--color-border-subtle)]" />
                     <div className="max-h-[240px] overflow-y-auto">
                       {issue.assignee && (
-                        <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                        <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
                           Remove assignee
                         </button>
                       )}
                       {knownPeople.map((person) => {
                         const isCurrent = person === issue.assignee;
                         return (
-                          <button key={person} onClick={() => handleAssigneeChange(person)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                          <button key={person} onClick={() => handleAssigneeChange(person)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                             <Avatar name={person} size="sm" />
                             <span className="truncate">{person.split(" <")[0]}</span>
                             {isCurrent && (
@@ -429,7 +429,7 @@ export default function PropertySidebar({
                         );
                       })}
                       {knownPeople.length === 0 && (
-                        <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching people</div>
+                        <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>
                       )}
                     </div>
                   </Popover>
@@ -442,7 +442,7 @@ export default function PropertySidebar({
         {/* Labels card */}
         <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Labels</div>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {issue.labels && issue.labels.length > 0 ? (
               issue.labels.map((label) => <LabelBadge key={label} label={label} />)
             ) : (
@@ -477,7 +477,7 @@ export default function PropertySidebar({
         </div>
 
         {/* Metadata card */}
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3 space-y-1.5">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3 space-y-2">
           <MetaRow label="Created" value={formatRelativeTime(issue.created_at)} />
           <MetaRow label="Updated" value={formatRelativeTime(issue.updated_at)} />
         </div>
@@ -490,13 +490,13 @@ export default function PropertySidebar({
               {issue.dependencies.map((dep, i) => {
                 const target = issues.find(t => t.id === dep.target_id);
                 return (
-                  <div key={i} className="group flex items-center gap-1.5 text-sm">
+                  <div key={i} className="group flex items-center gap-2 text-sm">
                     <span className="text-[var(--color-text-muted)] shrink-0">{dep.kind.replace(/_/g, " ")}</span>
                     {target && <StatusIcon status={target.status} size={12} />}
                     <a href={`#/issues/${dep.target_id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
                       {target ? target.title : dep.target_id}
                     </a>
-                    <button onClick={() => handleRemoveRelation(i)} className="ml-auto shrink-0 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleRemoveRelation(i)} className="ml-auto shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -508,7 +508,7 @@ export default function PropertySidebar({
           )}
           <button
             onClick={() => { setAddRelStep("kind"); setAddRelKind(""); setAddRelSearch(""); }}
-            className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+            className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -527,7 +527,7 @@ export default function PropertySidebar({
                   <button
                     key={rt.value}
                     onClick={() => { setAddRelKind(rt.value); setAddRelSearch(""); }}
-                    className={`px-3 py-1.5 text-sm rounded-[var(--radius-md)] border transition-colors ${addRelKind === rt.value ? "border-[var(--color-accent-primary)] text-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : "border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-focus)] hover:text-[var(--color-text-primary)]"}`}
+                    className={`px-3 py-2 text-sm rounded-[var(--radius-md)] border transition-colors ${addRelKind === rt.value ? "border-[var(--color-accent-primary)] text-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : "border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-focus)] hover:text-[var(--color-text-primary)]"}`}
                   >
                     {rt.label}
                   </button>
@@ -595,10 +595,10 @@ export default function PropertySidebar({
             <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-error)] p-3">
               <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue? This cannot be undone.</p>
               <div className="flex items-center gap-2">
-                <button onClick={handleDelete} className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
+                <button onClick={handleDelete} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
                   Delete
                 </button>
-                <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
                   Cancel
                 </button>
               </div>
@@ -606,7 +606,7 @@ export default function PropertySidebar({
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />

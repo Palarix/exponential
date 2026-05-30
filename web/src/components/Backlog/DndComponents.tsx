@@ -55,7 +55,7 @@ export function DragOverlayCard({ issue, batchCount }: { issue: Issue; batchCoun
   return (
     <div
       style={{ transform: CSS.Translate.toString({ x: 0, y: 0, scaleX: 1, scaleY: 1 }) }}
-      className="flex items-center gap-2.5 px-5 h-[38px] border border-[var(--color-border-default)] bg-[var(--color-surface-elevated)] rounded-[var(--radius-sm)] shadow-lg pointer-events-none"
+      className="flex items-center gap-3 px-5 h-[38px] border border-[var(--color-border-default)] bg-[var(--color-surface-elevated)] rounded-[var(--radius-sm)] shadow-lg pointer-events-none"
     >
       <CopyableId id={issue.id} className="text-xs w-[110px] shrink-0 truncate tabular-nums" />
       <StatusIcon status={issue.status} size={14} />

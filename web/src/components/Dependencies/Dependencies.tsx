@@ -61,7 +61,7 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
                   {kind.replace('_', ' ')}
                 </h2>
                 <span
-                  className="text-xs tabular-nums px-1.5 py-0.5 rounded-[var(--radius-sm)]"
+                  className="text-xs tabular-nums px-2 py-1 rounded-[var(--radius-sm)]"
                   style={{
                     background: `${kindColors[kind] || 'var(--color-text-muted)'}15`,
                     color: kindColors[kind] || 'var(--color-text-muted)',
@@ -110,7 +110,7 @@ function DependencyRow({
       <IssueLink issue={source} onClick={() => onIssueClick?.(source)} />
 
       {/* Arrow */}
-      <div className="flex items-center gap-1.5 px-3 shrink-0" style={{ color }}>
+      <div className="flex items-center gap-2 px-3 shrink-0" style={{ color }}>
         <div className="w-5 h-px" style={{ background: color }} />
         <span className="text-xs font-medium whitespace-nowrap">{kind.replace('_', ' ')}</span>
         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -131,7 +131,7 @@ function IssueLink({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
       onClick={onClick}
     >
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-mono text-[var(--color-text-muted)]">{issue.id}</span>
           {issue.labels?.map((label: string) => (
             <LabelBadge key={label} label={label} />

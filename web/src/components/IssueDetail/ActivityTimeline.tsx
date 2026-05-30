@@ -192,7 +192,7 @@ export default function ActivityTimeline({
             return (
               <div
                 key={`sys-${i}`}
-                className="flex items-center gap-2 px-3.5 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
+                className="flex items-center gap-2 px-4 py-2 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
                 <Avatar name={entry.author} size="sm" />
                 <span>{shortName(entry.author)}</span>
@@ -206,9 +206,9 @@ export default function ActivityTimeline({
           return (
             <div
               key={`cmt-${i}`}
-              className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-3.5 border border-[var(--color-border-card)]"
+              className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-4 border border-[var(--color-border-card)]"
             >
-              <div className="flex items-center gap-2.5 mb-2">
+              <div className="flex items-center gap-3 mb-2">
                 <Avatar name={entry.author} size="sm" />
                 <span className="text-sm font-medium text-[var(--color-text-primary)]">
                   {shortName(entry.author)}
@@ -235,7 +235,7 @@ export default function ActivityTimeline({
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."
           rows={1}
-          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-3.5 py-2.5 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
+          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAddComment();
           }}

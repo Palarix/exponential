@@ -132,7 +132,7 @@ export default function LabelPicker({
   if (creatingLabel) {
     return (
       <>
-        <div className="px-3 py-1.5 flex items-center gap-2">
+        <div className="px-3 py-2 flex items-center gap-2">
           <button
             onClick={() => setCreatingLabel(null)}
             className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
@@ -157,7 +157,7 @@ export default function LabelPicker({
           <LabelBadge label={creatingLabel} />
         </div>
         <div className="border-t border-[var(--color-border-subtle)]" />
-        <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="flex items-center gap-2 px-3 py-3">
           {LABEL_PRESET_COLORS.map((color) => (
             <button
               key={color}
@@ -173,7 +173,7 @@ export default function LabelPicker({
 
   return (
     <>
-      <div className="px-3 py-1.5">
+      <div className="px-3 py-2">
         <input
           ref={inputRef}
           value={search}
@@ -203,7 +203,7 @@ export default function LabelPicker({
           <button
             onClick={() => onToggle(label)}
             onMouseEnter={() => setFocusIndex(i)}
-            className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${isFocused ? "bg-[var(--color-bg-hover)]" : ""}`}
+            className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${isFocused ? "bg-[var(--color-bg-hover)]" : ""}`}
           >
             {singleSelect ? (
               <span
@@ -243,14 +243,14 @@ export default function LabelPicker({
         <button
           onClick={() => handleSelect(search.trim())}
           onMouseEnter={() => setFocusIndex(filtered.length)}
-          className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === filtered.length ? "bg-[var(--color-bg-hover)]" : ""}`}
+          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === filtered.length ? "bg-[var(--color-bg-hover)]" : ""}`}
         >
           <span className="text-[var(--color-text-muted)]">Create</span>
           <LabelBadge label={search.trim()} />
         </button>
       )}
       {filtered.length === 0 && !canCreate && (
-        <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">
+        <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">
           No matching labels
         </div>
       )}

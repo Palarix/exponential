@@ -121,7 +121,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, onCo
       <div className="space-y-4" onKeyDown={handleModalKeyDown}>
         <div className="flex items-center gap-2">
           <div>
-            <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={`flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${labels.length === 0 ? "border-[var(--color-error)]/40" : ""}`}>
+            <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${labels.length === 0 ? "border-[var(--color-error)]/40" : ""}`}>
               {labels[0] ? <LabelBadge label={labels[0]} /> : <span className="text-[var(--color-text-muted)]">Label *</span>}
               <svg className="w-3 h-3 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
@@ -139,50 +139,50 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, onCo
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Issue title *" className="w-full h-10 text-lg bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none border-none p-0" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && canCreate) handleCreate(); }} />
         <MarkdownEditor value={description} onChange={setDescription} placeholder="Add description (markdown supported)..." className="prose-beats min-h-50" />
         <div className="border-t border-[var(--color-border-subtle)] pt-3">
-          <button type="button" onClick={() => setMoreOpen((v) => !v)} className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
+          <button type="button" onClick={() => setMoreOpen((v) => !v)} className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
             <svg className={`w-3 h-3 transition-transform duration-100 ${moreOpen ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
             More options
           </button>
           {moreOpen && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className="relative">
-                <button type="button" onClick={() => { setMorePopover(morePopover === "parent" ? null : "parent"); setParentSearch(""); }} className="flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
+                <button type="button" onClick={() => { setMorePopover(morePopover === "parent" ? null : "parent"); setParentSearch(""); }} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" /></svg>
                   <span className={`truncate max-w-[200px] ${parentId ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{parentId ? (issues.find((i) => i.id === parentId)?.title || parentId) : "No parent"}</span>
                 </button>
                 {morePopover === "parent" && (
                   <Popover onClose={() => setMorePopover(null)}>
-                    <div className="px-3 py-1.5"><input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
+                    <div className="px-3 py-2"><input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
                     <div className="border-t border-[var(--color-border-default)]" />
                     <div className="max-h-[240px] overflow-y-auto">
-                      {parentId && <button onClick={() => { setParentId(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">Remove parent</button>}
-                      {parentCandidates.slice(0, 15).map((c) => (<button key={c.id} onClick={() => { setParentId(c.id); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${c.id === parentId ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><StatusIcon status={c.status} size={12} /><span className="truncate">{c.title}</span>{c.id === parentId && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
-                      {parentCandidates.length === 0 && <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching issues</div>}
+                      {parentId && <button onClick={() => { setParentId(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">Remove parent</button>}
+                      {parentCandidates.slice(0, 15).map((c) => (<button key={c.id} onClick={() => { setParentId(c.id); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${c.id === parentId ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><StatusIcon status={c.status} size={12} /><span className="truncate">{c.title}</span>{c.id === parentId && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
+                      {parentCandidates.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching issues</div>}
                     </div>
                   </Popover>
                 )}
               </div>
               <div className="relative">
-                <button type="button" onClick={() => { setMorePopover(morePopover === "assignee" ? null : "assignee"); setAssigneeSearch(""); }} className="flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
+                <button type="button" onClick={() => { setMorePopover(morePopover === "assignee" ? null : "assignee"); setAssigneeSearch(""); }} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   {assignee ? <Avatar name={assignee} size="xs" /> : <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5"><circle cx="8" cy="6" r="2.5" /><path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" strokeLinecap="round" /></svg>}
                   <span className={`truncate max-w-[160px] ${assignee ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{assignee ? assignee.split(" <")[0] : "No assignee"}</span>
                 </button>
                 {morePopover === "assignee" && (
                   <Popover onClose={() => setMorePopover(null)}>
-                    <div className="px-3 py-1.5"><input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
+                    <div className="px-3 py-2"><input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
                     <div className="border-t border-[var(--color-border-default)]" />
                     <div className="max-h-[240px] overflow-y-auto">
-                      {assignee && <button onClick={() => { setAssignee(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">Remove assignee</button>}
-                      {knownPeople.map((p) => (<button key={p} onClick={() => { setAssignee(p); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${p === assignee ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><Avatar name={p} size="sm" /><span className="truncate">{p.split(" <")[0]}</span>{p === assignee && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
-                      {knownPeople.length === 0 && <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching people</div>}
+                      {assignee && <button onClick={() => { setAssignee(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">Remove assignee</button>}
+                      {knownPeople.map((p) => (<button key={p} onClick={() => { setAssignee(p); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${p === assignee ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><Avatar name={p} size="sm" /><span className="truncate">{p.split(" <")[0]}</span>{p === assignee && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
+                      {knownPeople.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>}
                     </div>
                   </Popover>
                 )}
               </div>
               <div className="relative">
-                <button type="button" onClick={() => setMorePopover(morePopover === "labels" ? null : "labels")} className="flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
+                <button type="button" onClick={() => setMorePopover(morePopover === "labels" ? null : "labels")} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
-                  {additionalLabels.length > 0 ? <span className="flex items-center gap-1.5">{additionalLabels.map((l) => <LabelBadge key={l} label={l} />)}</span> : <span className="text-[var(--color-text-muted)]">Additional labels</span>}
+                  {additionalLabels.length > 0 ? <span className="flex items-center gap-2">{additionalLabels.map((l) => <LabelBadge key={l} label={l} />)}</span> : <span className="text-[var(--color-text-muted)]">Additional labels</span>}
                 </button>
                 {morePopover === "labels" && (
                   <Popover onClose={() => setMorePopover(null)}>

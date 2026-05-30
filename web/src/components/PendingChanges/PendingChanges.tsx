@@ -35,13 +35,13 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
         <div className="flex items-center gap-2">
           <button
             onClick={onDiscard}
-            className="px-2.5 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
+            className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
           >
             Discard All
           </button>
           <button
             onClick={onSave}
-            className="px-2.5 py-1 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
+            className="px-3 py-1 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
           >
             {autoCommit ? 'Save & Commit' : 'Save'}
           </button>
@@ -72,7 +72,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
                     {issue ? (
                       <button
                         onClick={() => onIssueClick(issue)}
-                        className="flex items-center gap-2 mb-1.5 group"
+                        className="flex items-center gap-2 mb-2 group"
                       >
                         <StatusIcon status={issue.status} size={14} />
                         <span className="text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent-primary)] transition-colors truncate">
@@ -83,7 +83,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
                         </span>
                       </button>
                     ) : (
-                      <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-mono text-[var(--color-text-muted)]">{event.issue_id}</span>
                       </div>
                     )}
@@ -118,7 +118,7 @@ function TypeBadge({ type }: { type: string }) {
 
   return (
     <span
-      className="text-xs font-medium px-2 py-0.5 rounded-[var(--radius-sm)] shrink-0 mt-0.5"
+      className="text-xs font-medium px-2 py-1 rounded-[var(--radius-sm)] shrink-0 mt-1"
       style={{ background: `color-mix(in srgb, ${c.color} 15%, transparent)`, color: c.color }}
     >
       {c.label}
@@ -129,10 +129,10 @@ function TypeBadge({ type }: { type: string }) {
 function PayloadDetail({ type, payload }: { type: string; payload: Record<string, unknown> }) {
   if (type === 'CREATE') {
     return (
-      <div className="mb-1.5 space-y-1">
+      <div className="mb-2 space-y-1">
         {payload.title != null && <div className="text-sm text-[var(--color-text-secondary)]">Title: {String(payload.title)}</div>}
         {payload.labels != null && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {(payload.labels as string[]).map(l => <LabelBadge key={l} label={l} />)}
           </div>
         )}
@@ -145,7 +145,7 @@ function PayloadDetail({ type, payload }: { type: string; payload: Record<string
     if (entries.length === 0) return null;
 
     return (
-      <div className="mb-1.5 space-y-0.5">
+      <div className="mb-2 space-y-1">
         {entries.map(([key, value]) => (
           <div key={key} className="text-sm">
             <span className="text-[var(--color-text-muted)]">{key}:</span>{' '}
@@ -160,7 +160,7 @@ function PayloadDetail({ type, payload }: { type: string; payload: Record<string
 
   if (type === 'COMMENT') {
     return (
-      <div className="mb-1.5 text-sm text-[var(--color-text-secondary)] line-clamp-2">
+      <div className="mb-2 text-sm text-[var(--color-text-secondary)] line-clamp-2">
         {String(payload.text || '')}
       </div>
     );

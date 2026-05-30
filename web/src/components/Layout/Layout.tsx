@@ -71,7 +71,7 @@ function ProjectItem({ instance }: { instance: Instance }) {
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
     </svg>
   );
-  const baseClass = `flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-[var(--radius-md)] text-sm transition-colors duration-[var(--duration-fast)]`;
+  const baseClass = `flex items-center gap-3 w-full px-3 py-2 rounded-[var(--radius-md)] text-sm transition-colors duration-[var(--duration-fast)]`;
   if (instance.is_current) {
     return (
       <div
@@ -102,7 +102,7 @@ function NavItem({ item, isActive, onClick }: { item: { id: View; label: string;
     <button
       onClick={onClick}
       className={`
-        flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-[var(--radius-md)]
+        flex items-center gap-3 w-full px-3 py-2 rounded-[var(--radius-md)]
         text-sm transition-colors duration-[var(--duration-fast)]
         ${isActive
           ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)] font-medium'
@@ -146,7 +146,7 @@ export default function Layout({
       {/* Sidebar */}
       <aside className="w-[245px] flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none">
         {/* Workspace header */}
-        <div className="flex items-center gap-2 px-3.5 pt-2 h-[52px]">
+        <div className="flex items-center gap-2 px-4 pt-2 h-[52px]">
           <img src="/logo-light.svg" alt="Beats" className="w-[18px] h-[18px] opacity-80" />
           <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
             Beats
@@ -172,7 +172,7 @@ export default function Layout({
         </div>
 
         {/* Nav */}
-        <nav className="px-2 pt-1 space-y-0.5">
+        <nav className="px-2 pt-1 space-y-1">
           {PRIMARY_NAV.map((item) => (
             <NavItem key={item.id} item={item} isActive={currentView === item.id} onClick={() => onViewChange(item.id)} />
           ))}
@@ -185,8 +185,8 @@ export default function Layout({
         {instances.length > 0 && (
           <>
             <div className="mx-4 my-2 border-t border-[var(--color-border-subtle)]" />
-            <div className="px-2 space-y-0.5">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] px-2.5 mb-1 mt-1">
+            <div className="px-2 space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] px-3 mb-1 mt-1">
                 Projects
               </div>
               {instances.map(p => (
@@ -204,7 +204,7 @@ export default function Layout({
           {children}
         </main>
         <div className="flex items-center justify-end px-4 py-2 shrink-0">
-          <div className="flex items-center gap-1.5 text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span className={`w-2 h-2 rounded-full ${connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-error)]'}`} />
             {connected ? (
               <span className="text-[var(--color-text-muted)]">Beats {version && `v${version}`}</span>

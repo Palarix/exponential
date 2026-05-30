@@ -45,7 +45,7 @@ export default function BoardColumn({
       </div>
 
       <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
-        <div ref={setNodeRef} className="flex-1 p-1.5 space-y-2 overflow-y-auto">
+        <div ref={setNodeRef} className="flex-1 p-2 space-y-2 overflow-y-auto">
           {visibleIds.map((id) => {
             const issue = getIssue(id);
             if (!issue) return null;

@@ -33,8 +33,8 @@ const variantStyles: Record<BadgeVariant, string> = {
 };
 
 const sizeStyles: Record<string, string> = {
-  sm: "px-1.5 py-0.5 text-xs",
-  md: "px-2 py-0.5 text-xs",
+  sm: "px-2 py-1 text-xs",
+  md: "px-2 py-1 text-xs",
 };
 
 export default function Badge({
@@ -78,7 +78,7 @@ export function LabelBadge({ label }: { label: string }) {
       : label;
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-[var(--color-border-default)]">
+    <span className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-[var(--color-border-default)]">
       <span
         className="w-2 h-2 rounded-full shrink-0"
         style={{ background: color }}
