@@ -429,7 +429,7 @@ export default function ContextMenu({
 
 function CheckIcon() {
   return (
-    <svg className="w-3.5 h-3.5 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -443,5 +443,5 @@ function PriorityDot({ priority }: { priority: number }) {
     3: "var(--color-text-secondary)",
     4: "var(--color-text-muted)",
   };
-  return <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colors[priority] || colors[0] }} />;
+  return <span className="w-3 h-3 rounded-full shrink-0" style={{ background: colors[priority] || colors[0] }} />;
 }

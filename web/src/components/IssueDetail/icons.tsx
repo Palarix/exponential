@@ -83,7 +83,7 @@ export function PriorityIcon({
 export function EstimateIcon() {
   return (
     <svg
-      className="w-3.5 h-3.5 text-[var(--color-text-muted)]"
+      className="w-4 h-4 text-[var(--color-text-muted)]"
       viewBox="0 0 16 16"
       fill="none"
     >

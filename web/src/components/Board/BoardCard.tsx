@@ -76,7 +76,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
         </span>
         {meta.parentTitle && (
           <>
-            <svg className="w-2.5 h-2.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <svg className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
             <span className="text-xs text-[var(--color-text-muted)] truncate">
@@ -86,7 +86,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
         )}
         <div className="flex-1" />
         {issue.is_pending && (
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
         )}
         {issue.assignee && <Avatar name={issue.assignee} size="xs" />}
       </div>
