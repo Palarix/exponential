@@ -220,14 +220,14 @@ export default function IssueDetail({
     <div className="h-full flex flex-col relative">
       {/* Toast */}
       {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
           {toast}
         </div>
       )}
 
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <div className="flex items-center gap-1.5 text-sm min-w-0">
+        <div className="flex items-center gap-2 text-sm min-w-0">
           <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0">
             Issues
           </button>
@@ -280,7 +280,7 @@ export default function IssueDetail({
               const siblings = parent ? issues.filter(i => i.parent_id === parent.id) : [];
               const siblingsDone = siblings.filter(i => i.status === 'DONE').length;
               return (
-                <div className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
                   <span>Sub-issue of</span>
                   {parent && <StatusIcon status={parent.status} size={14} />}
                   <a href={`#/issues/${issue.parent_id}`} className="font-mono text-[var(--color-accent-primary)] hover:underline" onClick={(e) => e.stopPropagation()}>

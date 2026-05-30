@@ -73,7 +73,7 @@ export default function Popover({
 
 export function PopoverHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)]">
+    <div className="px-3 py-2 text-xs text-[var(--color-text-muted)]">
       {children}
     </div>
   );

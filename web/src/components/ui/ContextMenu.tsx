@@ -250,7 +250,7 @@ export default function ContextMenu({
 
   const filterInput = (placeholder: string) => (
     <>
-      <div className="px-3 py-1.5">
+      <div className="px-3 py-2">
         <input
           autoFocus
           value={filterText}
@@ -272,7 +272,7 @@ export default function ContextMenu({
           {filteredStatuses.map((opt, i) => {
             const isCurrent = opt.value === issue.status;
             return (
-              <button key={opt.value} onClick={() => handleAction("UPDATE", { status: opt.value })} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+              <button key={opt.value} onClick={() => handleAction("UPDATE", { status: opt.value })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <StatusIcon status={opt.value} size={14} />
                 <span>{opt.label}</span>
                 {isCurrent && <CheckIcon />}
@@ -280,7 +280,7 @@ export default function ContextMenu({
               </button>
             );
           })}
-          {filteredStatuses.length === 0 && <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching statuses</div>}
+          {filteredStatuses.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching statuses</div>}
         </>
       );
     }
@@ -291,14 +291,14 @@ export default function ContextMenu({
           {filteredPriorities.map(opt => {
             const isCurrent = opt.value === (issue.priority || 0);
             return (
-              <button key={opt.value} onClick={() => handleAction("UPDATE", { priority: opt.value })} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+              <button key={opt.value} onClick={() => handleAction("UPDATE", { priority: opt.value })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <PriorityDot priority={opt.value} />
                 <span>{opt.label}</span>
                 {isCurrent && <CheckIcon />}
               </button>
             );
           })}
-          {filteredPriorities.length === 0 && <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching priorities</div>}
+          {filteredPriorities.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching priorities</div>}
         </>
       );
     }
@@ -309,13 +309,13 @@ export default function ContextMenu({
           {filteredEstimates.map(est => {
             const isCurrent = est === (issue.estimate || 0);
             return (
-              <button key={est} onClick={() => handleAction("UPDATE", { estimate: est })} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+              <button key={est} onClick={() => handleAction("UPDATE", { estimate: est })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
                 {isCurrent && <CheckIcon />}
               </button>
             );
           })}
-          {filteredEstimates.length === 0 && <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching estimates</div>}
+          {filteredEstimates.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching estimates</div>}
         </>
       );
     }
@@ -325,14 +325,14 @@ export default function ContextMenu({
           {filterInput("Set assignee...")}
           <div className="max-h-[240px] overflow-y-auto">
             {issue.assignee && !q && (
-              <button onClick={() => handleAction("UPDATE", { assignee: "" })} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+              <button onClick={() => handleAction("UPDATE", { assignee: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
                 Remove assignee
               </button>
             )}
             {knownPeople.map(person => {
               const isCurrent = person === issue.assignee;
               return (
-                <button key={person} onClick={() => handleAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                <button key={person} onClick={() => handleAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                   <Avatar name={person} size="sm" />
                   <span className="truncate">{person.split(" <")[0]}</span>
                   {isCurrent && <CheckIcon />}
@@ -340,7 +340,7 @@ export default function ContextMenu({
               );
             })}
             {knownPeople.length === 0 && (
-              <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching people</div>
+              <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>
             )}
           </div>
         </>
@@ -365,10 +365,10 @@ export default function ContextMenu({
       <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-[220px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleAction("DELETE", {})} className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
+          <button onClick={() => handleAction("DELETE", {})} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
             Delete
           </button>
-          <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
             Cancel
           </button>
         </div>
@@ -387,11 +387,11 @@ export default function ContextMenu({
             ref={el => { if (el) itemRefs.current.set(item.id, el); }}
             onClick={() => openSubMenu(item.id)}
             onMouseEnter={() => { setFocusIndex(i); openSubMenu(item.id); }}
-            className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === i ? "bg-[var(--color-bg-hover)]" : ""}`}
+            className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === i ? "bg-[var(--color-bg-hover)]" : ""}`}
           >
             <span className="text-[var(--color-text-muted)] w-4 shrink-0 flex items-center justify-center">{item.icon}</span>
             <span>{item.label}</span>
-            <span className="ml-auto flex items-center gap-1.5">
+            <span className="ml-auto flex items-center gap-2">
               <span className="text-xs text-[var(--color-text-muted)]">{item.shortcut}</span>
               <Chevron />
             </span>
@@ -401,7 +401,7 @@ export default function ContextMenu({
         <button
           onClick={() => setConfirmDelete(true)}
           onMouseEnter={() => { setFocusIndex(MENU_ITEMS.length); setSubMenu(null); }}
-          className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-bg-hover)]" : ""}`}
+          className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-bg-hover)]" : ""}`}
         >
           <span className="w-4 shrink-0 flex items-center justify-center">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

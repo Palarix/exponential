@@ -74,7 +74,7 @@ export function SectionIcon({ d }: { d: string }) {
 export function PulseCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card variant="elevated" padding="sm" className="min-h-[112px]">
-      <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-1.5">{title}</p>
+      <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">{title}</p>
       {children}
     </Card>
   );

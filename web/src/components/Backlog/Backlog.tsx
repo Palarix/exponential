@@ -393,7 +393,7 @@ export default function Backlog({
   return (
     <div className="h-full flex flex-col relative">
       {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
           {toast}
         </div>
       )}
@@ -411,7 +411,7 @@ export default function Backlog({
         ))}
         <div className="ml-auto flex items-center gap-3">
           {(search || searchFocused) && (
-            <div className="flex items-center gap-1.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-2 py-1">
+            <div className="flex items-center gap-2 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-2 py-1">
               <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
@@ -430,7 +430,7 @@ export default function Backlog({
             <button
               ref={sortBtnRef}
               onClick={() => setShowSortMenu((v) => !v)}
-              className="flex items-center gap-1 h-6 px-1.5 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h6M3 12h10M3 17h14" />
@@ -488,14 +488,14 @@ export default function Backlog({
                         <StatusIcon status={groupRow.status} size={14} />
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">{groupRow.label}</span>
                         <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{groupRow.count}</span>
-                        <button onClick={(e) => { e.stopPropagation(); startInlineCreate(groupRow.status); }} className="ml-auto p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors" title={`New ${groupRow.label} issue`}>
+                        <button onClick={(e) => { e.stopPropagation(); startInlineCreate(groupRow.status); }} className="ml-auto p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors" title={`New ${groupRow.label} issue`}>
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                         </button>
                       </div>
                     )}
                   </GroupHeaderDnd>
                   {isInlineActive && (
-                    <div className="flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
+                    <div className="flex items-center gap-3 px-5 h-[38px] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
                       <StatusIcon status={groupRow.status} size={14} className="shrink-0 ml-7" />
                       <input
                         ref={inlineRef}
@@ -533,7 +533,7 @@ export default function Backlog({
                               {...dragProps.listeners}
                               onClick={() => onIssueClick?.(issue)}
                               onMouseEnter={() => { setKeyboardNav(false); setFocusedIndex(i); }}
-                              className={`flex items-center gap-2.5 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
+                              className={`flex items-center gap-3 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
                               style={{ paddingLeft: `${20 + indent}px` }}
                             >
                               {hasChildren ? (
@@ -558,7 +558,7 @@ export default function Backlog({
                                   <Popover onClose={() => setOpenPopover(null)}>
                                     <PopoverHeader>Set status...</PopoverHeader>
                                     {STATUS_OPTIONS.map((opt) => (
-                                      <button key={opt.value} onClick={() => handleQuickStatus(issue.id, opt.value)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                                      <button key={opt.value} onClick={() => handleQuickStatus(issue.id, opt.value)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                                         <StatusIcon status={opt.value} size={14} /><span>{opt.label}</span>
                                         {opt.value === issue.status && <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                       </button>
@@ -570,12 +570,12 @@ export default function Backlog({
                               {parentBreadcrumb && <svg className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>}
                               <span className={`text-sm truncate min-w-0 ${isGhostParent ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"}`}>{issue.title}</span>
                               {dragBatchCount > 1 && <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">{dragBatchCount}</span>}
-                              {hasChildren && <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0"><SubProgress done={childDone} total={childTotal} />{childDone}/{childTotal}</span>}
+                              {hasChildren && <span className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0"><SubProgress done={childDone} total={childTotal} />{childDone}/{childTotal}</span>}
                               <div className="flex-1" />
                               {issue.is_pending && <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />}
                               {issue.priority > 0 && <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? "text-[var(--color-error)]" : issue.priority === 2 ? "text-[var(--color-warning)]" : "text-[var(--color-text-muted)]"}`}>{issue.priority === 1 ? "!!!" : issue.priority === 2 ? "!!" : issue.priority === 3 ? "!" : ""}</span>}
-                              <div className="relative flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === "labels" ? null : { issueId: issue.id, type: "labels" })} className="flex items-center gap-2.5 hover:opacity-70 transition-opacity">
+                              <div className="relative flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === "labels" ? null : { issueId: issue.id, type: "labels" })} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
                                   {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
                                   {(!issue.labels || issue.labels.length === 0) && <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">+ label</span>}
                                 </button>
@@ -593,7 +593,7 @@ export default function Backlog({
                                   <Popover onClose={() => setOpenPopover(null)}>
                                     <PopoverHeader>Set estimate...</PopoverHeader>
                                     {ESTIMATE_OPTIONS.map((est) => (
-                                      <button key={est} onClick={() => handleQuickEstimate(issue.id, est)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                                      <button key={est} onClick={() => handleQuickEstimate(issue.id, est)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                                         <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
                                         {est === (issue.estimate || 0) && <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                       </button>

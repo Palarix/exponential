@@ -195,7 +195,7 @@ function App() {
           <div className="flex flex-col items-center gap-2 max-w-[320px] text-center">
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Server Offline</h2>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Unable to reach the Beats server. Make sure <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded-[var(--radius-sm)]">beats board</code> is running in your terminal.
+              Unable to reach the Beats server. Make sure <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-2 py-1 rounded-[var(--radius-sm)]">beats board</code> is running in your terminal.
             </p>
           </div>
 

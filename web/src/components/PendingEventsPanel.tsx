@@ -74,7 +74,7 @@ export default function PendingEventsPanel({
             pending.events.map((event, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--color-border-subtle)]"
+                className="flex items-center gap-3 px-4 py-3 border-b border-[var(--color-border-subtle)]"
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
@@ -110,13 +110,13 @@ export default function PendingEventsPanel({
           <div className="flex gap-2">
             <button
               onClick={onDiscard}
-              className="flex-1 px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
+              className="flex-1 px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
             >
               Discard
             </button>
             <button
               onClick={onSave}
-              className="flex-1 px-3 py-1.5 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
+              className="flex-1 px-3 py-2 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
             >
               Save & Sync
             </button>

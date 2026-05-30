@@ -143,7 +143,7 @@ export default function ActivityFeed({
             {desc.preview && !isExpanded && (
               <button
                 onClick={() => toggleComment(key)}
-                className="block w-full text-left ml-4 mt-0.5 text-sm text-[var(--color-text-muted)] italic truncate hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
+                className="block w-full text-left ml-4 mt-1 text-sm text-[var(--color-text-muted)] italic truncate hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
                 title="Expand comment"
               >
                 &ldquo;{previewText.slice(0, 140)}{previewText.length > 140 ? "…" : ""}&rdquo;
@@ -152,7 +152,7 @@ export default function ActivityFeed({
             {desc.preview && isExpanded && (
               <button
                 onClick={() => toggleComment(key)}
-                className="block w-full text-left ml-4 mt-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] px-3 py-2 hover:border-[var(--color-border-focus)] transition-colors cursor-pointer"
+                className="block w-full text-left ml-4 mt-2 rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] px-3 py-2 hover:border-[var(--color-border-focus)] transition-colors cursor-pointer"
                 title="Collapse comment"
               >
                 <div className="prose-beats text-sm">

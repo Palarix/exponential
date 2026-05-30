@@ -15,7 +15,7 @@ function AttentionBadge({ item }: { item: AttentionItem }) {
   };
   const s = styles[item.kind];
   return (
-    <span className={`text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded border shrink-0 ${s.cls}`}>
+    <span className={`text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 ${s.cls}`}>
       {s.label}
     </span>
   );
@@ -186,7 +186,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.wip.total : "—"}</p>
                 <p className="text-xs text-[var(--color-text-muted)] mt-2">in progress</p>
                 {metrics && metrics.wip.stale > 0 && (
-                  <div className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-[var(--color-warning)]">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -217,7 +217,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 <p className="mt-auto text-xs text-[var(--color-text-muted)]">last 8 weeks</p>
               </Card>
               <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
-                <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-1.5">Median Triage Time</p>
+                <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Median Triage Time</p>
                 <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? formatTriage(metrics.trends.median_triage_mins) : "—"}</p>
                 <p className="mt-auto text-xs text-[var(--color-text-muted)]">
                   {metrics && metrics.trends.triaged_count > 0
@@ -245,12 +245,12 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                       <div className="flex items-end gap-1 h-12">
                         {bars.map((b) => (
                           <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
-                            <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums leading-none mb-0.5">{b.count > 0 ? b.count : ""}</span>
+                            <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
                             <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
                           </div>
                         ))}
                       </div>
-                      <div className="flex gap-1 mt-1.5">
+                      <div className="flex gap-1 mt-2">
                         {bars.map((b) => <span key={b.label} className="flex-1 text-center text-[10px] text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
                       </div>
                     </div>
@@ -267,7 +267,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 {metrics.attention.map((item) => {
                   const issue = issues.find((i) => i.id === item.issue_id);
                   return (
-                    <button key={item.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
+                    <button key={item.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
                       <AttentionBadge item={item} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.title}</span>
                       <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">{attentionMeta(item)}</span>
@@ -288,7 +288,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                   <span>Person</span><span className="text-right w-10">WIP</span><span className="text-right w-10">Pts</span><span className="text-right w-12">Blocked</span>
                 </div>
                 {metrics.workload.map((w) => (
-                  <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-1.5 hover:bg-[var(--color-bg-hover)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
+                  <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-bg-hover)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar name={w.assignee} size="xs" />
                       <span className="text-sm text-[var(--color-text-primary)] truncate">{w.assignee.split(" <")[0]}</span>
@@ -313,12 +313,12 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 {metrics.epics.map((ep) => {
                   const issue = issues.find((i) => i.id === ep.issue_id);
                   return (
-                    <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-2.5 w-full px-5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
+                    <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
                       <StatusIcon status={issue?.status || "PLANNED"} size={14} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
                       <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />
-                      {ep.stale && <span className="text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
-                      <span className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0">
+                      {ep.stale && <span className="text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
+                      <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
                         <SubProgress done={ep.children_done} total={ep.children_total} />
                         {ep.children_done}/{ep.children_total}
                       </span>
@@ -342,12 +342,12 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   {statusCards.map((card) => (
                     <Card key={card.label} variant="default" className="text-center">
-                      <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                      <div className="flex items-center justify-center gap-2 mb-2">
                         <StatusIcon status={card.status} size={12} />
                         <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{card.label}</p>
                       </div>
                       <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{card.value}</p>
-                      <div className="h-0.5 mt-3 rounded-full bg-[var(--color-bg-tertiary)]">
+                      <div className="h-1 mt-3 rounded-full bg-[var(--color-bg-tertiary)]">
                         <div className="h-full rounded-full transition-all duration-500" style={{ background: card.color, width: `${stats.total ? (card.value / stats.total) * 100 : 0}%` }} />
                       </div>
                     </Card>

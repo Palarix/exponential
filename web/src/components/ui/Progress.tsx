@@ -15,7 +15,7 @@ const variantColors: Record<string, string> = {
 };
 
 const sizeStyles: Record<string, string> = {
-  sm: 'h-0.5',
+  sm: 'h-1',
   md: 'h-1',
   lg: 'h-2',
 };
@@ -33,7 +33,7 @@ export default function Progress({
   return (
     <div className="w-full">
       {(showLabel || label) && (
-        <div className="flex justify-between items-center mb-1.5">
+        <div className="flex justify-between items-center mb-2">
           {label && (
             <span className="text-xs text-[var(--color-text-secondary)]">{label}</span>
           )}

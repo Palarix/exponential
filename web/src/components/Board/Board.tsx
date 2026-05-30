@@ -259,7 +259,7 @@ export default function Board({ issues, onRefresh, onIssueClick }: BoardProps) {
         onDragCancel={handleDragCancel}
       >
         <div className="flex-1 overflow-hidden p-3">
-          <div className="flex gap-2.5 h-full">
+          <div className="flex gap-3 h-full">
             {COLUMNS.map((column) => (
               <BoardColumn
                 key={column.id}

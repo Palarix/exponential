@@ -32,12 +32,12 @@ export default function DistributionSection({
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{title}</h2>
-        <div className="flex items-center gap-0.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] p-0.5">
+        <div className="flex items-center gap-1 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] p-1">
           {(["active", "all"] as const).map((opt) => (
             <button
               key={opt}
               onClick={() => onFilterChange(opt)}
-              className={`px-2.5 h-6 rounded-[var(--radius-sm)] text-xs transition-colors ${
+              className={`px-3 h-6 rounded-[var(--radius-sm)] text-xs transition-colors ${
                 filter === opt
                   ? "bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)]"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"

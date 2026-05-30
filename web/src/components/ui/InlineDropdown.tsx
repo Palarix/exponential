@@ -54,7 +54,7 @@ export default function InlineDropdown({
         ref={btnRef}
         type="button"
         onClick={handleOpen}
-        className={`flex items-center gap-1.5 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}
+        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}
       >
         {selected ? (
           <>
