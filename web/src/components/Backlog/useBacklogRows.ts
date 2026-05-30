@@ -10,6 +10,8 @@ const TAB_CONFIGS: Record<Tab, { statuses: string[] }> = {
   backlog: { statuses: ["BACKLOG"] },
 };
 
+export type TreeGuide = 'pipe' | 'tee' | 'corner' | 'blank';
+
 export type RowItem =
   | {
       kind: "group";
@@ -27,6 +29,7 @@ export type RowItem =
       childTotal: number;
       parentBreadcrumb?: string;
       isGhostParent?: boolean;
+      treeGuides: TreeGuide[];
     };
 
 const STATUS_META: Record<string, { label: string }> = {
@@ -84,7 +87,7 @@ export function useBacklogRows(
             groupIssues.filter((i) => !i.parent_id || !groupIssueIds.has(i.parent_id)),
             effectiveSortKey,
           );
-          const addTree = (issue: Issue, depth: number, breadcrumb?: string) => {
+          const addTree = (issue: Issue, depth: number, breadcrumb?: string, treeGuides?: TreeGuide[]) => {
             const allChildren = childrenByParent.get(issue.id) || [];
             const doneCount = allChildren.filter((c) => c.status === "DONE").length;
             result.push({
@@ -95,13 +98,18 @@ export function useBacklogRows(
               childDone: doneCount,
               childTotal: allChildren.length,
               parentBreadcrumb: breadcrumb,
+              treeGuides: treeGuides || [],
             });
             const visibleChildren = sortGroup(
               allChildren.filter((c) => groupIssueIds.has(c.id)),
               effectiveSortKey,
             );
             if (visibleChildren.length > 0 && expandedNodes.has(issue.id)) {
-              for (const child of visibleChildren) addTree(child, depth + 1);
+              const inherited: TreeGuide[] = (treeGuides || []).map(g => g === 'tee' || g === 'pipe' ? 'pipe' : 'blank');
+              visibleChildren.forEach((child, idx) => {
+                const isLast = idx === visibleChildren.length - 1;
+                addTree(child, depth + 1, undefined, [...inherited, isLast ? 'corner' : 'tee']);
+              });
             }
           };
           for (const issue of topLevel) {
@@ -118,7 +126,7 @@ export function useBacklogRows(
           );
           const ghostParentIds = new Set(orphanedChildren.map((i) => i.parent_id!));
 
-          const addTree = (issue: Issue, depth: number, isGhost?: boolean) => {
+          const addTree = (issue: Issue, depth: number, isGhost?: boolean, treeGuides?: TreeGuide[]) => {
             const allChildren = childrenByParent.get(issue.id) || [];
             const doneCount = allChildren.filter((c) => c.status === "DONE").length;
             result.push({
@@ -129,13 +137,18 @@ export function useBacklogRows(
               childDone: doneCount,
               childTotal: allChildren.length,
               isGhostParent: isGhost,
+              treeGuides: treeGuides || [],
             });
             const visibleChildren = sortGroup(
               allChildren.filter((c) => groupIssueIds.has(c.id)),
               effectiveSortKey,
             );
             if (visibleChildren.length > 0 && (isGhost || expandedNodes.has(issue.id))) {
-              for (const child of visibleChildren) addTree(child, depth + 1);
+              const inherited: TreeGuide[] = (treeGuides || []).map(g => g === 'tee' || g === 'pipe' ? 'pipe' : 'blank');
+              visibleChildren.forEach((child, idx) => {
+                const isLast = idx === visibleChildren.length - 1;
+                addTree(child, depth + 1, false, [...inherited, isLast ? 'corner' : 'tee']);
+              });
             }
           };
 
