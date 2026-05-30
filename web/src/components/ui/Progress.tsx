@@ -17,7 +17,7 @@ const variantColors: Record<string, string> = {
 const sizeStyles: Record<string, string> = {
   sm: 'h-0.5',
   md: 'h-1',
-  lg: 'h-1.5',
+  lg: 'h-2',
 };
 
 export default function Progress({

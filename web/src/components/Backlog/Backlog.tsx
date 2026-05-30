@@ -412,7 +412,7 @@ export default function Backlog({
         <div className="ml-auto flex items-center gap-3">
           {(search || searchFocused) && (
             <div className="flex items-center gap-1.5 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-2 py-1">
-              <svg className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
               <input
@@ -489,7 +489,7 @@ export default function Backlog({
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">{groupRow.label}</span>
                         <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{groupRow.count}</span>
                         <button onClick={(e) => { e.stopPropagation(); startInlineCreate(groupRow.status); }} className="ml-auto p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors" title={`New ${groupRow.label} issue`}>
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                         </button>
                       </div>
                     )}
@@ -560,7 +560,7 @@ export default function Backlog({
                                     {STATUS_OPTIONS.map((opt) => (
                                       <button key={opt.value} onClick={() => handleQuickStatus(issue.id, opt.value)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                                         <StatusIcon status={opt.value} size={14} /><span>{opt.label}</span>
-                                        {opt.value === issue.status && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                        {opt.value === issue.status && <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                       </button>
                                     ))}
                                   </Popover>
@@ -572,7 +572,7 @@ export default function Backlog({
                               {dragBatchCount > 1 && <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">{dragBatchCount}</span>}
                               {hasChildren && <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] shrink-0"><SubProgress done={childDone} total={childTotal} />{childDone}/{childTotal}</span>}
                               <div className="flex-1" />
-                              {issue.is_pending && <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)] shrink-0" />}
+                              {issue.is_pending && <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />}
                               {issue.priority > 0 && <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? "text-[var(--color-error)]" : issue.priority === 2 ? "text-[var(--color-warning)]" : "text-[var(--color-text-muted)]"}`}>{issue.priority === 1 ? "!!!" : issue.priority === 2 ? "!!" : issue.priority === 3 ? "!" : ""}</span>}
                               <div className="relative flex items-center gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === "labels" ? null : { issueId: issue.id, type: "labels" })} className="flex items-center gap-2.5 hover:opacity-70 transition-opacity">
@@ -595,7 +595,7 @@ export default function Backlog({
                                     {ESTIMATE_OPTIONS.map((est) => (
                                       <button key={est} onClick={() => handleQuickEstimate(issue.id, est)} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                                         <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
-                                        {est === (issue.estimate || 0) && <svg className="w-3.5 h-3.5 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                        {est === (issue.estimate || 0) && <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                       </button>
                                     ))}
                                   </Popover>

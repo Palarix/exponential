@@ -205,7 +205,7 @@ export default function Layout({
         </main>
         <div className="flex items-center justify-end px-4 py-2 shrink-0">
           <div className="flex items-center gap-1.5 text-xs">
-            <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-error)]'}`} />
+            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-error)]'}`} />
             {connected ? (
               <span className="text-[var(--color-text-muted)]">Beats {version && `v${version}`}</span>
             ) : (

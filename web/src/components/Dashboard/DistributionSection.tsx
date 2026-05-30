@@ -60,7 +60,7 @@ export default function DistributionSection({
             {rows.map(({ key, label, count, pct, barWidth }) => (
               <div key={key} className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">{label}</div>
-                <div className="w-16 h-1.5 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden shrink-0">
+                <div className="w-16 h-2 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden shrink-0">
                   <div
                     className="h-full rounded-full bg-[var(--color-text-secondary)] transition-all duration-500"
                     style={{ width: `${barWidth}%` }}

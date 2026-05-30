@@ -55,7 +55,7 @@ export default function Badge({
         .replace(/\s+/g, " ")}
     >
       {dot && (
-        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+        <span className="w-2 h-2 rounded-full bg-current opacity-80" />
       )}
       {children}
     </span>

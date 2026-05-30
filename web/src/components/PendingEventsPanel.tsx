@@ -50,7 +50,7 @@ export default function PendingEventsPanel({
         {/* Header */}
         <div className="flex items-center justify-between px-4 h-11 border-b border-[var(--color-border-subtle)]">
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+            <span className="w-2 h-2 rounded-full bg-[var(--color-warning)]" />
             <h2 className="text-sm font-medium text-[var(--color-text-primary)]">
               Pending Changes
             </h2>
@@ -77,7 +77,7 @@ export default function PendingEventsPanel({
                 className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--color-border-subtle)]"
               >
                 <span
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ background: eventTypeColors[event.type] || 'var(--color-text-muted)' }}
                 />
                 <div className="flex-1 min-w-0">

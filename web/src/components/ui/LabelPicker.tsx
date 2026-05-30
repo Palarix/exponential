@@ -138,7 +138,7 @@ export default function LabelPicker({
             className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <svg
-              className="w-3.5 h-3.5"
+              className="w-4 h-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -207,7 +207,7 @@ export default function LabelPicker({
           >
             {singleSelect ? (
               <span
-                className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${isActive ? "border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
+                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isActive ? "border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
               >
                 {isActive && (
                   <span className="w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
@@ -215,11 +215,11 @@ export default function LabelPicker({
               </span>
             ) : (
               <span
-                className={`w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
+                className={`w-4 h-4 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
               >
                 {isActive && (
                   <svg
-                    className="w-2.5 h-2.5 text-white"
+                    className="w-3 h-3 text-white"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
