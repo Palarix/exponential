@@ -39,7 +39,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           <path d="M55 106h50" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 4" />
         </svg>
 
-        <div className="flex flex-col items-center gap-2 max-w-[400px] text-center">
+        <div className="flex flex-col items-center gap-2 max-w-100 text-center">
           <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Something went wrong</h2>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
             An unexpected error occurred while rendering this view.

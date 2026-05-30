@@ -144,10 +144,10 @@ export default function Layout({
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-sidebar)]">
       {/* Sidebar */}
-      <aside className="w-[245px] flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none">
+      <aside className="w-62 flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none">
         {/* Workspace header */}
-        <div className="flex items-center gap-2 px-4 pt-2 h-[52px]">
-          <img src="/logo-light.svg" alt="Beats" className="w-[18px] h-[18px] opacity-80" />
+        <div className="flex items-center gap-2 px-4 pt-2 h-13">
+          <img src="/logo-light.svg" alt="Beats" className="w-5 h-5 opacity-80" />
           <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
             Beats
           </span>

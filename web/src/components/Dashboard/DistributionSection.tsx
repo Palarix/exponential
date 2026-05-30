@@ -48,7 +48,7 @@ export default function DistributionSection({
           ))}
         </div>
       </div>
-      <Card variant="elevated" className="min-h-[160px] flex flex-col">
+      <Card variant="elevated" className="min-h-40 flex flex-col">
         {rows.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm text-[var(--color-text-muted)] text-center">

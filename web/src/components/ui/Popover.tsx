@@ -61,7 +61,7 @@ export default function Popover({
         <div
           ref={popRef}
           style={style}
-          className="z-50 min-w-[200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
+          className="z-50 min-w-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
         >
           {children}
         </div>,

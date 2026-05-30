@@ -71,7 +71,7 @@ export default function InlineDropdown({
       {open && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[100] min-w-[160px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
+          className="fixed z-[100] min-w-40 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
           style={{ top: pos.top, left: pos.left }}
         >
           {options.map((opt) => (

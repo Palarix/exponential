@@ -309,7 +309,7 @@ export default function IssueDetail({
               ) : (
                 <div
                   onClick={(e) => { setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description"); }}
-                  className="cursor-text min-h-[40px] prose-beats"
+                  className="cursor-text min-h-10 prose-beats"
                 >
                   {issue.description ? (
                     <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>

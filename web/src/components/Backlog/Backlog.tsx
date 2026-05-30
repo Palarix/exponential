@@ -404,7 +404,7 @@ export default function Backlog({
           <button
             key={id}
             onClick={() => onTabChange(id)}
-            className={`text-sm font-medium h-full border-b-[1.5px] -mb-px transition-colors duration-[var(--duration-fast)] ${activeTab === id ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
+            className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${activeTab === id ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
           >
             {config.label}
           </button>
@@ -438,7 +438,7 @@ export default function Backlog({
               {SORT_OPTIONS.find((o) => o.value === sortKey)?.label}
             </button>
             {showSortMenu && (
-              <div ref={sortMenuRef} className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
+              <div ref={sortMenuRef} className="absolute right-0 top-full mt-1 z-50 min-w-35 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
                 {SORT_OPTIONS.map((opt) => (
                   <button key={opt.value} onClick={() => { onSortChange(opt.value); setShowSortMenu(false); }} className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)] bg-[var(--color-bg-hover)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"}`}>
                     {opt.label}
@@ -495,7 +495,7 @@ export default function Backlog({
                     )}
                   </GroupHeaderDnd>
                   {isInlineActive && (
-                    <div className="flex items-center gap-3 px-5 h-[38px] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
+                    <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
                       <StatusIcon status={groupRow.status} size={14} className="shrink-0 ml-7" />
                       <input
                         ref={inlineRef}
@@ -533,7 +533,7 @@ export default function Backlog({
                               {...dragProps.listeners}
                               onClick={() => onIssueClick?.(issue)}
                               onMouseEnter={() => { setKeyboardNav(false); setFocusedIndex(i); }}
-                              className={`flex items-center gap-3 px-5 h-[38px] border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
+                              className={`flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
                               style={{ paddingLeft: `${20 + indent}px` }}
                             >
                               {hasChildren ? (
@@ -549,7 +549,7 @@ export default function Backlog({
                                   <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor"><circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" /><circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" /><circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" /></svg>
                                 </span>
                               )}
-                              <CopyableId id={issue.id} className="text-xs w-[110px] shrink-0 truncate tabular-nums" />
+                              <CopyableId id={issue.id} className="text-xs w-28 shrink-0 truncate tabular-nums" />
                               <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === "status" ? null : { issueId: issue.id, type: "status" })} className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors">
                                   <StatusIcon status={issue.status} size={14} />
@@ -566,7 +566,7 @@ export default function Backlog({
                                   </Popover>
                                 )}
                               </div>
-                              {parentBreadcrumb && <span className="text-sm text-[var(--color-text-muted)] truncate shrink-0 max-w-[150px]">{parentBreadcrumb}</span>}
+                              {parentBreadcrumb && <span className="text-sm text-[var(--color-text-muted)] truncate shrink-0 max-w-38">{parentBreadcrumb}</span>}
                               {parentBreadcrumb && <svg className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>}
                               <span className={`text-sm truncate min-w-0 ${isGhostParent ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"}`}>{issue.title}</span>
                               {dragBatchCount > 1 && <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">{dragBatchCount}</span>}
