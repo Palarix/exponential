@@ -509,7 +509,7 @@ export default function Backlog({
                     </div>
                   )}
                   {issueRows.map(({ row, index: i }) => {
-                    const { issue, depth, hasChildren, childDone, childTotal, parentBreadcrumb, isGhostParent } = row;
+                    const { issue, depth, hasChildren, childDone, childTotal, parentBreadcrumb, isGhostParent, treeGuides } = row;
                     const isContextTarget = contextMenu?.issue.id === issue.id;
                     const isRowFocused = i === focusedIndex || isContextTarget;
                     const isNodeExpanded = expandedNodes.has(issue.id);
@@ -533,17 +533,20 @@ export default function Backlog({
                               {...dragProps.listeners}
                               onClick={() => onIssueClick?.(issue)}
                               onMouseEnter={() => { setKeyboardNav(false); setFocusedIndex(i); }}
-                              className={`flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
+                              className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
                               style={{ paddingLeft: `${20 + indent}px` }}
                             >
+                              {treeGuides.map((guide, k) => guide !== 'blank' ? (
+                                <svg key={k} className="absolute top-0 h-10 pointer-events-none text-[var(--color-border-default)]" style={{ left: `${20 + k * 24}px`, width: '24px' }} viewBox="0 0 24 40" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  {(guide === 'pipe' || guide === 'tee') && <line x1="8" y1="0" x2="8" y2="40" />}
+                                  {guide === 'corner' && <line x1="8" y1="0" x2="8" y2="20" />}
+                                  {(guide === 'tee' || guide === 'corner') && <line x1="8" y1="20" x2="24" y2="20" />}
+                                </svg>
+                              ) : null)}
                               {hasChildren ? (
                                 <button onClick={(e) => { e.stopPropagation(); toggleNode(issue.id); }} className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10">
                                   <svg className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                                 </button>
-                              ) : depth > 0 ? (
-                                <span className={`w-4 shrink-0 flex items-center justify-center text-[var(--color-border-default)] ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}>
-                                  <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 0v9h10" /></svg>
-                                </span>
                               ) : (
                                 <span className={`text-[var(--color-text-muted)] transition-opacity w-4 shrink-0 flex items-center justify-center ${canDrag ? "opacity-30 cursor-grab active:cursor-grabbing" : "opacity-0 group-hover:opacity-30"}`}>
                                   <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor"><circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" /><circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" /><circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" /></svg>
