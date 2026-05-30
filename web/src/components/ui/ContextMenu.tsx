@@ -5,6 +5,7 @@ import { addDraft } from "../../api/client";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import LabelPicker from "./LabelPicker";
 import StatusIcon from "./StatusIcon";
+import PriorityIcon from "./PriorityIcon";
 import Avatar from "./Avatar";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | null;
@@ -292,7 +293,7 @@ export default function ContextMenu({
             const isCurrent = opt.value === (issue.priority || 0);
             return (
               <button key={opt.value} onClick={() => handleAction("UPDATE", { priority: opt.value })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-                <PriorityDot priority={opt.value} />
+                <PriorityIcon priority={opt.value} size={14} />
                 <span>{opt.label}</span>
                 {isCurrent && <CheckIcon />}
               </button>
@@ -433,15 +434,4 @@ function CheckIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
-}
-
-function PriorityDot({ priority }: { priority: number }) {
-  const colors: Record<number, string> = {
-    0: "var(--color-text-muted)",
-    1: "var(--color-error)",
-    2: "var(--color-warning)",
-    3: "var(--color-text-secondary)",
-    4: "var(--color-text-muted)",
-  };
-  return <span className="w-3 h-3 rounded-full shrink-0" style={{ background: colors[priority] || colors[0] }} />;
 }

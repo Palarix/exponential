@@ -17,6 +17,7 @@ import {
   Avatar,
   LabelBadge,
   StatusIcon,
+  PriorityIcon,
   CopyableId,
   Popover,
   PopoverHeader,
@@ -480,11 +481,13 @@ export default function Backlog({
                         data-row={groupIndex}
                         onClick={() => !groupRow.isEmpty && toggleGroup(groupRow.status)}
                         onMouseEnter={() => { setKeyboardNav(false); setFocusedIndex(groupIndex); }}
-                        className={`flex items-center gap-2 w-full px-5 py-2 border-b border-[var(--color-border-subtle)] transition-colors duration-[var(--duration-fast)] select-none ${groupRow.isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${!isDropGroup && isFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : !isDropGroup && isFocused ? "bg-[var(--color-bg-hover)]" : !isDropGroup ? "bg-[var(--color-bg-secondary)]" : ""}`}
+                        className={`flex items-center gap-3 w-full px-5 py-2 border-b border-[var(--color-border-subtle)] transition-colors duration-[var(--duration-fast)] select-none ${groupRow.isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${!isDropGroup && isFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : !isDropGroup && isFocused ? "bg-[var(--color-bg-hover)]" : !isDropGroup ? "bg-[var(--color-bg-secondary)]" : ""}`}
                       >
-                        <svg className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${isExpanded && !groupRow.isEmpty ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                        <span className="w-4 shrink-0 flex items-center justify-center">
+                          <svg className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${isExpanded && !groupRow.isEmpty ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
                         <StatusIcon status={groupRow.status} size={14} />
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">{groupRow.label}</span>
                         <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{groupRow.count}</span>
@@ -496,7 +499,10 @@ export default function Backlog({
                   </GroupHeaderDnd>
                   {isInlineActive && (
                     <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
-                      <StatusIcon status={groupRow.status} size={14} className="shrink-0 ml-7" />
+                      <span className="w-4 shrink-0" />
+                      <PriorityIcon priority={0} size={14} />
+                      <span className="w-28 shrink-0" />
+                      <StatusIcon status={groupRow.status} size={14} className="shrink-0" />
                       <input
                         ref={inlineRef}
                         value={inlineTitle}
@@ -548,10 +554,9 @@ export default function Backlog({
                                   <svg className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                                 </button>
                               ) : (
-                                <span className={`text-[var(--color-text-muted)] transition-opacity w-4 shrink-0 flex items-center justify-center ${canDrag ? "opacity-30 cursor-grab active:cursor-grabbing" : "opacity-0 group-hover:opacity-30"}`}>
-                                  <svg width="6" height="10" viewBox="0 0 6 10" fill="currentColor"><circle cx="1" cy="1" r="1" /><circle cx="5" cy="1" r="1" /><circle cx="1" cy="5" r="1" /><circle cx="5" cy="5" r="1" /><circle cx="1" cy="9" r="1" /><circle cx="5" cy="9" r="1" /></svg>
-                                </span>
+                                <span className="w-4 shrink-0" />
                               )}
+                              <PriorityIcon priority={issue.priority || 0} size={14} />
                               <CopyableId id={issue.id} className="text-xs w-28 shrink-0 truncate tabular-nums" />
                               <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === "status" ? null : { issueId: issue.id, type: "status" })} className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors">
@@ -576,7 +581,6 @@ export default function Backlog({
                               {hasChildren && <span className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0"><SubProgress done={childDone} total={childTotal} />{childDone}/{childTotal}</span>}
                               <div className="flex-1" />
                               {issue.is_pending && <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />}
-                              {issue.priority > 0 && <span className={`text-xs font-medium shrink-0 ${issue.priority === 1 ? "text-[var(--color-error)]" : issue.priority === 2 ? "text-[var(--color-warning)]" : "text-[var(--color-text-muted)]"}`}>{issue.priority === 1 ? "!!!" : issue.priority === 2 ? "!!" : issue.priority === 3 ? "!" : ""}</span>}
                               <div className="relative flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => setOpenPopover(openPopover?.issueId === issue.id && openPopover?.type === "labels" ? null : { issueId: issue.id, type: "labels" })} className="flex items-center gap-3 hover:opacity-70 transition-opacity">
                                   {issue.labels?.map((label) => <LabelBadge key={label} label={label} />)}
