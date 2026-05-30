@@ -323,7 +323,7 @@ export default function ContextMenu({
       return (
         <>
           {filterInput("Set assignee...")}
-          <div className="max-h-[240px] overflow-y-auto">
+          <div className="max-h-60 overflow-y-auto">
             {issue.assignee && !q && (
               <button onClick={() => handleAction("UPDATE", { assignee: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
                 Remove assignee
@@ -362,7 +362,7 @@ export default function ContextMenu({
 
   if (confirmDelete) {
     return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-[220px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
+      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
         <div className="flex items-center gap-2">
           <button onClick={() => handleAction("DELETE", {})} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
@@ -380,7 +380,7 @@ export default function ContextMenu({
   return createPortal(
     <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] flex items-start">
       {/* Main menu */}
-      <div className="min-w-[200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
+      <div className="min-w-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
         {MENU_ITEMS.map((item, i) => (
           <button
             key={item.id}
@@ -416,7 +416,7 @@ export default function ContextMenu({
       {/* Flyout sub-menu */}
       {subMenu && (
         <div
-          className="min-w-[200px] max-w-[280px] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden ml-1"
+          className="min-w-50 max-w-70 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden ml-1"
           style={{ marginTop: Math.max(0, subMenuOffset - 30) }}
         >
           {renderSubMenuPanel()}

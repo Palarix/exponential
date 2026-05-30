@@ -173,7 +173,7 @@ function App() {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3">
-          <div className="w-5 h-5 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />
           <p className="text-[var(--color-text-muted)] text-sm">Loading...</p>
         </div>
       );
@@ -192,7 +192,7 @@ function App() {
             <circle cx="80" cy="72" r="2" fill="var(--color-text-muted)" />
           </svg>
 
-          <div className="flex flex-col items-center gap-2 max-w-[320px] text-center">
+          <div className="flex flex-col items-center gap-2 max-w-80 text-center">
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Server Offline</h2>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
               Unable to reach the Beats server. Make sure <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-2 py-1 rounded-[var(--radius-sm)]">beats board</code> is running in your terminal.

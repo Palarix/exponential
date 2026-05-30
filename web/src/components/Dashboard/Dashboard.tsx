@@ -205,7 +205,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
           {/* Trends */}
           <Section title="Trends" icon={<SectionIcon d={SECTION_ICONS.trends} />} collapsible storageKey="beats-dashboard-trends-open">
             <div className="px-5 py-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
-              <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
+              <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
                   <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
@@ -216,7 +216,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                 {metrics ? <div className="flex items-end justify-center"><TrendChart weekly={metrics.trends.weekly} /></div> : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>}
                 <p className="mt-auto text-xs text-[var(--color-text-muted)]">last 8 weeks</p>
               </Card>
-              <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
+              <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
                 <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Median Triage Time</p>
                 <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? formatTriage(metrics.trends.median_triage_mins) : "—"}</p>
                 <p className="mt-auto text-xs text-[var(--color-text-muted)]">
@@ -225,7 +225,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                     : "no triaged issues yet"}
                 </p>
               </Card>
-              <Card variant="elevated" padding="sm" className="min-h-[112px] flex flex-col">
+              <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
                 <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Bug Age</p>
                 {(() => {
                   const buckets = metrics?.trends.bug_age;

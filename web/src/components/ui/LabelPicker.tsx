@@ -215,7 +215,7 @@ export default function LabelPicker({
               </span>
             ) : (
               <span
-                className={`w-4 h-4 rounded-[3px] border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
+                className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
               >
                 {isActive && (
                   <svg

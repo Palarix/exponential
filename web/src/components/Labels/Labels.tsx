@@ -109,7 +109,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 h-[52px] shrink-0 border-b border-[var(--color-border-subtle)]">
+      <div className="flex items-center justify-between px-6 h-13 shrink-0 border-b border-[var(--color-border-subtle)]">
         <h1 className="text-sm font-medium text-[var(--color-text-primary)]">Labels</h1>
         <button
           onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}

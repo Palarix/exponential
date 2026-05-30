@@ -349,7 +349,7 @@ export default function PropertySidebar({
                       <input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                     </div>
                     <div className="border-t border-[var(--color-border-subtle)]" />
-                    <div className="max-h-[240px] overflow-y-auto">
+                    <div className="max-h-60 overflow-y-auto">
                       {issue.parent_id && (
                         <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
                           Remove parent
@@ -408,7 +408,7 @@ export default function PropertySidebar({
                       <input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                     </div>
                     <div className="border-t border-[var(--color-border-subtle)]" />
-                    <div className="max-h-[240px] overflow-y-auto">
+                    <div className="max-h-60 overflow-y-auto">
                       {issue.assignee && (
                         <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
                           Remove assignee
