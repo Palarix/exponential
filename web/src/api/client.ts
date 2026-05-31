@@ -168,6 +168,15 @@ export async function fetchInstances(): Promise<Instance[]> {
   return request(`${API_BASE}/instances`);
 }
 
+export interface User {
+  name: string;
+  email: string;
+}
+
+export async function fetchUser(): Promise<User> {
+  return request(`${API_BASE}/user`);
+}
+
 export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean; default_labels: string[] }> {
   return request(`${API_BASE}/config`);
 }

@@ -249,6 +249,14 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
+	name, email := getUserNameEmail(s.Config)
+	respondJSON(w, http.StatusOK, map[string]string{
+		"name":  name,
+		"email": email,
+	})
+}
+
 func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name  string `json:"name"`
