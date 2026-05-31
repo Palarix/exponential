@@ -36,21 +36,23 @@ export default function PriorityIcon({ priority, size = 14, className = '' }: Pr
     );
   }
 
-  const totalBars = 4;
+  const totalBars = 3;
   const filledBars = 5 - priority;
-  const barWidth = 2;
-  const barGap = 1;
+  const barWidth = 2.5;
+  const barGap = 1.5;
   const totalWidth = totalBars * barWidth + (totalBars - 1) * barGap;
   const startX = (16 - totalWidth) / 2;
+  const filled = 'var(--color-text-muted)';
+  const unfilled = 'var(--color-border-default)';
 
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={`shrink-0 ${className}`}>
       {Array.from({ length: totalBars }, (_, i) => {
         const x = startX + i * (barWidth + barGap);
-        const height = 4 + i * 2;
+        const height = 4 + i * 2.5;
         const y = 13 - height;
         return (
-          <rect key={i} x={x} y={y} width={barWidth} height={height} rx="0.5" fill={color} opacity={i < filledBars ? 1 : 0.2} />
+          <rect key={i} x={x} y={y} width={barWidth} height={height} rx="0.5" fill={i < filledBars ? filled : unfilled} />
         );
       })}
     </svg>
