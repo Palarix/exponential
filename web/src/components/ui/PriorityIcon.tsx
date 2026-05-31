@@ -6,7 +6,7 @@ interface PriorityIconProps {
 
 const colors: Record<number, string> = {
   0: 'var(--color-text-muted)',
-  1: 'var(--color-error)',
+  1: 'rgb(244, 124, 66)',
   2: 'var(--color-warning)',
   3: 'var(--color-text-secondary)',
   4: 'var(--color-text-muted)',
@@ -26,9 +26,12 @@ export default function PriorityIcon({ priority, size = 14, className = '' }: Pr
   if (priority === 1) {
     return (
       <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={`shrink-0 ${className}`}>
-        <rect x="2.5" y="2.5" width="11" height="11" rx="2.5" stroke={color} strokeWidth="1.5" fill={color} fillOpacity="0.15" />
-        <line x1="8" y1="5" x2="8" y2="9" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-        <circle cx="8" cy="11" r="0.75" fill={color} />
+        <mask id="urgent-cut">
+          <rect x="2" y="2" width="12" height="12" rx="3" fill="white" />
+          <line x1="8" y1="5" x2="8" y2="9" stroke="black" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="8" cy="11" r="0.75" fill="black" />
+        </mask>
+        <rect x="2" y="2" width="12" height="12" rx="3" fill={color} mask="url(#urgent-cut)" />
       </svg>
     );
   }
