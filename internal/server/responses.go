@@ -114,6 +114,16 @@ func getUser(cfg *config.Config) string {
 	return fmt.Sprintf("%s <%s>", name, email)
 }
 
+func getUserNameEmail(cfg *config.Config) (string, string) {
+	raw := getUser(cfg)
+	if idx := strings.Index(raw, " <"); idx != -1 {
+		name := raw[:idx]
+		email := strings.TrimSuffix(raw[idx+2:], ">")
+		return name, email
+	}
+	return raw, ""
+}
+
 // isMeaningfulActivityEvent returns true for events that should appear in the
 // project-wide activity feed. Filters out sort_order-only UPDATE events (drag-
 // reorder noise) and DELETE events.
