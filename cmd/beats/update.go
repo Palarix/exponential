@@ -20,6 +20,7 @@ var (
 	updateEstimateFlag int
 	updateLabelFlag    []string
 	updateAssigneeFlag string
+	updateCycleFlag    string
 	updateDescFlag     string
 	updateJSONFlag     bool
 )
@@ -80,7 +81,8 @@ var updateCmd = &cobra.Command{
 		// Check if any flags were set
 		hasFlags := cmd.Flags().Changed("status") || cmd.Flags().Changed("parent") ||
 			cmd.Flags().Changed("sp") || cmd.Flags().Changed("desc") ||
-			cmd.Flags().Changed("label") || cmd.Flags().Changed("assignee")
+			cmd.Flags().Changed("label") || cmd.Flags().Changed("assignee") ||
+			cmd.Flags().Changed("cycle")
 
 		// Auto-detect piped stdin when no flags were passed: treat as --desc.
 		if !hasFlags && isStdinPiped() {
@@ -115,6 +117,10 @@ var updateCmd = &cobra.Command{
 			}
 			if cmd.Flags().Changed("assignee") {
 				payload.Assignee = &updateAssigneeFlag
+			}
+			if cmd.Flags().Changed("cycle") {
+				resolved := resolveCycleID(updateCycleFlag)
+				payload.CycleID = &resolved
 			}
 
 			msgs, err := client.UpdateIssue(id, payload, "update")
@@ -259,6 +265,7 @@ func init() {
 	updateCmd.Flags().StringVar(&updateDescFlag, "desc", "", "Description")
 	updateCmd.Flags().StringSliceVar(&updateLabelFlag, "label", nil, "Labels")
 	updateCmd.Flags().StringVar(&updateAssigneeFlag, "assignee", "", "Assignee")
+	updateCmd.Flags().StringVar(&updateCycleFlag, "cycle", "", "Assign to cycle (current, next, none, or YYYY-MM-DD)")
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured update patch as JSON from stdin")
 
 	rootCmd.AddCommand(updateCmd)

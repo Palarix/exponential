@@ -26,6 +26,7 @@ type AddInput struct {
 	Priority    int         `json:"priority,omitempty"`
 	Assignee    string      `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Labels such as feature, bug, epic"`
+	CycleID     string      `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
 	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time"`
 }
 
@@ -40,6 +41,7 @@ type UpdateInput struct {
 	Priority    *int        `json:"priority,omitempty"`
 	Assignee    *string     `json:"assignee,omitempty"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
+	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
 	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the full dependency list"`
 }
 
@@ -120,6 +122,7 @@ func (in AddInput) ToCreatePayload() (model.CreatePayload, error) {
 		Estimate:     in.StoryPoints,
 		Priority:     in.Priority,
 		Assignee:     in.Assignee,
+		CycleID:      in.CycleID,
 		Labels:       in.Labels,
 		Dependencies: deps,
 	}, nil
@@ -144,6 +147,7 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 		Estimate:     in.StoryPoints,
 		Priority:     in.Priority,
 		Assignee:     in.Assignee,
+		CycleID:      in.CycleID,
 		Labels:       in.Labels,
 		Dependencies: deps,
 	}, nil
@@ -155,5 +159,5 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 func UpdatePayloadEmpty(p model.UpdatePayload) bool {
 	return p.Title == nil && p.Description == nil && p.Status == nil &&
 		p.ParentID == nil && p.Estimate == nil && p.Priority == nil &&
-		p.Assignee == nil && p.Labels == nil && p.Dependencies == nil
+		p.Assignee == nil && p.CycleID == nil && p.Labels == nil && p.Dependencies == nil
 }

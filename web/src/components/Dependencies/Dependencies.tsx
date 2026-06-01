@@ -44,7 +44,7 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 max-w-5xl">
+      <div className="flex-1 overflow-y-auto p-5 space-y-6 max-w-7xl mx-auto">
         {dependencies.length === 0 ? (
           <div className="text-center py-16 text-[var(--color-text-muted)]">
             <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

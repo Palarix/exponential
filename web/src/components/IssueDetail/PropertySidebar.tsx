@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
-import { addDraft, ApiError } from "../../api/client";
-import type { Issue } from "../../api/client";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { addDraft, ApiError, fetchCycles } from "../../api/client";
+import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
 import { formatRelativeTime } from "../../utils/format";
 import { PriorityIcon, EstimateIcon } from "./icons";
@@ -26,6 +26,7 @@ interface PropertySidebarProps {
   saveDraft: (type: string, payload: unknown) => Promise<void>;
   onClose: () => void;
   onRefresh: () => void;
+  contributors: string[];
   onConfigLabelsChange: (labels: Record<string, string>) => void;
 }
 
@@ -39,6 +40,7 @@ export default function PropertySidebar({
   saveDraft,
   onClose,
   onRefresh,
+  contributors,
   onConfigLabelsChange,
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -47,6 +49,13 @@ export default function PropertySidebar({
   const [addRelSearch, setAddRelSearch] = useState("");
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
+  const [cycles, setCycles] = useState<Cycle[]>([]);
+
+  useEffect(() => {
+    fetchCycles().then(data => {
+      if (data.enabled && data.cycles) setCycles(data.cycles);
+    }).catch(() => {});
+  }, []);
 
   const handleDelete = useCallback(async () => {
     try {
@@ -107,6 +116,13 @@ export default function PropertySidebar({
     [saveDraft],
   );
 
+  const handleCycleChange = useCallback(
+    (cycleId: string | null) => {
+      saveDraft("UPDATE", { cycle_id: cycleId || "" });
+    },
+    [saveDraft],
+  );
+
   const handleAddRelation = useCallback(
     (targetId: string, kind: string) => {
       const existing = issue.dependencies || [];
@@ -142,6 +158,10 @@ export default function PropertySidebar({
 
   const knownPeople = useMemo(() => {
     const byEmail = new Map<string, string>();
+    for (const val of contributors) {
+      const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
+      if (!byEmail.has(email)) byEmail.set(email, val);
+    }
     for (const i of issues) {
       for (const val of [i.created_by, i.assignee]) {
         if (!val) continue;
@@ -155,7 +175,7 @@ export default function PropertySidebar({
     const q = assigneeSearch.toLowerCase();
     if (!q) return all;
     return all.filter(p => p.toLowerCase().includes(q));
-  }, [issues, assigneeSearch]);
+  }, [issues, contributors, assigneeSearch]);
 
   const parentCandidates = useMemo(() => {
     const descendants = new Set<string>();
@@ -436,6 +456,60 @@ export default function PropertySidebar({
                 )}
               </div>
             </PropertyRow>
+
+            {/* Cycle */}
+            {cycles.length > 0 && (
+              <PropertyRow>
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setOpenPopover(openPopover === "cycle" ? null : "cycle")}
+                    className="w-full justify-start"
+                  >
+                    <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.016 5.176v4.993" />
+                    </svg>
+                    <span className="text-sm text-[var(--color-text-primary)] truncate">
+                      {issue.cycle_id
+                        ? `Cycle ${cycles.find(c => c.id === issue.cycle_id)?.number || issue.cycle_id}`
+                        : "No cycle"}
+                    </span>
+                  </Button>
+                  {openPopover === "cycle" && (
+                    <Popover onClose={() => setOpenPopover(null)}>
+                      <PopoverHeader>Move to cycle...</PopoverHeader>
+                      {issue.cycle_id && (
+                        <button
+                          onClick={() => handleCycleChange(null)}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                        >
+                          No cycle
+                        </button>
+                      )}
+                      {cycles.filter(c => c.status !== 'completed').map(c => {
+                        const isCurrent = c.id === issue.cycle_id;
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => handleCycleChange(c.id)}
+                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          >
+                            <span>Cycle {c.number}</span>
+                            <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
+                            {isCurrent && (
+                              <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </Popover>
+                  )}
+                </div>
+              </PropertyRow>
+            )}
           </div>
         </div>
 

@@ -11,7 +11,7 @@ import {
   type DragOverEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { createIssue, addDraft } from "../../api/client";
+import { createIssue, addDraft, fetchCycles } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
   Avatar,
@@ -60,6 +60,7 @@ interface BacklogProps {
   onNavigationOrderChange?: (ids: string[]) => void;
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  contributors: string[];
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
 }
 
@@ -74,6 +75,7 @@ export default function Backlog({
   onNavigationOrderChange,
   activeTab,
   onTabChange,
+  contributors,
   onConfigLabelsChange,
 }: BacklogProps) {
   const [search, setSearch] = useState("");
@@ -99,9 +101,18 @@ export default function Backlog({
     x: number;
     y: number;
   } | null>(null);
+  const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchCycles().then(data => {
+      if (data.enabled && data.cycles) {
+        setCycleMap(new Map(data.cycles.map(c => [c.id, c.number])));
+      }
+    }).catch(() => {});
+  }, []);
 
   const handleInlineCreate = useCallback(
     async (status: string, title: string) => {
@@ -1225,6 +1236,15 @@ export default function Backlog({
                                     </Popover>
                                   )}
                               </div>
+                              {issue.cycle_id && (
+                                <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0" title={`Cycle ${cycleMap.get(issue.cycle_id) ?? issue.cycle_id}`}>
+                                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
+                                    <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                                    <path d="M7.5 5.5v9l7-4.5z" fill="currentColor" />
+                                  </svg>
+                                  {cycleMap.get(issue.cycle_id) ?? ''}
+                                </span>
+                              )}
                               <div
                                 className="relative shrink-0"
                                 onClick={(e) => e.stopPropagation()}
@@ -1364,6 +1384,7 @@ export default function Backlog({
           onClose={() => setContextMenu(null)}
           onRefresh={onRefresh}
           allLabels={allKnownLabels}
+          contributors={contributors}
           onConfigLabelsChange={onConfigLabelsChange}
         />
       )}

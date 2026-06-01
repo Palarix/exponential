@@ -16,3 +16,9 @@ labels:
     Backend: "#e07058"
     WebApp: "#e06091"
     Documentation: "#d4a030"
+cycles:
+    enabled: true
+    duration: 2w
+    start_day: monday
+contributors:
+    - "Jens Regin <jens@regins.de>"

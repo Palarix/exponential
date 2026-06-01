@@ -22,6 +22,7 @@ interface IssueDetailProps {
   onNavigate: (direction: "prev" | "next") => void;
   onRefresh: () => void;
   prefix: string;
+  contributors: string[];
   onConfigLabelsChange: (labels: Record<string, string>) => void;
 }
 
@@ -34,6 +35,7 @@ export default function IssueDetail({
   onNavigate,
   onRefresh,
   prefix,
+  contributors,
   onConfigLabelsChange,
 }: IssueDetailProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -346,6 +348,7 @@ export default function IssueDetail({
           saveDraft={saveDraft}
           onClose={onClose}
           onRefresh={onRefresh}
+          contributors={contributors}
           onConfigLabelsChange={onConfigLabelsChange}
         />
       </div>

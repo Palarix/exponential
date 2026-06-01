@@ -1,14 +1,14 @@
 import { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import type { Issue } from "../../api/client";
-import { addDraft } from "../../api/client";
+import type { Issue, Cycle } from "../../api/client";
+import { addDraft, fetchCycles } from "../../api/client";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import LabelPicker from "./LabelPicker";
 import StatusIcon from "./StatusIcon";
 import PriorityIcon from "./PriorityIcon";
 import Avatar from "./Avatar";
 
-type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | null;
+type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
 
 interface ContextMenuProps {
   issue: Issue;
@@ -18,6 +18,7 @@ interface ContextMenuProps {
   onClose: () => void;
   onRefresh: () => void;
   allLabels: string[];
+  contributors: string[];
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
 }
 
@@ -84,6 +85,16 @@ const MENU_ITEMS: MenuItem[] = [
       </svg>
     ),
   },
+  {
+    id: "cycle",
+    label: "Cycle",
+    shortcut: "C",
+    icon: (
+      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.7 6.2h3.3V2.9M2 13.1v-3.3h3.3M2.7 6.2a5.5 5.5 0 019.2-2.5l2.1 2.1M13.3 9.8a5.5 5.5 0 01-9.2 2.5L2 10.2" />
+      </svg>
+    ),
+  },
 ];
 
 const Chevron = () => (
@@ -100,6 +111,7 @@ export default function ContextMenu({
   onClose,
   onRefresh,
   allLabels,
+  contributors,
   onConfigLabelsChange,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -109,8 +121,15 @@ export default function ContextMenu({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [subMenuOffset, setSubMenuOffset] = useState(0);
+  const [cycles, setCycles] = useState<Cycle[]>([]);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  useEffect(() => {
+    fetchCycles().then(data => {
+      if (data.enabled && data.cycles) setCycles(data.cycles);
+    }).catch(() => {});
+  }, []);
 
   const closeAll = useCallback(() => {
     setSubMenu(null);
@@ -163,6 +182,10 @@ export default function ContextMenu({
 
   const knownPeople = useMemo(() => {
     const byEmail = new Map<string, string>();
+    for (const val of contributors) {
+      const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
+      if (!byEmail.has(email)) byEmail.set(email, val);
+    }
     for (const i of issues) {
       for (const val of [i.created_by, i.assignee]) {
         if (!val) continue;
@@ -174,7 +197,7 @@ export default function ContextMenu({
     const q = filterText.toLowerCase();
     if (!q) return all;
     return all.filter(p => p.toLowerCase().includes(q));
-  }, [issues, filterText]);
+  }, [issues, contributors, filterText]);
 
   const openSubMenu = useCallback((id: SubMenu) => {
     if (id && itemRefs.current.has(id)) {
@@ -205,6 +228,7 @@ export default function ContextMenu({
       if (key === "a") { e.preventDefault(); openSubMenu("assignee"); return; }
       if (key === "l") { e.preventDefault(); openSubMenu("labels"); return; }
       if (key === "e") { e.preventDefault(); openSubMenu("estimate"); return; }
+      if (key === "c") { e.preventDefault(); openSubMenu("cycle"); return; }
       if (key === "backspace" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setConfirmDelete(true); return; }
       if (key === "arrowdown") { e.preventDefault(); setFocusIndex(i => Math.min(i + 1, MENU_ITEMS.length)); return; }
       if (key === "arrowup") { e.preventDefault(); setFocusIndex(i => Math.max(i - 1, 0)); return; }
@@ -344,6 +368,32 @@ export default function ContextMenu({
               <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>
             )}
           </div>
+        </>
+      );
+    }
+    if (subMenu === "cycle") {
+      if (cycles.length === 0) {
+        return <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">Cycles not configured</div>;
+      }
+      return (
+        <>
+          <div className="px-3 py-2 text-xs font-medium text-[var(--color-text-muted)]">Move to cycle...</div>
+          <div className="border-t border-[var(--color-border-subtle)]" />
+          {issue.cycle_id && (
+            <button onClick={() => handleAction("UPDATE", { cycle_id: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+              No cycle
+            </button>
+          )}
+          {cycles.filter(c => c.status !== 'completed').map(c => {
+            const isCurrent = c.id === issue.cycle_id;
+            return (
+              <button key={c.id} onClick={() => handleAction("UPDATE", { cycle_id: c.id })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                <span>Cycle {c.number}</span>
+                <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
+                {isCurrent && <CheckIcon />}
+              </button>
+            );
+          })}
         </>
       );
     }

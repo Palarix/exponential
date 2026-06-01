@@ -106,6 +106,9 @@ func mergeUpdatePayloads(existing *model.Event, incoming model.Event) bool {
 	if newP.Assignee != nil {
 		oldP.Assignee = newP.Assignee
 	}
+	if newP.CycleID != nil {
+		oldP.CycleID = newP.CycleID
+	}
 	if newP.Labels != nil {
 		oldP.Labels = newP.Labels
 	}
@@ -153,6 +156,7 @@ func projectCommittedState(events []model.Event) map[string]*model.Issue {
 				Priority:     p.Priority,
 				SortOrder:    p.SortOrder,
 				Assignee:     p.Assignee,
+				CycleID:      p.CycleID,
 				Labels:       p.Labels,
 				Dependencies: p.Dependencies,
 			}
@@ -187,6 +191,9 @@ func projectCommittedState(events []model.Event) map[string]*model.Issue {
 			}
 			if p.Assignee != nil {
 				issue.Assignee = *p.Assignee
+			}
+			if p.CycleID != nil {
+				issue.CycleID = *p.CycleID
 			}
 			if p.Labels != nil {
 				issue.Labels = p.Labels
@@ -245,6 +252,9 @@ func pruneNoopUpdates(uncommitted []model.Event, committedState map[string]*mode
 		if p.Assignee != nil && *p.Assignee == issue.Assignee {
 			p.Assignee = nil
 		}
+		if p.CycleID != nil && *p.CycleID == issue.CycleID {
+			p.CycleID = nil
+		}
 		if p.Labels != nil && strSlicesEqual(p.Labels, issue.Labels) {
 			p.Labels = nil
 		}
@@ -254,7 +264,7 @@ func pruneNoopUpdates(uncommitted []model.Event, committedState map[string]*mode
 
 		if p.Title == nil && p.Description == nil && p.Status == nil &&
 			p.ParentID == nil && p.Estimate == nil && p.Priority == nil &&
-			p.SortOrder == nil && p.Assignee == nil &&
+			p.SortOrder == nil && p.Assignee == nil && p.CycleID == nil &&
 			p.Labels == nil && p.Dependencies == nil {
 			continue
 		}

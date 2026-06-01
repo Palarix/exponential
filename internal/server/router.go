@@ -29,6 +29,8 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("GET /api/instances", s.handleListInstances)
 	mux.HandleFunc("GET /api/metrics", s.handleMetrics)
 	mux.HandleFunc("GET /api/activity", s.handleActivity)
+	mux.HandleFunc("GET /api/cycles", s.handleGetCycles)
+	mux.HandleFunc("GET /api/cycles/{id}/progress", s.handleCycleProgress)
 	mux.HandleFunc("GET /api/user", s.handleGetUser)
 
 	// Development mode: proxy all static requests to Vite dev server

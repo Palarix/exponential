@@ -27,7 +27,9 @@ type issueSummary struct {
 	ParentID    string   `json:"parent_id,omitempty"`
 	StoryPoints int      `json:"story_points,omitempty"`
 	Assignee    string   `json:"assignee,omitempty"`
-	UpdatedAt   string   `json:"updated_at"`
+	CycleID          string   `json:"cycle_id,omitempty"`
+	EffectiveCycleID string   `json:"effective_cycle_id,omitempty"`
+	UpdatedAt        string   `json:"updated_at"`
 }
 
 type commentSummary struct {
@@ -70,7 +72,9 @@ type showOut struct {
 	ParentID     string             `json:"parent_id,omitempty"`
 	StoryPoints  int                `json:"story_points,omitempty"`
 	Assignee     string             `json:"assignee,omitempty"`
-	CreatedBy    string             `json:"created_by"`
+	CycleID          string             `json:"cycle_id,omitempty"`
+	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
+	CreatedBy        string             `json:"created_by"`
 	CreatedAt    string             `json:"created_at"`
 	UpdatedAt    string             `json:"updated_at"`
 	Dependencies []model.Dependency `json:"dependencies,omitempty"`
@@ -203,7 +207,9 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in showIn)
 		ParentID:     issue.ParentID,
 		StoryPoints:  issue.Estimate,
 		Assignee:     issue.Assignee,
-		CreatedBy:    issue.CreatedBy,
+		CycleID:          issue.CycleID,
+		EffectiveCycleID: issue.EffectiveCycleID,
+		CreatedBy:        issue.CreatedBy,
 		CreatedAt:    issue.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:    issue.UpdatedAt.Format(time.RFC3339),
 		Dependencies: issue.Dependencies,
@@ -322,7 +328,9 @@ func toSummary(i *model.Issue) issueSummary {
 		ParentID:    i.ParentID,
 		StoryPoints: i.Estimate,
 		Assignee:    i.Assignee,
-		UpdatedAt:   i.UpdatedAt.Format(time.RFC3339),
+		CycleID:          i.CycleID,
+		EffectiveCycleID: i.EffectiveCycleID,
+		UpdatedAt:        i.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

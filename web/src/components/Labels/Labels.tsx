@@ -124,7 +124,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto py-4">
+        <div className="max-w-7xl mx-auto py-4">
           {/* Create form */}
           {creating && (
             <div className="mx-4 mb-4 p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]">

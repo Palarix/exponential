@@ -8,6 +8,7 @@ import type { Tab } from './components/Backlog/Backlog';
 import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
 import Labels from './components/Labels/Labels';
+import Cycles from './components/Cycles/Cycles';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
@@ -16,12 +17,13 @@ import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
 
-type View = 'dashboard' | 'backlog' | 'board' | 'dependencies' | 'labels';
+type View = 'dashboard' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels';
 
 const VIEW_ROUTES: Record<string, View> = {
   'issues': 'backlog',
   'board': 'board',
   'dashboard': 'dashboard',
+  'cycles': 'cycles',
   'dependencies': 'dependencies',
   'labels': 'labels',
 };
@@ -29,22 +31,33 @@ const ROUTE_VIEWS: Record<View, string> = {
   backlog: 'issues',
   board: 'board',
   dashboard: 'dashboard',
+  cycles: 'cycles',
   dependencies: 'dependencies',
   labels: 'labels',
 };
 
-function parseHash(): { view: View; issueId: string | null } {
+function parseHash(): { view: View; issueId: string | null; cycleId: string | null } {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const parts = hash.split('/');
   if (parts[0] === 'issues' && parts[1]) {
-    return { view: 'backlog', issueId: parts[1] };
+    return { view: 'backlog', issueId: parts[1], cycleId: null };
+  }
+  if (parts[0] === 'cycles' && parts[1]) {
+    return { view: 'cycles', issueId: null, cycleId: parts[1] };
   }
   const view = VIEW_ROUTES[parts[0]];
-  return { view: view || 'dashboard', issueId: null };
+  return { view: view || 'dashboard', issueId: null, cycleId: null };
 }
 
-function setHash(view: View, issueId: string | null) {
-  const route = issueId ? `issues/${issueId}` : ROUTE_VIEWS[view];
+function setHash(view: View, issueId: string | null, cycleId?: string | null) {
+  let route: string;
+  if (issueId) {
+    route = `issues/${issueId}`;
+  } else if (view === 'cycles' && cycleId) {
+    route = `cycles/${cycleId}`;
+  } else {
+    route = ROUTE_VIEWS[view];
+  }
   const newHash = `#/${route}`;
   if (window.location.hash !== newHash) {
     window.location.hash = newHash;
@@ -58,13 +71,16 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(initial.issueId);
+  const [selectedCycleId, setSelectedCycleId] = useState<string | null>(initial.cycleId);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [prefix, setPrefix] = useState('beats-');
   const [version, setVersion] = useState('');
   const [configLabels, setConfigLabels] = useState<Record<string, string>>({});
+  const [contributors, setContributors] = useState<string[]>([]);
   const [hideDefaultLabels, setHideDefaultLabels] = useState(false);
+  const [cyclesEnabled, setCyclesEnabled] = useState(false);
   const [defaultLabels, setDefaultLabels] = useState<{ name: string; color: string }[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>(() =>
     (localStorage.getItem('beats-sort') as SortKey) || 'manual'
@@ -81,14 +97,15 @@ function App() {
   const navigationOrder = backlogNavOrder.length > 0 ? backlogNavOrder : defaultNavOrder;
 
   useEffect(() => {
-    setHash(view, selectedIssueId);
-  }, [view, selectedIssueId]);
+    setHash(view, selectedIssueId, selectedCycleId);
+  }, [view, selectedIssueId, selectedCycleId]);
 
   useEffect(() => {
     const onHashChange = () => {
-      const { view: v, issueId } = parseHash();
+      const { view: v, issueId, cycleId } = parseHash();
       setView(v);
       setSelectedIssueId(issueId);
+      setSelectedCycleId(cycleId);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -134,7 +151,9 @@ function App() {
       setPrefix(c.prefix);
       setVersion(c.version || '');
       setConfigLabels(c.labels || {});
+      setContributors(c.contributors || []);
       setHideDefaultLabels(!!c.hide_default_labels);
+      setCyclesEnabled(!!c.cycles?.enabled);
       if (c.default_labels) {
         const colors = c.labels || {};
         setDefaultLabels(c.default_labels.map(name => ({ name, color: colors[name] || colors[name.toLowerCase()] || '' })));
@@ -151,6 +170,7 @@ function App() {
 
   const handleViewChange = (v: View) => {
     setSelectedIssueId(null);
+    setSelectedCycleId(null);
     setView(v);
   };
 
@@ -220,6 +240,7 @@ function App() {
           onNavigate={navigateIssue}
           onRefresh={fetchData}
           prefix={prefix}
+          contributors={contributors}
           onConfigLabelsChange={setConfigLabels}
         />
       );
@@ -241,6 +262,7 @@ function App() {
             onNavigationOrderChange={setBacklogNavOrder}
             activeTab={backlogTab}
             onTabChange={setBacklogTab}
+            contributors={contributors}
             onConfigLabelsChange={setConfigLabels}
           />
         );
@@ -248,6 +270,16 @@ function App() {
         return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} />;
       case 'dependencies':
         return <Dependencies issues={issues} onIssueClick={handleIssueClick} />;
+      case 'cycles':
+        return (
+          <Cycles
+            issues={issues}
+            onIssueClick={handleIssueClick}
+            onRefresh={fetchData}
+            selectedCycleId={selectedCycleId}
+            onCycleSelect={setSelectedCycleId}
+          />
+        );
       case 'labels':
         return <Labels issues={issues} onConfigLabelsChange={setConfigLabels} onRefresh={fetchData} />;
     }
@@ -270,6 +302,7 @@ function App() {
         onNewIssue={() => setShowNewIssue(true)}
         version={version}
         connected={!error}
+        cyclesEnabled={cyclesEnabled}
       >
         <ErrorBoundary onReset={fetchData}>
           {renderContent()}
@@ -284,6 +317,7 @@ function App() {
           await fetchData();
         }}
         issues={issues}
+        contributors={contributors}
         onConfigLabelsChange={setConfigLabels}
       />
 

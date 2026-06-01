@@ -25,6 +25,15 @@ type Config struct {
 	CountUnestimated  bool              `mapstructure:"count_unestimated" yaml:"count_unestimated"`
 	Automations       Automations       `mapstructure:"automations" yaml:"automations"`
 	Labels            map[string]string `mapstructure:"labels" yaml:"labels"`
+	Cycles            CycleConfig       `mapstructure:"cycles" yaml:"cycles"`
+	Contributors      []string          `mapstructure:"contributors" yaml:"contributors"`
+}
+
+type CycleConfig struct {
+	Enabled    bool   `mapstructure:"enabled" yaml:"enabled"`
+	Duration   string `mapstructure:"duration" yaml:"duration"`
+	StartDay   string `mapstructure:"start_day" yaml:"start_day"`
+	AnchorDate string `mapstructure:"anchor_date" yaml:"anchor_date"`
 }
 
 type Style struct {
@@ -319,9 +328,26 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	// Validate contributors format
+	if len(cfg.Contributors) > 0 {
+		re := regexp.MustCompile(`^.+\s+<[^<>]+@[^<>]+>$`)
+		for i, c := range cfg.Contributors {
+			if !re.MatchString(c) {
+				return nil, fmt.Errorf("config: invalid contributors[%d] format: expected 'Name <email>', got %q", i, c)
+			}
+		}
+	}
+
 	// Validate estimation system
 	if _, ok := EstimationSystems[cfg.EstimationSystem]; !ok {
 		return nil, fmt.Errorf("config: invalid estimation_system: %q (allowed: fibonacci, exponential, linear, shirt)", cfg.EstimationSystem)
+	}
+
+	// Validate cycle config
+	if cfg.Cycles.Enabled {
+		if err := cfg.Cycles.Validate(); err != nil {
+			return nil, fmt.Errorf("config: cycles: %w", err)
+		}
 	}
 
 	// Re-read labels from YAML directly to preserve key casing (Viper lowercases all keys)

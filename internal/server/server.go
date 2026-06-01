@@ -132,8 +132,8 @@ func (s *Server) GetProjectedIssues() (map[string]*model.Issue, error) {
 	allEvents := append(events, s.pendingEvents...)
 	s.mu.RUnlock()
 
-	// Project issues
-	issues := beats.ProjectIssues(allEvents)
+	// Project issues (with config for automations + cycle rollover)
+	issues := beats.ProjectIssuesWithConfig(allEvents, s.Config)
 	return issues, nil
 }
 
