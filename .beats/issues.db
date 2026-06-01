@@ -694,3 +694,7 @@
 {"id":"beats-f2c913","type":"UPDATE","payload":{"status":"DONE"},"created_at":"2026-05-31T08:16:28.469728Z","created_by":"claude-code/2.1.158 \u003cagent@mcp\u003e"}
 {"id":"beats-c60cd9","type":"CREATE","payload":{"description":"In addition to the default statuses and sections (Backlog, Planned, In Progress, Blocked, Done) we could allow extra states like \"Canceled\" or \"Duplicate\" with custom icons?","labels":["feature"],"sort_order":"a7","title":"Configurable additional statuses (sections)"},"created_at":"2026-05-31T08:18:08.248235Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
 {"id":"beats-c60cd9","type":"UPDATE","payload":{"sort_order":"a3S"},"created_at":"2026-05-31T08:18:11.759228Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-0135c0","type":"UPDATE","payload":{"priority":0},"created_at":"2026-05-31T19:44:34.403323662Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-47bd36","type":"UPDATE","payload":{"priority":0},"created_at":"2026-05-31T19:44:36.628929574Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-c0ae53","type":"UPDATE","payload":{"priority":0},"created_at":"2026-05-31T19:44:40.363440242Z","created_by":"Nicolas Bettenburg \u003cnicbet@gmail.com\u003e"}
+{"id":"beats-a5da9b","type":"UPDATE","payload":{"status":"DOING","assignee":"Claude Code \u003cagent@nicbet-wsl.local\u003e"},"created_at":"2026-06-01T05:21:10.536787292Z","created_by":"claude-code/2.1.158 \u003cagent@mcp\u003e"}
