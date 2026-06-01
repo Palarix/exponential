@@ -34,6 +34,7 @@ type CreatePayload struct {
 	Priority     int          `json:"priority,omitempty"`
 	SortOrder    string       `json:"sort_order,omitempty"`
 	Assignee     string       `json:"assignee,omitempty"`
+	CycleID      string       `json:"cycle_id,omitempty"`
 	Dependencies []Dependency `json:"dependencies,omitempty"`
 	Labels       []string     `json:"labels,omitempty"`
 }
@@ -59,6 +60,7 @@ type UpdatePayload struct {
 	Priority     *int         `json:"priority,omitempty"`
 	SortOrder    *string      `json:"sort_order,omitempty"`
 	Assignee     *string      `json:"assignee,omitempty"`
+	CycleID      *string      `json:"cycle_id,omitempty"`
 	Dependencies []Dependency `json:"dependencies,omitempty"`
 	Labels       []string     `json:"labels,omitempty"`
 }
@@ -83,7 +85,9 @@ type Issue struct {
 	Priority     int
 	SortOrder    string
 	Assignee     string
-	Deleted      bool
+	CycleID          string
+	EffectiveCycleID string
+	Deleted          bool
 
 	Dependencies []Dependency
 	Labels       []string

@@ -8,6 +8,8 @@ export interface Issue {
   priority: number;
   sort_order: string;
   assignee?: string;
+  cycle_id?: string;
+  effective_cycle_id?: string;
   labels?: string[];
   dependencies?: Dependency[];
   comments?: Comment[];
@@ -15,6 +17,32 @@ export interface Issue {
   created_by: string;
   updated_at: string;
   is_pending?: boolean;
+}
+
+export interface Cycle {
+  id: string;
+  number: number;
+  start: string;
+  end: string;
+  status: 'completed' | 'current' | 'upcoming' | 'planned';
+  done: number;
+  total: number;
+}
+
+export interface CyclesResponse {
+  enabled: boolean;
+  cycles: Cycle[];
+}
+
+export interface CycleProgressDay {
+  date: string;
+  scope: number;
+  started: number;
+  completed: number;
+}
+
+export interface CycleProgressResponse {
+  days: CycleProgressDay[];
 }
 
 export interface Dependency {

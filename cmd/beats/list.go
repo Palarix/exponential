@@ -18,6 +18,7 @@ var (
 	listParentFlag   string
 	listLabelFlag    string
 	listAssigneeFlag string
+	listCycleFlag    string
 	listAllFlag      bool
 	listArchivedFlag bool
 )
@@ -38,6 +39,7 @@ var listCmd = &cobra.Command{
 			ParentID: listParentFlag,
 			Label:    listLabelFlag,
 			Assignee: listAssigneeFlag,
+			CycleID:  resolveCycleID(listCycleFlag),
 			All:      listAllFlag,
 			Archived: listArchivedFlag,
 		}
@@ -68,6 +70,7 @@ func init() {
 	listCmd.Flags().StringVarP(&listParentFlag, "parent", "p", "", "Show children of a parent issue")
 	listCmd.Flags().StringVarP(&listLabelFlag, "label", "l", "", "Filter by label")
 	listCmd.Flags().StringVar(&listAssigneeFlag, "assignee", "", "Filter by assignee")
+	listCmd.Flags().StringVar(&listCycleFlag, "cycle", "", "Filter by cycle (current, next, or YYYY-MM-DD)")
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including old DONE)")
 	listCmd.Flags().BoolVar(&listArchivedFlag, "archived", false, "Include archived issues")
 	rootCmd.AddCommand(listCmd)

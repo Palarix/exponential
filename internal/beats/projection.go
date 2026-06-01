@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"sort"
 
+	"time"
+
 	"github.com/kuyio/beats/internal/config"
 	"github.com/kuyio/beats/internal/model"
 	"github.com/kuyio/beats/internal/sortorder"
@@ -34,6 +36,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				Priority:     p.Priority,
 				SortOrder:    p.SortOrder,
 				Assignee:     p.Assignee,
+				CycleID:      p.CycleID,
 				Status:       status,
 				CreatedAt:    evt.CreatedAt,
 				CreatedBy:    evt.CreatedBy,
@@ -77,6 +80,9 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			}
 			if p.Assignee != nil {
 				issue.Assignee = *p.Assignee
+			}
+			if p.CycleID != nil {
+				issue.CycleID = *p.CycleID
 			}
 			if p.Dependencies != nil {
 				issue.Dependencies = p.Dependencies
@@ -184,7 +190,32 @@ func ProjectIssuesWithConfig(events []model.Event, cfg *config.Config) map[strin
 	// Apply automations as derived state
 	applyAutomations(issues, cfg)
 
+	// Compute effective cycle IDs (rollover)
+	if cfg.Cycles.Enabled {
+		applyCycleRollover(issues, cfg.Cycles, time.Now())
+	}
+
 	return issues
+}
+
+// applyCycleRollover sets EffectiveCycleID on every issue.
+// Done issues keep their original cycle. Not-done issues in a past cycle
+// roll forward to the current cycle. Issues with a current or future cycle
+// (or no cycle) are unchanged.
+func applyCycleRollover(issues map[string]*model.Issue, cc config.CycleConfig, now time.Time) {
+	current := cc.CycleForDate(now)
+	for _, issue := range issues {
+		if issue.CycleID == "" {
+			continue
+		}
+		if issue.Status == model.StatusDone {
+			issue.EffectiveCycleID = issue.CycleID
+		} else if cc.IsPastCycle(issue.CycleID, now) {
+			issue.EffectiveCycleID = current.ID
+		} else {
+			issue.EffectiveCycleID = issue.CycleID
+		}
+	}
 }
 
 // applyAutomations applies config-driven automation rules as derived state.

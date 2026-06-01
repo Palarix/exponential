@@ -27,10 +27,11 @@ interface NewIssueModalProps {
   onClose: () => void;
   onCreated: () => void;
   issues: Issue[];
+  contributors: string[];
   onConfigLabelsChange: (labels: Record<string, string>) => void;
 }
 
-export default function NewIssueModal({ isOpen, onClose, onCreated, issues, onConfigLabelsChange }: NewIssueModalProps) {
+export default function NewIssueModal({ isOpen, onClose, onCreated, issues, contributors, onConfigLabelsChange }: NewIssueModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [labels, setLabels] = useState<string[]>(["feature"]);
@@ -54,6 +55,10 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, onCo
 
   const knownPeople = useMemo(() => {
     const byEmail = new Map<string, string>();
+    for (const val of contributors) {
+      const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
+      if (!byEmail.has(email)) byEmail.set(email, val);
+    }
     for (const i of issues) {
       for (const val of [i.created_by, i.assignee]) {
         if (!val) continue;
@@ -65,7 +70,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, onCo
     const q = assigneeSearch.toLowerCase();
     if (!q) return all;
     return all.filter((p) => p.toLowerCase().includes(q));
-  }, [issues, assigneeSearch]);
+  }, [issues, contributors, assigneeSearch]);
 
   const parentCandidates = useMemo(() => {
     const q = parentSearch.toLowerCase();

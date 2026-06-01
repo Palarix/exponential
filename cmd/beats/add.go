@@ -21,6 +21,7 @@ var (
 	addForceFlag    bool
 	addLabelFlag    []string
 	addAssigneeFlag string
+	addCycleFlag    string
 	addJSONFlag     bool
 )
 
@@ -136,6 +137,7 @@ var addCmd = &cobra.Command{
 			ParentID:    addParentFlag,
 			Estimate:    addEstimateFlag,
 			Assignee:    addAssigneeFlag,
+			CycleID:     resolveCycleID(addCycleFlag),
 			Labels:      addLabelFlag,
 		}
 
@@ -172,6 +174,7 @@ func init() {
 	addCmd.Flags().BoolVar(&addForceFlag, "force", false, "Skip duplicate check")
 	addCmd.Flags().StringSliceVar(&addLabelFlag, "label", nil, "Labels (can be specified multiple times)")
 	addCmd.Flags().StringVar(&addAssigneeFlag, "assignee", "", "Issue assignee")
+	addCmd.Flags().StringVar(&addCycleFlag, "cycle", "", "Assign to cycle (current, next, or YYYY-MM-DD)")
 	addCmd.Flags().BoolVar(&addJSONFlag, "json", false, "Read a full issue payload as JSON from stdin")
 	rootCmd.AddCommand(addCmd)
 }

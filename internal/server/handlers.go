@@ -238,7 +238,11 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 			name = filepath.Base(cwd)
 		}
 	}
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	contributors := s.Config.Contributors
+	if contributors == nil {
+		contributors = []string{}
+	}
+	resp := map[string]interface{}{
 		"auto_commit":         s.Config.AutoCommit,
 		"prefix":              prefix,
 		"version":             version.CLIVersion,
@@ -246,7 +250,205 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		"name":                name,
 		"hide_default_labels": s.Config.HideDefaultLabels,
 		"default_labels":      s.Config.DefaultLabels,
+		"contributors":        contributors,
+	}
+	if s.Config.Cycles.Enabled {
+		resp["cycles"] = map[string]interface{}{
+			"enabled":    true,
+			"duration":   s.Config.Cycles.Duration,
+			"start_day":  s.Config.Cycles.StartDay,
+			"anchor_date": s.Config.Cycles.AnchorDate,
+		}
+	}
+	respondJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleGetCycles(w http.ResponseWriter, r *http.Request) {
+	if !s.Config.Cycles.Enabled {
+		respondJSON(w, http.StatusOK, map[string]interface{}{"enabled": false, "cycles": []struct{}{}})
+		return
+	}
+
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	now := time.Now()
+	cycles := s.Config.Cycles.EnumerateCycles(now, 5, 2)
+	durationDays := s.Config.Cycles.DurationDays()
+
+	type cycleResponse struct {
+		ID     string `json:"id"`
+		Number int    `json:"number"`
+		Start  string `json:"start"`
+		End    string `json:"end"`
+		Status string `json:"status"`
+		Done   int    `json:"done"`
+		Total  int    `json:"total"`
+	}
+
+	current := s.Config.Cycles.CurrentCycle()
+	var result []cycleResponse
+	for _, c := range cycles {
+		done, total := 0, 0
+		for _, issue := range issues {
+			eid := issue.EffectiveCycleID
+			if issue.Status == model.StatusDone {
+				eid = issue.CycleID
+			}
+			if eid == c.ID {
+				total++
+				if issue.Status == model.StatusDone {
+					done++
+				}
+			}
+		}
+
+		status := "completed"
+		if c.ID == current.ID {
+			status = "current"
+		} else if c.Start.After(current.End) {
+			nextStart := current.Start.AddDate(0, 0, durationDays)
+			if c.Start.Equal(nextStart) {
+				status = "upcoming"
+			} else {
+				status = "planned"
+			}
+		}
+
+		result = append(result, cycleResponse{
+			ID:     c.ID,
+			Number: c.Number,
+			Start:  c.Start.Format("2006-01-02"),
+			End:    c.End.Format("2006-01-02"),
+			Status: status,
+			Done:   done,
+			Total:  total,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"enabled": true,
+		"cycles":  result,
 	})
+}
+
+func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
+	cycleID := r.PathValue("id")
+	if cycleID == "" {
+		respondError(w, http.StatusBadRequest, "cycle ID required")
+		return
+	}
+	if !s.Config.Cycles.Enabled {
+		respondError(w, http.StatusBadRequest, "cycles not enabled")
+		return
+	}
+
+	cycle, err := s.Config.Cycles.CycleForID(cycleID)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	events, readErr := storage.ReadEvents()
+	if readErr != nil {
+		respondError(w, http.StatusInternalServerError, readErr.Error())
+		return
+	}
+
+	s.mu.RLock()
+	allEvents := append(events, s.pendingEvents...)
+	s.mu.RUnlock()
+
+	endDate := cycle.End
+	now := time.Now()
+	if now.Before(endDate) {
+		endDate = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	}
+
+	type issueState struct {
+		cycleID string
+		status  string
+		deleted bool
+	}
+
+	type dayPoint struct {
+		Date      string `json:"date"`
+		Scope     int    `json:"scope"`
+		Started   int    `json:"started"`
+		Completed int    `json:"completed"`
+	}
+
+	states := make(map[string]*issueState)
+	var points []dayPoint
+	eventIdx := 0
+
+	for d := cycle.Start; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+		dayEnd := d.AddDate(0, 0, 1)
+
+		for eventIdx < len(allEvents) && allEvents[eventIdx].CreatedAt.Before(dayEnd) {
+			evt := allEvents[eventIdx]
+			eventIdx++
+
+			switch evt.Type {
+			case model.EventTypeCreate:
+				b, _ := json.Marshal(evt.Payload)
+				var p model.CreatePayload
+				json.Unmarshal(b, &p)
+				st := p.Status
+				if st == "" {
+					st = "BACKLOG"
+				}
+				states[evt.ID] = &issueState{cycleID: p.CycleID, status: st}
+
+			case model.EventTypeUpdate:
+				is, ok := states[evt.ID]
+				if !ok {
+					is = &issueState{}
+					states[evt.ID] = is
+				}
+				b, _ := json.Marshal(evt.Payload)
+				var p model.UpdatePayload
+				json.Unmarshal(b, &p)
+				if p.Status != nil {
+					is.status = *p.Status
+				}
+				if p.CycleID != nil {
+					is.cycleID = *p.CycleID
+				}
+
+			case model.EventTypeDelete:
+				if is, ok := states[evt.ID]; ok {
+					is.deleted = true
+				}
+			}
+		}
+
+		scope, started, completed := 0, 0, 0
+		for _, is := range states {
+			if is.deleted || is.cycleID != cycleID {
+				continue
+			}
+			scope++
+			switch model.IssueStatus(is.status) {
+			case model.StatusDone:
+				completed++
+			case model.StatusDoing, model.StatusBlocked:
+				started++
+			}
+		}
+
+		points = append(points, dayPoint{
+			Date:      d.Format("2006-01-02"),
+			Scope:     scope,
+			Started:   started,
+			Completed: completed,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{"days": points})
 }
 
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {

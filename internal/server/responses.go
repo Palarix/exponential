@@ -22,7 +22,9 @@ type IssueResponse struct {
 	Priority     int                  `json:"priority"`
 	SortOrder    string               `json:"sort_order"`
 	Assignee     string               `json:"assignee,omitempty"`
-	Labels       []string             `json:"labels,omitempty"`
+	CycleID          string               `json:"cycle_id,omitempty"`
+	EffectiveCycleID string               `json:"effective_cycle_id,omitempty"`
+	Labels           []string             `json:"labels,omitempty"`
 	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
 	Comments     []CommentResponse    `json:"comments,omitempty"`
 	CreatedAt    time.Time            `json:"created_at"`
@@ -70,7 +72,9 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		Priority:    issue.Priority,
 		SortOrder:   issue.SortOrder,
 		Assignee:    issue.Assignee,
-		Labels:      issue.Labels,
+		CycleID:          issue.CycleID,
+		EffectiveCycleID: issue.EffectiveCycleID,
+		Labels:           issue.Labels,
 		CreatedAt:   issue.CreatedAt,
 		CreatedBy:   issue.CreatedBy,
 		UpdatedAt:   issue.UpdatedAt,

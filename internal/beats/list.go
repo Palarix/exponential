@@ -20,6 +20,7 @@ type FilterOptions struct {
 	ParentID string
 	Label    string
 	Assignee string
+	CycleID  string
 	All      bool
 	Archived bool
 }
@@ -157,6 +158,13 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 		// Assignee Filter
 		if assigneeQuery != "" {
 			if !strings.Contains(strings.ToLower(i.Assignee), assigneeQuery) {
+				continue
+			}
+		}
+
+		// Cycle Filter (matches against EffectiveCycleID for rollover-aware filtering)
+		if opts.CycleID != "" {
+			if i.EffectiveCycleID != opts.CycleID {
 				continue
 			}
 		}

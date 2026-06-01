@@ -1,8 +1,8 @@
-import type { Issue, Dependency, Comment, PendingState, Event } from './types';
+import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse } from './types';
 
 const API_BASE = '/api';
 
-export type { Issue, Dependency, Comment, PendingState, Event };
+export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse };
 
 export class ApiError extends Error {
   status: number;
@@ -177,7 +177,15 @@ export async function fetchUser(): Promise<User> {
   return request(`${API_BASE}/user`);
 }
 
-export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean; default_labels: string[] }> {
+export async function fetchCycles(): Promise<CyclesResponse> {
+  return request(`${API_BASE}/cycles`);
+}
+
+export async function fetchCycleProgress(cycleId: string): Promise<CycleProgressResponse> {
+  return request(`${API_BASE}/cycles/${cycleId}/progress`);
+}
+
+export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean; default_labels: string[]; contributors?: string[]; cycles?: { enabled: boolean; duration: string; start_day: string; anchor_date: string } }> {
   return request(`${API_BASE}/config`);
 }
 
