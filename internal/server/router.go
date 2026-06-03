@@ -26,6 +26,7 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("PUT /api/config/labels", s.handleUpdateLabel)
 	mux.HandleFunc("DELETE /api/config/labels", s.handleDeleteLabel)
 	mux.HandleFunc("GET /api/issues/{id}/history", s.handleGetIssueHistory)
+	mux.HandleFunc("POST /api/issues/{id}/start", s.handleStartWork)
 	mux.HandleFunc("GET /api/instances", s.handleListInstances)
 	mux.HandleFunc("GET /api/metrics", s.handleMetrics)
 	mux.HandleFunc("GET /api/activity", s.handleActivity)

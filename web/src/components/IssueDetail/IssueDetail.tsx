@@ -284,7 +284,7 @@ export default function IssueDetail({
               return (
                 <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
                   <span>Sub-issue of</span>
-                  {parent && <StatusIcon status={parent.status} size={14} />}
+                  {parent && <StatusIcon status={parent.status} size={14} isInferred={parent.is_inferred} />}
                   <a href={`#/issues/${issue.parent_id}`} className="font-mono text-[var(--color-accent-primary)] hover:underline" onClick={(e) => e.stopPropagation()}>
                     {issue.parent_id}
                   </a>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { addDraft, ApiError, fetchCycles } from "../../api/client";
+import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
 import { formatRelativeTime } from "../../utils/format";
@@ -43,6 +43,7 @@ export default function PropertySidebar({
   contributors,
   onConfigLabelsChange,
 }: PropertySidebarProps) {
+  const [starting, setStarting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addRelStep, setAddRelStep] = useState<"kind" | "issue" | null>(null);
   const [addRelKind, setAddRelKind] = useState("");
@@ -56,6 +57,18 @@ export default function PropertySidebar({
       if (data.enabled && data.cycles) setCycles(data.cycles);
     }).catch(() => {});
   }, []);
+
+  const handleStartWork = useCallback(async () => {
+    setStarting(true);
+    try {
+      await startWork(issue.id);
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to start work:', err instanceof ApiError ? err.message : err);
+    } finally {
+      setStarting(false);
+    }
+  }, [issue.id, onRefresh]);
 
   const handleDelete = useCallback(async () => {
     try {
@@ -209,6 +222,20 @@ export default function PropertySidebar({
   return (
     <div className="w-80 overflow-y-auto shrink-0">
       <div className="p-5 space-y-3">
+        {/* Start Work button */}
+        {(issue.status === "BACKLOG" || issue.status === "PLANNED") && (
+          <button
+            onClick={handleStartWork}
+            disabled={starting}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            {starting ? "Starting..." : "Start Work"}
+          </button>
+        )}
+
         {/* Properties card */}
         <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Properties</div>
@@ -222,7 +249,7 @@ export default function PropertySidebar({
                   onClick={() => setOpenPopover(openPopover === "status" ? null : "status")}
                   className="w-full justify-start"
                 >
-                  <StatusIcon status={issue.status} size={14} />
+                  <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
                   <span className="text-sm text-[var(--color-text-primary)]">
                     {statusMeta?.label || issue.status}
                   </span>
@@ -379,7 +406,7 @@ export default function PropertySidebar({
                         const isCurrent = candidate.id === issue.parent_id;
                         return (
                           <button key={candidate.id} onClick={() => handleParentChange(candidate.id)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
-                            <StatusIcon status={candidate.status} size={12} />
+                            <StatusIcon status={candidate.status} size={12} isInferred={candidate.is_inferred} />
                             <span className="truncate">{candidate.title}</span>
                             {isCurrent && (
                               <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -566,7 +593,7 @@ export default function PropertySidebar({
                 return (
                   <div key={i} className="group flex items-center gap-2 text-sm">
                     <span className="text-[var(--color-text-muted)] shrink-0">{dep.kind.replace(/_/g, " ")}</span>
-                    {target && <StatusIcon status={target.status} size={12} />}
+                    {target && <StatusIcon status={target.status} size={12} isInferred={target.is_inferred} />}
                     <a href={`#/issues/${dep.target_id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
                       {target ? target.title : dep.target_id}
                     </a>

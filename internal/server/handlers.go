@@ -664,3 +664,26 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, history)
 }
+
+func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "issue ID required")
+		return
+	}
+
+	client := beats.NewClient(s.Config)
+	client.Collapse = true
+	branch, msgs, err := client.StartWork(id)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":   "ok",
+		"issue_id": id,
+		"branch":   branch,
+		"messages": msgs,
+	})
+}

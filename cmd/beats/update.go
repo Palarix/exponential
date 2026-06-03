@@ -200,14 +200,12 @@ var updateCmd = &cobra.Command{
 
 var startCmd = &cobra.Command{
 	Use:               "start [id]",
-	Short:             "Start working on an issue (set to DOING)",
+	Short:             "Start working on an issue (set to DOING + create branch)",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := beats.NewClient(cfg)
-		status := string(model.StatusDoing)
-		payload := model.UpdatePayload{Status: &status}
-		msgs, err := client.UpdateIssue(args[0], payload, "start")
+		_, msgs, err := client.StartWork(args[0])
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)

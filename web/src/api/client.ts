@@ -216,3 +216,14 @@ export async function deleteConfigLabel(name: string): Promise<void> {
 export async function discardAll(): Promise<void> {
   return request(`${API_BASE}/pending`, { method: 'DELETE' });
 }
+
+export interface StartWorkResponse {
+  status: string;
+  issue_id: string;
+  branch: string;
+  messages: string[];
+}
+
+export async function startWork(issueId: string): Promise<StartWorkResponse> {
+  return request(`${API_BASE}/issues/${issueId}/start`, { method: 'POST' });
+}

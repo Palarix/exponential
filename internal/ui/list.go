@@ -67,7 +67,7 @@ func RenderIssueList(issues []*model.Issue, termWidth int) string {
 
 	for _, i := range issues {
 		stStyle := StatusStyle(i.Status)
-		icon := StatusIcon(i.Status)
+		icon := StatusIconForIssue(i)
 
 		// ID
 		idStr := FormatID(i.ID, idWidth)

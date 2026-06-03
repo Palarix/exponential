@@ -2,6 +2,7 @@ interface StatusIconProps {
   status: string;
   size?: number;
   className?: string;
+  isInferred?: boolean;
 }
 
 /**
@@ -12,7 +13,7 @@ interface StatusIconProps {
  * - DOING:    half-filled circle (blue/amber)
  * - DONE:     filled circle with checkmark (green)
  */
-export default function StatusIcon({ status, size = 16, className = '' }: StatusIconProps) {
+export default function StatusIcon({ status, size = 16, className = '', isInferred }: StatusIconProps) {
   const s = status.toUpperCase();
 
   switch (s) {
@@ -42,6 +43,24 @@ export default function StatusIcon({ status, size = 16, className = '' }: Status
       );
 
     case 'DOING':
+      if (isInferred) {
+        return (
+          <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+            <circle
+              cx="8" cy="8" r="6.5"
+              stroke="var(--color-status-doing)"
+              strokeWidth="1.5"
+              strokeDasharray="3 2.5"
+              fill="none"
+            />
+            <path
+              d="M8 1.5 A6.5 6.5 0 0 1 8 14.5"
+              fill="var(--color-status-doing)"
+              opacity="0.5"
+            />
+          </svg>
+        );
+      }
       return (
         <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
           <circle
