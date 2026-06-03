@@ -74,7 +74,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
                         onClick={() => onIssueClick(issue)}
                         className="flex items-center gap-2 mb-2 group"
                       >
-                        <StatusIcon status={issue.status} size={14} />
+                        <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
                         <span className="text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent-primary)] transition-colors truncate">
                           {issue.title}
                         </span>

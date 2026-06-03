@@ -195,6 +195,9 @@ func ProjectIssuesWithConfig(events []model.Event, cfg *config.Config) map[strin
 		applyCycleRollover(issues, cfg.Cycles, time.Now())
 	}
 
+	// Infer DOING status from remote git branches
+	applyBranchInference(issues)
+
 	return issues
 }
 

@@ -17,6 +17,7 @@ type IssueResponse struct {
 	Title        string               `json:"title"`
 	Description  string               `json:"description"`
 	Status       string               `json:"status"`
+	IsInferred   bool                 `json:"is_inferred,omitempty"`
 	ParentID     string               `json:"parent_id,omitempty"`
 	Estimate     int                  `json:"estimate"`
 	Priority     int                  `json:"priority"`
@@ -67,6 +68,7 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		Title:       issue.Title,
 		Description: issue.Description,
 		Status:      string(issue.Status),
+		IsInferred:  issue.InferredStatus,
 		ParentID:    issue.ParentID,
 		Estimate:    issue.Estimate,
 		Priority:    issue.Priority,

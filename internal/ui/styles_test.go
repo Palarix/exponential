@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/palarix/beats/internal/model"
 )
 
 func TestLabelColorWithConfig(t *testing.T) {
@@ -77,5 +78,48 @@ func TestLabelColorConfigPrecedence(t *testing.T) {
 	got := LabelColor("bug")
 	if got != lipgloss.Color("#00ff00") {
 		t.Errorf("Config color should take precedence, got %v, want #00ff00", got)
+	}
+}
+
+func TestStatusIconForIssue(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    *model.Issue
+		wantIcon string
+	}{
+		{
+			name:     "inferred doing shows distinct icon",
+			issue:    &model.Issue{Status: model.StatusDoing, InferredStatus: true},
+			wantIcon: "◉",
+		},
+		{
+			name:     "explicit doing shows standard icon",
+			issue:    &model.Issue{Status: model.StatusDoing, InferredStatus: false},
+			wantIcon: "●",
+		},
+		{
+			name:     "inferred flag on non-doing status is ignored",
+			issue:    &model.Issue{Status: model.StatusPlanned, InferredStatus: true},
+			wantIcon: StatusIcon(model.StatusPlanned),
+		},
+		{
+			name:     "backlog uses standard icon",
+			issue:    &model.Issue{Status: model.StatusBacklog},
+			wantIcon: StatusIcon(model.StatusBacklog),
+		},
+		{
+			name:     "done uses standard icon",
+			issue:    &model.Issue{Status: model.StatusDone},
+			wantIcon: StatusIcon(model.StatusDone),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StatusIconForIssue(tt.issue)
+			if got != tt.wantIcon {
+				t.Errorf("StatusIconForIssue() = %q, want %q", got, tt.wantIcon)
+			}
+		})
 	}
 }

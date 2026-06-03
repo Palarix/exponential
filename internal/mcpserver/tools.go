@@ -23,6 +23,7 @@ type issueSummary struct {
 	ID          string   `json:"id"`
 	Title       string   `json:"title"`
 	Status      string   `json:"status"`
+	IsInferred  bool     `json:"is_inferred,omitempty"`
 	Labels      []string `json:"labels,omitempty"`
 	ParentID    string   `json:"parent_id,omitempty"`
 	StoryPoints int      `json:"story_points,omitempty"`
@@ -67,6 +68,7 @@ type showOut struct {
 	ID           string             `json:"id"`
 	Title        string             `json:"title"`
 	Status       string             `json:"status"`
+	IsInferred   bool               `json:"is_inferred,omitempty"`
 	Description  string             `json:"description,omitempty"`
 	Labels       []string           `json:"labels,omitempty"`
 	ParentID     string             `json:"parent_id,omitempty"`
@@ -113,6 +115,16 @@ type commentIn struct {
 
 type commentOut struct {
 	ID string `json:"id"`
+}
+
+type startIn struct {
+	ID string `json:"id" jsonschema:"Issue ID to start working on"`
+}
+
+type startOut struct {
+	ID       string   `json:"id"`
+	Branch   string   `json:"branch,omitempty"`
+	Messages []string `json:"messages"`
 }
 
 type linkIn struct {
@@ -164,6 +176,11 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "beats_link",
 		Description: "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues.",
 	}, t.link)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "beats_start",
+		Description: "Start working on an issue: transitions status to DOING and creates a git branch named <issue-id>/<slug> off the default branch.",
+	}, t.start)
 }
 
 // --- Handlers ---
@@ -202,6 +219,7 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in showIn)
 		ID:           issue.ID,
 		Title:        issue.Title,
 		Status:       string(issue.Status),
+		IsInferred:   issue.InferredStatus,
 		Description:  issue.Description,
 		Labels:       issue.Labels,
 		ParentID:     issue.ParentID,
@@ -317,6 +335,19 @@ func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in linkIn)
 		linkOut{Source: src.ID, Target: tgt.ID, Kind: kind}, nil
 }
 
+func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startIn) (*mcp.CallToolResult, startOut, error) {
+	if in.ID == "" {
+		return nil, startOut{}, fmt.Errorf("'id' is required")
+	}
+	c := t.clientFor(req)
+	branch, msgs, err := c.StartWork(in.ID)
+	if err != nil {
+		return nil, startOut{}, err
+	}
+	text := strings.Join(msgs, "\n")
+	return textResult(text), startOut{ID: in.ID, Branch: branch, Messages: msgs}, nil
+}
+
 // --- Helpers ---
 
 func toSummary(i *model.Issue) issueSummary {
@@ -324,6 +355,7 @@ func toSummary(i *model.Issue) issueSummary {
 		ID:          i.ID,
 		Title:       i.Title,
 		Status:      string(i.Status),
+		IsInferred:  i.InferredStatus,
 		Labels:      i.Labels,
 		ParentID:    i.ParentID,
 		StoryPoints: i.Estimate,

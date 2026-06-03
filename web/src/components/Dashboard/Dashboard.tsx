@@ -314,7 +314,7 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
                   const issue = issues.find((i) => i.id === ep.issue_id);
                   return (
                     <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
-                      <StatusIcon status={issue?.status || "PLANNED"} size={14} />
+                      <StatusIcon status={issue?.status || "PLANNED"} size={14} isInferred={issue?.is_inferred} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
                       <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />
                       {ep.stale && <span className="text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}

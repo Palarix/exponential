@@ -16,6 +16,7 @@ export interface Issue {
   created_at: string;
   created_by: string;
   updated_at: string;
+  is_inferred?: boolean;
   is_pending?: boolean;
 }
 

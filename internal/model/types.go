@@ -87,6 +87,7 @@ type Issue struct {
 	Assignee     string
 	CycleID          string
 	EffectiveCycleID string
+	InferredStatus   bool
 	Deleted          bool
 
 	Dependencies []Dependency

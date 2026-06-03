@@ -79,7 +79,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
               href={`#/issues/${child.id}`}
               className={`flex items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--color-bg-hover)] transition-colors ${i > 0 ? 'border-t border-[var(--color-border-subtle)]' : ''}`}
             >
-              <StatusIcon status={child.status} size={14} />
+              <StatusIcon status={child.status} size={14} isInferred={child.is_inferred} />
               <span className="text-[var(--color-text-primary)] truncate min-w-0">{child.title}</span>
               {child.priority > 0 && (
                 <span className={`text-xs font-medium shrink-0 ${child.priority === 1 ? 'text-[var(--color-error)]' : child.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>

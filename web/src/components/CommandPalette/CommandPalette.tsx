@@ -98,7 +98,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
       results.push({
         id: `issue:${issue.id}`,
         group: query ? 'Issues' : 'Recent Issues',
-        icon: <StatusIcon status={issue.status} size={14} />,
+        icon: <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />,
         label: issue.title,
         meta: (
           <span className="flex items-center gap-2">

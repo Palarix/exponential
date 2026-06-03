@@ -89,6 +89,15 @@ func StatusIcon(status model.IssueStatus) string {
 	}
 }
 
+// StatusIconForIssue returns the status icon, using a distinct icon for
+// issues whose DOING status was inferred from a remote git branch.
+func StatusIconForIssue(issue *model.Issue) string {
+	if issue.InferredStatus && issue.Status == model.StatusDoing {
+		return "◉"
+	}
+	return StatusIcon(issue.Status)
+}
+
 // LabelColor returns a color for a label, checking config colors first,
 // then falling back to a deterministic hash-based color.
 func LabelColor(label string) lipgloss.Color {

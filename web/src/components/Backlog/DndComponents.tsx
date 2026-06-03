@@ -58,7 +58,7 @@ export function DragOverlayCard({ issue, batchCount }: { issue: Issue; batchCoun
       className="flex items-center gap-3 px-5 h-10 border border-[var(--color-border-default)] bg-[var(--color-surface-elevated)] rounded-[var(--radius-sm)] shadow-lg pointer-events-none"
     >
       <CopyableId id={issue.id} className="text-xs w-28 shrink-0 truncate tabular-nums" />
-      <StatusIcon status={issue.status} size={14} />
+      <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
       <span className="text-sm text-[var(--color-text-primary)] truncate">{issue.title}</span>
       {batchCount > 1 && (
         <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">

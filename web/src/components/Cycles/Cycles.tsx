@@ -375,7 +375,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
                       onClick={() => onIssueClick(issue)}
                       className="w-full flex items-center gap-3 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] text-left transition-colors"
                     >
-                      <StatusIcon status={issue.status} size={16} />
+                      <StatusIcon status={issue.status} size={16} isInferred={issue.is_inferred} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">
                         {issue.title}
                       </span>

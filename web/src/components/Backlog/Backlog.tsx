@@ -1103,7 +1103,7 @@ export default function Backlog({
                                   }
                                   className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
                                 >
-                                  <StatusIcon status={issue.status} size={14} />
+                                  <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
                                 </button>
                                 {openPopover?.issueId === issue.id &&
                                   openPopover?.type === "status" && (
