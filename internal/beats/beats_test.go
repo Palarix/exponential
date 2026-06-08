@@ -437,6 +437,33 @@ func TestDependencies(t *testing.T) {
 	}
 }
 
+func TestDeleteParentUnparentsChildren(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent", Labels: []string{"epic"}})
+	child1, _ := client.AddIssue(model.CreatePayload{Title: "Child 1", ParentID: parent.ID})
+	child2, _ := client.AddIssue(model.CreatePayload{Title: "Child 2", ParentID: parent.ID})
+
+	err := client.DeleteIssue(parent.ID, "testing auto-unparent")
+	if err != nil {
+		t.Fatalf("DeleteIssue failed: %v", err)
+	}
+
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+
+	if _, exists := issues[parent.ID]; exists {
+		t.Error("Expected parent to be deleted")
+	}
+	if issues[child1.ID].ParentID != "" {
+		t.Errorf("Expected child1 ParentID to be cleared, got %q", issues[child1.ID].ParentID)
+	}
+	if issues[child2.ID].ParentID != "" {
+		t.Errorf("Expected child2 ParentID to be cleared, got %q", issues[child2.ID].ParentID)
+	}
+}
+
 func TestAddIssueWithStatus(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()

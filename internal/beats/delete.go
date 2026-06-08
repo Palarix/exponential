@@ -43,7 +43,25 @@ func (c *Client) DeleteIssue(id string, reason string) error {
 		return fmt.Errorf("error appending event: %w", err)
 	}
 
-	// 3. Autocommit
+	// 3. Auto-unparent children
+	for _, issue := range issues {
+		if issue.ParentID == id {
+			emptyParent := ""
+			unparentPayload := model.UpdatePayload{ParentID: &emptyParent}
+			unparentEvent := model.Event{
+				ID:        issue.ID,
+				Type:      model.EventTypeUpdate,
+				Payload:   unparentPayload,
+				CreatedAt: time.Now().UTC(),
+				CreatedBy: user,
+			}
+			if err := c.appendEvent(unparentEvent); err != nil {
+				return fmt.Errorf("error unparenting child %s: %w", issue.ID, err)
+			}
+		}
+	}
+
+	// 4. Autocommit
 	if c.Config.AutoCommit {
 		commitMsg := fmt.Sprintf("beats: delete %s", id)
 		_ = exec.Command("git", "add", ".beats/issues.db").Run()
