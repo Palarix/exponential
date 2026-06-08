@@ -44,7 +44,7 @@ export default function PropertySidebar({
   onConfigLabelsChange,
 }: PropertySidebarProps) {
   const [starting, setStarting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
   const [addRelStep, setAddRelStep] = useState<"kind" | "issue" | null>(null);
   const [addRelKind, setAddRelKind] = useState("");
   const [addRelSearch, setAddRelSearch] = useState("");
@@ -70,9 +70,11 @@ export default function PropertySidebar({
     }
   }, [issue.id, onRefresh]);
 
-  const handleDelete = useCallback(async () => {
+  const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
+
+  const handleDelete = useCallback(async (cascade = false) => {
     try {
-      await addDraft(issue.id, 'DELETE', {});
+      await addDraft(issue.id, 'DELETE', { cascade });
       onClose();
       onRefresh();
     } catch (err) {
@@ -692,11 +694,26 @@ export default function PropertySidebar({
 
         {/* Delete */}
         <div className="pt-2">
-          {confirmDelete ? (
+          {confirmDelete === "choose" ? (
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-error)] p-3">
+              <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">
+                  Keep sub-issues
+                </button>
+                <button onClick={() => handleDelete(true)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">
+                  Delete sub-issues too
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors text-left">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : confirmDelete === "confirm" ? (
             <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-error)] p-3">
               <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue? This cannot be undone.</p>
               <div className="flex items-center gap-2">
-                <button onClick={handleDelete} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
+                <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
                   Delete
                 </button>
                 <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
@@ -706,7 +723,7 @@ export default function PropertySidebar({
             </div>
           ) : (
             <button
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

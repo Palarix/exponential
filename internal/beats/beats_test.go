@@ -464,6 +464,37 @@ func TestDeleteParentUnparentsChildren(t *testing.T) {
 	}
 }
 
+func TestDeleteParentCascadeDeletesChildren(t *testing.T) {
+	client, cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent", Labels: []string{"epic"}})
+	child1, _ := client.AddIssue(model.CreatePayload{Title: "Child 1", ParentID: parent.ID})
+	child2, _ := client.AddIssue(model.CreatePayload{Title: "Child 2", ParentID: parent.ID})
+	unrelated, _ := client.AddIssue(model.CreatePayload{Title: "Unrelated"})
+
+	err := client.DeleteIssue(parent.ID, "cascade test", true)
+	if err != nil {
+		t.Fatalf("DeleteIssue failed: %v", err)
+	}
+
+	events, _ := storage.ReadEvents()
+	issues := ProjectIssues(events)
+
+	if _, exists := issues[parent.ID]; exists {
+		t.Error("Expected parent to be deleted")
+	}
+	if _, exists := issues[child1.ID]; exists {
+		t.Error("Expected child1 to be cascade-deleted")
+	}
+	if _, exists := issues[child2.ID]; exists {
+		t.Error("Expected child2 to be cascade-deleted")
+	}
+	if _, exists := issues[unrelated.ID]; !exists {
+		t.Error("Unrelated issue should not be deleted")
+	}
+}
+
 func TestAddIssueWithStatus(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
