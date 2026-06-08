@@ -118,7 +118,7 @@ export default function ContextMenu({
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [subMenu, setSubMenu] = useState<SubMenu>(null);
   const [focusIndex, setFocusIndex] = useState(-1);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
   const [filterText, setFilterText] = useState("");
   const [subMenuOffset, setSubMenuOffset] = useState(0);
   const [cycles, setCycles] = useState<Cycle[]>([]);
@@ -130,6 +130,8 @@ export default function ContextMenu({
       if (data.enabled && data.cycles) setCycles(data.cycles);
     }).catch(() => {});
   }, []);
+
+  const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
 
   const closeAll = useCallback(() => {
     setSubMenu(null);
@@ -229,7 +231,7 @@ export default function ContextMenu({
       if (key === "l") { e.preventDefault(); openSubMenu("labels"); return; }
       if (key === "e") { e.preventDefault(); openSubMenu("estimate"); return; }
       if (key === "c") { e.preventDefault(); openSubMenu("cycle"); return; }
-      if (key === "backspace" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setConfirmDelete(true); return; }
+      if (key === "backspace" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setConfirmDelete(hasChildren ? "choose" : "confirm"); return; }
       if (key === "arrowdown") { e.preventDefault(); setFocusIndex(i => Math.min(i + 1, MENU_ITEMS.length)); return; }
       if (key === "arrowup") { e.preventDefault(); setFocusIndex(i => Math.max(i - 1, 0)); return; }
       if (key === "arrowright" && focusIndex >= 0 && focusIndex < MENU_ITEMS.length) {
@@ -244,7 +246,7 @@ export default function ContextMenu({
       }
       if (key === "enter" && focusIndex === MENU_ITEMS.length) {
         e.preventDefault();
-        setConfirmDelete(true);
+        setConfirmDelete(hasChildren ? "choose" : "confirm");
         return;
       }
     };
@@ -411,7 +413,27 @@ export default function ContextMenu({
     return null;
   };
 
-  if (confirmDelete) {
+  if (confirmDelete === "choose") {
+    return createPortal(
+      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
+        <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
+        <div className="flex flex-col gap-2">
+          <button onClick={() => handleAction("DELETE", { cascade: false })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">
+            Keep sub-issues
+          </button>
+          <button onClick={() => handleAction("DELETE", { cascade: true })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">
+            Delete sub-issues too
+          </button>
+          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors text-left">
+            Cancel
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  if (confirmDelete === "confirm") {
     return createPortal(
       <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
@@ -450,7 +472,7 @@ export default function ContextMenu({
         ))}
         <div className="my-1 border-t border-[var(--color-border-subtle)]" />
         <button
-          onClick={() => setConfirmDelete(true)}
+          onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
           onMouseEnter={() => { setFocusIndex(MENU_ITEMS.length); setSubMenu(null); }}
           className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-bg-hover)]" : ""}`}
         >

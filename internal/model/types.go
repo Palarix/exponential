@@ -14,7 +14,8 @@ const (
 )
 
 type DeletePayload struct {
-	Reason string `json:"reason,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+	Cascade bool   `json:"cascade,omitempty"`
 }
 
 type Event struct {

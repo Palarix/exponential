@@ -112,7 +112,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	case model.EventTypeDelete:
 		var p model.DeletePayload
 		json.Unmarshal(req.Payload, &p)
-		if err := client.DeleteIssue(req.IssueID, p.Reason); err != nil {
+		if err := client.DeleteIssue(req.IssueID, p.Reason, p.Cascade); err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
 			return
 		}
