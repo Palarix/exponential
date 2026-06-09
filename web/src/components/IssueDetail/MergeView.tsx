@@ -105,12 +105,15 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
 
   const defaultCommitMessage = useCallback((strategy: string) => {
     const bs = issue.branch_stats!;
+    const commitList = commits.length > 0
+      ? "\n\n" + commits.map((c) => `* ${c.message}`).join("\n")
+      : "";
     switch (strategy) {
-      case "squash": return `${issue.id}: ${issue.title}`;
+      case "squash": return `${issue.id}: ${issue.title}${commitList}`;
       case "ff": return `beats: merge ${issue.id}`;
-      default: return `Merge branch '${bs.branch}'`;
+      default: return `Merge branch '${bs.branch}'${commitList}`;
     }
-  }, [issue]);
+  }, [issue, commits]);
 
   const openConfirm = useCallback(() => {
     setCommitMessage(defaultCommitMessage(mergeStrategy));
@@ -272,7 +275,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
         <>
           <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setConfirmOpen(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
+            <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
               <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-subtle)]">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
                   <GitMerge size={16} className="text-[var(--color-accent-primary)]" />
@@ -283,41 +286,48 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
                 </button>
               </div>
               <div className="px-5 py-4 space-y-4">
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">Strategy:</span>
+                  <span className="font-medium">{strategyLabel}</span>
+                </div>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  {mergeStrategy === "squash"
+                    ? "All commits will be combined into a single commit on main. The branch history is not preserved."
+                    : mergeStrategy === "merge"
+                    ? "A merge commit will be created on main. The full branch commit history is preserved."
+                    : "Main will be fast-forwarded to the branch tip. No merge commit is created. Only possible if main has no new commits since the branch was created."}
+                  {" "}The issue will be marked as done.
+                </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">Commit message</label>
                   <textarea
                     value={commitMessage}
                     onChange={(e) => setCommitMessage(e.target.value)}
-                    rows={3}
+                    rows={6}
                     className="w-full text-sm font-mono bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
                   />
-                </div>
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                  <span className="text-xs text-[var(--color-text-muted)]">Strategy:</span>
-                  <span className="font-medium">{strategyLabel}</span>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer">
-                  <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)}
-                    className="rounded border-[var(--color-border-default)]" />
-                  Delete branch after merge
-                </label>
-                <div className="text-xs text-[var(--color-text-muted)]">
-                  This will merge the branch into main and mark the issue as done.
                 </div>
                 {mergeError && (
                   <div className="text-sm text-[var(--color-error)]">{mergeError}</div>
                 )}
               </div>
-              <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[var(--color-border-subtle)]">
-                <button onClick={() => setConfirmOpen(false)}
-                  className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
-                  Cancel
-                </button>
-                <button onClick={handleMerge} disabled={merging || !commitMessage.trim()}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40">
-                  <GitMerge size={14} />
-                  {merging ? "Merging..." : "Merge and close issue"}
-                </button>
+              <div className="flex items-center px-5 py-3 border-t border-[var(--color-border-subtle)]">
+                <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
+                  <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)}
+                    className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0" />
+                  <span className="leading-none">Delete branch after merge</span>
+                </label>
+                <div className="ml-auto flex items-center gap-2">
+                  <button onClick={() => setConfirmOpen(false)}
+                    className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleMerge} disabled={merging || !commitMessage.trim()}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40">
+                    <GitMerge size={14} />
+                    {merging ? "Merging..." : "Merge and close issue"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

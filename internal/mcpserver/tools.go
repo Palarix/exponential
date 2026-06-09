@@ -129,6 +129,19 @@ type startOut struct {
 	Messages []string `json:"messages"`
 }
 
+type mergeIn struct {
+	ID            string `json:"id" jsonschema:"Issue ID to merge"`
+	Strategy      string `json:"strategy,omitempty" jsonschema:"Merge strategy: squash (default), merge, or ff"`
+	CommitMessage string `json:"commit_message,omitempty" jsonschema:"Custom commit message (auto-generated if omitted)"`
+	DeleteBranch  bool   `json:"delete_branch,omitempty" jsonschema:"Delete the branch after merge"`
+}
+
+type mergeOut struct {
+	ID       string   `json:"id"`
+	MergeSHA string   `json:"merge_sha"`
+	Messages []string `json:"messages"`
+}
+
 type linkIn struct {
 	Source string `json:"source" jsonschema:"Source issue ID"`
 	Target string `json:"target" jsonschema:"Target issue ID"`
@@ -181,8 +194,13 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "beats_start",
-		Description: "Start working on an issue: transitions status to DOING and creates a git branch named <issue-id>/<slug> off the default branch.",
+		Description: "Start working on an issue: transitions status to DOING and creates a git branch named <issue-id>-<slug> off the default branch.",
 	}, t.start)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "beats_merge",
+		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. Requires a clean working tree.",
+	}, t.merge)
 }
 
 // --- Handlers ---
@@ -349,6 +367,37 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startI
 	}
 	text := strings.Join(msgs, "\n")
 	return textResult(text), startOut{ID: in.ID, Branch: branch, Messages: msgs}, nil
+}
+
+func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeIn) (*mcp.CallToolResult, mergeOut, error) {
+	if in.ID == "" {
+		return nil, mergeOut{}, fmt.Errorf("'id' is required")
+	}
+
+	if !beats.IsWorkingTreeClean() {
+		return nil, mergeOut{}, fmt.Errorf("working tree is not clean — commit or stash your changes first")
+	}
+
+	strategy := beats.MergeStrategySquash
+	switch in.Strategy {
+	case "merge":
+		strategy = beats.MergeStrategyMerge
+	case "ff":
+		strategy = beats.MergeStrategyFF
+	}
+
+	c := t.clientFor(req)
+	result, err := c.MergeIssue(in.ID, beats.MergeOptions{
+		Strategy:      strategy,
+		CommitMessage: in.CommitMessage,
+		DeleteBranch:  in.DeleteBranch,
+	})
+	if err != nil {
+		return nil, mergeOut{}, err
+	}
+
+	text := strings.Join(result.Messages, "\n")
+	return textResult(text), mergeOut{ID: in.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil
 }
 
 // --- Helpers ---
