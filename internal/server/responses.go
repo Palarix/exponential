@@ -25,6 +25,7 @@ type IssueResponse struct {
 	Assignee     string               `json:"assignee,omitempty"`
 	CycleID          string               `json:"cycle_id,omitempty"`
 	EffectiveCycleID string               `json:"effective_cycle_id,omitempty"`
+	BranchStats      *model.BranchStats   `json:"branch_stats,omitempty"`
 	Labels           []string             `json:"labels,omitempty"`
 	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
 	Comments     []CommentResponse    `json:"comments,omitempty"`
@@ -76,6 +77,7 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		Assignee:    issue.Assignee,
 		CycleID:          issue.CycleID,
 		EffectiveCycleID: issue.EffectiveCycleID,
+		BranchStats:      issue.BranchStats,
 		Labels:           issue.Labels,
 		CreatedAt:   issue.CreatedAt,
 		CreatedBy:   issue.CreatedBy,

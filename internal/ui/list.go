@@ -85,21 +85,24 @@ func RenderIssueList(issues []*model.Issue, termWidth int) string {
 				parts = append(parts, style.Render(l))
 			}
 			joined := strings.Join(parts, ",")
-			// Truncate based on visible width
 			if lipgloss.Width(joined) > labelWidth {
-				// Simple truncation for now, might cut off ANSI codes but lipgloss should handle it
-				// Better approach: Truncate the source strings or just show as many full tags as fit
-				// For now, let's just join and truncate, hoping lipgloss.Width logic in Truncate mimics visual width
 				labelStr = Truncate(joined, labelWidth)
 			} else {
 				labelStr = joined
 			}
 		}
 
-		// Title
+		// Title (with optional branch stats suffix)
 		title := i.Title
 		if i.ParentID != "" {
-			title = "  └─ " + title // indent children
+			title = "  └─ " + title
+		}
+		branchTag := FormatBranchStats(i.BranchStats)
+		if branchTag != "" {
+			available := titleWidth - lipgloss.Width(title) - 1
+			if available >= lipgloss.Width(branchTag) {
+				title = title + " " + branchTag
+			}
 		}
 		title = Truncate(title, titleWidth)
 

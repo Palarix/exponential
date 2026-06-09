@@ -186,6 +186,157 @@ func TestApplyBranchInference_WithRemoteBranch(t *testing.T) {
 	}
 }
 
+func TestMatchingBranch(t *testing.T) {
+	tests := []struct {
+		name     string
+		branches []string
+		issueID  string
+		want     string
+	}{
+		{
+			name:     "returns matched branch",
+			branches: []string{"origin/beats-3c2135/fix-login"},
+			issueID:  "beats-3c2135",
+			want:     "origin/beats-3c2135/fix-login",
+		},
+		{
+			name:     "returns empty on no match",
+			branches: []string{"origin/beats-aaaaaa"},
+			issueID:  "beats-3c2135",
+			want:     "",
+		},
+		{
+			name:     "returns first match",
+			branches: []string{"origin/beats-3c2135", "origin/beats-3c2135/v2"},
+			issueID:  "beats-3c2135",
+			want:     "origin/beats-3c2135",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchingBranch(tt.branches, tt.issueID)
+			if got != tt.want {
+				t.Errorf("matchingBranch(%v, %q) = %q, want %q", tt.branches, tt.issueID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseShortstat(t *testing.T) {
+	tests := []struct {
+		name         string
+		line         string
+		wantFiles    int
+		wantInsert   int
+		wantDelete   int
+	}{
+		{
+			name:       "full stat line",
+			line:       "7 files changed, 142 insertions(+), 38 deletions(-)",
+			wantFiles:  7,
+			wantInsert: 142,
+			wantDelete: 38,
+		},
+		{
+			name:       "single file, insertions only",
+			line:       "1 file changed, 5 insertions(+)",
+			wantFiles:  1,
+			wantInsert: 5,
+			wantDelete: 0,
+		},
+		{
+			name:       "deletions only",
+			line:       "3 files changed, 10 deletions(-)",
+			wantFiles:  3,
+			wantInsert: 0,
+			wantDelete: 10,
+		},
+		{
+			name:       "empty line",
+			line:       "",
+			wantFiles:  0,
+			wantInsert: 0,
+			wantDelete: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stats := &model.BranchStats{}
+			parseShortstat(tt.line, stats)
+			if stats.FilesChanged != tt.wantFiles {
+				t.Errorf("FilesChanged = %d, want %d", stats.FilesChanged, tt.wantFiles)
+			}
+			if stats.Insertions != tt.wantInsert {
+				t.Errorf("Insertions = %d, want %d", stats.Insertions, tt.wantInsert)
+			}
+			if stats.Deletions != tt.wantDelete {
+				t.Errorf("Deletions = %d, want %d", stats.Deletions, tt.wantDelete)
+			}
+		})
+	}
+}
+
+func TestBranchStatsComputed(t *testing.T) {
+	remoteDir := t.TempDir()
+	runGit(t, remoteDir, "init", "--bare")
+	runGit(t, remoteDir, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	pusherDir := t.TempDir()
+	runGit(t, pusherDir, "init", "-b", "main")
+	runGit(t, pusherDir, "config", "user.email", "test@test.com")
+	runGit(t, pusherDir, "config", "user.name", "Test")
+	runGit(t, pusherDir, "remote", "add", "origin", remoteDir)
+
+	os.WriteFile(filepath.Join(pusherDir, "file.txt"), []byte("hello"), 0644)
+	runGit(t, pusherDir, "add", ".")
+	runGit(t, pusherDir, "commit", "-m", "init")
+	runGit(t, pusherDir, "push", "origin", "HEAD:main")
+
+	runGit(t, pusherDir, "checkout", "-b", "test-abc123/feature")
+	os.WriteFile(filepath.Join(pusherDir, "new.txt"), []byte("new file\n"), 0644)
+	runGit(t, pusherDir, "add", ".")
+	runGit(t, pusherDir, "commit", "-m", "add new file")
+	os.WriteFile(filepath.Join(pusherDir, "another.txt"), []byte("another\n"), 0644)
+	runGit(t, pusherDir, "add", ".")
+	runGit(t, pusherDir, "commit", "-m", "add another")
+	runGit(t, pusherDir, "push", "origin", "test-abc123/feature")
+
+	localDir := t.TempDir()
+	runGit(t, localDir, "clone", remoteDir, ".")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(localDir)
+	defer os.Chdir(origDir)
+
+	issues := map[string]*model.Issue{
+		"test-abc123": {
+			ID:     "test-abc123",
+			Status: model.StatusPlanned,
+		},
+	}
+
+	applyBranchInference(issues)
+
+	issue := issues["test-abc123"]
+	if issue.BranchStats == nil {
+		t.Fatal("expected BranchStats to be set")
+	}
+	if issue.BranchStats.Commits != 2 {
+		t.Errorf("Commits = %d, want 2", issue.BranchStats.Commits)
+	}
+	if issue.BranchStats.FilesChanged != 2 {
+		t.Errorf("FilesChanged = %d, want 2", issue.BranchStats.FilesChanged)
+	}
+	if issue.BranchStats.Insertions != 2 {
+		t.Errorf("Insertions = %d, want 2", issue.BranchStats.Insertions)
+	}
+	if issue.BranchStats.Branch != "origin/test-abc123/feature" {
+		t.Errorf("Branch = %q, want %q", issue.BranchStats.Branch, "origin/test-abc123/feature")
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

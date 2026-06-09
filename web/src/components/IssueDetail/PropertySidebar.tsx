@@ -579,6 +579,28 @@ export default function PropertySidebar({
           </div>
         </div>
 
+        {/* Branch stats card */}
+        {issue.branch_stats && issue.branch_stats.commits > 0 && (
+          <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
+            <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Branch</div>
+            <div className="text-sm text-[var(--color-text-primary)] font-mono truncate mb-2">
+              {issue.branch_stats.branch}
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-[var(--color-text-secondary)]">
+                {issue.branch_stats.commits} {issue.branch_stats.commits === 1 ? "commit" : "commits"}
+              </span>
+              <span className="text-[var(--color-text-muted)]">·</span>
+              <span className="text-[var(--color-text-secondary)]">
+                {issue.branch_stats.files_changed} {issue.branch_stats.files_changed === 1 ? "file" : "files"}
+              </span>
+              <span className="text-[var(--color-text-muted)]">·</span>
+              <span className="text-green-500">+{issue.branch_stats.insertions}</span>
+              <span className="text-red-500">-{issue.branch_stats.deletions}</span>
+            </div>
+          </div>
+        )}
+
         {/* Metadata card */}
         <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3 space-y-2">
           <MetaRow label="Created" value={formatRelativeTime(issue.created_at)} />

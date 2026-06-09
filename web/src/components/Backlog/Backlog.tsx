@@ -1188,6 +1188,14 @@ export default function Backlog({
                                   {childDone}/{childTotal}
                                 </span>
                               )}
+                              {issue.branch_stats && issue.branch_stats.commits > 0 && (
+                                <span className="text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums">
+                                  {issue.branch_stats.commits}c
+                                  {" "}{issue.branch_stats.files_changed}f
+                                  {" "}<span className="text-green-600">+{issue.branch_stats.insertions}</span>
+                                  <span className="text-red-500">-{issue.branch_stats.deletions}</span>
+                                </span>
+                              )}
                               <div className="flex-1" />
                               {issue.is_pending && (
                                 <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />

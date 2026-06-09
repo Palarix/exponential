@@ -63,6 +63,28 @@ func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived 
 			issue.Estimate))
 	}
 
+	// Branch stats
+	if issue.BranchStats != nil && issue.BranchStats.Commits > 0 {
+		bs := issue.BranchStats
+		sb.WriteString(fmt.Sprintf("  %s  %s\n",
+			MutedStyle.Render("Branch:"),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render(bs.Branch)))
+		commitWord := "commits"
+		if bs.Commits == 1 {
+			commitWord = "commit"
+		}
+		fileWord := "files changed"
+		if bs.FilesChanged == 1 {
+			fileWord = "file changed"
+		}
+		sb.WriteString(fmt.Sprintf("  %s  %d %s, %d %s, %s%s\n",
+			MutedStyle.Render("Changes:"),
+			bs.Commits, commitWord,
+			bs.FilesChanged, fileWord,
+			lipgloss.NewStyle().Foreground(DoingColor).Render(fmt.Sprintf("+%d", bs.Insertions)),
+			lipgloss.NewStyle().Foreground(BlockedColor).Render(fmt.Sprintf(" -%d", bs.Deletions))))
+	}
+
 	// Created / Updated
 	sb.WriteString(fmt.Sprintf("  %s  %s by %s\n",
 		MutedStyle.Render("Created:"),

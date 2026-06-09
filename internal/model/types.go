@@ -76,6 +76,14 @@ const (
 	StatusDone    IssueStatus = "DONE"
 )
 
+type BranchStats struct {
+	Branch       string `json:"branch"`
+	Commits      int    `json:"commits"`
+	FilesChanged int    `json:"files_changed"`
+	Insertions   int    `json:"insertions"`
+	Deletions    int    `json:"deletions"`
+}
+
 type Issue struct {
 	ID           string
 	Title        string
@@ -89,6 +97,7 @@ type Issue struct {
 	CycleID          string
 	EffectiveCycleID string
 	InferredStatus   bool
+	BranchStats      *BranchStats
 	Deleted          bool
 
 	Dependencies []Dependency
