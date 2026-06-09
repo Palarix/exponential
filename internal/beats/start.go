@@ -35,7 +35,7 @@ func (c *Client) StartWork(id string) (branchName string, msgs []string, err err
 		return "", msgs, nil
 	}
 
-	branchName = fmt.Sprintf("%s/%s", issue.ID, Slugify(issue.Title))
+	branchName = fmt.Sprintf("%s-%s", issue.ID, Slugify(issue.Title))
 
 	if BranchExists(branchName) {
 		if err := CheckoutBranch(branchName); err != nil {

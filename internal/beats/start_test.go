@@ -118,13 +118,13 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
-	if branch != "test-abc123/fix-login-flow" {
-		t.Errorf("expected branch 'test-abc123/fix-login-flow', got %q", branch)
+	if branch != "test-abc123-fix-login-flow" {
+		t.Errorf("expected branch 'test-abc123-fix-login-flow', got %q", branch)
 	}
 
 	foundBranchMsg := false
 	for _, msg := range msgs {
-		if msg == "Created and switched to branch 'test-abc123/fix-login-flow'" {
+		if msg == "Created and switched to branch 'test-abc123-fix-login-flow'" {
 			foundBranchMsg = true
 		}
 	}
@@ -135,8 +135,8 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 	// Verify we're on the new branch
 	out, _ := exec.Command("git", "branch", "--show-current").Output()
 	currentBranch := string(out)
-	if currentBranch[:len(currentBranch)-1] != "test-abc123/fix-login-flow" {
-		t.Errorf("expected to be on branch test-abc123/fix-login-flow, got %q", currentBranch)
+	if currentBranch[:len(currentBranch)-1] != "test-abc123-fix-login-flow" {
+		t.Errorf("expected to be on branch test-abc123-fix-login-flow, got %q", currentBranch)
 	}
 }
 
@@ -153,7 +153,7 @@ func TestStartWork_GitRepo_ExistingBranch(t *testing.T) {
 	runGit(t, cwd, "commit", "-m", "init")
 
 	// Pre-create the branch
-	runGit(t, cwd, "branch", "test-abc123/fix-login-flow")
+	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
 
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
@@ -161,13 +161,13 @@ func TestStartWork_GitRepo_ExistingBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
-	if branch != "test-abc123/fix-login-flow" {
-		t.Errorf("expected branch 'test-abc123/fix-login-flow', got %q", branch)
+	if branch != "test-abc123-fix-login-flow" {
+		t.Errorf("expected branch 'test-abc123-fix-login-flow', got %q", branch)
 	}
 
 	foundSwitchMsg := false
 	for _, msg := range msgs {
-		if msg == "Switched to existing branch 'test-abc123/fix-login-flow'" {
+		if msg == "Switched to existing branch 'test-abc123-fix-login-flow'" {
 			foundSwitchMsg = true
 		}
 	}

@@ -283,7 +283,7 @@ export async function fetchCommitDiff(issueId: string, sha: string): Promise<str
   return res.text();
 }
 
-export async function mergeIssue(issueId: string, options?: { strategy?: string; delete_branch?: boolean }): Promise<MergeResponse> {
+export async function mergeIssue(issueId: string, options?: { strategy?: string; commit_message?: string; delete_branch?: boolean }): Promise<MergeResponse> {
   return request(`${API_BASE}/issues/${issueId}/merge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

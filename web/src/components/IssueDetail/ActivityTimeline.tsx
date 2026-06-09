@@ -95,6 +95,22 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
     }
     case "DELETE":
       return "deleted this issue";
+    case "MERGE": {
+      const branch = p.branch ? String(p.branch) : "";
+      const shortBranch = branch.length > 40 ? branch.slice(0, 40) + "…" : branch;
+      return (
+        <>
+          merged{" "}
+          {branch && (
+            <span className="font-mono text-xs text-[var(--color-accent-primary)]" title={branch}>{shortBranch}</span>
+          )}
+          {p.strategy && (
+            <> via {String(p.strategy)}</>
+          )}
+          {" "}and closed this issue
+        </>
+      );
+    }
     default:
       return null;
   }

@@ -801,8 +801,9 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Strategy     string `json:"strategy"`
-		DeleteBranch bool   `json:"delete_branch"`
+		Strategy      string `json:"strategy"`
+		CommitMessage string `json:"commit_message"`
+		DeleteBranch  bool   `json:"delete_branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		body.Strategy = "squash"
@@ -824,8 +825,9 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 	client := beats.NewClient(s.Config)
 	client.Collapse = true
 	result, err := client.MergeIssue(id, beats.MergeOptions{
-		Strategy:     strategy,
-		DeleteBranch: body.DeleteBranch,
+		Strategy:      strategy,
+		CommitMessage: body.CommitMessage,
+		DeleteBranch:  body.DeleteBranch,
 	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())

@@ -18,9 +18,10 @@ const (
 )
 
 type MergeOptions struct {
-	Strategy     MergeStrategy
-	DeleteBranch bool
-	KeepBranch   bool
+	Strategy      MergeStrategy
+	CommitMessage string
+	DeleteBranch  bool
+	KeepBranch    bool
 }
 
 type MergeResult struct {
@@ -76,34 +77,42 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		CreatedBy: user,
 	}
 
+	// Default commit messages per strategy
+	commitMsg := opts.CommitMessage
+	if commitMsg == "" {
+		switch opts.Strategy {
+		case MergeStrategySquash:
+			commitMsg = fmt.Sprintf("%s: %s", issue.ID, issue.Title)
+		case MergeStrategyFF:
+			commitMsg = fmt.Sprintf("beats: merge %s", issue.ID)
+		default:
+			commitMsg = fmt.Sprintf("Merge branch '%s'", branch)
+		}
+	}
+
 	// Run the merge + include issues.db in the same commit
 	var mergeErr error
 	switch opts.Strategy {
 	case MergeStrategySquash:
-		// --squash stages but doesn't commit — write event, stage, commit together
 		mergeErr = runGitMerge("--squash", mergeRef)
 		if mergeErr == nil {
 			if err := c.appendEvent(event); err != nil {
 				return nil, fmt.Errorf("failed to record event: %w", err)
 			}
 			exec.Command("git", "add", ".beats/issues.db").Run()
-			msg := fmt.Sprintf("%s: %s", issue.ID, issue.Title)
-			mergeErr = exec.Command("git", "commit", "-m", msg).Run()
+			mergeErr = exec.Command("git", "commit", "-m", commitMsg).Run()
 		}
 	case MergeStrategyFF:
-		// FF has no commit to amend — merge, then write event as a follow-up commit
 		mergeErr = runGitMerge("--ff-only", mergeRef)
 		if mergeErr == nil {
 			if err := c.appendEvent(event); err != nil {
 				return nil, fmt.Errorf("failed to record event: %w", err)
 			}
 			exec.Command("git", "add", ".beats/issues.db").Run()
-			exec.Command("git", "commit", "-m", fmt.Sprintf("beats: merge %s", issue.ID)).Run()
+			exec.Command("git", "commit", "-m", commitMsg).Run()
 		}
 	default:
-		// --no-ff creates a merge commit — amend it to include issues.db
-		mergeErr = runGitMerge("--no-ff", "-m",
-			fmt.Sprintf("Merge branch '%s'", branch), mergeRef)
+		mergeErr = runGitMerge("--no-ff", "-m", commitMsg, mergeRef)
 		if mergeErr == nil {
 			if err := c.appendEvent(event); err != nil {
 				return nil, fmt.Errorf("failed to record event: %w", err)
@@ -163,7 +172,7 @@ func deleteBranch(branch string) {
 			name = parts[1]
 		}
 	}
-	exec.Command("git", "branch", "-d", name).Run()
+	exec.Command("git", "branch", "-D", name).Run()
 
 	// Delete remote tracking branch if it exists
 	if strings.HasPrefix(branch, "origin/") {

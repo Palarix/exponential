@@ -46,6 +46,9 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
   const [mergeStrategy, setMergeStrategy] = useState("squash");
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [deleteBranch, setDeleteBranch] = useState(false);
 
   const bs = issue.branch_stats!;
 
@@ -100,16 +103,35 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
     return files.filter((f) => f.path.toLowerCase().includes(q));
   }, [files, fileFilter]);
 
+  const defaultCommitMessage = useCallback((strategy: string) => {
+    const bs = issue.branch_stats!;
+    switch (strategy) {
+      case "squash": return `${issue.id}: ${issue.title}`;
+      case "ff": return `beats: merge ${issue.id}`;
+      default: return `Merge branch '${bs.branch}'`;
+    }
+  }, [issue]);
+
+  const openConfirm = useCallback(() => {
+    setCommitMessage(defaultCommitMessage(mergeStrategy));
+    setConfirmOpen(true);
+  }, [mergeStrategy, defaultCommitMessage]);
+
   const handleMerge = useCallback(async () => {
     setMerging(true);
     setMergeError(null);
     try {
-      await mergeIssue(issue.id, { strategy: mergeStrategy });
+      await mergeIssue(issue.id, {
+        strategy: mergeStrategy,
+        commit_message: commitMessage,
+        delete_branch: deleteBranch,
+      });
+      setConfirmOpen(false);
       onMerged();
     } catch (err) {
       setMergeError(err instanceof ApiError ? err.message : "Merge failed");
     } finally { setMerging(false); }
-  }, [issue.id, mergeStrategy, onMerged]);
+  }, [issue.id, mergeStrategy, commitMessage, deleteBranch, onMerged]);
 
   const strategyLabel = mergeStrategy === "squash" ? "Squash and merge"
     : mergeStrategy === "merge" ? "Create merge commit" : "Fast-forward";
@@ -176,7 +198,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
           {/* Right: merge button + strategy */}
           <div className="flex justify-end items-center">
             <button
-              onClick={handleMerge}
+              onClick={openConfirm}
               disabled={merging || !canMerge}
               className="flex items-center h-8 gap-2 px-4 text-sm font-medium rounded-l-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
             >
@@ -199,7 +221,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
                       { key: "merge", label: "Create merge commit", desc: "Preserves branch history" },
                       { key: "ff", label: "Fast-forward", desc: "Linear, no merge commit" },
                     ] as const).map((opt) => (
-                      <button key={opt.key} onClick={() => { setMergeStrategy(opt.key); setStrategyOpen(false); }}
+                      <button key={opt.key} onClick={() => { setMergeStrategy(opt.key); setCommitMessage(defaultCommitMessage(opt.key)); setStrategyOpen(false); }}
                         className={`w-full px-3 py-2 text-left hover:bg-[var(--color-bg-hover)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}>
                         <div className="text-sm">{opt.label}</div>
                         <div className="text-xs text-[var(--color-text-muted)]">{opt.desc}</div>
@@ -244,6 +266,63 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
             onAddComment={handleAddComment} saving={commentSaving} />
         )}
       </div>
+
+      {/* ── Merge confirmation dialog ── */}
+      {confirmOpen && (
+        <>
+          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setConfirmOpen(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-subtle)]">
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+                  <GitMerge size={16} className="text-[var(--color-accent-primary)]" />
+                  Confirm merge
+                </div>
+                <button onClick={() => setConfirmOpen(false)} className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">Commit message</label>
+                  <textarea
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                    rows={3}
+                    className="w-full text-sm font-mono bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                  <span className="text-xs text-[var(--color-text-muted)]">Strategy:</span>
+                  <span className="font-medium">{strategyLabel}</span>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer">
+                  <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)}
+                    className="rounded border-[var(--color-border-default)]" />
+                  Delete branch after merge
+                </label>
+                <div className="text-xs text-[var(--color-text-muted)]">
+                  This will merge the branch into main and mark the issue as done.
+                </div>
+                {mergeError && (
+                  <div className="text-sm text-[var(--color-error)]">{mergeError}</div>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[var(--color-border-subtle)]">
+                <button onClick={() => setConfirmOpen(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                  Cancel
+                </button>
+                <button onClick={handleMerge} disabled={merging || !commitMessage.trim()}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40">
+                  <GitMerge size={14} />
+                  {merging ? "Merging..." : "Merge and close issue"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
