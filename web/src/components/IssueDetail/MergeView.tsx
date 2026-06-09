@@ -154,7 +154,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
           </div>
 
           {/* Center: mergeability */}
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center">
             {!canMerge ? (
               <div className="flex items-center gap-2 text-sm text-amber-500">
                 <AlertTriangle size={16} />
@@ -170,6 +170,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
                 <Check size={16} />Ready to merge
               </div>
             )}
+            <span className="text-xs text-[var(--color-text-muted)] mt-0.5">Merging will close this issue</span>
           </div>
 
           {/* Right: merge button + strategy */}

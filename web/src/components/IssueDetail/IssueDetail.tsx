@@ -12,7 +12,6 @@ import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../consta
 import SubIssuesTable from "./SubIssuesTable";
 import ActivityTimeline from "./ActivityTimeline";
 import PropertySidebar from "./PropertySidebar";
-import ReviewTab from "./ReviewTab";
 import MergeView from "./MergeView";
 
 interface IssueDetailProps {
@@ -48,7 +47,6 @@ export default function IssueDetail({
   const [saving, setSaving] = useState(false);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [popoverIndex, setPopoverIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<"activity" | "review">("activity");
   const [mergeViewOpen, setMergeViewOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const commentRef = useRef<HTMLTextAreaElement>(null);
@@ -340,56 +338,15 @@ export default function IssueDetail({
 
             <SubIssuesTable issue={issue} issues={issues} onRefresh={onRefresh} />
 
-            {/* Tab bar */}
-            <div className="flex items-center gap-1 border-b border-[var(--color-border-subtle)] mt-6 mb-4">
-              <button
-                onClick={() => setActiveTab("activity")}
-                className={`px-3 py-2 text-sm font-medium transition-colors relative ${
-                  activeTab === "activity"
-                    ? "text-[var(--color-text-primary)]"
-                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                }`}
-              >
-                Activity
-                {activeTab === "activity" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
-                )}
-              </button>
-              {issue.branch_stats && issue.branch_stats.commits > 0 && (
-                <button
-                  onClick={() => setActiveTab("review")}
-                  className={`px-3 py-2 text-sm font-medium transition-colors relative ${
-                    activeTab === "review"
-                      ? "text-[var(--color-text-primary)]"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                  }`}
-                >
-                  Review
-                  <span className="ml-1.5 text-xs tabular-nums text-[var(--color-text-muted)]">
-                    {issue.branch_stats.commits}
-                  </span>
-                  {activeTab === "review" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
-                  )}
-                </button>
-              )}
-            </div>
-
-            {activeTab === "activity" && (
-              <ActivityTimeline
-                issue={issue}
-                newComment={newComment}
-                onNewCommentChange={setNewComment}
-                onAddComment={handleAddComment}
-                saving={saving}
-                commentRef={commentRef}
-                prefix={prefix}
-              />
-            )}
-
-            {activeTab === "review" && (
-              <ReviewTab issue={issue} onRefresh={onRefresh} />
-            )}
+            <ActivityTimeline
+              issue={issue}
+              newComment={newComment}
+              onNewCommentChange={setNewComment}
+              onAddComment={handleAddComment}
+              saving={saving}
+              commentRef={commentRef}
+              prefix={prefix}
+            />
           </div>
         </div>
 
