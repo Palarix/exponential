@@ -137,7 +137,7 @@ func getUserNameEmail(cfg *config.Config) (string, string) {
 // reorder noise) and DELETE events.
 func isMeaningfulActivityEvent(evt model.Event) bool {
 	switch evt.Type {
-	case model.EventTypeCreate, model.EventTypeComment:
+	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge:
 		return true
 	case model.EventTypeUpdate:
 		payload, ok := evt.Payload.(map[string]interface{})

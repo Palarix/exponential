@@ -11,11 +11,19 @@ const (
 	EventTypeUpdate  EventType = "UPDATE"
 	EventTypeDelete  EventType = "DELETE"
 	EventTypeComment EventType = "COMMENT"
+	EventTypeMerge   EventType = "MERGE"
 )
 
 type DeletePayload struct {
 	Reason  string `json:"reason,omitempty"`
 	Cascade bool   `json:"cascade,omitempty"`
+}
+
+type MergePayload struct {
+	Branch   string `json:"branch"`
+	BaseSHA  string `json:"base_sha"`
+	MergeSHA string `json:"merge_sha"`
+	Strategy string `json:"strategy"`
 }
 
 type Event struct {

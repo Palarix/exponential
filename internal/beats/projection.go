@@ -122,6 +122,15 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			issue.Comments = append(issue.Comments, comment)
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
+
+		case model.EventTypeMerge:
+			issue, exists := issues[evt.ID]
+			if !exists {
+				continue
+			}
+			issue.Status = model.StatusDone
+			issue.UpdatedAt = evt.CreatedAt
+			issue.Events = append(issue.Events, evt)
 		}
 	}
 
