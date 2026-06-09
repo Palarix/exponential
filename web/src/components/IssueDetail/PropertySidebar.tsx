@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
+import { GitCommitVertical } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
 import { PriorityIcon, EstimateIcon } from "./icons";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -586,6 +587,14 @@ export default function PropertySidebar({
             <div className="text-sm text-[var(--color-text-primary)] font-mono truncate mb-2">
               {issue.branch_stats.branch}
             </div>
+            {issue.branch_stats.head_sha && (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-bg-tertiary)] text-xs font-mono text-[var(--color-text-secondary)]">
+                  <GitCommitVertical size={12} strokeWidth={1.5} />
+                  {issue.branch_stats.head_sha}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-3 text-sm">
               <span className="text-[var(--color-text-secondary)]">
                 {issue.branch_stats.commits} {issue.branch_stats.commits === 1 ? "commit" : "commits"}

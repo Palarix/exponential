@@ -37,6 +37,7 @@ import {
   DragOverlayCard,
 } from "./DndComponents";
 import { useBacklogRows, type RowItem } from "./useBacklogRows";
+import { GitCommitVertical } from "lucide-react";
 
 export type Tab = "all" | "active" | "backlog";
 
@@ -1189,11 +1190,9 @@ export default function Backlog({
                                 </span>
                               )}
                               {issue.branch_stats && issue.branch_stats.commits > 0 && (
-                                <span className="text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums">
-                                  {issue.branch_stats.commits}c
-                                  {" "}{issue.branch_stats.files_changed}f
-                                  {" "}<span className="text-green-600">+{issue.branch_stats.insertions}</span>
-                                  <span className="text-red-500">-{issue.branch_stats.deletions}</span>
+                                <span className="inline-flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums" title={`${issue.branch_stats.branch} — ${issue.branch_stats.commits} commit${issue.branch_stats.commits === 1 ? "" : "s"}, ${issue.branch_stats.files_changed} file${issue.branch_stats.files_changed === 1 ? "" : "s"}, +${issue.branch_stats.insertions} -${issue.branch_stats.deletions}`}>
+                                  <GitCommitVertical size={14} strokeWidth={1.5} />
+                                  {issue.branch_stats.commits}
                                 </span>
                               )}
                               <div className="flex-1" />

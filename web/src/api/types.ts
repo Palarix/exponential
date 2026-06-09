@@ -1,5 +1,6 @@
 export interface BranchStats {
   branch: string;
+  head_sha: string;
   commits: number;
   files_changed: number;
   insertions: number;

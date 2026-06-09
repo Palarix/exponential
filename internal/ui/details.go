@@ -66,9 +66,13 @@ func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived 
 	// Branch stats
 	if issue.BranchStats != nil && issue.BranchStats.Commits > 0 {
 		bs := issue.BranchStats
+		branchLine := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render(bs.Branch)
+		if bs.HeadSHA != "" {
+			branchLine += "  " + MutedStyle.Render(bs.HeadSHA)
+		}
 		sb.WriteString(fmt.Sprintf("  %s  %s\n",
 			MutedStyle.Render("Branch:"),
-			lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render(bs.Branch)))
+			branchLine))
 		commitWord := "commits"
 		if bs.Commits == 1 {
 			commitWord = "commit"

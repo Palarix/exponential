@@ -89,6 +89,14 @@ func branchMatchesIssue(branches []string, issueID string) bool {
 func computeBranchStats(branch, base string) *model.BranchStats {
 	stats := &model.BranchStats{Branch: branch}
 
+	if out, err := exec.Command("git", "rev-parse", branch).Output(); err == nil {
+		sha := strings.TrimSpace(string(out))
+		if len(sha) > 12 {
+			sha = sha[:12]
+		}
+		stats.HeadSHA = sha
+	}
+
 	if out, err := exec.Command("git", "rev-list", "--count", base+".."+branch).Output(); err == nil {
 		if n, err := strconv.Atoi(strings.TrimSpace(string(out))); err == nil {
 			stats.Commits = n

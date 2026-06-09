@@ -335,6 +335,9 @@ func TestBranchStatsComputed(t *testing.T) {
 	if issue.BranchStats.Branch != "origin/test-abc123/feature" {
 		t.Errorf("Branch = %q, want %q", issue.BranchStats.Branch, "origin/test-abc123/feature")
 	}
+	if len(issue.BranchStats.HeadSHA) != 12 {
+		t.Errorf("HeadSHA length = %d, want 12 (got %q)", len(issue.BranchStats.HeadSHA), issue.BranchStats.HeadSHA)
+	}
 }
 
 func runGit(t *testing.T, dir string, args ...string) {

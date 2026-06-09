@@ -98,26 +98,14 @@ func StatusIconForIssue(issue *model.Issue) string {
 	return StatusIcon(issue.Status)
 }
 
-// FormatBranchStats renders a compact branch stats annotation like
-// "[3 commits, 7 files, +142 -38]". Returns empty string if stats is nil
-// or the branch has no commits.
+// FormatBranchStats renders a compact commit count badge like "⊙ 3".
+// Returns empty string if stats is nil or the branch has no commits.
 func FormatBranchStats(stats *model.BranchStats) string {
 	if stats == nil || stats.Commits == 0 {
 		return ""
 	}
 	style := lipgloss.NewStyle().Foreground(MutedColor)
-	commitWord := "commits"
-	if stats.Commits == 1 {
-		commitWord = "commit"
-	}
-	fileWord := "files"
-	if stats.FilesChanged == 1 {
-		fileWord = "file"
-	}
-	return style.Render(fmt.Sprintf("[%d %s, %d %s, +%d -%d]",
-		stats.Commits, commitWord,
-		stats.FilesChanged, fileWord,
-		stats.Insertions, stats.Deletions))
+	return style.Render(fmt.Sprintf("⊙ %d", stats.Commits))
 }
 
 // LabelColor returns a color for a label, checking config colors first,
