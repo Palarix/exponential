@@ -20,17 +20,18 @@ import (
 // in tool catalogs.
 
 type issueSummary struct {
-	ID          string   `json:"id"`
-	Title       string   `json:"title"`
-	Status      string   `json:"status"`
-	IsInferred  bool     `json:"is_inferred,omitempty"`
-	Labels      []string `json:"labels,omitempty"`
-	ParentID    string   `json:"parent_id,omitempty"`
-	StoryPoints int      `json:"story_points,omitempty"`
-	Assignee    string   `json:"assignee,omitempty"`
-	CycleID          string   `json:"cycle_id,omitempty"`
-	EffectiveCycleID string   `json:"effective_cycle_id,omitempty"`
-	UpdatedAt        string   `json:"updated_at"`
+	ID          string             `json:"id"`
+	Title       string             `json:"title"`
+	Status      string             `json:"status"`
+	IsInferred  bool               `json:"is_inferred,omitempty"`
+	Labels      []string           `json:"labels,omitempty"`
+	ParentID    string             `json:"parent_id,omitempty"`
+	StoryPoints int                `json:"story_points,omitempty"`
+	Assignee    string             `json:"assignee,omitempty"`
+	CycleID          string             `json:"cycle_id,omitempty"`
+	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
+	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
+	UpdatedAt        string             `json:"updated_at"`
 }
 
 type commentSummary struct {
@@ -76,6 +77,7 @@ type showOut struct {
 	Assignee     string             `json:"assignee,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
+	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
 	CreatedBy        string             `json:"created_by"`
 	CreatedAt    string             `json:"created_at"`
 	UpdatedAt    string             `json:"updated_at"`
@@ -227,6 +229,7 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in showIn)
 		Assignee:     issue.Assignee,
 		CycleID:          issue.CycleID,
 		EffectiveCycleID: issue.EffectiveCycleID,
+		BranchStats:      issue.BranchStats,
 		CreatedBy:        issue.CreatedBy,
 		CreatedAt:    issue.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:    issue.UpdatedAt.Format(time.RFC3339),
@@ -362,6 +365,7 @@ func toSummary(i *model.Issue) issueSummary {
 		Assignee:    i.Assignee,
 		CycleID:          i.CycleID,
 		EffectiveCycleID: i.EffectiveCycleID,
+		BranchStats:      i.BranchStats,
 		UpdatedAt:        i.UpdatedAt.Format(time.RFC3339),
 	}
 }

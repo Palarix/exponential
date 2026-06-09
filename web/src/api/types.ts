@@ -1,3 +1,12 @@
+export interface BranchStats {
+  branch: string;
+  head_sha: string;
+  commits: number;
+  files_changed: number;
+  insertions: number;
+  deletions: number;
+}
+
 export interface Issue {
   id: string;
   title: string;
@@ -18,6 +27,7 @@ export interface Issue {
   updated_at: string;
   is_inferred?: boolean;
   is_pending?: boolean;
+  branch_stats?: BranchStats;
 }
 
 export interface Cycle {
