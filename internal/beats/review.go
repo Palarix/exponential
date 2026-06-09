@@ -58,7 +58,7 @@ func (c *Client) ResolveReviewIssue(idOrEmpty string) (*model.Issue, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.fillLocalBranchStats(issue)
+		c.FillLocalBranchStats(issue)
 		return issue, nil
 	}
 	branch := CurrentBranch()
@@ -69,14 +69,14 @@ func (c *Client) ResolveReviewIssue(idOrEmpty string) (*model.Issue, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.fillLocalBranchStats(issue)
+	c.FillLocalBranchStats(issue)
 	return issue, nil
 }
 
-// fillLocalBranchStats computes BranchStats from a local branch when no
+// FillLocalBranchStats computes BranchStats from a local branch when no
 // remote branch was detected. Checks both the current branch and any local
 // branch whose name contains the issue ID.
-func (c *Client) fillLocalBranchStats(issue *model.Issue) {
+func (c *Client) FillLocalBranchStats(issue *model.Issue) {
 	if issue.BranchStats != nil {
 		return
 	}
@@ -119,6 +119,50 @@ func branchNameMatchesIssue(branch, issueID string) bool {
 		}
 	}
 	return false
+}
+
+type DetailedCommit struct {
+	SHA     string `json:"sha"`
+	Message string `json:"message"`
+	Author  string `json:"author"`
+	Date    string `json:"date"`
+}
+
+// ListBranchCommitsDetailed returns commits with author and date info.
+func ListBranchCommitsDetailed(branch, base string) []DetailedCommit {
+	out, err := exec.Command("git", "log", "--format=%H%n%s%n%an%n%aI", base+".."+branch).Output()
+	if err != nil {
+		return nil
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	var commits []DetailedCommit
+	for i := 0; i+3 < len(lines); i += 4 {
+		commits = append(commits, DetailedCommit{
+			SHA:     lines[i][:12],
+			Message: lines[i+1],
+			Author:  lines[i+2],
+			Date:    lines[i+3],
+		})
+	}
+	return commits
+}
+
+// GetCommitDiffText returns the unified diff for a single commit.
+func GetCommitDiffText(sha string) string {
+	out, err := exec.Command("git", "diff-tree", "-p", sha).Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// GetDiffText returns the unified diff as a string.
+func GetDiffText(branch, base string) string {
+	out, err := exec.Command("git", "diff", base+"..."+branch).Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
 }
 
 // ListBranchCommits returns the commits on branch relative to base,

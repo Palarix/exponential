@@ -37,7 +37,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	}
 
 	// Find the branch (local or remote)
-	c.fillLocalBranchStats(issue)
+	c.FillLocalBranchStats(issue)
 	if issue.BranchStats == nil {
 		return nil, fmt.Errorf("no branch found for %s", issue.ID)
 	}

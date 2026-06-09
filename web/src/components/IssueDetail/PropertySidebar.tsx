@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
-import { GitCommitVertical } from "lucide-react";
+import { GitCommitVertical, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
 import { PriorityIcon, EstimateIcon } from "./icons";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -29,6 +29,7 @@ interface PropertySidebarProps {
   onRefresh: () => void;
   contributors: string[];
   onConfigLabelsChange: (labels: Record<string, string>) => void;
+  onOpenMerge?: () => void;
 }
 
 export default function PropertySidebar({
@@ -43,6 +44,7 @@ export default function PropertySidebar({
   onRefresh,
   contributors,
   onConfigLabelsChange,
+  onOpenMerge,
 }: PropertySidebarProps) {
   const [starting, setStarting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
@@ -236,6 +238,17 @@ export default function PropertySidebar({
               <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
             </svg>
             {starting ? "Starting..." : "Start Work"}
+          </button>
+        )}
+
+        {/* Merge button */}
+        {issue.branch_stats && issue.branch_stats.commits > 0 && issue.status !== "DONE" && onOpenMerge && (
+          <button
+            onClick={onOpenMerge}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity"
+          >
+            <GitMerge size={16} />
+            Merge Branch
           </button>
         )}
 

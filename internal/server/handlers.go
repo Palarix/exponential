@@ -687,3 +687,154 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 		"messages": msgs,
 	})
 }
+
+func (s *Server) resolveIssueBranch(w http.ResponseWriter, r *http.Request) (*model.Issue, string, bool) {
+	id := r.PathValue("id")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "issue ID required")
+		return nil, "", false
+	}
+
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return nil, "", false
+	}
+
+	issue, exists := issues[id]
+	if !exists {
+		respondError(w, http.StatusNotFound, "issue not found")
+		return nil, "", false
+	}
+
+	// Fill local branch stats if no remote branch detected
+	if issue.BranchStats == nil {
+		client := beats.NewClient(s.Config)
+		client.FillLocalBranchStats(issue)
+	}
+
+	if issue.BranchStats == nil {
+		respondError(w, http.StatusNotFound, "no branch found for this issue")
+		return nil, "", false
+	}
+
+	base := beats.DefaultBranch()
+	return issue, base, true
+}
+
+func (s *Server) handleGetIssueCommits(w http.ResponseWriter, r *http.Request) {
+	issue, base, ok := s.resolveIssueBranch(w, r)
+	if !ok {
+		return
+	}
+
+	commits := beats.ListBranchCommitsDetailed(issue.BranchStats.Branch, base)
+	respondJSON(w, http.StatusOK, commits)
+}
+
+func (s *Server) handleGetCommitDiff(w http.ResponseWriter, r *http.Request) {
+	sha := r.PathValue("sha")
+	if sha == "" {
+		respondError(w, http.StatusBadRequest, "commit SHA required")
+		return
+	}
+	diff := beats.GetCommitDiffText(sha)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(diff))
+}
+
+func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
+	issue, base, ok := s.resolveIssueBranch(w, r)
+	if !ok {
+		return
+	}
+
+	files := beats.ListFilesChanged(issue.BranchStats.Branch, base)
+	type fileJSON struct {
+		Status     string `json:"status"`
+		Path       string `json:"path"`
+		Insertions int    `json:"insertions"`
+		Deletions  int    `json:"deletions"`
+	}
+	out := make([]fileJSON, len(files))
+	for i, f := range files {
+		out[i] = fileJSON{Status: f.Status, Path: f.Path, Insertions: f.Insertions, Deletions: f.Deletions}
+	}
+	respondJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
+	issue, base, ok := s.resolveIssueBranch(w, r)
+	if !ok {
+		return
+	}
+
+	diff := beats.GetDiffText(issue.BranchStats.Branch, base)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(diff))
+}
+
+func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
+	_, _, ok := s.resolveIssueBranch(w, r)
+	if !ok {
+		return
+	}
+
+	var blockers []string
+	if !beats.IsWorkingTreeClean() {
+		blockers = append(blockers, "Working tree has uncommitted changes")
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"can_merge": len(blockers) == 0,
+		"blockers":  blockers,
+	})
+}
+
+func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		respondError(w, http.StatusBadRequest, "issue ID required")
+		return
+	}
+
+	var body struct {
+		Strategy     string `json:"strategy"`
+		DeleteBranch bool   `json:"delete_branch"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		body.Strategy = "squash"
+	}
+
+	strategy := beats.MergeStrategySquash
+	switch body.Strategy {
+	case "merge":
+		strategy = beats.MergeStrategyMerge
+	case "ff":
+		strategy = beats.MergeStrategyFF
+	}
+
+	if !beats.IsWorkingTreeClean() {
+		respondError(w, http.StatusConflict, "working tree is not clean — commit or stash changes first")
+		return
+	}
+
+	client := beats.NewClient(s.Config)
+	client.Collapse = true
+	result, err := client.MergeIssue(id, beats.MergeOptions{
+		Strategy:     strategy,
+		DeleteBranch: body.DeleteBranch,
+	})
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "ok",
+		"merge_sha": result.MergeSHA,
+		"messages":  result.Messages,
+	})
+}

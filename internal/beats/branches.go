@@ -18,26 +18,56 @@ func applyBranchInference(issues map[string]*model.Issue) {
 		return
 	}
 
-	branches := listRemoteBranches()
-	if len(branches) == 0 {
-		return
-	}
-
+	remoteBranches := listRemoteBranches()
+	localBranches := listLocalBranches()
 	base := DefaultBranch()
 
 	for _, issue := range issues {
-		branch := matchingBranch(branches, issue.ID)
-		if branch == "" {
+		// Status inference: only from remote branches (discovers work on other clones)
+		if matchingBranch(remoteBranches, issue.ID) != "" {
+			if issue.Status != model.StatusDone && issue.Status != model.StatusBlocked && issue.Status != model.StatusDoing {
+				issue.Status = model.StatusDoing
+				issue.InferredStatus = true
+			}
+		}
+
+		// Stats: prefer local branch (has unpushed commits), fall back to remote
+		localBranch := matchLocalBranch(localBranches, issue.ID, base)
+		if localBranch != "" {
+			issue.BranchStats = computeBranchStats(localBranch, base)
+		} else {
+			remoteBranch := matchingBranch(remoteBranches, issue.ID)
+			if remoteBranch != "" {
+				issue.BranchStats = computeBranchStats(remoteBranch, base)
+			}
+		}
+	}
+}
+
+func listLocalBranches() []string {
+	out, err := exec.Command("git", "branch", "--format=%(refname:short)").Output()
+	if err != nil {
+		return nil
+	}
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line != "" {
+			branches = append(branches, line)
+		}
+	}
+	return branches
+}
+
+func matchLocalBranch(branches []string, issueID, base string) string {
+	for _, branch := range branches {
+		if branch == base {
 			continue
 		}
-
-		if issue.Status != model.StatusDone && issue.Status != model.StatusBlocked && issue.Status != model.StatusDoing {
-			issue.Status = model.StatusDoing
-			issue.InferredStatus = true
+		if branchNameMatchesIssue(branch, issueID) {
+			return branch
 		}
-
-		issue.BranchStats = computeBranchStats(branch, base)
 	}
+	return ""
 }
 
 // listRemoteBranches runs `git branch -r` and returns the trimmed

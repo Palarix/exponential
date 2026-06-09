@@ -227,3 +227,66 @@ export interface StartWorkResponse {
 export async function startWork(issueId: string): Promise<StartWorkResponse> {
   return request(`${API_BASE}/issues/${issueId}/start`, { method: 'POST' });
 }
+
+export interface CommitInfo {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
+export interface FileInfo {
+  status: string;
+  path: string;
+  insertions: number;
+  deletions: number;
+}
+
+export interface MergeResponse {
+  status: string;
+  merge_sha: string;
+  messages: string[];
+}
+
+export async function fetchIssueCommits(issueId: string): Promise<CommitInfo[]> {
+  return request(`${API_BASE}/issues/${issueId}/commits`);
+}
+
+export async function fetchIssueFiles(issueId: string): Promise<FileInfo[]> {
+  return request(`${API_BASE}/issues/${issueId}/files`);
+}
+
+export async function fetchIssueDiff(issueId: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/issues/${issueId}/diff`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new ApiError(res, body);
+  }
+  return res.text();
+}
+
+export interface Mergeability {
+  can_merge: boolean;
+  blockers: string[];
+}
+
+export async function fetchMergeability(issueId: string): Promise<Mergeability> {
+  return request(`${API_BASE}/issues/${issueId}/mergeability`);
+}
+
+export async function fetchCommitDiff(issueId: string, sha: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/issues/${issueId}/commits/${sha}/diff`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new ApiError(res, body);
+  }
+  return res.text();
+}
+
+export async function mergeIssue(issueId: string, options?: { strategy?: string; delete_branch?: boolean }): Promise<MergeResponse> {
+  return request(`${API_BASE}/issues/${issueId}/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(options || {}),
+  });
+}
