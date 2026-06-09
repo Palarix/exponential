@@ -61,34 +61,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	// remote tracking ref directly; for local branches, use as-is.
 	mergeRef := branch
 
-	// Run the merge
-	var mergeErr error
-	switch opts.Strategy {
-	case MergeStrategySquash:
-		mergeErr = runGitMerge("--squash", mergeRef)
-		if mergeErr == nil {
-			msg := fmt.Sprintf("%s: %s", issue.ID, issue.Title)
-			mergeErr = exec.Command("git", "commit", "-m", msg).Run()
-		}
-	case MergeStrategyFF:
-		mergeErr = runGitMerge("--ff-only", mergeRef)
-	default:
-		mergeErr = runGitMerge("--no-ff", "-m",
-			fmt.Sprintf("Merge branch '%s'", branch), mergeRef)
-	}
-
-	if mergeErr != nil {
-		exec.Command("git", "merge", "--abort").Run()
-		return nil, fmt.Errorf("merge failed: %w\nResolve conflicts manually and re-run, or use a different strategy", mergeErr)
-	}
-
-	// Capture merge SHA
-	mergeSHA := resolveRef("HEAD")
-	result.MergeSHA = mergeSHA
-
-	result.Messages = append(result.Messages, fmt.Sprintf("Merged %s into %s (%s)", branch, base, opts.Strategy))
-
-	// Record MERGE event
+	// Record MERGE event before committing so it lands in the same commit
 	user := c.GetUser()
 	event := model.Event{
 		ID:   issue.ID,
@@ -96,23 +69,58 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		Payload: model.MergePayload{
 			Branch:   branch,
 			BaseSHA:  baseSHA,
-			MergeSHA: mergeSHA,
+			MergeSHA: "", // filled after commit
 			Strategy: string(opts.Strategy),
 		},
 		CreatedAt: time.Now().UTC(),
 		CreatedBy: user,
 	}
-	if err := c.appendEvent(event); err != nil {
-		return result, fmt.Errorf("merge succeeded but failed to record event: %w", err)
+
+	// Run the merge + include issues.db in the same commit
+	var mergeErr error
+	switch opts.Strategy {
+	case MergeStrategySquash:
+		// --squash stages but doesn't commit — write event, stage, commit together
+		mergeErr = runGitMerge("--squash", mergeRef)
+		if mergeErr == nil {
+			if err := c.appendEvent(event); err != nil {
+				return nil, fmt.Errorf("failed to record event: %w", err)
+			}
+			exec.Command("git", "add", ".beats/issues.db").Run()
+			msg := fmt.Sprintf("%s: %s", issue.ID, issue.Title)
+			mergeErr = exec.Command("git", "commit", "-m", msg).Run()
+		}
+	case MergeStrategyFF:
+		// FF has no commit to amend — merge, then write event as a follow-up commit
+		mergeErr = runGitMerge("--ff-only", mergeRef)
+		if mergeErr == nil {
+			if err := c.appendEvent(event); err != nil {
+				return nil, fmt.Errorf("failed to record event: %w", err)
+			}
+			exec.Command("git", "add", ".beats/issues.db").Run()
+			exec.Command("git", "commit", "-m", fmt.Sprintf("beats: merge %s", issue.ID)).Run()
+		}
+	default:
+		// --no-ff creates a merge commit — amend it to include issues.db
+		mergeErr = runGitMerge("--no-ff", "-m",
+			fmt.Sprintf("Merge branch '%s'", branch), mergeRef)
+		if mergeErr == nil {
+			if err := c.appendEvent(event); err != nil {
+				return nil, fmt.Errorf("failed to record event: %w", err)
+			}
+			exec.Command("git", "add", ".beats/issues.db").Run()
+			exec.Command("git", "commit", "--amend", "--no-edit").Run()
+		}
 	}
 
-	// Auto-commit the issues.db change
-	if c.Config.AutoCommit {
-		_ = exec.Command("git", "add", ".beats/issues.db").Run()
-		_ = exec.Command("git", "commit", "-m", fmt.Sprintf("beats: merge %s", issue.ID)).Run()
+	if mergeErr != nil {
+		exec.Command("git", "merge", "--abort").Run()
+		return nil, fmt.Errorf("merge failed: %w\nResolve conflicts manually and re-run, or use a different strategy", mergeErr)
 	}
 
-	result.Messages = append(result.Messages, fmt.Sprintf("Recorded MERGE event on %s", issue.ID))
+	mergeSHA := resolveRef("HEAD")
+	result.MergeSHA = mergeSHA
+	result.Messages = append(result.Messages, fmt.Sprintf("Merged %s into %s (%s)", branch, base, opts.Strategy))
 
 	// Delete branch if requested
 	if opts.DeleteBranch {
