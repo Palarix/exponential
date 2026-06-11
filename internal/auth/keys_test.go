@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -34,6 +35,27 @@ func writeAuthorizedKeys(t *testing.T, dir string, entries ...string) string {
 		t.Fatalf("write: %v", err)
 	}
 	return path
+}
+
+func TestLoadOrCreateAuthorizedKeys_CreatesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "authorized_keys")
+
+	ak, err := LoadOrCreateAuthorizedKeys(path)
+	if err != nil {
+		t.Fatalf("LoadOrCreateAuthorizedKeys: %v", err)
+	}
+	if ak.Len() != 0 {
+		t.Errorf("expected 0 entries, got %d", ak.Len())
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("file not created: %v", err)
+	}
+	if !strings.Contains(string(data), "beats authorized_keys") {
+		t.Error("expected comment header in created file")
+	}
 }
 
 func TestLoadAuthorizedKeys_ValidFile(t *testing.T) {

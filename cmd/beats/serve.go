@@ -56,13 +56,17 @@ func runServe(cmd *cobra.Command, args []string) error {
 	verifyKey := signingKey.Public().(ed25519.PublicKey)
 	log.Printf("Server key loaded from %s", serverKeyPath)
 
-	// Load authorized keys
+	// Load or create authorized keys
 	authKeysPath := filepath.Join(beatsDir, "authorized_keys")
-	authorizedKeys, err := auth.LoadAuthorizedKeys(authKeysPath)
+	authorizedKeys, err := auth.LoadOrCreateAuthorizedKeys(authKeysPath)
 	if err != nil {
 		return err
 	}
-	log.Printf("Loaded %d authorized key(s) from %s", authorizedKeys.Len(), authKeysPath)
+	if authorizedKeys.Len() == 0 {
+		log.Printf("Warning: %s has no keys — no one can authenticate. Add SSH public keys to enable login.", authKeysPath)
+	} else {
+		log.Printf("Loaded %d authorized key(s) from %s", authorizedKeys.Len(), authKeysPath)
+	}
 
 	// Create server
 	srv := server.NewServer(cfg, 0, false, 0)
