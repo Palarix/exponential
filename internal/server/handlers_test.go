@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -489,6 +490,97 @@ func TestMCPHandler_AuthProtected(t *testing.T) {
 	mux.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401 without token, got %d", w.Code)
+	}
+}
+
+func TestProxyMode_ForwardsAPIWithToken(t *testing.T) {
+	var gotAuth string
+	var gotPath string
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[{"id":"test-123","title":"proxied"}]`))
+	}))
+	defer backend.Close()
+
+	s := setupTestServer(t)
+	s.ProxyURL = backend.URL
+	s.ProxyToken = "my-jwt-token"
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/issues", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotAuth != "Bearer my-jwt-token" {
+		t.Errorf("expected bearer token forwarded, got %q", gotAuth)
+	}
+	if gotPath != "/api/issues" {
+		t.Errorf("expected /api/issues forwarded, got %q", gotPath)
+	}
+	if !strings.Contains(w.Body.String(), "proxied") {
+		t.Error("expected proxied response body")
+	}
+}
+
+func TestProxyMode_BackendUnreachable(t *testing.T) {
+	s := setupTestServer(t)
+	s.ProxyURL = "http://127.0.0.1:1" // nothing listening
+	s.ProxyToken = "tok"
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/issues", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "remote server unreachable") {
+		t.Errorf("expected error message, got %s", w.Body.String())
+	}
+}
+
+func TestProxyMode_HealthzStillLocal(t *testing.T) {
+	s := setupTestServer(t)
+	s.ProxyURL = "http://127.0.0.1:1" // nothing listening
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestProxyMode_AuthEndpointsForwarded(t *testing.T) {
+	var gotPath string
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"nonce":"abc123"}`))
+	}))
+	defer backend.Close()
+
+	s := setupTestServer(t)
+	s.ProxyURL = backend.URL
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("POST", "/auth/challenge", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if gotPath != "/auth/challenge" {
+		t.Errorf("expected /auth/challenge forwarded, got %q", gotPath)
 	}
 }
 

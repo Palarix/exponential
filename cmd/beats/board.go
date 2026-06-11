@@ -47,6 +47,12 @@ func init() {
 func runBoard(cmd *cobra.Command, args []string) error {
 	srv := server.NewServer(cfg, boardPort, boardDev, boardDevPort)
 
+	if cfg.Remote.URL != "" {
+		srv.ProxyURL = cfg.Remote.URL
+		srv.ProxyToken = cfg.Remote.Token
+		log.Printf("Remote mode: proxying API to %s", cfg.Remote.URL)
+	}
+
 	listener, err := srv.Bind()
 	if err != nil {
 		return err

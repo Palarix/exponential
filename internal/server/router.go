@@ -37,31 +37,63 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		w.Write([]byte("ok"))
 	})
 
-	// API routes
-	handle("GET /api/issues", s.handleGetIssues)
-	handle("GET /api/issues/{id}", s.handleGetIssue)
-	handle("POST /api/draft", s.handleDraft)
-	handle("GET /api/pending", s.handleGetPending)
-	handle("POST /api/save", s.handleSave)
-	handle("DELETE /api/pending", s.handleDiscardPending)
-	handle("GET /api/config", s.handleGetConfig)
-	handle("POST /api/config/labels", s.handleAddLabel)
-	handle("PUT /api/config/labels", s.handleUpdateLabel)
-	handle("DELETE /api/config/labels", s.handleDeleteLabel)
-	handle("GET /api/issues/{id}/history", s.handleGetIssueHistory)
-	handle("GET /api/issues/{id}/commits", s.handleGetIssueCommits)
-	handle("GET /api/issues/{id}/files", s.handleGetIssueFiles)
-	handle("GET /api/issues/{id}/diff", s.handleGetIssueDiff)
-	handle("GET /api/issues/{id}/commits/{sha}/diff", s.handleGetCommitDiff)
-	handle("GET /api/issues/{id}/mergeability", s.handleMergeability)
-	handle("POST /api/issues/{id}/merge", s.handleMergeIssue)
-	handle("POST /api/issues/{id}/start", s.handleStartWork)
-	handle("GET /api/instances", s.handleListInstances)
-	handle("GET /api/metrics", s.handleMetrics)
-	handle("GET /api/activity", s.handleActivity)
-	handle("GET /api/cycles", s.handleGetCycles)
-	handle("GET /api/cycles/{id}/progress", s.handleCycleProgress)
-	handle("GET /api/user", s.handleGetUser)
+	// Proxy mode: reverse-proxy /api/* to remote server with bearer token
+	if s.ProxyURL != "" {
+		remoteURL, err := url.Parse(s.ProxyURL)
+		if err != nil {
+			log.Fatalf("Invalid proxy URL: %v", err)
+		}
+		proxy := httputil.NewSingleHostReverseProxy(remoteURL)
+		originalDirector := proxy.Director
+		token := s.ProxyToken
+		proxy.Director = func(req *http.Request) {
+			originalDirector(req)
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			req.Host = remoteURL.Host
+		}
+		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+			respondError(w, http.StatusBadGateway, fmt.Sprintf("remote server unreachable: %v", err))
+		}
+
+		proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxy.ServeHTTP(w, r)
+		})
+		mux.HandleFunc("GET /api/{path...}", proxyHandler)
+		mux.HandleFunc("POST /api/{path...}", proxyHandler)
+		mux.HandleFunc("PUT /api/{path...}", proxyHandler)
+		mux.HandleFunc("DELETE /api/{path...}", proxyHandler)
+		mux.HandleFunc("POST /auth/{path...}", proxyHandler)
+
+		log.Printf("Proxy mode: forwarding /api/* to %s", s.ProxyURL)
+	} else {
+		// Local mode: API routes
+		handle("GET /api/issues", s.handleGetIssues)
+		handle("GET /api/issues/{id}", s.handleGetIssue)
+		handle("POST /api/draft", s.handleDraft)
+		handle("GET /api/pending", s.handleGetPending)
+		handle("POST /api/save", s.handleSave)
+		handle("DELETE /api/pending", s.handleDiscardPending)
+		handle("GET /api/config", s.handleGetConfig)
+		handle("POST /api/config/labels", s.handleAddLabel)
+		handle("PUT /api/config/labels", s.handleUpdateLabel)
+		handle("DELETE /api/config/labels", s.handleDeleteLabel)
+		handle("GET /api/issues/{id}/history", s.handleGetIssueHistory)
+		handle("GET /api/issues/{id}/commits", s.handleGetIssueCommits)
+		handle("GET /api/issues/{id}/files", s.handleGetIssueFiles)
+		handle("GET /api/issues/{id}/diff", s.handleGetIssueDiff)
+		handle("GET /api/issues/{id}/commits/{sha}/diff", s.handleGetCommitDiff)
+		handle("GET /api/issues/{id}/mergeability", s.handleMergeability)
+		handle("POST /api/issues/{id}/merge", s.handleMergeIssue)
+		handle("POST /api/issues/{id}/start", s.handleStartWork)
+		handle("GET /api/instances", s.handleListInstances)
+		handle("GET /api/metrics", s.handleMetrics)
+		handle("GET /api/activity", s.handleActivity)
+		handle("GET /api/cycles", s.handleGetCycles)
+		handle("GET /api/cycles/{id}/progress", s.handleCycleProgress)
+		handle("GET /api/user", s.handleGetUser)
+	}
 
 	// MCP endpoint (when configured)
 	if s.MCPHandler != nil {

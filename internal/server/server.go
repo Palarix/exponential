@@ -37,6 +37,11 @@ type Server struct {
 
 	// MCP handler — set externally for beats serve mode.
 	MCPHandler http.Handler
+
+	// Proxy mode — when set, /api/* routes are reverse-proxied to
+	// the remote server with the bearer token injected.
+	ProxyURL   string
+	ProxyToken string
 }
 
 // NewServer creates a new Server instance.
