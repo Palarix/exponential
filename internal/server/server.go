@@ -25,6 +25,7 @@ type Server struct {
 	Port          int
 	DevMode       bool
 	DevPort       int
+	Headless      bool
 	pendingEvents []model.Event
 	mu            sync.RWMutex
 
@@ -33,6 +34,9 @@ type Server struct {
 	AuthorizedKeys *auth.AuthorizedKeys
 	SigningKey     ed25519.PrivateKey
 	VerifyKey      ed25519.PublicKey
+
+	// MCP handler — set externally for beats serve mode.
+	MCPHandler http.Handler
 }
 
 // NewServer creates a new Server instance.
@@ -63,7 +67,7 @@ func (s *Server) Bind() (net.Listener, error) {
 
 // ServeOn serves HTTP on the provided listener. Use after Bind.
 func (s *Server) ServeOn(l net.Listener) error {
-	mux := s.setupRoutes()
+	mux := s.SetupRoutes()
 	log.Printf("Starting beats board server on http://localhost:%d", s.Port)
 	server := &http.Server{
 		Handler:      mux,

@@ -64,7 +64,7 @@ func seedIssue(t *testing.T, title string) string {
 
 func TestHandleGetIssues_Empty(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues", nil)
 	w := httptest.NewRecorder()
@@ -85,7 +85,7 @@ func TestHandleGetIssues_WithData(t *testing.T) {
 	srv := setupTestServer(t)
 	seedIssue(t, "First Issue")
 	seedIssue(t, "Second Issue")
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues", nil)
 	w := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func TestHandleGetIssues_WithData(t *testing.T) {
 
 func TestHandleGetIssue_NotFound(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues/test-nonexistent", nil)
 	w := httptest.NewRecorder()
@@ -118,7 +118,7 @@ func TestHandleGetIssue_NotFound(t *testing.T) {
 func TestHandleGetIssue_Found(t *testing.T) {
 	srv := setupTestServer(t)
 	id := seedIssue(t, "My Issue")
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues/"+id, nil)
 	w := httptest.NewRecorder()
@@ -137,7 +137,7 @@ func TestHandleGetIssue_Found(t *testing.T) {
 
 func TestHandleDraft_Create(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"issue_id": "",
@@ -166,7 +166,7 @@ func TestHandleDraft_Create(t *testing.T) {
 
 func TestHandleDraft_BadJSON(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("POST", "/api/draft", bytes.NewReader([]byte("not json")))
 	req.Header.Set("Content-Type", "application/json")
@@ -180,7 +180,7 @@ func TestHandleDraft_BadJSON(t *testing.T) {
 
 func TestHandleDraft_UnknownType(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"issue_id": "test-123456",
@@ -200,7 +200,7 @@ func TestHandleDraft_UnknownType(t *testing.T) {
 
 func TestHandleGetPending_Empty(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/pending", nil)
 	w := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestHandleGetPending_Empty(t *testing.T) {
 func TestHandleDiscardPending(t *testing.T) {
 	srv := setupTestServer(t)
 	srv.AddPendingEvent(model.Event{ID: "test-aaaaaa", Type: model.EventTypeCreate})
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("DELETE", "/api/pending", nil)
 	w := httptest.NewRecorder()
@@ -236,7 +236,7 @@ func TestHandleDiscardPending(t *testing.T) {
 
 func TestHandleGetConfig(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/config", nil)
 	w := httptest.NewRecorder()
@@ -255,7 +255,7 @@ func TestHandleGetConfig(t *testing.T) {
 
 func TestHandleGetIssueHistory_Empty(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues/test-000000/history", nil)
 	w := httptest.NewRecorder()
@@ -269,7 +269,7 @@ func TestHandleGetIssueHistory_Empty(t *testing.T) {
 func TestHandleGetIssueHistory_WithEvents(t *testing.T) {
 	srv := setupTestServer(t)
 	id := seedIssue(t, "History Test")
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues/"+id+"/history", nil)
 	w := httptest.NewRecorder()
@@ -288,7 +288,7 @@ func TestHandleGetIssueHistory_WithEvents(t *testing.T) {
 
 func TestHandleActivity_Empty(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/activity", nil)
 	w := httptest.NewRecorder()
@@ -301,7 +301,7 @@ func TestHandleActivity_Empty(t *testing.T) {
 
 func TestHandleMetrics(t *testing.T) {
 	srv := setupTestServer(t)
-	mux := srv.setupRoutes()
+	mux := srv.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/metrics", nil)
 	w := httptest.NewRecorder()
@@ -350,7 +350,7 @@ func writeAuthKeys(t *testing.T, content string) string {
 
 func TestAuthFlow_ChallengeVerifyAndAccess(t *testing.T) {
 	s, signer := setupAuthServer(t)
-	mux := s.setupRoutes()
+	mux := s.SetupRoutes()
 
 	// 1. Get challenge nonce
 	req := httptest.NewRequest("POST", "/auth/challenge", nil)
@@ -409,7 +409,7 @@ func TestAuthFlow_ChallengeVerifyAndAccess(t *testing.T) {
 
 func TestAuth_ProtectedEndpointWithoutToken(t *testing.T) {
 	s, _ := setupAuthServer(t)
-	mux := s.setupRoutes()
+	mux := s.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/api/issues", nil)
 	w := httptest.NewRecorder()
@@ -422,7 +422,7 @@ func TestAuth_ProtectedEndpointWithoutToken(t *testing.T) {
 
 func TestAuth_HealthzAlwaysPublic(t *testing.T) {
 	s, _ := setupAuthServer(t)
-	mux := s.setupRoutes()
+	mux := s.SetupRoutes()
 
 	req := httptest.NewRequest("GET", "/healthz", nil)
 	w := httptest.NewRecorder()
@@ -433,9 +433,68 @@ func TestAuth_HealthzAlwaysPublic(t *testing.T) {
 	}
 }
 
+func TestHeadless_NoStaticAssets(t *testing.T) {
+	s := setupTestServer(t)
+	s.Headless = true
+	mux := s.SetupRoutes()
+
+	// API still works
+	req := httptest.NewRequest("GET", "/api/issues", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("API: expected 200, got %d", w.Code)
+	}
+
+	// Root path returns 404 (no static assets)
+	req = httptest.NewRequest("GET", "/", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Root: expected 404 in headless mode, got %d", w.Code)
+	}
+}
+
+func TestMCPHandler_Mounted(t *testing.T) {
+	s := setupTestServer(t)
+	called := false
+	s.MCPHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("POST", "/mcp", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if !called {
+		t.Error("expected MCP handler to be called")
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestMCPHandler_AuthProtected(t *testing.T) {
+	s, _ := setupAuthServer(t)
+	s.MCPHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux := s.SetupRoutes()
+
+	// Without token: 401
+	req := httptest.NewRequest("POST", "/mcp", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 without token, got %d", w.Code)
+	}
+}
+
 func TestAuth_NonceReplayPrevented(t *testing.T) {
 	s, signer := setupAuthServer(t)
-	mux := s.setupRoutes()
+	mux := s.SetupRoutes()
 
 	// Get nonce
 	req := httptest.NewRequest("POST", "/auth/challenge", nil)

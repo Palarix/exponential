@@ -9,6 +9,42 @@ import (
 	"time"
 )
 
+func TestRequireAuthHandler_ValidToken(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+
+	claims := Claims{
+		Sub: "Alice <alice@example.com>",
+		Exp: time.Now().Add(time.Hour).Unix(),
+		Iat: time.Now().Unix(),
+	}
+	token, _ := SignToken(priv, claims)
+
+	var gotUser UserIdentity
+	var gotOK bool
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser, gotOK = UserFromContext(r.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := RequireAuthHandler(pub, inner)
+
+	req := httptest.NewRequest("POST", "/mcp", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	if !gotOK {
+		t.Fatal("expected user in context")
+	}
+	if gotUser.Name != "Alice" {
+		t.Errorf("expected Alice, got %q", gotUser.Name)
+	}
+}
+
 func TestRequireAuth_ValidToken(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 

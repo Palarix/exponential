@@ -13,7 +13,7 @@ import (
 )
 
 // setupRoutes configures the HTTP routes for the server.
-func (s *Server) setupRoutes() *http.ServeMux {
+func (s *Server) SetupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// handle conditionally wraps routes with auth middleware when auth is enabled.
@@ -62,6 +62,24 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	handle("GET /api/cycles", s.handleGetCycles)
 	handle("GET /api/cycles/{id}/progress", s.handleCycleProgress)
 	handle("GET /api/user", s.handleGetUser)
+
+	// MCP endpoint (when configured)
+	if s.MCPHandler != nil {
+		if s.SigningKey != nil {
+			mux.Handle("POST /mcp", auth.RequireAuthHandler(s.VerifyKey, s.MCPHandler))
+			mux.Handle("GET /mcp", auth.RequireAuthHandler(s.VerifyKey, s.MCPHandler))
+			mux.Handle("DELETE /mcp", auth.RequireAuthHandler(s.VerifyKey, s.MCPHandler))
+		} else {
+			mux.Handle("POST /mcp", s.MCPHandler)
+			mux.Handle("GET /mcp", s.MCPHandler)
+			mux.Handle("DELETE /mcp", s.MCPHandler)
+		}
+	}
+
+	// Headless mode: no static assets
+	if s.Headless {
+		return mux
+	}
 
 	// Development mode: proxy all static requests to Vite dev server
 	if s.DevMode {

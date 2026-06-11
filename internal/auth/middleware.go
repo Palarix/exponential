@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+// RequireAuthHandler wraps an http.Handler with Bearer JWT verification.
+func RequireAuthHandler(pubKey ed25519.PublicKey, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		RequireAuth(pubKey, func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})(w, r)
+	})
+}
+
 // RequireAuth returns middleware that verifies a Bearer JWT token and
 // injects the authenticated UserIdentity into the request context.
 func RequireAuth(pubKey ed25519.PublicKey, next http.HandlerFunc) http.HandlerFunc {

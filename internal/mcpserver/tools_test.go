@@ -2,13 +2,16 @@ package mcpserver
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/palarix/beats/internal/auth"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/inputs"
 	"github.com/palarix/beats/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // setup creates a temp .beats workspace and returns a toolset bound to it.
@@ -35,6 +38,52 @@ func setup(t *testing.T) (*toolset, func()) {
 		Version:          2,
 	}
 	return newToolset(cfg), func() { os.Chdir(origDir) }
+}
+
+func TestRegisterTools_WithHTTPAuth(t *testing.T) {
+	_, cleanup := setup(t)
+	defer cleanup()
+
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Default <default@test.com>",
+		EstimationSystem: "fibonacci",
+		Version:          2,
+	}
+
+	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
+
+	user := auth.UserIdentity{Name: "Alice", Email: "alice@test.com", Raw: "Alice <alice@test.com>"}
+	ctx := auth.WithUser(context.Background(), user)
+	req, _ := http.NewRequestWithContext(ctx, "POST", "/mcp", nil)
+
+	RegisterTools(srv, cfg, req)
+}
+
+func TestRegisterTools_WithoutHTTP(t *testing.T) {
+	_, cleanup := setup(t)
+	defer cleanup()
+
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Default <default@test.com>",
+		EstimationSystem: "fibonacci",
+		Version:          2,
+	}
+
+	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
+	RegisterTools(srv, cfg, nil)
+}
+
+func TestHttpUserOverride_TakesPrecedence(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	ts.httpUserOverride = "Alice <alice@test.com>"
+	c := ts.clientFor(nil)
+	if c.UserOverride != "Alice <alice@test.com>" {
+		t.Errorf("expected Alice, got %q", c.UserOverride)
+	}
 }
 
 func TestAddAndShow(t *testing.T) {

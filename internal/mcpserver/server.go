@@ -10,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
+	"github.com/palarix/beats/internal/auth"
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/version"
@@ -55,11 +57,25 @@ func isCleanShutdown(err error) bool {
 
 // toolset holds dependencies shared by all tool handlers.
 type toolset struct {
-	cfg *config.Config
+	cfg              *config.Config
+	httpUserOverride string
 }
 
 func newToolset(cfg *config.Config) *toolset {
 	return &toolset{cfg: cfg}
+}
+
+// RegisterTools registers all beats MCP tools on the given server.
+// When httpReq is non-nil (HTTP transport), the authenticated user identity
+// from the request context is used for event attribution.
+func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request) {
+	ts := newToolset(cfg)
+	if httpReq != nil {
+		if user, ok := auth.UserFromContext(httpReq.Context()); ok {
+			ts.httpUserOverride = user.Raw
+		}
+	}
+	ts.register(srv)
 }
 
 // clientFor returns a beats.Client with UserOverride set to the resolved
@@ -69,10 +85,14 @@ func newToolset(cfg *config.Config) *toolset {
 // env var / config default.
 func (t *toolset) clientFor(req *mcp.CallToolRequest) *beats.Client {
 	c := beats.NewClient(t.cfg)
-	var session mcp.Session
-	if req != nil {
-		session = req.GetSession()
+	if t.httpUserOverride != "" {
+		c.UserOverride = t.httpUserOverride
+	} else {
+		var session mcp.Session
+		if req != nil {
+			session = req.GetSession()
+		}
+		c.UserOverride = resolveAgentIdentity(session, t.cfg.User)
 	}
-	c.UserOverride = resolveAgentIdentity(session, t.cfg.User)
 	return c
 }
