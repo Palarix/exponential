@@ -18,6 +18,7 @@ export type RowItem =
       status: string;
       label: string;
       count: number;
+      storyPoints: number;
       isEmpty: boolean;
     }
   | {
@@ -70,11 +71,13 @@ export function useBacklogRows(
       const groupIssues = filteredIssues.filter((i) => i.status === status);
       if (groupIssues.length === 0 && !isAllTab) continue;
 
+      const storyPoints = groupIssues.reduce((sum, i) => sum + (i.estimate || 0), 0);
       result.push({
         kind: "group",
         status,
         label: STATUS_META[status]?.label || status,
         count: groupIssues.length,
+        storyPoints,
         isEmpty: groupIssues.length === 0,
       });
 

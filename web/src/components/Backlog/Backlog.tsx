@@ -103,6 +103,7 @@ export default function Backlog({
     y: number;
   } | null>(null);
   const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
+  const [showStoryPoints, setShowStoryPoints] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
@@ -908,8 +909,22 @@ export default function Backlog({
                         <span className="text-sm font-medium text-[var(--color-text-primary)]">
                           {groupRow.label}
                         </span>
-                        <span className="text-sm text-[var(--color-text-muted)] tabular-nums">
-                          {groupRow.count}
+                        <span
+                          className="text-sm text-[var(--color-text-muted)] tabular-nums cursor-pointer hover:text-[var(--color-text-secondary)] transition-colors inline-flex items-center gap-1 h-5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowStoryPoints((v) => !v);
+                          }}
+                          title={showStoryPoints ? "Story points — click for issue count" : "Issue count — click for story points"}
+                        >
+                          <span className="w-3.5 shrink-0 inline-flex items-center justify-center">
+                            {showStoryPoints ? (
+                              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="currentColor"><path d="M6 1L11 11H1z" /></svg>
+                            ) : (
+                              <span className="font-medium">#</span>
+                            )}
+                          </span>
+                          {showStoryPoints ? groupRow.storyPoints : groupRow.count}
                         </span>
                         <button
                           onClick={(e) => {
