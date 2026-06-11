@@ -1,6 +1,6 @@
 BINARY_NAME=beats
 
-.PHONY: all build clean test lint frontend install
+.PHONY: all build clean test lint frontend install docker
 
 all: build
 
@@ -33,3 +33,6 @@ lint:
 
 install: cli
 	sudo cp ./beats /usr/local/bin/beats
+
+docker:
+	docker build -t beats:latest .
