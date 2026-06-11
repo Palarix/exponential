@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"crypto/ed25519"
+
+	"github.com/palarix/beats/internal/auth"
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
@@ -24,6 +27,12 @@ type Server struct {
 	DevPort       int
 	pendingEvents []model.Event
 	mu            sync.RWMutex
+
+	// Auth fields — nil when auth is disabled (local board mode).
+	NonceStore     *auth.NonceStore
+	AuthorizedKeys *auth.AuthorizedKeys
+	SigningKey     ed25519.PrivateKey
+	VerifyKey      ed25519.PublicKey
 }
 
 // NewServer creates a new Server instance.

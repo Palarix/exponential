@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,12 +9,14 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/palarix/beats/internal/auth"
 	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/registry"
 	"github.com/palarix/beats/internal/storage"
 	"github.com/palarix/beats/internal/version"
+	"golang.org/x/crypto/ssh"
 )
 
 func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
@@ -79,6 +82,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 
 	client := beats.NewClient(s.Config)
 	client.Collapse = true
+	if user, ok := auth.UserFromContext(r.Context()); ok {
+		client.UserOverride = user.Raw
+	}
 
 	switch model.EventType(req.Type) {
 	case model.EventTypeCreate:
@@ -452,8 +458,17 @@ func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
+	if user, ok := auth.UserFromContext(r.Context()); ok {
+		respondJSON(w, http.StatusOK, map[string]string{
+			"user":  user.Raw,
+			"name":  user.Name,
+			"email": user.Email,
+		})
+		return
+	}
 	name, email := getUserNameEmail(s.Config)
 	respondJSON(w, http.StatusOK, map[string]string{
+		"user":  fmt.Sprintf("%s <%s>", name, email),
 		"name":  name,
 		"email": email,
 	})
@@ -838,5 +853,95 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		"status":    "ok",
 		"merge_sha": result.MergeSHA,
 		"messages":  result.Messages,
+	})
+}
+
+// --- Auth handlers ---
+
+func (s *Server) handleAuthChallenge(w http.ResponseWriter, r *http.Request) {
+	if s.NonceStore == nil {
+		respondError(w, http.StatusServiceUnavailable, "auth not enabled")
+		return
+	}
+	nonce, err := s.NonceStore.Generate()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to generate challenge")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"nonce": nonce})
+}
+
+func (s *Server) handleAuthVerify(w http.ResponseWriter, r *http.Request) {
+	if s.NonceStore == nil || s.AuthorizedKeys == nil {
+		respondError(w, http.StatusServiceUnavailable, "auth not enabled")
+		return
+	}
+
+	var req struct {
+		PublicKey string `json:"public_key"`
+		Signature string `json:"signature"`
+		Nonce     string `json:"nonce"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	if !s.NonceStore.Validate(req.Nonce) {
+		respondError(w, http.StatusUnauthorized, "invalid or expired nonce")
+		return
+	}
+
+	pubKeyBytes, err := base64.StdEncoding.DecodeString(req.PublicKey)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid public key encoding")
+		return
+	}
+
+	sshPubKey, err := ssh.ParsePublicKey(pubKeyBytes)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid public key")
+		return
+	}
+
+	identity, ok := s.AuthorizedKeys.Lookup(sshPubKey)
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "public key not authorized")
+		return
+	}
+
+	sigBytes, err := base64.StdEncoding.DecodeString(req.Signature)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid signature encoding")
+		return
+	}
+
+	sig := new(ssh.Signature)
+	if err := ssh.Unmarshal(sigBytes, sig); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid signature format")
+		return
+	}
+
+	if err := sshPubKey.Verify([]byte(req.Nonce), sig); err != nil {
+		respondError(w, http.StatusUnauthorized, "signature verification failed")
+		return
+	}
+
+	expiry := time.Now().Add(7 * 24 * time.Hour)
+	claims := auth.Claims{
+		Sub: identity.Raw,
+		Exp: expiry.Unix(),
+		Iat: time.Now().Unix(),
+	}
+
+	token, err := auth.SignToken(s.SigningKey, claims)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to sign token")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"token":      token,
+		"expires_at": expiry.Format(time.RFC3339),
 	})
 }

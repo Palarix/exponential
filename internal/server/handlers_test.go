@@ -2,6 +2,9 @@ package server
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,9 +15,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/palarix/beats/internal/auth"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/storage"
+	"golang.org/x/crypto/ssh"
 )
 
 var testIDCounter atomic.Int64
@@ -304,5 +309,161 @@ func TestHandleMetrics(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func setupAuthServer(t *testing.T) (*Server, ssh.Signer) {
+	t.Helper()
+	s := setupTestServer(t)
+
+	// Generate server signing key
+	serverKey, err := auth.LoadOrGenerateServerKey(filepath.Join(".beats", "server.key"))
+	if err != nil {
+		t.Fatalf("server key: %v", err)
+	}
+	s.SigningKey = serverKey
+	s.VerifyKey = serverKey.Public().(ed25519.PublicKey)
+	s.NonceStore = auth.NewNonceStore(5 * time.Minute)
+
+	// Generate a user SSH key
+	_, userPriv, _ := ed25519.GenerateKey(rand.Reader)
+	signer, _ := ssh.NewSignerFromKey(userPriv)
+	sshPub, _ := ssh.NewPublicKey(userPriv.Public())
+
+	// Write authorized_keys
+	line := string(ssh.MarshalAuthorizedKey(sshPub))
+	line = line[:len(line)-1] + " Alice <alice@example.com>\n"
+	ak, _ := auth.LoadAuthorizedKeys(writeAuthKeys(t, line))
+	s.AuthorizedKeys = ak
+
+	return s, signer
+}
+
+func writeAuthKeys(t *testing.T, content string) string {
+	t.Helper()
+	path := filepath.Join(".beats", "authorized_keys")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("write authorized_keys: %v", err)
+	}
+	return path
+}
+
+func TestAuthFlow_ChallengeVerifyAndAccess(t *testing.T) {
+	s, signer := setupAuthServer(t)
+	mux := s.setupRoutes()
+
+	// 1. Get challenge nonce
+	req := httptest.NewRequest("POST", "/auth/challenge", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("challenge: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var challengeResp struct {
+		Nonce string `json:"nonce"`
+	}
+	json.NewDecoder(w.Body).Decode(&challengeResp)
+	if challengeResp.Nonce == "" {
+		t.Fatal("expected non-empty nonce")
+	}
+
+	// 2. Sign the nonce and verify
+	sig, _ := signer.Sign(rand.Reader, []byte(challengeResp.Nonce))
+	pubKeyBytes := signer.PublicKey().Marshal()
+
+	verifyBody, _ := json.Marshal(map[string]string{
+		"public_key": base64.StdEncoding.EncodeToString(pubKeyBytes),
+		"signature":  base64.StdEncoding.EncodeToString(ssh.Marshal(sig)),
+		"nonce":      challengeResp.Nonce,
+	})
+
+	req = httptest.NewRequest("POST", "/auth/verify", bytes.NewReader(verifyBody))
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("verify: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var verifyResp struct {
+		Token     string `json:"token"`
+		ExpiresAt string `json:"expires_at"`
+	}
+	json.NewDecoder(w.Body).Decode(&verifyResp)
+	if verifyResp.Token == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	// 3. Use token to access a protected endpoint
+	req = httptest.NewRequest("GET", "/api/issues", nil)
+	req.Header.Set("Authorization", "Bearer "+verifyResp.Token)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("authenticated GET: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAuth_ProtectedEndpointWithoutToken(t *testing.T) {
+	s, _ := setupAuthServer(t)
+	mux := s.setupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/issues", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestAuth_HealthzAlwaysPublic(t *testing.T) {
+	s, _ := setupAuthServer(t)
+	mux := s.setupRoutes()
+
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("healthz: expected 200, got %d", w.Code)
+	}
+}
+
+func TestAuth_NonceReplayPrevented(t *testing.T) {
+	s, signer := setupAuthServer(t)
+	mux := s.setupRoutes()
+
+	// Get nonce
+	req := httptest.NewRequest("POST", "/auth/challenge", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	var resp struct{ Nonce string }
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	// First verify succeeds
+	sig, _ := signer.Sign(rand.Reader, []byte(resp.Nonce))
+	body, _ := json.Marshal(map[string]string{
+		"public_key": base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal()),
+		"signature":  base64.StdEncoding.EncodeToString(ssh.Marshal(sig)),
+		"nonce":      resp.Nonce,
+	})
+
+	req = httptest.NewRequest("POST", "/auth/verify", bytes.NewReader(body))
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("first verify: expected 200, got %d", w.Code)
+	}
+
+	// Second verify with same nonce fails (replay)
+	req = httptest.NewRequest("POST", "/auth/verify", bytes.NewReader(body))
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("replay: expected 401, got %d", w.Code)
 	}
 }

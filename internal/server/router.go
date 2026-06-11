@@ -8,37 +8,60 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	"github.com/palarix/beats/internal/auth"
 )
 
 // setupRoutes configures the HTTP routes for the server.
 func (s *Server) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
+	// handle conditionally wraps routes with auth middleware when auth is enabled.
+	handle := func(pattern string, handler http.HandlerFunc) {
+		if s.SigningKey != nil {
+			mux.HandleFunc(pattern, auth.RequireAuth(s.VerifyKey, handler))
+		} else {
+			mux.HandleFunc(pattern, handler)
+		}
+	}
+
+	// Auth endpoints (public, only registered when auth is enabled)
+	if s.SigningKey != nil {
+		mux.HandleFunc("POST /auth/challenge", s.handleAuthChallenge)
+		mux.HandleFunc("POST /auth/verify", s.handleAuthVerify)
+	}
+
+	// Health check (always public)
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
 	// API routes
-	mux.HandleFunc("GET /api/issues", s.handleGetIssues)
-	mux.HandleFunc("GET /api/issues/{id}", s.handleGetIssue)
-	mux.HandleFunc("POST /api/draft", s.handleDraft)
-	mux.HandleFunc("GET /api/pending", s.handleGetPending)
-	mux.HandleFunc("POST /api/save", s.handleSave)
-	mux.HandleFunc("DELETE /api/pending", s.handleDiscardPending)
-	mux.HandleFunc("GET /api/config", s.handleGetConfig)
-	mux.HandleFunc("POST /api/config/labels", s.handleAddLabel)
-	mux.HandleFunc("PUT /api/config/labels", s.handleUpdateLabel)
-	mux.HandleFunc("DELETE /api/config/labels", s.handleDeleteLabel)
-	mux.HandleFunc("GET /api/issues/{id}/history", s.handleGetIssueHistory)
-	mux.HandleFunc("GET /api/issues/{id}/commits", s.handleGetIssueCommits)
-	mux.HandleFunc("GET /api/issues/{id}/files", s.handleGetIssueFiles)
-	mux.HandleFunc("GET /api/issues/{id}/diff", s.handleGetIssueDiff)
-	mux.HandleFunc("GET /api/issues/{id}/commits/{sha}/diff", s.handleGetCommitDiff)
-	mux.HandleFunc("GET /api/issues/{id}/mergeability", s.handleMergeability)
-	mux.HandleFunc("POST /api/issues/{id}/merge", s.handleMergeIssue)
-	mux.HandleFunc("POST /api/issues/{id}/start", s.handleStartWork)
-	mux.HandleFunc("GET /api/instances", s.handleListInstances)
-	mux.HandleFunc("GET /api/metrics", s.handleMetrics)
-	mux.HandleFunc("GET /api/activity", s.handleActivity)
-	mux.HandleFunc("GET /api/cycles", s.handleGetCycles)
-	mux.HandleFunc("GET /api/cycles/{id}/progress", s.handleCycleProgress)
-	mux.HandleFunc("GET /api/user", s.handleGetUser)
+	handle("GET /api/issues", s.handleGetIssues)
+	handle("GET /api/issues/{id}", s.handleGetIssue)
+	handle("POST /api/draft", s.handleDraft)
+	handle("GET /api/pending", s.handleGetPending)
+	handle("POST /api/save", s.handleSave)
+	handle("DELETE /api/pending", s.handleDiscardPending)
+	handle("GET /api/config", s.handleGetConfig)
+	handle("POST /api/config/labels", s.handleAddLabel)
+	handle("PUT /api/config/labels", s.handleUpdateLabel)
+	handle("DELETE /api/config/labels", s.handleDeleteLabel)
+	handle("GET /api/issues/{id}/history", s.handleGetIssueHistory)
+	handle("GET /api/issues/{id}/commits", s.handleGetIssueCommits)
+	handle("GET /api/issues/{id}/files", s.handleGetIssueFiles)
+	handle("GET /api/issues/{id}/diff", s.handleGetIssueDiff)
+	handle("GET /api/issues/{id}/commits/{sha}/diff", s.handleGetCommitDiff)
+	handle("GET /api/issues/{id}/mergeability", s.handleMergeability)
+	handle("POST /api/issues/{id}/merge", s.handleMergeIssue)
+	handle("POST /api/issues/{id}/start", s.handleStartWork)
+	handle("GET /api/instances", s.handleListInstances)
+	handle("GET /api/metrics", s.handleMetrics)
+	handle("GET /api/activity", s.handleActivity)
+	handle("GET /api/cycles", s.handleGetCycles)
+	handle("GET /api/cycles/{id}/progress", s.handleCycleProgress)
+	handle("GET /api/user", s.handleGetUser)
 
 	// Development mode: proxy all static requests to Vite dev server
 	if s.DevMode {
