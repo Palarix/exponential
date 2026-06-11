@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -148,7 +149,8 @@ func TestRequireAuth_TamperedToken(t *testing.T) {
 		Iat: time.Now().Unix(),
 	}
 	token, _ := SignToken(priv, claims)
-	tampered := token[:len(token)-1] + "X"
+	parts := strings.SplitN(token, ".", 3)
+	tampered := parts[0] + "." + "dGFtcGVyZWQ" + "." + parts[2]
 
 	handler := RequireAuth(pub, func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be called")

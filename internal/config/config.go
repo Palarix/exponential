@@ -372,5 +372,10 @@ func LoadConfig() (*Config, error) {
 		cfg.DefaultLabels = BuiltinLabelOrder
 	}
 
+	// Merge remote config from .beats/remote.yaml (gitignored)
+	if rc := LoadRemoteConfig(); rc.URL != "" {
+		cfg.Remote = rc
+	}
+
 	return &cfg, nil
 }
