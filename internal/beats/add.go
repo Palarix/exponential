@@ -12,28 +12,25 @@ import (
 // AddIssue creates a new issue and persists it. If payload.Status is empty,
 // the issue defaults to BACKLOG. Side-effect rules (auto-progress, blocked_by
 // checks) are not run on create — they apply only to subsequent updates.
-func (c *Client) AddIssue(payload model.CreatePayload) (*model.Issue, error) {
-	// Generate ID
+func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, error) {
 	alphabet := "0123456789abcdef"
 	id, err := gonanoid.Generate(alphabet, 6)
 	if err != nil {
 		return nil, fmt.Errorf("error generating ID: %w", err)
 	}
 	prefix := "beats-"
-	if c.Config.Prefix != "" {
-		prefix = c.Config.Prefix
+	if t.Config.Prefix != "" {
+		prefix = t.Config.Prefix
 	}
 	id = prefix + id
 
-	// Auto-fill SourceID on dependencies so callers don't need to know the
-	// new issue's ID up front.
 	for i := range payload.Dependencies {
 		if payload.Dependencies[i].SourceID == "" {
 			payload.Dependencies[i].SourceID = id
 		}
 	}
 
-	user := c.GetUser()
+	user := t.GetUser()
 
 	event := model.Event{
 		ID:        id,
@@ -43,11 +40,11 @@ func (c *Client) AddIssue(payload model.CreatePayload) (*model.Issue, error) {
 		CreatedBy: user,
 	}
 
-	if err := c.appendEvent(event); err != nil {
+	if err := t.appendEvent(event); err != nil {
 		return nil, fmt.Errorf("error appending event: %w", err)
 	}
 
-	if c.Config.AutoCommit {
+	if t.Config.AutoCommit {
 		commitMsg := fmt.Sprintf("beats: create %s - %s", id, payload.Title)
 		_ = exec.Command("git", "add", ".beats/issues.db").Run()
 		_ = exec.Command("git", "commit", "-m", commitMsg).Run()

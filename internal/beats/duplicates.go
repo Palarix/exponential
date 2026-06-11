@@ -9,7 +9,7 @@ import (
 )
 
 // CheckDuplicates searches for issues with similar titles.
-func (c *Client) CheckDuplicates(title string) ([]*model.Issue, error) {
+func (t *LocalTransport) CheckDuplicates(title string) ([]*model.Issue, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {
 		return nil, err

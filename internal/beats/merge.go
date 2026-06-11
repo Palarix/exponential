@@ -32,12 +32,15 @@ type MergeResult struct {
 // MergeIssue merges the issue's branch into the default branch,
 // records a MERGE event, and transitions the issue to DONE.
 func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) {
-	issue, err := c.GetIssue(id)
+	if c.local == nil {
+		return nil, ErrLocalOnly
+	}
+
+	issue, err := c.Transport.GetIssue(id)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find the branch (local or remote)
 	c.FillLocalBranchStats(issue)
 	if issue.BranchStats == nil {
 		return nil, fmt.Errorf("no branch found for %s", issue.ID)
@@ -63,7 +66,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	mergeRef := branch
 
 	// Record MERGE event before committing so it lands in the same commit
-	user := c.GetUser()
+	user := c.Transport.GetUser()
 	event := model.Event{
 		ID:   issue.ID,
 		Type: model.EventTypeMerge,
@@ -96,7 +99,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	case MergeStrategySquash:
 		mergeErr = runGitMerge("--squash", mergeRef)
 		if mergeErr == nil {
-			if err := c.appendEvent(event); err != nil {
+			if err := c.local.appendEvent(event); err != nil {
 				return nil, fmt.Errorf("failed to record event: %w", err)
 			}
 			exec.Command("git", "add", ".beats/issues.db").Run()
@@ -105,7 +108,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	case MergeStrategyFF:
 		mergeErr = runGitMerge("--ff-only", mergeRef)
 		if mergeErr == nil {
-			if err := c.appendEvent(event); err != nil {
+			if err := c.local.appendEvent(event); err != nil {
 				return nil, fmt.Errorf("failed to record event: %w", err)
 			}
 			exec.Command("git", "add", ".beats/issues.db").Run()
@@ -114,7 +117,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	default:
 		mergeErr = runGitMerge("--no-ff", "-m", commitMsg, mergeRef)
 		if mergeErr == nil {
-			if err := c.appendEvent(event); err != nil {
+			if err := c.local.appendEvent(event); err != nil {
 				return nil, fmt.Errorf("failed to record event: %w", err)
 			}
 			exec.Command("git", "add", ".beats/issues.db").Run()

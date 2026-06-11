@@ -27,6 +27,12 @@ type Config struct {
 	Labels            map[string]string `mapstructure:"labels" yaml:"labels"`
 	Cycles            CycleConfig       `mapstructure:"cycles" yaml:"cycles"`
 	Contributors      []string          `mapstructure:"contributors" yaml:"contributors"`
+	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
+}
+
+type RemoteConfig struct {
+	URL   string `mapstructure:"url" yaml:"url"`
+	Token string `mapstructure:"token" yaml:"token"`
 }
 
 type CycleConfig struct {

@@ -12,7 +12,7 @@ import (
 )
 
 // UpdateIssue updates an issue and handles side effects.
-func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action string) ([]string, error) {
+func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, action string) ([]string, error) {
 	// 1. Read and Project State
 	events, err := storage.ReadEvents()
 	if err != nil {
@@ -20,13 +20,13 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 	}
 	issues := ProjectIssues(events)
 
-	targetIssue, err := c.resolveIssue(issues, id)
+	targetIssue, err := t.resolveIssue(issues, id)
 	if err != nil {
 		return nil, err
 	}
 	id = targetIssue.ID // Use the resolved ID
 
-	user := c.GetUser()
+	user := t.GetUser()
 	timestamp := time.Now().UTC()
 	var eventsToAppend []model.Event
 	var messages []string
@@ -59,7 +59,7 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 		}
 
 		// --- Cannot complete parent with incomplete children (unless auto-close is on) ---
-		if newStatus == model.StatusDone && !c.Config.Automations.AutoCloseSubIssues {
+		if newStatus == model.StatusDone && !t.Config.Automations.AutoCloseSubIssues {
 			hasIncompleteChildren := false
 			for _, child := range issues {
 				if child.ParentID == id && child.Status != model.StatusDone && !child.Deleted {
@@ -73,7 +73,7 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 		}
 
 		// --- Automation: auto-close sub-issues when parent is closed ---
-		if newStatus == model.StatusDone && c.Config.Automations.AutoCloseSubIssues {
+		if newStatus == model.StatusDone && t.Config.Automations.AutoCloseSubIssues {
 			for _, child := range issues {
 				if child.ParentID == id && child.Status != model.StatusDone && !child.Deleted {
 					childStatus := string(model.StatusDone)
@@ -92,7 +92,7 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 		}
 
 		// --- Automation: auto-progress sub-issues when parent is progressed ---
-		if c.Config.Automations.AutoProgressSubIssues {
+		if t.Config.Automations.AutoProgressSubIssues {
 			for _, child := range issues {
 				if child.ParentID != id || child.Deleted {
 					continue
@@ -131,13 +131,13 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 
 	// 4. Commit Changes
 	for _, evt := range eventsToAppend {
-		if err := c.appendEvent(evt); err != nil {
+		if err := t.appendEvent(evt); err != nil {
 			return nil, fmt.Errorf("error appending event for %s: %w", evt.ID, err)
 		}
 	}
 
 	// 5. Git Commit (if enabled)
-	if c.Config.AutoCommit {
+	if t.Config.AutoCommit {
 		commitMsg := fmt.Sprintf("beats: %s %s", action, id)
 		if len(eventsToAppend) > 1 {
 			commitMsg += " (with cascading updates)"

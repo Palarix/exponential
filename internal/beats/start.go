@@ -9,7 +9,7 @@ import (
 // StartWork transitions an issue to DOING and, when in a git repo,
 // creates (or checks out) a branch named <issue-id>/<slugified-title>.
 func (c *Client) StartWork(id string) (branchName string, msgs []string, err error) {
-	issue, err := c.GetIssue(id)
+	issue, err := c.Transport.GetIssue(id)
 	if err != nil {
 		return "", nil, err
 	}
@@ -24,7 +24,7 @@ func (c *Client) StartWork(id string) (branchName string, msgs []string, err err
 	if issue.Status != model.StatusDoing {
 		status := string(model.StatusDoing)
 		payload := model.UpdatePayload{Status: &status}
-		updateMsgs, err := c.UpdateIssue(id, payload, "start")
+		updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
 		if err != nil {
 			return "", nil, err
 		}

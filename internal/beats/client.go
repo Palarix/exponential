@@ -2,12 +2,12 @@ package beats
 
 import (
 	"fmt"
+	"net/http"
 	"os/exec"
-	"strings"
+	"time"
 
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
 )
 
 // GitCommit stages and commits the issues.db file.
@@ -17,116 +17,101 @@ func GitCommit(msg string) {
 }
 
 // Client manages the interaction with the beats issue tracker.
+// It delegates data operations to a Transport (local or remote) and
+// keeps git-only operations (start, merge, review) as direct methods.
 type Client struct {
-	Config   *config.Config
-	Collapse bool
-	// UserOverride, when non-empty, is returned by GetUser instead of the
-	// configured user. The MCP server uses this to record the calling
-	// agent's identity on writes.
+	Transport    Transport
+	Config       *config.Config
+	Collapse     bool
 	UserOverride string
+	local        *LocalTransport
 }
 
 // NewClient creates a new Client with the given configuration.
+// By default it uses a LocalTransport. When cfg.Remote.URL is set,
+// a RemoteTransport is used instead.
 func NewClient(cfg *config.Config) *Client {
-	return &Client{
-		Config: cfg,
+	c := &Client{Config: cfg}
+	if cfg.Remote.URL != "" {
+		c.Transport = &RemoteTransport{
+			BaseURL:    cfg.Remote.URL,
+			Token:      cfg.Remote.Token,
+			HTTPClient: &http.Client{Timeout: 30 * time.Second},
+		}
+	} else {
+		lt := &LocalTransport{Config: cfg}
+		c.Transport = lt
+		c.local = lt
+	}
+	return c
+}
+
+// syncLocal propagates Client-level fields to the underlying
+// LocalTransport before each delegation call.
+func (c *Client) syncLocal() {
+	if c.local != nil {
+		c.local.Collapse = c.Collapse
+		c.local.UserOverride = c.UserOverride
 	}
 }
 
-func (c *Client) appendEvent(evt model.Event) error {
-	if c.Collapse {
-		return storage.AppendEventCollapsed(evt)
-	}
-	return storage.AppendEvent(evt)
-}
+// --- Transport delegation methods ---
 
-// GetIssue retrieves an issue by ID, resolving short IDs if necessary.
 func (c *Client) GetIssue(id string) (*model.Issue, error) {
-	events, err := storage.ReadEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error reading events: %w", err)
-	}
-	issues := ProjectIssues(events)
-
-	return c.resolveIssue(issues, id)
+	c.syncLocal()
+	return c.Transport.GetIssue(id)
 }
 
-// resolveIssue attempts to find an issue by ID using exact match, prefix match, or short hash match.
-func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {
-	// 1. Exact Match
-	if issue, exists := issues[id]; exists {
-		return issue, nil
-	}
-
-	// 2. Prefix Match (if configured)
-	if c.Config.Prefix != "" && !strings.HasPrefix(id, c.Config.Prefix) {
-		prefixedID := c.Config.Prefix + id
-		if issue, exists := issues[prefixedID]; exists {
-			return issue, nil
-		}
-	}
-
-	// 3. Short Hash Match (suffix)
-	// If the ID is a short hash (e.g. from git or nanoid), try to match likely candidates
-	var matches []*model.Issue
-	for _, issue := range issues {
-		// Check if the issue ID ends with the provided short ID
-		// or if the provided ID is a substring of the Issue ID (safer to check suffix for nanoid?)
-		// Nanoids are random, so suffix/prefix doesn't strictly matter like Git SHAs,
-		// but users might type the last few chars.
-		// Let's assume users might type the *unique* part.
-		// Since we use `prefix-nanoid`, checking if `issue.ID` contains `id` is a good start.
-
-		if strings.Contains(issue.ID, id) {
-			matches = append(matches, issue)
-		}
-	}
-
-	if len(matches) == 1 {
-		return matches[0], nil
-	} else if len(matches) > 1 {
-		// Ambiguous
-		return nil, fmt.Errorf("issue ID '%s' is ambiguous (matches %d issues)", id, len(matches))
-	}
-
-	return nil, fmt.Errorf("issue %s not found", id)
-}
-
-// FindIssue retrieves an issue by ID, checking the active store first, then the archive.
-// Returns the issue, a list of its children, a boolean indicating if it is archived, and any error.
 func (c *Client) FindIssue(id string) (*model.Issue, []*model.Issue, bool, error) {
-	// Helper to find children
-	findChildren := func(targetID string, allIssues map[string]*model.Issue) []*model.Issue {
-		var children []*model.Issue
-		for _, i := range allIssues {
-			if i.ParentID == targetID {
-				children = append(children, i)
-			}
-		}
-		return children
-	}
+	c.syncLocal()
+	return c.Transport.FindIssue(id)
+}
 
-	// 1. Check Active
-	events, err := storage.ReadEvents()
-	if err != nil {
-		return nil, nil, false, fmt.Errorf("error reading events: %w", err)
-	}
-	issues := ProjectIssues(events)
+func (c *Client) ListIssues(opts FilterOptions) ([]*model.Issue, error) {
+	c.syncLocal()
+	return c.Transport.ListIssues(opts)
+}
 
-	if issue, err := c.resolveIssue(issues, id); err == nil {
-		return issue, findChildren(issue.ID, issues), false, nil
-	}
+func (c *Client) AddIssue(payload model.CreatePayload) (*model.Issue, error) {
+	c.syncLocal()
+	return c.Transport.AddIssue(payload)
+}
 
-	// 2. Check Archive
-	archivedEvents, err := storage.ReadArchivedEvents()
-	if err != nil {
-		return nil, nil, false, fmt.Errorf("issue not found (and error reading archive: %w)", err)
-	}
-	archivedIssues := ProjectIssues(archivedEvents)
+func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action string) ([]string, error) {
+	c.syncLocal()
+	return c.Transport.UpdateIssue(id, payload, action)
+}
 
-	if issue, err := c.resolveIssue(archivedIssues, id); err == nil {
-		return issue, findChildren(issue.ID, archivedIssues), true, nil
-	}
+func (c *Client) AddComment(issueID, text string) error {
+	c.syncLocal()
+	return c.Transport.AddComment(issueID, text)
+}
 
-	return nil, nil, false, fmt.Errorf("issue %s not found", id)
+func (c *Client) DeleteIssue(id string, reason string, cascade ...bool) error {
+	c.syncLocal()
+	doCascade := len(cascade) > 0 && cascade[0]
+	return c.Transport.DeleteIssue(id, reason, doCascade)
+}
+
+func (c *Client) CheckDuplicates(title string) ([]*model.Issue, error) {
+	c.syncLocal()
+	return c.Transport.CheckDuplicates(title)
+}
+
+func (c *Client) GetUser() string {
+	c.syncLocal()
+	return c.Transport.GetUser()
+}
+
+// resolveIssue is a convenience for git-only methods that need to resolve
+// an issue ID from a projected issue map.
+func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {
+	if c.local != nil {
+		return c.local.resolveIssue(issues, id)
+	}
+	issue, ok := issues[id]
+	if !ok {
+		return nil, fmt.Errorf("issue %s not found", id)
+	}
+	return issue, nil
 }

@@ -26,8 +26,7 @@ type FilterOptions struct {
 }
 
 // ListIssues retrieves and filters issues based on options.
-func (c *Client) ListIssues(opts FilterOptions) ([]*model.Issue, error) {
-	// 1. Read Events
+func (t *LocalTransport) ListIssues(opts FilterOptions) ([]*model.Issue, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {
 		return nil, fmt.Errorf("error reading events: %w", err)
@@ -41,25 +40,21 @@ func (c *Client) ListIssues(opts FilterOptions) ([]*model.Issue, error) {
 		events = append(events, archivedEvents...)
 	}
 
-	// 2. Project
-	issuesMap := ProjectIssuesWithConfig(events, c.Config)
+	issuesMap := ProjectIssuesWithConfig(events, t.Config)
 	issues := SortIssues(issuesMap)
 
-	// 3. Filter
-	return c.FilterIssues(issues, opts), nil
+	return FilterIssues(issues, opts, t.GetUser()), nil
 }
 
 // FilterIssues applies filtering logic to a list of issues.
-func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*model.Issue {
+func FilterIssues(issues []*model.Issue, opts FilterOptions, currentUser string) []*model.Issue {
 	var filtered []*model.Issue
 
-	// Parse Statuses
 	validStatuses := make(map[string]bool)
 	for _, s := range opts.Statuses {
 		validStatuses[s] = true
 	}
 
-	// Parse Time
 	var sinceTime, beforeTime time.Time
 	if opts.Since != "" {
 		if t, err := ParseTimeFilter(opts.Since); err == nil {
@@ -72,7 +67,6 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 		}
 	}
 
-	// Get Recent Done
 	recentDoneIDs := make(map[string]bool)
 	if !opts.All {
 		recentDoneIDs = ui.GetRecentDoneIDs(issues, 3)
@@ -81,17 +75,14 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 	matchQuery := strings.ToLower(opts.Match)
 	labelQuery := strings.ToLower(opts.Label)
 	assigneeQuery := strings.ToLower(opts.Assignee)
-	currentUser := c.GetUser()
 
 	for _, i := range issues {
-		// Status Filter
 		if len(validStatuses) > 0 {
 			if !validStatuses[string(i.Status)] {
 				continue
 			}
 		}
 
-		// Time Filter
 		if !sinceTime.IsZero() && i.UpdatedAt.Before(sinceTime) {
 			continue
 		}
@@ -99,7 +90,6 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 			continue
 		}
 
-		// Match Filter (search across text fields)
 		if matchQuery != "" {
 			matchFound := false
 			fields := []string{
@@ -110,7 +100,6 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 				i.CreatedBy,
 				i.Assignee,
 			}
-			// Also search labels
 			fields = append(fields, i.Labels...)
 			for _, f := range fields {
 				if strings.Contains(strings.ToLower(f), matchQuery) {
@@ -123,7 +112,6 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 			}
 		}
 
-		// Mine Filter
 		if opts.Mine {
 			if !strings.Contains(i.CreatedBy, currentUser) && !strings.Contains(currentUser, i.CreatedBy) {
 				userEmail := ui.ExtractEmail(currentUser)
@@ -134,14 +122,12 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 			}
 		}
 
-		// Parent Filter
 		if opts.ParentID != "" {
 			if i.ParentID != opts.ParentID {
 				continue
 			}
 		}
 
-		// Label Filter
 		if labelQuery != "" {
 			labelFound := false
 			for _, l := range i.Labels {
@@ -155,21 +141,18 @@ func (c *Client) FilterIssues(issues []*model.Issue, opts FilterOptions) []*mode
 			}
 		}
 
-		// Assignee Filter
 		if assigneeQuery != "" {
 			if !strings.Contains(strings.ToLower(i.Assignee), assigneeQuery) {
 				continue
 			}
 		}
 
-		// Cycle Filter (matches against EffectiveCycleID for rollover-aware filtering)
 		if opts.CycleID != "" {
 			if i.EffectiveCycleID != opts.CycleID {
 				continue
 			}
 		}
 
-		// Hide DONE unless explicit or recent
 		if i.Status == model.StatusDone {
 			show := false
 			if opts.All {

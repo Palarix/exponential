@@ -39,7 +39,7 @@ func TestMergeIssue_Squash(t *testing.T) {
 
 	// Create a beats issue
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
-	client := &Client{Config: cfg}
+	client := NewClient(cfg)
 
 	evt := model.Event{
 		ID:   "test-abc123",
