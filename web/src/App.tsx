@@ -12,7 +12,7 @@ import Cycles from './components/Cycles/Cycles';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
-import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary } from './components/ui';
+import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary, useToast } from './components/ui';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
@@ -87,6 +87,7 @@ function App() {
   );
   const [backlogNavOrder, setBacklogNavOrder] = useState<string[]>([]);
   const [backlogTab, setBacklogTab] = useState<Tab>('all');
+  const showToast = useToast();
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
 
@@ -315,6 +316,7 @@ function App() {
         onCreated={async () => {
           setShowNewIssue(false);
           await fetchData();
+          showToast("Issue created");
         }}
         issues={issues}
         contributors={contributors}

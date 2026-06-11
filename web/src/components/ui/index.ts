@@ -14,3 +14,4 @@ export { default as ContextMenu } from './ContextMenu';
 export { default as SubProgress } from './SubProgress';
 export { default as InlineDropdown, type DropdownOption } from './InlineDropdown';
 export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as ToastProvider, useToast } from './Toast';

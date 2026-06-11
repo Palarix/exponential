@@ -4,7 +4,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { addDraft, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
-import { StatusIcon, CopyableId } from "../ui";
+import { StatusIcon, CopyableId, useToast } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
 import { linkifyIssueIds } from "../../utils/format";
@@ -48,7 +48,7 @@ export default function IssueDetail({
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [mergeViewOpen, setMergeViewOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -63,17 +63,18 @@ export default function IssueDetail({
       try {
         await addDraft(issue.id, type, payload);
         onRefresh();
+        if (type === "COMMENT") showToast("Comment added");
+        else if (type === "UPDATE") showToast("Updated");
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : "Failed to save";
-        setToast(msg);
-        setTimeout(() => setToast(null), 3000);
+        showToast(msg, 3000);
       } finally {
         setSaving(false);
         setEditingField(null);
         setOpenPopover(null);
       }
     },
-    [issue.id, onRefresh],
+    [issue.id, onRefresh, showToast],
   );
 
   const handleStatusChange = useCallback(
@@ -169,8 +170,7 @@ export default function IssueDetail({
       }
       if (e.key === ".") {
         navigator.clipboard.writeText(issue.id);
-        setToast("Copied issue ID");
-        setTimeout(() => setToast(null), 1500);
+        showToast("Copied issue ID");
       }
       const num = parseInt(e.key);
       if (num >= 1 && num <= 5) {
@@ -225,20 +225,13 @@ export default function IssueDetail({
       <MergeView
         issue={issue}
         onClose={() => setMergeViewOpen(false)}
-        onMerged={() => { setMergeViewOpen(false); onRefresh(); }}
+        onMerged={() => { setMergeViewOpen(false); onRefresh(); showToast("Branch merged"); }}
       />
     );
   }
 
   return (
     <div className="h-full flex flex-col relative">
-      {/* Toast */}
-      {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
-          {toast}
-        </div>
-      )}
-
       {/* Top bar */}
       <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
         <div className="flex items-center gap-2 text-sm min-w-0">

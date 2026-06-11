@@ -24,6 +24,7 @@ import {
   LabelPicker,
   SubProgress,
   ContextMenu,
+  useToast,
 } from "../ui";
 import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
@@ -92,7 +93,7 @@ export default function Backlog({
     null,
   );
   const [inlineTitle, setInlineTitle] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
+  const showToast = useToast();
   const [openPopover, setOpenPopover] = useState<{
     issueId: string;
     type: "status" | "estimate" | "labels";
@@ -128,6 +129,7 @@ export default function Backlog({
       if (status !== "BACKLOG") await addDraft(issueId, "UPDATE", { status });
       setInlineTitle("");
       onRefresh();
+      showToast("Issue created");
     },
     [onRefresh, issues],
   );
@@ -137,16 +139,18 @@ export default function Backlog({
       await addDraft(issueId, "UPDATE", { status });
       setOpenPopover(null);
       onRefresh();
+      showToast("Status updated");
     },
-    [onRefresh],
+    [onRefresh, showToast],
   );
   const handleQuickEstimate = useCallback(
     async (issueId: string, estimate: number) => {
       await addDraft(issueId, "UPDATE", { estimate });
       setOpenPopover(null);
       onRefresh();
+      showToast("Estimate updated");
     },
-    [onRefresh],
+    [onRefresh, showToast],
   );
   const handleQuickLabelToggle = useCallback(
     async (issue: Issue, label: string) => {
@@ -156,8 +160,9 @@ export default function Backlog({
         : [...current, label];
       await addDraft(issue.id, "UPDATE", { labels });
       onRefresh();
+      showToast("Labels updated");
     },
-    [onRefresh],
+    [onRefresh, showToast],
   );
 
   const allKnownLabels = useMemo(
@@ -664,8 +669,7 @@ export default function Backlog({
       }
       if (e.key === "." && row.kind === "issue") {
         navigator.clipboard.writeText(row.issue.id);
-        setToast("Copied issue ID");
-        setTimeout(() => setToast(null), 1500);
+        showToast("Copied issue ID");
         return;
       }
       if (row.kind === "issue") {
@@ -718,12 +722,6 @@ export default function Backlog({
 
   return (
     <div className="h-full flex flex-col relative">
-      {toast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-md)] text-sm text-[var(--color-text-primary)] animate-fade-in">
-          {toast}
-        </div>
-      )}
-
       {/* Tab bar */}
       <div className="flex items-center gap-4 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
         {(Object.entries(TAB_CONFIGS) as [Tab, { label: string }][]).map(
