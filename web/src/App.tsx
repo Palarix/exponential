@@ -13,6 +13,7 @@ import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary, useToast } from './components/ui';
+import { useSSE } from './hooks/useSSE';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
@@ -161,9 +162,9 @@ function App() {
       }
       document.title = c.name ? `${c.name} | Beats` : 'Beats';
     }).catch(() => {});
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
   }, [fetchData]);
+
+  useSSE({ onEvent: fetchData, fallbackInterval: 30000 });
 
   const handleIssueClick = (issue: Issue) => {
     setSelectedIssueId(issue.id);

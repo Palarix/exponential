@@ -37,6 +37,11 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		w.Write([]byte("ok"))
 	})
 
+	// SSE endpoint (when hub is configured)
+	if s.SSEHub != nil && s.ProxyURL == "" {
+		handle("GET /api/events", s.handleSSE)
+	}
+
 	// Proxy mode: reverse-proxy /api/* to remote server with bearer token
 	if s.ProxyURL != "" {
 		remoteURL, err := url.Parse(s.ProxyURL)

@@ -46,6 +46,7 @@ func init() {
 
 func runBoard(cmd *cobra.Command, args []string) error {
 	srv := server.NewServer(cfg, boardPort, boardDev, boardDevPort)
+	srv.SSEHub = server.NewSSEHub()
 
 	if cfg.Remote.URL != "" {
 		srv.ProxyURL = cfg.Remote.URL

@@ -42,6 +42,9 @@ type Server struct {
 	// the remote server with the bearer token injected.
 	ProxyURL   string
 	ProxyToken string
+
+	// SSE hub for real-time event notifications.
+	SSEHub *SSEHub
 }
 
 // NewServer creates a new Server instance.
@@ -135,6 +138,13 @@ func (s *Server) SaveAndSync(commitMessage string) error {
 	// Clear pending events
 	s.pendingEvents = make([]model.Event, 0)
 	return nil
+}
+
+// broadcastEvent notifies SSE clients about a change, if SSE is enabled.
+func (s *Server) broadcastEvent(eventType, issueID string) {
+	if s.SSEHub != nil {
+		s.SSEHub.Broadcast(SSEEvent{Type: eventType, IssueID: issueID})
+	}
 }
 
 // GetProjectedIssues returns all issues with pending events applied.

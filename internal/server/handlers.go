@@ -95,6 +95,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
 			return
 		}
+		s.broadcastEvent("CREATE", issue.ID)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issue.ID})
 
 	case model.EventTypeUpdate:
@@ -104,6 +105,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
 			return
 		}
+		s.broadcastEvent("UPDATE", req.IssueID)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeComment:
@@ -113,6 +115,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
 			return
 		}
+		s.broadcastEvent("COMMENT", req.IssueID)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeDelete:
@@ -122,6 +125,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
 			return
 		}
+		s.broadcastEvent("DELETE", req.IssueID)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	default:
@@ -695,6 +699,7 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.broadcastEvent("UPDATE", id)
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"status":   "ok",
 		"issue_id": id,
@@ -849,6 +854,7 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.broadcastEvent("MERGE", id)
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"status":    "ok",
 		"merge_sha": result.MergeSHA,

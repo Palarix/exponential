@@ -71,6 +71,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	srv.VerifyKey = verifyKey
 	srv.NonceStore = auth.NewNonceStore(5 * time.Minute)
 	srv.AuthorizedKeys = authorizedKeys
+	srv.SSEHub = server.NewSSEHub()
 
 	// Set up MCP-over-HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
