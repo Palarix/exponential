@@ -15,8 +15,13 @@ var whoamiCmd = &cobra.Command{
 	Use:   "whoami",
 	Short: "Show current identity and server connection",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		rc := config.LoadRemoteConfig()
-		if rc.URL == "" {
+		// Check if the current project has a remote configured
+		var serverURL string
+		if cfg != nil && cfg.Remote.URL != "" {
+			serverURL = cfg.Remote.URL
+		}
+
+		if serverURL == "" {
 			fmt.Printf("Mode:     local\n")
 			if cfg != nil && cfg.User != "" {
 				fmt.Printf("Identity: %s\n", cfg.User)
@@ -24,15 +29,19 @@ var whoamiCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("Mode:     remote\n")
-		fmt.Printf("Server:   %s\n", rc.URL)
-
-		if rc.Token == "" {
-			fmt.Println("Token:    (none)")
+		cred, ok := config.GetServerCredential(serverURL)
+		if !ok || cred.Token == "" {
+			fmt.Printf("Mode:     remote\n")
+			fmt.Printf("Server:   %s\n", serverURL)
+			fmt.Println("Token:    (not logged in)")
+			fmt.Println("Run 'beats login' to authenticate.")
 			return nil
 		}
 
-		parts := strings.SplitN(rc.Token, ".", 3)
+		fmt.Printf("Mode:     remote\n")
+		fmt.Printf("Server:   %s\n", serverURL)
+
+		parts := strings.SplitN(cred.Token, ".", 3)
 		if len(parts) != 3 {
 			fmt.Println("Token:    (invalid)")
 			return nil

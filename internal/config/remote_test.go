@@ -3,109 +3,130 @@ package config
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestSaveAndLoadRemoteConfig(t *testing.T) {
+func TestSaveAndGetServerCredential(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
 
-	os.MkdirAll(".beats", 0755)
-
-	rc := RemoteConfig{
-		URL:   "https://beats.example.com",
-		Token: "test-token-abc",
-	}
-	if err := SaveRemoteConfig(rc); err != nil {
-		t.Fatalf("SaveRemoteConfig: %v", err)
+	err := SaveServerCredential("https://beats.example.com", "test-token")
+	if err != nil {
+		t.Fatalf("SaveServerCredential: %v", err)
 	}
 
-	loaded := LoadRemoteConfig()
-	if loaded.URL != rc.URL {
-		t.Errorf("URL: got %q, want %q", loaded.URL, rc.URL)
+	cred, ok := GetServerCredential("https://beats.example.com")
+	if !ok {
+		t.Fatal("expected credential to be found")
 	}
-	if loaded.Token != rc.Token {
-		t.Errorf("Token: got %q, want %q", loaded.Token, rc.Token)
+	if cred.Token != "test-token" {
+		t.Errorf("Token: got %q, want test-token", cred.Token)
+	}
+	if cred.URL != "https://beats.example.com" {
+		t.Errorf("URL: got %q", cred.URL)
 	}
 
 	// Verify file permissions
-	info, _ := os.Stat(".beats/remote.yaml")
+	info, _ := os.Stat(filepath.Join(dir, "beats", "credentials.yaml"))
 	if info.Mode().Perm() != 0600 {
 		t.Errorf("expected 0600, got %o", info.Mode().Perm())
 	}
 }
 
-func TestLoadRemoteConfig_MissingFile(t *testing.T) {
+func TestGetServerCredential_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
 
-	rc := LoadRemoteConfig()
-	if rc.URL != "" {
-		t.Errorf("expected empty URL, got %q", rc.URL)
+	_, ok := GetServerCredential("https://unknown.example.com")
+	if ok {
+		t.Error("expected credential not to be found")
 	}
 }
 
-func TestClearRemoteConfig(t *testing.T) {
+func TestMultipleServers(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
 
-	os.MkdirAll(".beats", 0755)
-	SaveRemoteConfig(RemoteConfig{URL: "https://test.com", Token: "tok"})
+	SaveServerCredential("https://server-a.example.com", "token-a")
+	SaveServerCredential("https://server-b.example.com:9090", "token-b")
 
-	if err := ClearRemoteConfig(); err != nil {
-		t.Fatalf("ClearRemoteConfig: %v", err)
+	credA, ok := GetServerCredential("https://server-a.example.com")
+	if !ok || credA.Token != "token-a" {
+		t.Errorf("server-a: got %v, %v", credA, ok)
 	}
 
-	rc := LoadRemoteConfig()
-	if rc.URL != "" {
-		t.Errorf("expected empty after clear, got %q", rc.URL)
-	}
-}
-
-func TestClearRemoteConfig_NoFile(t *testing.T) {
-	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
-
-	if err := ClearRemoteConfig(); err != nil {
-		t.Fatalf("ClearRemoteConfig on missing file: %v", err)
+	credB, ok := GetServerCredential("https://server-b.example.com:9090")
+	if !ok || credB.Token != "token-b" {
+		t.Errorf("server-b: got %v, %v", credB, ok)
 	}
 }
 
-func TestSaveRemoteConfig_EnsuresGitignore(t *testing.T) {
+func TestRemoveServerCredential(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
 
-	os.MkdirAll(".beats", 0755)
+	SaveServerCredential("https://beats.example.com", "test-token")
 
-	SaveRemoteConfig(RemoteConfig{URL: "https://test.com", Token: "tok"})
-
-	data, err := os.ReadFile(filepath.Join(".beats", ".gitignore"))
+	err := RemoveServerCredential("https://beats.example.com")
 	if err != nil {
-		t.Fatalf("read .gitignore: %v", err)
-	}
-	content := string(data)
-	if !strings.Contains(content, "remote.yaml") {
-		t.Error("expected remote.yaml in .gitignore")
-	}
-	if !strings.Contains(content, "server.key") {
-		t.Error("expected server.key in .gitignore")
+		t.Fatalf("RemoveServerCredential: %v", err)
 	}
 
-	// Save again — should not duplicate entries
-	SaveRemoteConfig(RemoteConfig{URL: "https://test.com", Token: "tok2"})
-	data, _ = os.ReadFile(filepath.Join(".beats", ".gitignore"))
-	if strings.Count(string(data), "remote.yaml") != 1 {
-		t.Error("expected exactly one remote.yaml entry in .gitignore")
+	_, ok := GetServerCredential("https://beats.example.com")
+	if ok {
+		t.Error("expected credential to be removed")
+	}
+}
+
+func TestRemoveServerCredential_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+
+	err := RemoveServerCredential("https://unknown.example.com")
+	if err != nil {
+		t.Fatalf("RemoveServerCredential on unknown: %v", err)
+	}
+}
+
+func TestResolveRemote_FillsToken(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+
+	SaveServerCredential("https://beats.example.com", "my-jwt")
+
+	rc := ResolveRemote(RemoteConfig{URL: "https://beats.example.com"})
+	if rc.Token != "my-jwt" {
+		t.Errorf("expected token filled, got %q", rc.Token)
+	}
+}
+
+func TestResolveRemote_EmptyURL(t *testing.T) {
+	rc := ResolveRemote(RemoteConfig{})
+	if rc.Token != "" {
+		t.Errorf("expected empty token, got %q", rc.Token)
+	}
+}
+
+func TestResolveRemote_ExistingTokenPreserved(t *testing.T) {
+	rc := ResolveRemote(RemoteConfig{URL: "https://beats.example.com", Token: "existing"})
+	if rc.Token != "existing" {
+		t.Errorf("expected existing token preserved, got %q", rc.Token)
+	}
+}
+
+func TestHostFromURL(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"https://beats.example.com", "beats.example.com"},
+		{"http://localhost:8080", "localhost:8080"},
+		{"https://beats.example.com:443/path", "beats.example.com:443"},
+	}
+	for _, tt := range tests {
+		got := hostFromURL(tt.input)
+		if got != tt.want {
+			t.Errorf("hostFromURL(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }

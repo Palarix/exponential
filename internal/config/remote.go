@@ -1,80 +1,105 @@
 package config
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
-const remoteConfigFile = ".beats/remote.yaml"
+// Credentials stores tokens indexed by server host.
+type Credentials struct {
+	Servers map[string]ServerCredential `yaml:"servers"`
+}
 
-// LoadRemoteConfig reads the remote config from .beats/remote.yaml.
-// Returns a zero-value RemoteConfig if the file doesn't exist.
-func LoadRemoteConfig() RemoteConfig {
-	var rc RemoteConfig
-	data, err := os.ReadFile(remoteConfigFile)
+// ServerCredential holds auth info for a single server.
+type ServerCredential struct {
+	URL   string `yaml:"url"`
+	Token string `yaml:"token"`
+}
+
+func credentialsPath() string {
+	if dir := os.Getenv("BEATS_CONFIG_DIR"); dir != "" {
+		return filepath.Join(dir, "credentials.yaml")
+	}
+	home, err := os.UserHomeDir()
 	if err != nil {
+		return filepath.Join(".config", "beats", "credentials.yaml")
+	}
+	return filepath.Join(home, ".config", "beats", "credentials.yaml")
+}
+
+// LoadCredentials reads all stored server credentials.
+func LoadCredentials() Credentials {
+	var c Credentials
+	data, err := os.ReadFile(credentialsPath())
+	if err != nil {
+		return Credentials{Servers: make(map[string]ServerCredential)}
+	}
+	yaml.Unmarshal(data, &c)
+	if c.Servers == nil {
+		c.Servers = make(map[string]ServerCredential)
+	}
+	return c
+}
+
+// SaveCredentials writes all server credentials.
+func SaveCredentials(c Credentials) error {
+	path := credentialsPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
+}
+
+// SaveServerCredential stores a token for a server URL.
+func SaveServerCredential(serverURL, token string) error {
+	c := LoadCredentials()
+	host := hostFromURL(serverURL)
+	c.Servers[host] = ServerCredential{URL: serverURL, Token: token}
+	return SaveCredentials(c)
+}
+
+// GetServerCredential retrieves the token for a server URL.
+func GetServerCredential(serverURL string) (ServerCredential, bool) {
+	c := LoadCredentials()
+	host := hostFromURL(serverURL)
+	cred, ok := c.Servers[host]
+	return cred, ok
+}
+
+// RemoveServerCredential removes a stored server credential.
+func RemoveServerCredential(serverURL string) error {
+	c := LoadCredentials()
+	host := hostFromURL(serverURL)
+	delete(c.Servers, host)
+	return SaveCredentials(c)
+}
+
+// ResolveRemote fills in the token for a RemoteConfig by looking up
+// the server URL in the user's credential store.
+func ResolveRemote(rc RemoteConfig) RemoteConfig {
+	if rc.URL == "" {
 		return rc
 	}
-	yaml.Unmarshal(data, &rc)
+	if rc.Token != "" {
+		return rc
+	}
+	if cred, ok := GetServerCredential(rc.URL); ok {
+		rc.Token = cred.Token
+	}
 	return rc
 }
 
-// SaveRemoteConfig writes the remote config to .beats/remote.yaml
-// and ensures it's listed in .beats/.gitignore.
-func SaveRemoteConfig(rc RemoteConfig) error {
-	data, err := yaml.Marshal(rc)
+func hostFromURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
 	if err != nil {
-		return err
+		return rawURL
 	}
-	if err := os.MkdirAll(filepath.Dir(remoteConfigFile), 0755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(remoteConfigFile, data, 0600); err != nil {
-		return err
-	}
-	ensureGitignored("remote.yaml")
-	ensureGitignored("server.key")
-	return nil
-}
-
-// ClearRemoteConfig removes the remote config file.
-func ClearRemoteConfig() error {
-	err := os.Remove(remoteConfigFile)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	return err
-}
-
-func ensureGitignored(pattern string) {
-	gitignorePath := ".beats/.gitignore"
-	data, _ := os.ReadFile(gitignorePath)
-	content := string(data)
-	for _, line := range splitLines(content) {
-		if line == pattern {
-			return
-		}
-	}
-	if len(content) > 0 && content[len(content)-1] != '\n' {
-		content += "\n"
-	}
-	content += pattern + "\n"
-	os.WriteFile(gitignorePath, []byte(content), 0644)
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
+	return u.Host
 }

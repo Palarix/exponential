@@ -110,12 +110,8 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid verify response: %w", err)
 	}
 
-	// 4. Save token
-	rc := config.RemoteConfig{
-		URL:   serverURL,
-		Token: verifyResp.Token,
-	}
-	if err := config.SaveRemoteConfig(rc); err != nil {
+	// 4. Save token to ~/.config/beats/credentials.yaml
+	if err := config.SaveServerCredential(serverURL, verifyResp.Token); err != nil {
 		return fmt.Errorf("failed to save token: %w", err)
 	}
 
