@@ -115,21 +115,20 @@ func ReadRemoteURL() string {
 }
 
 // IsLocalProjectConfig returns true if .beats/config.yaml looks like a
-// server-side project config (has prefix or version fields) rather than
-// a minimal remote-only config.
+// server-side project config (has a prefix field) rather than a minimal
+// remote-only config.
 func IsLocalProjectConfig() bool {
 	data, err := os.ReadFile(filepath.Join(".beats", "config.yaml"))
 	if err != nil {
 		return false
 	}
 	var raw struct {
-		Prefix  string `yaml:"prefix"`
-		Version int    `yaml:"version"`
+		Prefix string `yaml:"prefix"`
 	}
 	if yaml.Unmarshal(data, &raw) != nil {
 		return false
 	}
-	return raw.Prefix != "" || raw.Version != 0
+	return raw.Prefix != ""
 }
 
 // SetRemoteURL writes the remote.url field into .beats/config.yaml,
@@ -190,6 +189,21 @@ func SetRemoteURL(serverURL string) error {
 		remoteNode.Content = append(remoteNode.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "url"},
 			&yaml.Node{Kind: yaml.ScalarNode, Value: serverURL},
+		)
+	}
+
+	// Ensure version field exists (required for data model compatibility checks)
+	hasVersion := false
+	for i := 0; i < len(root.Content)-1; i += 2 {
+		if root.Content[i].Value == "version" {
+			hasVersion = true
+			break
+		}
+	}
+	if !hasVersion {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "version"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "2", Tag: "!!int"},
 		)
 	}
 

@@ -155,7 +155,18 @@ func TestIsLocalProjectConfig_True(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("prefix: myapp-\nversion: 2\n"), 0644)
 
 	if !IsLocalProjectConfig() {
-		t.Error("expected true for config with prefix+version")
+		t.Error("expected true for config with prefix")
+	}
+}
+
+func TestIsLocalProjectConfig_FalseVersionOnly(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("version: 2\nremote:\n  url: https://beats.example.com\n"), 0644)
+
+	if IsLocalProjectConfig() {
+		t.Error("expected false for remote config that just has version")
 	}
 }
 
@@ -190,6 +201,12 @@ func TestSetRemoteURL_CreatesFile(t *testing.T) {
 	got := ReadRemoteURL()
 	if got != "https://beats.example.com" {
 		t.Errorf("expected https://beats.example.com, got %q", got)
+	}
+
+	// Verify version field was written
+	data, _ := os.ReadFile(filepath.Join(dir, ".beats", "config.yaml"))
+	if !contains(string(data), "version: 2") {
+		t.Errorf("expected version: 2 in config, got:\n%s", string(data))
 	}
 }
 
