@@ -120,7 +120,8 @@ type commentOut struct {
 }
 
 type startIn struct {
-	ID string `json:"id" jsonschema:"Issue ID to start working on"`
+	ID    string `json:"id" jsonschema:"Issue ID to start working on"`
+	Force bool   `json:"force,omitempty" jsonschema:"Force take-over if already in progress or branch exists"`
 }
 
 type startOut struct {
@@ -361,7 +362,7 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startI
 		return nil, startOut{}, fmt.Errorf("'id' is required")
 	}
 	c := t.clientFor(req)
-	branch, msgs, err := c.StartWork(in.ID)
+	branch, msgs, err := c.StartWork(in.ID, in.Force)
 	if err != nil {
 		return nil, startOut{}, err
 	}

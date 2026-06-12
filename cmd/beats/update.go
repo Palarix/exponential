@@ -198,6 +198,8 @@ var updateCmd = &cobra.Command{
 
 // --- Shortcut Commands ---
 
+var startForce bool
+
 var startCmd = &cobra.Command{
 	Use:               "start [id]",
 	Short:             "Start working on an issue (set to DOING + create branch)",
@@ -205,7 +207,7 @@ var startCmd = &cobra.Command{
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := beats.NewClient(cfg)
-		_, msgs, err := client.StartWork(args[0])
+		_, msgs, err := client.StartWork(args[0], startForce)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
@@ -267,6 +269,7 @@ func init() {
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured update patch as JSON from stdin")
 
 	rootCmd.AddCommand(updateCmd)
+	startCmd.Flags().BoolVar(&startForce, "force", false, "Take over an issue already in progress or with an existing branch")
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(doneCmd)
 	rootCmd.AddCommand(plannedCmd)

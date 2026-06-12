@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/palarix/beats/internal/config"
@@ -55,7 +56,7 @@ func TestStartWork_NonGitRepo(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "PLANNED")
 
-	branch, msgs, err := client.StartWork("test-abc123")
+	branch, msgs, err := client.StartWork("test-abc123", false)
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
@@ -81,7 +82,7 @@ func TestStartWork_DoneIssue(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "DONE")
 
-	_, _, err := client.StartWork("test-abc123")
+	_, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
 		t.Fatal("expected error for DONE issue")
 	}
@@ -93,7 +94,7 @@ func TestStartWork_BlockedIssue(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "BLOCKED")
 
-	_, _, err := client.StartWork("test-abc123")
+	_, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
 		t.Fatal("expected error for BLOCKED issue")
 	}
@@ -114,7 +115,7 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
-	branch, msgs, err := client.StartWork("test-abc123")
+	branch, msgs, err := client.StartWork("test-abc123", false)
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
@@ -140,7 +141,7 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 	}
 }
 
-func TestStartWork_GitRepo_ExistingBranch(t *testing.T) {
+func TestStartWork_GitRepo_ExistingBranch_Rejected(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
 
@@ -152,26 +153,74 @@ func TestStartWork_GitRepo_ExistingBranch(t *testing.T) {
 	runGit(t, cwd, "add", ".")
 	runGit(t, cwd, "commit", "-m", "init")
 
-	// Pre-create the branch
 	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
-
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
-	branch, msgs, err := client.StartWork("test-abc123")
+	_, _, err := client.StartWork("test-abc123", false)
+	if err == nil {
+		t.Fatal("expected error for existing branch")
+	}
+	if !strings.Contains(err.Error(), "branch already exists") {
+		t.Errorf("expected 'branch already exists' error, got: %v", err)
+	}
+}
+
+func TestStartWork_GitRepo_ExistingBranch_Force(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	cwd, _ := os.Getwd()
+	runGit(t, cwd, "init", "-b", "main")
+	runGit(t, cwd, "config", "user.email", "test@test.com")
+	runGit(t, cwd, "config", "user.name", "Test")
+	os.WriteFile("dummy.txt", []byte("init"), 0644)
+	runGit(t, cwd, "add", ".")
+	runGit(t, cwd, "commit", "-m", "init")
+
+	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
+	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
+
+	branch, _, err := client.StartWork("test-abc123", true)
 	if err != nil {
-		t.Fatalf("StartWork() unexpected error: %v", err)
+		t.Fatalf("StartWork(force=true) unexpected error: %v", err)
 	}
 	if branch != "test-abc123-fix-login-flow" {
 		t.Errorf("expected branch 'test-abc123-fix-login-flow', got %q", branch)
 	}
+}
 
-	foundSwitchMsg := false
+func TestStartWork_AlreadyDoing_Rejected(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	createTestIssue(t, "test-abc123", "Fix login", "DOING")
+
+	_, _, err := client.StartWork("test-abc123", false)
+	if err == nil {
+		t.Fatal("expected error for DOING issue")
+	}
+	if !strings.Contains(err.Error(), "already in progress") {
+		t.Errorf("expected 'already in progress' error, got: %v", err)
+	}
+}
+
+func TestStartWork_AlreadyDoing_Force(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	createTestIssue(t, "test-abc123", "Fix login", "DOING")
+
+	_, msgs, err := client.StartWork("test-abc123", true)
+	if err != nil {
+		t.Fatalf("StartWork(force=true) unexpected error: %v", err)
+	}
+	foundForceMsg := false
 	for _, msg := range msgs {
-		if msg == "Switched to existing branch 'test-abc123-fix-login-flow'" {
-			foundSwitchMsg = true
+		if strings.Contains(msg, "Force-claiming") {
+			foundForceMsg = true
 		}
 	}
-	if !foundSwitchMsg {
-		t.Errorf("expected switch message in %v", msgs)
+	if !foundForceMsg {
+		t.Errorf("expected force-claiming message in %v", msgs)
 	}
 }

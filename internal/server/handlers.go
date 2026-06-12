@@ -691,11 +691,17 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	force := r.URL.Query().Get("force") == "true"
+
+	// Serialize the check-and-transition to prevent claim races.
+	s.mu.Lock()
 	client := beats.NewClient(s.Config)
 	client.Collapse = true
-	branch, msgs, err := client.StartWork(id)
+	branch, msgs, err := client.StartWork(id, force)
+	s.mu.Unlock()
+
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusConflict, err.Error())
 		return
 	}
 

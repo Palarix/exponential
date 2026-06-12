@@ -19,10 +19,10 @@ export function useSSE({ onEvent, fallbackInterval = 30000 }: SSEOptions) {
       eventSourceRef.current = es;
 
       es.onopen = () => {
-        if (fallbackRef.current) {
-          clearInterval(fallbackRef.current);
-          fallbackRef.current = null;
-        }
+        // Keep fallback polling active even when SSE is connected.
+        // SSE only broadcasts changes made through the HTTP handlers;
+        // external changes (CLI, MCP) write directly to issues.db
+        // and need polling to be picked up.
       };
 
       const handleEvent = () => onEvent();
