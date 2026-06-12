@@ -54,17 +54,23 @@ func (c *Client) StartWork(id string, force bool) (branchName string, msgs []str
 
 	branchName = candidateBranch
 
-	if BranchExists(branchName) {
-		if err := CheckoutBranch(branchName); err != nil {
-			return "", msgs, fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+	gitErr := WithGitLock(func() error {
+		if BranchExists(branchName) {
+			if err := CheckoutBranch(branchName); err != nil {
+				return fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+			}
+			msgs = append(msgs, fmt.Sprintf("Switched to existing branch '%s'", branchName))
+		} else {
+			base := DefaultBranch()
+			if err := CreateAndCheckoutBranch(branchName, base); err != nil {
+				return fmt.Errorf("failed to create branch %s from %s: %w", branchName, base, err)
+			}
+			msgs = append(msgs, fmt.Sprintf("Created and switched to branch '%s'", branchName))
 		}
-		msgs = append(msgs, fmt.Sprintf("Switched to existing branch '%s'", branchName))
-	} else {
-		base := DefaultBranch()
-		if err := CreateAndCheckoutBranch(branchName, base); err != nil {
-			return "", msgs, fmt.Errorf("failed to create branch %s from %s: %w", branchName, base, err)
-		}
-		msgs = append(msgs, fmt.Sprintf("Created and switched to branch '%s'", branchName))
+		return nil
+	})
+	if gitErr != nil {
+		return "", msgs, gitErr
 	}
 
 	return branchName, msgs, nil
