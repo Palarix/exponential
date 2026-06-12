@@ -15,6 +15,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
+import { EmptyState } from '../ui';
 import { sortGroup } from '../../utils/sort';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
@@ -23,6 +24,7 @@ interface BoardProps {
   issues: Issue[];
   onRefresh: () => void;
   onIssueClick?: (issue: Issue) => void;
+  onNewIssue?: () => void;
 }
 
 const COLUMNS = [
@@ -53,7 +55,7 @@ function findContainer(id: string, state: Containers): string | null {
   return null;
 }
 
-export default function Board({ issues, onRefresh, onIssueClick }: BoardProps) {
+export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: BoardProps) {
   const containersRef = useRef<Containers>(buildContainers(issues));
   const [containers, setContainersState] = useState<Containers>(containersRef.current);
   const setContainers = useCallback(
@@ -239,6 +241,29 @@ export default function Board({ issues, onRefresh, onIssueClick }: BoardProps) {
   }, [issues, setContainers]);
 
   const activeIssue = activeId ? issuesById.get(activeId) ?? null : null;
+
+  if (issues.length === 0) {
+    return (
+      <EmptyState
+        title="Your board is empty"
+        description="Issues in Planned, In Progress, Blocked, and Done statuses will appear here as cards you can drag between columns."
+        icon={
+          <svg width="180" height="120" viewBox="0 0 180 120" fill="none">
+            <rect x="10" y="20" width="35" height="80" rx="6" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="52" y="20" width="35" height="80" rx="6" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="94" y="20" width="35" height="80" rx="6" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="136" y="20" width="35" height="80" rx="6" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="16" y="10" width="23" height="4" rx="2" fill="var(--color-text-muted)" opacity="0.5" />
+            <rect x="58" y="10" width="23" height="4" rx="2" fill="var(--color-text-muted)" opacity="0.5" />
+            <rect x="100" y="10" width="23" height="4" rx="2" fill="var(--color-text-muted)" opacity="0.5" />
+            <rect x="142" y="10" width="23" height="4" rx="2" fill="var(--color-text-muted)" opacity="0.5" />
+          </svg>
+        }
+        actionLabel="Create an issue"
+        onAction={onNewIssue}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">

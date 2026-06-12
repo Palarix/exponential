@@ -15,6 +15,7 @@ import { createIssue, addDraft, fetchCycles } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
   Avatar,
+  EmptyState,
   LabelBadge,
   StatusIcon,
   PriorityIcon,
@@ -64,6 +65,7 @@ interface BacklogProps {
   onTabChange: (tab: Tab) => void;
   contributors: string[];
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
+  onNewIssue?: () => void;
 }
 
 export default function Backlog({
@@ -79,6 +81,7 @@ export default function Backlog({
   onTabChange,
   contributors,
   onConfigLabelsChange,
+  onNewIssue,
 }: BacklogProps) {
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -719,6 +722,25 @@ export default function Backlog({
     const el = listRef.current?.querySelector(`[data-row="${focusedIndex}"]`);
     el?.scrollIntoView({ block: "nearest" });
   }, [focusedIndex]);
+
+  if (issues.length === 0) {
+    return (
+      <EmptyState
+        title="No issues yet"
+        description="Your backlog is empty. Create an issue to start tracking work for your project."
+        icon={
+          <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
+            <rect x="30" y="20" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="30" y="42" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="30" y="64" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
+          </svg>
+        }
+        actionLabel="Create an issue"
+        onAction={onNewIssue}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col relative">

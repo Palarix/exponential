@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, LabelBadge, StatusIcon, SubProgress } from "../ui";
+import { Avatar, Card, CopyableId, EmptyState, LabelBadge, StatusIcon, SubProgress } from "../ui";
 import { formatTriage } from "../../utils/format";
 import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
 import { Sparkline, TrendChart } from "./charts";
@@ -37,9 +37,10 @@ const PRIORITY_LABELS: { value: number; label: string; marker: string; markerCla
 interface DashboardProps {
   issues: Issue[];
   onIssueClick?: (issue: Issue) => void;
+  onNewIssue?: () => void;
 }
 
-export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
+export default function Dashboard({ issues, onIssueClick, onNewIssue }: DashboardProps) {
   const [labelFilter, setLabelFilter] = useState<DistFilter>("active");
   const [assigneeFilter, setAssigneeFilter] = useState<DistFilter>("active");
   const [priorityFilter, setPriorityFilter] = useState<DistFilter>("active");
@@ -149,6 +150,29 @@ export default function Dashboard({ issues, onIssueClick }: DashboardProps) {
     { label: "Blocked", status: "BLOCKED", value: stats.blocked, color: "var(--color-status-blocked)" },
     { label: "Done", status: "DONE", value: stats.done, color: "var(--color-status-done)" },
   ];
+
+  if (issues.length === 0) {
+    return (
+      <EmptyState
+        title="Welcome to Beats"
+        description="Track issues, plan sprints, and ship software — all from your terminal and this board. Create your first issue to get started."
+        icon={
+          <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
+            <rect x="20" y="15" width="120" height="80" rx="8" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect x="32" y="32" width="30" height="4" rx="2" fill="var(--color-text-muted)" />
+            <rect x="32" y="42" width="50" height="3" rx="1.5" fill="var(--color-text-muted)" opacity="0.5" />
+            <rect x="32" y="50" width="40" height="3" rx="1.5" fill="var(--color-text-muted)" opacity="0.5" />
+            <rect x="32" y="64" width="30" height="4" rx="2" fill="var(--color-text-muted)" />
+            <rect x="32" y="74" width="55" height="3" rx="1.5" fill="var(--color-text-muted)" opacity="0.5" />
+            <circle cx="120" cy="50" r="14" stroke="var(--color-text-muted)" strokeWidth="1.5" />
+            <path d="M116 50h8M120 46v8" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        }
+        actionLabel="Create your first issue"
+        onAction={onNewIssue}
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">

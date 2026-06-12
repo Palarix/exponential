@@ -250,7 +250,7 @@ function App() {
 
     switch (view) {
       case 'dashboard':
-        return <Dashboard issues={issues} onIssueClick={handleIssueClick} />;
+        return <Dashboard issues={issues} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} />;
       case 'backlog':
         return (
           <Backlog
@@ -266,10 +266,11 @@ function App() {
             onTabChange={setBacklogTab}
             contributors={contributors}
             onConfigLabelsChange={setConfigLabels}
+            onNewIssue={() => setShowNewIssue(true)}
           />
         );
       case 'board':
-        return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} />;
+        return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} />;
       case 'dependencies':
         return <Dependencies issues={issues} onIssueClick={handleIssueClick} />;
       case 'cycles':
