@@ -35,7 +35,7 @@ func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RUnlock()
 
-	var response []IssueResponse
+	response := make([]IssueResponse, 0, len(sorted))
 	for _, issue := range sorted {
 		resp := issueToResponse(issue)
 		if pendingIDs[issue.ID] {
@@ -300,7 +300,7 @@ func (s *Server) handleGetCycles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	current := s.Config.Cycles.CurrentCycle()
-	var result []cycleResponse
+	result := make([]cycleResponse, 0)
 	for _, c := range cycles {
 		done, total := 0, 0
 		for _, issue := range issues {
@@ -392,7 +392,7 @@ func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	states := make(map[string]*issueState)
-	var points []dayPoint
+	points := make([]dayPoint, 0)
 	eventIdx := 0
 
 	for d := cycle.Start; !d.After(endDate); d = d.AddDate(0, 0, 1) {
@@ -668,7 +668,7 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	allEvents := append(events, s.pendingEvents...)
 	s.mu.RUnlock()
 
-	var history []map[string]interface{}
+	history := make([]map[string]interface{}, 0)
 	for _, evt := range allEvents {
 		if evt.ID != id {
 			continue
@@ -802,7 +802,7 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var blockers []string
+	blockers := make([]string, 0)
 	if !beats.IsWorkingTreeClean() {
 		blockers = append(blockers, "Working tree has uncommitted changes")
 	}

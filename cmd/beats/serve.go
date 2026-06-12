@@ -45,6 +45,7 @@ func init() {
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
+	server.ConfigureLogging()
 	beatsDir := ".beats"
 
 	// Load or generate server signing key
@@ -102,7 +103,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	defer stop()
 
 	httpServer := &http.Server{
-		Handler:      srv.SetupRoutes(),
+		Handler:      server.RequestLogger(srv.SetupRoutes()),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
