@@ -114,6 +114,134 @@ func TestResolveRemote_ExistingTokenPreserved(t *testing.T) {
 	}
 }
 
+func TestReadRemoteURL_NoFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	got := ReadRemoteURL()
+	if got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+}
+
+func TestReadRemoteURL_WithRemote(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("remote:\n  url: https://beats.example.com\n"), 0644)
+
+	got := ReadRemoteURL()
+	if got != "https://beats.example.com" {
+		t.Errorf("expected https://beats.example.com, got %q", got)
+	}
+}
+
+func TestReadRemoteURL_NoRemoteSection(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("prefix: myapp-\n"), 0644)
+
+	got := ReadRemoteURL()
+	if got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+}
+
+func TestIsLocalProjectConfig_True(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("prefix: myapp-\nversion: 2\n"), 0644)
+
+	if !IsLocalProjectConfig() {
+		t.Error("expected true for config with prefix+version")
+	}
+}
+
+func TestIsLocalProjectConfig_FalseRemoteOnly(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("remote:\n  url: https://beats.example.com\n"), 0644)
+
+	if IsLocalProjectConfig() {
+		t.Error("expected false for remote-only config")
+	}
+}
+
+func TestIsLocalProjectConfig_NoFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	if IsLocalProjectConfig() {
+		t.Error("expected false when no config file")
+	}
+}
+
+func TestSetRemoteURL_CreatesFile(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	if err := SetRemoteURL("https://beats.example.com"); err != nil {
+		t.Fatalf("SetRemoteURL: %v", err)
+	}
+
+	got := ReadRemoteURL()
+	if got != "https://beats.example.com" {
+		t.Errorf("expected https://beats.example.com, got %q", got)
+	}
+}
+
+func TestSetRemoteURL_PreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("some_key: some_value\n"), 0644)
+
+	if err := SetRemoteURL("https://beats.example.com"); err != nil {
+		t.Fatalf("SetRemoteURL: %v", err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".beats", "config.yaml"))
+	content := string(data)
+	if got := ReadRemoteURL(); got != "https://beats.example.com" {
+		t.Errorf("remote URL: got %q", got)
+	}
+	if !contains(content, "some_key") {
+		t.Error("existing content was not preserved")
+	}
+}
+
+func TestSetRemoteURL_UpdatesExisting(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("remote:\n  url: https://old.example.com\n"), 0644)
+
+	if err := SetRemoteURL("https://new.example.com"); err != nil {
+		t.Fatalf("SetRemoteURL: %v", err)
+	}
+
+	got := ReadRemoteURL()
+	if got != "https://new.example.com" {
+		t.Errorf("expected https://new.example.com, got %q", got)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestHostFromURL(t *testing.T) {
 	tests := []struct {
 		input string

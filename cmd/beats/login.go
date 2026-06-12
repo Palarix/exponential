@@ -18,17 +18,21 @@ import (
 )
 
 var loginCmd = &cobra.Command{
-	Use:   "login <server-url>",
+	Use:   "login [server-url]",
 	Short: "Authenticate against a remote beats server",
 	Long: `Authenticate against a remote beats server using SSH key authentication.
 
 The command discovers available SSH keys, signs a challenge nonce from the
 server, and exchanges it for a JWT token that is cached locally.
 
+If no URL is given, the remote URL from .beats/config.yaml is used.
+On first login, a minimal .beats/config.yaml is created automatically.
+
 Examples:
   beats login https://beats.example.com
-  beats login http://localhost:8080`,
-	Args: cobra.ExactArgs(1),
+  beats login http://localhost:8080
+  beats login`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: runLogin,
 }
 
@@ -37,7 +41,15 @@ func init() {
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
-	serverURL := strings.TrimRight(args[0], "/")
+	serverURL, err := resolveServerURL(args)
+	if err != nil {
+		return err
+	}
+
+	// Pre-flight: if URL was explicitly provided, check for local project config
+	if len(args) == 1 && config.IsLocalProjectConfig() && config.ReadRemoteURL() == "" {
+		return fmt.Errorf(".beats/config.yaml appears to be a local project config (has prefix/version) — run login from a client directory, not the server project")
+	}
 
 	// Discover SSH keys
 	keys, err := auth.DiscoverSSHKeys()
@@ -115,6 +127,13 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save token: %w", err)
 	}
 
+	// 5. Write remote URL to .beats/config.yaml (only when URL was explicitly provided)
+	if len(args) == 1 {
+		if err := writeProjectRemote(serverURL); err != nil {
+			return err
+		}
+	}
+
 	// Decode identity from JWT claims for display
 	identity := "authenticated user"
 	parts := strings.SplitN(verifyResp.Token, ".", 3)
@@ -133,5 +152,34 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	if verifyResp.ExpiresAt != "" {
 		fmt.Printf("Token expires: %s\n", verifyResp.ExpiresAt)
 	}
+	return nil
+}
+
+func resolveServerURL(args []string) (string, error) {
+	if len(args) == 1 {
+		return strings.TrimRight(args[0], "/"), nil
+	}
+	// No URL arg — try to read from existing project config
+	if existing := config.ReadRemoteURL(); existing != "" {
+		fmt.Printf("Using remote from .beats/config.yaml: %s\n", existing)
+		return existing, nil
+	}
+	return "", fmt.Errorf("no server URL provided and no remote configured in .beats/config.yaml")
+}
+
+func writeProjectRemote(serverURL string) error {
+	existing := config.ReadRemoteURL()
+
+	if existing != "" {
+		if existing != serverURL {
+			fmt.Printf("Warning: .beats/config.yaml already has remote URL %q (not overwriting)\n", existing)
+		}
+		return nil
+	}
+
+	if err := config.SetRemoteURL(serverURL); err != nil {
+		return fmt.Errorf("failed to write remote config: %w", err)
+	}
+	fmt.Println("Wrote remote URL to .beats/config.yaml")
 	return nil
 }

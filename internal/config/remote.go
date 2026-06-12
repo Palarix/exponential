@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -94,6 +95,113 @@ func ResolveRemote(rc RemoteConfig) RemoteConfig {
 		rc.Token = cred.Token
 	}
 	return rc
+}
+
+// ReadRemoteURL returns the remote.url from .beats/config.yaml, if any.
+func ReadRemoteURL() string {
+	data, err := os.ReadFile(filepath.Join(".beats", "config.yaml"))
+	if err != nil {
+		return ""
+	}
+	var raw struct {
+		Remote struct {
+			URL string `yaml:"url"`
+		} `yaml:"remote"`
+	}
+	if yaml.Unmarshal(data, &raw) != nil {
+		return ""
+	}
+	return raw.Remote.URL
+}
+
+// IsLocalProjectConfig returns true if .beats/config.yaml looks like a
+// server-side project config (has prefix or version fields) rather than
+// a minimal remote-only config.
+func IsLocalProjectConfig() bool {
+	data, err := os.ReadFile(filepath.Join(".beats", "config.yaml"))
+	if err != nil {
+		return false
+	}
+	var raw struct {
+		Prefix  string `yaml:"prefix"`
+		Version int    `yaml:"version"`
+	}
+	if yaml.Unmarshal(data, &raw) != nil {
+		return false
+	}
+	return raw.Prefix != "" || raw.Version != 0
+}
+
+// SetRemoteURL writes the remote.url field into .beats/config.yaml,
+// creating the file if it doesn't exist. Preserves existing content.
+func SetRemoteURL(serverURL string) error {
+	configPath := filepath.Join(".beats", "config.yaml")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read config: %w", err)
+		}
+		data = []byte{}
+	}
+
+	var doc yaml.Node
+	if len(data) > 0 {
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			return fmt.Errorf("failed to parse config file: %w", err)
+		}
+	}
+
+	if doc.Kind == 0 {
+		doc.Kind = yaml.DocumentNode
+		doc.Content = []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}
+	}
+
+	root := doc.Content[0]
+
+	// Find or create the "remote" mapping node
+	var remoteNode *yaml.Node
+	for i := 0; i < len(root.Content)-1; i += 2 {
+		if root.Content[i].Value == "remote" {
+			remoteNode = root.Content[i+1]
+			break
+		}
+	}
+
+	if remoteNode == nil {
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "remote"},
+			&yaml.Node{Kind: yaml.MappingNode},
+		)
+		remoteNode = root.Content[len(root.Content)-1]
+	}
+
+	// Find or create the "url" key inside remote
+	found := false
+	for i := 0; i < len(remoteNode.Content)-1; i += 2 {
+		if remoteNode.Content[i].Value == "url" {
+			remoteNode.Content[i+1].Value = serverURL
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		remoteNode.Content = append(remoteNode.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "url"},
+			&yaml.Node{Kind: yaml.ScalarNode, Value: serverURL},
+		)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return fmt.Errorf("failed to create .beats directory: %w", err)
+	}
+
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	return os.WriteFile(configPath, out, 0644)
 }
 
 func hostFromURL(rawURL string) string {
