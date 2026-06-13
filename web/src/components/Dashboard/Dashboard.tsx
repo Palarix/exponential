@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, EmptyState, LabelBadge, StatusIcon, SubProgress } from "../ui";
-import { formatTriage } from "../../utils/format";
+import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, StatusIcon, SubProgress } from "../ui";
+// @ts-expect-error kept for future dashboard personalization
+import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
-import { Sparkline, DailyVelocityChart, TrendChart } from "./charts";
+import { ArrowUp, ArrowDown } from "lucide-react";
+import { Sparkline, DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
 
@@ -41,9 +43,11 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ issues, onIssueClick, onNewIssue }: DashboardProps) {
-  const [labelFilter, setLabelFilter] = useState<DistFilter>("active");
-  const [assigneeFilter, setAssigneeFilter] = useState<DistFilter>("active");
-  const [priorityFilter, setPriorityFilter] = useState<DistFilter>("active");
+  const labelColors = useContext(LabelColorsContext);
+  const [statusFilter, setStatusFilter] = useState<DistFilter>("all");
+  const [labelFilter, setLabelFilter] = useState<DistFilter>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<DistFilter>("all");
+  const [priorityFilter, setPriorityFilter] = useState<DistFilter>("all");
   const [metrics, setMetrics] = useState<PulseMetrics | null>(null);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
 
@@ -68,20 +72,59 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
     done: issues.filter((i) => i.status === "DONE").length,
   };
 
+  const STATUS_ORDER_MAP: Record<string, { label: string; idx: number }> = {
+    BACKLOG: { label: "Backlog", idx: 0 },
+    PLANNED: { label: "Planned", idx: 1 },
+    DOING: { label: "In Progress", idx: 2 },
+    BLOCKED: { label: "Blocked", idx: 3 },
+    DONE: { label: "Done", idx: 4 },
+  };
+
+  const allStatuses = ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"];
+
+  const statusDistribution = useMemo(() => {
+    const filtered = statusFilter === "active" ? issues.filter((i) => i.status !== "DONE") : issues;
+    const counts = new Map<string, number>();
+    for (const i of filtered) counts.set(i.status, (counts.get(i.status) || 0) + 1);
+    const total = filtered.length;
+    const visibleStatuses = statusFilter === "active" ? allStatuses.filter(s => s !== "DONE") : allStatuses;
+    const rows: DistRow[] = visibleStatuses.map((status) => {
+      const count = counts.get(status) || 0;
+      return {
+        key: status,
+        label: (
+          <span className="flex items-center gap-2">
+            <StatusIcon status={status} size={14} />
+            <span className="text-xs">{STATUS_ORDER_MAP[status]?.label || status}</span>
+          </span>
+        ),
+        count,
+        pct: total > 0 ? (count / total) * 100 : 0,
+        barWidth: total > 0 ? (count / total) * 100 : 0,
+      };
+    });
+    return { total, rows };
+  }, [issues, statusFilter]);
+
   const labelDistribution = useMemo(() => {
     const filtered = labelFilter === "active" ? issues.filter((i) => i.status !== "DONE") : issues;
     const counts = new Map<string, number>();
     for (const i of filtered) for (const l of i.labels || []) counts.set(l, (counts.get(l) || 0) + 1);
     const total = filtered.length;
-    const max = Math.max(0, ...counts.values());
+
     const rows: DistRow[] = Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([label, count]) => ({
         key: label,
-        label: <LabelBadge label={label} />,
+        label: (
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: labelColors[label] || labelColors[label.toLowerCase()] || "var(--color-text-muted)" }} />
+            <span className="text-xs truncate">{label.charAt(0).toUpperCase() + label.slice(1)}</span>
+          </span>
+        ),
         count,
         pct: total > 0 ? (count / total) * 100 : 0,
-        barWidth: max > 0 ? (count / max) * 100 : 0,
+        barWidth: total > 0 ? (count / total) * 100 : 0,
       }));
     return { total, rows };
   }, [issues, labelFilter]);
@@ -95,8 +138,6 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
       else unassigned++;
     }
     const total = filtered.length;
-    const allCounts = [...counts.values(), ...(unassigned > 0 ? [unassigned] : [])];
-    const max = Math.max(0, ...allCounts);
     const namedRows: DistRow[] = Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([assignee, count]) => ({
@@ -109,10 +150,10 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
         ),
         count,
         pct: total > 0 ? (count / total) * 100 : 0,
-        barWidth: max > 0 ? (count / max) * 100 : 0,
+        barWidth: total > 0 ? (count / total) * 100 : 0,
       }));
     const unassignedRow: DistRow[] = unassigned > 0
-      ? [{ key: "__unassigned__", label: <span className="text-sm text-[var(--color-text-muted)] italic">Unassigned</span>, count: unassigned, pct: total > 0 ? (unassigned / total) * 100 : 0, barWidth: max > 0 ? (unassigned / max) * 100 : 0 }]
+      ? [{ key: "__unassigned__", label: <span className="text-sm text-[var(--color-text-muted)] italic">Unassigned</span>, count: unassigned, pct: total > 0 ? (unassigned / total) * 100 : 0, barWidth: total > 0 ? (unassigned / total) * 100 : 0 }]
       : [];
     return { total, rows: [...namedRows, ...unassignedRow] };
   }, [issues, assigneeFilter]);
@@ -122,7 +163,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
     const counts = new Map<number, number>();
     for (const i of filtered) { const p = i.priority || 0; counts.set(p, (counts.get(p) || 0) + 1); }
     const total = filtered.length;
-    const max = Math.max(0, ...counts.values());
+
     const rows: DistRow[] = PRIORITY_LABELS
       .filter((p) => (counts.get(p.value) || 0) > 0)
       .map((p) => {
@@ -137,12 +178,13 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           ),
           count,
           pct: total > 0 ? (count / total) * 100 : 0,
-          barWidth: max > 0 ? (count / max) * 100 : 0,
+          barWidth: total > 0 ? (count / total) * 100 : 0,
         };
       });
     return { total, rows };
   }, [issues, priorityFilter]);
 
+  // @ts-expect-error kept for future dashboard personalization
   const statusCards = [
     { label: "Backlog", status: "BACKLOG", value: stats.backlog, color: "var(--color-status-backlog)" },
     { label: "Planned", status: "PLANNED", value: stats.planned, color: "var(--color-status-planned)" },
@@ -187,127 +229,72 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
         <div className="max-w-7xl mx-auto space-y-3 py-3">
           {/* Pulse */}
           <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="beats-dashboard-pulse-open">
-            <div className="px-5 py-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="px-5 py-3 grid grid-cols-[1fr_2fr] gap-3">
+              {/* Left column: Velocity + Cumulative */}
+              <div className="flex flex-col gap-3">
               <PulseCard title="Velocity">
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.velocity.last_7d_points : "—"}</p>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-2">pts last 7d</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-2 flex items-center gap-1">
+                      pts last 7d
+                      {metrics && metrics.velocity.delta !== 0 && (
+                        <span className={`inline-flex items-center gap-0.5 ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                          {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
+                          {metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}
+                        </span>
+                      )}
+                    </p>
                   </div>
                   {metrics && metrics.velocity.weekly_buckets.length > 0 && <Sparkline buckets={metrics.velocity.weekly_buckets} />}
                 </div>
               </PulseCard>
-              <PulseCard title="Throughput">
-                <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.throughput.last_7d : "—"}</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-2">issues last 7d</p>
-                {metrics && (
-                  <p className={`text-xs mt-1 ${metrics.throughput.delta > 0 ? "text-[var(--color-success)]" : metrics.throughput.delta < 0 ? "text-[var(--color-warning)]" : "text-[var(--color-text-muted)]"}`}>
-                    {metrics.throughput.delta > 0 ? "+" : ""}{metrics.throughput.delta} vs prior 7d
-                  </p>
-                )}
-              </PulseCard>
-              <PulseCard title="WIP">
-                <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.wip.total : "—"}</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-2">in progress</p>
-                {metrics && metrics.wip.stale > 0 && (
-                  <div className="mt-1 flex items-center gap-2 text-xs text-[var(--color-warning)]">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {metrics.wip.stale} stale &gt; {metrics.wip.stale_threshold_days}d
-                  </div>
-                )}
-              </PulseCard>
-              <PulseCard title="Blockers">
-                <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.blockers.total : "—"}</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-2">blocked</p>
-                {metrics && metrics.blockers.total > 0 && <p className="text-xs text-[var(--color-error)] mt-1">oldest {metrics.blockers.oldest_days}d</p>}
-              </PulseCard>
-              {/* Status composition */}
-              {statusCards.map((card) => (
-                <PulseCard key={card.label} title={card.label}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <StatusIcon status={card.status} size={14} />
-                  </div>
-                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{card.value}</p>
-                  <div className="h-1 mt-3 rounded-full bg-[var(--color-bg-tertiary)]">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ background: card.color, width: `${stats.total ? (card.value / stats.total) * 100 : 0}%` }} />
-                  </div>
-                </PulseCard>
-              ))}
-            </div>
-
-            {/* Daily velocity chart */}
-            {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0 && (
-              <div className="px-5 pb-3">
-                <Card variant="elevated" padding="sm" className="flex flex-col">
+              {metrics && metrics.trends.weekly.length > 0 && (
+                <Card variant="elevated" padding="sm" className="flex flex-col flex-1 min-h-0">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
-                    <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
-                  </div>
-                  <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
-                </Card>
-              </div>
-            )}
-          </Section>
-
-          {/* Trends */}
-          <Section title="Trends" icon={<SectionIcon d={SECTION_ICONS.trends} />} collapsible storageKey="beats-dashboard-trends-open">
-            <div className="px-5 py-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
-              <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
-                  <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)]" />created</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
-                  </div>
-                </div>
-                {metrics ? <TrendChart weekly={metrics.trends.weekly} /> : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>}
-                <p className="mt-auto text-xs text-[var(--color-text-muted)]">last 8 weeks</p>
-              </Card>
-              <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
-                <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Median Triage Time</p>
-                <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? formatTriage(metrics.trends.median_triage_mins) : "—"}</p>
-                <p className="mt-auto text-xs text-[var(--color-text-muted)]">
-                  {metrics && metrics.trends.triaged_count > 0
-                    ? `across ${metrics.trends.triaged_count} triaged ${metrics.trends.triaged_count === 1 ? "issue" : "issues"}`
-                    : "no triaged issues yet"}
-                </p>
-              </Card>
-              <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
-                <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-2">Bug Age</p>
-                {(() => {
-                  const buckets = metrics?.trends.bug_age;
-                  const total = buckets ? buckets.under_24h + buckets.under_48h + buckets.under_5d + buckets.under_14d + buckets.under_1mo + buckets.over_1mo : 0;
-                  if (!metrics || total === 0) return (<><p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">0</p><p className="text-xs text-[var(--color-text-muted)] mt-2">no open bugs</p></>);
-                  const bars = [
-                    { label: "<24h", count: buckets!.under_24h, cls: "bg-[var(--color-text-secondary)]" },
-                    { label: "<48h", count: buckets!.under_48h, cls: "bg-[var(--color-text-secondary)]" },
-                    { label: "<5d", count: buckets!.under_5d, cls: "bg-[var(--color-warning)]" },
-                    { label: "<14d", count: buckets!.under_14d, cls: "bg-[var(--color-warning)]" },
-                    { label: "<1mo", count: buckets!.under_1mo, cls: "bg-[var(--color-error)]" },
-                    { label: ">1mo", count: buckets!.over_1mo, cls: "bg-[var(--color-error)]" },
-                  ];
-                  const max = Math.max(1, ...bars.map((b) => b.count));
-                  return (
-                    <div className="mt-auto">
-                      <div className="flex items-end gap-1 h-12">
-                        {bars.map((b) => (
-                          <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
-                            <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
-                            <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-1 mt-2">
-                        {bars.map((b) => <span key={b.label} className="flex-1 text-center text-[10px] text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
-                      </div>
+                    <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
+                    <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)]" />created</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
                     </div>
-                  );
-                })()}
+                  </div>
+                  <div className="flex-1 min-h-24">
+                    <CumulativeChart weekly={metrics.trends.weekly} />
+                  </div>
+                </Card>
+              )}
+              </div>
+
+              {/* Right column: Daily velocity chart */}
+              <Card variant="elevated" padding="sm" className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
+                  <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
+                </div>
+                <div className="flex-1 min-h-0">
+                  {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0
+                    ? <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
+                    : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+                  }
+                </div>
               </Card>
             </div>
+
           </Section>
+
+          {/* Composition */}
+          <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="beats-dashboard-composition-open">
+            <div className="px-5 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <DistributionSection title="By status" filter={statusFilter} onFilterChange={setStatusFilter} rows={statusDistribution.rows} total={statusDistribution.total} emptyHasIssues="No issues." hideBars />
+                <DistributionSection title="By label" filter={labelFilter} onFilterChange={setLabelFilter} rows={labelDistribution.rows} total={labelDistribution.total} emptyHasIssues="No labels on the filtered issues." />
+                <DistributionSection title="By assignee" filter={assigneeFilter} onFilterChange={setAssigneeFilter} rows={assigneeDistribution.rows} total={assigneeDistribution.total} emptyHasIssues="No assignees on the filtered issues." />
+                <DistributionSection title="By priority" filter={priorityFilter} onFilterChange={setPriorityFilter} rows={priorityDistribution.rows} total={priorityDistribution.total} emptyHasIssues="No priorities set on the filtered issues." />
+              </div>
+            </div>
+          </Section>
+
+          {/* Trends — hidden, superseded by Pulse charts */}
 
           {/* Needs Attention */}
           {metrics && metrics.attention.length > 0 && (
@@ -383,16 +370,6 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
             <ActivityFeed activity={activity} issues={issues} onIssueClick={onIssueClick} />
           </Section>
 
-          {/* Composition */}
-          <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="beats-dashboard-composition-open">
-            <div className="px-5 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <DistributionSection title="By label" filter={labelFilter} onFilterChange={setLabelFilter} rows={labelDistribution.rows} total={labelDistribution.total} emptyHasIssues="No labels on the filtered issues." />
-                <DistributionSection title="By assignee" filter={assigneeFilter} onFilterChange={setAssigneeFilter} rows={assigneeDistribution.rows} total={assigneeDistribution.total} emptyHasIssues="No assignees on the filtered issues." />
-                <DistributionSection title="By priority" filter={priorityFilter} onFilterChange={setPriorityFilter} rows={priorityDistribution.rows} total={priorityDistribution.total} emptyHasIssues="No priorities set on the filtered issues." />
-              </div>
-            </div>
-          </Section>
         </div>
       </div>
     </div>

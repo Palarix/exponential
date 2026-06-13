@@ -85,6 +85,8 @@ type dailyBucket struct {
 type pulseMetrics struct {
 	Velocity struct {
 		Last7dPoints  int              `json:"last_7d_points"`
+		Prior7dPoints int              `json:"prior_7d_points"`
+		Delta         int              `json:"delta"`
 		WeeklyBuckets []velocityBucket `json:"weekly_buckets"`
 		DailyBuckets  []dailyBucket    `json:"daily_buckets"`
 	} `json:"velocity"`
@@ -179,6 +181,7 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 				m.Velocity.Last7dPoints += points
 			} else if doneAt.After(prior7dStart) {
 				m.Throughput.Prior7d++
+				m.Velocity.Prior7dPoints += points
 			}
 			weekKey := startOfWeek(*doneAt).Format("2006-01-02")
 			if _, ok := bucketsByKey[weekKey]; ok {
@@ -302,6 +305,7 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	}
 
 	m.Throughput.Delta = m.Throughput.Last7d - m.Throughput.Prior7d
+	m.Velocity.Delta = m.Velocity.Last7dPoints - m.Velocity.Prior7dPoints
 
 	for _, key := range bucketOrder {
 		m.Velocity.WeeklyBuckets = append(m.Velocity.WeeklyBuckets, velocityBucket{

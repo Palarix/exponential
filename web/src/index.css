@@ -419,3 +419,16 @@ body {
   background: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
+
+/* ========================================
+   AUTO-HIDE SCROLLBAR
+   ======================================== */
+
+.auto-hide-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.auto-hide-scrollbar:hover {
+  scrollbar-color: var(--color-border-default) transparent;
+}

@@ -99,6 +99,39 @@ export function DailyVelocityChart({ buckets }: { buckets: { date: string; point
   );
 }
 
+export function CumulativeChart({ weekly }: { weekly: { week_start: string; created: number; completed: number }[] }) {
+  let cumCreated = 0;
+  let cumCompleted = 0;
+  const data = weekly.map((w) => {
+    cumCreated += w.created;
+    cumCompleted += w.completed;
+    return { week: w.week_start.slice(5), created: cumCreated, completed: cumCompleted };
+  });
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+        <defs>
+          <linearGradient id="cum-created" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-text-muted)" stopOpacity={0.2} />
+            <stop offset="100%" stopColor="var(--color-text-muted)" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="cum-completed" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-accent-primary)" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="var(--color-accent-primary)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid {...GRID_STYLE} horizontal vertical={false} />
+        <XAxis dataKey="week" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} allowDecimals={false} />
+        <Tooltip {...TOOLTIP_STYLE} />
+        <Area type="monotone" dataKey="created" stroke="var(--color-text-muted)" strokeWidth={1.5} fill="url(#cum-created)" name="Created" dot={false} />
+        <Area type="monotone" dataKey="completed" stroke="var(--color-accent-primary)" strokeWidth={1.5} fill="url(#cum-completed)" name="Completed" dot={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function TrendChart({ weekly }: { weekly: { week_start: string; created: number; completed: number }[] }) {
   const data = weekly.map((w) => ({
     week: w.week_start.slice(5),

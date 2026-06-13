@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Card } from "../ui";
 
 export type DistFilter = "all" | "active";
@@ -19,6 +19,7 @@ export default function DistributionSection({
   total,
   emptyHasIssues = "No data to display.",
   emptyNoIssues = "No issues to display.",
+  hideBars = false,
 }: {
   title: string;
   filter: DistFilter;
@@ -27,13 +28,16 @@ export default function DistributionSection({
   total: number;
   emptyHasIssues?: string;
   emptyNoIssues?: string;
+  hideBars?: boolean;
 }) {
+  const [showPct, setShowPct] = useState(false);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{title}</h2>
         <div className="flex items-center gap-1 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] p-1">
-          {(["active", "all"] as const).map((opt) => (
+          {(["all", "active"] as const).map((opt) => (
             <button
               key={opt}
               onClick={() => onFilterChange(opt)}
@@ -56,20 +60,25 @@ export default function DistributionSection({
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-40 overflow-y-auto auto-hide-scrollbar">
             {rows.map(({ key, label, count, pct, barWidth }) => (
-              <div key={key} className="flex items-center gap-2">
+              <div key={key} className="flex items-center gap-2 h-6">
                 <div className="flex-1 min-w-0">{label}</div>
-                <div className="w-16 h-2 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden shrink-0">
-                  <div
-                    className="h-full rounded-full bg-[var(--color-text-secondary)] transition-all duration-500"
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-                <div className="w-14 shrink-0 text-right text-xs tabular-nums">
-                  <span className="text-[var(--color-text-primary)] font-medium">{count}</span>
-                  <span className="text-[var(--color-text-muted)] ml-1">{pct.toFixed(0)}%</span>
-                </div>
+                {!hideBars && (
+                  <div className="w-16 h-2 rounded-full bg-[var(--color-bg-tertiary)] overflow-hidden shrink-0">
+                    <div
+                      className="h-full rounded-full bg-[var(--color-text-secondary)] transition-all duration-500"
+                      style={{ width: `${barWidth}%` }}
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowPct((v) => !v)}
+                  className="w-10 shrink-0 text-right text-xs tabular-nums text-[var(--color-text-primary)] font-medium hover:text-[var(--color-accent-primary)] transition-colors"
+                  title="Click to toggle count/percentage"
+                >
+                  {showPct ? `${pct.toFixed(0)}%` : count}
+                </button>
               </div>
             ))}
           </div>
