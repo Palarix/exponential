@@ -11,6 +11,7 @@ interface LabelPickerProps {
   onClose?: () => void;
   singleSelect?: boolean;
   exclude?: string[];
+  borderlessBadges?: boolean;
 }
 
 export default function LabelPicker({
@@ -21,6 +22,7 @@ export default function LabelPicker({
   onClose,
   singleSelect = false,
   exclude,
+  borderlessBadges,
 }: LabelPickerProps) {
   const configLabels = useContext(LabelColorsContext);
   const hideDefaultLabels = useContext(HideDefaultLabelsContext);
@@ -154,7 +156,7 @@ export default function LabelPicker({
           <span className="text-xs text-[var(--color-text-muted)]">
             Pick a color for
           </span>
-          <LabelBadge label={creatingLabel} />
+          <LabelBadge borderless={borderlessBadges} label={creatingLabel} />
         </div>
         <div className="border-t border-[var(--color-border-subtle)]" />
         <div className="flex items-center gap-2 px-3 py-3">
@@ -234,7 +236,7 @@ export default function LabelPicker({
                 )}
               </span>
             )}
-            <LabelBadge label={label} />
+            <LabelBadge borderless={borderlessBadges} label={label} />
           </button>
           </div>
         );
@@ -246,7 +248,7 @@ export default function LabelPicker({
           className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === filtered.length ? "bg-[var(--color-bg-hover)]" : ""}`}
         >
           <span className="text-[var(--color-text-muted)]">Create</span>
-          <LabelBadge label={search.trim()} />
+          <LabelBadge borderless={borderlessBadges} label={search.trim()} />
         </button>
       )}
       {filtered.length === 0 && !canCreate && (

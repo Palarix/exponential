@@ -8,9 +8,9 @@ import type { DropdownOption } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
 
 const STATUS_OPTIONS: DropdownOption[] = [
-  { value: "BACKLOG", label: "Backlog" },
-  { value: "PLANNED", label: "Planned" },
-  { value: "DOING", label: "In Progress" },
+  { value: "BACKLOG", label: "Backlog", icon: <StatusIcon status="BACKLOG" size={14} /> },
+  { value: "PLANNED", label: "Planned", icon: <StatusIcon status="PLANNED" size={14} /> },
+  { value: "DOING", label: "In Progress", icon: <StatusIcon status="DOING" size={14} /> },
 ];
 
 const ESTIMATE_OPTIONS: DropdownOption[] = [
@@ -127,12 +127,12 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
         <div className="flex items-center gap-2">
           <div>
             <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${labels.length === 0 ? "border-[var(--color-error)]/40" : ""}`}>
-              {labels[0] ? <LabelBadge label={labels[0]} /> : <span className="text-[var(--color-text-muted)]">Label *</span>}
+              {labels[0] ? <LabelBadge label={labels[0]} borderless /> : <span className="text-[var(--color-text-muted)]">Label *</span>}
               <svg className="w-3 h-3 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
             {labelOpen && createPortal(
               <div ref={labelMenuRef} className="fixed z-[100] min-w-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1" style={{ top: labelPos.top, left: labelPos.left }}>
-                <LabelPicker allLabels={allKnownLabels} selected={labels} onToggle={selectLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setLabelOpen(false)} singleSelect />
+                <LabelPicker allLabels={allKnownLabels} selected={labels} onToggle={selectLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setLabelOpen(false)} singleSelect borderlessBadges />
               </div>,
               document.body,
             )}
@@ -187,11 +187,11 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
               <div className="relative">
                 <button type="button" onClick={() => setMorePopover(morePopover === "labels" ? null : "labels")} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   <svg className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
-                  {additionalLabels.length > 0 ? <span className="flex items-center gap-2">{additionalLabels.map((l) => <LabelBadge key={l} label={l} />)}</span> : <span className="text-[var(--color-text-muted)]">Additional labels</span>}
+                  {additionalLabels.length > 0 ? <span className="flex items-center gap-2">{additionalLabels.map((l) => <LabelBadge key={l} label={l} borderless />)}</span> : <span className="text-[var(--color-text-muted)]">Additional labels</span>}
                 </button>
                 {morePopover === "labels" && (
                   <Popover onClose={() => setMorePopover(null)}>
-                    <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setMorePopover(null)} exclude={labels} />
+                    <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
                   </Popover>
                 )}
               </div>

@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export interface DropdownOption {
   value: string;
   label: string;
   dot?: string;
+  icon?: ReactNode;
 }
 
 export default function InlineDropdown({
@@ -13,12 +14,14 @@ export default function InlineDropdown({
   value,
   onChange,
   required,
+  borderless,
 }: {
   placeholder: string;
   options: DropdownOption[];
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
+  borderless?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -54,11 +57,11 @@ export default function InlineDropdown({
         ref={btnRef}
         type="button"
         onClick={handleOpen}
-        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}
+        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors ${borderless ? "hover:bg-[var(--color-bg-hover)]" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
       >
         {selected ? (
           <>
-            {selected.dot && <span className="w-2 h-2 rounded-full" style={{ background: selected.dot }} />}
+            {selected.icon || (selected.dot && <span className="w-2 h-2 rounded-full" style={{ background: selected.dot }} />)}
             <span className="text-[var(--color-text-primary)]">{selected.label}</span>
           </>
         ) : (
@@ -80,7 +83,7 @@ export default function InlineDropdown({
               onClick={() => { onChange(opt.value); setOpen(false); }}
               className="flex items-center gap-2 w-full h-8 px-3 text-sm hover:bg-[var(--color-bg-hover)] transition-colors"
             >
-              {opt.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opt.dot }} />}
+              {opt.icon || (opt.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opt.dot }} />)}
               <span className="text-[var(--color-text-primary)]">{opt.label}</span>
               {opt.value === value && (
                 <svg className="w-4 h-4 ml-auto text-[var(--color-accent-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
