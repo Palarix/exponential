@@ -136,6 +136,22 @@ export interface PulseMetrics {
     total: number;
     oldest_days: number;
   };
+  flow: {
+    cycle_time_hrs: number;
+    cycle_time_p75_hrs: number;
+    cycle_time_p90_hrs: number;
+    cycle_time_min_hrs: number;
+    cycle_time_max_hrs: number;
+    cycle_count: number;
+    lead_time_hrs: number;
+    lead_time_p75_hrs: number;
+    lead_time_p90_hrs: number;
+    lead_time_min_hrs: number;
+    lead_time_max_hrs: number;
+    lead_count: number;
+    staleness: { under_1d: number; under_3d: number; under_7d: number; under_14d: number; under_30d: number; over_30d: number };
+    staleness_total: number;
+  };
   attention: AttentionItem[];
   workload: WorkloadEntry[];
   epics: EpicProgress[];

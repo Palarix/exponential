@@ -63,3 +63,14 @@ export function linkifyIssueIds(text: string, prefix: string): string {
     "[$1](#/issues/$1)",
   );
 }
+
+export function formatDuration(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours < 24) return `${Math.round(hours * 10) / 10}h`;
+  const days = hours / 24;
+  if (days < 7) return `${Math.round(days * 10) / 10}d`;
+  const weeks = days / 7;
+  if (weeks < 5) return `${Math.round(weeks * 10) / 10}w`;
+  const months = days / 30;
+  return `${Math.round(months * 10) / 10}mo`;
+}

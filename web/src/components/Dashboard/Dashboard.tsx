@@ -3,6 +3,7 @@ import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, ty
 import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, StatusIcon, SubProgress } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
+import { formatDuration } from "../../utils/format";
 import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { Sparkline, DailyVelocityChart, CumulativeChart } from "./charts";
@@ -229,28 +230,10 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
         <div className="max-w-7xl mx-auto space-y-3 py-3">
           {/* Pulse */}
           <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="beats-dashboard-pulse-open">
-            <div className="px-5 py-3 grid grid-cols-[1fr_2fr] gap-3">
-              {/* Left column: Velocity + Cumulative */}
-              <div className="flex flex-col gap-3">
-              <PulseCard title="Velocity">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.velocity.last_7d_points : "—"}</p>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-2 flex items-center gap-1">
-                      pts last 7d
-                      {metrics && metrics.velocity.delta !== 0 && (
-                        <span className={`inline-flex items-center gap-0.5 ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
-                          {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
-                          {metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  {metrics && metrics.velocity.weekly_buckets.length > 0 && <Sparkline buckets={metrics.velocity.weekly_buckets} />}
-                </div>
-              </PulseCard>
+            {/* Charts row: 50/50 */}
+            <div className="px-5 py-3 grid grid-cols-2 gap-3">
               {metrics && metrics.trends.weekly.length > 0 && (
-                <Card variant="elevated" padding="sm" className="flex flex-col flex-1 min-h-0">
+                <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
                     <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
@@ -258,15 +241,12 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
                     </div>
                   </div>
-                  <div className="flex-1 min-h-24">
+                  <div className="flex-1 min-h-0">
                     <CumulativeChart weekly={metrics.trends.weekly} />
                   </div>
                 </Card>
               )}
-              </div>
-
-              {/* Right column: Daily velocity chart */}
-              <Card variant="elevated" padding="sm" className="flex flex-col">
+              <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
                   <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
@@ -278,6 +258,118 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   }
                 </div>
               </Card>
+            </div>
+
+            {/* Stats row: Velocity + Cycle Time + Lead Time + Staleness */}
+            <div className="px-5 pb-3 grid grid-cols-4 gap-3">
+              <PulseCard title="Velocity">
+                <div className="flex-1 flex items-center">
+                  <div className="flex items-baseline justify-between gap-3 w-full">
+                    <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.velocity.last_7d_points : "—"}</p>
+                    {metrics && metrics.velocity.weekly_buckets.length > 0 && <Sparkline buckets={metrics.velocity.weekly_buckets} />}
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--color-text-muted)] pt-3 flex items-center gap-1">
+                  pts last 7d
+                  {metrics && metrics.velocity.delta !== 0 && (
+                    <span className={`inline-flex items-center gap-0.5 ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                      {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
+                      {metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}
+                    </span>
+                  )}
+                </p>
+              </PulseCard>
+              <PulseCard title="Cycle Time">
+                {metrics && metrics.flow.cycle_count > 0 ? (
+                  <>
+                    <table className="w-full text-center tabular-nums border-collapse border border-[var(--color-border-subtle)] rounded">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Min</th>
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Median</th>
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">P90</th>
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Max</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_min_hrs)}</td>
+                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_p90_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_max_hrs)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">start → done · {metrics.flow.cycle_count} issues</p>
+                  </>
+                ) : (
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+                )}
+              </PulseCard>
+              <PulseCard title="Lead Time">
+                {metrics && metrics.flow.lead_count > 0 ? (
+                  <>
+                    <table className="w-full text-center tabular-nums border-collapse border border-[var(--color-border-subtle)] rounded">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Min</th>
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Median</th>
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">P90</th>
+                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Max</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_min_hrs)}</td>
+                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_p90_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_max_hrs)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">created → done · {metrics.flow.lead_count} issues</p>
+                  </>
+                ) : (
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+                )}
+              </PulseCard>
+              <PulseCard title="Staleness">
+                {(() => {
+                  const s = metrics?.flow.staleness;
+                  const total = metrics?.flow.staleness_total ?? 0;
+                  if (!metrics || total === 0) return (
+                    <>
+                      <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">0</p>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-2">no open issues</p>
+                    </>
+                  );
+                  const bars = [
+                    { label: "<1d", count: s!.under_1d, cls: "bg-[var(--color-success)]" },
+                    { label: "<3d", count: s!.under_3d, cls: "bg-[var(--color-success)]" },
+                    { label: "<7d", count: s!.under_7d, cls: "bg-[var(--color-text-secondary)]" },
+                    { label: "<14d", count: s!.under_14d, cls: "bg-[var(--color-warning)]" },
+                    { label: "<30d", count: s!.under_30d, cls: "bg-[var(--color-warning)]" },
+                    { label: ">30d", count: s!.over_30d, cls: "bg-[var(--color-error)]" },
+                  ];
+                  const max = Math.max(1, ...bars.map(b => b.count));
+                  return (
+                    <div>
+                      <div className="flex items-end gap-1 h-10">
+                        {bars.map(b => (
+                          <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
+                            <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
+                            <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-1 mt-1.5">
+                        {bars.map(b => <span key={b.label} className="flex-1 text-center text-[10px] text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
+                      </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 tabular-nums">{total} open issues</p>
+                    </div>
+                  );
+                })()}
+              </PulseCard>
             </div>
 
           </Section>

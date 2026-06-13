@@ -65,6 +65,40 @@ export function Sparkline({ buckets }: { buckets: PulseMetrics["velocity"]["week
   );
 }
 
+export function DistributionBar({ median, p75, p90, max, unit = "d" }: {
+  min: number; median: number; p75: number; p90: number; max: number; unit?: string;
+}) {
+  // Cap axis at p90, show max as trailing label
+  const axisMax = p90 || 1;
+  const pct = (v: number) => Math.min((v / axisMax) * 100, 100);
+
+  return (
+    <div className="mt-2">
+      <div className="relative h-3 rounded-full overflow-hidden bg-[var(--color-bg-tertiary)]">
+        {/* Green: 0 → p50 */}
+        <div className="absolute inset-y-0 left-0 bg-[var(--color-success)]" style={{ width: `${pct(median)}%` }} />
+        {/* Amber: p50 → p75 */}
+        <div className="absolute inset-y-0 bg-[var(--color-warning)]" style={{ left: `${pct(median)}%`, width: `${pct(p75) - pct(median)}%` }} />
+        {/* Red: p75 → p90 */}
+        <div className="absolute inset-y-0 bg-[var(--color-error)]" style={{ left: `${pct(p75)}%`, width: `${pct(p90) - pct(p75)}%` }} />
+      </div>
+      <div className="flex items-center mt-1.5 text-[10px] tabular-nums text-[var(--color-text-muted)]">
+        <span className="text-[var(--color-success)]">p50 {median}{unit}</span>
+        <span className="mx-1">·</span>
+        <span className="text-[var(--color-warning)]">p75 {p75}{unit}</span>
+        <span className="mx-1">·</span>
+        <span className="text-[var(--color-error)]">p90 {p90}{unit}</span>
+        {max > p90 && (
+          <>
+            <span className="mx-1">·</span>
+            <span>max {max}{unit}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DailyVelocityChart({ buckets }: { buckets: { date: string; points: number }[] }) {
   const data = buckets.map((b) => ({
     date: b.date.slice(5),

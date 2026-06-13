@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"strings"
@@ -40,6 +41,15 @@ type weeklyTrend struct {
 	WeekStart string `json:"week_start"`
 	Created   int    `json:"created"`
 	Completed int    `json:"completed"`
+}
+
+type ageBuckets struct {
+	Under1d  int `json:"under_1d"`
+	Under3d  int `json:"under_3d"`
+	Under7d  int `json:"under_7d"`
+	Under14d int `json:"under_14d"`
+	Under30d int `json:"under_30d"`
+	Over30d  int `json:"over_30d"`
 }
 
 type bugAgeBuckets struct {
@@ -104,6 +114,22 @@ type pulseMetrics struct {
 		Total      int `json:"total"`
 		OldestDays int `json:"oldest_days"`
 	} `json:"blockers"`
+	Flow struct {
+		CycleTimeHrs    float64    `json:"cycle_time_hrs"`
+		CycleTimeP75Hrs float64    `json:"cycle_time_p75_hrs"`
+		CycleTimeP90Hrs float64    `json:"cycle_time_p90_hrs"`
+		CycleTimeMinHrs float64    `json:"cycle_time_min_hrs"`
+		CycleTimeMaxHrs float64    `json:"cycle_time_max_hrs"`
+		CycleCount      int        `json:"cycle_count"`
+		LeadTimeHrs     float64    `json:"lead_time_hrs"`
+		LeadTimeP75Hrs  float64    `json:"lead_time_p75_hrs"`
+		LeadTimeP90Hrs  float64    `json:"lead_time_p90_hrs"`
+		LeadTimeMinHrs  float64    `json:"lead_time_min_hrs"`
+		LeadTimeMaxHrs  float64    `json:"lead_time_max_hrs"`
+		LeadCount       int        `json:"lead_count"`
+		Staleness        ageBuckets `json:"staleness"`
+		StalenessTotal   int        `json:"staleness_total"`
+	} `json:"flow"`
 	Attention []attentionItem `json:"attention"`
 	Workload  []workloadEntry `json:"workload"`
 	Epics     []epicProgress  `json:"epics"`
@@ -153,6 +179,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	}
 
 	var triageDurations []time.Duration
+	var cycleTimes []time.Duration
+	var leadTimes []time.Duration
+	var staleness ageBuckets
+	var stalenessTotal int
 	var bugAge bugAgeBuckets
 
 	var blockerCandidates, staleCandidates, highPriorityCandidates []attentionItem
@@ -200,6 +230,36 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		createdWeekKey := startOfWeek(issue.CreatedAt).Format("2006-01-02")
 		if t, ok := trendByKey[createdWeekKey]; ok {
 			t.Created++
+		}
+
+		// Flow metrics
+		if doneAt != nil {
+			lt := doneAt.Sub(issue.CreatedAt)
+			if lt > 0 {
+				leadTimes = append(leadTimes, lt)
+			}
+			if doingAt != nil && doneAt.After(*doingAt) {
+				cycleTimes = append(cycleTimes, doneAt.Sub(*doingAt))
+			}
+		}
+		if issue.Status != model.StatusDone && !issue.Deleted {
+			age := now.Sub(issue.CreatedAt)
+			stalenessTotal++
+			days := age.Hours() / 24
+			switch {
+			case days < 1:
+				staleness.Under1d++
+			case days < 3:
+				staleness.Under3d++
+			case days < 7:
+				staleness.Under7d++
+			case days < 14:
+				staleness.Under14d++
+			case days < 30:
+				staleness.Under30d++
+			default:
+				staleness.Over30d++
+			}
 		}
 
 		// Triage time: from CreatedAt to the first UPDATE event that sets status away from BACKLOG.
@@ -374,6 +434,34 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		m.Trends.MedianTriageMins = int(median.Minutes())
 	}
 	m.Trends.BugAge = bugAge
+
+	// Flow metrics
+	hoursAtPercentile := func(sorted []time.Duration, p float64) float64 {
+		idx := int(math.Ceil(p/100*float64(len(sorted)))) - 1
+		if idx < 0 { idx = 0 }
+		if idx >= len(sorted) { idx = len(sorted) - 1 }
+		return math.Round(sorted[idx].Hours()*10) / 10
+	}
+	m.Flow.CycleCount = len(cycleTimes)
+	if len(cycleTimes) > 0 {
+		sort.Slice(cycleTimes, func(i, j int) bool { return cycleTimes[i] < cycleTimes[j] })
+		m.Flow.CycleTimeHrs = hoursAtPercentile(cycleTimes, 50)
+		m.Flow.CycleTimeP75Hrs = hoursAtPercentile(cycleTimes, 75)
+		m.Flow.CycleTimeP90Hrs = hoursAtPercentile(cycleTimes, 90)
+		m.Flow.CycleTimeMinHrs = hoursAtPercentile(cycleTimes, 0)
+		m.Flow.CycleTimeMaxHrs = hoursAtPercentile(cycleTimes, 100)
+	}
+	m.Flow.LeadCount = len(leadTimes)
+	if len(leadTimes) > 0 {
+		sort.Slice(leadTimes, func(i, j int) bool { return leadTimes[i] < leadTimes[j] })
+		m.Flow.LeadTimeHrs = hoursAtPercentile(leadTimes, 50)
+		m.Flow.LeadTimeP75Hrs = hoursAtPercentile(leadTimes, 75)
+		m.Flow.LeadTimeP90Hrs = hoursAtPercentile(leadTimes, 90)
+		m.Flow.LeadTimeMinHrs = hoursAtPercentile(leadTimes, 0)
+		m.Flow.LeadTimeMaxHrs = hoursAtPercentile(leadTimes, 100)
+	}
+	m.Flow.Staleness = staleness
+	m.Flow.StalenessTotal = stalenessTotal
 
 	return m
 }
