@@ -29,12 +29,11 @@ function compareKeys(a: string, b: string): number {
 }
 
 /** Compute a sort_order key that appends after all existing issues in a group. */
-export function computeAppendKey(issues: Issue[], status: string, parentId?: string): string {
-  const group = parentId
-    ? issues.filter(i => i.parent_id === parentId)
-    : issues.filter(i => i.status === status && !i.parent_id);
+export function computeAppendKey(issues: Issue[], _status?: string, _parentId?: string): string {
+  // Find the max sort_order across ALL issues to guarantee the new key
+  // sorts last, regardless of backfill instability across projections.
   let maxKey: string | null = null;
-  for (const i of group) {
+  for (const i of issues) {
     if (i.sort_order && (maxKey === null || i.sort_order > maxKey)) {
       maxKey = i.sort_order;
     }

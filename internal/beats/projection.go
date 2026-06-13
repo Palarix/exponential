@@ -175,7 +175,10 @@ func backfillSortOrder(issues map[string]*model.Issue) {
 		}
 
 		sort.Slice(unkeyed, func(i, j int) bool {
-			return unkeyed[i].CreatedAt.Before(unkeyed[j].CreatedAt)
+			if !unkeyed[i].CreatedAt.Equal(unkeyed[j].CreatedAt) {
+				return unkeyed[i].CreatedAt.Before(unkeyed[j].CreatedAt)
+			}
+			return unkeyed[i].ID < unkeyed[j].ID
 		})
 
 		keys, err := sortorder.GenerateNKeysBetween(maxKey, "", len(unkeyed))
