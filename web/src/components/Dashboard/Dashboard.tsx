@@ -232,6 +232,18 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="beats-dashboard-pulse-open">
             {/* Charts row: 50/50 */}
             <div className="px-5 py-3 grid grid-cols-2 gap-3">
+              <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
+                  <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
+                </div>
+                <div className="flex-1 min-h-0">
+                  {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0
+                    ? <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
+                    : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+                  }
+                </div>
+              </Card>
               {metrics && metrics.trends.weekly.length > 0 && (
                 <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
                   <div className="flex items-center justify-between mb-2">
@@ -246,18 +258,6 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   </div>
                 </Card>
               )}
-              <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
-                  <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
-                </div>
-                <div className="flex-1 min-h-0">
-                  {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0
-                    ? <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
-                    : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
-                  }
-                </div>
-              </Card>
             </div>
 
             {/* Stats row: Velocity + Cycle Time + Lead Time + Staleness */}
