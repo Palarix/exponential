@@ -113,7 +113,7 @@ export default function Backlog({
     y: number;
   } | null>(null);
   const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
-  const [showStoryPoints, setShowStoryPoints] = useState(false);
+  const [showStoryPoints, setShowStoryPoints] = useState(() => localStorage.getItem("beats-backlog-show-points") === "true");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -981,7 +981,7 @@ export default function Backlog({
                           className="text-sm text-[var(--color-text-muted)] tabular-nums cursor-pointer hover:text-[var(--color-text-secondary)] transition-colors inline-flex items-center gap-1 h-5"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setShowStoryPoints((v) => !v);
+                            setShowStoryPoints((v) => { const next = !v; localStorage.setItem("beats-backlog-show-points", String(next)); return next; });
                           }}
                           title={showStoryPoints ? "Story points — click for issue count" : "Issue count — click for story points"}
                         >
