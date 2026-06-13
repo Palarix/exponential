@@ -32,6 +32,8 @@ import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isEditableTarget } from "../../utils/keyboard";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS } from "../../constants";
+import FilterMenu from "./FilterMenu";
+import { type BacklogFilters, hasActiveFilters } from "./filters";
 import {
   backlogCollision,
   GroupHeaderDnd,
@@ -66,6 +68,8 @@ interface BacklogProps {
   contributors: string[];
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
   onNewIssue?: () => void;
+  filters: BacklogFilters;
+  onFiltersChange: (filters: BacklogFilters) => void;
 }
 
 export default function Backlog({
@@ -82,6 +86,8 @@ export default function Backlog({
   contributors,
   onConfigLabelsChange,
   onNewIssue,
+  filters,
+  onFiltersChange,
 }: BacklogProps) {
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -108,6 +114,8 @@ export default function Backlog({
   } | null>(null);
   const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
   const [showStoryPoints, setShowStoryPoints] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
@@ -190,14 +198,25 @@ export default function Backlog({
 
   const visibleStatuses = TAB_CONFIGS[activeTab].statuses;
   const query = search.toLowerCase();
-  const filteredIssues = issues.filter(
-    (i) =>
-      visibleStatuses.includes(i.status) &&
-      (!query ||
-        i.title.toLowerCase().includes(query) ||
-        i.id.toLowerCase().includes(query) ||
-        i.labels?.some((l) => l.toLowerCase().includes(query))),
-  );
+  const filteredIssues = issues.filter((i) => {
+    if (!visibleStatuses.includes(i.status)) return false;
+    if (query && !(
+      i.title.toLowerCase().includes(query) ||
+      i.id.toLowerCase().includes(query) ||
+      i.labels?.some((l) => l.toLowerCase().includes(query))
+    )) return false;
+    if (filters.statuses.length > 0 && !filters.statuses.includes(i.status)) return false;
+    if (filters.labels.length > 0 && !filters.labels.some((l) => i.labels?.includes(l))) return false;
+    if (filters.assignees.length > 0) {
+      const match = i.assignee
+        ? filters.assignees.includes(i.assignee)
+        : filters.assignees.includes("__unassigned__");
+      if (!match) return false;
+    }
+    if (filters.priorities.length > 0 && !filters.priorities.includes(i.priority || 0)) return false;
+    if (filters.epicId && i.parent_id !== filters.epicId) return false;
+    return true;
+  });
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Issue[]>();
@@ -621,6 +640,11 @@ export default function Backlog({
       if (openPopoverRef.current) return;
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
+      if (e.key === "f") {
+        e.preventDefault();
+        setShowFilterMenu((v) => !v);
+        return;
+      }
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);
@@ -791,6 +815,30 @@ export default function Backlog({
               />
             </div>
           )}
+          <div className="relative">
+            <button
+              ref={filterBtnRef}
+              onClick={() => setShowFilterMenu((v) => !v)}
+              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors relative"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+              </svg>
+              Filter
+              {hasActiveFilters(filters) && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+              )}
+            </button>
+            {showFilterMenu && (
+              <FilterMenu
+                issues={filteredIssues}
+                filters={filters}
+                onChange={onFiltersChange}
+                anchorRef={filterBtnRef}
+                onClose={() => setShowFilterMenu(false)}
+              />
+            )}
+          </div>
           <div className="relative">
             <button
               ref={sortBtnRef}

@@ -18,6 +18,7 @@ interface LayoutProps {
   version: string;
   connected: boolean;
   cyclesEnabled?: boolean;
+  statusBarLeft?: ReactNode;
 }
 
 const PRIMARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
@@ -219,6 +220,7 @@ export default function Layout({
   version,
   connected,
   cyclesEnabled,
+  statusBarLeft,
 }: LayoutProps) {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -367,8 +369,10 @@ export default function Layout({
         <main className="flex-1 overflow-hidden bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] border-b-0">
           {children}
         </main>
-        <div className="flex items-center justify-end px-4 py-2 shrink-0">
-          <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center px-4 py-2 shrink-0 gap-3">
+          {statusBarLeft && <div className="flex-1 min-w-0">{statusBarLeft}</div>}
+          {!statusBarLeft && <div className="flex-1" />}
+          <div className="flex items-center gap-2 text-xs shrink-0">
             <span
               className={`w-2 h-2 rounded-full ${connected ? "bg-[var(--color-success)]" : "bg-[var(--color-error)]"}`}
             />

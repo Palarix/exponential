@@ -17,6 +17,8 @@ import { useSSE } from './hooks/useSSE';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
 import { isEditableTarget } from './utils/keyboard';
+import { type BacklogFilters, EMPTY_FILTERS, hasActiveFilters } from './components/Backlog/filters';
+import FilterChips from './components/Backlog/FilterChips';
 
 type View = 'dashboard' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels';
 
@@ -88,7 +90,17 @@ function App() {
   );
   const [backlogNavOrder, setBacklogNavOrder] = useState<string[]>([]);
   const [backlogTab, setBacklogTab] = useState<Tab>('all');
+  const [backlogFilters, setBacklogFilters] = useState<BacklogFilters>(() => {
+    const stored = localStorage.getItem(`beats-backlog-filters-${backlogTab}`);
+    if (stored) { try { return JSON.parse(stored); } catch {} }
+    return EMPTY_FILTERS;
+  });
   const showToast = useToast();
+
+  const handleFiltersChange = useCallback((f: BacklogFilters) => {
+    setBacklogFilters(f);
+    localStorage.setItem(`beats-backlog-filters-${backlogTab}`, JSON.stringify(f));
+  }, [backlogTab]);
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
 
@@ -267,6 +279,8 @@ function App() {
             contributors={contributors}
             onConfigLabelsChange={setConfigLabels}
             onNewIssue={() => setShowNewIssue(true)}
+            filters={backlogFilters}
+            onFiltersChange={handleFiltersChange}
           />
         );
       case 'board':
@@ -306,6 +320,9 @@ function App() {
         version={version}
         connected={!error}
         cyclesEnabled={cyclesEnabled}
+        statusBarLeft={view === 'backlog' && hasActiveFilters(backlogFilters) ? (
+          <FilterChips filters={backlogFilters} onChange={handleFiltersChange} />
+        ) : undefined}
       >
         <ErrorBoundary onReset={fetchData}>
           {renderContent()}
