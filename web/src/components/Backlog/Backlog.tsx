@@ -115,6 +115,8 @@ export default function Backlog({
   const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
   const [showStoryPoints, setShowStoryPoints] = useState(() => localStorage.getItem("beats-backlog-show-points") === "true");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const showFilterMenuRef = useRef(showFilterMenu);
+  showFilterMenuRef.current = showFilterMenu;
   const filterBtnRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -645,6 +647,7 @@ export default function Backlog({
         setShowFilterMenu((v) => !v);
         return;
       }
+      if (showFilterMenuRef.current) return;
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);

@@ -166,17 +166,21 @@ function SubMenu({
   options,
   selected,
   onToggle,
+  focusIndex,
+  hasFocus,
 }: {
   options: SubMenuOption[];
   selected: string[];
   onToggle: (value: string) => void;
+  focusIndex?: number;
+  hasFocus?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (hasFocus) inputRef.current?.focus();
+  }, [hasFocus]);
 
   const filtered = search
     ? options.filter((o) => {
@@ -184,6 +188,8 @@ function SubMenu({
         return text.toLowerCase().includes(search.toLowerCase());
       })
     : options;
+
+  const effectiveIndex = hasFocus ? Math.min(focusIndex ?? 0, filtered.length - 1) : -1;
 
   return (
     <div className="py-1 w-52">
@@ -199,13 +205,15 @@ function SubMenu({
         </div>
       )}
       <div className="max-h-64 overflow-y-auto">
-        {filtered.map((opt) => {
+        {filtered.map((opt, i) => {
           const isSelected = selected.includes(opt.value);
+          const isFocused = i === effectiveIndex;
           return (
             <button
               key={opt.value}
+              data-filter-option
               onClick={() => onToggle(opt.value)}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left hover:bg-[var(--color-bg-hover)] transition-colors"
+              className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : "hover:bg-[var(--color-bg-hover)]"}`}
             >
               <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0 ${isSelected ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}>
                 {isSelected && (
@@ -228,7 +236,9 @@ function SubMenu({
 }
 
 export default function FilterMenu({ issues, filters, onChange, anchorRef, onClose }: FilterMenuProps) {
-  const [openDim, setOpenDim] = useState<Dimension | null>(null);
+  const [openDim, setOpenDim] = useState<Dimension | null>(DIMENSIONS[0].key);
+  const [inSubMenu, setInSubMenu] = useState(false);
+  const [subFocusIndex, setSubFocusIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const subMenuRef = useRef<HTMLDivElement>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({ position: "fixed", visibility: "hidden" });
@@ -278,17 +288,68 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose, anchorRef]);
 
-  // Close on Escape
+  // Keyboard: Escape, arrow keys for main menu + sub-menu navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Let typing work in the sub-menu search input, but still handle navigation keys
+      const inInput = (e.target as HTMLElement)?.tagName === "INPUT";
+      if (inInput && e.key !== "Escape" && e.key !== "ArrowRight") return;
+
       if (e.key === "Escape") {
-        if (openDim) setOpenDim(null);
+        e.preventDefault();
+        if (inSubMenu) { (document.activeElement as HTMLElement)?.blur(); setInSubMenu(false); setSubFocusIndex(0); }
+        else if (openDim) setOpenDim(null);
         else onClose();
+        return;
+      }
+
+      const dimKeys = DIMENSIONS.map(d => d.key);
+
+      if (inSubMenu && openDim) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSubFocusIndex(i => i + 1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSubFocusIndex(i => Math.max(i - 1, 0));
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          (document.activeElement as HTMLElement)?.blur();
+          setInSubMenu(false);
+          setSubFocusIndex(0);
+        } else if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          const buttons = subMenuRef.current?.querySelectorAll("button[data-filter-option]");
+          if (buttons && buttons[subFocusIndex]) {
+            (buttons[subFocusIndex] as HTMLButtonElement).click();
+          }
+        }
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const idx = openDim ? dimKeys.indexOf(openDim) : -1;
+        const next = dimKeys[Math.min(idx + 1, dimKeys.length - 1)];
+        setOpenDim(next);
+        setInSubMenu(false);
+        setSubFocusIndex(0);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const idx = openDim ? dimKeys.indexOf(openDim) : dimKeys.length;
+        const next = dimKeys[Math.max(idx - 1, 0)];
+        setOpenDim(next);
+        setInSubMenu(false);
+        setSubFocusIndex(0);
+      } else if ((e.key === "ArrowLeft" || e.key === "Enter" || e.key === " ") && openDim) {
+        e.preventDefault();
+        setInSubMenu(true);
+        setSubFocusIndex(0);
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [openDim, onClose]);
+  }, [openDim, onClose, inSubMenu, subFocusIndex]);
 
   const handleToggle = (dim: Dimension, value: string) => {
     const isMulti = dim !== "epic";
@@ -335,7 +396,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
 
       {/* Sub-menu */}
       {openDim && (
-        <SubMenuPortal ref={subMenuRef} dim={openDim} issues={issues} filters={filters} style={subStyle} onToggle={handleToggle} />
+        <SubMenuPortal ref={subMenuRef} dim={openDim} issues={issues} filters={filters} style={subStyle} onToggle={handleToggle} focusIndex={subFocusIndex} hasFocus={inSubMenu} />
       )}
     </>,
     document.body,
@@ -348,7 +409,9 @@ const SubMenuPortal = forwardRef<HTMLDivElement, {
   filters: BacklogFilters;
   style: React.CSSProperties;
   onToggle: (dim: Dimension, value: string) => void;
-}>(function SubMenuPortal({ dim, issues, filters, style, onToggle }, ref) {
+  focusIndex: number;
+  hasFocus: boolean;
+}>(function SubMenuPortal({ dim, issues, filters, style, onToggle, focusIndex, hasFocus }, ref) {
   const options = useSubMenuOptions(dim, issues);
   const selected = getSelected(dim, filters);
 
@@ -358,6 +421,8 @@ const SubMenuPortal = forwardRef<HTMLDivElement, {
         options={options}
         selected={selected}
         onToggle={(value) => onToggle(dim, value)}
+        focusIndex={focusIndex}
+        hasFocus={hasFocus}
       />
     </div>
   );
