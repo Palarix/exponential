@@ -118,6 +118,7 @@ export interface PulseMetrics {
   velocity: {
     last_7d_points: number;
     weekly_buckets: { week_start: string; points: number }[];
+    daily_buckets: { date: string; points: number }[];
   };
   throughput: {
     last_7d: number;

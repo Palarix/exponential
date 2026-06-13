@@ -1,4 +1,38 @@
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 import type { PulseMetrics } from "../../api/client";
+
+const AXIS_STYLE = {
+  fontSize: 10,
+  fill: "var(--color-text-muted)",
+};
+
+const GRID_STYLE = {
+  stroke: "var(--color-border-subtle)",
+  strokeDasharray: "3 3",
+};
+
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    background: "var(--color-bg-elevated)",
+    border: "1px solid var(--color-border-default)",
+    borderRadius: "var(--radius-md)",
+    fontSize: 12,
+    padding: "6px 10px",
+    boxShadow: "var(--shadow-popover)",
+  },
+  labelStyle: { color: "var(--color-text-muted)", marginBottom: 2 },
+  itemStyle: { color: "var(--color-text-primary)", padding: 0 },
+};
 
 export function Sparkline({ buckets }: { buckets: PulseMetrics["velocity"]["weekly_buckets"] }) {
   const max = Math.max(1, ...buckets.map((b) => b.points));
@@ -31,27 +65,57 @@ export function Sparkline({ buckets }: { buckets: PulseMetrics["velocity"]["week
   );
 }
 
-export function TrendChart({ weekly }: { weekly: { week_start: string; created: number; completed: number }[] }) {
-  const max = Math.max(1, ...weekly.flatMap((w) => [w.created, w.completed]));
-  const barW = 6;
-  const innerGap = 2;
-  const groupGap = 6;
-  const height = 56;
-  const groupW = barW * 2 + innerGap;
-  const width = weekly.length * (groupW + groupGap) - groupGap;
+export function DailyVelocityChart({ buckets }: { buckets: { date: string; points: number }[] }) {
+  const data = buckets.map((b) => ({
+    date: b.date.slice(5),
+    points: b.points,
+  }));
+
   return (
-    <svg width={width} height={height} className="shrink-0" aria-label="created vs completed, last 8 weeks">
-      {weekly.map((w, i) => {
-        const x = i * (groupW + groupGap);
-        const ch = (w.created / max) * height;
-        const dh = (w.completed / max) * height;
-        return (
-          <g key={w.week_start}>
-            <rect x={x} y={height - Math.max(1, ch)} width={barW} height={Math.max(1, ch)} className="fill-[var(--color-text-muted)]" rx={1} />
-            <rect x={x + barW + innerGap} y={height - Math.max(1, dh)} width={barW} height={Math.max(1, dh)} className="fill-[var(--color-accent-primary)]" rx={1} />
-          </g>
-        );
-      })}
-    </svg>
+    <ResponsiveContainer width="100%" height={200}>
+      <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+        <defs>
+          <linearGradient id="dv-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-accent-primary)" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="var(--color-accent-primary)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical strokeDasharray="3 3" stroke="var(--color-border-subtle)" horizontal={false} />
+        <XAxis dataKey="date" tick={AXIS_STYLE} axisLine={false} tickLine={false} interval={0} />
+        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} allowDecimals={false} />
+        <Tooltip {...TOOLTIP_STYLE} />
+        <Area
+          type="step"
+          dataKey="points"
+          stroke="var(--color-accent-primary)"
+          strokeWidth={2}
+          fill="url(#dv-gradient)"
+          dot={{ r: 2.5, fill: "var(--color-accent-primary)", strokeWidth: 0 }}
+          activeDot={{ r: 4, fill: "var(--color-accent-primary)", strokeWidth: 0 }}
+          name="Points"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TrendChart({ weekly }: { weekly: { week_start: string; created: number; completed: number }[] }) {
+  const data = weekly.map((w) => ({
+    week: w.week_start.slice(5),
+    created: w.created,
+    completed: w.completed,
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+        <CartesianGrid {...GRID_STYLE} horizontal vertical={false} />
+        <XAxis dataKey="week" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+        <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} allowDecimals={false} />
+        <Tooltip {...TOOLTIP_STYLE} />
+        <Bar dataKey="created" fill="var(--color-text-muted)" radius={[2, 2, 0, 0]} name="Created" />
+        <Bar dataKey="completed" fill="var(--color-accent-primary)" radius={[2, 2, 0, 0]} name="Completed" />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }

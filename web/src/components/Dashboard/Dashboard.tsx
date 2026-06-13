@@ -3,7 +3,7 @@ import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, ty
 import { Avatar, Card, CopyableId, EmptyState, LabelBadge, StatusIcon, SubProgress } from "../ui";
 import { formatTriage } from "../../utils/format";
 import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
-import { Sparkline, TrendChart } from "./charts";
+import { Sparkline, DailyVelocityChart, TrendChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
 
@@ -223,7 +223,32 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                 <p className="text-xs text-[var(--color-text-muted)] mt-2">blocked</p>
                 {metrics && metrics.blockers.total > 0 && <p className="text-xs text-[var(--color-error)] mt-1">oldest {metrics.blockers.oldest_days}d</p>}
               </PulseCard>
+              {/* Status composition */}
+              {statusCards.map((card) => (
+                <PulseCard key={card.label} title={card.label}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <StatusIcon status={card.status} size={14} />
+                  </div>
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{card.value}</p>
+                  <div className="h-1 mt-3 rounded-full bg-[var(--color-bg-tertiary)]">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ background: card.color, width: `${stats.total ? (card.value / stats.total) * 100 : 0}%` }} />
+                  </div>
+                </PulseCard>
+              ))}
             </div>
+
+            {/* Daily velocity chart */}
+            {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0 && (
+              <div className="px-5 pb-3">
+                <Card variant="elevated" padding="sm" className="flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
+                    <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
+                  </div>
+                  <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
+                </Card>
+              </div>
+            )}
           </Section>
 
           {/* Trends */}
@@ -237,7 +262,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
                   </div>
                 </div>
-                {metrics ? <div className="flex items-end justify-center"><TrendChart weekly={metrics.trends.weekly} /></div> : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>}
+                {metrics ? <TrendChart weekly={metrics.trends.weekly} /> : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>}
                 <p className="mt-auto text-xs text-[var(--color-text-muted)]">last 8 weeks</p>
               </Card>
               <Card variant="elevated" padding="sm" className="min-h-28 flex flex-col">
@@ -360,24 +385,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
 
           {/* Composition */}
           <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="beats-dashboard-composition-open">
-            <div className="px-5 py-4 space-y-6">
-              <div>
-                <h3 className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] mb-3">By status</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  {statusCards.map((card) => (
-                    <Card key={card.label} variant="default" className="text-center">
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        <StatusIcon status={card.status} size={12} />
-                        <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{card.label}</p>
-                      </div>
-                      <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{card.value}</p>
-                      <div className="h-1 mt-3 rounded-full bg-[var(--color-bg-tertiary)]">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ background: card.color, width: `${stats.total ? (card.value / stats.total) * 100 : 0}%` }} />
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
+            <div className="px-5 py-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <DistributionSection title="By label" filter={labelFilter} onFilterChange={setLabelFilter} rows={labelDistribution.rows} total={labelDistribution.total} emptyHasIssues="No labels on the filtered issues." />
                 <DistributionSection title="By assignee" filter={assigneeFilter} onFilterChange={setAssigneeFilter} rows={assigneeDistribution.rows} total={assigneeDistribution.total} emptyHasIssues="No assignees on the filtered issues." />

@@ -77,10 +77,16 @@ type velocityBucket struct {
 	Points    int    `json:"points"`
 }
 
+type dailyBucket struct {
+	Date   string `json:"date"` // YYYY-MM-DD
+	Points int    `json:"points"`
+}
+
 type pulseMetrics struct {
 	Velocity struct {
 		Last7dPoints  int              `json:"last_7d_points"`
 		WeeklyBuckets []velocityBucket `json:"weekly_buckets"`
+		DailyBuckets  []dailyBucket    `json:"daily_buckets"`
 	} `json:"velocity"`
 	Throughput struct {
 		Last7d  int `json:"last_7d"`
@@ -129,6 +135,15 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		}
 	}
 
+	// Pre-build 14 daily buckets (oldest → newest).
+	dailyByKey := make(map[string]int)
+	dailyOrder := make([]string, 0, 14)
+	for d := 13; d >= 0; d-- {
+		key := now.AddDate(0, 0, -d).Format("2006-01-02")
+		dailyByKey[key] = 0
+		dailyOrder = append(dailyOrder, key)
+	}
+
 	// Trend buckets (created/completed issue counts per week, same 8-week window).
 	trendByKey := make(map[string]*weeklyTrend, len(bucketOrder))
 	for _, k := range bucketOrder {
@@ -168,6 +183,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 			weekKey := startOfWeek(*doneAt).Format("2006-01-02")
 			if _, ok := bucketsByKey[weekKey]; ok {
 				bucketsByKey[weekKey] += points
+			}
+			dayKey := doneAt.Format("2006-01-02")
+			if _, ok := dailyByKey[dayKey]; ok {
+				dailyByKey[dayKey] += points
 			}
 			if t, ok := trendByKey[weekKey]; ok {
 				t.Completed++
@@ -288,6 +307,14 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		m.Velocity.WeeklyBuckets = append(m.Velocity.WeeklyBuckets, velocityBucket{
 			WeekStart: key,
 			Points:    bucketsByKey[key],
+		})
+	}
+
+	m.Velocity.DailyBuckets = make([]dailyBucket, 0, len(dailyOrder))
+	for _, key := range dailyOrder {
+		m.Velocity.DailyBuckets = append(m.Velocity.DailyBuckets, dailyBucket{
+			Date:   key,
+			Points: dailyByKey[key],
 		})
 	}
 
