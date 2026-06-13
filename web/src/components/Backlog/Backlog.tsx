@@ -1116,6 +1116,8 @@ export default function Backlog({
                       hasChildren,
                       childDone,
                       childTotal,
+                      childPointsDone,
+                      childPointsTotal,
                       parentBreadcrumb,
                       isGhostParent,
                       treeGuides,
@@ -1410,7 +1412,7 @@ export default function Backlog({
                                   }
                                   className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums w-10 justify-end hover:opacity-70 transition-opacity"
                                 >
-                                  {issue.estimate > 0 ? (
+                                  {(hasChildren ? childPointsTotal - childPointsDone : issue.estimate) > 0 ? (
                                     <>
                                       <svg
                                         className="w-3 h-3"
@@ -1424,7 +1426,7 @@ export default function Backlog({
                                           strokeLinejoin="round"
                                         />
                                       </svg>
-                                      {issue.estimate}
+                                      {hasChildren ? childPointsTotal - childPointsDone : issue.estimate}
                                     </>
                                   ) : (
                                     <span className="opacity-0 group-hover:opacity-100 transition-opacity">

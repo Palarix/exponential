@@ -28,6 +28,8 @@ export type RowItem =
       hasChildren: boolean;
       childDone: number;
       childTotal: number;
+      childPointsDone: number;
+      childPointsTotal: number;
       parentBreadcrumb?: string;
       isGhostParent?: boolean;
       treeGuides: TreeGuide[];
@@ -101,6 +103,8 @@ export function useBacklogRows(
           const addTree = (issue: Issue, depth: number, breadcrumb?: string, treeGuides?: TreeGuide[]) => {
             const allChildren = childrenByParent.get(issue.id) || [];
             const doneCount = allChildren.filter((c) => c.status === "DONE").length;
+            const childPointsTotal = allChildren.reduce((s, c) => s + (c.estimate || 1), 0);
+            const childPointsDone = allChildren.filter((c) => c.status === "DONE").reduce((s, c) => s + (c.estimate || 1), 0);
             result.push({
               kind: "issue",
               issue,
@@ -108,6 +112,8 @@ export function useBacklogRows(
               hasChildren: allChildren.length > 0,
               childDone: doneCount,
               childTotal: allChildren.length,
+              childPointsDone,
+              childPointsTotal,
               parentBreadcrumb: breadcrumb,
               treeGuides: treeGuides || [],
             });
@@ -140,6 +146,8 @@ export function useBacklogRows(
           const addTree = (issue: Issue, depth: number, isGhost?: boolean, treeGuides?: TreeGuide[]) => {
             const allChildren = childrenByParent.get(issue.id) || [];
             const doneCount = allChildren.filter((c) => c.status === "DONE").length;
+            const childPointsTotal = allChildren.reduce((s, c) => s + (c.estimate || 1), 0);
+            const childPointsDone = allChildren.filter((c) => c.status === "DONE").reduce((s, c) => s + (c.estimate || 1), 0);
             result.push({
               kind: "issue",
               issue,
@@ -147,6 +155,8 @@ export function useBacklogRows(
               hasChildren: allChildren.length > 0,
               childDone: doneCount,
               childTotal: allChildren.length,
+              childPointsDone,
+              childPointsTotal,
               isGhostParent: isGhost,
               treeGuides: treeGuides || [],
             });
