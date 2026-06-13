@@ -10,6 +10,7 @@ import {
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
+  type DragMoveEvent,
 } from "@dnd-kit/core";
 import { createIssue, addDraft, fetchCycles } from "../../api/client";
 import type { Issue } from "../../api/client";
@@ -499,12 +500,22 @@ export default function Backlog({
       if (overRaw.startsWith("group-")) {
         const status = overRaw.slice("group-".length);
         const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
-        if (draggedStatus !== status) {
+        if (draggedStatus === status) {
+          // Same group — show insert bar above the first issue in this group
+          const firstIssueIdx = rows.findIndex(
+            (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
+          );
+          if (firstIssueIdx !== -1) {
+            setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
+            setDropGroupStatus(null);
+            setDropNestTargetId(null);
+          } else {
+            setDropGroupStatus(null);
+          }
+        } else {
           setDropIndicator(null);
           setDropGroupStatus(status);
           setDropNestTargetId(null);
-        } else {
-          setDropGroupStatus(null);
         }
         return;
       }
@@ -550,7 +561,49 @@ export default function Backlog({
         return;
       }
       setDropGroupStatus(null);
-      const overRect = event.over?.rect;
+      // Position is updated continuously by handleDndMove
+    },
+    [rows, issues, getRowStatusGroup],
+  );
+
+  const handleDndMove = useCallback(
+    (event: DragMoveEvent) => {
+      const draggedId = String(event.active.id);
+      const overRaw = event.over?.id ? String(event.over.id) : null;
+      if (!overRaw) return;
+
+      // When over a group header, show insert above first issue (same group only)
+      if (overRaw.startsWith("group-")) {
+        const status = overRaw.slice("group-".length);
+        const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
+        if (draggedStatus === status) {
+          const firstIssueIdx = rows.findIndex(
+            (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
+          );
+          if (firstIssueIdx !== -1) {
+            setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
+          }
+        }
+        return;
+      }
+
+      const overRowIndex = rows.findIndex(
+        (r) => r.kind === "issue" && r.issue.id === overRaw,
+      );
+      if (overRowIndex < 0) return;
+      const overRow = rows[overRowIndex];
+      if (overRow.kind !== "issue") return;
+
+      // Cross-group without meta key: no indicator (group highlight handled by onDragOver)
+      const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
+      const targetStatus = getRowStatusGroup(overRowIndex);
+      if (draggedStatus !== targetStatus && !(modifiersRef.current.meta || modifiersRef.current.ctrl)) {
+        setDropIndicator(null);
+        return;
+      }
+
+      const overEl = document.querySelector(`[data-row="${overRowIndex}"]`);
+      const overRect = overEl?.getBoundingClientRect();
       if (!overRect) return;
       const overCenterY = overRect.top + overRect.height / 2;
       const position: "above" | "below" =
@@ -571,7 +624,7 @@ export default function Backlog({
       }
       setDropIndicator({ rowIndex: overRowIndex, position });
     },
-    [rows, issues, getRowStatusGroup, expandedNodes],
+    [rows, issues, expandedNodes, getRowStatusGroup],
   );
 
   const handleDndEnd = useCallback(
@@ -911,6 +964,7 @@ export default function Backlog({
         collisionDetection={backlogCollision}
         onDragStart={handleDndStart}
         onDragOver={handleDndOver}
+        onDragMove={handleDndMove}
         onDragEnd={handleDndEnd}
         onDragCancel={resetDropState}
       >
