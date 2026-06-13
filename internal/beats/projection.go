@@ -260,6 +260,7 @@ func applyAutomations(issues map[string]*model.Issue, cfg *config.Config) {
 			}
 			if hasChildren && allDone {
 				parent.Status = model.StatusDone
+				parent.InferredStatus = true
 			}
 		}
 	}
@@ -278,9 +279,11 @@ func applyAutomations(issues map[string]*model.Issue, cfg *config.Config) {
 			if (issue.Status == model.StatusDoing || issue.Status == model.StatusPlanned) &&
 				parent.Status == model.StatusBacklog {
 				parent.Status = model.StatusPlanned
+				parent.InferredStatus = true
 			}
 			if issue.Status == model.StatusDoing && parent.Status == model.StatusPlanned {
 				parent.Status = model.StatusDoing
+				parent.InferredStatus = true
 			}
 		}
 	}
