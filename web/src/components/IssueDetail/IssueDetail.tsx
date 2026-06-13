@@ -42,6 +42,7 @@ export default function IssueDetail({
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [optimisticDescription, setOptimisticDescription] = useState<string | null>(null);
   const [descClickEvent, setDescClickEvent] = useState<{ clientX: number; clientY: number } | null>(null);
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
@@ -55,7 +56,14 @@ export default function IssueDetail({
     setEditingField(null);
     setOpenPopover(null);
     setNewComment("");
+    setOptimisticDescription(null);
   }, [issue.id]);
+
+  useEffect(() => {
+    if (optimisticDescription !== null && issue.description === optimisticDescription) {
+      setOptimisticDescription(null);
+    }
+  }, [issue.description, optimisticDescription]);
 
   const saveDraft = useCallback(
     async (type: string, payload: unknown) => {
@@ -204,6 +212,7 @@ export default function IssueDetail({
 
   const handleSaveDescription = () => {
     if (editDescription !== (issue.description || "")) {
+      setOptimisticDescription(editDescription);
       saveDraft("UPDATE", { description: editDescription });
     } else {
       setEditingField(null);
@@ -318,9 +327,9 @@ export default function IssueDetail({
                   onClick={(e) => { setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description"); }}
                   className="cursor-text min-h-10 prose-beats"
                 >
-                  {issue.description ? (
+                  {(optimisticDescription ?? issue.description) ? (
                     <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                      {linkifyIssueIds(issue.description, prefix)}
+                      {linkifyIssueIds(optimisticDescription ?? issue.description ?? "", prefix)}
                     </Markdown>
                   ) : (
                     <p className="text-base text-[var(--color-text-muted)]">Add a description...</p>
