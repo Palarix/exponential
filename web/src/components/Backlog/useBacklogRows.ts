@@ -71,7 +71,15 @@ export function useBacklogRows(
       const groupIssues = filteredIssues.filter((i) => i.status === status);
       if (groupIssues.length === 0 && !isAllTab) continue;
 
-      const storyPoints = groupIssues.reduce((sum, i) => sum + (i.estimate || 0), 0);
+      const epicIds = new Set(
+        groupIssues
+          .filter((i) => i.labels?.includes("epic") && groupIssues.some((c) => c.parent_id === i.id))
+          .map((i) => i.id),
+      );
+      const storyPoints = groupIssues.reduce(
+        (sum, i) => sum + (epicIds.has(i.id) ? 0 : (i.estimate || 1)),
+        0,
+      );
       result.push({
         kind: "group",
         status,
