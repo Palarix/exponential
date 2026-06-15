@@ -168,12 +168,19 @@ function CyclesTimeline({ cycles, issues, onSelect }: { cycles: Cycle[]; issues:
 
   function dotProps(idx: number) {
     const c = sorted[idx];
-    const prevInTime = idx > 0 ? sorted[idx - 1] : null;
-    if (prevInTime?.status === 'current') return { dotColor: 'bg-[var(--color-accent-primary)]', hollow: false };
-    if (c.status === 'current') return { dotColor: 'border-[var(--color-text-muted)]', hollow: true };
+    const nextInList = idx + 1 < sorted.length ? sorted[idx + 1] : null;
+    if (c.status === 'current') return { dotColor: 'bg-[var(--color-accent-primary)]', hollow: false };
+    if (nextInList?.status === 'current') return { dotColor: 'border-[var(--color-accent-primary)]', hollow: true };
     if (c.status === 'upcoming' || c.status === 'planned') return { dotColor: 'border-[var(--color-text-muted)]', hollow: true };
     return { dotColor: 'bg-[var(--color-text-muted)]', hollow: false };
   }
+
+  const topBoundary = useMemo(() => {
+    if (sorted.length === 0) return '';
+    const d = new Date(sorted[0].end + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, [sorted]);
 
   function lineColor(rowIdx: number) {
     if (currentIdx < 0) return 'bg-[var(--color-border-default)]';
@@ -187,22 +194,18 @@ function CyclesTimeline({ cycles, issues, onSelect }: { cycles: Cycle[]; issues:
         <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Cycles</h1>
       </div>
       <div className="pb-4">
+        {sorted.length > 0 && (
+          <TimelineSeparator date={formatShortDate(topBoundary)} dotColor={sorted[0].status === 'current' ? 'border-[var(--color-accent-primary)]' : 'border-[var(--color-text-muted)]'} hollow={true} />
+        )}
         {sorted.map((c, i) => {
           const dp = dotProps(i);
           return (
             <div key={c.id}>
-              <TimelineSeparator date={formatShortDate(c.start)} dotColor={dp.dotColor} hollow={dp.hollow} />
               <TimelineRow cycle={c} issues={issues} lineColor={lineColor(i)} onClick={() => onSelect(c.id)} />
+              <TimelineSeparator date={formatShortDate(c.start)} dotColor={dp.dotColor} hollow={dp.hollow} />
             </div>
           );
         })}
-        {sorted.length > 0 && (
-          <TimelineSeparator
-            date={formatShortDate(sorted[sorted.length - 1].end)}
-            dotColor={sorted[sorted.length - 1].status === 'completed' ? 'bg-[var(--color-text-muted)]' : 'border-[var(--color-text-muted)]'}
-            hollow={sorted[sorted.length - 1].status !== 'completed'}
-          />
-        )}
       </div>
       </div>
     </div>
@@ -222,23 +225,25 @@ function ProgressChart({ cycleId }: { cycleId: string }) {
 
   if (days.length < 2) return null;
 
-  const maxVal = Math.max(...days.map(d => d.scope), 1);
+  const initialScope = days[0].scope;
+  const remaining = days.map(d => d.scope - d.completed);
+  const maxVal = Math.max(initialScope, ...days.map(d => d.scope), 1);
   const w = 220;
-  const h = 80;
+  const h = 100;
   const px = 4;
-  const py = 4;
+  const py = 6;
   const plotW = w - px * 2;
   const plotH = h - py * 2;
 
   const toX = (i: number) => px + (i / (days.length - 1)) * plotW;
   const toY = (v: number) => py + plotH - (v / maxVal) * plotH;
 
-  const scopeLine = days.map((d, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.scope)}`).join(' ');
-  const startedLine = days.map((d, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.started + d.completed)}`).join(' ');
-  const completedLine = days.map((d, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.completed)}`).join(' ');
+  const idealLine = `M${toX(0)},${toY(initialScope)} L${toX(days.length - 1)},${toY(0)}`;
 
-  const completedFill = completedLine + ` L${toX(days.length - 1)},${toY(0)} L${toX(0)},${toY(0)} Z`;
-  const startedFill = startedLine + ` L${toX(days.length - 1)},${toY(0)} L${toX(0)},${toY(0)} Z`;
+  const scopeLine = days.map((d, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.scope)}`).join(' ');
+
+  const remainingLine = remaining.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(v)}`).join(' ');
+  const remainingFill = remainingLine + ` L${toX(remaining.length - 1)},${toY(0)} L${toX(0)},${toY(0)} Z`;
 
   const firstDate = formatShortDate(days[0].date);
   const lastDate = formatShortDate(days[days.length - 1].date);
@@ -246,40 +251,44 @@ function ProgressChart({ cycleId }: { cycleId: string }) {
   return (
     <div>
       <svg viewBox={`0 0 ${w} ${h + 14}`} className="w-full" preserveAspectRatio="none">
-        {/* Grid lines */}
+        <defs>
+          <linearGradient id="remaining-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-accent-primary)" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="var(--color-accent-primary)" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
         {[0, 0.5, 1].map(frac => (
           <line key={frac} x1={px} x2={w - px} y1={toY(frac * maxVal)} y2={toY(frac * maxVal)} stroke="var(--color-border-subtle)" strokeWidth="0.5" />
         ))}
 
-        {/* Started area (yellow) */}
-        <path d={startedFill} fill="var(--color-status-doing)" opacity="0.15" />
-        <path d={startedLine} fill="none" stroke="var(--color-status-doing)" strokeWidth="1.5" />
+        <path d={idealLine} fill="none" stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
 
-        {/* Completed area (green) */}
-        <path d={completedFill} fill="var(--color-success)" opacity="0.15" />
-        <path d={completedLine} fill="none" stroke="var(--color-success)" strokeWidth="1.5" />
+        <path d={scopeLine} fill="none" stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="2 2" opacity="0.4" />
 
-        {/* Scope line (grey) */}
-        <path d={scopeLine} fill="none" stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="3 2" />
+        <path d={remainingFill} fill="url(#remaining-grad)" />
+        <path d={remainingLine} fill="none" stroke="var(--color-accent-primary)" strokeWidth="2" />
 
-        {/* Axis labels */}
+        {remaining.length > 0 && (
+          <circle cx={toX(remaining.length - 1)} cy={toY(remaining[remaining.length - 1])} r="2.5" fill="var(--color-accent-primary)" />
+        )}
+
         <text x={px} y={h + 12} fontSize="8" fill="var(--color-text-muted)" fontFamily="var(--font-sans)">{firstDate}</text>
         <text x={w - px} y={h + 12} fontSize="8" fill="var(--color-text-muted)" fontFamily="var(--font-sans)" textAnchor="end">{lastDate}</text>
       </svg>
 
-      {/* Legend */}
       <div className="flex items-center gap-3 mt-1">
         <div className="flex items-center gap-1">
-          <div className="w-2 h-0.5 bg-[var(--color-text-muted)]" style={{ borderTop: '1px dashed var(--color-text-muted)' }} />
+          <div className="w-3 h-0.5 bg-[var(--color-accent-primary)]" />
+          <span className="text-[10px] text-[var(--color-text-muted)]">Remaining</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-0.5 border-t border-dashed border-[var(--color-text-muted)] opacity-50" />
+          <span className="text-[10px] text-[var(--color-text-muted)]">Ideal</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-0.5 border-t border-dotted border-[var(--color-text-muted)] opacity-40" />
           <span className="text-[10px] text-[var(--color-text-muted)]">Scope</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-[var(--color-status-doing)] opacity-50" />
-          <span className="text-[10px] text-[var(--color-text-muted)]">Started</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm bg-[var(--color-success)] opacity-50" />
-          <span className="text-[10px] text-[var(--color-text-muted)]">Done</span>
         </div>
       </div>
     </div>

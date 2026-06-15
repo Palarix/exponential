@@ -99,16 +99,15 @@ export function DistributionBar({ median, p75, p90, max, unit = "d" }: {
   );
 }
 
-export function DailyVelocityChart({ buckets }: { buckets: { date: string; points: number }[] }) {
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const data = buckets.map((b) => ({
-    date: dayNames[new Date(b.date + "T00:00:00").getDay()],
-    points: b.points,
-  }));
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function dateToDayName(iso: string) {
+  return DAY_NAMES[new Date(iso + "T00:00:00").getDay()];
+}
 
+export function DailyVelocityChart({ buckets }: { buckets: { date: string; points: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+      <AreaChart data={buckets} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
         <defs>
           <linearGradient id="dv-gradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-accent-primary)" stopOpacity={0.25} />
@@ -116,9 +115,9 @@ export function DailyVelocityChart({ buckets }: { buckets: { date: string; point
           </linearGradient>
         </defs>
         <CartesianGrid vertical strokeDasharray="3 3" stroke="var(--color-border-subtle)" horizontal={false} />
-        <XAxis dataKey="date" tick={AXIS_STYLE} axisLine={false} tickLine={false} interval={0} />
+        <XAxis dataKey="date" tick={AXIS_STYLE} axisLine={false} tickLine={false} interval={0} padding={{ left: 12, right: 12 }} tickFormatter={dateToDayName} />
         <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} allowDecimals={false} />
-        <Tooltip {...TOOLTIP_STYLE} />
+        <Tooltip {...TOOLTIP_STYLE} labelFormatter={dateToDayName} />
         <Area
           type="step"
           dataKey="points"
@@ -157,7 +156,7 @@ export function CumulativeChart({ weekly }: { weekly: { week_start: string; crea
           </linearGradient>
         </defs>
         <CartesianGrid {...GRID_STYLE} horizontal vertical={false} />
-        <XAxis dataKey="week" tick={AXIS_STYLE} axisLine={false} tickLine={false} />
+        <XAxis dataKey="week" tick={AXIS_STYLE} axisLine={false} tickLine={false} padding={{ left: 12, right: 12 }} />
         <YAxis tick={AXIS_STYLE} axisLine={false} tickLine={false} allowDecimals={false} />
         <Tooltip {...TOOLTIP_STYLE} />
         <Area type="monotone" dataKey="created" stroke="var(--color-text-muted)" strokeWidth={1.5} fill="url(#cum-created)" name="Created" dot={false} />

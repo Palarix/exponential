@@ -23,6 +23,10 @@ const SHORT_MONTHS = [
 ];
 
 export function formatShortDate(dateStr: string): string {
+  const parts = dateStr.slice(0, 10).split("-");
+  if (parts.length === 3) {
+    return `${SHORT_MONTHS[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10)}`;
+  }
   const d = new Date(dateStr);
   return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
 }
