@@ -25,6 +25,16 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		}
 	}
 
+	// handleCap wraps with auth + capability check when auth is enabled.
+	perms := s.Config.Permissions
+	handleCap := func(pattern string, capability string, handler http.HandlerFunc) {
+		if s.SigningKey != nil {
+			mux.HandleFunc(pattern, auth.RequireCapability(s.VerifyKey, perms, capability, handler))
+		} else {
+			mux.HandleFunc(pattern, handler)
+		}
+	}
+
 	// Auth endpoints (public, only registered when auth is enabled)
 	if s.SigningKey != nil {
 		mux.HandleFunc("POST /auth/challenge", s.handleAuthChallenge)
@@ -73,34 +83,36 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 
 		log.Printf("Proxy mode: forwarding /api/* to %s", s.ProxyURL)
 	} else {
-		// Local mode: API routes
-		handle("GET /api/issues", s.handleGetIssues)
-		handle("GET /api/issues/{id}", s.handleGetIssue)
-		handle("POST /api/draft", s.handleDraft)
-		handle("GET /api/pending", s.handleGetPending)
-		handle("POST /api/save", s.handleSave)
-		handle("DELETE /api/pending", s.handleDiscardPending)
-		handle("GET /api/config", s.handleGetConfig)
-		handle("POST /api/config/labels", s.handleAddLabel)
-		handle("PUT /api/config/labels", s.handleUpdateLabel)
-		handle("DELETE /api/config/labels", s.handleDeleteLabel)
-		handle("GET /api/issues/{id}/history", s.handleGetIssueHistory)
-		handle("GET /api/issues/{id}/commits", s.handleGetIssueCommits)
-		handle("GET /api/issues/{id}/files", s.handleGetIssueFiles)
-		handle("GET /api/issues/{id}/diff", s.handleGetIssueDiff)
-		handle("GET /api/issues/{id}/commits/{sha}/diff", s.handleGetCommitDiff)
-		handle("GET /api/issues/{id}/mergeability", s.handleMergeability)
-		handle("POST /api/issues/{id}/merge", s.handleMergeIssue)
-		handle("POST /api/issues/{id}/start", s.handleStartWork)
-		handle("GET /api/instances", s.handleListInstances)
-		handle("GET /api/metrics", s.handleMetrics)
-		handle("GET /api/activity", s.handleActivity)
-		handle("GET /api/inbox", s.handleInbox)
-		handle("GET /api/inbox/status", s.handleInboxStatus)
-		handle("POST /api/inbox/read", s.handleInboxRead)
-		handle("GET /api/cycles", s.handleGetCycles)
-		handle("GET /api/cycles/{id}/progress", s.handleCycleProgress)
+		// Local mode: API routes — read endpoints
+		handleCap("GET /api/issues", "issue.read", s.handleGetIssues)
+		handleCap("GET /api/issues/{id}", "issue.read", s.handleGetIssue)
+		handleCap("GET /api/issues/{id}/history", "issue.read", s.handleGetIssueHistory)
+		handleCap("GET /api/issues/{id}/commits", "issue.read", s.handleGetIssueCommits)
+		handleCap("GET /api/issues/{id}/files", "issue.read", s.handleGetIssueFiles)
+		handleCap("GET /api/issues/{id}/diff", "issue.read", s.handleGetIssueDiff)
+		handleCap("GET /api/issues/{id}/commits/{sha}/diff", "issue.read", s.handleGetCommitDiff)
+		handleCap("GET /api/issues/{id}/mergeability", "issue.read", s.handleMergeability)
+		handleCap("GET /api/config", "issue.read", s.handleGetConfig)
+		handleCap("GET /api/pending", "issue.read", s.handleGetPending)
+		handleCap("GET /api/instances", "issue.read", s.handleListInstances)
+		handleCap("GET /api/metrics", "issue.read", s.handleMetrics)
+		handleCap("GET /api/activity", "issue.read", s.handleActivity)
+		handleCap("GET /api/inbox", "issue.read", s.handleInbox)
+		handleCap("GET /api/inbox/status", "issue.read", s.handleInboxStatus)
+		handleCap("GET /api/cycles", "issue.read", s.handleGetCycles)
+		handleCap("GET /api/cycles/{id}/progress", "issue.read", s.handleCycleProgress)
 		handle("GET /api/user", s.handleGetUser)
+
+		// Write endpoints
+		handleCap("POST /api/draft", "issue.create", s.handleDraft)
+		handleCap("POST /api/save", "issue.update", s.handleSave)
+		handleCap("DELETE /api/pending", "issue.update", s.handleDiscardPending)
+		handleCap("POST /api/config/labels", "issue.update", s.handleAddLabel)
+		handleCap("PUT /api/config/labels", "issue.update", s.handleUpdateLabel)
+		handleCap("DELETE /api/config/labels", "issue.update", s.handleDeleteLabel)
+		handleCap("POST /api/issues/{id}/merge", "issue.merge", s.handleMergeIssue)
+		handleCap("POST /api/issues/{id}/start", "issue.start", s.handleStartWork)
+		handleCap("POST /api/inbox/read", "issue.read", s.handleInboxRead)
 	}
 
 	// MCP endpoint (when configured)

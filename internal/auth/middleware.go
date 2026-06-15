@@ -2,8 +2,11 @@ package auth
 
 import (
 	"crypto/ed25519"
+	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/palarix/beats/internal/config"
 )
 
 // RequireAuthHandler wraps an http.Handler with Bearer JWT verification.
@@ -41,4 +44,20 @@ func RequireAuth(pubKey ed25519.PublicKey, next http.HandlerFunc) http.HandlerFu
 		ctx := WithUser(r.Context(), user)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+// RequireCapability wraps a handler with both JWT auth and a capability
+// check against the permissions config. When permissions are not configured
+// it falls through to RequireAuth only.
+func RequireCapability(pubKey ed25519.PublicKey, perms config.PermissionsConfig, capability string, next http.HandlerFunc) http.HandlerFunc {
+	return RequireAuth(pubKey, func(w http.ResponseWriter, r *http.Request) {
+		if perms.Enabled() {
+			user, _ := UserFromContext(r.Context())
+			if !perms.HasCapability(user.Email, capability) {
+				http.Error(w, fmt.Sprintf(`{"error":"forbidden: requires %s capability"}`, capability), http.StatusForbidden)
+				return
+			}
+		}
+		next(w, r)
+	})
 }

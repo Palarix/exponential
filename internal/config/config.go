@@ -28,6 +28,73 @@ type Config struct {
 	Cycles            CycleConfig       `mapstructure:"cycles" yaml:"cycles"`
 	Contributors      []string          `mapstructure:"contributors" yaml:"contributors"`
 	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
+	Permissions       PermissionsConfig `mapstructure:"permissions" yaml:"permissions,omitempty"`
+}
+
+type PermissionsConfig struct {
+	Roles map[string][]string `mapstructure:"roles" yaml:"roles,omitempty"`
+	Users map[string]string   `mapstructure:"users" yaml:"users,omitempty"`
+}
+
+// RoleFor returns the role name for the given email. Returns "" if no
+// permissions are configured or the user has no explicit mapping.
+func (p PermissionsConfig) RoleFor(email string) string {
+	if len(p.Users) == 0 {
+		return ""
+	}
+	return p.Users[strings.ToLower(email)]
+}
+
+// Capabilities returns the capability list for a role name, expanding
+// the wildcard "*" into all known capabilities.
+func (p PermissionsConfig) Capabilities(role string) []string {
+	caps, ok := p.Roles[role]
+	if !ok {
+		return nil
+	}
+	for _, c := range caps {
+		if c == "*" {
+			return AllCapabilities
+		}
+	}
+	return caps
+}
+
+// HasCapability reports whether the given email is allowed to perform
+// the named capability. Returns true when no permissions are configured
+// (open-access default) or when the user's role includes the capability
+// or the wildcard.
+func (p PermissionsConfig) HasCapability(email, capability string) bool {
+	if len(p.Roles) == 0 || len(p.Users) == 0 {
+		return true
+	}
+	role := p.RoleFor(email)
+	if role == "" {
+		return false
+	}
+	for _, c := range p.Capabilities(role) {
+		if c == capability || c == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+// Enabled reports whether a permissions section is configured.
+func (p PermissionsConfig) Enabled() bool {
+	return len(p.Roles) > 0 && len(p.Users) > 0
+}
+
+// AllCapabilities is the canonical list of capabilities.
+var AllCapabilities = []string{
+	"issue.read",
+	"issue.create",
+	"issue.update",
+	"issue.comment",
+	"issue.start",
+	"issue.merge",
+	"issue.delete",
+	"issue.link",
 }
 
 type RemoteConfig struct {

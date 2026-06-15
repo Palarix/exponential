@@ -26,6 +26,7 @@ var whoamiCmd = &cobra.Command{
 			if cfg != nil && cfg.User != "" {
 				fmt.Printf("Identity: %s\n", cfg.User)
 			}
+			printPermissions(cfg, "")
 			return nil
 		}
 
@@ -72,8 +73,32 @@ var whoamiCmd = &cobra.Command{
 			fmt.Printf("Expires:  %s\n", expiry.Format(time.RFC3339))
 		}
 
+		// Extract email for permission lookup
+		email := ""
+		if idx := strings.LastIndex(claims.Sub, "<"); idx != -1 {
+			if end := strings.LastIndex(claims.Sub, ">"); end > idx {
+				email = strings.ToLower(strings.TrimSpace(claims.Sub[idx+1 : end]))
+			}
+		}
+		printPermissions(cfg, email)
+
 		return nil
 	},
+}
+
+func printPermissions(cfg *config.Config, email string) {
+	if cfg == nil || !cfg.Permissions.Enabled() {
+		return
+	}
+	perms := cfg.Permissions
+	role := perms.RoleFor(email)
+	if role == "" {
+		fmt.Printf("Role:     (none — no access)\n")
+		return
+	}
+	fmt.Printf("Role:     %s\n", role)
+	caps := perms.Capabilities(role)
+	fmt.Printf("Can:      %s\n", strings.Join(caps, ", "))
 }
 
 func init() {

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/palarix/beats/internal/config"
 )
 
 func TestRequireAuthHandler_ValidToken(t *testing.T) {
@@ -164,5 +166,91 @@ func TestRequireAuth_TamperedToken(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401, got %d", rec.Code)
+	}
+}
+
+func testPerms() config.PermissionsConfig {
+	return config.PermissionsConfig{
+		Roles: map[string][]string{
+			"admin":  {"*"},
+			"viewer": {"issue.read"},
+		},
+		Users: map[string]string{
+			"alice@example.com": "admin",
+			"bob@example.com":   "viewer",
+		},
+	}
+}
+
+func TestRequireCapability_Allowed(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	token, _ := SignToken(priv, Claims{
+		Sub: "Alice <alice@example.com>",
+		Exp: time.Now().Add(time.Hour).Unix(),
+		Iat: time.Now().Unix(),
+	})
+
+	called := false
+	handler := RequireCapability(pub, testPerms(), "issue.delete", func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest("DELETE", "/api/issues/x", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	if !called {
+		t.Error("handler should have been called for admin")
+	}
+}
+
+func TestRequireCapability_Denied(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	token, _ := SignToken(priv, Claims{
+		Sub: "Bob <bob@example.com>",
+		Exp: time.Now().Add(time.Hour).Unix(),
+		Iat: time.Now().Unix(),
+	})
+
+	handler := RequireCapability(pub, testPerms(), "issue.delete", func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called for viewer deleting")
+	})
+
+	req := httptest.NewRequest("DELETE", "/api/issues/x", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", rec.Code)
+	}
+}
+
+func TestRequireCapability_NoPermsConfigured(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	token, _ := SignToken(priv, Claims{
+		Sub: "Anyone <anyone@example.com>",
+		Exp: time.Now().Add(time.Hour).Unix(),
+		Iat: time.Now().Unix(),
+	})
+
+	called := false
+	handler := RequireCapability(pub, config.PermissionsConfig{}, "issue.delete", func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest("DELETE", "/api/issues/x", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK || !called {
+		t.Errorf("expected open access when no perms configured, got %d", rec.Code)
 	}
 }
