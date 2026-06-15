@@ -368,7 +368,6 @@ export default function Backlog({
       groupTarget: string | null,
       indicatorTarget: { rowIndex: number; position: "above" | "below" } | null,
       nestTarget: string | null,
-      batchIds: string[],
     ) => {
       if (nestTarget) {
         await addDraft(droppedId, "UPDATE", { parent_id: nestTarget });
@@ -389,11 +388,7 @@ export default function Backlog({
         const last = groupIssues[groupIssues.length - 1];
         const lastKey = last?.sort_order || null;
         const newKey = generateKeyBetween(lastKey, null);
-        for (const id of batchIds) {
-          const update: Record<string, unknown> = { status: groupTarget };
-          if (id === droppedId) update.sort_order = newKey;
-          await addDraft(id, "UPDATE", update);
-        }
+        await addDraft(droppedId, "UPDATE", { status: groupTarget, sort_order: newKey });
         onRefresh();
         return;
       }
@@ -447,13 +442,6 @@ export default function Backlog({
         );
       }
       await addDraft(droppedId, "UPDATE", update);
-      for (const id of batchIds) {
-        if (id === droppedId) continue;
-        const childUpdate: Record<string, unknown> = {};
-        if (update.status) childUpdate.status = update.status;
-        if (Object.keys(childUpdate).length > 0)
-          await addDraft(id, "UPDATE", childUpdate);
-      }
       onRefresh();
     },
     [rows, getRowStatusGroup, issues, onRefresh],
@@ -633,7 +621,6 @@ export default function Backlog({
       const groupTarget = dropGroupStatus;
       const indicatorTarget = dropIndicator;
       const nestTarget = dropNestTargetId;
-      const batchIds = dragBatchRef.current;
       resetDropState();
       if (!groupTarget && !indicatorTarget && !nestTarget) return;
       await performDrop(
@@ -641,7 +628,6 @@ export default function Backlog({
         groupTarget,
         indicatorTarget,
         nestTarget,
-        batchIds,
       );
     },
     [
