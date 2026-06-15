@@ -100,8 +100,8 @@ export function DistributionBar({ median, p75, p90, max, unit = "d" }: {
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-function dateToDayName(iso: string) {
-  return DAY_NAMES[new Date(iso + "T00:00:00").getDay()];
+function dateToDayName(iso: unknown) {
+  return DAY_NAMES[new Date(String(iso) + "T00:00:00").getDay()];
 }
 
 export function DailyVelocityChart({ buckets }: { buckets: { date: string; points: number }[] }) {
