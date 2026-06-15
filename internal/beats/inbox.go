@@ -72,6 +72,13 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 			}
 		}
 	}
+	// Also count any issue the user touched via updates (status transitions,
+	// title edits, etc.) — these don't appear in the projected issue state.
+	for _, evt := range events {
+		if !participates[evt.ID] && identityMatches(evt.CreatedBy, me) {
+			participates[evt.ID] = true
+		}
+	}
 
 	var items []InboxItem
 	for _, evt := range events {
