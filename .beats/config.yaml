@@ -1,5 +1,5 @@
 prefix: beats-
-version: 2
+version: 3
 estimation_system: fibonacci
 count_unestimated: true
 automations:
