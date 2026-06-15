@@ -74,8 +74,9 @@ This repository uses `+"`beats`"+`, a local JSONL-based issue tracker, to manage
 1. **No "Ghost" Work**: Any work done by an agent MUST be backed by a beats task/bug/epic.
 2. **Missing Tasks**: If no such task exists for your current objective, you must create it.
    - **Timing**: Create the task *after* the user approves your initial design/plan.
-3. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding beats task to `+"`DOING`"+` using `+"`beats start`"+`.
-4. **Completion**: You MUST set the beats task to `+"`DONE`"+` using `+"`beats done`"+` *only after* the user approves the final review/walkthrough.
+3. **Check Dependencies**: Before picking up a task, check its dependencies. If it has unresolved `+"`depends_on`"+` or `+"`blocked_by`"+` links to tasks that are not `+"`DONE`"+`, flag the blockers before starting work.
+4. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding beats task to `+"`DOING`"+` using `+"`beats start`"+`.
+5. **Completion**: You MUST set the beats task to `+"`DONE`"+` using `+"`beats done`"+` *only after* the user approves the final review/walkthrough.
 
 ## Agent Identity
 When performing actions that modify the tracker (add, update), ensure you are identified as an agent if possible, or use the execution environment's git config.

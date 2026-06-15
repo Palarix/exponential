@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { createIssue } from "../../api/client";
 import type { Issue } from "../../api/client";
-import { computeAppendKey } from "../../utils/sort";
+import { computeAppendKey, sortIssuesWithinGroups } from "../../utils/sort";
 import { Avatar, LabelBadge, StatusIcon } from "../ui";
 
 export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
-  const children = useMemo(() => issues.filter(i => i.parent_id === issue.id), [issues, issue.id]);
+  const children = useMemo(() => sortIssuesWithinGroups(issues.filter(i => i.parent_id === issue.id), 'manual'), [issues, issue.id]);
   const [expanded, setExpanded] = useState(true);
   const [inlineTitle, setInlineTitle] = useState("");
   const [showInline, setShowInline] = useState(false);

@@ -33,10 +33,11 @@ Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`
 
 1. **No "ghost" work** — every code change MUST be backed by a beats issue.
 2. **Only pick up planned work** — do not start work on issues with `BACKLOG` status. Issues must be `PLANNED` to be eligible.
-3. **Missing tasks** — if no issue exists for your current objective, create it first, but only _after_ the user approves your design/plan.
-4. **In-progress before edits** — before touching any file, transition the issue to `DOING` via `beats_update`.
-5. **Comment before complete** — add a summary comment via `beats_comment` _before_ transitioning to `DONE`, and only do so after the user approves the final walkthrough.
-6. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `beats_link`), not left as TODOs in code.
+3. **Check dependencies first** — before picking up an issue, inspect its `dependencies` array via `beats_show`. If any `depends_on` or `blocked_by` targets are not `DONE`, flag the unresolved blockers before starting work.
+4. **Missing tasks** — if no issue exists for your current objective, create it first, but only _after_ the user approves your design/plan.
+5. **In-progress before edits** — before touching any file, transition the issue to `DOING` via `beats_update`.
+6. **Comment before complete** — add a summary comment via `beats_comment` _before_ transitioning to `DONE`, and only do so after the user approves the final walkthrough.
+7. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `beats_link`), not left as TODOs in code.
 
 ## Agent Identity
 

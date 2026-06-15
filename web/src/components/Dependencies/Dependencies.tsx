@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import type { Issue } from '../../api/client';
-import { LabelBadge, StatusBadge } from '../ui';
+import { LabelBadge, StatusBadge, Toggle } from '../ui';
 
 interface DependenciesProps {
   issues: Issue[];
@@ -7,18 +8,26 @@ interface DependenciesProps {
 }
 
 export default function Dependencies({ issues, onIssueClick }: DependenciesProps) {
-  const dependencies: { source: Issue; target: Issue; kind: string }[] = [];
+  const [showCompleted, setShowCompleted] = useState(() => localStorage.getItem('beats-deps-show-completed') === 'true');
+
+  const allDependencies: { source: Issue; target: Issue; kind: string }[] = [];
 
   for (const issue of issues) {
     if (issue.dependencies) {
       for (const dep of issue.dependencies) {
         const target = issues.find((i) => i.id === dep.target_id);
         if (target) {
-          dependencies.push({ source: issue, target, kind: dep.kind });
+          allDependencies.push({ source: issue, target, kind: dep.kind });
         }
       }
     }
   }
+
+  const dependencies = showCompleted
+    ? allDependencies
+    : allDependencies.filter(dep => !(dep.source.status === 'DONE' && dep.target.status === 'DONE'));
+
+  const completedCount = allDependencies.length - allDependencies.filter(dep => !(dep.source.status === 'DONE' && dep.target.status === 'DONE')).length;
 
   const byKind = dependencies.reduce((acc, dep) => {
     if (!acc[dep.kind]) acc[dep.kind] = [];
@@ -42,6 +51,17 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
         <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
           {dependencies.length} relationship{dependencies.length !== 1 ? 's' : ''}
         </span>
+        <div className="flex-1" />
+        {completedCount > 0 && (
+          <Toggle
+            checked={showCompleted}
+            onChange={(next) => {
+              setShowCompleted(next);
+              localStorage.setItem('beats-deps-show-completed', String(next));
+            }}
+            label={`Show completed (${completedCount})`}
+          />
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-6 max-w-7xl mx-auto">
