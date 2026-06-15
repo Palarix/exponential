@@ -100,8 +100,9 @@ export function DistributionBar({ median, p75, p90, max, unit = "d" }: {
 }
 
 export function DailyVelocityChart({ buckets }: { buckets: { date: string; points: number }[] }) {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const data = buckets.map((b) => ({
-    date: b.date.slice(5),
+    date: dayNames[new Date(b.date + "T00:00:00").getDay()],
     points: b.points,
   }));
 
