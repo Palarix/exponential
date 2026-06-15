@@ -676,7 +676,64 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := beats.BuildInbox(allEvents, issues, me, since)
+
+	limit := 200
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if n, err := fmt.Sscanf(raw, "%d", &limit); n != 1 || err != nil || limit < 1 {
+			limit = 200
+		}
+	}
+	if len(items) > limit {
+		items = items[:limit]
+	}
+
 	respondJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
+	var me string
+	if u, ok := auth.UserFromContext(r.Context()); ok {
+		me = u.Raw
+	} else {
+		me = beats.NewClient(s.Config).GetUser()
+	}
+
+	remoteURL := config.ReadRemoteURL()
+	lastRead := config.GetInboxLastRead(remoteURL)
+
+	allEvents, err := s.GetAllEvents()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	unread := len(beats.BuildInbox(allEvents, issues, me, lastRead))
+
+	resp := struct {
+		LastRead string `json:"last_read"`
+		Unread   int    `json:"unread"`
+	}{Unread: unread}
+	if !lastRead.IsZero() {
+		resp.LastRead = lastRead.UTC().Format(time.RFC3339)
+	}
+	respondJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleInboxRead(w http.ResponseWriter, r *http.Request) {
+	remoteURL := config.ReadRemoteURL()
+	now := time.Now()
+	if err := config.SetInboxLastRead(remoteURL, now); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to update read cursor: "+err.Error())
+		return
+	}
+	respondJSON(w, http.StatusOK, struct {
+		LastRead string `json:"last_read"`
+	}{LastRead: now.UTC().Format(time.RFC3339)})
 }
 
 func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {

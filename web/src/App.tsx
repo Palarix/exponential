@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { fetchIssues, fetchConfig, ApiError } from './api/client';
-import type { Issue } from './api/client';
+import { fetchIssues, fetchConfig, fetchInbox, fetchInboxStatus, markInboxRead, ApiError } from './api/client';
+import type { Issue, InboxItem } from './api/client';
 import Layout from './components/Layout/Layout';
 import Dashboard from './components/Dashboard/Dashboard';
 import Backlog from './components/Backlog/Backlog';
@@ -9,6 +9,7 @@ import Board from './components/Board/Board';
 import Dependencies from './components/Dependencies/Dependencies';
 import Labels from './components/Labels/Labels';
 import Cycles from './components/Cycles/Cycles';
+import Inbox from './components/Inbox/Inbox';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
@@ -20,12 +21,13 @@ import { isEditableTarget } from './utils/keyboard';
 import { type BacklogFilters, EMPTY_FILTERS, hasActiveFilters } from './components/Backlog/filters';
 import FilterChips from './components/Backlog/FilterChips';
 
-type View = 'dashboard' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels';
+type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels';
 
 const VIEW_ROUTES: Record<string, View> = {
   'issues': 'backlog',
   'board': 'board',
   'dashboard': 'dashboard',
+  'inbox': 'inbox',
   'cycles': 'cycles',
   'dependencies': 'dependencies',
   'labels': 'labels',
@@ -34,6 +36,7 @@ const ROUTE_VIEWS: Record<View, string> = {
   backlog: 'issues',
   board: 'board',
   dashboard: 'dashboard',
+  inbox: 'inbox',
   cycles: 'cycles',
   dependencies: 'dependencies',
   labels: 'labels',
@@ -95,6 +98,9 @@ function App() {
     if (stored) { try { return JSON.parse(stored); } catch {} }
     return EMPTY_FILTERS;
   });
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
+  const [inboxLastRead, setInboxLastRead] = useState('');
+  const [inboxUnread, setInboxUnread] = useState(0);
   const showToast = useToast();
 
   const handleFiltersChange = useCallback((f: BacklogFilters) => {
@@ -159,8 +165,27 @@ function App() {
     }
   }, []);
 
+  const fetchInboxData = useCallback(async () => {
+    try {
+      const [items, status] = await Promise.all([fetchInbox(), fetchInboxStatus()]);
+      setInboxItems(items ?? []);
+      setInboxLastRead(status.last_read ?? '');
+      setInboxUnread(status.unread ?? 0);
+    } catch {}
+  }, []);
+
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      const res = await markInboxRead();
+      setInboxLastRead(res.last_read);
+      setInboxUnread(0);
+      showToast("Inbox marked as read");
+    } catch {}
+  }, [showToast]);
+
   useEffect(() => {
     fetchData();
+    fetchInboxData();
     fetchConfig().then(c => {
       setPrefix(c.prefix);
       setVersion(c.version || '');
@@ -176,7 +201,12 @@ function App() {
     }).catch(() => {});
   }, [fetchData]);
 
-  useSSE({ onEvent: fetchData, fallbackInterval: 30000 });
+  const handleSSEEvent = useCallback(() => {
+    fetchData();
+    fetchInboxData();
+  }, [fetchData, fetchInboxData]);
+
+  useSSE({ onEvent: handleSSEEvent, fallbackInterval: 30000 });
 
   const handleIssueClick = (issue: Issue) => {
     setSelectedIssueId(issue.id);
@@ -261,6 +291,8 @@ function App() {
     }
 
     switch (view) {
+      case 'inbox':
+        return <Inbox items={inboxItems} lastRead={inboxLastRead} issues={issues} onIssueClick={handleIssueClick} onMarkAllRead={handleMarkAllRead} />;
       case 'dashboard':
         return <Dashboard issues={issues} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} />;
       case 'backlog':
@@ -320,6 +352,7 @@ function App() {
         version={version}
         connected={!error}
         cyclesEnabled={cyclesEnabled}
+        inboxUnread={inboxUnread}
         statusBarLeft={view === 'backlog' && hasActiveFilters(backlogFilters) ? (
           <FilterChips filters={backlogFilters} onChange={handleFiltersChange} />
         ) : undefined}

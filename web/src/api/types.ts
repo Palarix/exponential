@@ -81,3 +81,17 @@ export interface Event {
   payload?: Record<string, unknown>;
   created_at: string;
 }
+
+export interface InboxItem {
+  issue_id: string;
+  issue_title: string;
+  type: 'CREATE' | 'UPDATE' | 'COMMENT' | 'MERGE' | 'DELETE';
+  payload: Record<string, unknown>;
+  created_at: string;
+  created_by: string;
+}
+
+export interface InboxStatus {
+  last_read: string;
+  unread: number;
+}

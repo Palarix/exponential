@@ -52,31 +52,16 @@ func identityMatches(a, b string) bool {
 
 // BuildInbox filters the full event log down to events relevant to `me` that
 // occurred after `since`, newest-first. Relevance = events on issues where
-// the user is the creator, current assignee, or has commented — plus all
-// MERGE events (team-wide visibility). The user's own actions are excluded so
-// the inbox shows what others did. A zero `since` returns all matching events.
+// the user is the creator or current assignee — plus all MERGE events
+// (team-wide visibility). The user's own actions are excluded so the inbox
+// shows what others did. A zero `since` returns all matching events.
 func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string, since time.Time) []InboxItem {
-	// Determine the set of issues the user participates in.
 	participates := make(map[string]bool, len(issues))
 	titles := make(map[string]string, len(issues))
 	for id, issue := range issues {
 		titles[id] = issue.Title
 		if identityMatches(issue.CreatedBy, me) || identityMatches(issue.Assignee, me) {
 			participates[id] = true
-			continue
-		}
-		for _, c := range issue.Comments {
-			if identityMatches(c.CreatedBy, me) {
-				participates[id] = true
-				break
-			}
-		}
-	}
-	// Also count any issue the user touched via updates (status transitions,
-	// title edits, etc.) — these don't appear in the projected issue state.
-	for _, evt := range events {
-		if !participates[evt.ID] && identityMatches(evt.CreatedBy, me) {
-			participates[evt.ID] = true
 		}
 	}
 

@@ -1,8 +1,8 @@
-import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse } from './types';
+import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus } from './types';
 
 const API_BASE = '/api';
 
-export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse };
+export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus };
 
 export class ApiError extends Error {
   status: number;
@@ -234,6 +234,18 @@ export async function deleteConfigLabel(name: string): Promise<void> {
 
 export async function discardAll(): Promise<void> {
   return request(`${API_BASE}/pending`, { method: 'DELETE' });
+}
+
+export async function fetchInbox(): Promise<InboxItem[]> {
+  return request(`${API_BASE}/inbox`);
+}
+
+export async function fetchInboxStatus(): Promise<InboxStatus> {
+  return request(`${API_BASE}/inbox/status`);
+}
+
+export async function markInboxRead(): Promise<{ last_read: string }> {
+  return request(`${API_BASE}/inbox/read`, { method: 'POST' });
 }
 
 export interface StartWorkResponse {

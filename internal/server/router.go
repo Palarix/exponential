@@ -96,6 +96,8 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		handle("GET /api/metrics", s.handleMetrics)
 		handle("GET /api/activity", s.handleActivity)
 		handle("GET /api/inbox", s.handleInbox)
+		handle("GET /api/inbox/status", s.handleInboxStatus)
+		handle("POST /api/inbox/read", s.handleInboxRead)
 		handle("GET /api/cycles", s.handleGetCycles)
 		handle("GET /api/cycles/{id}/progress", s.handleCycleProgress)
 		handle("GET /api/user", s.handleGetUser)

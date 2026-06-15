@@ -169,12 +169,15 @@ func TestBuildInbox_SkipsSortOrderNoise_MapPayload(t *testing.T) {
 	}
 }
 
-func TestBuildInbox_UpdateCountsAsParticipation(t *testing.T) {
-	// Issue created by bob; alice only made an UPDATE (status transition).
-	// Alice should still see subsequent events by others on that issue.
+func TestBuildInbox_OnlyCreatorAndAssignee(t *testing.T) {
+	// Issue created by bob; alice only commented and made a status update.
+	// With the tighter filter (creator + assignee only), alice should NOT
+	// see events on this issue because she is neither.
 	events := []model.Event{
 		{ID: "x", Type: model.EventTypeCreate, CreatedBy: bob, CreatedAt: ts("2026-06-15T09:00:00Z"),
 			Payload: model.CreatePayload{Title: "X", Status: "BACKLOG"}},
+		{ID: "x", Type: model.EventTypeComment, CreatedBy: me, CreatedAt: ts("2026-06-15T09:30:00Z"),
+			Payload: model.CommentPayload{ID: "c1", Text: "I have thoughts"}},
 		{ID: "x", Type: model.EventTypeUpdate, CreatedBy: me, CreatedAt: ts("2026-06-15T10:00:00Z"),
 			Payload: model.UpdatePayload{Status: strptr("PLANNED")}},
 		{ID: "x", Type: model.EventTypeUpdate, CreatedBy: bob, CreatedAt: ts("2026-06-15T11:00:00Z"),
@@ -184,15 +187,8 @@ func TestBuildInbox_UpdateCountsAsParticipation(t *testing.T) {
 
 	items := BuildInbox(events, issues, me, time.Time{})
 
-	// Alice should see bob's CREATE and bob's DONE transition (her own
-	// PLANNED transition is excluded as a self-action).
-	if len(items) != 2 {
-		t.Fatalf("expected 2 items, got %d: %+v", len(items), items)
-	}
-	for _, it := range items {
-		if identityMatches(it.CreatedBy, me) {
-			t.Errorf("should not include own actions: %+v", it)
-		}
+	if len(items) != 0 {
+		t.Fatalf("expected 0 items (not creator or assignee), got %d: %+v", len(items), items)
 	}
 }
 

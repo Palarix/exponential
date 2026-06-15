@@ -7,7 +7,7 @@ import {
 } from "../../api/client";
 import { Avatar } from "../ui";
 
-type View = "dashboard" | "backlog" | "board" | "cycles" | "dependencies" | "labels";
+type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels";
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +18,7 @@ interface LayoutProps {
   version: string;
   connected: boolean;
   cyclesEnabled?: boolean;
+  inboxUnread?: number;
   statusBarLeft?: ReactNode;
 }
 
@@ -177,10 +178,12 @@ function NavItem({
   item,
   isActive,
   onClick,
+  badge,
 }: {
   item: { id: View; label: string; icon: ReactNode };
   isActive: boolean;
   onClick: () => void;
+  badge?: number;
 }) {
   return (
     <button
@@ -207,6 +210,11 @@ function NavItem({
         {item.icon}
       </span>
       {item.label}
+      {badge != null && badge > 0 && (
+        <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium leading-none bg-[var(--color-accent-primary)] text-white rounded-full">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -220,6 +228,7 @@ export default function Layout({
   version,
   connected,
   cyclesEnabled,
+  inboxUnread,
   statusBarLeft,
 }: LayoutProps) {
   const [instances, setInstances] = useState<Instance[]>([]);
@@ -325,6 +334,20 @@ export default function Layout({
               onClick={() => onViewChange("cycles" as View)}
             />
           )}
+          <NavItem
+            item={{
+              id: "inbox" as View,
+              label: "Inbox",
+              icon: (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M12 3v8.25m0 0l-3-3m3 3l3-3" />
+                </svg>
+              ),
+            }}
+            isActive={currentView === "inbox"}
+            onClick={() => onViewChange("inbox" as View)}
+            badge={inboxUnread}
+          />
           {SECONDARY_NAV.map((item) => (
             <NavItem
               key={item.id}
