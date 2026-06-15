@@ -62,7 +62,17 @@ var initCmd = &cobra.Command{
 			notes = append(notes, "Existing git hooks found")
 		}
 
-		// 8. Detect AI agent instruction files
+		// 8. Check .mcp.json
+		mcpStatus := beats.DetectMCPConfig()
+		if mcpStatus.HasBeats {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s MCP config (`%s`) has beats entry\n", ui.OKPrefix, ".mcp.json")))
+		} else if mcpStatus.Exists {
+			notes = append(notes, ui.Stylize("`.mcp.json` exists but has no beats entry"))
+		} else {
+			notes = append(notes, "`.mcp.json` not found")
+		}
+
+		// 9. Detect AI agent instruction files
 		results := beats.DetectAgentFiles()
 		var detected []string
 		for _, r := range results {
@@ -82,7 +92,7 @@ var initCmd = &cobra.Command{
 			}
 		}
 
-		// 9. Check shell completion
+		// 10. Check shell completion
 		compRes := beats.CheckCompletionConfig()
 		if !compRes.Configured && compRes.Shell != "unknown" {
 			notes = append(notes, ui.Stylize(fmt.Sprintf("Shell completion for `%s` is not configured", compRes.Shell)))

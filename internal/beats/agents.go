@@ -1,6 +1,7 @@
 package beats
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -131,6 +132,69 @@ If you encounter a bug or necessary refactor while working on something else, fi
 
 Use the `+"`make build`"+` command to compile the `+"`%s`"+` binary.
 `, binaryName)
+}
+
+// MCPConfigStatus describes the state of .mcp.json in the project root.
+type MCPConfigStatus struct {
+	Exists    bool
+	HasBeats  bool
+}
+
+const mcpConfigFile = ".mcp.json"
+
+// DetectMCPConfig checks whether .mcp.json exists and contains a beats entry.
+func DetectMCPConfig() MCPConfigStatus {
+	data, err := os.ReadFile(mcpConfigFile)
+	if err != nil {
+		return MCPConfigStatus{}
+	}
+	var doc map[string]json.RawMessage
+	if json.Unmarshal(data, &doc) != nil {
+		return MCPConfigStatus{Exists: true}
+	}
+	servers, ok := doc["mcpServers"]
+	if !ok {
+		return MCPConfigStatus{Exists: true}
+	}
+	var serversMap map[string]json.RawMessage
+	if json.Unmarshal(servers, &serversMap) != nil {
+		return MCPConfigStatus{Exists: true}
+	}
+	_, hasBeats := serversMap["beats"]
+	return MCPConfigStatus{Exists: true, HasBeats: hasBeats}
+}
+
+// EnsureMCPConfig creates or updates .mcp.json to include a beats MCP server entry.
+func EnsureMCPConfig() error {
+	var doc map[string]interface{}
+
+	data, err := os.ReadFile(mcpConfigFile)
+	if err == nil {
+		if json.Unmarshal(data, &doc) != nil {
+			return fmt.Errorf("could not parse %s: invalid JSON", mcpConfigFile)
+		}
+	} else if os.IsNotExist(err) {
+		doc = make(map[string]interface{})
+	} else {
+		return fmt.Errorf("could not read %s: %w", mcpConfigFile, err)
+	}
+
+	servers, _ := doc["mcpServers"].(map[string]interface{})
+	if servers == nil {
+		servers = make(map[string]interface{})
+	}
+	servers["beats"] = map[string]interface{}{
+		"command": "beats",
+		"args":    []string{"mcp"},
+	}
+	doc["mcpServers"] = servers
+
+	out, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("could not marshal %s: %w", mcpConfigFile, err)
+	}
+	out = append(out, '\n')
+	return os.WriteFile(mcpConfigFile, out, 0644)
 }
 
 // AppendBeatsToAgentFile appends beats instructions to an agent file

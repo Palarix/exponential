@@ -90,6 +90,45 @@ var doctorCmd = &cobra.Command{
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s Beats database exists\n", ui.OKPrefix)))
 		}
 
+		// Check .mcp.json
+		mcpStatus := beats.DetectMCPConfig()
+		if mcpStatus.HasBeats {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s MCP config (`.mcp.json`) has beats entry\n", ui.OKPrefix)))
+		} else {
+			if mcpStatus.Exists {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s `.mcp.json` exists but has no beats entry\n", ui.NotePrefix)))
+			} else {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s `.mcp.json` not found\n", ui.NotePrefix)))
+			}
+
+			if isInteractive() {
+				prompt := "Add beats MCP server entry to `.mcp.json`?"
+				if !mcpStatus.Exists {
+					prompt = "Create `.mcp.json` with beats MCP server entry?"
+				}
+				fmt.Print(ui.Stylize(fmt.Sprintf("\n%s [y/N]: ", prompt)))
+				reader := bufio.NewReader(os.Stdin)
+				response, _ := reader.ReadString('\n')
+				response = strings.TrimSpace(strings.ToLower(response))
+
+				if response == "y" || response == "yes" {
+					if err := beats.EnsureMCPConfig(); err != nil {
+						fmt.Print(ui.Stylize(fmt.Sprintf("%s %v\n", ui.ErrorPrefix, err)))
+					} else {
+						action := "Added beats entry to"
+						if !mcpStatus.Exists {
+							action = "Created"
+						}
+						fmt.Print(ui.Stylize(fmt.Sprintf("%s %s `.mcp.json`\n", ui.OKPrefix, action)))
+					}
+				} else {
+					fmt.Println("Skipped.")
+				}
+			} else {
+				fmt.Print(ui.Stylize("    Run `beats doctor` in an interactive terminal to configure.\n"))
+			}
+		}
+
 		// Detect AI agent files
 		results := beats.DetectAgentFiles()
 		var configured, needsConfig []beats.AgentDetectionResult
