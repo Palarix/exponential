@@ -362,15 +362,11 @@ func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, readErr := storage.ReadEvents()
-	if readErr != nil {
-		respondError(w, http.StatusInternalServerError, readErr.Error())
+	allEvents, err := s.GetAllEvents()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	s.mu.RLock()
-	allEvents := append(events, s.pendingEvents...)
-	s.mu.RUnlock()
 
 	endDate := cycle.End
 	now := time.Now()
@@ -604,14 +600,11 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	const maxItems = 30
 
-	events, err := storage.ReadEvents()
+	allEvents, err := s.GetAllEvents()
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.mu.RLock()
-	allEvents := append(events, s.pendingEvents...)
-	s.mu.RUnlock()
 
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
@@ -658,15 +651,11 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	events, err := storage.ReadEvents()
+	allEvents, err := s.GetAllEvents()
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	s.mu.RLock()
-	allEvents := append(events, s.pendingEvents...)
-	s.mu.RUnlock()
 
 	history := make([]map[string]interface{}, 0)
 	for _, evt := range allEvents {

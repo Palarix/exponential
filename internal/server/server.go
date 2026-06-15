@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -28,6 +30,13 @@ type Server struct {
 	Headless      bool
 	pendingEvents []model.Event
 	mu            sync.RWMutex
+	pendingGen    uint64
+	cachedEvents  []model.Event
+	cachedIssues  map[string]*model.Issue
+	lastDBModTime time.Time
+	lastDBSize    int64
+	dbExists      bool
+	cacheGen      uint64
 
 	// Auth fields — nil when auth is disabled (local board mode).
 	NonceStore     *auth.NonceStore
@@ -107,6 +116,7 @@ func (s *Server) AddPendingEvent(evt model.Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pendingEvents = append(s.pendingEvents, evt)
+	s.pendingGen++
 }
 
 // DiscardPending clears all pending events.
@@ -114,6 +124,7 @@ func (s *Server) DiscardPending() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pendingEvents = make([]model.Event, 0)
+	s.pendingGen++
 }
 
 // SaveAndSync persists pending events to storage and optionally commits to git.
@@ -121,22 +132,20 @@ func (s *Server) SaveAndSync(commitMessage string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Append all pending events to storage
 	for _, evt := range s.pendingEvents {
 		if err := storage.AppendEvent(evt); err != nil {
 			return fmt.Errorf("failed to append event: %w", err)
 		}
 	}
 
-	// Git commit if auto-commit is enabled
 	if s.Config.AutoCommit {
 		client := beats.NewClient(s.Config)
-		_ = client // Use client for git operations if needed
-		// Git operations handled by storage layer or direct exec
+		_ = client
 	}
 
-	// Clear pending events
 	s.pendingEvents = make([]model.Event, 0)
+	s.pendingGen++
+	s.cachedIssues = nil
 	return nil
 }
 
@@ -147,22 +156,95 @@ func (s *Server) broadcastEvent(eventType, issueID string) {
 	}
 }
 
-// GetProjectedIssues returns all issues with pending events applied.
-func (s *Server) GetProjectedIssues() (map[string]*model.Issue, error) {
-	// Read persisted events
+func (s *Server) statDB() (mtime time.Time, size int64, exists bool) {
+	info, err := os.Stat(filepath.Join(".beats", "issues.db"))
+	if err != nil {
+		return time.Time{}, 0, false
+	}
+	return info.ModTime(), info.Size(), true
+}
+
+func (s *Server) dbStale() bool {
+	mtime, size, exists := s.statDB()
+	return exists != s.dbExists || mtime != s.lastDBModTime || size != s.lastDBSize
+}
+
+// refreshEventsLocked re-reads persisted events from disk if the database
+// file has changed. Must be called while holding s.mu for writing.
+func (s *Server) refreshEventsLocked() error {
+	mtime, size, exists := s.statDB()
+	if s.cachedEvents != nil && exists == s.dbExists && mtime == s.lastDBModTime && size == s.lastDBSize {
+		return nil
+	}
+
 	events, err := storage.ReadEvents()
 	if err != nil {
+		return err
+	}
+	s.cachedEvents = events
+	s.lastDBModTime = mtime
+	s.lastDBSize = size
+	s.dbExists = exists
+	s.cachedIssues = nil
+	return nil
+}
+
+// GetProjectedIssues returns all issues with pending events applied.
+// Results are cached and recomputed only when the on-disk database or the
+// pending-events buffer has changed.
+func (s *Server) GetProjectedIssues() (map[string]*model.Issue, error) {
+	s.mu.RLock()
+	if s.cachedIssues != nil && !s.dbStale() && s.pendingGen == s.cacheGen {
+		issues := s.cachedIssues
+		s.mu.RUnlock()
+		return issues, nil
+	}
+	s.mu.RUnlock()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.refreshEventsLocked(); err != nil {
 		return nil, fmt.Errorf("failed to read events: %w", err)
 	}
 
-	// Append pending events
+	if s.cachedIssues != nil && s.pendingGen == s.cacheGen {
+		return s.cachedIssues, nil
+	}
+
+	allEvents := make([]model.Event, 0, len(s.cachedEvents)+len(s.pendingEvents))
+	allEvents = append(allEvents, s.cachedEvents...)
+	allEvents = append(allEvents, s.pendingEvents...)
+	s.cachedIssues = beats.ProjectIssuesWithConfig(allEvents, s.Config)
+	s.cacheGen = s.pendingGen
+	return s.cachedIssues, nil
+}
+
+// GetAllEvents returns all persisted events plus pending events.
+// The persisted events are cached and only re-read when the database file
+// has changed on disk.
+func (s *Server) GetAllEvents() ([]model.Event, error) {
 	s.mu.RLock()
-	allEvents := append(events, s.pendingEvents...)
+	if s.cachedEvents != nil && !s.dbStale() {
+		result := make([]model.Event, 0, len(s.cachedEvents)+len(s.pendingEvents))
+		result = append(result, s.cachedEvents...)
+		result = append(result, s.pendingEvents...)
+		s.mu.RUnlock()
+		return result, nil
+	}
 	s.mu.RUnlock()
 
-	// Project issues (with config for automations + cycle rollover)
-	issues := beats.ProjectIssuesWithConfig(allEvents, s.Config)
-	return issues, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.refreshEventsLocked(); err != nil {
+		return nil, err
+	}
+
+	result := make([]model.Event, 0, len(s.cachedEvents)+len(s.pendingEvents))
+	result = append(result, s.cachedEvents...)
+	result = append(result, s.pendingEvents...)
+	return result, nil
 }
 
 // respondJSON writes a JSON response.
