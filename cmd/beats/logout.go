@@ -22,7 +22,7 @@ that specific server.`,
 		} else if cfg != nil && cfg.Remote.URL != "" {
 			serverURL = cfg.Remote.URL
 		} else {
-			creds := config.LoadCredentials()
+			creds := config.LoadUserConfig()
 			if len(creds.Servers) == 0 {
 				fmt.Println("Not logged in to any server.")
 				return nil

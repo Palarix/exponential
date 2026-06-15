@@ -644,6 +644,41 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, out)
 }
 
+func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
+	// Resolve the requesting user: prefer the authenticated identity, fall
+	// back to the server's configured user when auth is disabled.
+	var me string
+	if u, ok := auth.UserFromContext(r.Context()); ok {
+		me = u.Raw
+	} else {
+		me = beats.NewClient(s.Config).GetUser()
+	}
+
+	var since time.Time
+	if raw := r.URL.Query().Get("since"); raw != "" {
+		t, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "invalid since parameter: "+err.Error())
+			return
+		}
+		since = t
+	}
+
+	allEvents, err := s.GetAllEvents()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	items := beats.BuildInbox(allEvents, issues, me, since)
+	respondJSON(w, http.StatusOK, items)
+}
+
 func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {

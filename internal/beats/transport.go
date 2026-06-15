@@ -2,6 +2,7 @@ package beats
 
 import (
 	"errors"
+	"time"
 
 	"github.com/palarix/beats/internal/model"
 )
@@ -23,4 +24,5 @@ type Transport interface {
 	DeleteIssue(id string, reason string, cascade bool) error
 	CheckDuplicates(title string) ([]*model.Issue, error)
 	GetUser() string
+	GetInbox(since time.Time) ([]InboxItem, error)
 }

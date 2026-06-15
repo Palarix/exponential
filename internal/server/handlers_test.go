@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/palarix/beats/internal/auth"
+	"github.com/palarix/beats/internal/beats"
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
 	"github.com/palarix/beats/internal/storage"
@@ -61,6 +62,55 @@ func seedIssue(t *testing.T, title string) string {
 		t.Fatalf("seedIssue: %v", err)
 	}
 	return evt.ID
+}
+
+func TestHandleInbox(t *testing.T) {
+	srv := setupTestServer(t)
+
+	// Issue created by the server's configured user ("Test User").
+	id := seedIssue(t, "My Issue")
+
+	// A comment on it by someone else — relevant to me, not my own action.
+	if err := storage.AppendEvent(model.Event{
+		ID:        id,
+		Type:      model.EventTypeComment,
+		Payload:   model.CommentPayload{ID: "c1", Text: "looks good"},
+		CreatedBy: "Bob Ops <bob@example.com>",
+		CreatedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("append comment: %v", err)
+	}
+
+	mux := srv.SetupRoutes()
+	req := httptest.NewRequest("GET", "/api/inbox", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var items []beats.InboxItem
+	json.NewDecoder(w.Body).Decode(&items)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 inbox item, got %d: %+v", len(items), items)
+	}
+	if items[0].Type != model.EventTypeComment || items[0].IssueID != id {
+		t.Errorf("unexpected inbox item: %+v", items[0])
+	}
+}
+
+func TestHandleInbox_InvalidSince(t *testing.T) {
+	srv := setupTestServer(t)
+	mux := srv.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/inbox?since=not-a-time", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
 }
 
 func TestHandleGetIssues_Empty(t *testing.T) {

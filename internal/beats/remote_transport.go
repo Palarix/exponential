@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"time"
 
@@ -330,6 +331,20 @@ func (r *RemoteTransport) CheckDuplicates(title string) ([]*model.Issue, error) 
 	}
 
 	return duplicates, nil
+}
+
+// GetInbox fetches the authenticated user's inbox from the server, which
+// filters events server-side by identity and the optional since cursor.
+func (r *RemoteTransport) GetInbox(since time.Time) ([]InboxItem, error) {
+	path := "/api/inbox"
+	if !since.IsZero() {
+		path += "?since=" + url.QueryEscape(since.UTC().Format(time.RFC3339))
+	}
+	resp, err := r.get(path)
+	if err != nil {
+		return nil, fmt.Errorf("get inbox: %w", err)
+	}
+	return decodeJSON[[]InboxItem](resp)
 }
 
 func (r *RemoteTransport) GetUser() string {

@@ -25,7 +25,7 @@ Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`
 1. **Discover** — `beats_list` to see the board; `beats_show` for details on candidate issues.
 2. **Plan** — if no issue covers the work, create one with `beats_add` (only after the user approves the design).
 3. **Start** — `beats_update` with `status: "DOING"` before editing any code.
-4. **Implement & test** — make changes, then run `go test ./...` and `go build ./...` (or `make test` / `make build`).
+4. **Implement & test** — make changes, then run `make test` / `make build` to check against the test suite.
 5. **Document** — `beats_comment` with a markdown summary of what changed and why.
 6. **Complete** — `beats_update` with `status: "DONE"` once the user approves.
 

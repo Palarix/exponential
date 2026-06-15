@@ -372,7 +372,7 @@ func LoadConfig() (*Config, error) {
 		cfg.DefaultLabels = BuiltinLabelOrder
 	}
 
-	// Resolve remote token from ~/.config/beats/credentials.yaml
+	// Resolve remote token from ~/.config/beats/user.yaml
 	cfg.Remote = ResolveRemote(cfg.Remote)
 
 	return &cfg, nil

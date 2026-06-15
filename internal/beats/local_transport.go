@@ -3,6 +3,7 @@ package beats
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/palarix/beats/internal/config"
 	"github.com/palarix/beats/internal/model"
@@ -62,6 +63,17 @@ func (t *LocalTransport) resolveIssue(issues map[string]*model.Issue, id string)
 	}
 
 	return nil, fmt.Errorf("issue %s not found", id)
+}
+
+// GetInbox scans the local event log for events relevant to the current
+// user since the given cursor.
+func (t *LocalTransport) GetInbox(since time.Time) ([]InboxItem, error) {
+	events, err := storage.ReadEvents()
+	if err != nil {
+		return nil, fmt.Errorf("error reading events: %w", err)
+	}
+	issues := ProjectIssues(events)
+	return BuildInbox(events, issues, t.GetUser(), since), nil
 }
 
 // FindIssue retrieves an issue by ID, checking the active store first, then the archive.

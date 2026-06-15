@@ -5,38 +5,51 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Credentials stores tokens indexed by server host.
-type Credentials struct {
-	Servers map[string]ServerCredential `yaml:"servers"`
+// UserConfig stores all per-user state. Server credentials and the
+// distributed-mode inbox cursor live under Servers (keyed by host); the
+// local-mode inbox cursor lives under Projects (keyed by absolute .beats
+// path). It is the single file for per-user concerns.
+type UserConfig struct {
+	Servers  map[string]ServerCredential `yaml:"servers"`
+	Projects map[string]ProjectState     `yaml:"projects,omitempty"`
 }
 
-// ServerCredential holds auth info for a single server.
+// ServerCredential holds auth info and per-user state for a single server.
 type ServerCredential struct {
-	URL   string `yaml:"url"`
-	Token string `yaml:"token"`
+	URL      string `yaml:"url"`
+	Token    string `yaml:"token"`
+	LastRead string `yaml:"last_read,omitempty"`
 }
 
-func credentialsPath() string {
+// ProjectState holds per-user state for a local project, keyed by the
+// absolute path to its .beats directory. Read state is always per-user and
+// never shared in .beats/, even in local mode.
+type ProjectState struct {
+	LastRead string `yaml:"last_read,omitempty"`
+}
+
+func userConfigPath() string {
 	if dir := os.Getenv("BEATS_CONFIG_DIR"); dir != "" {
-		return filepath.Join(dir, "credentials.yaml")
+		return filepath.Join(dir, "user.yaml")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(".config", "beats", "credentials.yaml")
+		return filepath.Join(".config", "beats", "user.yaml")
 	}
-	return filepath.Join(home, ".config", "beats", "credentials.yaml")
+	return filepath.Join(home, ".config", "beats", "user.yaml")
 }
 
-// LoadCredentials reads all stored server credentials.
-func LoadCredentials() Credentials {
-	var c Credentials
-	data, err := os.ReadFile(credentialsPath())
+// LoadUserConfig reads all stored per-user state.
+func LoadUserConfig() UserConfig {
+	var c UserConfig
+	data, err := os.ReadFile(userConfigPath())
 	if err != nil {
-		return Credentials{Servers: make(map[string]ServerCredential)}
+		return UserConfig{Servers: make(map[string]ServerCredential)}
 	}
 	yaml.Unmarshal(data, &c)
 	if c.Servers == nil {
@@ -45,9 +58,9 @@ func LoadCredentials() Credentials {
 	return c
 }
 
-// SaveCredentials writes all server credentials.
-func SaveCredentials(c Credentials) error {
-	path := credentialsPath()
+// SaveUserConfig writes all per-user state.
+func SaveUserConfig(c UserConfig) error {
+	path := userConfigPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -58,17 +71,21 @@ func SaveCredentials(c Credentials) error {
 	return os.WriteFile(path, data, 0600)
 }
 
-// SaveServerCredential stores a token for a server URL.
+// SaveServerCredential stores a token for a server URL, preserving any
+// existing per-user state (e.g. last_read) for that server.
 func SaveServerCredential(serverURL, token string) error {
-	c := LoadCredentials()
+	c := LoadUserConfig()
 	host := hostFromURL(serverURL)
-	c.Servers[host] = ServerCredential{URL: serverURL, Token: token}
-	return SaveCredentials(c)
+	cred := c.Servers[host]
+	cred.URL = serverURL
+	cred.Token = token
+	c.Servers[host] = cred
+	return SaveUserConfig(c)
 }
 
 // GetServerCredential retrieves the token for a server URL.
 func GetServerCredential(serverURL string) (ServerCredential, bool) {
-	c := LoadCredentials()
+	c := LoadUserConfig()
 	host := hostFromURL(serverURL)
 	cred, ok := c.Servers[host]
 	return cred, ok
@@ -76,10 +93,10 @@ func GetServerCredential(serverURL string) (ServerCredential, bool) {
 
 // RemoveServerCredential removes a stored server credential.
 func RemoveServerCredential(serverURL string) error {
-	c := LoadCredentials()
+	c := LoadUserConfig()
 	host := hostFromURL(serverURL)
 	delete(c.Servers, host)
-	return SaveCredentials(c)
+	return SaveUserConfig(c)
 }
 
 // ResolveRemote fills in the token for a RemoteConfig by looking up
@@ -216,6 +233,59 @@ func SetRemoteURL(serverURL string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 	return os.WriteFile(configPath, out, 0644)
+}
+
+// localProjectKey returns the absolute path to the local .beats directory,
+// used as the per-user inbox cursor key in local mode.
+func localProjectKey() string {
+	abs, err := filepath.Abs(".beats")
+	if err != nil {
+		return ".beats"
+	}
+	return abs
+}
+
+// GetInboxLastRead returns the per-user inbox read cursor. In distributed
+// mode (remoteURL set) it is stored under the server host; in local mode it
+// is stored under the absolute .beats path. A zero time means never read.
+func GetInboxLastRead(remoteURL string) time.Time {
+	c := LoadUserConfig()
+	var raw string
+	if remoteURL != "" {
+		raw = c.Servers[hostFromURL(remoteURL)].LastRead
+	} else {
+		raw = c.Projects[localProjectKey()].LastRead
+	}
+	if raw == "" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+// SetInboxLastRead persists the per-user inbox read cursor, routing to the
+// server host (distributed) or absolute .beats path (local) as appropriate.
+func SetInboxLastRead(remoteURL string, t time.Time) error {
+	c := LoadUserConfig()
+	stamp := t.UTC().Format(time.RFC3339)
+	if remoteURL != "" {
+		host := hostFromURL(remoteURL)
+		cred := c.Servers[host]
+		cred.LastRead = stamp
+		c.Servers[host] = cred
+	} else {
+		if c.Projects == nil {
+			c.Projects = make(map[string]ProjectState)
+		}
+		key := localProjectKey()
+		ps := c.Projects[key]
+		ps.LastRead = stamp
+		c.Projects[key] = ps
+	}
+	return SaveUserConfig(c)
 }
 
 func hostFromURL(rawURL string) string {

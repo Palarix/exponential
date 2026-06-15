@@ -103,6 +103,11 @@ func (c *Client) GetUser() string {
 	return c.Transport.GetUser()
 }
 
+func (c *Client) GetInbox(since time.Time) ([]InboxItem, error) {
+	c.syncLocal()
+	return c.Transport.GetInbox(since)
+}
+
 // resolveIssue is a convenience for git-only methods that need to resolve
 // an issue ID from a projected issue map.
 func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSaveAndGetServerCredential(t *testing.T) {
@@ -27,9 +28,40 @@ func TestSaveAndGetServerCredential(t *testing.T) {
 	}
 
 	// Verify file permissions
-	info, _ := os.Stat(filepath.Join(dir, "beats", "credentials.yaml"))
+	info, _ := os.Stat(filepath.Join(dir, "beats", "user.yaml"))
 	if info.Mode().Perm() != 0600 {
 		t.Errorf("expected 0600, got %o", info.Mode().Perm())
+	}
+}
+
+func TestSaveServerCredential_PreservesLastRead(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+
+	// Seed per-user state with a last_read value, then re-login (new token).
+	c := LoadUserConfig()
+	c.Servers["beats.example.com"] = ServerCredential{
+		URL:      "https://beats.example.com",
+		Token:    "old-token",
+		LastRead: "2026-06-15T10:30:00Z",
+	}
+	if err := SaveUserConfig(c); err != nil {
+		t.Fatalf("SaveUserConfig: %v", err)
+	}
+
+	if err := SaveServerCredential("https://beats.example.com", "new-token"); err != nil {
+		t.Fatalf("SaveServerCredential: %v", err)
+	}
+
+	cred, ok := GetServerCredential("https://beats.example.com")
+	if !ok {
+		t.Fatal("expected credential to be found")
+	}
+	if cred.Token != "new-token" {
+		t.Errorf("Token: got %q, want new-token", cred.Token)
+	}
+	if cred.LastRead != "2026-06-15T10:30:00Z" {
+		t.Errorf("LastRead: got %q, want it preserved across re-login", cred.LastRead)
 	}
 }
 
@@ -257,6 +289,81 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestInboxLastRead_Distributed(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+
+	url := "https://beats.example.com"
+
+	// Unset cursor reads as zero time.
+	if got := GetInboxLastRead(url); !got.IsZero() {
+		t.Errorf("expected zero time for unset cursor, got %v", got)
+	}
+
+	want := time.Date(2026, 6, 15, 10, 30, 0, 0, time.UTC)
+	if err := SetInboxLastRead(url, want); err != nil {
+		t.Fatalf("SetInboxLastRead: %v", err)
+	}
+
+	if got := GetInboxLastRead(url); !got.Equal(want) {
+		t.Errorf("GetInboxLastRead = %v, want %v", got, want)
+	}
+
+	// Cursor must live under the server entry alongside credentials.
+	c := LoadUserConfig()
+	if c.Servers[hostFromURL(url)].LastRead == "" {
+		t.Error("expected last_read stored under servers entry")
+	}
+}
+
+func TestInboxLastRead_DistributedPreservesToken(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+
+	url := "https://beats.example.com"
+	if err := SaveServerCredential(url, "tok"); err != nil {
+		t.Fatalf("SaveServerCredential: %v", err)
+	}
+	if err := SetInboxLastRead(url, time.Now()); err != nil {
+		t.Fatalf("SetInboxLastRead: %v", err)
+	}
+
+	cred, ok := GetServerCredential(url)
+	if !ok || cred.Token != "tok" {
+		t.Errorf("setting cursor wiped token: %+v ok=%v", cred, ok)
+	}
+}
+
+func TestInboxLastRead_Local(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Chdir(dir)
+
+	// Local mode: empty remote URL routes to the projects map.
+	if got := GetInboxLastRead(""); !got.IsZero() {
+		t.Errorf("expected zero time for unset local cursor, got %v", got)
+	}
+
+	want := time.Date(2026, 6, 15, 8, 0, 0, 0, time.UTC)
+	if err := SetInboxLastRead("", want); err != nil {
+		t.Fatalf("SetInboxLastRead: %v", err)
+	}
+
+	if got := GetInboxLastRead(""); !got.Equal(want) {
+		t.Errorf("GetInboxLastRead = %v, want %v", got, want)
+	}
+
+	// Cursor must live under the projects map keyed by the absolute .beats path.
+	c := LoadUserConfig()
+	absBeats, _ := filepath.Abs(".beats")
+	if c.Projects[absBeats].LastRead == "" {
+		t.Errorf("expected last_read stored under projects[%q], got %+v", absBeats, c.Projects)
+	}
+	if len(c.Servers) != 0 {
+		t.Errorf("local cursor should not touch servers map, got %+v", c.Servers)
+	}
 }
 
 func TestHostFromURL(t *testing.T) {
