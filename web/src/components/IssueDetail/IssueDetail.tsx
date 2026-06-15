@@ -42,6 +42,7 @@ export default function IssueDetail({
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [optimisticTitle, setOptimisticTitle] = useState<string | null>(null);
   const [optimisticDescription, setOptimisticDescription] = useState<string | null>(null);
   const [descClickEvent, setDescClickEvent] = useState<{ clientX: number; clientY: number } | null>(null);
   const [newComment, setNewComment] = useState("");
@@ -56,8 +57,15 @@ export default function IssueDetail({
     setEditingField(null);
     setOpenPopover(null);
     setNewComment("");
+    setOptimisticTitle(null);
     setOptimisticDescription(null);
   }, [issue.id]);
+
+  useEffect(() => {
+    if (optimisticTitle !== null && issue.title === optimisticTitle) {
+      setOptimisticTitle(null);
+    }
+  }, [issue.title, optimisticTitle]);
 
   useEffect(() => {
     if (optimisticDescription !== null && issue.description === optimisticDescription) {
@@ -204,6 +212,7 @@ export default function IssueDetail({
 
   const handleSaveTitle = () => {
     if (editTitle.trim() && editTitle !== issue.title) {
+      setOptimisticTitle(editTitle.trim());
       saveDraft("UPDATE", { title: editTitle.trim() });
     } else {
       setEditingField(null);
@@ -251,7 +260,7 @@ export default function IssueDetail({
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
           <CopyableId id={issue.id} className="text-xs shrink-0" />
-          <span className="text-[var(--color-text-primary)] truncate">{issue.title}</span>
+          <span className="text-[var(--color-text-primary)] truncate">{optimisticTitle ?? issue.title}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0 ml-4">
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">{currentIndex + 1} / {totalCount}</span>
@@ -286,7 +295,7 @@ export default function IssueDetail({
               />
             ) : (
               <h1 onClick={() => startEditing("title")} className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text">
-                {issue.title}
+                {optimisticTitle ?? issue.title}
               </h1>
             )}
 
@@ -324,7 +333,10 @@ export default function IssueDetail({
                 />
               ) : (
                 <div
-                  onClick={(e) => { setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description"); }}
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('a')) return;
+                    setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description");
+                  }}
                   className="cursor-text min-h-10 prose-beats"
                 >
                   {(optimisticDescription ?? issue.description) ? (
