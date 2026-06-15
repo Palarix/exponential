@@ -148,46 +148,39 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 }
 
 // backfillSortOrder assigns sort_order to issues that don't have one.
-// Within each status group, unkeyed issues are appended after the last
-// keyed issue in creation-time order.
+// Unkeyed issues are appended after the global max sort_order across all
+// issues, in creation-time order.
 func backfillSortOrder(issues map[string]*model.Issue) {
-	byStatus := make(map[model.IssueStatus][]*model.Issue)
+	maxKey := ""
 	for _, issue := range issues {
-		byStatus[issue.Status] = append(byStatus[issue.Status], issue)
+		if issue.SortOrder != "" && issue.SortOrder > maxKey {
+			maxKey = issue.SortOrder
+		}
 	}
 
-	for _, group := range byStatus {
-		maxKey := ""
-		for _, issue := range group {
-			if issue.SortOrder != "" && issue.SortOrder > maxKey {
-				maxKey = issue.SortOrder
-			}
+	var unkeyed []*model.Issue
+	for _, issue := range issues {
+		if issue.SortOrder == "" {
+			unkeyed = append(unkeyed, issue)
 		}
+	}
+	if len(unkeyed) == 0 {
+		return
+	}
 
-		var unkeyed []*model.Issue
-		for _, issue := range group {
-			if issue.SortOrder == "" {
-				unkeyed = append(unkeyed, issue)
-			}
+	sort.Slice(unkeyed, func(i, j int) bool {
+		if !unkeyed[i].CreatedAt.Equal(unkeyed[j].CreatedAt) {
+			return unkeyed[i].CreatedAt.Before(unkeyed[j].CreatedAt)
 		}
-		if len(unkeyed) == 0 {
-			continue
-		}
+		return unkeyed[i].ID < unkeyed[j].ID
+	})
 
-		sort.Slice(unkeyed, func(i, j int) bool {
-			if !unkeyed[i].CreatedAt.Equal(unkeyed[j].CreatedAt) {
-				return unkeyed[i].CreatedAt.Before(unkeyed[j].CreatedAt)
-			}
-			return unkeyed[i].ID < unkeyed[j].ID
-		})
-
-		keys, err := sortorder.GenerateNKeysBetween(maxKey, "", len(unkeyed))
-		if err != nil {
-			continue
-		}
-		for i, issue := range unkeyed {
-			issue.SortOrder = keys[i]
-		}
+	keys, err := sortorder.GenerateNKeysBetween(maxKey, "", len(unkeyed))
+	if err != nil {
+		return
+	}
+	for i, issue := range unkeyed {
+		issue.SortOrder = keys[i]
 	}
 }
 

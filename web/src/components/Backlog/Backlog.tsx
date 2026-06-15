@@ -402,7 +402,9 @@ export default function Backlog({
       if (targetRow.depth > 0) {
         const targetParentId = targetRow.issue.parent_id!;
         update.parent_id = targetParentId;
-        const siblings = issues.filter((i) => i.parent_id === targetParentId);
+        const siblings = issues
+          .filter((i) => i.parent_id === targetParentId)
+          .sort((a, b) => (a.sort_order || '') < (b.sort_order || '') ? -1 : (a.sort_order || '') > (b.sort_order || '') ? 1 : 0);
         const withoutDragged = siblings.filter((i) => i.id !== droppedId);
         let insertIdx = withoutDragged.findIndex(
           (i) => i.id === targetRow.issue.id,
@@ -411,9 +413,11 @@ export default function Backlog({
         if (indicatorTarget.position === "below") insertIdx++;
         const prev = withoutDragged[insertIdx - 1];
         const next = withoutDragged[insertIdx];
+        const prevKey = prev?.sort_order || null;
+        const nextKey = next?.sort_order || null;
         update.sort_order = generateKeyBetween(
-          prev?.sort_order || null,
-          next?.sort_order || null,
+          prevKey,
+          nextKey && nextKey !== prevKey ? nextKey : null,
         );
       } else {
         const dragged = issues.find((i) => i.id === droppedId);
