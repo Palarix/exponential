@@ -225,6 +225,86 @@ func TestMetrics_Epics(t *testing.T) {
 	}
 }
 
+func TestMetrics_CycleTime(t *testing.T) {
+	now := time.Now()
+	doingStr := "DOING"
+	doneStr := "DONE"
+	issues := map[string]*model.Issue{
+		"a": {
+			ID: "a", Title: "a", Status: model.StatusDone,
+			CreatedAt: now.Add(-72 * time.Hour), UpdatedAt: now,
+			Events: []model.Event{
+				{ID: "a", Type: model.EventTypeUpdate, Payload: model.UpdatePayload{Status: &doingStr}, CreatedAt: now.Add(-48 * time.Hour)},
+				{ID: "a", Type: model.EventTypeUpdate, Payload: model.UpdatePayload{Status: &doneStr}, CreatedAt: now.Add(-24 * time.Hour)},
+			},
+		},
+	}
+	m := computePulseMetrics(issues, now)
+	if m.Flow.CycleCount != 1 {
+		t.Errorf("CycleCount = %d, want 1", m.Flow.CycleCount)
+	}
+	if m.Flow.CycleTimeHrs < 20 || m.Flow.CycleTimeHrs > 28 {
+		t.Errorf("CycleTimeHrs = %f, want ~24", m.Flow.CycleTimeHrs)
+	}
+}
+
+func TestMetrics_LeadTime(t *testing.T) {
+	now := time.Now()
+	doneStr := "DONE"
+	issues := map[string]*model.Issue{
+		"a": {
+			ID: "a", Title: "a", Status: model.StatusDone,
+			CreatedAt: now.Add(-72 * time.Hour), UpdatedAt: now,
+			Events: []model.Event{
+				{ID: "a", Type: model.EventTypeUpdate, Payload: model.UpdatePayload{Status: &doneStr}, CreatedAt: now},
+			},
+		},
+	}
+	m := computePulseMetrics(issues, now)
+	if m.Flow.LeadCount != 1 {
+		t.Errorf("LeadCount = %d, want 1", m.Flow.LeadCount)
+	}
+	if m.Flow.LeadTimeHrs < 68 || m.Flow.LeadTimeHrs > 76 {
+		t.Errorf("LeadTimeHrs = %f, want ~72", m.Flow.LeadTimeHrs)
+	}
+}
+
+func TestMetrics_Staleness(t *testing.T) {
+	now := time.Now()
+	issues := map[string]*model.Issue{
+		"fresh":  makeMetricIssue("fresh", model.StatusPlanned, withCreatedAt(now.Add(-12*time.Hour))),
+		"days3":  makeMetricIssue("days3", model.StatusDoing, withCreatedAt(now.Add(-2*24*time.Hour))),
+		"week":   makeMetricIssue("week", model.StatusPlanned, withCreatedAt(now.Add(-5*24*time.Hour))),
+		"old":    makeMetricIssue("old", model.StatusBlocked, withCreatedAt(now.Add(-20*24*time.Hour))),
+		"ancient": makeMetricIssue("ancient", model.StatusBacklog, withCreatedAt(now.Add(-60*24*time.Hour))),
+	}
+	m := computePulseMetrics(issues, now)
+	if m.Flow.StalenessTotal != 5 {
+		t.Errorf("StalenessTotal = %d, want 5", m.Flow.StalenessTotal)
+	}
+	if m.Flow.Staleness.Under1d != 1 {
+		t.Errorf("Under1d = %d, want 1", m.Flow.Staleness.Under1d)
+	}
+	if m.Flow.Staleness.Over30d != 1 {
+		t.Errorf("Over30d = %d, want 1", m.Flow.Staleness.Over30d)
+	}
+}
+
+func TestMetrics_BugAge(t *testing.T) {
+	now := time.Now()
+	issues := map[string]*model.Issue{
+		"new_bug": makeMetricIssue("new_bug", model.StatusBacklog, withLabels("bug"), withCreatedAt(now.Add(-12*time.Hour))),
+		"old_bug": makeMetricIssue("old_bug", model.StatusDoing, withLabels("bug"), withCreatedAt(now.Add(-40*24*time.Hour))),
+	}
+	m := computePulseMetrics(issues, now)
+	if m.Trends.BugAge.Under24h != 1 {
+		t.Errorf("BugAge.Under24h = %d, want 1", m.Trends.BugAge.Under24h)
+	}
+	if m.Trends.BugAge.Over1mo != 1 {
+		t.Errorf("BugAge.Over1mo = %d, want 1", m.Trends.BugAge.Over1mo)
+	}
+}
+
 func TestMetrics_AttentionCappedAt5(t *testing.T) {
 	now := time.Now()
 	issues := make(map[string]*model.Issue)
