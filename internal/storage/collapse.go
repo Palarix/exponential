@@ -146,11 +146,15 @@ func projectCommittedState(events []model.Event) map[string]*model.Issue {
 			b, _ := json.Marshal(evt.Payload)
 			var p model.CreatePayload
 			json.Unmarshal(b, &p)
+			status := model.IssueStatus(p.Status)
+			if status == "" {
+				status = model.StatusBacklog
+			}
 			issues[evt.ID] = &model.Issue{
 				ID:           evt.ID,
 				Title:        p.Title,
 				Description:  p.Description,
-				Status:       model.StatusBacklog,
+				Status:       status,
 				ParentID:     p.ParentID,
 				Estimate:     p.Estimate,
 				Priority:     p.Priority,
