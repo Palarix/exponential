@@ -293,7 +293,8 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     const handler = (e: KeyboardEvent) => {
       // Let typing work in the sub-menu search input, but still handle navigation keys
       const inInput = (e.target as HTMLElement)?.tagName === "INPUT";
-      if (inInput && e.key !== "Escape" && e.key !== "ArrowRight") return;
+      const navKey = e.key === "Escape" || e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ";
+      if (inInput && !navKey) return;
 
       if (e.key === "Escape") {
         e.preventDefault();
@@ -306,11 +307,18 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
       const dimKeys = DIMENSIONS.map(d => d.key);
 
       if (inSubMenu && openDim) {
+        const optionCount = subMenuRef.current?.querySelectorAll("button[data-filter-option]").length ?? 0;
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          setSubFocusIndex(i => i + 1);
+          if (inInput) (document.activeElement as HTMLElement)?.blur();
+          setSubFocusIndex(i => Math.min(i + 1, optionCount - 1));
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
+          if (inInput) (document.activeElement as HTMLElement)?.blur();
+          if (subFocusIndex <= 0) {
+            const input = subMenuRef.current?.querySelector("input");
+            if (input) { (input as HTMLElement).focus(); setSubFocusIndex(-1); return; }
+          }
           setSubFocusIndex(i => Math.max(i - 1, 0));
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
