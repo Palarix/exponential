@@ -136,6 +136,19 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  const gPendingRef = useRef(false);
+  const gTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const GO_TARGETS: Record<string, View> = {
+    o: 'dashboard',
+    b: 'backlog',
+    r: 'board',
+    i: 'inbox',
+    d: 'dependencies',
+    l: 'labels',
+    c: 'cycles',
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.key === '?' || (e.key === '/' && e.shiftKey)) && !showPalette && !showNewIssue && !isEditableTarget(e)) {
@@ -144,18 +157,42 @@ function App() {
         return;
       }
       if (isEditableTarget(e)) return;
+      if (e.metaKey || e.ctrlKey) return;
+
+      if (gPendingRef.current) {
+        gPendingRef.current = false;
+        clearTimeout(gTimerRef.current);
+        const target = GO_TARGETS[e.key.toLowerCase()];
+        if (target) {
+          e.preventDefault();
+          handleViewChange(target);
+        }
+        return;
+      }
+
+      if (e.key === 'g' && !showPalette && !showNewIssue && !showKeyboardHelp) {
+        e.preventDefault();
+        gPendingRef.current = true;
+        clearTimeout(gTimerRef.current);
+        gTimerRef.current = setTimeout(() => { gPendingRef.current = false; }, 1000);
+        return;
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowPalette(true);
         return;
       }
-      if (e.key === 'c' && !e.metaKey && !e.ctrlKey && !showNewIssue && !showPalette && !showKeyboardHelp) {
+      if (e.key === 'c' && !showNewIssue && !showPalette && !showKeyboardHelp) {
         e.preventDefault();
         setShowNewIssue(true);
       }
     };
     document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    return () => {
+      document.removeEventListener('keydown', handler);
+      clearTimeout(gTimerRef.current);
+    };
   }, [showNewIssue, showPalette, showKeyboardHelp]);
 
   const lastJsonRef = useRef('');

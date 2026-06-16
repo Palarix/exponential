@@ -19,6 +19,13 @@ const GLOBAL: ShortcutGroup = {
     { keys: ["?"], label: "Show keyboard shortcuts" },
     { keys: [mod, "K"], label: "Open command palette" },
     { keys: ["C"], label: "Create new issue" },
+    { keys: ["G", "O"], label: "Go to Overview" },
+    { keys: ["G", "B"], label: "Go to Backlog" },
+    { keys: ["G", "R"], label: "Go to Board" },
+    { keys: ["G", "I"], label: "Go to Inbox" },
+    { keys: ["G", "D"], label: "Go to Dependencies" },
+    { keys: ["G", "L"], label: "Go to Labels" },
+    { keys: ["G", "C"], label: "Go to Cycles" },
   ],
 };
 
