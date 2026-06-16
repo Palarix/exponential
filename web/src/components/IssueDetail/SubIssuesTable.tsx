@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { createIssue } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { computeAppendKey, sortGroup } from "../../utils/sort";
-import { Avatar, LabelBadge, StatusIcon } from "../ui";
+import { Avatar, LabelBadge, PriorityIcon, StatusIcon } from "../ui";
 
 export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
   const children = useMemo(() => sortGroup(issues.filter(i => i.parent_id === issue.id), 'manual'), [issues, issue.id]);
@@ -82,9 +82,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
               <StatusIcon status={child.status} size={14} isInferred={child.is_inferred} />
               <span className="text-[var(--color-text-primary)] truncate min-w-0">{child.title}</span>
               {child.priority > 0 && (
-                <span className={`text-xs font-medium shrink-0 ${child.priority === 1 ? 'text-[var(--color-error)]' : child.priority === 2 ? 'text-[var(--color-warning)]' : 'text-[var(--color-text-muted)]'}`}>
-                  {child.priority === 1 ? '!!!' : child.priority === 2 ? '!!' : '!'}
-                </span>
+                <PriorityIcon priority={child.priority} size={14} />
               )}
               <div className="flex-1" />
               {child.labels?.map(label => <LabelBadge key={label} label={label} />)}
