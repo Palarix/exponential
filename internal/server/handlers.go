@@ -712,7 +712,12 @@ func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	unread := len(beats.BuildInbox(allEvents, issues, me, lastRead))
+	inboxItems := beats.BuildInbox(allEvents, issues, me, lastRead)
+	seen := make(map[string]bool, len(inboxItems))
+	for _, item := range inboxItems {
+		seen[item.IssueID] = true
+	}
+	unread := len(seen)
 
 	resp := struct {
 		LastRead string `json:"last_read"`

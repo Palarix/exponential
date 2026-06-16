@@ -3,7 +3,7 @@ import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import type { InboxItem, Issue } from "../../api/client";
-import { Avatar } from "../ui";
+import { StatusIcon } from "../ui";
 import { shortName, formatRelativeTime, stripMarkdown } from "../../utils/format";
 
 type ActIconKey =
@@ -13,13 +13,9 @@ type ActIconKey =
 
 const ICON_COLORS: Partial<Record<ActIconKey, string>> = {
   "status-done": "text-[var(--color-success)]",
-  "status-doing": "text-[var(--color-accent-primary)]",
+  "status-doing": "text-[var(--color-warning)]",
   "status-blocked": "text-[var(--color-error)]",
-  "status-planned": "text-[var(--color-warning)]",
-  merge: "text-[var(--color-success)]",
-  assign: "text-[var(--color-accent-primary)]",
-  comment: "text-[var(--color-accent-primary)]",
-  create: "text-[var(--color-success)]",
+  "status-planned": "text-[var(--color-text-secondary)]",
 };
 
 function ActIcon({ k }: { k: ActIconKey }) {
@@ -43,36 +39,43 @@ function ActIcon({ k }: { k: ActIconKey }) {
   );
 }
 
-const STATUS_VERB: Record<string, { verb: string; icon: ActIconKey }> = {
-  BACKLOG: { verb: "moved to Backlog", icon: "status-backlog" },
-  PLANNED: { verb: "planned", icon: "status-planned" },
-  DOING: { verb: "started work on", icon: "status-doing" },
-  BLOCKED: { verb: "blocked", icon: "status-blocked" },
-  DONE: { verb: "completed", icon: "status-done" },
+const STATUS_LABEL: Record<string, { verb: string; icon: ActIconKey }> = {
+  BACKLOG: { verb: "moved this to Backlog", icon: "status-backlog" },
+  PLANNED: { verb: "marked this as Planned", icon: "status-planned" },
+  DOING: { verb: "started working on this", icon: "status-doing" },
+  BLOCKED: { verb: "marked this as Blocked", icon: "status-blocked" },
+  DONE: { verb: "completed this", icon: "status-done" },
 };
 
-function describeItem(item: InboxItem): { icon: ActIconKey; action: ReactNode; detail?: string } | null {
+interface EventDescription {
+  icon: ActIconKey;
+  sentence: ReactNode;
+  detail?: string;
+}
+
+function describeItem(item: InboxItem, who: string): EventDescription | null {
   const p = item.payload || {};
+  const name = <span className="font-medium text-[var(--color-text-primary)]">{who}</span>;
   switch (item.type) {
     case "CREATE":
-      return { icon: "create", action: <>created this issue</> };
+      return { icon: "create", sentence: <>{name} created this issue</> };
     case "COMMENT":
-      return { icon: "comment", action: <>commented</>, detail: String(p.text ?? "") };
+      return { icon: "comment", sentence: <>{name} left a comment</>, detail: String(p.text ?? "") };
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
-      return { icon: "merge", action: <>merged{strategy}</> };
+      return { icon: "merge", sentence: <>{name} merged this{strategy}</> };
     }
     case "UPDATE": {
       if (p.status) {
-        const s = STATUS_VERB[String(p.status)] ?? { verb: `moved to ${String(p.status)}`, icon: "status-backlog" as ActIconKey };
-        return { icon: s.icon, action: <>{s.verb}</> };
+        const s = STATUS_LABEL[String(p.status)] ?? { verb: `moved this to ${String(p.status)}`, icon: "status-backlog" as ActIconKey };
+        return { icon: s.icon, sentence: <>{name} {s.verb}</> };
       }
       if (p.assignee !== undefined) {
-        const name = String(p.assignee);
-        if (!name) return { icon: "assign", action: <>unassigned</> };
-        return { icon: "assign", action: <>assigned to <span className="font-medium text-[var(--color-text-primary)]">{shortName(name)}</span></> };
+        const assignee = String(p.assignee);
+        if (!assignee) return { icon: "assign", sentence: <>{name} removed the assignee</> };
+        return { icon: "assign", sentence: <>{name} assigned this to <span className="font-medium text-[var(--color-text-primary)]">{shortName(assignee)}</span></> };
       }
-      return { icon: "update", action: <>updated</> };
+      return { icon: "update", sentence: <>{name} updated this issue</> };
     }
     default:
       return null;
@@ -200,13 +203,9 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
             </div>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto py-4 px-4 space-y-3">
+          <div className="max-w-4xl mx-auto py-4 px-4 space-y-3">
             {visibleGroups.map(group => {
               const issue = issues.find(it => it.id === group.issueId);
-              const isOpen = expandedGroups.has(group.issueId);
-              const latest = group.events[0];
-              const latestDesc = describeItem(latest);
-              const extraCount = group.events.length - 1;
 
               return (
                 <div
@@ -219,129 +218,110 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
                     }
                   `.trim().replace(/\s+/g, " ")}
                 >
-                  <div className="px-4 py-3">
-                    {/* Card header: issue link + timestamp */}
-                    <div className="flex items-center gap-2">
-                      {group.hasUnread && (
-                        <span className="w-2 h-2 rounded-full bg-[var(--color-accent-primary)] shrink-0" />
-                      )}
-                      <a
-                        href={`#/issues/${group.issueId}`}
-                        onClick={(e) => {
-                          if (issue) {
-                            e.preventDefault();
-                            onIssueClick?.(issue);
-                          }
-                        }}
-                        className={`text-sm font-medium hover:text-[var(--color-accent-primary)] transition-colors ${group.hasUnread ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"}`}
-                      >
-                        {group.issueId}
-                      </a>
-                      <span className={`text-sm truncate ${group.hasUnread ? "text-[var(--color-text-secondary)]" : "text-[var(--color-text-muted)]"}`}>
-                        {group.issueTitle}
-                      </span>
-                      <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0 whitespace-nowrap">
-                        {formatRelativeTime(latest.created_at)}
-                      </span>
-                    </div>
-
-                    {/* Latest event summary */}
-                    {latestDesc && (
-                      <div className="flex items-center gap-2 mt-2 text-sm text-[var(--color-text-muted)]">
-                        <ActIcon k={latestDesc.icon} />
-                        <Avatar name={latest.created_by} size="xs" />
-                        <span className="text-[var(--color-text-secondary)] shrink-0">{shortName(latest.created_by)}</span>
-                        <span className="shrink-0">{latestDesc.action}</span>
-                      </div>
-                    )}
-
-                    {/* Expand toggle for additional events */}
-                    {extraCount > 0 && (
-                      <button
-                        onClick={() => toggleGroup(group.issueId)}
-                        className="mt-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-                      >
-                        {isOpen ? "Hide" : `+${extraCount} more update${extraCount > 1 ? "s" : ""}`}
-                      </button>
-                    )}
+                  {/* Card header: status + ID + title + event count */}
+                  <div className="flex items-center gap-2 px-4 py-3">
+                    {issue && <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />}
+                    <a
+                      href={`#/issues/${group.issueId}`}
+                      onClick={(e) => {
+                        if (issue) {
+                          e.preventDefault();
+                          onIssueClick?.(issue);
+                        }
+                      }}
+                      className="font-mono text-sm font-semibold text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primary-hover)] transition-colors shrink-0"
+                    >
+                      {group.issueId}
+                    </a>
+                    <span className="text-sm truncate text-[var(--color-text-primary)]">
+                      {group.issueTitle}
+                    </span>
+                    <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0">
+                      {group.events.length} {group.events.length === 1 ? "event" : "events"}
+                    </span>
                   </div>
 
-                  {/* Expanded event list */}
-                  {isOpen && extraCount > 0 && (
-                    <div className="border-t border-[var(--color-border-subtle)] px-4 py-2 space-y-2">
-                      {group.events.slice(1).map((evt, i) => {
-                        const desc = describeItem(evt);
+                  {/* Event cards — latest always shown, older behind toggle */}
+                  <div className="px-3 pb-3 pt-1 space-y-2">
+                    {(() => {
+                      const latest = group.events[0];
+                      const olderEvents = group.events.slice(1);
+                      const isGroupOpen = expandedGroups.has(group.issueId);
+
+                      const renderEvent = (evt: InboxItem, i: number) => {
+                        const who = shortName(evt.created_by);
+                        const desc = describeItem(evt, who);
                         if (!desc) return null;
                         const evtKey = `${evt.issue_id}-${evt.created_at}-${i}`;
-                        const commentExpanded = expandedComments.has(evtKey);
+                        const isExpanded = expandedComments.has(evtKey);
                         const hasDetail = !!desc.detail;
                         const previewText = desc.detail ? stripMarkdown(desc.detail) : "";
                         return (
-                          <div key={evtKey} className="text-sm">
-                            <div className="flex items-center gap-2 text-[var(--color-text-muted)]">
+                          <div
+                            key={evtKey}
+                            className={`rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] ${hasDetail ? "cursor-pointer hover:border-[var(--color-border-default)]" : ""} transition-colors`}
+                            onClick={hasDetail ? () => toggleComment(evtKey) : undefined}
+                          >
+                            <div className="flex items-center gap-2.5 px-3 py-2.5">
                               <ActIcon k={desc.icon} />
-                              <Avatar name={evt.created_by} size="xs" />
-                              <span className="text-[var(--color-text-secondary)] shrink-0">{shortName(evt.created_by)}</span>
-                              <span className="shrink-0">{desc.action}</span>
-                              <span className="ml-auto text-xs tabular-nums shrink-0 whitespace-nowrap">
+                              <span className="text-sm text-[var(--color-text-secondary)] min-w-0 truncate">
+                                {desc.sentence}
+                              </span>
+                              <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0 whitespace-nowrap">
                                 {formatRelativeTime(evt.created_at)}
                               </span>
+                              {hasDetail && (
+                                <svg className={`w-3.5 h-3.5 shrink-0 text-[var(--color-text-muted)] transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                </svg>
+                              )}
                             </div>
-                            {hasDetail && !commentExpanded && (
-                              <button
-                                onClick={() => toggleComment(evtKey)}
-                                className="mt-1 pl-6 w-full text-left text-xs text-[var(--color-text-muted)] italic truncate hover:text-[var(--color-text-secondary)] transition-colors"
-                              >
-                                &ldquo;{previewText.slice(0, 200)}{previewText.length > 200 ? "…" : ""}&rdquo;
-                              </button>
+                            {hasDetail && !isExpanded && (
+                              <div className="px-3 pb-2.5 -mt-1">
+                                <p className="text-xs text-[var(--color-text-muted)] italic truncate pl-[22px]">
+                                  &ldquo;{previewText.slice(0, 200)}{previewText.length > 200 ? "…" : ""}&rdquo;
+                                </p>
+                              </div>
                             )}
-                            {hasDetail && commentExpanded && (
-                              <button
-                                onClick={() => toggleComment(evtKey)}
-                                className="mt-1 ml-6 block w-[calc(100%-1.5rem)] text-left rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2 hover:border-[var(--color-border-focus)] transition-colors cursor-pointer"
-                              >
-                                <div className="prose-beats text-sm">
-                                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                    {desc.detail!}
-                                  </Markdown>
+                            {hasDetail && isExpanded && (
+                              <div className="px-3 pb-3 -mt-0.5">
+                                <div className="ml-[22px] rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2">
+                                  <div className="prose-beats text-sm">
+                                    <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                      {desc.detail!}
+                                    </Markdown>
+                                  </div>
                                 </div>
-                              </button>
+                              </div>
                             )}
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
+                      };
 
-                  {/* Comment detail for latest event (when group not expanded) */}
-                  {!isOpen && latestDesc?.detail && (() => {
-                    const evtKey = `latest-${group.issueId}`;
-                    const commentExpanded = expandedComments.has(evtKey);
-                    const previewText = stripMarkdown(latestDesc.detail!);
-                    return (
-                      <div className="px-4 pb-3">
-                        {!commentExpanded ? (
-                          <button
-                            onClick={() => toggleComment(evtKey)}
-                            className="w-full text-left text-xs text-[var(--color-text-muted)] italic truncate hover:text-[var(--color-text-secondary)] transition-colors"
-                          >
-                            &ldquo;{previewText.slice(0, 200)}{previewText.length > 200 ? "…" : ""}&rdquo;
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => toggleComment(evtKey)}
-                            className="block w-full text-left rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2 hover:border-[var(--color-border-focus)] transition-colors cursor-pointer"
-                          >
-                            <div className="prose-beats text-sm">
-                              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                {latestDesc.detail!}
-                              </Markdown>
-                            </div>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })()}
+                      return (
+                        <>
+                          {renderEvent(latest, 0)}
+                          {olderEvents.length > 0 && !isGroupOpen && (
+                            <button
+                              onClick={() => toggleGroup(group.issueId)}
+                              className="w-full text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] py-1 transition-colors"
+                            >
+                              {olderEvents.length} more {olderEvents.length === 1 ? "event" : "events"}
+                            </button>
+                          )}
+                          {isGroupOpen && olderEvents.map((evt, i) => renderEvent(evt, i + 1))}
+                          {isGroupOpen && olderEvents.length > 0 && (
+                            <button
+                              onClick={() => toggleGroup(group.issueId)}
+                              className="w-full text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] py-1 transition-colors"
+                            >
+                              Show less
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               );
             })}
