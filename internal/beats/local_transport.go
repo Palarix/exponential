@@ -29,7 +29,7 @@ func (t *LocalTransport) appendEvent(evt model.Event) error {
 func (t *LocalTransport) GetIssue(id string) (*model.Issue, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return nil, fmt.Errorf("error reading events: %w", err)
+		return nil, fmt.Errorf("failed to read events: %w", err)
 	}
 	issues := ProjectIssues(events)
 
@@ -70,7 +70,7 @@ func (t *LocalTransport) resolveIssue(issues map[string]*model.Issue, id string)
 func (t *LocalTransport) GetInbox(since time.Time) ([]InboxItem, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return nil, fmt.Errorf("error reading events: %w", err)
+		return nil, fmt.Errorf("failed to read events: %w", err)
 	}
 	issues := ProjectIssues(events)
 	return BuildInbox(events, issues, t.GetUser(), since), nil
@@ -90,7 +90,7 @@ func (t *LocalTransport) FindIssue(id string) (*model.Issue, []*model.Issue, boo
 
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return nil, nil, false, fmt.Errorf("error reading events: %w", err)
+		return nil, nil, false, fmt.Errorf("failed to read events: %w", err)
 	}
 	issues := ProjectIssues(events)
 

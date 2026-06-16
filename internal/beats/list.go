@@ -29,13 +29,13 @@ type FilterOptions struct {
 func (t *LocalTransport) ListIssues(opts FilterOptions) ([]*model.Issue, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return nil, fmt.Errorf("error reading events: %w", err)
+		return nil, fmt.Errorf("failed to read events: %w", err)
 	}
 
 	if opts.Archived {
 		archivedEvents, err := storage.ReadArchivedEvents()
 		if err != nil {
-			return nil, fmt.Errorf("error reading archived events: %w", err)
+			return nil, fmt.Errorf("failed to read archived events: %w", err)
 		}
 		events = append(events, archivedEvents...)
 	}

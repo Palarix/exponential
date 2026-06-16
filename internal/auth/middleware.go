@@ -36,7 +36,11 @@ func RequireAuth(pubKey ed25519.PublicKey, next http.HandlerFunc) http.HandlerFu
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 		claims, err := VerifyToken(pubKey, tokenStr)
 		if err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusUnauthorized)
+			msg := "invalid or expired token"
+			if err.Error() == "token expired" {
+				msg = "token expired"
+			}
+			http.Error(w, `{"error":"`+msg+`"}`, http.StatusUnauthorized)
 			return
 		}
 

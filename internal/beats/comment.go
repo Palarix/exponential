@@ -32,7 +32,7 @@ func (t *LocalTransport) AddComment(issueID, text string) error {
 	}
 
 	if err := t.appendEvent(event); err != nil {
-		return fmt.Errorf("error appending event: %w", err)
+		return fmt.Errorf("failed to append event: %w", err)
 	}
 
 	if t.Config.AutoCommit {

@@ -25,7 +25,7 @@ func (c *Client) GetArchiveStats(days int, keep int) (*ArchiveStats, error) {
 	}
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return nil, fmt.Errorf("error reading events: %w", err)
+		return nil, fmt.Errorf("failed to read events: %w", err)
 	}
 
 	issues := ProjectIssues(events)

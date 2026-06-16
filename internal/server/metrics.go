@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"net/http"
 	"sort"
@@ -139,7 +138,7 @@ type pulseMetrics struct {
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to load issues: %v", err))
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 	respondJSON(w, http.StatusOK, computePulseMetrics(issues, time.Now()))

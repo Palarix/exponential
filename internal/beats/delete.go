@@ -14,7 +14,7 @@ import (
 func (t *LocalTransport) DeleteIssue(id string, reason string, cascade bool) error {
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return fmt.Errorf("error reading events: %w", err)
+		return fmt.Errorf("failed to read events: %w", err)
 	}
 	issues := ProjectIssues(events)
 
@@ -40,7 +40,7 @@ func (t *LocalTransport) DeleteIssue(id string, reason string, cascade bool) err
 	}
 
 	if err := t.appendEvent(event); err != nil {
-		return fmt.Errorf("error appending event: %w", err)
+		return fmt.Errorf("failed to append event: %w", err)
 	}
 
 	for _, issue := range issues {
@@ -56,7 +56,7 @@ func (t *LocalTransport) DeleteIssue(id string, reason string, cascade bool) err
 				CreatedBy: user,
 			}
 			if err := t.appendEvent(deleteEvent); err != nil {
-				return fmt.Errorf("error cascade-deleting child %s: %w", issue.ID, err)
+				return fmt.Errorf("failed to cascade-delete child %s: %w", issue.ID, err)
 			}
 		} else {
 			emptyParent := ""
@@ -68,7 +68,7 @@ func (t *LocalTransport) DeleteIssue(id string, reason string, cascade bool) err
 				CreatedBy: user,
 			}
 			if err := t.appendEvent(unparentEvent); err != nil {
-				return fmt.Errorf("error unparenting child %s: %w", issue.ID, err)
+				return fmt.Errorf("failed to unparent child %s: %w", issue.ID, err)
 			}
 		}
 	}

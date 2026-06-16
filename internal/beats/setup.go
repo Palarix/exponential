@@ -29,7 +29,7 @@ func InitBeats(force bool) (*InitResult, error) {
 		result.Notes = append(result.Notes, "Re-initializing existing .beats directory")
 	} else {
 		if err := os.MkdirAll(beatsDir, 0755); err != nil {
-			return nil, fmt.Errorf("error creating .beats directory: %w", err)
+			return nil, fmt.Errorf("failed to create .beats directory: %w", err)
 		}
 		result.Created = true
 	}
@@ -60,7 +60,7 @@ func InitBeats(force bool) (*InitResult, error) {
 	issuesFile := filepath.Join(beatsDir, "issues.db")
 	f, err := os.OpenFile(issuesFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("error creating issues.db: %w", err)
+		return nil, fmt.Errorf("failed to create issues.db: %w", err)
 	}
 	f.Close()
 

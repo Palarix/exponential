@@ -16,7 +16,7 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 	// 1. Read and Project State
 	events, err := storage.ReadEvents()
 	if err != nil {
-		return nil, fmt.Errorf("error reading events: %w", err)
+		return nil, fmt.Errorf("failed to read events: %w", err)
 	}
 	issues := ProjectIssues(events)
 
@@ -132,7 +132,7 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 	// 4. Commit Changes
 	for _, evt := range eventsToAppend {
 		if err := t.appendEvent(evt); err != nil {
-			return nil, fmt.Errorf("error appending event for %s: %w", evt.ID, err)
+			return nil, fmt.Errorf("failed to append event for %s: %w", evt.ID, err)
 		}
 	}
 

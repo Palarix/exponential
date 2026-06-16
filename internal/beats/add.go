@@ -16,7 +16,7 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 	alphabet := "0123456789abcdef"
 	id, err := gonanoid.Generate(alphabet, 6)
 	if err != nil {
-		return nil, fmt.Errorf("error generating ID: %w", err)
+		return nil, fmt.Errorf("failed to generate issue ID: %w", err)
 	}
 	prefix := "beats-"
 	if t.Config.Prefix != "" {
@@ -41,7 +41,7 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 	}
 
 	if err := t.appendEvent(event); err != nil {
-		return nil, fmt.Errorf("error appending event: %w", err)
+		return nil, fmt.Errorf("failed to append event: %w", err)
 	}
 
 	if t.Config.AutoCommit {

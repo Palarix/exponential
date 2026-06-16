@@ -69,7 +69,7 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 			req.Host = remoteURL.Host
 		}
 		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-			respondError(w, http.StatusBadGateway, fmt.Sprintf("remote server unreachable: %v", err))
+			respondError(w, http.StatusBadGateway, "remote server unreachable — check that the server is running and the URL is correct")
 		}
 
 		proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

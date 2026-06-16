@@ -22,10 +22,10 @@ func RunMigrations(currentVersion int) (int, error) {
 
 	if currentVersion == 2 {
 		if err := migrateV2ToV3(); err != nil {
-			return currentVersion, fmt.Errorf("v2→v3 migration failed: %w", err)
+			return currentVersion, fmt.Errorf("v2→v3 migration failed (your data has not been modified): %w", err)
 		}
 		if err := UpdateConfigVersion(3); err != nil {
-			return currentVersion, fmt.Errorf("failed to update config version: %w", err)
+			return currentVersion, fmt.Errorf("migration succeeded but failed to update config version — re-run to retry: %w", err)
 		}
 		currentVersion = 3
 	}

@@ -22,7 +22,7 @@ import (
 func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 
@@ -56,13 +56,13 @@ func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
 
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 
 	issue, exists := issues[id]
 	if !exists {
-		respondError(w, http.StatusNotFound, "issue not found")
+		respondError(w, http.StatusNotFound, fmt.Sprintf("issue %s not found", id))
 		return
 	}
 
@@ -76,7 +76,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		Payload json.RawMessage `json:"payload"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request")
+		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
 		return
 	}
 
@@ -92,7 +92,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(req.Payload, &p)
 		issue, err := client.AddIssue(p)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			respondError(w, http.StatusInternalServerError, "failed to create issue")
 			return
 		}
 		s.broadcastEvent("CREATE", issue.ID)
@@ -102,7 +102,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		var p model.UpdatePayload
 		json.Unmarshal(req.Payload, &p)
 		if _, err := client.UpdateIssue(req.IssueID, p, "update"); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update issue %s", req.IssueID))
 			return
 		}
 		s.broadcastEvent("UPDATE", req.IssueID)
@@ -112,7 +112,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		var p model.CommentPayload
 		json.Unmarshal(req.Payload, &p)
 		if err := client.AddComment(req.IssueID, p.Text); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to add comment to issue %s", req.IssueID))
 			return
 		}
 		s.broadcastEvent("COMMENT", req.IssueID)
@@ -122,7 +122,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		var p model.DeletePayload
 		json.Unmarshal(req.Payload, &p)
 		if err := client.DeleteIssue(req.IssueID, p.Reason, p.Cascade); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete issue %s", req.IssueID))
 			return
 		}
 		s.broadcastEvent("DELETE", req.IssueID)
@@ -176,7 +176,7 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 
 	for _, evt := range pending {
 		if err := storage.AppendEvent(evt); err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Error saving: %v", err))
+			respondError(w, http.StatusInternalServerError, "failed to persist pending events")
 			return
 		}
 	}
@@ -208,7 +208,7 @@ func (s *Server) handleDiscardPending(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 	entries, err := registry.List()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to list instances: %v", err))
+		respondError(w, http.StatusInternalServerError, "failed to list server instances")
 		return
 	}
 	type respEntry struct {
@@ -281,7 +281,7 @@ func (s *Server) handleGetCycles(w http.ResponseWriter, r *http.Request) {
 
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 
@@ -358,13 +358,13 @@ func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
 
 	cycle, err := s.Config.Cycles.CycleForID(cycleID)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("invalid cycle ID %q", cycleID))
 		return
 	}
 
 	allEvents, err := s.GetAllEvents()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load events")
 		return
 	}
 
@@ -480,7 +480,7 @@ func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 		Color string `json:"color"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request")
+		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
 		return
 	}
 	if req.Name == "" || req.Color == "" {
@@ -489,7 +489,7 @@ func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := config.AddLabel(req.Name, req.Color); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to add label %q", req.Name))
 		return
 	}
 
@@ -508,7 +508,7 @@ func (s *Server) handleUpdateLabel(w http.ResponseWriter, r *http.Request) {
 		Color   string `json:"color"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request")
+		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
 		return
 	}
 	if req.OldName == "" || req.NewName == "" || req.Color == "" {
@@ -517,7 +517,7 @@ func (s *Server) handleUpdateLabel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := config.UpdateLabel(req.OldName, req.NewName, req.Color); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update label %q", req.OldName))
 		return
 	}
 
@@ -559,7 +559,7 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request")
+		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
 		return
 	}
 	if req.Name == "" {
@@ -568,7 +568,7 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := config.DeleteLabel(req.Name); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete label %q", req.Name))
 		return
 	}
 
@@ -602,13 +602,13 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 
 	allEvents, err := s.GetAllEvents()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load activity events")
 		return
 	}
 
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 	titles := make(map[string]string, len(issues))
@@ -658,7 +658,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	if raw := r.URL.Query().Get("since"); raw != "" {
 		t, err := time.Parse(time.RFC3339, raw)
 		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid since parameter: "+err.Error())
+			respondError(w, http.StatusBadRequest, "invalid since parameter: expected RFC3339 format (e.g. 2006-01-02T15:04:05Z)")
 			return
 		}
 		since = t
@@ -666,12 +666,12 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 
 	allEvents, err := s.GetAllEvents()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load events")
 		return
 	}
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 
@@ -703,12 +703,12 @@ func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
 
 	allEvents, err := s.GetAllEvents()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load events")
 		return
 	}
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
 
@@ -728,7 +728,7 @@ func (s *Server) handleInboxRead(w http.ResponseWriter, r *http.Request) {
 	remoteURL := config.ReadRemoteURL()
 	now := time.Now()
 	if err := config.SetInboxLastRead(remoteURL, now); err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to update read cursor: "+err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to update inbox read cursor")
 		return
 	}
 	respondJSON(w, http.StatusOK, struct {
@@ -745,7 +745,7 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 
 	allEvents, err := s.GetAllEvents()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issue history")
 		return
 	}
 
@@ -804,13 +804,13 @@ func (s *Server) resolveIssueBranch(w http.ResponseWriter, r *http.Request) (*mo
 
 	issues, err := s.GetProjectedIssues()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return nil, "", false
 	}
 
 	issue, exists := issues[id]
 	if !exists {
-		respondError(w, http.StatusNotFound, "issue not found")
+		respondError(w, http.StatusNotFound, fmt.Sprintf("issue %s not found", id))
 		return nil, "", false
 	}
 
@@ -937,7 +937,7 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		DeleteBranch:  body.DeleteBranch,
 	})
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to merge issue %s", id))
 		return
 	}
 
@@ -976,7 +976,7 @@ func (s *Server) handleAuthVerify(w http.ResponseWriter, r *http.Request) {
 		Nonce     string `json:"nonce"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid request")
+		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
 		return
 	}
 

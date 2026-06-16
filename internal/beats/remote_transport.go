@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -166,11 +165,16 @@ func decodeJSON[T any](resp *http.Response) (T, error) {
 	var result T
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return result, fmt.Errorf("server error %d: %s", resp.StatusCode, string(body))
+		var errBody struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errBody); err == nil && errBody.Error != "" {
+			return result, fmt.Errorf("server returned %d: %s", resp.StatusCode, errBody.Error)
+		}
+		return result, fmt.Errorf("server returned %d", resp.StatusCode)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return result, fmt.Errorf("decode error: %w", err)
+		return result, fmt.Errorf("failed to decode server response: %w", err)
 	}
 	return result, nil
 }
