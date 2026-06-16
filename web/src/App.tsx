@@ -227,7 +227,9 @@ function App() {
       setInboxLastRead(res.last_read);
       setInboxUnread(0);
       showToast("Notifications marked as read");
-    } catch {}
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to mark as read", { variant: "error" });
+    }
   }, [showToast]);
 
   useEffect(() => {

@@ -157,7 +157,7 @@ export default function Backlog({
       await addDraft(issueId, "UPDATE", { status });
       setOpenPopover(null);
       onRefresh();
-      showToast("Status updated");
+      showToast(`Status changed to ${status}`);
     },
     [onRefresh, showToast],
   );
@@ -166,7 +166,7 @@ export default function Backlog({
       await addDraft(issueId, "UPDATE", { estimate });
       setOpenPopover(null);
       onRefresh();
-      showToast("Estimate updated");
+      showToast(`Estimate set to ${estimate || "none"}`);
     },
     [onRefresh, showToast],
   );
@@ -178,7 +178,7 @@ export default function Backlog({
         : [...current, label];
       await addDraft(issue.id, "UPDATE", { labels });
       onRefresh();
-      showToast("Labels updated");
+      showToast(current.includes(label) ? `Removed label "${label}"` : `Added label "${label}"`);
     },
     [onRefresh, showToast],
   );

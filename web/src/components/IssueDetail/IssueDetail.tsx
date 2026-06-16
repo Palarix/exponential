@@ -79,11 +79,22 @@ export default function IssueDetail({
       try {
         await addDraft(issue.id, type, payload);
         onRefresh();
-        if (type === "COMMENT") showToast("Comment added");
-        else if (type === "UPDATE") showToast("Updated");
+        if (type === "COMMENT") {
+          showToast("Comment added");
+        } else if (type === "UPDATE") {
+          const p = payload as Record<string, unknown>;
+          if (p.status) showToast(`Status changed to ${String(p.status)}`);
+          else if (p.assignee !== undefined) showToast(p.assignee ? `Assigned to ${String(p.assignee).split(" <")[0]}` : "Assignee removed");
+          else if (p.priority !== undefined) showToast("Priority updated");
+          else if (p.estimate !== undefined) showToast(`Estimate set to ${p.estimate || "none"}`);
+          else if (p.title) showToast("Title updated");
+          else if (p.description !== undefined) showToast("Description updated");
+          else if (p.labels) showToast("Labels updated");
+          else showToast("Updated");
+        }
       } catch (err) {
         const msg = err instanceof ApiError ? err.message : "Failed to save";
-        showToast(msg, 3000);
+        showToast(msg, { variant: "error" });
       } finally {
         setSaving(false);
         setEditingField(null);
