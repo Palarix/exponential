@@ -690,7 +690,13 @@ export default function Backlog({
         setShowFilterMenu((v) => !v);
         return;
       }
-      if (showFilterMenuRef.current) return;
+      if (showFilterMenuRef.current) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setShowFilterMenu(false);
+        }
+        return;
+      }
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);
