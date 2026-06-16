@@ -83,13 +83,38 @@ jobs:
     needs: binaries
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v5
+
       - uses: actions/download-artifact@v7
         with:
           pattern: beats-*
           merge-multiple: true
 
+      - name: Generate checksums
+        run: sha256sum beats-* > checksums.txt
+
+      - name: Extract changelog for this release
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BODY=$(awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]")) found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+          {
+            echo "body<<CHANGELOG_EOF"
+            echo "$BODY"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
-          files: beats-*
+          body: ${{ steps.changelog.outputs.body }}
+          files: |
+            beats-*
+            checksums.txt
