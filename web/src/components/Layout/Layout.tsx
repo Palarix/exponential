@@ -179,18 +179,22 @@ function NavItem({
   isActive,
   onClick,
   badge,
+  collapsed,
 }: {
   item: { id: View; label: string; icon: ReactNode };
   isActive: boolean;
   onClick: () => void;
   badge?: number;
+  collapsed?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      title={collapsed ? item.label : undefined}
       className={`
-        flex items-center gap-3 w-full px-3 py-2 rounded-[var(--radius-md)]
+        flex items-center w-full rounded-[var(--radius-md)]
         text-sm transition-colors duration-[var(--duration-fast)]
+        ${collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2"}
         ${
           isActive
             ? "bg-[var(--color-bg-hover)] text-[var(--color-text-primary)] font-medium"
@@ -201,16 +205,19 @@ function NavItem({
         .replace(/\s+/g, " ")}
     >
       <span
-        className={
+        className={`relative shrink-0 ${
           isActive
             ? "text-[var(--color-text-primary)]"
             : "text-[var(--color-text-muted)]"
-        }
+        }`}
       >
         {item.icon}
+        {collapsed && badge != null && badge > 0 && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+        )}
       </span>
-      {item.label}
-      {badge != null && badge > 0 && (
+      {!collapsed && item.label}
+      {!collapsed && badge != null && badge > 0 && (
         <span className="ml-auto px-1.5 py-0.5 text-xs font-medium leading-none bg-[var(--color-accent-primary)] text-white rounded-full">
           {badge > 99 ? "99+" : badge}
         </span>
@@ -233,6 +240,16 @@ export default function Layout({
 }: LayoutProps) {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("beats-sidebar-collapsed") === "true"; } catch { return false; }
+  });
+  const toggleSidebar = () => {
+    setCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem("beats-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     const load = () =>
@@ -258,65 +275,67 @@ export default function Layout({
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-bg-sidebar)]">
       {/* Sidebar */}
-      <aside className="w-62 flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none">
+      <aside className={`${collapsed ? "w-12" : "w-62"} flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none transition-[width] duration-200`}>
         {/* Workspace header */}
-        <div className="flex items-center gap-2 px-4 pt-2 h-13">
-          <img
-            src="/logo-light.svg"
-            alt="Beats"
-            className="w-5 h-5 opacity-80"
-          />
-          <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
-            Beats
-          </span>
-          <button
-            onClick={onSearch}
-            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
-            title="Search issues"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
+        <div className={`flex items-center h-13 ${collapsed ? "justify-center px-2 pt-2" : "gap-2 px-4 pt-2"}`}>
+          {collapsed ? (
+            <button
+              onClick={toggleSidebar}
+              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              title="Expand sidebar"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+              <img src="/logo-light.svg" alt="Beats" className="w-5 h-5 opacity-80" />
+            </button>
+          ) : (
+            <>
+              <img
+                src="/logo-light.svg"
+                alt="Beats"
+                className="w-5 h-5 opacity-80"
               />
-            </svg>
-          </button>
-          <button
-            onClick={onNewIssue}
-            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
-            title="New issue"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-              />
-            </svg>
-          </button>
+              <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
+                Beats
+              </span>
+              <button
+                onClick={onSearch}
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                title="Search issues"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+              </button>
+              <button
+                onClick={onNewIssue}
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                title="New issue"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                </svg>
+              </button>
+              <button
+                onClick={toggleSidebar}
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                title="Collapse sidebar"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Nav */}
-        <nav className="px-2 pt-1 space-y-1">
+        <nav className={`pt-1 space-y-1 ${collapsed ? "px-1" : "px-2"}`}>
           {PRIMARY_NAV.map((item) => (
             <NavItem
               key={item.id}
               item={item}
               isActive={currentView === item.id}
               onClick={() => onViewChange(item.id)}
+              collapsed={collapsed}
             />
           ))}
           {cyclesEnabled && (
@@ -332,6 +351,7 @@ export default function Layout({
               }}
               isActive={currentView === "cycles"}
               onClick={() => onViewChange("cycles" as View)}
+              collapsed={collapsed}
             />
           )}
           <NavItem
@@ -347,6 +367,7 @@ export default function Layout({
             isActive={currentView === "inbox"}
             onClick={() => onViewChange("inbox" as View)}
             badge={inboxUnread}
+            collapsed={collapsed}
           />
           {SECONDARY_NAV.map((item) => (
             <NavItem
@@ -354,12 +375,13 @@ export default function Layout({
               item={item}
               isActive={currentView === item.id}
               onClick={() => onViewChange(item.id)}
+              collapsed={collapsed}
             />
           ))}
         </nav>
 
         {/* Projects */}
-        {instances.length > 0 && (
+        {!collapsed && instances.length > 0 && (
           <>
             <div className="mx-4 my-2 border-t border-[var(--color-border-subtle)]" />
             <div className="px-2 space-y-1">
@@ -376,14 +398,14 @@ export default function Layout({
         {/* Spacer + User */}
         <div className="flex-1" />
         {user && (
-          <>
-            <div className="flex items-center gap-3 px-4 py-3">
-              <Avatar name={`${user.name} <${user.email}>`} size="md" />
+          <div className={`flex items-center py-3 ${collapsed ? "justify-center px-2" : "gap-3 px-4"}`}>
+            <Avatar name={`${user.name} <${user.email}>`} size={collapsed ? "sm" : "md"} />
+            {!collapsed && (
               <span className="text-xs text-[var(--color-text-secondary)] truncate">
                 {user.name}
               </span>
-            </div>
-          </>
+            )}
+          </div>
         )}
       </aside>
 
