@@ -1,19 +1,20 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { fetchIssues, fetchConfig, fetchInbox, fetchInboxStatus, markInboxRead, ApiError } from './api/client';
 import type { Issue, InboxItem } from './api/client';
 import Layout from './components/Layout/Layout';
-import Dashboard from './components/Dashboard/Dashboard';
 import Backlog from './components/Backlog/Backlog';
 import type { Tab } from './components/Backlog/Backlog';
-import Board from './components/Board/Board';
-import Dependencies from './components/Dependencies/Dependencies';
-import Labels from './components/Labels/Labels';
-import Cycles from './components/Cycles/Cycles';
-import Inbox from './components/Inbox/Inbox';
-import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
 import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
+
+const Dashboard = lazy(() => import('./components/Dashboard/Dashboard'));
+const Board = lazy(() => import('./components/Board/Board'));
+const Dependencies = lazy(() => import('./components/Dependencies/Dependencies'));
+const Labels = lazy(() => import('./components/Labels/Labels'));
+const Cycles = lazy(() => import('./components/Cycles/Cycles'));
+const Inbox = lazy(() => import('./components/Inbox/Inbox'));
+const IssueDetail = lazy(() => import('./components/IssueDetail/IssueDetail'));
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
 import { sortIssuesWithinGroups } from './utils/sort';
@@ -409,7 +410,9 @@ function App() {
         ) : undefined}
       >
         <ErrorBoundary onReset={fetchData}>
-          {renderContent()}
+          <Suspense fallback={null}>
+            {renderContent()}
+          </Suspense>
         </ErrorBoundary>
       </Layout>
 
