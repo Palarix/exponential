@@ -22,8 +22,9 @@ import {
   PriorityIcon,
   CopyableId,
   Popover,
-  PopoverHeader,
   LabelPicker,
+  StatusPicker,
+  EstimatePicker,
   SubProgress,
   ContextMenu,
   useToast,
@@ -32,7 +33,6 @@ import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isEditableTarget } from "../../utils/keyboard";
-import { STATUS_OPTIONS, ESTIMATE_OPTIONS } from "../../constants";
 import FilterMenu from "./FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "./filters";
 import {
@@ -1253,45 +1253,12 @@ export default function Backlog({
                                 </button>
                                 {openPopover?.issueId === issue.id &&
                                   openPopover?.type === "status" && (
-                                    <Popover
-                                      onClose={() => setOpenPopover(null)}
-                                    >
-                                      <PopoverHeader>
-                                        Set status...
-                                      </PopoverHeader>
-                                      {STATUS_OPTIONS.map((opt) => (
-                                        <button
-                                          key={opt.value}
-                                          onClick={() =>
-                                            handleQuickStatus(
-                                              issue.id,
-                                              opt.value,
-                                            )
-                                          }
-                                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${opt.value === issue.status ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                                        >
-                                          <StatusIcon
-                                            status={opt.value}
-                                            size={14}
-                                          />
-                                          <span>{opt.label}</span>
-                                          {opt.value === issue.status && (
-                                            <svg
-                                              className="w-4 h-4 ml-auto"
-                                              fill="none"
-                                              viewBox="0 0 24 24"
-                                              stroke="currentColor"
-                                              strokeWidth={2.5}
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                d="M5 13l4 4L19 7"
-                                              />
-                                            </svg>
-                                          )}
-                                        </button>
-                                      ))}
+                                    <Popover onClose={() => setOpenPopover(null)}>
+                                      <StatusPicker
+                                        current={issue.status}
+                                        onSelect={v => handleQuickStatus(issue.id, v)}
+                                        onClose={() => setOpenPopover(null)}
+                                      />
                                     </Popover>
                                   )}
                               </div>
@@ -1450,42 +1417,12 @@ export default function Backlog({
                                 </button>
                                 {openPopover?.issueId === issue.id &&
                                   openPopover?.type === "estimate" && (
-                                    <Popover
-                                      onClose={() => setOpenPopover(null)}
-                                    >
-                                      <PopoverHeader>
-                                        Set estimate...
-                                      </PopoverHeader>
-                                      {ESTIMATE_OPTIONS.map((est) => (
-                                        <button
-                                          key={est}
-                                          onClick={() =>
-                                            handleQuickEstimate(issue.id, est)
-                                          }
-                                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${est === (issue.estimate || 0) ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                                        >
-                                          <span>
-                                            {est === 0
-                                              ? "No estimate"
-                                              : `${est} Point${est !== 1 ? "s" : ""}`}
-                                          </span>
-                                          {est === (issue.estimate || 0) && (
-                                            <svg
-                                              className="w-4 h-4 ml-auto"
-                                              fill="none"
-                                              viewBox="0 0 24 24"
-                                              stroke="currentColor"
-                                              strokeWidth={2.5}
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                d="M5 13l4 4L19 7"
-                                              />
-                                            </svg>
-                                          )}
-                                        </button>
-                                      ))}
+                                    <Popover onClose={() => setOpenPopover(null)}>
+                                      <EstimatePicker
+                                        current={issue.estimate || 0}
+                                        onSelect={v => handleQuickEstimate(issue.id, v)}
+                                        onClose={() => setOpenPopover(null)}
+                                      />
                                     </Popover>
                                   )}
                               </div>

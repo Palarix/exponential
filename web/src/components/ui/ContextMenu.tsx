@@ -2,10 +2,10 @@ import { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } fr
 import { createPortal } from "react-dom";
 import type { Issue, Cycle } from "../../api/client";
 import { addDraft, fetchCycles } from "../../api/client";
-import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import LabelPicker from "./LabelPicker";
-import StatusIcon from "./StatusIcon";
-import PriorityIcon from "./PriorityIcon";
+import StatusPicker from "./StatusPicker";
+import PriorityPicker from "./PriorityPicker";
+import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
@@ -222,19 +222,7 @@ export default function ContextMenu({
         if (subMenu) { setSubMenu(null); } else { closeAll(); }
         return;
       }
-      if (subMenu) {
-        const num = parseInt(e.key);
-        if (num >= 1 && num <= 5) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          if (subMenu === "status" && num <= STATUS_OPTIONS.length) {
-            handleAction("UPDATE", { status: STATUS_OPTIONS[num - 1].value });
-          } else if (subMenu === "priority" && num <= PRIORITY_OPTIONS.length) {
-            handleAction("UPDATE", { priority: PRIORITY_OPTIONS[num - 1].value });
-          }
-        }
-        return;
-      }
+      if (subMenu) return;
       e.stopImmediatePropagation();
       const key = e.key.toLowerCase();
       if (key === "s") { e.preventDefault(); openSubMenu("status"); return; }
@@ -268,25 +256,6 @@ export default function ContextMenu({
 
   const q = filterText.toLowerCase();
 
-  const filteredStatuses = useMemo(() =>
-    STATUS_OPTIONS.filter(opt => !q || opt.label.toLowerCase().includes(q)),
-    [q],
-  );
-
-  const filteredPriorities = useMemo(() =>
-    PRIORITY_OPTIONS.filter(opt => !q || opt.label.toLowerCase().includes(q)),
-    [q],
-  );
-
-  const filteredEstimates = useMemo(() =>
-    ESTIMATE_OPTIONS.filter(est => {
-      if (!q) return true;
-      const label = est === 0 ? "no estimate" : `${est} point`;
-      return label.includes(q);
-    }),
-    [q],
-  );
-
   const filterInput = (placeholder: string) => (
     <>
       <div className="px-3 py-2">
@@ -305,59 +274,13 @@ export default function ContextMenu({
 
   const renderSubMenuPanel = () => {
     if (subMenu === "status") {
-      return (
-        <>
-          {filterInput("Change status...")}
-          {filteredStatuses.map((opt, i) => {
-            const isCurrent = opt.value === issue.status;
-            return (
-              <button key={opt.value} onClick={() => handleAction("UPDATE", { status: opt.value })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-                <StatusIcon status={opt.value} size={14} />
-                <span>{opt.label}</span>
-                {isCurrent && <CheckIcon />}
-                {!isCurrent && <span className="ml-auto text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
-              </button>
-            );
-          })}
-          {filteredStatuses.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching statuses</div>}
-        </>
-      );
+      return <StatusPicker current={issue.status} onSelect={v => handleAction("UPDATE", { status: v })} onClose={() => setSubMenu(null)} />;
     }
     if (subMenu === "priority") {
-      return (
-        <>
-          {filterInput("Set priority...")}
-          {filteredPriorities.map((opt, i) => {
-            const isCurrent = opt.value === (issue.priority || 0);
-            return (
-              <button key={opt.value} onClick={() => handleAction("UPDATE", { priority: opt.value })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-                <PriorityIcon priority={opt.value} size={14} />
-                <span>{opt.label}</span>
-                {isCurrent && <CheckIcon />}
-                {!isCurrent && <span className="ml-auto text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
-              </button>
-            );
-          })}
-          {filteredPriorities.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching priorities</div>}
-        </>
-      );
+      return <PriorityPicker current={issue.priority || 0} onSelect={v => handleAction("UPDATE", { priority: v })} onClose={() => setSubMenu(null)} />;
     }
     if (subMenu === "estimate") {
-      return (
-        <>
-          {filterInput("Set estimate...")}
-          {filteredEstimates.map(est => {
-            const isCurrent = est === (issue.estimate || 0);
-            return (
-              <button key={est} onClick={() => handleAction("UPDATE", { estimate: est })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-                <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
-                {isCurrent && <CheckIcon />}
-              </button>
-            );
-          })}
-          {filteredEstimates.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching estimates</div>}
-        </>
-      );
+      return <EstimatePicker current={issue.estimate || 0} onSelect={v => handleAction("UPDATE", { estimate: v })} onClose={() => setSubMenu(null)} />;
     }
     if (subMenu === "assignee") {
       return (
