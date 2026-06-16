@@ -13,6 +13,7 @@ import Inbox from './components/Inbox/Inbox';
 import IssueDetail from './components/IssueDetail/IssueDetail';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
+import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
 import { sortIssuesWithinGroups } from './utils/sort';
@@ -81,6 +82,7 @@ function App() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [prefix, setPrefix] = useState('beats-');
   const [version, setVersion] = useState('');
   const [configLabels, setConfigLabels] = useState<Record<string, string>>({});
@@ -133,20 +135,25 @@ function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if ((e.key === '?' || (e.key === '/' && e.shiftKey)) && !showPalette && !showNewIssue && !isEditableTarget(e)) {
+        e.preventDefault();
+        setShowKeyboardHelp(v => !v);
+        return;
+      }
       if (isEditableTarget(e)) return;
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowPalette(true);
         return;
       }
-      if (e.key === 'c' && !e.metaKey && !e.ctrlKey && !showNewIssue && !showPalette) {
+      if (e.key === 'c' && !e.metaKey && !e.ctrlKey && !showNewIssue && !showPalette && !showKeyboardHelp) {
         e.preventDefault();
         setShowNewIssue(true);
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [showNewIssue, showPalette]);
+  }, [showNewIssue, showPalette, showKeyboardHelp]);
 
   const lastJsonRef = useRef('');
   const fetchData = useCallback(async () => {
@@ -384,6 +391,7 @@ function App() {
         onViewChange={handleViewChange}
         onNewIssue={() => setShowNewIssue(true)}
       />
+      <KeyboardHelp isOpen={showKeyboardHelp} onClose={() => setShowKeyboardHelp(false)} />
     </LabelColorsContext.Provider>
     </HideDefaultLabelsContext.Provider>
     </DefaultLabelsContext.Provider>
