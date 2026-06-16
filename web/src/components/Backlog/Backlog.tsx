@@ -72,6 +72,7 @@ interface BacklogProps {
   onNewIssue?: () => void;
   filters: BacklogFilters;
   onFiltersChange: (filters: BacklogFilters) => void;
+  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
 }
 
 export default function Backlog({
@@ -91,6 +92,7 @@ export default function Backlog({
   onNewIssue,
   filters,
   onFiltersChange,
+  patchIssue,
 }: BacklogProps) {
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -111,7 +113,7 @@ export default function Backlog({
     type: "status" | "estimate" | "labels";
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
-    issue: Issue;
+    issueId: string;
     x: number;
     y: number;
   } | null>(null);
@@ -791,11 +793,9 @@ export default function Backlog({
       if (!row) return;
       const issueId = row.getAttribute("data-context-issue");
       if (!issueId) return;
-      const issue = issuesRef.current.find((i) => i.id === issueId);
-      if (!issue) return;
       e.preventDefault();
       setOpenPopover(null);
-      setContextMenu({ issue, x: e.clientX, y: e.clientY });
+      setContextMenu({ issueId, x: e.clientX, y: e.clientY });
     };
     container.addEventListener("contextmenu", handler);
     return () => container.removeEventListener("contextmenu", handler);
@@ -1125,7 +1125,7 @@ export default function Backlog({
                       isGhostParent,
                       treeGuides,
                     } = row;
-                    const isContextTarget = contextMenu?.issue.id === issue.id;
+                    const isContextTarget = contextMenu?.issueId === issue.id;
                     const isRowFocused = i === focusedIndex || isContextTarget;
                     const isNodeExpanded = expandedNodes.has(issue.id);
                     const indent = depth * 24;
@@ -1464,19 +1464,24 @@ export default function Backlog({
             : null}
         </DragOverlay>
       </DndContext>
-      {contextMenu && (
-        <ContextMenu
-          issue={contextMenu.issue}
-          issues={issues}
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-          onRefresh={onRefresh}
-          allLabels={allKnownLabels}
-          contributors={contributors}
-          onConfigLabelsChange={onConfigLabelsChange}
-        />
-      )}
+      {contextMenu && (() => {
+        const ctxIssue = issues.find(i => i.id === contextMenu.issueId);
+        if (!ctxIssue) return null;
+        return (
+          <ContextMenu
+            issue={ctxIssue}
+            issues={issues}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            onRefresh={onRefresh}
+            allLabels={allKnownLabels}
+            contributors={contributors}
+            onConfigLabelsChange={onConfigLabelsChange}
+            patchIssue={patchIssue}
+          />
+        );
+      })()}
     </div>
   );
 }

@@ -15,7 +15,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { EmptyState, Popover, StatusPicker, EstimatePicker } from '../ui';
+import { EmptyState, Popover, StatusPicker, EstimatePicker, ContextMenu } from '../ui';
 import { LabelPicker } from '../ui';
 import { sortGroup } from '../../utils/sort';
 import { isEditableTarget } from '../../utils/keyboard';
@@ -27,19 +27,23 @@ interface BoardProps {
   onRefresh: () => void;
   onIssueClick?: (issue: Issue) => void;
   onNewIssue?: () => void;
+  contributors?: string[];
+  onConfigLabelsChange?: (labels: Record<string, string>) => void;
+  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
 }
 
 const COLUMNS = [
-  { id: 'PLANNED', label: 'Planned', shortcut: '2' },
-  { id: 'DOING', label: 'In Progress', shortcut: '3' },
-  { id: 'BLOCKED', label: 'Blocked', shortcut: '4' },
-  { id: 'DONE', label: 'Done', shortcut: '5' },
+  { id: 'BACKLOG', label: 'Backlog', shortcut: '1', isBacklog: true },
+  { id: 'PLANNED', label: 'Planned', shortcut: '2', isBacklog: false },
+  { id: 'DOING', label: 'In Progress', shortcut: '3', isBacklog: false },
+  { id: 'BLOCKED', label: 'Blocked', shortcut: '4', isBacklog: false },
+  { id: 'DONE', label: 'Done', shortcut: '5', isBacklog: false },
 ];
 
 type Containers = Record<string, string[]>;
 
 function buildContainers(issues: Issue[]): Containers {
-  const sorted = sortGroup(issues.filter((i) => i.status !== 'BACKLOG'), 'manual');
+  const sorted = sortGroup(issues, 'manual');
   const result: Containers = {};
   for (const col of COLUMNS) result[col.id] = [];
   for (const issue of sorted) result[issue.status]?.push(issue.id);
@@ -57,7 +61,7 @@ function findContainer(id: string, state: Containers): string | null {
   return null;
 }
 
-export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: BoardProps) {
+export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, contributors = [], onConfigLabelsChange, patchIssue }: BoardProps) {
   const containersRef = useRef<Containers>(buildContainers(issues));
   const [containers, setContainersState] = useState<Containers>(containersRef.current);
   const setContainers = useCallback(
@@ -69,6 +73,21 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
     [],
   );
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [collapsedCols, setCollapsedCols] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("beats-board-collapsed");
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    return new Set(["BACKLOG"]);
+  });
+  const toggleCollapse = useCallback((colId: string) => {
+    setCollapsedCols(prev => {
+      const next = new Set(prev);
+      if (next.has(colId)) next.delete(colId); else next.add(colId);
+      localStorage.setItem("beats-board-collapsed", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
   const isDraggingRef = useRef(false);
   const pointerYRef = useRef<number>(0);
 
@@ -249,6 +268,9 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
   const [focusCard, setFocusCard] = useState(0);
   const [keyboardNav, setKeyboardNav] = useState(false);
   const [openPopover, setOpenPopover] = useState<{ issueId: string; type: "status" | "labels" | "estimate" } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
+
+  const allKnownLabels = useMemo(() => [...new Set(issues.flatMap(i => i.labels || []))], [issues]);
   const openPopoverRef = useRef(openPopover);
   openPopoverRef.current = openPopover;
 
@@ -293,7 +315,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
         setFocusCol(i => {
           for (let n = i + 1; n < COLUMNS.length; n++) {
             const ids = containers[COLUMNS[n].id] ?? [];
-            if (ids.length > 0) {
+            if (ids.length > 0 && !collapsedCols.has(COLUMNS[n].id)) {
               setFocusCard(c => Math.min(c, ids.length - 1));
               return n;
             }
@@ -308,7 +330,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
         setFocusCol(i => {
           for (let n = i - 1; n >= 0; n--) {
             const ids = containers[COLUMNS[n].id] ?? [];
-            if (ids.length > 0) {
+            if (ids.length > 0 && !collapsedCols.has(COLUMNS[n].id)) {
               setFocusCard(c => Math.min(c, ids.length - 1));
               return n;
             }
@@ -356,13 +378,13 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick]);
+  }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols]);
 
-  const handleQuickUpdate = useCallback(async (issueId: string, payload: Record<string, unknown>) => {
-    await addDraft(issueId, "UPDATE", payload);
+  const handleQuickUpdate = useCallback((issueId: string, payload: Record<string, unknown>) => {
+    if (patchIssue) patchIssue(issueId, payload as Partial<Issue>);
     setOpenPopover(null);
-    onRefresh();
-  }, [onRefresh]);
+    addDraft(issueId, "UPDATE", payload).then(() => onRefresh());
+  }, [onRefresh, patchIssue]);
 
   if (issues.length === 0) {
     return (
@@ -416,7 +438,10 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
                 getCardMeta={getCardMeta}
                 activeId={activeId}
                 focusedId={focusedIssueId}
+                collapsed={collapsedCols.has(column.id)}
+                onToggleCollapse={() => toggleCollapse(column.id)}
                 onIssueClick={onIssueClick}
+                onIssueContextMenu={(issue, x, y) => setContextMenu({ issueId: issue.id, x, y })}
               />
             ))}
           </div>
@@ -425,6 +450,25 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
           {activeIssue ? <BoardCard issue={activeIssue} meta={getCardMeta(activeIssue)} isOverlay /> : null}
         </DragOverlay>
       </DndContext>
+
+      {contextMenu && (() => {
+        const ctxIssue = issuesById.get(contextMenu.issueId);
+        if (!ctxIssue) return null;
+        return (
+          <ContextMenu
+            issue={ctxIssue}
+            issues={issues}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            onRefresh={onRefresh}
+            allLabels={allKnownLabels}
+            contributors={contributors}
+            onConfigLabelsChange={onConfigLabelsChange}
+            patchIssue={patchIssue}
+          />
+        );
+      })()}
 
       {openPopover && (() => {
         const issue = issuesById.get(openPopover.issueId);

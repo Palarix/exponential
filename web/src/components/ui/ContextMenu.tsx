@@ -20,6 +20,7 @@ interface ContextMenuProps {
   allLabels: string[];
   contributors: string[];
   onConfigLabelsChange?: (labels: Record<string, string>) => void;
+  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
 }
 
 interface MenuItem {
@@ -113,6 +114,7 @@ export default function ContextMenu({
   allLabels,
   contributors,
   onConfigLabelsChange,
+  patchIssue,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -169,18 +171,18 @@ export default function ContextMenu({
     };
   }, [closeAll]);
 
-  const handleAction = useCallback(async (type: string, payload: Record<string, unknown>) => {
-    await addDraft(issue.id, type, payload);
-    onRefresh();
+  const handleAction = useCallback((type: string, payload: Record<string, unknown>) => {
+    if (type === "UPDATE" && patchIssue) patchIssue(issue.id, payload as Partial<Issue>);
     closeAll();
-  }, [issue.id, onRefresh, closeAll]);
+    addDraft(issue.id, type, payload).then(() => onRefresh());
+  }, [issue.id, onRefresh, closeAll, patchIssue]);
 
-  const handleLabelToggle = useCallback(async (label: string) => {
+  const handleLabelToggle = useCallback((label: string) => {
     const current = issue.labels || [];
     const labels = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
-    await addDraft(issue.id, "UPDATE", { labels });
-    onRefresh();
-  }, [issue.id, issue.labels, onRefresh]);
+    if (patchIssue) patchIssue(issue.id, { labels });
+    addDraft(issue.id, "UPDATE", { labels }).then(() => onRefresh());
+  }, [issue.id, issue.labels, onRefresh, patchIssue]);
 
   const knownPeople = useMemo(() => {
     const byEmail = new Map<string, string>();

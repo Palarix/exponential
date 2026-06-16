@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
-import { Avatar, LabelBadge, SubProgress } from "../ui";
+import { Avatar, LabelBadge, PriorityIcon, SubProgress } from "../ui";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -15,11 +15,13 @@ export function SortableBoardCard({
   meta,
   isFocused,
   onClick,
+  onContextMenu,
 }: {
   issue: Issue;
   meta: CardMeta;
   isFocused?: boolean;
   onClick?: () => void;
+  onContextMenu?: (x: number, y: number) => void;
 }) {
   const {
     attributes,
@@ -44,6 +46,12 @@ export function SortableBoardCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault();
+          onContextMenu(e.clientX, e.clientY);
+        }
+      }}
       className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-bg-elevated)] border cursor-pointer transition-colors duration-[var(--duration-fast)] ${isFocused ? "border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]" : "border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)]"}`}
     >
       <BoardCardContent issue={issue} meta={meta} />
@@ -71,18 +79,22 @@ export function BoardCard({
 
 function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
   const hasChildren = meta.childTotal > 0;
+  const hasLabels = issue.labels && issue.labels.length > 0;
+  const cycleId = issue.effective_cycle_id || issue.cycle_id;
+  const hasBottom = hasChildren || hasLabels || cycleId;
   return (
     <>
-      <div className="flex items-center gap-2 mb-1 min-w-0">
-        <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">
+      {/* NW: ID + parent | NE: pending, priority, assignee */}
+      <div className="flex items-center gap-2 mb-1.5 min-w-0">
+        <span className="font-mono text-[11px] text-[var(--color-text-muted)] shrink-0">
           {issue.id}
         </span>
         {meta.parentTitle && (
           <>
-            <svg className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <svg className="w-2.5 h-2.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
-            <span className="text-xs text-[var(--color-text-muted)] truncate">
+            <span className="text-[11px] text-[var(--color-text-muted)] truncate">
               {meta.parentTitle}
             </span>
           </>
@@ -91,39 +103,50 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
         {issue.is_pending && (
           <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
         )}
-        {issue.assignee && <Avatar name={issue.assignee} size="xs" />}
+        {issue.estimate > 0 && (
+          <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+              <path d="M8 2L14 14H2L8 2Z" />
+            </svg>
+            {issue.estimate}
+          </span>
+        )}
+        {issue.priority > 0 && <PriorityIcon priority={issue.priority} size={14} />}
+        {issue.assignee && <Avatar name={issue.assignee} size="sm" />}
       </div>
 
-      <p className="text-sm text-[var(--color-text-primary)] leading-snug line-clamp-2 mb-2">
+      {/* Title */}
+      <p className="text-sm font-medium text-[var(--color-text-primary)] leading-snug line-clamp-2">
         {issue.title}
       </p>
 
-      {(hasChildren || (issue.labels && issue.labels.length > 0)) && (
-        <div className="flex items-center gap-2 text-xs flex-wrap mb-2">
-          {hasChildren && (
-            <span className="flex items-center gap-1 text-[var(--color-text-muted)] shrink-0">
-              <SubProgress done={meta.childDone} total={meta.childTotal} />
-              {meta.childDone}/{meta.childTotal}
-            </span>
-          )}
-          {issue.labels?.map((label) => (
-            <LabelBadge key={label} label={label} />
-          ))}
+      {/* SW: labels, sub-progress | SE: estimate, date */}
+      {hasBottom && (
+        <div className="flex items-center gap-2 mt-2 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+            {hasChildren && (
+              <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0">
+                <SubProgress done={meta.childDone} total={meta.childTotal} />
+                {meta.childDone}/{meta.childTotal}
+              </span>
+            )}
+            {issue.labels?.map((label) => (
+              <LabelBadge key={label} label={label} />
+            ))}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
+            {cycleId && (
+              <span className="flex items-center gap-0.5 tabular-nums">
+                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.7 6.2h3.3V2.9M2 13.1v-3.3h3.3M2.7 6.2a5.5 5.5 0 019.2-2.5l2.1 2.1M13.3 9.8a5.5 5.5 0 01-9.2 2.5L2 10.2" />
+                </svg>
+                {cycleId}
+              </span>
+            )}
+            <span className="tabular-nums">{formatShortDate(issue.created_at)}</span>
+          </div>
         </div>
       )}
-
-      <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-        {issue.priority > 0 && issue.priority <= 3 && (
-          <span className={`font-medium shrink-0 ${issue.priority === 1 ? "text-[var(--color-error)]" : issue.priority === 2 ? "text-[var(--color-warning)]" : "text-[var(--color-text-muted)]"}`}>
-            {issue.priority === 1 ? "!!!" : issue.priority === 2 ? "!!" : "!"}
-          </span>
-        )}
-        <span className="tabular-nums">{formatShortDate(issue.created_at)}</span>
-        <div className="flex-1" />
-        {issue.estimate > 0 && (
-          <span className="tabular-nums shrink-0">{issue.estimate}pt</span>
-        )}
-      </div>
     </>
   );
 }

@@ -75,6 +75,9 @@ function App() {
   const initial = parseHash();
   const [view, setView] = useState<View>(initial.view);
   const [issues, setIssues] = useState<Issue[]>([]);
+  const patchIssue = useCallback((issueId: string, patch: Partial<Issue>) => {
+    setIssues(prev => prev.map(i => i.id === issueId ? { ...i, ...patch } : i));
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(initial.issueId);
@@ -321,10 +324,11 @@ function App() {
             onNewIssue={() => setShowNewIssue(true)}
             filters={backlogFilters}
             onFiltersChange={handleFiltersChange}
+            patchIssue={patchIssue}
           />
         );
       case 'board':
-        return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} />;
+        return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} contributors={contributors} onConfigLabelsChange={setConfigLabels} patchIssue={patchIssue} />;
       case 'dependencies':
         return <Dependencies issues={issues} onIssueClick={handleIssueClick} />;
       case 'cycles':
