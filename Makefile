@@ -1,6 +1,6 @@
 BINARY_NAME=beats
 
-.PHONY: all build clean test lint frontend install docker
+.PHONY: all build clean test lint frontend install docker release
 
 all: build
 
@@ -36,3 +36,27 @@ install: cli
 
 docker:
 	docker build -t beats:latest .
+
+# Cut a release: make release VERSION=x.y.z
+release:
+ifndef VERSION
+	$(error VERSION is required — usage: make release VERSION=x.y.z)
+endif
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "error: working tree is not clean — commit or stash changes first"; exit 1; \
+	fi
+	@if git rev-parse "v$(VERSION)" >/dev/null 2>&1; then \
+		echo "error: tag v$(VERSION) already exists"; exit 1; \
+	fi
+	@if ! grep -q '## \[Unreleased\]' CHANGELOG.md; then \
+		echo "error: no [Unreleased] section found in CHANGELOG.md"; exit 1; \
+	fi
+	@echo "Releasing v$(VERSION)..."
+	sed -i 's/const CLIVersion = ".*"/const CLIVersion = "$(VERSION)"/' internal/version/version.go
+	sed -i 's/## \[Unreleased\]/## [Unreleased]\n\n## [$(VERSION)] - $(shell date +%Y-%m-%d)/' CHANGELOG.md
+	git add internal/version/version.go CHANGELOG.md
+	git commit -m "release: v$(VERSION)"
+	git tag -a "v$(VERSION)" -m "v$(VERSION)"
+	@echo ""
+	@echo "Done. To publish:"
+	@echo "  git push origin main v$(VERSION)"
