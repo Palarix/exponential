@@ -171,7 +171,6 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="Search issues, actions, navigation..."
             className="flex-1 bg-transparent text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
           />
