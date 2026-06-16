@@ -1,4 +1,5 @@
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { isEditableTarget } from "../../utils/keyboard";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -139,6 +140,65 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
   const visibleGroups = activeGroups.slice(0, visibleCount);
   const hasMore = visibleCount < activeGroups.length;
 
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [keyboardNav, setKeyboardNav] = useState(false);
+
+  const focusedGroup = keyboardNav && focusedIndex >= 0 ? visibleGroups[focusedIndex] : null;
+
+  useEffect(() => {
+    if (!keyboardNav || !focusedGroup) return;
+    const el = document.querySelector(`[data-inbox-group="${focusedGroup.issueId}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [focusedGroup, keyboardNav]);
+
+  useEffect(() => {
+    setFocusedIndex(-1);
+    setKeyboardNav(false);
+  }, [tab]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (isEditableTarget(e)) return;
+      if (e.metaKey || e.ctrlKey) return;
+
+      if (e.key === "ArrowDown" || e.key === "j") {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setFocusedIndex(i => Math.min(i + 1, visibleGroups.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setFocusedIndex(i => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "ArrowRight" && focusedGroup) {
+        e.preventDefault();
+        if (!expandedGroups.has(focusedGroup.issueId)) toggleGroup(focusedGroup.issueId);
+        return;
+      }
+      if (e.key === "ArrowLeft" && focusedGroup) {
+        e.preventDefault();
+        if (expandedGroups.has(focusedGroup.issueId)) toggleGroup(focusedGroup.issueId);
+        return;
+      }
+      if (e.key === "r") {
+        e.preventDefault();
+        onMarkAllRead();
+        return;
+      }
+      if (e.key === "Enter" && focusedGroup) {
+        e.preventDefault();
+        const issue = issues.find(it => it.id === focusedGroup.issueId);
+        if (issue) onIssueClick?.(issue);
+        return;
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [visibleGroups, focusedGroup, issues, onIssueClick, expandedGroups]);
+
   const toggleGroup = (id: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
@@ -204,17 +264,21 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
           </div>
         ) : (
           <div className="max-w-4xl mx-auto py-4 px-4 space-y-3">
-            {visibleGroups.map(group => {
+            {visibleGroups.map((group, gi) => {
               const issue = issues.find(it => it.id === group.issueId);
+              const isFocused = keyboardNav && gi === focusedIndex;
 
               return (
                 <div
                   key={group.issueId}
+                  data-inbox-group={group.issueId}
                   className={`
                     rounded-[var(--radius-md)] border transition-colors
-                    ${group.hasUnread
-                      ? "bg-[var(--color-bg-secondary)] border-[var(--color-border-default)]"
-                      : "bg-[var(--color-bg-secondary)] border-[var(--color-border-subtle)]"
+                    ${isFocused
+                      ? "bg-[var(--color-bg-secondary)] border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]"
+                      : group.hasUnread
+                        ? "bg-[var(--color-bg-secondary)] border-[var(--color-border-default)]"
+                        : "bg-[var(--color-bg-secondary)] border-[var(--color-border-subtle)]"
                     }
                   `.trim().replace(/\s+/g, " ")}
                 >

@@ -141,9 +141,9 @@ function App() {
 
   const GO_TARGETS: Record<string, View> = {
     o: 'dashboard',
-    b: 'backlog',
-    r: 'board',
-    i: 'inbox',
+    i: 'backlog',
+    b: 'board',
+    n: 'inbox',
     d: 'dependencies',
     l: 'labels',
     c: 'cycles',
@@ -226,7 +226,7 @@ function App() {
       const res = await markInboxRead();
       setInboxLastRead(res.last_read);
       setInboxUnread(0);
-      showToast("Inbox marked as read");
+      showToast("Notifications marked as read");
     } catch {}
   }, [showToast]);
 

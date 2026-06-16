@@ -20,9 +20,9 @@ const GLOBAL: ShortcutGroup = {
     { keys: [mod, "K"], label: "Open command palette" },
     { keys: ["C"], label: "Create new issue" },
     { keys: ["G", "O"], label: "Go to Overview" },
-    { keys: ["G", "B"], label: "Go to Backlog" },
-    { keys: ["G", "R"], label: "Go to Board" },
-    { keys: ["G", "I"], label: "Go to Inbox" },
+    { keys: ["G", "I"], label: "Go to Issues" },
+    { keys: ["G", "B"], label: "Go to Board" },
+    { keys: ["G", "N"], label: "Go to Notifications" },
     { keys: ["G", "D"], label: "Go to Dependencies" },
     { keys: ["G", "L"], label: "Go to Labels" },
     { keys: ["G", "C"], label: "Go to Cycles" },
@@ -74,7 +74,19 @@ const PICKERS: ShortcutGroup = {
   ],
 };
 
-const ALL_GROUPS = [GLOBAL, BACKLOG, ISSUE_DETAIL, PICKERS];
+const INBOX: ShortcutGroup = {
+  title: "Notifications",
+  shortcuts: [
+    { keys: ["J", "↓"], label: "Next group" },
+    { keys: ["K", "↑"], label: "Previous group" },
+    { keys: ["→"], label: "Expand events" },
+    { keys: ["←"], label: "Collapse events" },
+    { keys: ["Enter"], label: "Open issue" },
+    { keys: ["R"], label: "Mark all as read" },
+  ],
+};
+
+const ALL_GROUPS = [GLOBAL, BACKLOG, ISSUE_DETAIL, INBOX, PICKERS];
 
 function Kbd({ children }: { children: string }) {
   return (
@@ -125,7 +137,7 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
           </button>
         </div>
 
-        <div className="max-h-[65vh] overflow-y-auto px-5 py-4 grid grid-cols-2 gap-6">
+        <div className="max-h-[65vh] overflow-y-auto px-5 py-4 grid grid-cols-2 gap-x-12 gap-y-6">
           {ALL_GROUPS.map(group => (
             <div key={group.title}>
               <h3 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">{group.title}</h3>
