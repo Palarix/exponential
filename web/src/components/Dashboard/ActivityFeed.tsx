@@ -1,20 +1,25 @@
-import { useState, type ReactNode } from "react";
-import Markdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
+import type { ReactNode } from "react";
 import type { ActivityEvent, Issue } from "../../api/client";
-import { Avatar } from "../ui";
-import { shortName, formatRelativeTime, stripMarkdown } from "../../utils/format";
+import { shortName, formatRelativeTime } from "../../utils/format";
 
 type ActIconKey =
-  | "create" | "comment"
+  | "create" | "comment" | "merge"
   | "status-done" | "status-doing" | "status-blocked" | "status-planned" | "status-backlog"
   | "estimate" | "rename" | "description" | "labels" | "assign" | "priority" | "parent" | "relations";
 
+const ICON_COLORS: Partial<Record<ActIconKey, string>> = {
+  "status-done": "text-[var(--color-success)]",
+  "status-doing": "text-[var(--color-warning)]",
+  "status-blocked": "text-[var(--color-error)]",
+  "status-planned": "text-[var(--color-text-secondary)]",
+};
+
 function ActIcon({ k }: { k: ActIconKey }) {
+  const color = ICON_COLORS[k] ?? "text-[var(--color-text-muted)]";
   const paths: Record<ActIconKey, ReactNode> = {
     create: <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />,
     comment: <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.068.157 2.148.279 3.238.364.466.037.893.281 1.153.671L12 21l2.652-3.978c.26-.39.687-.634 1.153-.671 1.09-.085 2.17-.207 3.238-.364 1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />,
+    merge: <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5-3L16.5 18m0 0L12 13.5M16.5 18V4.5" />,
     "status-done": <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
     "status-doing": <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" />,
     "status-blocked": <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />,
@@ -30,48 +35,58 @@ function ActIcon({ k }: { k: ActIconKey }) {
     relations: <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />,
   };
   return (
-    <svg className="w-4 h-4 shrink-0 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+    <svg className={`w-4 h-4 shrink-0 ${color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
       {paths[k]}
     </svg>
   );
 }
 
-const STATUS_VERB: Record<string, { verb: string; icon: ActIconKey }> = {
-  BACKLOG: { verb: "moved to Backlog", icon: "status-backlog" },
-  PLANNED: { verb: "planned", icon: "status-planned" },
-  DOING: { verb: "started", icon: "status-doing" },
-  BLOCKED: { verb: "blocked", icon: "status-blocked" },
-  DONE: { verb: "completed", icon: "status-done" },
-};
-
-function describeActivity(evt: ActivityEvent): { icon: ActIconKey; content: ReactNode; preview?: string } | null {
+function describeActivity(evt: ActivityEvent, who: string): { icon: ActIconKey; sentence: ReactNode } | null {
   const p = evt.payload || {};
+  const name = <span className="text-[var(--color-text-primary)]">{who}</span>;
   switch (evt.type) {
     case "CREATE":
-      return { icon: "create", content: <>created</> };
+      return { icon: "create", sentence: <>{name} created</> };
     case "COMMENT":
-      return { icon: "comment", content: <>commented on</>, preview: String(p.text ?? "") };
+      return { icon: "comment", sentence: <>{name} commented on</> };
+    case "MERGE": {
+      const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
+      return { icon: "merge", sentence: <>{name} merged{strategy}</> };
+    }
     case "UPDATE": {
       if (p.status) {
-        const s = STATUS_VERB[String(p.status)] ?? { verb: `moved to ${String(p.status)}`, icon: "status-backlog" as ActIconKey };
-        return { icon: s.icon, content: <>{s.verb}</> };
-      }
-      if (p.assignee !== undefined) {
-        const name = String(p.assignee);
+        const verbs: Record<string, string> = {
+          BACKLOG: "moved to Backlog",
+          PLANNED: "marked as Planned",
+          DOING: "started working on",
+          BLOCKED: "marked as Blocked",
+          DONE: "completed",
+        };
+        const icons: Record<string, ActIconKey> = {
+          BACKLOG: "status-backlog",
+          PLANNED: "status-planned",
+          DOING: "status-doing",
+          BLOCKED: "status-blocked",
+          DONE: "status-done",
+        };
+        const status = String(p.status);
         return {
-          icon: "assign",
-          content: name
-            ? <>assigned <span className="text-[var(--color-text-primary)]">{shortName(name)}</span> to</>
-            : <>unassigned</>,
+          icon: icons[status] ?? "status-backlog",
+          sentence: <>{name} {verbs[status] ?? `moved to ${status}`}</>,
         };
       }
-      if (Array.isArray(p.labels)) return { icon: "labels", content: <>relabeled</> };
-      if (p.estimate !== undefined) return { icon: "estimate", content: <>set estimate to <span className="text-[var(--color-text-primary)]">{String(p.estimate)}</span> on</> };
-      if (p.priority !== undefined) return { icon: "priority", content: <>changed priority of</> };
-      if (p.title) return { icon: "rename", content: <>renamed</> };
-      if (p.description !== undefined) return { icon: "description", content: <>updated the description of</> };
-      if (p.parent_id !== undefined) return { icon: "parent", content: <>changed parent of</> };
-      if (Array.isArray(p.dependencies)) return { icon: "relations", content: <>updated relationships of</> };
+      if (p.assignee !== undefined) {
+        const assignee = String(p.assignee);
+        if (!assignee) return { icon: "assign", sentence: <>{name} removed the assignee from</> };
+        return { icon: "assign", sentence: <>{name} assigned <span className="font-medium text-[var(--color-text-primary)]">{shortName(assignee)}</span> to</> };
+      }
+      if (Array.isArray(p.labels)) return { icon: "labels", sentence: <>{name} relabeled</> };
+      if (p.estimate !== undefined) return { icon: "estimate", sentence: <>{name} estimated</> };
+      if (p.priority !== undefined) return { icon: "priority", sentence: <>{name} changed priority of</> };
+      if (p.title) return { icon: "rename", sentence: <>{name} renamed</> };
+      if (p.description !== undefined) return { icon: "description", sentence: <>{name} updated the description of</> };
+      if (p.parent_id !== undefined) return { icon: "parent", sentence: <>{name} changed parent of</> };
+      if (Array.isArray(p.dependencies)) return { icon: "relations", sentence: <>{name} updated relationships of</> };
       return null;
     }
     default:
@@ -88,17 +103,6 @@ export default function ActivityFeed({
   issues: Issue[];
   onIssueClick?: (issue: Issue) => void;
 }) {
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(() => new Set());
-
-  const toggleComment = (key: string) => {
-    setExpandedComments((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
   if (activity.length === 0) {
     return (
       <div className="px-5 py-10 flex items-center justify-center">
@@ -108,60 +112,29 @@ export default function ActivityFeed({
   }
 
   return (
-    <div className="py-2">
+    <div className="py-1">
       {activity.map((evt, i) => {
-        const desc = describeActivity(evt);
+        const who = shortName(evt.created_by);
+        const desc = describeActivity(evt, who);
         if (!desc) return null;
         const issue = issues.find((it) => it.id === evt.issue_id);
         const title = evt.issue_title || evt.issue_id;
         const key = `${evt.issue_id}-${evt.created_at}-${i}`;
-        const isExpanded = expandedComments.has(key);
-        const previewText = desc.preview ? stripMarkdown(desc.preview) : "";
         return (
-          <div key={key} className="px-5 py-2">
-            <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
-              <Avatar name={evt.created_by} size="xs" />
-              <span className="text-[var(--color-text-primary)] font-medium shrink-0 ml-1">
-                {shortName(evt.created_by)}
-              </span>
-              <div className="shrink-0 flex items-center gap-1 text-warning">
-                <ActIcon k={desc.icon} />
-                <span className="shrink-0">{desc.content}</span>
-              </div>
-              <button
-                onClick={() => issue && onIssueClick?.(issue)}
-                disabled={!issue}
-                className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate min-w-0 disabled:opacity-60 disabled:cursor-default"
-                title={title}
-              >
-                {title}
-              </button>
-              <span className="ml-auto text-xs tabular-nums shrink-0 whitespace-nowrap">
-                {formatRelativeTime(evt.created_at)}
-              </span>
-            </div>
-            {desc.preview && !isExpanded && (
-              <button
-                onClick={() => toggleComment(key)}
-                className="block w-full text-left ml-4 mt-1 text-sm text-[var(--color-text-muted)] italic truncate hover:text-[var(--color-text-secondary)] transition-colors cursor-pointer"
-                title="Expand comment"
-              >
-                &ldquo;{previewText.slice(0, 140)}{previewText.length > 140 ? "…" : ""}&rdquo;
-              </button>
-            )}
-            {desc.preview && isExpanded && (
-              <button
-                onClick={() => toggleComment(key)}
-                className="block w-full text-left ml-4 mt-2 rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] px-3 py-2 hover:border-[var(--color-border-focus)] transition-colors cursor-pointer"
-                title="Collapse comment"
-              >
-                <div className="prose-beats text-sm">
-                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                    {desc.preview}
-                  </Markdown>
-                </div>
-              </button>
-            )}
+          <div key={key} className="flex items-center px-5 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+            <span className="shrink-0 mr-2"><ActIcon k={desc.icon} /></span>
+            <span className="shrink-0">{desc.sentence}</span>
+            <button
+              onClick={() => issue && onIssueClick?.(issue)}
+              disabled={!issue}
+              className="font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate min-w-0 ml-1.5 disabled:opacity-60 disabled:cursor-default transition-colors"
+              title={title}
+            >
+              {title}
+            </button>
+            <span className="ml-auto text-xs tabular-nums shrink-0 whitespace-nowrap">
+              {formatRelativeTime(evt.created_at)}
+            </span>
           </div>
         );
       })}
