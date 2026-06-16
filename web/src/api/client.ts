@@ -93,7 +93,7 @@ export interface WorkloadEntry {
 export interface ActivityEvent {
   issue_id: string;
   issue_title: string;
-  type: 'CREATE' | 'UPDATE' | 'COMMENT';
+  type: 'CREATE' | 'UPDATE' | 'COMMENT' | 'MERGE';
   payload: Record<string, unknown>;
   created_at: string;
   created_by: string;

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, StatusIcon, SubProgress } from "../ui";
+import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
@@ -10,31 +10,35 @@ import { Sparkline, DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
 
-function AttentionBadge({ item }: { item: AttentionItem }) {
-  const styles: Record<AttentionItem["kind"], { label: string; cls: string }> = {
-    blocker: { label: "BLOCKED", cls: "text-[var(--color-error)] border-[var(--color-error)]/40 bg-[var(--color-error)]/10" },
-    stale_wip: { label: "STALE", cls: "text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10" },
-    high_priority: { label: item.priority === 1 ? "URGENT" : "HIGH", cls: "text-[var(--color-text-secondary)] border-[var(--color-border-default)] bg-[var(--color-bg-tertiary)]" },
-  };
-  const s = styles[item.kind];
-  return (
-    <span className={`text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 ${s.cls}`}>
-      {s.label}
-    </span>
-  );
+function attentionReason(item: AttentionItem): { label: string; icon: React.ReactNode; cls: string } {
+  switch (item.kind) {
+    case "blocker":
+      return {
+        label: `Blocked ${item.age_days ?? 0}d`,
+        cls: "text-[var(--color-error)]",
+        icon: <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />,
+      };
+    case "stale_wip":
+      return {
+        label: `Stale ${item.age_days ?? 0}d`,
+        cls: "text-[var(--color-warning)]",
+        icon: <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />,
+      };
+    case "high_priority":
+      return {
+        label: "Urgent",
+        cls: "text-[rgb(244,124,66)]",
+        icon: null,
+      };
+  }
 }
 
-function attentionMeta(item: AttentionItem): string {
-  if (item.kind === "high_priority") return "";
-  return `${item.age_days ?? 0}d`;
-}
-
-const PRIORITY_LABELS: { value: number; label: string; marker: string; markerClass: string }[] = [
-  { value: 1, label: "Urgent", marker: "!!!", markerClass: "text-[var(--color-error)]" },
-  { value: 2, label: "High", marker: "!!", markerClass: "text-[var(--color-warning)]" },
-  { value: 3, label: "Medium", marker: "!", markerClass: "text-[var(--color-text-muted)]" },
-  { value: 4, label: "Low", marker: "", markerClass: "" },
-  { value: 0, label: "No priority", marker: "", markerClass: "" },
+const PRIORITY_LABELS: { value: number; label: string }[] = [
+  { value: 1, label: "Urgent" },
+  { value: 2, label: "High" },
+  { value: 3, label: "Medium" },
+  { value: 4, label: "Low" },
+  { value: 0, label: "No priority" },
 ];
 
 interface DashboardProps {
@@ -173,7 +177,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           key: String(p.value),
           label: (
             <div className="flex items-center gap-2">
-              <span className={`text-xs font-medium tabular-nums w-6 ${p.markerClass}`}>{p.marker || "—"}</span>
+              <PriorityIcon priority={p.value} size={14} />
               <span className="text-sm text-[var(--color-text-primary)]">{p.label}</span>
             </div>
           ),
@@ -391,14 +395,29 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           {/* Needs Attention */}
           {metrics && metrics.attention.length > 0 && (
             <Section title="Needs Attention" icon={<SectionIcon d={SECTION_ICONS.attention} />} count={metrics.attention.length} collapsible storageKey="beats-dashboard-attention-open">
-              <div className="py-2">
+              <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {metrics.attention.map((item) => {
                   const issue = issues.find((i) => i.id === item.issue_id);
+                  const reason = attentionReason(item);
                   return (
-                    <button key={item.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
-                      <AttentionBadge item={item} />
+                    <button
+                      key={item.issue_id}
+                      onClick={() => issue && onIssueClick?.(issue)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] transition-colors text-left"
+                    >
+                      <StatusIcon status={issue?.status || "BACKLOG"} size={14} isInferred={issue?.is_inferred} />
+                      <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">{item.issue_id}</span>
                       <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.title}</span>
-                      <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">{attentionMeta(item)}</span>
+                      {issue?.assignee && <Avatar name={issue.assignee} size="xs" />}
+                      <span className={`shrink-0 ${reason.cls}`} title={reason.label}>
+                        {reason.icon ? (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {reason.icon}
+                          </svg>
+                        ) : (
+                          <PriorityIcon priority={item.priority || 1} size={16} />
+                        )}
+                      </span>
                     </button>
                   );
                 })}

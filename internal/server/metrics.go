@@ -328,8 +328,8 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 			})
 		}
 
-		// High priority not started: priority Urgent (1) or High (2), status BACKLOG or PLANNED.
-		if issue.Priority > 0 && issue.Priority <= 2 &&
+		// Urgent priority not started: priority Urgent (1), status BACKLOG or PLANNED.
+		if issue.Priority == 1 &&
 			(issue.Status == model.StatusBacklog || issue.Status == model.StatusPlanned) {
 			highPriorityCandidates = append(highPriorityCandidates, attentionItem{
 				IssueID:  issue.ID,
