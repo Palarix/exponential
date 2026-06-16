@@ -28,7 +28,7 @@ export default function EmptyState({ title, description, icon, actionLabel, onAc
       )}
 
       <p className="text-xs text-[var(--color-text-muted)]">
-        Press <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] rounded">C</kbd> anytime to create an issue
+        Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] rounded">C</kbd> anytime to create an issue
       </p>
     </div>
   );

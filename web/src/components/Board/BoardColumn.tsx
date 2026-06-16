@@ -52,7 +52,7 @@ export default function BoardColumn({
         <span className="text-xs font-medium text-[var(--color-text-muted)] [writing-mode:vertical-lr] rotate-180">
           {column.label}
         </span>
-        <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums">{itemIds.length}</span>
+        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{itemIds.length}</span>
       </button>
     );
   }
@@ -66,7 +66,7 @@ export default function BoardColumn({
           <StatusIcon status={column.id} size={14} />
           <span className="text-sm font-medium text-[var(--color-text-primary)]">{column.label}</span>
           {column.shortcut && (
-            <kbd className="inline-flex items-center justify-center min-w-4 h-4 px-1 text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+            <kbd className="inline-flex items-center justify-center min-w-4 h-4 px-1 text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
               {column.shortcut}
             </kbd>
           )}

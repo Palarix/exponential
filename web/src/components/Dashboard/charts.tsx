@@ -82,7 +82,7 @@ export function DistributionBar({ median, p75, p90, max, unit = "d" }: {
         {/* Red: p75 → p90 */}
         <div className="absolute inset-y-0 bg-[var(--color-error)]" style={{ left: `${pct(p75)}%`, width: `${pct(p90) - pct(p75)}%` }} />
       </div>
-      <div className="flex items-center mt-1.5 text-[10px] tabular-nums text-[var(--color-text-muted)]">
+      <div className="flex items-center mt-1.5 text-xs tabular-nums text-[var(--color-text-muted)]">
         <span className="text-[var(--color-success)]">p50 {median}{unit}</span>
         <span className="mx-1">·</span>
         <span className="text-[var(--color-warning)]">p75 {p75}{unit}</span>

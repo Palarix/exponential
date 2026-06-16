@@ -86,7 +86,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
     <>
       {/* NW: ID + parent | NE: pending, priority, assignee */}
       <div className="flex items-center gap-2 mb-1.5 min-w-0">
-        <span className="font-mono text-[11px] text-[var(--color-text-muted)] shrink-0">
+        <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">
           {issue.id}
         </span>
         {meta.parentTitle && (
@@ -94,7 +94,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
             <svg className="w-2.5 h-2.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
-            <span className="text-[11px] text-[var(--color-text-muted)] truncate">
+            <span className="text-xs text-[var(--color-text-muted)] truncate">
               {meta.parentTitle}
             </span>
           </>

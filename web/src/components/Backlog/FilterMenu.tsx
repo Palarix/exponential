@@ -375,7 +375,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     <>
       {/* Main menu */}
       <div ref={menuRef} style={menuStyle} className="z-50 w-52 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
-        <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+        <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
           Add Filter...
         </div>
         {DIMENSIONS.map((dim) => {
@@ -392,7 +392,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
               <span className="text-[var(--color-text-muted)] shrink-0">{dim.icon}</span>
               <span className="flex-1">{dim.label}</span>
               {sel.length > 0 && (
-                <span className="text-[10px] text-[var(--color-accent-primary)] tabular-nums">{sel.length}</span>
+                <span className="text-xs text-[var(--color-accent-primary)] tabular-nums">{sel.length}</span>
               )}
               <svg className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

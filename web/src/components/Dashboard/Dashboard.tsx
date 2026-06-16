@@ -252,7 +252,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                 <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
-                    <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+                    <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)]" />created</span>
                       <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
                     </div>
@@ -288,7 +288,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   <>
                     <table className="w-full text-center tabular-nums border-collapse border border-[var(--color-border-subtle)] rounded">
                       <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                        <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
                           <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Min</th>
                           <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Median</th>
                           <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">P90</th>
@@ -315,7 +315,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   <>
                     <table className="w-full text-center tabular-nums border-collapse border border-[var(--color-border-subtle)] rounded">
                       <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                        <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
                           <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Min</th>
                           <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Median</th>
                           <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">P90</th>
@@ -361,13 +361,13 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                       <div className="flex items-end gap-1 h-10">
                         {bars.map(b => (
                           <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
-                            <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
+                            <span className="text-xs text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
                             <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
                           </div>
                         ))}
                       </div>
                       <div className="flex gap-1 mt-1.5">
-                        {bars.map(b => <span key={b.label} className="flex-1 text-center text-[10px] text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
+                        {bars.map(b => <span key={b.label} className="flex-1 text-center text-xs text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
                       </div>
                       <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 tabular-nums">{total} open issues</p>
                     </div>
@@ -431,7 +431,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
               <div className="px-5 py-10 flex items-center justify-center"><p className="text-sm text-[var(--color-text-muted)] text-center">No assigned work.</p></div>
             ) : (
               <div className="py-2">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-5 py-1 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-5 py-1 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
                   <span>Person</span><span className="text-right w-10">WIP</span><span className="text-right w-10">Pts</span><span className="text-right w-12">Blocked</span>
                 </div>
                 {metrics.workload.map((w) => (
@@ -464,7 +464,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                       <StatusIcon status={issue?.status || "PLANNED"} size={14} isInferred={issue?.is_inferred} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
                       <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />
-                      {ep.stale && <span className="text-[10px] uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
+                      {ep.stale && <span className="text-xs uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
                       <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
                         <SubProgress done={ep.children_done} total={ep.children_total} />
                         {ep.children_done}/{ep.children_total}

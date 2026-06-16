@@ -211,7 +211,7 @@ function NavItem({
       </span>
       {item.label}
       {badge != null && badge > 0 && (
-        <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium leading-none bg-[var(--color-accent-primary)] text-white rounded-full">
+        <span className="ml-auto px-1.5 py-0.5 text-xs font-medium leading-none bg-[var(--color-accent-primary)] text-white rounded-full">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
@@ -363,7 +363,7 @@ export default function Layout({
           <>
             <div className="mx-4 my-2 border-t border-[var(--color-border-subtle)]" />
             <div className="px-2 space-y-1">
-              <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] px-3 mb-1 mt-1">
+              <div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] px-3 mb-1 mt-1">
                 Projects
               </div>
               {instances.map((p) => (

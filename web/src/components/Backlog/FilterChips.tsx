@@ -65,7 +65,7 @@ export default function FilterChips({ filters, onChange }: FilterChipsProps) {
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] whitespace-nowrap shrink-0"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] whitespace-nowrap shrink-0"
         >
           {chip.label}
           <button
@@ -80,7 +80,7 @@ export default function FilterChips({ filters, onChange }: FilterChipsProps) {
       ))}
       <button
         onClick={() => onChange(EMPTY_FILTERS)}
-        className="text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0 px-1"
+        className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0 px-1"
         title="Clear all filters"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

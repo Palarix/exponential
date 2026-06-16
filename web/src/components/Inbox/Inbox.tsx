@@ -278,14 +278,14 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
                             </div>
                             {hasDetail && !isExpanded && (
                               <div className="px-3 pb-2.5 -mt-1">
-                                <p className="text-xs text-[var(--color-text-muted)] italic truncate pl-[22px]">
+                                <p className="text-xs text-[var(--color-text-muted)] italic truncate pl-6">
                                   &ldquo;{previewText.slice(0, 200)}{previewText.length > 200 ? "…" : ""}&rdquo;
                                 </p>
                               </div>
                             )}
                             {hasDetail && isExpanded && (
                               <div className="px-3 pb-3 -mt-0.5">
-                                <div className="ml-[22px] rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2">
+                                <div className="ml-6 rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2">
                                   <div className="prose-beats text-sm">
                                     <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                                       {desc.detail!}

@@ -280,15 +280,15 @@ function ProgressChart({ cycleId }: { cycleId: string }) {
       <div className="flex items-center gap-3 mt-1">
         <div className="flex items-center gap-1">
           <div className="w-3 h-0.5 bg-[var(--color-accent-primary)]" />
-          <span className="text-[10px] text-[var(--color-text-muted)]">Remaining</span>
+          <span className="text-xs text-[var(--color-text-muted)]">Remaining</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-0.5 border-t border-dashed border-[var(--color-text-muted)] opacity-50" />
-          <span className="text-[10px] text-[var(--color-text-muted)]">Ideal</span>
+          <span className="text-xs text-[var(--color-text-muted)]">Ideal</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-0.5 border-t border-dotted border-[var(--color-text-muted)] opacity-40" />
-          <span className="text-[10px] text-[var(--color-text-muted)]">Scope</span>
+          <span className="text-xs text-[var(--color-text-muted)]">Scope</span>
         </div>
       </div>
     </div>
@@ -434,28 +434,28 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
             <div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)] opacity-40" />
-                <span className="text-[10px] text-[var(--color-text-muted)]">Scope</span>
+                <span className="text-xs text-[var(--color-text-muted)]">Scope</span>
               </div>
               <span className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">{scopeCount}</span>
             </div>
             <div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-[var(--color-status-doing)]" />
-                <span className="text-[10px] text-[var(--color-text-muted)]">Started</span>
+                <span className="text-xs text-[var(--color-text-muted)]">Started</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">{startedCount}</span>
-                {scopeCount > 0 && <span className="text-[10px] text-[var(--color-text-muted)]">{Math.round((startedCount / scopeCount) * 100)}%</span>}
+                {scopeCount > 0 && <span className="text-xs text-[var(--color-text-muted)]">{Math.round((startedCount / scopeCount) * 100)}%</span>}
               </div>
             </div>
             <div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-[var(--color-success)]" />
-                <span className="text-[10px] text-[var(--color-text-muted)]">Done</span>
+                <span className="text-xs text-[var(--color-text-muted)]">Done</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">{completedCount}</span>
-                {scopeCount > 0 && <span className="text-[10px] text-[var(--color-text-muted)]">{pct}%</span>}
+                {scopeCount > 0 && <span className="text-xs text-[var(--color-text-muted)]">{pct}%</span>}
               </div>
             </div>
           </div>
@@ -482,12 +482,12 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
                     </svg>
                   </div>
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-[var(--color-accent-primary)] flex items-center justify-center shrink-0 text-[10px] font-medium text-white">
+                  <div className="w-5 h-5 rounded-full bg-[var(--color-accent-primary)] flex items-center justify-center shrink-0 text-xs font-medium text-white">
                     {a.name.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <span className="text-xs text-[var(--color-text-secondary)] flex-1 truncate">{a.name}</span>
-                <span className="text-[10px] text-[var(--color-text-muted)] tabular-nums">{a.done}/{a.total}</span>
+                <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{a.done}/{a.total}</span>
               </div>
             ))}
           </div>
