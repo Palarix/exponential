@@ -13,10 +13,12 @@ export interface CardMeta {
 export function SortableBoardCard({
   issue,
   meta,
+  isFocused,
   onClick,
 }: {
   issue: Issue;
   meta: CardMeta;
+  isFocused?: boolean;
   onClick?: () => void;
 }) {
   const {
@@ -38,10 +40,11 @@ export function SortableBoardCard({
     <div
       ref={setNodeRef}
       style={style}
+      data-board-card={issue.id}
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className="px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)]"
+      className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-bg-elevated)] border cursor-pointer transition-colors duration-[var(--duration-fast)] ${isFocused ? "border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]" : "border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)]"}`}
     >
       <BoardCardContent issue={issue} meta={meta} />
     </div>

@@ -13,13 +13,15 @@ export default function BoardColumn({
   getIssue,
   getCardMeta,
   activeId,
+  focusedId,
   onIssueClick,
 }: {
-  column: { id: string; label: string };
+  column: { id: string; label: string; shortcut?: string };
   itemIds: string[];
   getIssue: (id: string) => Issue | undefined;
   getCardMeta: (issue: Issue) => CardMeta;
   activeId: string | null;
+  focusedId?: string | null;
   onIssueClick?: (issue: Issue) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${column.id}` });
@@ -40,8 +42,18 @@ export default function BoardColumn({
         <div className="flex items-center gap-2">
           <StatusIcon status={column.id} size={14} />
           <span className="text-sm font-medium text-[var(--color-text-primary)]">{column.label}</span>
+          {column.shortcut && (
+            <kbd className="inline-flex items-center justify-center min-w-4 h-4 px-1 text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+              {column.shortcut}
+            </kbd>
+          )}
         </div>
-        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{itemIds.length}</span>
+        <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums">
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5" />
+          </svg>
+          {itemIds.length}
+        </span>
       </div>
 
       <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
@@ -54,6 +66,7 @@ export default function BoardColumn({
                 key={id}
                 issue={issue}
                 meta={getCardMeta(issue)}
+                isFocused={id === focusedId}
                 onClick={() => onIssueClick?.(issue)}
               />
             );

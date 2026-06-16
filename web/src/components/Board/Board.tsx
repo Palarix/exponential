@@ -15,8 +15,10 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { EmptyState } from '../ui';
+import { EmptyState, Popover, StatusPicker, EstimatePicker } from '../ui';
+import { LabelPicker } from '../ui';
 import { sortGroup } from '../../utils/sort';
+import { isEditableTarget } from '../../utils/keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
 
@@ -28,10 +30,10 @@ interface BoardProps {
 }
 
 const COLUMNS = [
-  { id: 'PLANNED', label: 'Planned' },
-  { id: 'DOING', label: 'In Progress' },
-  { id: 'BLOCKED', label: 'Blocked' },
-  { id: 'DONE', label: 'Done' },
+  { id: 'PLANNED', label: 'Planned', shortcut: '2' },
+  { id: 'DOING', label: 'In Progress', shortcut: '3' },
+  { id: 'BLOCKED', label: 'Blocked', shortcut: '4' },
+  { id: 'DONE', label: 'Done', shortcut: '5' },
 ];
 
 type Containers = Record<string, string[]>;
@@ -242,6 +244,126 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
 
   const activeIssue = activeId ? issuesById.get(activeId) ?? null : null;
 
+  // Keyboard navigation
+  const [focusCol, setFocusCol] = useState(0);
+  const [focusCard, setFocusCard] = useState(0);
+  const [keyboardNav, setKeyboardNav] = useState(false);
+  const [openPopover, setOpenPopover] = useState<{ issueId: string; type: "status" | "labels" | "estimate" } | null>(null);
+  const openPopoverRef = useRef(openPopover);
+  openPopoverRef.current = openPopover;
+
+  const focusedIssueId = useMemo(() => {
+    if (!keyboardNav) return null;
+    const colId = COLUMNS[focusCol]?.id;
+    const ids = containers[colId] ?? [];
+    return ids[focusCard] ?? null;
+  }, [keyboardNav, focusCol, focusCard, containers]);
+
+  useEffect(() => {
+    if (!keyboardNav) return;
+    const el = document.querySelector(`[data-board-card="${focusedIssueId}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [focusedIssueId, keyboardNav]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (openPopoverRef.current) return;
+      if (isEditableTarget(e)) return;
+      if (e.metaKey || e.ctrlKey) return;
+      if (isDraggingRef.current) return;
+
+      const colId = COLUMNS[focusCol]?.id;
+      const colIds = containers[colId] ?? [];
+
+      if (e.key === "ArrowDown" || e.key === "j") {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setFocusCard(i => Math.min(i + 1, colIds.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp" || e.key === "k") {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setFocusCard(i => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setFocusCol(i => {
+          for (let n = i + 1; n < COLUMNS.length; n++) {
+            const ids = containers[COLUMNS[n].id] ?? [];
+            if (ids.length > 0) {
+              setFocusCard(c => Math.min(c, ids.length - 1));
+              return n;
+            }
+          }
+          return i;
+        });
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setFocusCol(i => {
+          for (let n = i - 1; n >= 0; n--) {
+            const ids = containers[COLUMNS[n].id] ?? [];
+            if (ids.length > 0) {
+              setFocusCard(c => Math.min(c, ids.length - 1));
+              return n;
+            }
+          }
+          return i;
+        });
+        return;
+      }
+      if (e.key === "Enter" && focusedIssueId) {
+        e.preventDefault();
+        const issue = issuesById.get(focusedIssueId);
+        if (issue) onIssueClick?.(issue);
+        return;
+      }
+      if (e.key === "." && focusedIssueId) {
+        navigator.clipboard.writeText(focusedIssueId);
+        return;
+      }
+      if (focusedIssueId) {
+        if (e.key === "s") {
+          e.preventDefault();
+          setOpenPopover({ issueId: focusedIssueId, type: "status" });
+          return;
+        }
+        if (e.key === "l") {
+          e.preventDefault();
+          setOpenPopover({ issueId: focusedIssueId, type: "labels" });
+          return;
+        }
+        if (e.key === "e") {
+          e.preventDefault();
+          setOpenPopover({ issueId: focusedIssueId, type: "estimate" });
+          return;
+        }
+        const col = COLUMNS.find(c => c.shortcut === e.key);
+        if (col) {
+          const issue = issuesById.get(focusedIssueId);
+          if (issue && issue.status !== col.id) {
+            e.preventDefault();
+            handleQuickUpdate(focusedIssueId, { status: col.id });
+          }
+          return;
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick]);
+
+  const handleQuickUpdate = useCallback(async (issueId: string, payload: Record<string, unknown>) => {
+    await addDraft(issueId, "UPDATE", payload);
+    setOpenPopover(null);
+    onRefresh();
+  }, [onRefresh]);
+
   if (issues.length === 0) {
     return (
       <EmptyState
@@ -293,6 +415,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
                 getIssue={(id) => issuesById.get(id)}
                 getCardMeta={getCardMeta}
                 activeId={activeId}
+                focusedId={focusedIssueId}
                 onIssueClick={onIssueClick}
               />
             ))}
@@ -302,6 +425,40 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue }: B
           {activeIssue ? <BoardCard issue={activeIssue} meta={getCardMeta(activeIssue)} isOverlay /> : null}
         </DragOverlay>
       </DndContext>
+
+      {openPopover && (() => {
+        const issue = issuesById.get(openPopover.issueId);
+        if (!issue) return null;
+        return (
+          <>
+            {openPopover.type === "status" && (
+              <Popover onClose={() => setOpenPopover(null)}>
+                <StatusPicker current={issue.status} onSelect={v => handleQuickUpdate(issue.id, { status: v })} onClose={() => setOpenPopover(null)} />
+              </Popover>
+            )}
+            {openPopover.type === "estimate" && (
+              <Popover onClose={() => setOpenPopover(null)}>
+                <EstimatePicker current={issue.estimate || 0} onSelect={v => handleQuickUpdate(issue.id, { estimate: v })} onClose={() => setOpenPopover(null)} />
+              </Popover>
+            )}
+            {openPopover.type === "labels" && (
+              <Popover onClose={() => setOpenPopover(null)}>
+                <LabelPicker
+                  allLabels={[...new Set(issues.flatMap(i => i.labels || []))]}
+                  selected={issue.labels || []}
+                  onToggle={async (label) => {
+                    const current = issue.labels || [];
+                    const labels = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
+                    await addDraft(issue.id, "UPDATE", { labels });
+                    onRefresh();
+                  }}
+                  onClose={() => setOpenPopover(null)}
+                />
+              </Popover>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
