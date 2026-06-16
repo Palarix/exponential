@@ -60,6 +60,7 @@ interface BacklogProps {
   onRefresh: () => void;
   onIssueClick?: (issue: Issue) => void;
   searchFocused?: boolean;
+  onSearchFocus?: () => void;
   onSearchBlur?: () => void;
   sortKey: SortKey;
   onSortChange: (key: SortKey) => void;
@@ -78,6 +79,7 @@ export default function Backlog({
   onRefresh,
   onIssueClick,
   searchFocused,
+  onSearchFocus,
   onSearchBlur,
   sortKey,
   onSortChange,
@@ -688,6 +690,11 @@ export default function Backlog({
       if (e.key === "f") {
         e.preventDefault();
         setShowFilterMenu((v) => !v);
+        return;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        onSearchFocus?.();
         return;
       }
       if (showFilterMenuRef.current) {

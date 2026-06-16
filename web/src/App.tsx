@@ -302,6 +302,7 @@ function App() {
             onRefresh={fetchData}
             onIssueClick={handleIssueClick}
             searchFocused={searchFocused}
+            onSearchFocus={() => setSearchFocused(true)}
             onSearchBlur={() => setSearchFocused(false)}
             sortKey={sortKey}
             onSortChange={handleSortChange}
