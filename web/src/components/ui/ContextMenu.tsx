@@ -222,7 +222,19 @@ export default function ContextMenu({
         if (subMenu) { setSubMenu(null); } else { closeAll(); }
         return;
       }
-      if (subMenu) return;
+      if (subMenu) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= 5) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (subMenu === "status" && num <= STATUS_OPTIONS.length) {
+            handleAction("UPDATE", { status: STATUS_OPTIONS[num - 1].value });
+          } else if (subMenu === "priority" && num <= PRIORITY_OPTIONS.length) {
+            handleAction("UPDATE", { priority: PRIORITY_OPTIONS[num - 1].value });
+          }
+        }
+        return;
+      }
       e.stopImmediatePropagation();
       const key = e.key.toLowerCase();
       if (key === "s") { e.preventDefault(); openSubMenu("status"); return; }
@@ -315,13 +327,14 @@ export default function ContextMenu({
       return (
         <>
           {filterInput("Set priority...")}
-          {filteredPriorities.map(opt => {
+          {filteredPriorities.map((opt, i) => {
             const isCurrent = opt.value === (issue.priority || 0);
             return (
               <button key={opt.value} onClick={() => handleAction("UPDATE", { priority: opt.value })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <PriorityIcon priority={opt.value} size={14} />
                 <span>{opt.label}</span>
                 {isCurrent && <CheckIcon />}
+                {!isCurrent && <span className="ml-auto text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
               </button>
             );
           })}
