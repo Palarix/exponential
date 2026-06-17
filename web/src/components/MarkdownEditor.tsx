@@ -4,6 +4,10 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
 import { useRef, useCallback, useEffect, useMemo } from "react";
 
@@ -35,6 +39,7 @@ export default function MarkdownEditor({
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
   const suppressBlurSave = useRef(false);
+  const dirty = useRef(false);
 
   const handleSave = useCallback(() => {
     suppressBlurSave.current = true;
@@ -51,6 +56,10 @@ export default function MarkdownEditor({
     Link.configure({ openOnClick: false }),
     TaskList,
     TaskItem.configure({ nested: true }),
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableCell,
+    TableHeader,
     TiptapMarkdown.configure({
       html: false,
       breaks: true,
@@ -81,8 +90,12 @@ export default function MarkdownEditor({
         }
         return false;
       },
+      handleTextInput: () => { dirty.current = true; return false; },
+      handlePaste: () => { dirty.current = true; return false; },
+      handleDrop: () => { dirty.current = true; return false; },
     },
     onUpdate: ({ editor: ed }) => {
+      if (!dirty.current) return;
       const md = (ed.storage as Record<string, any>).markdown.getMarkdown() as string;
       onChangeRef.current?.(md);
     },

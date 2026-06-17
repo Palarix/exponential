@@ -148,6 +148,12 @@ body {
   margin: 1.5em 0 0.5em;
 }
 
+.prose-beats > :first-child,
+.prose-beats > :first-child > :first-child,
+.prose-beats > :first-child > :first-child > :first-child {
+  margin-top: 0;
+}
+
 .prose-beats h1 { font-size: 1.25em; }
 .prose-beats h2 { font-size: 1.1em; }
 .prose-beats h3 { font-size: 1em; }
