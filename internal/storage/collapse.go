@@ -48,7 +48,8 @@ func AppendEventCollapsed(event model.Event) error {
 	uncommitted := events[committedCount:]
 
 	merged := false
-	for i, existing := range uncommitted {
+	for i := len(uncommitted) - 1; i >= 0; i-- {
+		existing := uncommitted[i]
 		if existing.ID != event.ID || existing.Type != event.Type {
 			continue
 		}

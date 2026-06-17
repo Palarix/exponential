@@ -86,6 +86,75 @@ func readBackStatus(t *testing.T, id string) model.IssueStatus {
 
 func strptr(s string) *string { return &s }
 
+func readBackDescription(t *testing.T, id string) string {
+	t.Helper()
+	events, err := ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc := ""
+	for _, evt := range events {
+		if evt.ID != id {
+			continue
+		}
+		switch evt.Type {
+		case model.EventTypeCreate:
+			b, _ := json.Marshal(evt.Payload)
+			var p model.CreatePayload
+			json.Unmarshal(b, &p)
+			desc = p.Description
+		case model.EventTypeUpdate:
+			b, _ := json.Marshal(evt.Payload)
+			var p model.UpdatePayload
+			json.Unmarshal(b, &p)
+			if p.Description != nil {
+				desc = *p.Description
+			}
+		}
+	}
+	return desc
+}
+
+func TestCollapseMergesIntoLastUpdate(t *testing.T) {
+	setupTestRepo(t)
+
+	create := model.Event{
+		ID:        "m",
+		Type:      model.EventTypeCreate,
+		Payload:   model.CreatePayload{Title: "Multi", Description: "original"},
+		CreatedAt: time.Now().UTC(),
+		CreatedBy: "test",
+	}
+	writeEvents(t, []model.Event{create})
+	commitDB(t)
+
+	// First uncommitted update: changes status
+	AppendEventCollapsed(model.Event{
+		ID: "m", Type: model.EventTypeUpdate,
+		Payload:   model.UpdatePayload{Status: strptr("DOING")},
+		CreatedAt: time.Now().UTC(), CreatedBy: "test",
+	})
+
+	// Second uncommitted update: changes description
+	AppendEventCollapsed(model.Event{
+		ID: "m", Type: model.EventTypeUpdate,
+		Payload:   model.UpdatePayload{Description: strptr("updated desc")},
+		CreatedAt: time.Now().UTC(), CreatedBy: "test",
+	})
+
+	// Now change description again — must merge into the LAST update (the
+	// one that already carries a description), not the first one.
+	AppendEventCollapsed(model.Event{
+		ID: "m", Type: model.EventTypeUpdate,
+		Payload:   model.UpdatePayload{Description: strptr("final desc")},
+		CreatedAt: time.Now().UTC(), CreatedBy: "test",
+	})
+
+	if got := readBackDescription(t, "m"); got != "final desc" {
+		t.Errorf("description = %q, want %q", got, "final desc")
+	}
+}
+
 func TestCollapsePreservesCreateStatus(t *testing.T) {
 	setupTestRepo(t)
 

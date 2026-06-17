@@ -16,7 +16,7 @@ A `beats` MCP server is registered in [.mcp.json](.mcp.json). **Always use the M
 | Add a dependency link | `mcp__beats__beats_link` |
 | View audit trail | `mcp__beats__beats_history` |
 
-Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`) are done by calling `beats_update` with the `status` field — there are no separate start/done tools.
+Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`) are done by calling `beats_update` with the `status` field. When you write descriptions or comments with the mcp_beats_* tools, do not escape non-printing characters.
 
 > The CLI command reference under [claude/skills/](claude/skills/) is supplemental material for downstream users of `beats` to install in their own projects. It is not the interface this repository's agents should use.
 
