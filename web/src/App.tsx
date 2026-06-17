@@ -157,6 +157,12 @@ function App() {
         setShowKeyboardHelp(v => !v);
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowPalette(true);
+        return;
+      }
+
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
 
@@ -179,11 +185,6 @@ function App() {
         return;
       }
 
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowPalette(true);
-        return;
-      }
       if (e.key === 'c' && !showNewIssue && !showPalette && !showKeyboardHelp) {
         e.preventDefault();
         setShowNewIssue(true);
