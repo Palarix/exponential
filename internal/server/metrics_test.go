@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func makeMetricIssue(id string, status model.IssueStatus, opts ...func(*model.Issue)) *model.Issue {

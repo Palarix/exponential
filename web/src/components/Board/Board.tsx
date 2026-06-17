@@ -75,7 +75,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   const [activeId, setActiveId] = useState<string | null>(null);
   const [collapsedCols, setCollapsedCols] = useState<Set<string>>(() => {
     try {
-      const stored = localStorage.getItem("beats-board-collapsed");
+      const stored = localStorage.getItem("exponential-board-collapsed");
       if (stored) return new Set(JSON.parse(stored));
     } catch {}
     return new Set(["BACKLOG"]);
@@ -84,7 +84,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     setCollapsedCols(prev => {
       const next = new Set(prev);
       if (next.has(colId)) next.delete(colId); else next.add(colId);
-      localStorage.setItem("beats-board-collapsed", JSON.stringify([...next]));
+      localStorage.setItem("exponential-board-collapsed", JSON.stringify([...next]));
       return next;
     });
   }, []);

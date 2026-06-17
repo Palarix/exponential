@@ -1,6 +1,6 @@
-# Beats Skills for Claude Code
+# Exponential Skills for Claude Code
 
-These skills teach Claude Code how to use the `beats` issue tracker in your project.
+These skills teach Claude Code how to use the `xpo` issue tracker in your project.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Copy the skill folders into your project's `.claude/skills/` directory:
 
 ```bash
 # From your project root
-cp -r path/to/beats-cli/.claude/skills/beats* .claude/skills/
+cp -r path/to/xpo-cli/.claude/skills/xpo* .claude/skills/
 ```
 
 ## Available Skills
@@ -17,35 +17,35 @@ cp -r path/to/beats-cli/.claude/skills/beats* .claude/skills/
 
 | Skill | Description |
 |-------|-------------|
-| `beats/` | Core workflow rules and command reference. Auto-loads when Claude is doing development work. |
+| `xpo/` | Core workflow rules and command reference. Auto-loads when Claude is doing development work. |
 
 ### User-invoked (slash commands)
 
 | Skill | Command | Description |
 |-------|---------|-------------|
-| `beats-backlog/` | `/beats-backlog` | Review project state: in-progress, blocked, planned, and backlog |
-| `beats-work/` | `/beats-work` | Full workflow: discover, start, implement, test, document, complete |
-| `beats-file/` | `/beats-file` | File a new bug, task, feature, or epic with duplicate checking |
+| `xpo-backlog/` | `/xpo-backlog` | Review project state: in-progress, blocked, planned, and backlog |
+| `xpo-work/` | `/xpo-work` | Full workflow: discover, start, implement, test, document, complete |
+| `xpo-file/` | `/xpo-file` | File a new bug, task, feature, or epic with duplicate checking |
 
 ## How It Works
 
-- **`beats/`** has no `disable-model-invocation` flag, so Claude auto-loads it whenever its description matches the current context (i.e., any development work in a beats-tracked project). This gives the agent the workflow rules and command reference without the user having to ask.
+- **`xpo/`** has no `disable-model-invocation` flag, so Claude auto-loads it whenever its description matches the current context (i.e., any development work in a xpo-tracked project). This gives the agent the workflow rules and command reference without the user having to ask.
 
-- **`beats-backlog/`**, **`beats-work/`**, and **`beats-file/`** set `disable-model-invocation: true`, making them explicit user commands. The user types `/beats-work` to kick off the disciplined task workflow, `/beats-backlog` to review the board, etc.
+- **`xpo-backlog/`**, **`xpo-work/`**, and **`xpo-file/`** set `disable-model-invocation: true`, making them explicit user commands. The user types `/xpo-work` to kick off the disciplined task workflow, `/xpo-backlog` to review the board, etc.
 
 ## Pairing with CLAUDE.md
 
 For projects that want always-on behavioral rules beyond what the auto-invoked skill provides, add a section to your project's `CLAUDE.md`:
 
 ---
-This project uses `beats` for issue tracking. Before making code changes:
+This project uses `xpo` for issue tracking. Before making code changes:
 
-1. Ensure a beats issue exists for the work (`beats ls`)
-2. Mark it as in-progress (`beats start <id>`)
-3. When done, add a summary comment and mark complete (`beats done <id>`)
+1. Ensure a xpo issue exists for the work (`xpo ls`)
+2. Mark it as in-progress (`xpo start <id>`)
+3. When done, add a summary comment and mark complete (`xpo done <id>`)
 
 ### Story Format
-For beats stories we will use the following format that fosters human-agent collaboration. Fill in this template, don't blindly copy the example below.
+For xpo stories we will use the following format that fosters human-agent collaboration. Fill in this template, don't blindly copy the example below.
 
 ```markdown
 ### User story

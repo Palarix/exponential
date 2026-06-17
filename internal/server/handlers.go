@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/palarix/beats/internal/auth"
-	"github.com/palarix/beats/internal/beats"
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/registry"
-	"github.com/palarix/beats/internal/storage"
-	"github.com/palarix/beats/internal/version"
+	"github.com/palarix/exponential/internal/auth"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/registry"
+	"github.com/palarix/exponential/internal/storage"
+	"github.com/palarix/exponential/internal/version"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -26,7 +26,7 @@ func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sorted := beats.SortIssues(issues)
+	sorted := exponential.SortIssues(issues)
 
 	s.mu.RLock()
 	pendingIDs := make(map[string]bool)
@@ -80,7 +80,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := beats.NewClient(s.Config)
+	client := exponential.NewClient(s.Config)
 	client.Collapse = true
 	if user, ok := auth.UserFromContext(r.Context()); ok {
 		client.UserOverride = user.Raw
@@ -187,9 +187,9 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	if s.Config.AutoCommit {
 		msg := req.Message
 		if msg == "" {
-			msg = "beats: web UI batch save"
+			msg = "xpo: web UI batch save"
 		}
-		beats.GitCommit(msg)
+		exponential.GitCommit(msg)
 		committed = true
 	}
 
@@ -234,7 +234,7 @@ func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	prefix := "beats-"
+	prefix := "issue-"
 	if s.Config.Prefix != "" {
 		prefix = s.Config.Prefix
 	}
@@ -528,7 +528,7 @@ func (s *Server) handleUpdateLabel(w http.ResponseWriter, r *http.Request) {
 	s.Config.Labels[req.NewName] = req.Color
 
 	if req.OldName != req.NewName {
-		client := beats.NewClient(s.Config)
+		client := exponential.NewClient(s.Config)
 		client.Collapse = true
 		issues, err := s.GetProjectedIssues()
 		if err == nil {
@@ -574,7 +574,7 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 
 	delete(s.Config.Labels, req.Name)
 
-	client := beats.NewClient(s.Config)
+	client := exponential.NewClient(s.Config)
 	client.Collapse = true
 	issues, err := s.GetProjectedIssues()
 	if err == nil {
@@ -651,7 +651,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	if u, ok := auth.UserFromContext(r.Context()); ok {
 		me = u.Raw
 	} else {
-		me = beats.NewClient(s.Config).GetUser()
+		me = exponential.NewClient(s.Config).GetUser()
 	}
 
 	var since time.Time
@@ -675,7 +675,7 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items := beats.BuildInbox(allEvents, issues, me, since)
+	items := exponential.BuildInbox(allEvents, issues, me, since)
 
 	limit := 200
 	if raw := r.URL.Query().Get("limit"); raw != "" {
@@ -695,7 +695,7 @@ func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
 	if u, ok := auth.UserFromContext(r.Context()); ok {
 		me = u.Raw
 	} else {
-		me = beats.NewClient(s.Config).GetUser()
+		me = exponential.NewClient(s.Config).GetUser()
 	}
 
 	remoteURL := config.ReadRemoteURL()
@@ -712,7 +712,7 @@ func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inboxItems := beats.BuildInbox(allEvents, issues, me, lastRead)
+	inboxItems := exponential.BuildInbox(allEvents, issues, me, lastRead)
 	seen := make(map[string]bool, len(inboxItems))
 	for _, item := range inboxItems {
 		seen[item.IssueID] = true
@@ -781,7 +781,7 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 
 	// Serialize the check-and-transition to prevent claim races.
 	s.mu.Lock()
-	client := beats.NewClient(s.Config)
+	client := exponential.NewClient(s.Config)
 	client.Collapse = true
 	branch, msgs, err := client.StartWork(id, force)
 	s.mu.Unlock()
@@ -821,7 +821,7 @@ func (s *Server) resolveIssueBranch(w http.ResponseWriter, r *http.Request) (*mo
 
 	// Fill local branch stats if no remote branch detected
 	if issue.BranchStats == nil {
-		client := beats.NewClient(s.Config)
+		client := exponential.NewClient(s.Config)
 		client.FillLocalBranchStats(issue)
 	}
 
@@ -830,7 +830,7 @@ func (s *Server) resolveIssueBranch(w http.ResponseWriter, r *http.Request) (*mo
 		return nil, "", false
 	}
 
-	base := beats.DefaultBranch()
+	base := exponential.DefaultBranch()
 	return issue, base, true
 }
 
@@ -840,7 +840,7 @@ func (s *Server) handleGetIssueCommits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commits := beats.ListBranchCommitsDetailed(issue.BranchStats.Branch, base)
+	commits := exponential.ListBranchCommitsDetailed(issue.BranchStats.Branch, base)
 	respondJSON(w, http.StatusOK, commits)
 }
 
@@ -850,7 +850,7 @@ func (s *Server) handleGetCommitDiff(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "commit SHA required")
 		return
 	}
-	diff := beats.GetCommitDiffText(sha)
+	diff := exponential.GetCommitDiffText(sha)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(diff))
@@ -862,7 +862,7 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files := beats.ListFilesChanged(issue.BranchStats.Branch, base)
+	files := exponential.ListFilesChanged(issue.BranchStats.Branch, base)
 	type fileJSON struct {
 		Status     string `json:"status"`
 		Path       string `json:"path"`
@@ -882,7 +882,7 @@ func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	diff := beats.GetDiffText(issue.BranchStats.Branch, base)
+	diff := exponential.GetDiffText(issue.BranchStats.Branch, base)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(diff))
@@ -895,7 +895,7 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 	}
 
 	blockers := make([]string, 0)
-	if !beats.IsWorkingTreeClean() {
+	if !exponential.IsWorkingTreeClean() {
 		blockers = append(blockers, "Working tree has uncommitted changes")
 	}
 
@@ -921,22 +921,22 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		body.Strategy = "squash"
 	}
 
-	strategy := beats.MergeStrategySquash
+	strategy := exponential.MergeStrategySquash
 	switch body.Strategy {
 	case "merge":
-		strategy = beats.MergeStrategyMerge
+		strategy = exponential.MergeStrategyMerge
 	case "ff":
-		strategy = beats.MergeStrategyFF
+		strategy = exponential.MergeStrategyFF
 	}
 
-	if !beats.IsWorkingTreeClean() {
+	if !exponential.IsWorkingTreeClean() {
 		respondError(w, http.StatusConflict, "working tree is not clean — commit or stash changes first")
 		return
 	}
 
-	client := beats.NewClient(s.Config)
+	client := exponential.NewClient(s.Config)
 	client.Collapse = true
-	result, err := client.MergeIssue(id, beats.MergeOptions{
+	result, err := client.MergeIssue(id, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: body.CommitMessage,
 		DeleteBranch:  body.DeleteBranch,

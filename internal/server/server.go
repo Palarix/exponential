@@ -13,15 +13,15 @@ import (
 
 	"crypto/ed25519"
 
-	"github.com/palarix/beats/internal/auth"
-	"github.com/palarix/beats/internal/beats"
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/registry"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/exponential/internal/auth"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/registry"
+	"github.com/palarix/exponential/internal/storage"
 )
 
-// Server holds the state for the beats web server.
+// Server holds the state for the xpo web server.
 type Server struct {
 	Config        *config.Config
 	Port          int
@@ -44,7 +44,7 @@ type Server struct {
 	SigningKey     ed25519.PrivateKey
 	VerifyKey      ed25519.PublicKey
 
-	// MCP handler — set externally for beats serve mode.
+	// MCP handler — set externally for xpo serve mode.
 	MCPHandler http.Handler
 
 	// Proxy mode — when set, /api/* routes are reverse-proxied to
@@ -85,7 +85,7 @@ func (s *Server) Bind() (net.Listener, error) {
 // ServeOn serves HTTP on the provided listener. Use after Bind.
 func (s *Server) ServeOn(l net.Listener) error {
 	mux := s.SetupRoutes()
-	log.Printf("Starting beats board server on http://localhost:%d", s.Port)
+	log.Printf("Starting xpo board server on http://localhost:%d", s.Port)
 	server := &http.Server{
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
@@ -139,7 +139,7 @@ func (s *Server) SaveAndSync(commitMessage string) error {
 	}
 
 	if s.Config.AutoCommit {
-		client := beats.NewClient(s.Config)
+		client := exponential.NewClient(s.Config)
 		_ = client
 	}
 
@@ -157,7 +157,7 @@ func (s *Server) broadcastEvent(eventType, issueID string) {
 }
 
 func (s *Server) statDB() (mtime time.Time, size int64, exists bool) {
-	info, err := os.Stat(filepath.Join(".beats", "issues.db"))
+	info, err := os.Stat(filepath.Join(".xpo", "issues.db"))
 	if err != nil {
 		return time.Time{}, 0, false
 	}
@@ -215,7 +215,7 @@ func (s *Server) GetProjectedIssues() (map[string]*model.Issue, error) {
 	allEvents := make([]model.Event, 0, len(s.cachedEvents)+len(s.pendingEvents))
 	allEvents = append(allEvents, s.cachedEvents...)
 	allEvents = append(allEvents, s.pendingEvents...)
-	s.cachedIssues = beats.ProjectIssuesWithConfig(allEvents, s.Config)
+	s.cachedIssues = exponential.ProjectIssuesWithConfig(allEvents, s.Config)
 	s.cacheGen = s.pendingGen
 	return s.cachedIssues, nil
 }

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palarix/beats/internal/beats"
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/inputs"
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/inputs"
+	"github.com/palarix/exponential/internal/model"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -159,47 +159,47 @@ type linkOut struct {
 
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_list",
+		Name:        "xpo_list",
 		Description: "List issues with optional filters (status, label, assignee, parent, free-text match).",
 	}, t.list)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_show",
+		Name:        "xpo_show",
 		Description: "Show one issue with its description, dependencies, comments, and optionally event history.",
 	}, t.show)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_history",
+		Name:        "xpo_history",
 		Description: "Return the audit trail (events) for an issue.",
 	}, t.history)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_add",
+		Name:        "xpo_add",
 		Description: "Create a new issue. Set status, labels, parent, story_points, links etc. in one call.",
 	}, t.add)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_update",
+		Name:        "xpo_update",
 		Description: "Patch fields on an existing issue. Use this to transition status (BACKLOG/PLANNED/DOING/BLOCKED/DONE) instead of separate start/done tools.",
 	}, t.update)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_comment",
+		Name:        "xpo_comment",
 		Description: "Add a markdown comment to an issue.",
 	}, t.comment)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_link",
+		Name:        "xpo_link",
 		Description: "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues.",
 	}, t.link)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_start",
+		Name:        "xpo_start",
 		Description: "Start working on an issue: transitions status to DOING and creates a git branch named <issue-id>-<slug> off the default branch.",
 	}, t.start)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "beats_merge",
+		Name:        "xpo_merge",
 		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. Requires a clean working tree.",
 	}, t.merge)
 }
@@ -208,7 +208,7 @@ func (t *toolset) register(s *mcp.Server) {
 
 func (t *toolset) list(ctx context.Context, req *mcp.CallToolRequest, in listIn) (*mcp.CallToolResult, listOut, error) {
 	c := t.clientFor(req)
-	opts := beats.FilterOptions{
+	opts := exponential.FilterOptions{
 		Statuses: in.Statuses,
 		Label:    in.Label,
 		Assignee: in.Assignee,
@@ -375,20 +375,20 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 		return nil, mergeOut{}, fmt.Errorf("'id' is required")
 	}
 
-	if !beats.IsWorkingTreeClean() {
+	if !exponential.IsWorkingTreeClean() {
 		return nil, mergeOut{}, fmt.Errorf("working tree is not clean — commit or stash your changes first")
 	}
 
-	strategy := beats.MergeStrategySquash
+	strategy := exponential.MergeStrategySquash
 	switch in.Strategy {
 	case "merge":
-		strategy = beats.MergeStrategyMerge
+		strategy = exponential.MergeStrategyMerge
 	case "ff":
-		strategy = beats.MergeStrategyFF
+		strategy = exponential.MergeStrategyFF
 	}
 
 	c := t.clientFor(req)
-	result, err := c.MergeIssue(in.ID, beats.MergeOptions{
+	result, err := c.MergeIssue(in.ID, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: in.CommitMessage,
 		DeleteBranch:  in.DeleteBranch,

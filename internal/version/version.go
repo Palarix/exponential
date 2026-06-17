@@ -1,6 +1,6 @@
 package version
 
-// CLIVersion is the current version of the beats CLI
+// CLIVersion is the current version of the xpo CLI
 const CLIVersion = "0.3.0"
 
 // DataModelVersion is the current version of the data model / config schema

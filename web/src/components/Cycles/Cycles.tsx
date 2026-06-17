@@ -563,7 +563,7 @@ export default function Cycles({ issues, onIssueClick, onRefresh: _onRefresh, se
         <div>
           <h3 className="text-sm font-medium text-[var(--color-text-primary)]">No cycles configured</h3>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            Run <code className="px-1.5 py-0.5 bg-[var(--color-bg-secondary)] rounded text-xs font-mono">beats cycle init</code> to set up iterations.
+            Run <code className="px-1.5 py-0.5 bg-[var(--color-bg-secondary)] rounded text-xs font-mono">xpo cycle init</code> to set up iterations.
           </p>
         </div>
       </div>

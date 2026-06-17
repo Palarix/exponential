@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func captureStdout(t *testing.T, fn func()) string {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func TestRenderReview_NoBranch(t *testing.T) {

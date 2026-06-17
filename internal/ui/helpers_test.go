@@ -3,7 +3,7 @@ package ui
 import (
 	"testing"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func TestTruncate(t *testing.T) {

@@ -201,7 +201,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
   if (issues.length === 0) {
     return (
       <EmptyState
-        title="Welcome to Beats"
+        title="Welcome to Exponential"
         description="Track issues, plan sprints, and ship software — all from your terminal and this board. Create your first issue to get started."
         icon={
           <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
@@ -233,7 +233,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto space-y-3 py-3">
           {/* Pulse */}
-          <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="beats-dashboard-pulse-open">
+          <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="exponential-dashboard-pulse-open">
             {/* Charts row: 50/50 */}
             <div className="px-5 py-3 grid grid-cols-2 gap-3">
               <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
@@ -379,7 +379,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           </Section>
 
           {/* Composition */}
-          <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="beats-dashboard-composition-open">
+          <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="exponential-dashboard-composition-open">
             <div className="px-5 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <DistributionSection title="By status" filter={statusFilter} onFilterChange={setStatusFilter} rows={statusDistribution.rows} total={statusDistribution.total} emptyHasIssues="No issues." hideBars />
@@ -394,7 +394,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
 
           {/* Needs Attention */}
           {metrics && metrics.attention.length > 0 && (
-            <Section title="Needs Attention" icon={<SectionIcon d={SECTION_ICONS.attention} />} count={metrics.attention.length} collapsible storageKey="beats-dashboard-attention-open">
+            <Section title="Needs Attention" icon={<SectionIcon d={SECTION_ICONS.attention} />} count={metrics.attention.length} collapsible storageKey="exponential-dashboard-attention-open">
               <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {metrics.attention.map((item) => {
                   const issue = issues.find((i) => i.id === item.issue_id);
@@ -426,7 +426,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           )}
 
           {/* Workload */}
-          <Section title="Workload" icon={<SectionIcon d={SECTION_ICONS.workload} />} count={metrics?.workload.length} collapsible storageKey="beats-dashboard-workload-open">
+          <Section title="Workload" icon={<SectionIcon d={SECTION_ICONS.workload} />} count={metrics?.workload.length} collapsible storageKey="exponential-dashboard-workload-open">
             {!metrics || metrics.workload.length === 0 ? (
               <div className="px-5 py-10 flex items-center justify-center"><p className="text-sm text-[var(--color-text-muted)] text-center">No assigned work.</p></div>
             ) : (
@@ -450,7 +450,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           </Section>
 
           {/* Active Epics */}
-          <Section title="Active Epics" icon={<SectionIcon d={SECTION_ICONS.epics} />} count={metrics?.epics.length} collapsible storageKey="beats-dashboard-epics-open">
+          <Section title="Active Epics" icon={<SectionIcon d={SECTION_ICONS.epics} />} count={metrics?.epics.length} collapsible storageKey="exponential-dashboard-epics-open">
             {!metrics || metrics.epics.length === 0 ? (
               <div className="px-5 py-10 flex items-center justify-center">
                 <p className="text-sm text-[var(--color-text-muted)] text-center">No epics yet — create one with the <span className="font-mono">epic</span> label.</p>
@@ -477,7 +477,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           </Section>
 
           {/* Recent Activity */}
-          <Section title="Recent Activity" icon={<SectionIcon d={SECTION_ICONS.activity} />} count={activity.length} collapsible storageKey="beats-dashboard-activity-open">
+          <Section title="Recent Activity" icon={<SectionIcon d={SECTION_ICONS.activity} />} count={activity.length} collapsible storageKey="exponential-dashboard-activity-open">
             <ActivityFeed activity={activity} issues={issues} onIssueClick={onIssueClick} />
           </Section>
 

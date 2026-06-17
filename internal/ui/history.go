@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 // RenderHistory renders the event history for an issue.

@@ -53,7 +53,7 @@ func TestLoadOrCreateAuthorizedKeys_CreatesFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("file not created: %v", err)
 	}
-	if !strings.Contains(string(data), "beats authorized_keys") {
+	if !strings.Contains(string(data), "xpo authorized_keys") {
 		t.Error("expected comment header in created file")
 	}
 }

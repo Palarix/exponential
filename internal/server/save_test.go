@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 func TestHandleSave_NoPending(t *testing.T) {

@@ -1,4 +1,4 @@
-// Package registry manages a shared file-based registry of running beats board
+// Package registry manages a shared file-based registry of running xpo board
 // instances so peers can discover each other.
 //
 // All instances are peers — there is no master. Each instance writes its
@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// Entry represents a running beats board instance.
+// Entry represents a running xpo board instance.
 type Entry struct {
 	Name      string    `json:"name"`
 	Port      int       `json:"port"`
@@ -29,7 +29,7 @@ type Entry struct {
 // registryPath returns the shared registry file path. Uses the OS temp dir
 // so the file lives in a per-user, ephemeral location across reboots.
 func registryPath() (string, error) {
-	dir := filepath.Join(os.TempDir(), "beats")
+	dir := filepath.Join(os.TempDir(), "xpo")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", err
 	}

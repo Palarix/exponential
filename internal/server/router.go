@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/palarix/beats/internal/auth"
+	"github.com/palarix/exponential/internal/auth"
 )
 
 // setupRoutes configures the HTTP routes for the server.

@@ -233,7 +233,7 @@ export default function ActivityTimeline({
                   {formatRelativeTime(entry.time)}
                 </span>
               </div>
-              <div className="prose-beats text-base">
+              <div className="prose-exponential text-base">
                 <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                   {linkifyIssueIds(entry.text, prefix)}
                 </Markdown>

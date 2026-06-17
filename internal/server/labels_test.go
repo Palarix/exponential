@@ -13,7 +13,7 @@ import (
 func setupTestServerWithConfig(t *testing.T) *Server {
 	t.Helper()
 	srv := setupTestServer(t)
-	configPath := filepath.Join(".beats", "config.yaml")
+	configPath := filepath.Join(".xpo", "config.yaml")
 	os.WriteFile(configPath, []byte("prefix: test-\nversion: 2\nlabels:\n  bug: \"#ff0000\"\n"), 0644)
 	return srv
 }

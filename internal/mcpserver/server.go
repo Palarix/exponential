@@ -1,7 +1,7 @@
-// Package mcpserver exposes beats over the Model Context Protocol so
+// Package mcpserver exposes exponential over the Model Context Protocol so
 // AI agents can manage issues with structured tool calls instead of
 // shelling out to the CLI. Tool handlers are thin adapters: every
-// mutation goes through the same internal/beats Client methods the CLI
+// mutation goes through the same internal/exponential Client methods the CLI
 // uses, so business logic is not duplicated across transports.
 package mcpserver
 
@@ -13,10 +13,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/palarix/beats/internal/auth"
-	"github.com/palarix/beats/internal/beats"
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/version"
+	"github.com/palarix/exponential/internal/auth"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/version"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -25,7 +25,7 @@ import (
 // which counts as a clean shutdown.
 func Run(ctx context.Context, cfg *config.Config) error {
 	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "beats",
+		Name:    "xpo",
 		Version: version.CLIVersion,
 	}, nil)
 
@@ -65,7 +65,7 @@ func newToolset(cfg *config.Config) *toolset {
 	return &toolset{cfg: cfg}
 }
 
-// RegisterTools registers all beats MCP tools on the given server.
+// RegisterTools registers all xpo MCP tools on the given server.
 // When httpReq is non-nil (HTTP transport), the authenticated user identity
 // from the request context is used for event attribution.
 func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request) {
@@ -78,13 +78,13 @@ func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request) {
 	ts.register(srv)
 }
 
-// clientFor returns a beats.Client with UserOverride set to the resolved
+// clientFor returns a exponential.Client with UserOverride set to the resolved
 // agent identity for this request. Each call gets a fresh Client so
 // concurrent tool invocations don't race on shared state. A nil request
 // (used in unit tests) skips the clientInfo path and falls through to
 // env var / config default.
-func (t *toolset) clientFor(req *mcp.CallToolRequest) *beats.Client {
-	c := beats.NewClient(t.cfg)
+func (t *toolset) clientFor(req *mcp.CallToolRequest) *exponential.Client {
+	c := exponential.NewClient(t.cfg)
 	if t.httpUserOverride != "" {
 		c.UserOverride = t.httpUserOverride
 	} else {

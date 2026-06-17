@@ -8,21 +8,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/palarix/beats/internal/config"
+	"github.com/palarix/exponential/internal/config"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // TestEndToEndAddViaMCP wires a real MCP client to a real MCP server
-// (both in-memory) and exercises beats_add → beats_show through the
+// (both in-memory) and exercises xpo_add → xpo_show through the
 // protocol. This catches schema-generation or JSON-marshalling bugs
 // that the direct handler unit tests can't.
 func TestEndToEndAddViaMCP(t *testing.T) {
 	tmpDir := t.TempDir()
-	beatsDir := filepath.Join(tmpDir, ".beats")
-	if err := os.MkdirAll(beatsDir, 0755); err != nil {
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	if err := os.MkdirAll(xpoDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 	origDir, _ := os.Getwd()
@@ -40,7 +40,7 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 	ctx := context.Background()
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 
-	srv := mcp.NewServer(&mcp.Implementation{Name: "beats-test", Version: "v0"}, nil)
+	srv := mcp.NewServer(&mcp.Implementation{Name: "issue-test", Version: "v0"}, nil)
 	newToolset(cfg).register(srv)
 	serverSession, err := srv.Connect(ctx, serverTransport, nil)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 	}
 	defer clientSession.Close()
 
-	// Call beats_add via JSON arguments — exercises the schema-derived
+	// Call xpo_add via JSON arguments — exercises the schema-derived
 	// unmarshaling path.
 	addArgs, _ := json.Marshal(map[string]interface{}{
 		"title":        "Created via MCP",
@@ -65,14 +65,14 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 		"story_points": 5,
 	})
 	addRes, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "beats_add",
+		Name:      "xpo_add",
 		Arguments: json.RawMessage(addArgs),
 	})
 	if err != nil {
-		t.Fatalf("CallTool beats_add: %v", err)
+		t.Fatalf("CallTool xpo_add: %v", err)
 	}
 	if addRes.IsError {
-		t.Fatalf("beats_add returned error: %s", textOf(addRes))
+		t.Fatalf("xpo_add returned error: %s", textOf(addRes))
 	}
 	var addOutput addOut
 	if err := remarshal(addRes.StructuredContent, &addOutput); err != nil {
@@ -88,17 +88,17 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 		t.Errorf("Status: got %q want PLANNED", addOutput.Status)
 	}
 
-	// Round-trip the issue back via beats_show.
+	// Round-trip the issue back via xpo_show.
 	showArgs, _ := json.Marshal(map[string]interface{}{"id": addOutput.ID})
 	showRes, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "beats_show",
+		Name:      "xpo_show",
 		Arguments: json.RawMessage(showArgs),
 	})
 	if err != nil {
-		t.Fatalf("CallTool beats_show: %v", err)
+		t.Fatalf("CallTool xpo_show: %v", err)
 	}
 	if showRes.IsError {
-		t.Fatalf("beats_show returned error: %s", textOf(showRes))
+		t.Fatalf("xpo_show returned error: %s", textOf(showRes))
 	}
 	var showOutput showOut
 	if err := remarshal(showRes.StructuredContent, &showOutput); err != nil {
@@ -114,8 +114,8 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 // surface. If a registration call is dropped during refactoring this catches it.
 func TestEndToEndListsAllTools(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, ".beats", "issues.db"), []byte{}, 0644)
+	os.MkdirAll(filepath.Join(tmpDir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, ".xpo", "issues.db"), []byte{}, 0644)
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	defer os.Chdir(origDir)
@@ -123,7 +123,7 @@ func TestEndToEndListsAllTools(t *testing.T) {
 	cfg := &config.Config{Prefix: "e2e-", User: "x", EstimationSystem: "fibonacci", Version: 2}
 	ctx := context.Background()
 	st, ct := mcp.NewInMemoryTransports()
-	srv := mcp.NewServer(&mcp.Implementation{Name: "beats", Version: "v0"}, nil)
+	srv := mcp.NewServer(&mcp.Implementation{Name: "xpo", Version: "v0"}, nil)
 	newToolset(cfg).register(srv)
 	srvSess, _ := srv.Connect(ctx, st, nil)
 	defer srvSess.Close()
@@ -136,8 +136,8 @@ func TestEndToEndListsAllTools(t *testing.T) {
 		t.Fatalf("ListTools: %v", err)
 	}
 	want := map[string]bool{
-		"beats_list": false, "beats_show": false, "beats_history": false,
-		"beats_add": false, "beats_update": false, "beats_comment": false, "beats_link": false,
+		"xpo_list": false, "xpo_show": false, "xpo_history": false,
+		"xpo_add": false, "xpo_update": false, "xpo_comment": false, "xpo_link": false,
 	}
 	for _, tool := range res.Tools {
 		if _, ok := want[tool.Name]; ok {

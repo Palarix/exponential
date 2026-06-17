@@ -110,7 +110,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
       : "";
     switch (strategy) {
       case "squash": return `${issue.id}: ${issue.title}${commitList}`;
-      case "ff": return `beats: merge ${issue.id}`;
+      case "ff": return `xpo: merge ${issue.id}`;
       default: return `Merge branch '${bs.branch}'${commitList}`;
     }
   }, [issue, commits]);
@@ -439,7 +439,7 @@ function ConversationTab({ issue, newComment, onNewCommentChange, onAddComment, 
               <span className="text-sm font-medium text-[var(--color-text-primary)]">{c.created_by.split(" <")[0]}</span>
               <span className="text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.created_at)}</span>
             </div>
-            <div className="prose-beats text-sm pl-8">
+            <div className="prose-exponential text-sm pl-8">
               <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{c.text}</Markdown>
             </div>
           </div>

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func TestReadEvents_EmptyFile(t *testing.T) {
-	setupBeatsDir(t)
-	os.WriteFile(filepath.Join(".beats", "issues.db"), []byte{}, 0644)
+	setupXpoDir(t)
+	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte{}, 0644)
 
 	events, err := ReadEvents()
 	if err != nil {
@@ -24,7 +24,7 @@ func TestReadEvents_EmptyFile(t *testing.T) {
 }
 
 func TestReadEvents_FileNotFound(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	events, err := ReadEvents()
 	if err != nil {
@@ -36,8 +36,8 @@ func TestReadEvents_FileNotFound(t *testing.T) {
 }
 
 func TestReadEvents_MalformedJSON(t *testing.T) {
-	setupBeatsDir(t)
-	os.WriteFile(filepath.Join(".beats", "issues.db"), []byte("not json\n"), 0644)
+	setupXpoDir(t)
+	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte("not json\n"), 0644)
 
 	_, err := ReadEvents()
 	if err == nil {
@@ -46,7 +46,7 @@ func TestReadEvents_MalformedJSON(t *testing.T) {
 }
 
 func TestReadEvents_MultipleEvents(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 	now := time.Now().UTC()
 	AppendEvent(model.Event{ID: "a", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "A"}, CreatedAt: now, CreatedBy: "t"})
 	AppendEvent(model.Event{ID: "b", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "B"}, CreatedAt: now, CreatedBy: "t"})
@@ -62,7 +62,7 @@ func TestReadEvents_MultipleEvents(t *testing.T) {
 }
 
 func TestReadArchivedEvents_FileNotFound(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	events, err := ReadArchivedEvents()
 	if err != nil {
@@ -74,8 +74,8 @@ func TestReadArchivedEvents_FileNotFound(t *testing.T) {
 }
 
 func TestReadArchivedEvents_WithData(t *testing.T) {
-	setupBeatsDir(t)
-	path := filepath.Join(".beats", "archive.db")
+	setupXpoDir(t)
+	path := filepath.Join(".xpo", "archive.db")
 	f, _ := os.Create(path)
 	for _, id := range []string{"x", "y"} {
 		evt := model.Event{ID: id, Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: id}, CreatedAt: time.Now().UTC(), CreatedBy: "t"}

@@ -118,7 +118,7 @@ export default function Backlog({
     y: number;
   } | null>(null);
   const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
-  const [showStoryPoints, setShowStoryPoints] = useState(() => localStorage.getItem("beats-backlog-show-points") === "true");
+  const [showStoryPoints, setShowStoryPoints] = useState(() => localStorage.getItem("exponential-backlog-show-points") === "true");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const showFilterMenuRef = useRef(showFilterMenu);
   showFilterMenuRef.current = showFilterMenu;
@@ -238,7 +238,7 @@ export default function Backlog({
   }, [issues]);
 
   useEffect(() => {
-    const storageKey = `beats-backlog-expanded-${activeTab}`;
+    const storageKey = `exponential-backlog-expanded-${activeTab}`;
     const stored = localStorage.getItem(storageKey);
     let next: Set<string>;
     if (stored) {
@@ -262,7 +262,7 @@ export default function Backlog({
         if (next.has(status)) next.delete(status);
         else next.add(status);
         localStorage.setItem(
-          `beats-backlog-expanded-${activeTab}`,
+          `exponential-backlog-expanded-${activeTab}`,
           JSON.stringify(Array.from(next)),
         );
         return next;
@@ -1041,7 +1041,7 @@ export default function Backlog({
                           className="text-sm text-[var(--color-text-muted)] tabular-nums cursor-pointer hover:text-[var(--color-text-secondary)] transition-colors inline-flex items-center gap-1 h-5"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setShowStoryPoints((v) => { const next = !v; localStorage.setItem("beats-backlog-show-points", String(next)); return next; });
+                            setShowStoryPoints((v) => { const next = !v; localStorage.setItem("exponential-backlog-show-points", String(next)); return next; });
                           }}
                           title={showStoryPoints ? "Story points — click for issue count" : "Issue count — click for story points"}
                         >

@@ -1,4 +1,4 @@
-BINARY_NAME=beats
+BINARY_NAME=xpo
 
 .PHONY: all build clean test lint frontend install docker release
 
@@ -15,7 +15,7 @@ build: frontend cli
 
 # Build Go binary only (skip frontend rebuild)
 cli:
-	go build -o $(BINARY_NAME) ./cmd/beats
+	go build -o $(BINARY_NAME) ./cmd/exponential
 
 clean:
 	go clean
@@ -32,10 +32,10 @@ lint:
 	# staticcheck ./...
 
 install: cli
-	sudo cp ./beats /usr/local/bin/beats
+	sudo cp ./xpo /usr/local/bin/xpo
 
 docker:
-	docker build -t beats:latest .
+	docker build -t palarix/exponential:latest .
 
 # Cut a release: make release VERSION=x.y.z
 release:

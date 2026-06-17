@@ -1,4 +1,4 @@
-module github.com/palarix/beats
+module github.com/palarix/exponential
 
 go 1.25.4
 

@@ -350,7 +350,7 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
                             {hasDetail && isExpanded && (
                               <div className="px-3 pb-3 -mt-0.5">
                                 <div className="ml-6 rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2">
-                                  <div className="prose-beats text-sm">
+                                  <div className="prose-exponential text-sm">
                                     <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                                       {desc.detail!}
                                     </Markdown>

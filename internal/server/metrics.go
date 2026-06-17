@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 // attentionKind classifies why an issue is surfaced in the Attention card.

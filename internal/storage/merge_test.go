@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func strp(s string) *string { return &s }
@@ -323,8 +323,8 @@ func TestCountLines(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRewriteFile_AtomicWrite(t *testing.T) {
-	setupBeatsDir(t)
-	path := filepath.Join(".beats", "issues.db")
+	setupXpoDir(t)
+	path := filepath.Join(".xpo", "issues.db")
 
 	committed := []byte(`{"id":"a"}\n`)
 	uncommitted := []model.Event{
@@ -342,8 +342,8 @@ func TestRewriteFile_AtomicWrite(t *testing.T) {
 }
 
 func TestRewriteFile_EmptyUncommitted(t *testing.T) {
-	setupBeatsDir(t)
-	path := filepath.Join(".beats", "issues.db")
+	setupXpoDir(t)
+	path := filepath.Join(".xpo", "issues.db")
 
 	committed := []byte(`{"id":"a"}` + "\n")
 	err := rewriteFile(path, committed, nil)

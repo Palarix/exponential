@@ -1,6 +1,6 @@
-# Beats Design System
+# Exponential Design System
 
-dark theme design system for the Beats web application.
+dark theme design system for the Exponential web application.
 
 ## Color Tokens
 

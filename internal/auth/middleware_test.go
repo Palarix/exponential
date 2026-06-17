@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/config"
+	"github.com/palarix/exponential/internal/config"
 )
 
 func TestRequireAuthHandler_ValidToken(t *testing.T) {

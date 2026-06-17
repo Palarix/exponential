@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func TestRenderIssueList_Formatting(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRenderIssueList_Formatting(t *testing.T) {
 
 	issues := []*model.Issue{
 		{
-			ID:        "beats-123",
+			ID:        "issue-123",
 			Title:     "Test Issue",
 			Status:    model.StatusBacklog,
 			CreatedAt: updatedAt,

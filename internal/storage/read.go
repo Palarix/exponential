@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func ReadEvents() ([]model.Event, error) {
-	f, err := os.Open(filepath.Join(".beats", "issues.db"))
+	f, err := os.Open(filepath.Join(".xpo", "issues.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil
 	}
@@ -33,7 +33,7 @@ func ReadEvents() ([]model.Event, error) {
 
 // ReadArchivedEvents reads events from the archive database
 func ReadArchivedEvents() ([]model.Event, error) {
-	f, err := os.Open(filepath.Join(".beats", "archive.db"))
+	f, err := os.Open(filepath.Join(".xpo", "archive.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil
 	}

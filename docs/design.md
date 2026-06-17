@@ -1,15 +1,15 @@
 # Architecture & Design
 
-This document describes the architecture of beats as implemented. It is the authoritative reference for how the system works — the old `design_docs/` directory contains early sketches that have diverged from the code.
+This document describes the architecture of xpo as implemented. It is the authoritative reference for how the system works — the old `design_docs/` directory contains early sketches that have diverged from the code.
 
 ## Overview
 
-Beats is an event-sourced issue tracker that stores its data in a git-tracked append-only log (`.beats/issues.db`). A single Go binary ships the CLI, a web UI, an HTTP API, and an MCP server. In local mode everything reads and writes the event log directly; in distributed mode a headless server exposes the same data over HTTP with SSH-key authentication.
+Exponential is an event-sourced issue tracker that stores its data in a git-tracked append-only log (`.xpo/issues.db`). A single Go binary ships the CLI, a web UI, an HTTP API, and an MCP server. In local mode everything reads and writes the event log directly; in distributed mode a headless server exposes the same data over HTTP with SSH-key authentication.
 
 ```
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
 │   CLI commands   │  │  Web UI (React)  │  │  MCP server      │
-│  add, update,    │  │  beats board     │  │  beats mcp       │
+│  add, update,    │  │  xpo board     │  │  xpo mcp       │
 │  start, merge …  │  │                  │  │  (stdio / HTTP)  │
 └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
          │                     │                      │
@@ -26,7 +26,7 @@ Beats is an event-sourced issue tracker that stores its data in a git-tracked ap
            │                     │
            │            ┌────────▼─────────┐
            │            │   HTTP Server     │
-           │            │  (beats serve)    │
+           │            │  (xpo serve)    │
            │            │  + Auth (JWT/SSH) │
            │            │  + SSE hub        │
            │            │  + projection     │
@@ -52,7 +52,7 @@ All mutations are recorded as events — there is no mutable state on disk. An `
 {type: "MERGE",   payload: {branch, base_sha, merge_sha, strategy}}
 ```
 
-Events are stored as one JSON object per line (JSONL) in `.beats/issues.db`, appended with `O_APPEND`. This makes concurrent appends safe on POSIX filesystems and keeps git merge conflicts limited to the tail of the file.
+Events are stored as one JSON object per line (JSONL) in `.xpo/issues.db`, appended with `O_APPEND`. This makes concurrent appends safe on POSIX filesystems and keeps git merge conflicts limited to the tail of the file.
 
 ### Projection
 
@@ -66,7 +66,7 @@ The current state of all issues is derived by replaying the event log. `ProjectI
 
 `ProjectIssuesWithConfig()` extends this with config-driven post-processing: parent status inference from children, cycle rollover for issues in past cycles, and estimate aggregation for epics.
 
-**Files:** `internal/beats/projection.go`, `internal/model/types.go`
+**Files:** `internal/xpo/projection.go`, `internal/model/types.go`
 
 ### Collapsed writes
 
@@ -76,9 +76,9 @@ The web UI batches mutations as in-memory "pending events" before persisting. Wh
 
 ### Archiving
 
-Old DONE and deleted issues accumulate events that slow down projection. `beats archive` moves their events from `issues.db` to `archive.db`. A backup of `issues.db` is created before the rewrite. Regular commands search the archive as a fallback when an issue isn't found in the active log.
+Old DONE and deleted issues accumulate events that slow down projection. `xpo archive` moves their events from `issues.db` to `archive.db`. A backup of `issues.db` is created before the rewrite. Regular commands search the archive as a fallback when an issue isn't found in the active log.
 
-**Files:** `internal/storage/archive.go`, `internal/beats/maintenance.go`
+**Files:** `internal/storage/archive.go`, `internal/xpo/maintenance.go`
 
 ## Data model
 
@@ -88,7 +88,7 @@ The `Issue` struct is the projected view of an issue's event history:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| ID | string | Globally unique, prefixed (e.g. `beats-a1b2c3`) |
+| ID | string | Globally unique, prefixed (e.g. `xpo-a1b2c3`) |
 | Title, Description | string | Markdown content |
 | Status | enum | `BACKLOG`, `PLANNED`, `DOING`, `BLOCKED`, `DONE` |
 | ParentID | string | Parent issue ID (for epics/sub-issues) |
@@ -123,7 +123,7 @@ Issues use fractional indexing for drag-and-drop ordering. Sort keys are strings
 
 Data model v3 introduced globally consistent sort order (previously per-status-group). The v2→v3 migration walks all issues in visual order and assigns fresh keys.
 
-**Files:** `internal/sortorder/`, `internal/beats/migrate.go`
+**Files:** `internal/sortorder/`, `internal/xpo/migrate.go`
 
 ## Transport abstraction
 
@@ -144,13 +144,13 @@ type Transport interface {
 }
 ```
 
-**LocalTransport** reads/writes `.beats/issues.db` directly. It resolves issue IDs flexibly — exact match, prefix match (with configured prefix), or substring match. It supports collapsed writes for draft optimization.
+**LocalTransport** reads/writes `.xpo/issues.db` directly. It resolves issue IDs flexibly — exact match, prefix match (with configured prefix), or substring match. It supports collapsed writes for draft optimization.
 
-**RemoteTransport** proxies to a beats server via REST. Mutations go through `POST /api/draft`, reads through `GET /api/issues`. Authentication is via Bearer JWT token.
+**RemoteTransport** proxies to a xpo server via REST. Mutations go through `POST /api/draft`, reads through `GET /api/issues`. Authentication is via Bearer JWT token.
 
 **Client** wraps a Transport and adds git-specific operations (`StartWork`, `MergeIssue`, `Review`) that only make sense locally. `NewClient(cfg)` chooses the transport based on whether `cfg.Remote.URL` is set.
 
-**Files:** `internal/beats/transport.go`, `internal/beats/local_transport.go`, `internal/beats/remote_transport.go`, `internal/beats/client.go`
+**Files:** `internal/xpo/transport.go`, `internal/xpo/local_transport.go`, `internal/xpo/remote_transport.go`, `internal/xpo/client.go`
 
 ## Storage layer
 
@@ -168,18 +168,18 @@ The storage package handles all file I/O for the event log:
 
 | Path | Tracked | Purpose |
 |------|---------|---------|
-| `.beats/issues.db` | Yes | Active event log (JSONL) |
-| `.beats/archive.db` | Yes | Archived events |
-| `.beats/config.yaml` | Yes | Project configuration |
-| `.beats/authorized_keys` | Yes | SSH public keys for server auth |
-| `.beats/server.key` | No | Ed25519 signing key (auto-generated) |
-| `.beats/issues.snapshot.json` | No (.gitignored) | Projection cache |
+| `.xpo/issues.db` | Yes | Active event log (JSONL) |
+| `.xpo/archive.db` | Yes | Archived events |
+| `.xpo/config.yaml` | Yes | Project configuration |
+| `.xpo/authorized_keys` | Yes | SSH public keys for server auth |
+| `.xpo/server.key` | No | Ed25519 signing key (auto-generated) |
+| `.xpo/issues.snapshot.json` | No (.gitignored) | Projection cache |
 
 **Files:** `internal/storage/`
 
 ## HTTP server
 
-The server (`beats serve` or `beats board`) exposes a REST API and optionally serves the embedded React frontend.
+The server (`xpo serve` or `xpo board`) exposes a REST API and optionally serves the embedded React frontend.
 
 ### Projection cache
 
@@ -195,19 +195,19 @@ Real-time updates are pushed to connected web clients via Server-Sent Events (`G
 
 ### Proxy mode
 
-`beats board --remote <url>` runs the web UI locally but reverse-proxies all `/api/*` and `/auth/*` requests to a remote server. This gives the full board experience while data lives on the server. SSE is disabled in proxy mode.
+`xpo board --remote <url>` runs the web UI locally but reverse-proxies all `/api/*` and `/auth/*` requests to a remote server. This gives the full board experience while data lives on the server. SSE is disabled in proxy mode.
 
 **Files:** `internal/server/`
 
 ## Authentication
 
-Authentication is only active in server mode (`beats serve`). Local mode (`beats board`) binds to `127.0.0.1` with no auth.
+Authentication is only active in server mode (`xpo serve`). Local mode (`xpo board`) binds to `127.0.0.1` with no auth.
 
 ### Flow
 
 1. Client calls `POST /auth/challenge` → server returns a random nonce (256-bit, single-use, TTL-bounded).
 2. Client signs the nonce with an SSH private key and sends `POST /auth/verify` with `{public_key, signature, nonce}`.
-3. Server validates the nonce, verifies the signature, looks up the public key in `.beats/authorized_keys`, and returns a JWT (EdDSA-signed, 7-day expiry).
+3. Server validates the nonce, verifies the signature, looks up the public key in `.xpo/authorized_keys`, and returns a JWT (EdDSA-signed, 7-day expiry).
 4. Client caches the JWT and sends it as `Authorization: Bearer <token>` on subsequent requests.
 
 ### Permissions
@@ -232,27 +232,27 @@ When permissions are not configured, all authenticated users have full access.
 
 ## MCP server
 
-The MCP server (`beats mcp`) speaks the Model Context Protocol over stdio. It registers tools that map 1:1 to Client methods:
+The MCP server (`xpo mcp`) speaks the Model Context Protocol over stdio. It registers tools that map 1:1 to Client methods:
 
 | Tool | Client method |
 |------|--------------|
-| `beats_list` | `ListIssues()` |
-| `beats_show` | `GetIssue()` |
-| `beats_history` | (event log for one issue) |
-| `beats_add` | `AddIssue()` |
-| `beats_update` | `UpdateIssue()` |
-| `beats_comment` | `AddComment()` |
-| `beats_link` | (dependency creation) |
-| `beats_start` | `StartWork()` |
-| `beats_merge` | `MergeIssue()` |
+| `xpo_list` | `ListIssues()` |
+| `xpo_show` | `GetIssue()` |
+| `xpo_history` | (event log for one issue) |
+| `xpo_add` | `AddIssue()` |
+| `xpo_update` | `UpdateIssue()` |
+| `xpo_comment` | `AddComment()` |
+| `xpo_link` | (dependency creation) |
+| `xpo_start` | `StartWork()` |
+| `xpo_merge` | `MergeIssue()` |
 
 ### Identity resolution
 
 MCP tool calls need an author identity for event attribution. Resolution order:
 
-1. `$BEATS_AGENT_IDENTITY` environment variable (operator-controlled).
+1. `$XPO_AGENT_IDENTITY` environment variable (operator-controlled).
 2. MCP `clientInfo` from the initialize handshake (e.g. `claude-code/2.x <agent@mcp>`).
-3. The configured beats user (git identity fallback).
+3. The configured xpo user (git identity fallback).
 
 Each tool invocation creates a fresh Client with `UserOverride` set to the resolved identity.
 
@@ -260,11 +260,11 @@ Each tool invocation creates a fresh Client with `UserOverride` set to the resol
 
 ## Configuration
 
-### Project config (`.beats/config.yaml`)
+### Project config (`.xpo/config.yaml`)
 
 Committed to git. Contains project-level settings: prefix, labels, cycles, automations, contributors, permissions.
 
-### User config (`~/.config/beats/user.yaml`)
+### User config (`~/.config/xpo/user.yaml`)
 
 Per-user, not committed. Stores server credentials (JWT tokens), remote URLs, and inbox read cursors.
 
@@ -287,12 +287,12 @@ Per-user, not committed. Stores server credentials (JWT tokens), remote URLs, an
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `prefix` | string | `beats-` | Issue ID prefix. Issue IDs become `<prefix>1`, `<prefix>2`, etc. Change this to scope IDs per project (e.g. `api-` produces `api-1`). |
-| `version` | integer | — | Configuration format version. Managed automatically by `beats migrate`. |
+| `prefix` | string | `xpo-` | Issue ID prefix. Issue IDs become `<prefix>1`, `<prefix>2`, etc. Change this to scope IDs per project (e.g. `api-` produces `api-1`). |
+| `version` | integer | — | Configuration format version. Managed automatically by `xpo migrate`. |
 | `name` | string | — | Project display name shown in the web UI sidebar. |
 | `user` | string | — | Default identity for local operations, in `"Name <email>"` format. |
-| `editor` | string | `$EDITOR` or `vim` | Text editor command used when beats needs interactive input. |
-| `auto_commit` | boolean | `false` | When `true`, every beats write (add, update, comment, etc.) is automatically committed to git. When `false`, changes accumulate in the working tree and you commit on your own schedule. |
+| `editor` | string | `$EDITOR` or `vim` | Text editor command used when xpo needs interactive input. |
+| `auto_commit` | boolean | `false` | When `true`, every xpo write (add, update, comment, etc.) is automatically committed to git. When `false`, changes accumulate in the working tree and you commit on your own schedule. |
 
 ### Estimation
 
@@ -310,7 +310,7 @@ Per-user, not committed. Stores server credentials (JWT tokens), remote URLs, an
 | `linear` | 1, 2, 3, 4, 5 | Numeric |
 | `shirt` | 1, 2, 3, 5, 8 | XS, S, M, L, XL |
 
-The `shirt` system stores numeric values internally but renders them as t-shirt sizes in the UI and CLI. Both forms are accepted as input (e.g. `beats estimate <id> M` or `beats estimate <id> 3`).
+The `shirt` system stores numeric values internally but renders them as t-shirt sizes in the UI and CLI. Both forms are accepted as input (e.g. `xpo estimate <id> M` or `xpo estimate <id> 3`).
 
 ### Cycles (sprints)
 
@@ -319,7 +319,7 @@ The `shirt` system stores numeric values internally but renders them as t-shirt 
 | `cycles.enabled` | boolean | `false` | Enable sprint/iteration tracking. |
 | `cycles.duration` | string | — | Cycle length: `1w`, `2w`, `3w`, or `4w`. Required when cycles are enabled. |
 | `cycles.start_day` | string | — | Day of the week each cycle begins (e.g. `monday`, `wednesday`). Required when cycles are enabled. |
-| `cycles.anchor_date` | string | — | A `YYYY-MM-DD` reference date to pin cycle numbering. If omitted, beats anchors to the nearest `start_day` before now. Useful for aligning cycles with an existing sprint calendar. |
+| `cycles.anchor_date` | string | — | A `YYYY-MM-DD` reference date to pin cycle numbering. If omitted, xpo anchors to the nearest `start_day` before now. Useful for aligning cycles with an existing sprint calendar. |
 
 Cycles are numbered sequentially from the anchor date. Issues not marked DONE by the end of a cycle automatically roll forward to the current cycle; completed issues retain their original cycle ID.
 
@@ -363,8 +363,8 @@ Permissions are only enforced in [distributed mode](#distributed-mode). When no 
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `remote.url` | string | URL of a remote beats server for distributed mode. |
-| `remote.token` | string | Authentication token. If omitted, beats resolves it from `~/.config/beats/user.yaml` (populated by `beats login`). |
+| `remote.url` | string | URL of a remote xpo server for distributed mode. |
+| `remote.token` | string | Authentication token. If omitted, xpo resolves it from `~/.config/xpo/user.yaml` (populated by `xpo login`). |
 
 ### Style
 
@@ -374,13 +374,13 @@ Permissions are only enforced in [distributed mode](#distributed-mode). When no 
 
 ## Branch workflows
 
-`beats start <id>` transitions an issue to DOING and creates a git branch (`<prefix><short-id>/<slug>`). The operation is locked with a file-based git lock to prevent concurrent branch creation races.
+`xpo start <id>` transitions an issue to DOING and creates a git branch (`<prefix><short-id>/<slug>`). The operation is locked with a file-based git lock to prevent concurrent branch creation races.
 
-`beats merge <id>` squash-merges the issue branch back to the default branch, appends a MERGE event, and transitions the issue to DONE. The working tree must be clean. Supported strategies: squash (default), merge commit, fast-forward.
+`xpo merge <id>` squash-merges the issue branch back to the default branch, appends a MERGE event, and transitions the issue to DONE. The working tree must be clean. Supported strategies: squash (default), merge commit, fast-forward.
 
-`beats review <id>` shows the unified diff between the issue branch and the default branch.
+`xpo review <id>` shows the unified diff between the issue branch and the default branch.
 
-**Files:** `internal/beats/start.go`, `internal/beats/merge.go`, `internal/beats/gitlock.go`
+**Files:** `internal/xpo/start.go`, `internal/xpo/merge.go`, `internal/xpo/gitlock.go`
 
 ## Data model versioning
 
@@ -392,6 +392,6 @@ The data model version is stored in `config.yaml` as `version`. The current vers
 | v2 | Unified Issue type with labels, assignee, estimation, automations |
 | v3 | Globally consistent sort_order keys across status groups |
 
-`beats migrate` runs pending migrations automatically. Migrations append corrective events to `issues.db` — they don't modify existing events.
+`xpo migrate` runs pending migrations automatically. Migrations append corrective events to `issues.db` — they don't modify existing events.
 
-**Files:** `internal/beats/migrate.go`, `internal/version/version.go`
+**Files:** `internal/xpo/migrate.go`, `internal/version/version.go`

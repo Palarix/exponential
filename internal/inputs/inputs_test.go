@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func TestDecodeStrictRejectsUnknownFields(t *testing.T) {
@@ -23,14 +23,14 @@ func TestAddInputToCreatePayload(t *testing.T) {
 		Title:       "My Issue",
 		Description: "## Body\n\nWith `code` and \"quotes\" and $vars",
 		Status:      "PLANNED",
-		Parent:      "beats-abc123",
+		Parent:      "issue-abc123",
 		StoryPoints: 5,
 		Priority:    2,
 		Assignee:    "Dev <dev@example.com>",
 		Labels:      []string{"feature", "CLI"},
 		Links: []LinkInput{
-			{Target: "beats-def456", Type: "relates_to"},
-			{Target: "beats-ghi789", Type: "blocks"},
+			{Target: "issue-def456", Type: "relates_to"},
+			{Target: "issue-ghi789", Type: "blocks"},
 		},
 	}
 
@@ -48,8 +48,8 @@ func TestAddInputToCreatePayload(t *testing.T) {
 	if got.Status != "PLANNED" {
 		t.Errorf("Status: got %q want PLANNED", got.Status)
 	}
-	if got.ParentID != "beats-abc123" {
-		t.Errorf("ParentID: got %q want beats-abc123", got.ParentID)
+	if got.ParentID != "issue-abc123" {
+		t.Errorf("ParentID: got %q want issue-abc123", got.ParentID)
 	}
 	if got.Estimate != 5 {
 		t.Errorf("Estimate: got %d want 5", got.Estimate)
@@ -66,7 +66,7 @@ func TestAddInputToCreatePayload(t *testing.T) {
 	if len(got.Dependencies) != 2 {
 		t.Fatalf("Dependencies: got %d want 2", len(got.Dependencies))
 	}
-	if got.Dependencies[0].TargetID != "beats-def456" || got.Dependencies[0].Kind != "relates_to" {
+	if got.Dependencies[0].TargetID != "issue-def456" || got.Dependencies[0].Kind != "relates_to" {
 		t.Errorf("dep[0] wrong: %+v", got.Dependencies[0])
 	}
 	if got.Dependencies[1].Kind != model.DependencyBlocks {
@@ -91,7 +91,7 @@ func TestAddInputInvalidStatus(t *testing.T) {
 func TestAddInputInvalidLinkType(t *testing.T) {
 	_, err := AddInput{
 		Title: "x",
-		Links: []LinkInput{{Target: "beats-abc", Type: "wat"}},
+		Links: []LinkInput{{Target: "issue-abc", Type: "wat"}},
 	}.ToCreatePayload()
 	if err == nil {
 		t.Fatal("expected error for invalid link type")

@@ -9,26 +9,26 @@ import (
 
 func TestSaveAndGetServerCredential(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
-	err := SaveServerCredential("https://beats.example.com", "test-token")
+	err := SaveServerCredential("https://xpo.example.com", "test-token")
 	if err != nil {
 		t.Fatalf("SaveServerCredential: %v", err)
 	}
 
-	cred, ok := GetServerCredential("https://beats.example.com")
+	cred, ok := GetServerCredential("https://xpo.example.com")
 	if !ok {
 		t.Fatal("expected credential to be found")
 	}
 	if cred.Token != "test-token" {
 		t.Errorf("Token: got %q, want test-token", cred.Token)
 	}
-	if cred.URL != "https://beats.example.com" {
+	if cred.URL != "https://xpo.example.com" {
 		t.Errorf("URL: got %q", cred.URL)
 	}
 
 	// Verify file permissions
-	info, _ := os.Stat(filepath.Join(dir, "beats", "user.yaml"))
+	info, _ := os.Stat(filepath.Join(dir, "xpo", "user.yaml"))
 	if info.Mode().Perm() != 0600 {
 		t.Errorf("expected 0600, got %o", info.Mode().Perm())
 	}
@@ -36,12 +36,12 @@ func TestSaveAndGetServerCredential(t *testing.T) {
 
 func TestSaveServerCredential_PreservesLastRead(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
 	// Seed per-user state with a last_read value, then re-login (new token).
 	c := LoadUserConfig()
-	c.Servers["beats.example.com"] = ServerCredential{
-		URL:      "https://beats.example.com",
+	c.Servers["xpo.example.com"] = ServerCredential{
+		URL:      "https://xpo.example.com",
 		Token:    "old-token",
 		LastRead: "2026-06-15T10:30:00Z",
 	}
@@ -49,11 +49,11 @@ func TestSaveServerCredential_PreservesLastRead(t *testing.T) {
 		t.Fatalf("SaveUserConfig: %v", err)
 	}
 
-	if err := SaveServerCredential("https://beats.example.com", "new-token"); err != nil {
+	if err := SaveServerCredential("https://xpo.example.com", "new-token"); err != nil {
 		t.Fatalf("SaveServerCredential: %v", err)
 	}
 
-	cred, ok := GetServerCredential("https://beats.example.com")
+	cred, ok := GetServerCredential("https://xpo.example.com")
 	if !ok {
 		t.Fatal("expected credential to be found")
 	}
@@ -67,7 +67,7 @@ func TestSaveServerCredential_PreservesLastRead(t *testing.T) {
 
 func TestGetServerCredential_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
 	_, ok := GetServerCredential("https://unknown.example.com")
 	if ok {
@@ -77,7 +77,7 @@ func TestGetServerCredential_NotFound(t *testing.T) {
 
 func TestMultipleServers(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
 	SaveServerCredential("https://server-a.example.com", "token-a")
 	SaveServerCredential("https://server-b.example.com:9090", "token-b")
@@ -95,16 +95,16 @@ func TestMultipleServers(t *testing.T) {
 
 func TestRemoveServerCredential(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
-	SaveServerCredential("https://beats.example.com", "test-token")
+	SaveServerCredential("https://xpo.example.com", "test-token")
 
-	err := RemoveServerCredential("https://beats.example.com")
+	err := RemoveServerCredential("https://xpo.example.com")
 	if err != nil {
 		t.Fatalf("RemoveServerCredential: %v", err)
 	}
 
-	_, ok := GetServerCredential("https://beats.example.com")
+	_, ok := GetServerCredential("https://xpo.example.com")
 	if ok {
 		t.Error("expected credential to be removed")
 	}
@@ -112,7 +112,7 @@ func TestRemoveServerCredential(t *testing.T) {
 
 func TestRemoveServerCredential_NotFound(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
 	err := RemoveServerCredential("https://unknown.example.com")
 	if err != nil {
@@ -122,11 +122,11 @@ func TestRemoveServerCredential_NotFound(t *testing.T) {
 
 func TestResolveRemote_FillsToken(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
-	SaveServerCredential("https://beats.example.com", "my-jwt")
+	SaveServerCredential("https://xpo.example.com", "my-jwt")
 
-	rc := ResolveRemote(RemoteConfig{URL: "https://beats.example.com"})
+	rc := ResolveRemote(RemoteConfig{URL: "https://xpo.example.com"})
 	if rc.Token != "my-jwt" {
 		t.Errorf("expected token filled, got %q", rc.Token)
 	}
@@ -140,7 +140,7 @@ func TestResolveRemote_EmptyURL(t *testing.T) {
 }
 
 func TestResolveRemote_ExistingTokenPreserved(t *testing.T) {
-	rc := ResolveRemote(RemoteConfig{URL: "https://beats.example.com", Token: "existing"})
+	rc := ResolveRemote(RemoteConfig{URL: "https://xpo.example.com", Token: "existing"})
 	if rc.Token != "existing" {
 		t.Errorf("expected existing token preserved, got %q", rc.Token)
 	}
@@ -159,20 +159,20 @@ func TestReadRemoteURL_NoFile(t *testing.T) {
 func TestReadRemoteURL_WithRemote(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("remote:\n  url: https://beats.example.com\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("remote:\n  url: https://xpo.example.com\n"), 0644)
 
 	got := ReadRemoteURL()
-	if got != "https://beats.example.com" {
-		t.Errorf("expected https://beats.example.com, got %q", got)
+	if got != "https://xpo.example.com" {
+		t.Errorf("expected https://xpo.example.com, got %q", got)
 	}
 }
 
 func TestReadRemoteURL_NoRemoteSection(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("prefix: myapp-\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("prefix: myapp-\n"), 0644)
 
 	got := ReadRemoteURL()
 	if got != "" {
@@ -183,8 +183,8 @@ func TestReadRemoteURL_NoRemoteSection(t *testing.T) {
 func TestIsLocalProjectConfig_True(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("prefix: myapp-\nversion: 2\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("prefix: myapp-\nversion: 2\n"), 0644)
 
 	if !IsLocalProjectConfig() {
 		t.Error("expected true for config with prefix")
@@ -194,8 +194,8 @@ func TestIsLocalProjectConfig_True(t *testing.T) {
 func TestIsLocalProjectConfig_FalseVersionOnly(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("version: 2\nremote:\n  url: https://beats.example.com\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("version: 2\nremote:\n  url: https://xpo.example.com\n"), 0644)
 
 	if IsLocalProjectConfig() {
 		t.Error("expected false for remote config that just has version")
@@ -205,8 +205,8 @@ func TestIsLocalProjectConfig_FalseVersionOnly(t *testing.T) {
 func TestIsLocalProjectConfig_FalseRemoteOnly(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("remote:\n  url: https://beats.example.com\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("remote:\n  url: https://xpo.example.com\n"), 0644)
 
 	if IsLocalProjectConfig() {
 		t.Error("expected false for remote-only config")
@@ -226,17 +226,17 @@ func TestSetRemoteURL_CreatesFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 
-	if err := SetRemoteURL("https://beats.example.com"); err != nil {
+	if err := SetRemoteURL("https://xpo.example.com"); err != nil {
 		t.Fatalf("SetRemoteURL: %v", err)
 	}
 
 	got := ReadRemoteURL()
-	if got != "https://beats.example.com" {
-		t.Errorf("expected https://beats.example.com, got %q", got)
+	if got != "https://xpo.example.com" {
+		t.Errorf("expected https://xpo.example.com, got %q", got)
 	}
 
 	// Verify version field was written
-	data, _ := os.ReadFile(filepath.Join(dir, ".beats", "config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, ".xpo", "config.yaml"))
 	if !contains(string(data), "version: 2") {
 		t.Errorf("expected version: 2 in config, got:\n%s", string(data))
 	}
@@ -245,16 +245,16 @@ func TestSetRemoteURL_CreatesFile(t *testing.T) {
 func TestSetRemoteURL_PreservesExisting(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("some_key: some_value\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("some_key: some_value\n"), 0644)
 
-	if err := SetRemoteURL("https://beats.example.com"); err != nil {
+	if err := SetRemoteURL("https://xpo.example.com"); err != nil {
 		t.Fatalf("SetRemoteURL: %v", err)
 	}
 
-	data, _ := os.ReadFile(filepath.Join(dir, ".beats", "config.yaml"))
+	data, _ := os.ReadFile(filepath.Join(dir, ".xpo", "config.yaml"))
 	content := string(data)
-	if got := ReadRemoteURL(); got != "https://beats.example.com" {
+	if got := ReadRemoteURL(); got != "https://xpo.example.com" {
 		t.Errorf("remote URL: got %q", got)
 	}
 	if !contains(content, "some_key") {
@@ -265,8 +265,8 @@ func TestSetRemoteURL_PreservesExisting(t *testing.T) {
 func TestSetRemoteURL_UpdatesExisting(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
-	os.WriteFile(filepath.Join(dir, ".beats", "config.yaml"), []byte("remote:\n  url: https://old.example.com\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "config.yaml"), []byte("remote:\n  url: https://old.example.com\n"), 0644)
 
 	if err := SetRemoteURL("https://new.example.com"); err != nil {
 		t.Fatalf("SetRemoteURL: %v", err)
@@ -293,9 +293,9 @@ func containsHelper(s, substr string) bool {
 
 func TestInboxLastRead_Distributed(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
-	url := "https://beats.example.com"
+	url := "https://xpo.example.com"
 
 	// Unset cursor reads as zero time.
 	if got := GetInboxLastRead(url); !got.IsZero() {
@@ -320,9 +320,9 @@ func TestInboxLastRead_Distributed(t *testing.T) {
 
 func TestInboxLastRead_DistributedPreservesToken(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 
-	url := "https://beats.example.com"
+	url := "https://xpo.example.com"
 	if err := SaveServerCredential(url, "tok"); err != nil {
 		t.Fatalf("SaveServerCredential: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestInboxLastRead_DistributedPreservesToken(t *testing.T) {
 
 func TestInboxLastRead_Local(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("BEATS_CONFIG_DIR", filepath.Join(dir, "beats"))
+	t.Setenv("XPO_CONFIG_DIR", filepath.Join(dir, "xpo"))
 	t.Chdir(dir)
 
 	// Local mode: empty remote URL routes to the projects map.
@@ -355,11 +355,11 @@ func TestInboxLastRead_Local(t *testing.T) {
 		t.Errorf("GetInboxLastRead = %v, want %v", got, want)
 	}
 
-	// Cursor must live under the projects map keyed by the absolute .beats path.
+	// Cursor must live under the projects map keyed by the absolute .xpo path.
 	c := LoadUserConfig()
-	absBeats, _ := filepath.Abs(".beats")
-	if c.Projects[absBeats].LastRead == "" {
-		t.Errorf("expected last_read stored under projects[%q], got %+v", absBeats, c.Projects)
+	absXpo, _ := filepath.Abs(".xpo")
+	if c.Projects[absXpo].LastRead == "" {
+		t.Errorf("expected last_read stored under projects[%q], got %+v", absXpo, c.Projects)
 	}
 	if len(c.Servers) != 0 {
 		t.Errorf("local cursor should not touch servers map, got %+v", c.Servers)
@@ -371,9 +371,9 @@ func TestHostFromURL(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"https://beats.example.com", "beats.example.com"},
+		{"https://xpo.example.com", "xpo.example.com"},
 		{"http://localhost:8080", "localhost:8080"},
-		{"https://beats.example.com:443/path", "beats.example.com:443"},
+		{"https://xpo.example.com:443/path", "xpo.example.com:443"},
 	}
 	for _, tt := range tests {
 		got := hostFromURL(tt.input)

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func TestGetRecentDoneIDs_Empty(t *testing.T) {

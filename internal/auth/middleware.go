@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/palarix/beats/internal/config"
+	"github.com/palarix/exponential/internal/config"
 )
 
 // RequireAuthHandler wraps an http.Handler with Bearer JWT verification.

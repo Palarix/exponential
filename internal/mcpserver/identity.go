@@ -9,12 +9,12 @@ import (
 
 // EnvAgentIdentity is the env var consulted first to determine the calling
 // agent's identity. Format: "Name <email>" or any free-form string.
-const EnvAgentIdentity = "BEATS_AGENT_IDENTITY"
+const EnvAgentIdentity = "XPO_AGENT_IDENTITY"
 
 // resolveAgentIdentity returns the author string to record on events
 // originating from MCP tool calls. Precedence (highest first):
 //
-//  1. BEATS_AGENT_IDENTITY env var — authoritative; the operator chose this
+//  1. XPO_AGENT_IDENTITY env var — authoritative; the operator chose this
 //  2. MCP clientInfo from the initialize handshake — best-effort attribution
 //  3. configDefault — typically the user's git/config identity
 //

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 	"golang.org/x/term"
 )
 

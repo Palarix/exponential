@@ -8,7 +8,7 @@ interface DependenciesProps {
 }
 
 export default function Dependencies({ issues, onIssueClick }: DependenciesProps) {
-  const [showCompleted, setShowCompleted] = useState(() => localStorage.getItem('beats-deps-show-completed') === 'true');
+  const [showCompleted, setShowCompleted] = useState(() => localStorage.getItem('exponential-deps-show-completed') === 'true');
 
   const allDependencies: { source: Issue; target: Issue; kind: string }[] = [];
 
@@ -57,7 +57,7 @@ export default function Dependencies({ issues, onIssueClick }: DependenciesProps
             checked={showCompleted}
             onChange={(next) => {
               setShowCompleted(next);
-              localStorage.setItem('beats-deps-show-completed', String(next));
+              localStorage.setItem('exponential-deps-show-completed', String(next));
             }}
             label={`Show completed (${completedCount})`}
           />

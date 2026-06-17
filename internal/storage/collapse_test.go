@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func setupTestRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	oldWd, _ := os.Getwd()
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(oldWd) })
@@ -27,7 +27,7 @@ func setupTestRepo(t *testing.T) string {
 
 func writeEvents(t *testing.T, events []model.Event) {
 	t.Helper()
-	path := filepath.Join(".beats", "issues.db")
+	path := filepath.Join(".xpo", "issues.db")
 	f, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func writeEvents(t *testing.T, events []model.Event) {
 
 func commitDB(t *testing.T) {
 	t.Helper()
-	exec.Command("git", "add", ".beats/issues.db").Run()
+	exec.Command("git", "add", ".xpo/issues.db").Run()
 	exec.Command("git", "commit", "-m", "snap").Run()
 }
 

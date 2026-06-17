@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/model"
 )
 
 // --- Response Structures ---

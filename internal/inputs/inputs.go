@@ -1,6 +1,6 @@
-// Package inputs defines the agent-facing input types shared by the beats
+// Package inputs defines the agent-facing input types shared by the xpo
 // CLI (--json mode) and the MCP server. Both transports decode user input
-// into these structs and then call into the internal/beats service layer,
+// into these structs and then call into the internal/exponential service layer,
 // so there is exactly one validation/conversion path regardless of transport.
 package inputs
 
@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 // AddInput is the agent-facing payload for creating an issue. JSON field

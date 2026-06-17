@@ -12,7 +12,7 @@ import (
 
 // UserConfig stores all per-user state. Server credentials and the
 // distributed-mode inbox cursor live under Servers (keyed by host); the
-// local-mode inbox cursor lives under Projects (keyed by absolute .beats
+// local-mode inbox cursor lives under Projects (keyed by absolute .xpo
 // path). It is the single file for per-user concerns.
 type UserConfig struct {
 	Servers  map[string]ServerCredential `yaml:"servers"`
@@ -27,21 +27,21 @@ type ServerCredential struct {
 }
 
 // ProjectState holds per-user state for a local project, keyed by the
-// absolute path to its .beats directory. Read state is always per-user and
-// never shared in .beats/, even in local mode.
+// absolute path to its .xpo directory. Read state is always per-user and
+// never shared in .xpo/, even in local mode.
 type ProjectState struct {
 	LastRead string `yaml:"last_read,omitempty"`
 }
 
 func userConfigPath() string {
-	if dir := os.Getenv("BEATS_CONFIG_DIR"); dir != "" {
+	if dir := os.Getenv("XPO_CONFIG_DIR"); dir != "" {
 		return filepath.Join(dir, "user.yaml")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(".config", "beats", "user.yaml")
+		return filepath.Join(".config", "xpo", "user.yaml")
 	}
-	return filepath.Join(home, ".config", "beats", "user.yaml")
+	return filepath.Join(home, ".config", "xpo", "user.yaml")
 }
 
 // LoadUserConfig reads all stored per-user state.
@@ -114,9 +114,9 @@ func ResolveRemote(rc RemoteConfig) RemoteConfig {
 	return rc
 }
 
-// ReadRemoteURL returns the remote.url from .beats/config.yaml, if any.
+// ReadRemoteURL returns the remote.url from .xpo/config.yaml, if any.
 func ReadRemoteURL() string {
-	data, err := os.ReadFile(filepath.Join(".beats", "config.yaml"))
+	data, err := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if err != nil {
 		return ""
 	}
@@ -131,11 +131,11 @@ func ReadRemoteURL() string {
 	return raw.Remote.URL
 }
 
-// IsLocalProjectConfig returns true if .beats/config.yaml looks like a
+// IsLocalProjectConfig returns true if .xpo/config.yaml looks like a
 // server-side project config (has a prefix field) rather than a minimal
 // remote-only config.
 func IsLocalProjectConfig() bool {
-	data, err := os.ReadFile(filepath.Join(".beats", "config.yaml"))
+	data, err := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if err != nil {
 		return false
 	}
@@ -148,10 +148,10 @@ func IsLocalProjectConfig() bool {
 	return raw.Prefix != ""
 }
 
-// SetRemoteURL writes the remote.url field into .beats/config.yaml,
+// SetRemoteURL writes the remote.url field into .xpo/config.yaml,
 // creating the file if it doesn't exist. Preserves existing content.
 func SetRemoteURL(serverURL string) error {
-	configPath := filepath.Join(".beats", "config.yaml")
+	configPath := filepath.Join(".xpo", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -225,7 +225,7 @@ func SetRemoteURL(serverURL string) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
-		return fmt.Errorf("failed to create .beats directory: %w", err)
+		return fmt.Errorf("failed to create .xpo directory: %w", err)
 	}
 
 	out, err := yaml.Marshal(&doc)
@@ -235,19 +235,19 @@ func SetRemoteURL(serverURL string) error {
 	return os.WriteFile(configPath, out, 0644)
 }
 
-// localProjectKey returns the absolute path to the local .beats directory,
+// localProjectKey returns the absolute path to the local .xpo directory,
 // used as the per-user inbox cursor key in local mode.
 func localProjectKey() string {
-	abs, err := filepath.Abs(".beats")
+	abs, err := filepath.Abs(".xpo")
 	if err != nil {
-		return ".beats"
+		return ".xpo"
 	}
 	return abs
 }
 
 // GetInboxLastRead returns the per-user inbox read cursor. In distributed
 // mode (remoteURL set) it is stored under the server host; in local mode it
-// is stored under the absolute .beats path. A zero time means never read.
+// is stored under the absolute .xpo path. A zero time means never read.
 func GetInboxLastRead(remoteURL string) time.Time {
 	c := LoadUserConfig()
 	var raw string
@@ -267,7 +267,7 @@ func GetInboxLastRead(remoteURL string) time.Time {
 }
 
 // SetInboxLastRead persists the per-user inbox read cursor, routing to the
-// server host (distributed) or absolute .beats path (local) as appropriate.
+// server host (distributed) or absolute .xpo path (local) as appropriate.
 func SetInboxLastRead(remoteURL string, t time.Time) error {
 	c := LoadUserConfig()
 	stamp := t.UTC().Format(time.RFC3339)

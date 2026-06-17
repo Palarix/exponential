@@ -3,7 +3,7 @@ package ui
 import (
 	"sort"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 // GetRecentDoneIDs returns a map of the most recently updated DONE issue IDs

@@ -16,11 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/auth"
-	"github.com/palarix/beats/internal/beats"
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/exponential/internal/auth"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -29,10 +29,10 @@ var testIDCounter atomic.Int64
 func setupTestServer(t *testing.T) *Server {
 	t.Helper()
 	tmpDir := t.TempDir()
-	beatsDir := filepath.Join(tmpDir, ".beats")
-	os.MkdirAll(beatsDir, 0755)
-	os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644)
-	os.WriteFile(filepath.Join(beatsDir, "config.toml"), []byte{}, 0644)
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	os.MkdirAll(xpoDir, 0755)
+	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
+	os.WriteFile(filepath.Join(xpoDir, "config.toml"), []byte{}, 0644)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -90,7 +90,7 @@ func TestHandleInbox(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var items []beats.InboxItem
+	var items []exponential.InboxItem
 	json.NewDecoder(w.Body).Decode(&items)
 	if len(items) != 1 {
 		t.Fatalf("expected 1 inbox item, got %d: %+v", len(items), items)
@@ -368,7 +368,7 @@ func setupAuthServer(t *testing.T) (*Server, ssh.Signer) {
 	s := setupTestServer(t)
 
 	// Generate server signing key
-	serverKey, err := auth.LoadOrGenerateServerKey(filepath.Join(".beats", "server.key"))
+	serverKey, err := auth.LoadOrGenerateServerKey(filepath.Join(".xpo", "server.key"))
 	if err != nil {
 		t.Fatalf("server key: %v", err)
 	}
@@ -392,7 +392,7 @@ func setupAuthServer(t *testing.T) (*Server, ssh.Signer) {
 
 func writeAuthKeys(t *testing.T, content string) string {
 	t.Helper()
-	path := filepath.Join(".beats", "authorized_keys")
+	path := filepath.Join(".xpo", "authorized_keys")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("write authorized_keys: %v", err)
 	}

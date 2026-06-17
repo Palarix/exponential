@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/auth"
-	"github.com/palarix/beats/internal/config"
+	"github.com/palarix/exponential/internal/auth"
+	"github.com/palarix/exponential/internal/config"
 )
 
 func setupCapServer(t *testing.T, perms config.PermissionsConfig) (*Server, ed25519.PrivateKey) {

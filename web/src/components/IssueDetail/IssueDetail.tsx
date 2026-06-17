@@ -340,7 +340,7 @@ export default function IssueDetail({
                   onCancel={() => setEditingField(null)}
                   autoFocus
                   clickEvent={descClickEvent}
-                  className="prose-beats"
+                  className="prose-exponential"
                 />
               ) : (
                 <div
@@ -348,7 +348,7 @@ export default function IssueDetail({
                     if ((e.target as HTMLElement).closest('a')) return;
                     setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description");
                   }}
-                  className="cursor-text min-h-10 prose-beats"
+                  className="cursor-text min-h-10 prose-exponential"
                 >
                   {(optimisticDescription ?? issue.description) ? (
                     <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>

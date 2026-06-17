@@ -149,3 +149,28 @@ Representative files: `branches_test.go`, `inbox_test.go`, `review_test.go`, `re
    - `grep -r 'BEATS_' --include='*.go'`
 4. `./xpo init` works in a temp directory
 5. Frontend builds: `cd web && bun run build`
+
+## Outstanding Work
+
+Phases 1–7 and 9 are complete. The following still needs to be done:
+
+### Phase 8: Documentation
+
+These files still contain `beats` references and need updating:
+
+- **`CLAUDE.md`** — MCP tool names (`mcp__beats__beats_*` → `mcp__xpo__xpo_*`), `beats_update`/`beats_show`/etc. references, build commands, workflow instructions, agent identity examples
+- **`README.md`** — all references to `beats` binary, `.beats/` paths, installation instructions, MCP config examples, CLI usage examples
+- **`CHANGELOG.md`** — add rebrand entry under `[Unreleased]`; historical entries keep their original names
+- **`docs/design.md`** — architecture references, file paths, tool names
+- **`AGENTS.md`** — agent setup instructions, CLI examples, MCP tool references
+- **`GEMINI.md`** — same as AGENTS.md
+- **`claude/skills/xpo*/SKILL.md`** — update tool names and CLI references in skill metadata and docs
+- **`design_docs/beats-features.md`** — rename file to `design_docs/xpo-features.md`, update content
+
+### Post-rename Housekeeping
+
+- **`.mcp.json`** — already updated to `"xpo"`, but will need to match the new MCP server registration after the project moves
+- **`.claude/settings.json`** — already updated to `mcp__xpo__xpo_*` permissions
+- **`.claude/settings.local.json`** — may need update if it references the old MCP server name
+- **`.gitignore`** — update `.beats/issues.snapshot.json` → `.xpo/issues.snapshot.json` if present
+- **Memory files** — `~/.claude/projects/` memory entries reference the old project path; these will auto-resolve on the next conversation in the new location

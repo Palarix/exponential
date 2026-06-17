@@ -14,7 +14,7 @@ func EditInteractive(template string) (string, error) {
 		editor = "vim"
 	}
 
-	tmpFile, err := os.CreateTemp("", "beats-*.txt")
+	tmpFile, err := os.CreateTemp("", "xpo-*.txt")
 	if err != nil {
 		return "", err
 	}

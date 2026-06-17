@@ -8,15 +8,15 @@ import (
 
 func TestLoadConfigVersion(t *testing.T) {
 	// Setup temp dir
-	tmpDir, err := os.MkdirTemp("", "beats-config-test-*")
+	tmpDir, err := os.MkdirTemp("", "issue-config-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	beatsDir := filepath.Join(tmpDir, ".beats")
-	if err := os.MkdirAll(beatsDir, 0755); err != nil {
-		t.Fatalf("Failed to create .beats dir: %v", err)
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	if err := os.MkdirAll(xpoDir, 0755); err != nil {
+		t.Fatalf("Failed to create .xpo dir: %v", err)
 	}
 
 	// Change CWD
@@ -27,7 +27,7 @@ func TestLoadConfigVersion(t *testing.T) {
 	defer os.Chdir(originalWd)
 
 	// Case 1: No version (legacy/default)
-	os.WriteFile(filepath.Join(beatsDir, "config.yaml"), []byte("prefix: test-\n"), 0644)
+	os.WriteFile(filepath.Join(xpoDir, "config.yaml"), []byte("prefix: test-\n"), 0644)
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)
@@ -37,7 +37,7 @@ func TestLoadConfigVersion(t *testing.T) {
 	}
 
 	// Case 2: With version
-	os.WriteFile(filepath.Join(beatsDir, "config.yaml"), []byte("prefix: test-\nversion: 2\n"), 0644)
+	os.WriteFile(filepath.Join(xpoDir, "config.yaml"), []byte("prefix: test-\nversion: 2\n"), 0644)
 	cfg, err = LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig failed: %v", err)

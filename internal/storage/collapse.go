@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func readCommittedBytes(path string) ([]byte, error) {
-	out, err := exec.Command("git", "show", "HEAD:.beats/issues.db").Output()
+	out, err := exec.Command("git", "show", "HEAD:.xpo/issues.db").Output()
 	if err != nil {
 		return nil, nil
 	}
@@ -31,7 +31,7 @@ func countLines(data []byte) int {
 }
 
 func AppendEventCollapsed(event model.Event) error {
-	path := filepath.Join(".beats", "issues.db")
+	path := filepath.Join(".xpo", "issues.db")
 
 	committedBytes, err := readCommittedBytes(path)
 	if err != nil {

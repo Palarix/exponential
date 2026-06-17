@@ -25,6 +25,16 @@ import FilterChips from './components/Backlog/FilterChips';
 
 type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels';
 
+const VIEW_LABELS: Record<View, string> = {
+  dashboard: 'Dashboard',
+  inbox: 'Inbox',
+  backlog: 'Issues',
+  board: 'Board',
+  cycles: 'Cycles',
+  dependencies: 'Dependencies',
+  labels: 'Labels',
+};
+
 const VIEW_ROUTES: Record<string, View> = {
   'issues': 'backlog',
   'board': 'board',
@@ -87,20 +97,21 @@ function App() {
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
-  const [prefix, setPrefix] = useState('beats-');
+  const [prefix, setPrefix] = useState('issue-');
   const [version, setVersion] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [configLabels, setConfigLabels] = useState<Record<string, string>>({});
   const [contributors, setContributors] = useState<string[]>([]);
   const [hideDefaultLabels, setHideDefaultLabels] = useState(false);
   const [cyclesEnabled, setCyclesEnabled] = useState(false);
   const [defaultLabels, setDefaultLabels] = useState<{ name: string; color: string }[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>(() =>
-    (localStorage.getItem('beats-sort') as SortKey) || 'manual'
+    (localStorage.getItem('exponential-sort') as SortKey) || 'manual'
   );
   const [backlogNavOrder, setBacklogNavOrder] = useState<string[]>([]);
   const [backlogTab, setBacklogTab] = useState<Tab>('all');
   const [backlogFilters, setBacklogFilters] = useState<BacklogFilters>(() => {
-    const stored = localStorage.getItem(`beats-backlog-filters-${backlogTab}`);
+    const stored = localStorage.getItem(`exponential-backlog-filters-${backlogTab}`);
     if (stored) { try { return JSON.parse(stored); } catch {} }
     return EMPTY_FILTERS;
   });
@@ -111,7 +122,7 @@ function App() {
 
   const handleFiltersChange = useCallback((f: BacklogFilters) => {
     setBacklogFilters(f);
-    localStorage.setItem(`beats-backlog-filters-${backlogTab}`, JSON.stringify(f));
+    localStorage.setItem(`exponential-backlog-filters-${backlogTab}`, JSON.stringify(f));
   }, [backlogTab]);
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
@@ -125,6 +136,11 @@ function App() {
   useEffect(() => {
     setHash(view, selectedIssueId, selectedCycleId);
   }, [view, selectedIssueId, selectedCycleId]);
+
+  useEffect(() => {
+    const label = selectedIssueId || VIEW_LABELS[view];
+    document.title = projectName ? `${projectName} ❯ ${label}` : label;
+  }, [view, selectedIssueId, projectName]);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -248,7 +264,7 @@ function App() {
         const colors = c.labels || {};
         setDefaultLabels(c.default_labels.map(name => ({ name, color: colors[name] || colors[name.toLowerCase()] || '' })));
       }
-      document.title = c.name ? `${c.name} | Beats` : 'Beats';
+      setProjectName(c.name || '');
     }).catch(() => {});
   }, [fetchData]);
 
@@ -281,7 +297,7 @@ function App() {
 
   const handleSortChange = useCallback((key: SortKey) => {
     setSortKey(key);
-    localStorage.setItem('beats-sort', key);
+    localStorage.setItem('exponential-sort', key);
   }, []);
 
   const renderContent = () => {
@@ -310,7 +326,7 @@ function App() {
           <div className="flex flex-col items-center gap-2 max-w-80 text-center">
             <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Server Offline</h2>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Unable to reach the Beats server. Make sure <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-2 py-1 rounded-[var(--radius-sm)]">beats board</code> is running in your terminal.
+              Unable to reach the Exponential server. Make sure <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-2 py-1 rounded-[var(--radius-sm)]">xpo board</code> is running in your terminal.
             </p>
           </div>
 

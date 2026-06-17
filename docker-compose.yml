@@ -1,7 +1,7 @@
 services:
-  beats:
+  xpo:
     build: .
     ports:
       - "8080:8080"
     volumes:
-      - ./beats-data/.beats:/data/.beats
+      - ./xpo-data/.xpo:/data/.xpo

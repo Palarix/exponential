@@ -7,23 +7,23 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/palarix/beats/internal/auth"
-	"github.com/palarix/beats/internal/config"
-	"github.com/palarix/beats/internal/inputs"
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/auth"
+	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/inputs"
+	"github.com/palarix/exponential/internal/model"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// setup creates a temp .beats workspace and returns a toolset bound to it.
+// setup creates a temp .xpo workspace and returns a toolset bound to it.
 // The cleanup func restores the original working directory.
 func setup(t *testing.T) (*toolset, func()) {
 	t.Helper()
 	tmpDir := t.TempDir()
-	beatsDir := filepath.Join(tmpDir, ".beats")
-	if err := os.MkdirAll(beatsDir, 0755); err != nil {
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	if err := os.MkdirAll(xpoDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(beatsDir, "issues.db"), []byte{}, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 	origDir, _ := os.Getwd()

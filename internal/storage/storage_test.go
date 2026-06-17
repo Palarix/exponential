@@ -8,20 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
-func setupBeatsDir(t *testing.T) {
+func setupXpoDir(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	oldWd, _ := os.Getwd()
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(oldWd) })
 }
 
 func TestAppendEvent_CreatesFile(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	evt := model.Event{
 		ID: "x", Type: model.EventTypeCreate,
@@ -32,7 +32,7 @@ func TestAppendEvent_CreatesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(".beats", "issues.db"))
+	data, err := os.ReadFile(filepath.Join(".xpo", "issues.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestAppendEvent_CreatesFile(t *testing.T) {
 }
 
 func TestAppendEvent_AppendsToExisting(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	AppendEvent(model.Event{ID: "a", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "A"}, CreatedAt: time.Now().UTC(), CreatedBy: "test"})
 	AppendEvent(model.Event{ID: "b", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "B"}, CreatedAt: time.Now().UTC(), CreatedBy: "test"})
@@ -57,12 +57,12 @@ func TestAppendEvent_AppendsToExisting(t *testing.T) {
 }
 
 func TestAppendEvent_NewlineSeparated(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	AppendEvent(model.Event{ID: "a", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "A"}, CreatedAt: time.Now().UTC(), CreatedBy: "test"})
 	AppendEvent(model.Event{ID: "b", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "B"}, CreatedAt: time.Now().UTC(), CreatedBy: "test"})
 
-	data, err := os.ReadFile(filepath.Join(".beats", "issues.db"))
+	data, err := os.ReadFile(filepath.Join(".xpo", "issues.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestAppendEvent_NewlineSeparated(t *testing.T) {
 }
 
 func TestAppendEvent_PreservesPayload(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	AppendEvent(model.Event{
 		ID: "x", Type: model.EventTypeCreate,

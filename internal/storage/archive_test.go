@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
+	"github.com/palarix/exponential/internal/model"
 )
 
 func makeEvent(id string, evtType model.EventType) model.Event {
@@ -15,7 +15,7 @@ func makeEvent(id string, evtType model.EventType) model.Event {
 }
 
 func TestArchiveEvents_MovesToArchive(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	active := []model.Event{makeEvent("a", model.EventTypeCreate)}
 	archived := []model.Event{makeEvent("old", model.EventTypeCreate)}
@@ -40,7 +40,7 @@ func TestArchiveEvents_MovesToArchive(t *testing.T) {
 }
 
 func TestArchiveEvents_CreatesBackup(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	AppendEvent(makeEvent("a", model.EventTypeCreate))
 
@@ -49,7 +49,7 @@ func TestArchiveEvents_CreatesBackup(t *testing.T) {
 		[]model.Event{},
 	)
 
-	entries, _ := os.ReadDir(".beats")
+	entries, _ := os.ReadDir(".xpo")
 	backupFound := false
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".bak") {
@@ -62,7 +62,7 @@ func TestArchiveEvents_CreatesBackup(t *testing.T) {
 }
 
 func TestArchiveEvents_AppendsToExistingArchive(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 
 	AppendEvent(makeEvent("a", model.EventTypeCreate))
 	AppendEvent(makeEvent("b", model.EventTypeCreate))
@@ -86,7 +86,7 @@ func TestArchiveEvents_AppendsToExistingArchive(t *testing.T) {
 }
 
 func TestArchiveEvents_EmptyArchiveList(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 	AppendEvent(makeEvent("a", model.EventTypeCreate))
 
 	err := ArchiveEvents(
@@ -97,7 +97,7 @@ func TestArchiveEvents_EmptyArchiveList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	archPath := filepath.Join(".beats", "archive.db")
+	archPath := filepath.Join(".xpo", "archive.db")
 	info, err := os.Stat(archPath)
 	if err != nil {
 		t.Fatal("archive.db should be created even if empty archive list")
@@ -108,7 +108,7 @@ func TestArchiveEvents_EmptyArchiveList(t *testing.T) {
 }
 
 func TestArchiveEvents_EmptyActiveList(t *testing.T) {
-	setupBeatsDir(t)
+	setupXpoDir(t)
 	AppendEvent(makeEvent("a", model.EventTypeCreate))
 
 	err := ArchiveEvents(

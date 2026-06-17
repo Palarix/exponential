@@ -241,12 +241,12 @@ export default function Layout({
   const [instances, setInstances] = useState<Instance[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem("beats-sidebar-collapsed") === "true"; } catch { return false; }
+    try { return localStorage.getItem("exponential-sidebar-collapsed") === "true"; } catch { return false; }
   });
   const toggleSidebar = () => {
     setCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem("beats-sidebar-collapsed", String(next));
+      localStorage.setItem("exponential-sidebar-collapsed", String(next));
       return next;
     });
   };
@@ -284,17 +284,17 @@ export default function Layout({
               className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
               title="Expand sidebar"
             >
-              <img src="/logo-light.svg" alt="Beats" className="w-5 h-5 opacity-80" />
+              <img src="/logo-light.svg" alt="Exponential" className="w-5 h-5 opacity-80" />
             </button>
           ) : (
             <>
               <img
                 src="/logo-light.svg"
-                alt="Beats"
+                alt="Exponential"
                 className="w-5 h-5 opacity-80"
               />
               <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
-                Beats
+                Exponential
               </span>
               <button
                 onClick={onSearch}
@@ -423,7 +423,7 @@ export default function Layout({
             />
             {connected ? (
               <span className="text-[var(--color-text-muted)]">
-                Beats {version && `v${version}`}
+                Exponential {version && `v${version}`}
               </span>
             ) : (
               <span className="text-[var(--color-error)]">Disconnected</span>

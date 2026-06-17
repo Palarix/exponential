@@ -207,7 +207,7 @@ func ParseEstimateInput(system string, input string) (int, error) {
 // AddLabel writes a label and its color to the project config file,
 // preserving existing formatting via yaml.Node manipulation.
 func AddLabel(name, color string) error {
-	configPath := filepath.Join(".beats", "config.yaml")
+	configPath := filepath.Join(".xpo", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -269,7 +269,7 @@ func AddLabel(name, color string) error {
 
 // DeleteLabel removes a label from the project config file.
 func DeleteLabel(name string) error {
-	configPath := filepath.Join(".beats", "config.yaml")
+	configPath := filepath.Join(".xpo", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -308,7 +308,7 @@ func DeleteLabel(name string) error {
 
 // UpdateLabel renames a label and/or changes its color in the project config file.
 func UpdateLabel(oldName, newName, color string) error {
-	configPath := filepath.Join(".beats", "config.yaml")
+	configPath := filepath.Join(".xpo", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -351,7 +351,7 @@ func LoadConfig() (*Config, error) {
 	v := viper.New()
 
 	// Default values
-	v.SetDefault("prefix", "beats-")
+	v.SetDefault("prefix", "issue-")
 	v.SetDefault("user", "")
 	v.SetDefault("editor", os.Getenv("EDITOR"))
 	if v.GetString("editor") == "" {
@@ -369,16 +369,16 @@ func LoadConfig() (*Config, error) {
 	// Config file locations
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
-	v.AddConfigPath(".beats") // Project level
+	v.AddConfigPath(".xpo") // Project level
 
-	// User level config (~/.config/beats)
+	// User level config (~/.config/xpo)
 	home, err := os.UserHomeDir()
 	if err == nil {
-		v.AddConfigPath(filepath.Join(home, ".config", "beats"))
+		v.AddConfigPath(filepath.Join(home, ".config", "xpo"))
 	}
 
 	// Environment variables
-	v.SetEnvPrefix("BEATS")
+	v.SetEnvPrefix("XPO")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
@@ -439,7 +439,7 @@ func LoadConfig() (*Config, error) {
 		cfg.DefaultLabels = BuiltinLabelOrder
 	}
 
-	// Resolve remote token from ~/.config/beats/user.yaml
+	// Resolve remote token from ~/.config/xpo/user.yaml
 	cfg.Remote = ResolveRemote(cfg.Remote)
 
 	return &cfg, nil

@@ -142,7 +142,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
           <InlineDropdown placeholder="Estimate" options={ESTIMATE_OPTIONS} value={estimate} onChange={setEstimate} />
         </div>
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Issue title *" className="w-full h-10 text-lg bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none border-none p-0" onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && canCreate) handleCreate(); }} />
-        <MarkdownEditor value={description} onChange={setDescription} placeholder="Add description (markdown supported)..." className="prose-beats min-h-50" />
+        <MarkdownEditor value={description} onChange={setDescription} placeholder="Add description (markdown supported)..." className="prose-exponential min-h-50" />
         <div className="border-t border-[var(--color-border-subtle)] pt-3">
           <button type="button" onClick={() => setMoreOpen((v) => !v)} className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors">
             <svg className={`w-3 h-3 transition-transform duration-100 ${moreOpen ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>

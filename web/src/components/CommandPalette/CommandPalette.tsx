@@ -104,7 +104,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
         label: issue.title,
         meta: (
           <span className="flex items-center gap-2">
-            <span className="font-mono text-xs text-[var(--color-text-muted)]">{issue.id.replace('beats-', '')}</span>
+            <span className="font-mono text-xs text-[var(--color-text-muted)]">{issue.id.replace('issue-', '')}</span>
             {issue.labels?.map(l => <LabelBadge key={l} label={l} />)}
           </span>
         ),

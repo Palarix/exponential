@@ -10,7 +10,7 @@ import (
 func setupConfigDir(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, ".beats"), 0755)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	oldWd, _ := os.Getwd()
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(oldWd) })
@@ -18,12 +18,12 @@ func setupConfigDir(t *testing.T) {
 
 func writeConfig(t *testing.T, content string) {
 	t.Helper()
-	os.WriteFile(filepath.Join(".beats", "config.yaml"), []byte(content), 0644)
+	os.WriteFile(filepath.Join(".xpo", "config.yaml"), []byte(content), 0644)
 }
 
 func readConfig(t *testing.T) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(".beats", "config.yaml"))
+	data, err := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

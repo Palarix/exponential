@@ -22,7 +22,7 @@ type AuthorizedKeys struct {
 // with a comment header if it doesn't exist.
 func LoadOrCreateAuthorizedKeys(path string) (*AuthorizedKeys, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		seed := "# beats authorized_keys — add SSH public keys here, one per line.\n" +
+		seed := "# xpo authorized_keys — add SSH public keys here, one per line.\n" +
 			"# Format: ssh-ed25519 AAAA... user@example.com\n"
 		if err := os.WriteFile(path, []byte(seed), 0644); err != nil {
 			return nil, fmt.Errorf("create authorized_keys: %w", err)

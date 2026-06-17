@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/palarix/beats/internal/model"
-	"github.com/palarix/beats/internal/storage"
+	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 func TestProjectionCache_HitOnRepeatCall(t *testing.T) {
@@ -176,7 +176,7 @@ func TestEventCache_DetectsDeletedDB(t *testing.T) {
 		t.Fatalf("expected 1 issue, got %d", len(issues1))
 	}
 
-	os.Remove(filepath.Join(".beats", "issues.db"))
+	os.Remove(filepath.Join(".xpo", "issues.db"))
 
 	issues2, err := srv.GetProjectedIssues()
 	if err != nil {
