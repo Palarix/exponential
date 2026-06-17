@@ -1,7 +1,6 @@
-# Beats binary
-/beats
+# Exponential binary
+/xpo
 
 # Snapshots
-.beats/issues.snapshot.json
+.xpo/issues.snapshot.json
 NOTES.md
-/xpo
