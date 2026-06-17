@@ -337,21 +337,21 @@ This appends an entry under `mcpServers` in your user-level Claude Code settings
 
 **3. Manual user-level edit.** Add the snippet from option 1 to `~/.claude/settings.json` under `mcpServers`.
 
-After any of these, restart Claude Code (or run `/mcp` in-session) and the seven `xpo_*` tools become available to the agent.
+After any of these, restart Claude Code (or run `/mcp` in-session) and the seven MCP tools become available to the agent.
 
 ### Available tools
 
 | Tool | What it does |
 |------|-------------|
-| `xpo_list` | List issues with filters (status, label, assignee, parent, free-text match) |
-| `xpo_show` | Fetch one issue with description, dependencies, comments, optional events |
-| `xpo_history` | Return the event audit trail for an issue |
-| `xpo_add` | Create an issue, including status/labels/parent/story_points/links in one call |
-| `xpo_update` | Patch any subset of fields; status transitions go through here |
-| `xpo_comment` | Add a markdown comment |
-| `xpo_link` | Add a dependency/relationship between two existing issues |
-| `xpo_start` | Start work on an issue (set to DOING + create branch) |
-| `xpo_merge` | Merge an issue's branch and close the issue |
+| `list` | List issues with filters (status, label, assignee, parent, free-text match) |
+| `show` | Fetch one issue with description, dependencies, comments, optional events |
+| `history` | Return the event audit trail for an issue |
+| `add` | Create an issue, including status/labels/parent/story_points/links in one call |
+| `update` | Patch any subset of fields; status transitions go through here |
+| `comment` | Add a markdown comment |
+| `link` | Add a dependency/relationship between two existing issues |
+| `start` | Start work on an issue (set to DOING + create branch) |
+| `merge` | Merge an issue's branch and close the issue |
 
 ### Reducing permission prompts
 
@@ -361,7 +361,7 @@ By default Claude Code asks for confirmation before each MCP tool call. Allow-li
 {
   "permissions": {
     "allow": [
-      "mcp__xpo__xpo_*"
+      "mcp__xpo__*"
     ]
   }
 }

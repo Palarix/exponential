@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Filtering**: structured backlog filtering with nested menus and status bar chips
 - **Drag-and-drop**: reorder issues across status groups with globally consistent sort order (data model v3)
 - **Docker**: `Dockerfile` for packaging `xpo serve`
-- **MCP server**: `xpo_merge` tool; `.mcp.json` auto-detection in `xpo init`/`xpo doctor`
+- **MCP server**: `merge` tool; `.mcp.json` auto-detection in `xpo init`/`xpo doctor`
 - **Contributors**: configurable contributor list for assignment
 - **Empty state**: full-page onboarding for new projects
 

@@ -159,47 +159,47 @@ type linkOut struct {
 
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_list",
+		Name:        "list",
 		Description: "List issues with optional filters (status, label, assignee, parent, free-text match).",
 	}, t.list)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_show",
+		Name:        "show",
 		Description: "Show one issue with its description, dependencies, comments, and optionally event history.",
 	}, t.show)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_history",
+		Name:        "history",
 		Description: "Return the audit trail (events) for an issue.",
 	}, t.history)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_add",
+		Name:        "add",
 		Description: "Create a new issue. Set status, labels, parent, story_points, links etc. in one call.",
 	}, t.add)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_update",
+		Name:        "update",
 		Description: "Patch fields on an existing issue. Use this to transition status (BACKLOG/PLANNED/DOING/BLOCKED/DONE) instead of separate start/done tools.",
 	}, t.update)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_comment",
+		Name:        "comment",
 		Description: "Add a markdown comment to an issue.",
 	}, t.comment)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_link",
+		Name:        "link",
 		Description: "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues.",
 	}, t.link)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_start",
+		Name:        "start",
 		Description: "Start working on an issue: transitions status to DOING and creates a git branch named <issue-id>-<slug> off the default branch.",
 	}, t.start)
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "xpo_merge",
+		Name:        "merge",
 		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. Requires a clean working tree.",
 	}, t.merge)
 }

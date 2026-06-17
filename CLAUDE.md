@@ -8,36 +8,36 @@ An `xpo` MCP server is registered in [.mcp.json](.mcp.json). **Always use the MC
 
 | Action | MCP tool |
 |---|---|
-| List / search issues | `mcp__xpo__xpo_list` |
-| Read one issue | `mcp__xpo__xpo_show` |
-| Create an issue | `mcp__xpo__xpo_add` |
-| Update fields (incl. **status transitions**, labels, assignee, story_points, parent) | `mcp__xpo__xpo_update` |
-| Add a comment | `mcp__xpo__xpo_comment` |
-| Add a dependency link | `mcp__xpo__xpo_link` |
-| View audit trail | `mcp__xpo__xpo_history` |
+| List / search issues | `mcp__xpo__list` |
+| Read one issue | `mcp__xpo__show` |
+| Create an issue | `mcp__xpo__add` |
+| Update fields (incl. **status transitions**, labels, assignee, story_points, parent) | `mcp__xpo__update` |
+| Add a comment | `mcp__xpo__comment` |
+| Add a dependency link | `mcp__xpo__link` |
+| View audit trail | `mcp__xpo__history` |
 
-Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`) are done by calling `xpo_update` with the `status` field. When you write descriptions or comments with the mcp_xpo_* tools, do not escape non-printing characters.
+Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`) are done by calling `update` with the `status` field. When you write descriptions or comments with the mcp__xpo__* tools, do not escape non-printing characters.
 
 > The CLI command reference under [claude/skills/](claude/skills/) is supplemental material for downstream users of `xpo` to install in their own projects. It is not the interface this repository's agents should use.
 
 ## Development Workflow
 
-1. **Discover** — `xpo_list` to see the board; `xpo_show` for details on candidate issues.
-2. **Plan** — if no issue covers the work, create one with `xpo_add` (only after the user approves the design).
-3. **Start** — `xpo_update` with `status: "DOING"` before editing any code.
+1. **Discover** — `list` to see the board; `show` for details on candidate issues.
+2. **Plan** — if no issue covers the work, create one with `add` (only after the user approves the design).
+3. **Start** — `update` with `status: "DOING"` before editing any code.
 4. **Implement & test** — make changes, then run `make test` / `make build` to check against the test suite.
-5. **Document** — `xpo_comment` with a markdown summary of what changed and why.
-6. **Complete** — `xpo_update` with `status: "DONE"` once the user approves.
+5. **Document** — `comment` with a markdown summary of what changed and why.
+6. **Complete** — `update` with `status: "DONE"` once the user approves.
 
 ## Strict Workflow Rules
 
 1. **No "ghost" work** — every code change MUST be backed by an xpo issue.
 2. **Only pick up planned work** — do not start work on issues with `BACKLOG` status. Issues must be `PLANNED` to be eligible.
-3. **Check dependencies first** — before picking up an issue, inspect its `dependencies` array via `xpo_show`. If any `depends_on` or `blocked_by` targets are not `DONE`, flag the unresolved blockers before starting work.
+3. **Check dependencies first** — before picking up an issue, inspect its `dependencies` array via `show`. If any `depends_on` or `blocked_by` targets are not `DONE`, flag the unresolved blockers before starting work.
 4. **Missing tasks** — if no issue exists for your current objective, create it first, but only _after_ the user approves your design/plan.
-5. **In-progress before edits** — before touching any file, transition the issue to `DOING` via `xpo_update`.
-6. **Comment before complete** — add a summary comment via `xpo_comment` _before_ transitioning to `DONE`, and only do so after the user approves the final walkthrough.
-7. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `xpo_link`), not left as TODOs in code.
+5. **In-progress before edits** — before touching any file, transition the issue to `DOING` via `update`.
+6. **Comment before complete** — add a summary comment via `comment` _before_ transitioning to `DONE`, and only do so after the user approves the final walkthrough.
+7. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `link`), not left as TODOs in code.
 
 ## Agent Identity
 
@@ -47,8 +47,8 @@ When the tracker records who made a change, identify yourself as an agent. Use t
 
 ### Discovery
 
-- Before creating a new issue, search with `xpo_list` (use the `match` parameter for free-text search) to ensure no existing issue already covers the work.
-- If an issue looks related, read it fully with `xpo_show` before deciding.
+- Before creating a new issue, search with `list` (use the `match` parameter for free-text search) to ensure no existing issue already covers the work.
+- If an issue looks related, read it fully with `show` before deciding.
 
 ### Creating issues
 
@@ -59,7 +59,7 @@ When the tracker records who made a change, identify yourself as an agent. Use t
 
 ### Linking
 
-Use `xpo_link` to express relationships. Supported types: `blocks`, `blocked_by`, `depends_on`, `dependency_of`, `duplicates`, `duplicated_by`, `relates_to`. When a task spawns follow-up work, link the new issue back to the originating one.
+Use `link` to express relationships. Supported types: `blocks`, `blocked_by`, `depends_on`, `dependency_of`, `duplicates`, `duplicated_by`, `relates_to`. When a task spawns follow-up work, link the new issue back to the originating one.
 
 ### Completion comments
 

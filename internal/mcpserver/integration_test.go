@@ -13,7 +13,7 @@ import (
 )
 
 // TestEndToEndAddViaMCP wires a real MCP client to a real MCP server
-// (both in-memory) and exercises xpo_add → xpo_show through the
+// (both in-memory) and exercises add → show through the
 // protocol. This catches schema-generation or JSON-marshalling bugs
 // that the direct handler unit tests can't.
 func TestEndToEndAddViaMCP(t *testing.T) {
@@ -55,7 +55,7 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 	}
 	defer clientSession.Close()
 
-	// Call xpo_add via JSON arguments — exercises the schema-derived
+	// Call add via JSON arguments — exercises the schema-derived
 	// unmarshaling path.
 	addArgs, _ := json.Marshal(map[string]interface{}{
 		"title":        "Created via MCP",
@@ -65,14 +65,14 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 		"story_points": 5,
 	})
 	addRes, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "xpo_add",
+		Name:      "add",
 		Arguments: json.RawMessage(addArgs),
 	})
 	if err != nil {
-		t.Fatalf("CallTool xpo_add: %v", err)
+		t.Fatalf("CallTool add: %v", err)
 	}
 	if addRes.IsError {
-		t.Fatalf("xpo_add returned error: %s", textOf(addRes))
+		t.Fatalf("add returned error: %s", textOf(addRes))
 	}
 	var addOutput addOut
 	if err := remarshal(addRes.StructuredContent, &addOutput); err != nil {
@@ -88,17 +88,17 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 		t.Errorf("Status: got %q want PLANNED", addOutput.Status)
 	}
 
-	// Round-trip the issue back via xpo_show.
+	// Round-trip the issue back via show.
 	showArgs, _ := json.Marshal(map[string]interface{}{"id": addOutput.ID})
 	showRes, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "xpo_show",
+		Name:      "show",
 		Arguments: json.RawMessage(showArgs),
 	})
 	if err != nil {
-		t.Fatalf("CallTool xpo_show: %v", err)
+		t.Fatalf("CallTool show: %v", err)
 	}
 	if showRes.IsError {
-		t.Fatalf("xpo_show returned error: %s", textOf(showRes))
+		t.Fatalf("show returned error: %s", textOf(showRes))
 	}
 	var showOutput showOut
 	if err := remarshal(showRes.StructuredContent, &showOutput); err != nil {
@@ -136,8 +136,9 @@ func TestEndToEndListsAllTools(t *testing.T) {
 		t.Fatalf("ListTools: %v", err)
 	}
 	want := map[string]bool{
-		"xpo_list": false, "xpo_show": false, "xpo_history": false,
-		"xpo_add": false, "xpo_update": false, "xpo_comment": false, "xpo_link": false,
+		"list": false, "show": false, "history": false,
+		"add": false, "update": false, "comment": false, "link": false,
+		"start": false, "merge": false,
 	}
 	for _, tool := range res.Tools {
 		if _, ok := want[tool.Name]; ok {

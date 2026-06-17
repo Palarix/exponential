@@ -236,15 +236,15 @@ The MCP server (`xpo mcp`) speaks the Model Context Protocol over stdio. It regi
 
 | Tool | Client method |
 |------|--------------|
-| `xpo_list` | `ListIssues()` |
-| `xpo_show` | `GetIssue()` |
-| `xpo_history` | (event log for one issue) |
-| `xpo_add` | `AddIssue()` |
-| `xpo_update` | `UpdateIssue()` |
-| `xpo_comment` | `AddComment()` |
-| `xpo_link` | (dependency creation) |
-| `xpo_start` | `StartWork()` |
-| `xpo_merge` | `MergeIssue()` |
+| `list` | `ListIssues()` |
+| `show` | `GetIssue()` |
+| `history` | (event log for one issue) |
+| `add` | `AddIssue()` |
+| `update` | `UpdateIssue()` |
+| `comment` | `AddComment()` |
+| `link` | (dependency creation) |
+| `start` | `StartWork()` |
+| `merge` | `MergeIssue()` |
 
 ### Identity resolution
 

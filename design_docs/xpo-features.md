@@ -135,7 +135,7 @@ The web UI uses a draft/pending model: changes buffer locally and commit to git 
 
 Seven tools that give AI agents (Claude Code, Cursor, etc.) full read/write access to issues:
 
-`xpo_list`, `xpo_show`, `xpo_history`, `xpo_add`, `xpo_update`, `xpo_comment`, `xpo_link`
+`list`, `show`, `history`, `add`, `update`, `comment`, `link`
 
 This is the primary interface for AI-assisted development workflows — the agent reads the board, picks up work, and documents what it did, all through MCP.
 
