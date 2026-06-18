@@ -4,7 +4,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
-import { Avatar, LabelBadge, StatusIcon } from "../ui";
+import { Avatar, LabelBadge, StatusIcon, TriangleIcon, ChevronDownIcon } from "../ui";
 import { shortName, formatRelativeTime, linkifyIssueIds } from "../../utils/format";
 
 type ActivityEntry =
@@ -33,14 +33,7 @@ function StatusChip({ status }: { status: string }) {
 function EstimateChip({ points }: { points: number }) {
   return (
     <span className="flex items-center gap-1 font-medium text-[var(--color-text-primary)]">
-      <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none">
-        <path
-          d="M8 2L14 14H2L8 2Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <TriangleIcon className="w-3 h-3" />
       {points} {points === 1 ? "Point" : "Points"}
     </span>
   );
@@ -186,19 +179,7 @@ export default function ActivityTimeline({
           title={sortNewest ? "Showing newest first" : "Showing oldest first"}
         >
           {sortNewest ? "Newest" : "Oldest"}
-          <svg
-            className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
+          <ChevronDownIcon className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`} />
         </button>
       </div>
 

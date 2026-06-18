@@ -7,6 +7,7 @@ import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
+import { PersonIcon, TriangleIcon, RefreshIcon, ChevronRightIcon, TrashIcon, CheckIcon } from "./icons";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
 
@@ -58,12 +59,7 @@ const MENU_ITEMS: MenuItem[] = [
     id: "assignee",
     label: "Assignee",
     shortcut: "A",
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="8" cy="6" r="2.5" />
-        <path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" strokeLinecap="round" />
-      </svg>
-    ),
+    icon: <PersonIcon />,
   },
   {
     id: "labels",
@@ -80,28 +76,18 @@ const MENU_ITEMS: MenuItem[] = [
     id: "estimate",
     label: "Estimate",
     shortcut: "E",
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-        <path d="M8 2L14 14H2L8 2Z" />
-      </svg>
-    ),
+    icon: <TriangleIcon />,
   },
   {
     id: "cycle",
     label: "Cycle",
     shortcut: "C",
-    icon: (
-      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.7 6.2h3.3V2.9M2 13.1v-3.3h3.3M2.7 6.2a5.5 5.5 0 019.2-2.5l2.1 2.1M13.3 9.8a5.5 5.5 0 01-9.2 2.5L2 10.2" />
-      </svg>
-    ),
+    icon: <RefreshIcon />,
   },
 ];
 
 const Chevron = () => (
-  <svg className="w-3 h-3 ml-auto text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-  </svg>
+  <ChevronRightIcon className="w-3 h-3 ml-auto text-[var(--color-text-muted)]" />
 );
 
 export default function ContextMenu({
@@ -300,7 +286,7 @@ export default function ContextMenu({
                 <button key={person} onClick={() => handleAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                   <Avatar name={person} size="sm" />
                   <span className="truncate">{person.split(" <")[0]}</span>
-                  {isCurrent && <CheckIcon />}
+                  {isCurrent && <CheckIcon className="w-4 h-4 ml-auto shrink-0" />}
                 </button>
               );
             })}
@@ -330,7 +316,7 @@ export default function ContextMenu({
               <button key={c.id} onClick={() => handleAction("UPDATE", { cycle_id: c.id })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <span>Cycle {c.number}</span>
                 <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
-                {isCurrent && <CheckIcon />}
+                {isCurrent && <CheckIcon className="w-4 h-4 ml-auto shrink-0" />}
               </button>
             );
           })}
@@ -415,9 +401,7 @@ export default function ContextMenu({
           className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-hover-surface-3)]" : ""}`}
         >
           <span className="w-4 shrink-0 flex items-center justify-center">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
+            <TrashIcon />
           </span>
           <span>Delete</span>
           <span className="ml-auto text-xs opacity-70">{navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}{"⌫"}</span>
@@ -435,13 +419,5 @@ export default function ContextMenu({
       )}
     </div>,
     document.body,
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
   );
 }

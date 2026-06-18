@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo } from "react";
 import { createIssue } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { computeAppendKey, sortGroup } from "../../utils/sort";
-import { Avatar, LabelBadge, PriorityIcon, StatusIcon } from "../ui";
+import { Avatar, LabelBadge, PriorityIcon, StatusIcon, TriangleIcon } from "../ui";
 
 export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
   const children = useMemo(() => sortGroup(issues.filter(i => i.parent_id === issue.id), 'manual'), [issues, issue.id]);
@@ -88,7 +88,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
               {child.labels?.map(label => <LabelBadge key={label} label={label} />)}
               {child.estimate > 0 && (
                 <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
-                  <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                  <TriangleIcon className="w-3 h-3" />
                   {child.estimate}
                 </span>
               )}

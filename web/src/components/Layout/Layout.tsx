@@ -1,11 +1,25 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   fetchInstances,
   fetchUser,
   type Instance,
   type User,
 } from "../../api/client";
-import { Avatar } from "../ui";
+import {
+  Avatar,
+  BellIcon,
+  BoardIcon,
+  ChevronUpIcon,
+  CyclesIcon,
+  DashboardIcon,
+  EditIcon,
+  FolderIcon,
+  LinkIcon,
+  ListIcon,
+  SearchIcon,
+  SidebarIcon,
+  TagIcon,
+} from "../ui";
 
 type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels";
 
@@ -23,154 +37,121 @@ interface LayoutProps {
 }
 
 const PRIMARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
-  {
-    id: "dashboard",
-    label: "Overview",
-    icon: (
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M4 5.5h16v3H4zM4 10.5h16v3H4zM4 15.5h16v3H4z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "backlog",
-    label: "Issues",
-    icon: (
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "board",
-    label: "Board",
-    icon: (
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z"
-        />
-      </svg>
-    ),
-  },
+  { id: "dashboard", label: "Overview", icon: <DashboardIcon /> },
+  { id: "backlog", label: "Issues", icon: <ListIcon /> },
+  { id: "board", label: "Board", icon: <BoardIcon /> },
 ];
 
 const SECONDARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
-  {
-    id: "labels",
-    label: "Labels",
-    icon: (
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"
-        />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M6 6h.008v.008H6V6z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: "dependencies",
-    label: "Dependencies",
-    icon: (
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-        />
-      </svg>
-    ),
-  },
+  { id: "labels", label: "Labels", icon: <TagIcon /> },
+  { id: "dependencies", label: "Dependencies", icon: <LinkIcon /> },
 ];
 
-function ProjectItem({ instance }: { instance: Instance }) {
-  const icon = (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
-      />
-    </svg>
-  );
-  const baseClass = `flex items-center gap-3 w-full px-3 py-2 rounded-[var(--radius-md)] text-sm transition-colors duration-[var(--duration-fast)]`;
-  if (instance.is_current) {
-    return (
-      <div
-        title={instance.root_dir}
-        className={`${baseClass} bg-[var(--color-hover-surface)] text-[var(--color-text-primary)] font-medium cursor-default`}
-      >
-        <span className="text-[var(--color-text-primary)]">{icon}</span>
-        <span className="truncate flex-1">{instance.name}</span>
-        <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
-          :{instance.port}
-        </span>
-      </div>
-    );
-  }
+function ProjectSelector({
+  instances,
+  collapsed,
+}: {
+  instances: Instance[];
+  collapsed: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = instances.find((i) => i.is_current);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  if (instances.length === 0) return null;
+
   return (
-    <a
-      href={`http://localhost:${instance.port}/`}
-      title={instance.root_dir}
-      className={`${baseClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]`}
-    >
-      <span className="text-[var(--color-text-muted)]">{icon}</span>
-      <span className="truncate flex-1">{instance.name}</span>
-      <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
-        :{instance.port}
-      </span>
-    </a>
+    <div ref={ref} className={`relative ${collapsed ? "px-1" : "px-2"}`}>
+      {open && (
+        <div
+          className="absolute bottom-full left-0 right-0 mb-1 mx-0 py-1 rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface)] shadow-lg z-50"
+          style={{ minWidth: collapsed ? "200px" : undefined }}
+        >
+          <div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] px-3 py-1.5">
+            Projects
+          </div>
+          {instances.map((inst) => {
+            const itemClass = `flex items-center gap-3 w-full px-3 py-2 text-sm transition-colors duration-[var(--duration-fast)]`;
+            if (inst.is_current) {
+              return (
+                <div
+                  key={`${inst.pid}-${inst.port}`}
+                  title={inst.root_dir}
+                  className={`${itemClass} bg-[var(--color-hover-surface)] text-[var(--color-text-primary)] font-medium cursor-default`}
+                >
+                  <span className="text-[var(--color-text-primary)] shrink-0">
+                    <FolderIcon />
+                  </span>
+                  <span className="truncate flex-1">{inst.name}</span>
+                  <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
+                    :{inst.port}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <a
+                key={`${inst.pid}-${inst.port}`}
+                href={`http://localhost:${inst.port}/`}
+                title={inst.root_dir}
+                className={`${itemClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]`}
+              >
+                <span className="text-[var(--color-text-muted)] shrink-0">
+                  <FolderIcon />
+                </span>
+                <span className="truncate flex-1">{inst.name}</span>
+                <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
+                  :{inst.port}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(!open)}
+        title={current?.root_dir ?? "Switch project"}
+        className={`
+          flex items-center w-full rounded-[var(--radius-md)]
+          text-sm transition-colors duration-[var(--duration-fast)]
+          text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]
+          ${collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2"}
+        `
+          .trim()
+          .replace(/\s+/g, " ")}
+      >
+        <span className="text-[var(--color-text-muted)] shrink-0">
+          <FolderIcon />
+        </span>
+        {!collapsed && (
+          <>
+            <span className="truncate flex-1 text-left">
+              {current?.name ?? "Projects"}
+            </span>
+            <ChevronUpIcon
+              className={`w-3 h-3 shrink-0 text-[var(--color-text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -299,27 +280,21 @@ export default function Layout({
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="Search issues"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
+                <SearchIcon />
               </button>
               <button
                 onClick={onNewIssue}
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="New issue"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                </svg>
+                <EditIcon />
               </button>
               <button
                 onClick={toggleSidebar}
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="Collapse sidebar"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
-                </svg>
+                <SidebarIcon />
               </button>
             </>
           )}
@@ -338,30 +313,14 @@ export default function Layout({
           ))}
           {cyclesEnabled && (
             <NavItem
-              item={{
-                id: "cycles" as View,
-                label: "Cycles",
-                icon: (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.016 5.176v4.993" />
-                  </svg>
-                ),
-              }}
+              item={{ id: "cycles" as View, label: "Cycles", icon: <CyclesIcon /> }}
               isActive={currentView === "cycles"}
               onClick={() => onViewChange("cycles" as View)}
               collapsed={collapsed}
             />
           )}
           <NavItem
-            item={{
-              id: "inbox" as View,
-              label: "Notifications",
-              icon: (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                </svg>
-              ),
-            }}
+            item={{ id: "inbox" as View, label: "Notifications", icon: <BellIcon /> }}
             isActive={currentView === "inbox"}
             onClick={() => onViewChange("inbox" as View)}
             badge={inboxUnread}
@@ -378,23 +337,11 @@ export default function Layout({
           ))}
         </nav>
 
-        {/* Projects */}
-        {!collapsed && instances.length > 0 && (
-          <>
-            <div className="mx-4 my-2 border-t border-[var(--color-border-subtle)]" />
-            <div className="px-2 space-y-1">
-              <div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)] px-3 mb-1 mt-1">
-                Projects
-              </div>
-              {instances.map((p) => (
-                <ProjectItem key={`${p.pid}-${p.port}`} instance={p} />
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Spacer + User */}
+        {/* Spacer */}
         <div className="flex-1" />
+
+        {/* Project selector + User */}
+        <ProjectSelector instances={instances} collapsed={collapsed} />
         {user && (
           <div className={`flex items-center py-3 ${collapsed ? "justify-center px-2" : "gap-3 px-4"}`}>
             <Avatar name={`${user.name} <${user.email}>`} size={collapsed ? "sm" : "md"} />

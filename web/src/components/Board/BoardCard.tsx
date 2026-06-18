@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
-import { Avatar, EstimateBadge, LabelBadge, PriorityIcon, SubProgress } from "../ui";
+import { Avatar, EstimateBadge, LabelBadge, PriorityIcon, SubProgress, RefreshIcon } from "../ui";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -130,9 +130,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
             {cycleId && (
               <span className="flex items-center gap-0.5 tabular-nums">
-                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.7 6.2h3.3V2.9M2 13.1v-3.3h3.3M2.7 6.2a5.5 5.5 0 019.2-2.5l2.1 2.1M13.3 9.8a5.5 5.5 0 01-9.2 2.5L2 10.2" />
-                </svg>
+                <RefreshIcon className="w-3 h-3" />
                 {cycleId}
               </span>
             )}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCycles, fetchCycleProgress } from '../../api/client';
 import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
-import { StatusIcon } from '../ui';
+import { StatusIcon, PersonIcon } from '../ui';
 
 interface CyclesProps {
   issues: Issue[];
@@ -476,10 +476,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
               <div key={a.name} className="flex items-center gap-2">
                 {a.name === 'Unassigned' ? (
                   <div className="w-5 h-5 rounded-full bg-[var(--color-hover-surface)] flex items-center justify-center shrink-0">
-                    <svg className="w-3 h-3 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
-                      <circle cx="8" cy="6" r="2.5" />
-                      <path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" strokeLinecap="round" />
-                    </svg>
+                    <PersonIcon className="w-3 h-3 text-[var(--color-text-muted)]" />
                   </div>
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-[var(--color-accent-primary)] flex items-center justify-center shrink-0 text-xs font-medium text-white">
