@@ -64,9 +64,14 @@ export default function Modal({
   );
 
   useEffect(() => {
+    if (!isOpen) return;
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleKeyDown]);
+
+  useEffect(() => {
     if (isOpen) {
       triggerRef.current = document.activeElement;
-      document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => {
         const dialog = dialogRef.current;
@@ -77,14 +82,13 @@ export default function Modal({
       });
     }
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
       if (!isOpen && triggerRef.current instanceof HTMLElement) {
         triggerRef.current.focus();
         triggerRef.current = null;
       }
     };
-  }, [isOpen, handleKeyDown]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
