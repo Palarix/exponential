@@ -39,7 +39,7 @@ export function Section({
     <section>
       <div
         onClick={toggle}
-        className={`flex items-center gap-2 px-5 py-2 bg-[var(--color-bg-secondary)] select-none ${collapsible ? "cursor-pointer hover:bg-[var(--color-bg-hover)] transition-colors duration-[var(--duration-fast)]" : ""}`}
+        className={`flex items-center gap-2 px-5 py-2 bg-[var(--color-surface-1)] select-none ${collapsible ? "cursor-pointer hover:bg-[var(--color-hover-surface)] transition-colors duration-[var(--duration-fast)]" : ""}`}
       >
         {collapsible && (
           <svg

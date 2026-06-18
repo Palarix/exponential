@@ -65,7 +65,7 @@ export default function FilterChips({ filters, onChange }: FilterChipsProps) {
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] whitespace-nowrap shrink-0"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-[var(--color-hover-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border-subtle)] whitespace-nowrap shrink-0"
         >
           {chip.label}
           <button

@@ -90,7 +90,7 @@ const ALL_GROUPS = [GLOBAL, BACKLOG, ISSUE_DETAIL, INBOX, PICKERS];
 
 function Kbd({ children }: { children: string }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+    <kbd className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
       {children}
     </kbd>
   );
@@ -123,13 +123,13 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         ref={overlayRef}
-        className="relative w-full max-w-2xl bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
+        className="relative w-full max-w-2xl bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
       >
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border-subtle)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Keyboard Shortcuts</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)] transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />

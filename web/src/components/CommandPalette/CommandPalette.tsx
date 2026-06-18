@@ -159,7 +159,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
-        className="relative w-full max-w-140 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
+        className="relative w-full max-w-140 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
@@ -174,7 +174,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
             placeholder="Search issues, actions, navigation..."
             className="flex-1 bg-transparent text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
           />
-          <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-2 py-1 rounded-[var(--radius-sm)]">ESC</kbd>
+          <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-1)] px-2 py-1 rounded-[var(--radius-sm)]">ESC</kbd>
         </div>
 
         {/* Results */}
@@ -198,13 +198,13 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
                       data-index={idx}
                       onClick={item.action}
                       onMouseEnter={() => setSelectedIndex(idx)}
-                      className={`flex items-center gap-3 w-full px-4 h-10 text-left transition-colors ${isSelected ? 'bg-[var(--color-bg-hover)]' : ''}`}
+                      className={`flex items-center gap-3 w-full px-4 h-10 text-left transition-colors ${isSelected ? 'bg-[var(--color-hover-surface-3)]' : ''}`}
                     >
                       <span className="text-[var(--color-text-muted)] shrink-0">{item.icon}</span>
                       <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.label}</span>
                       {item.meta}
                       {item.shortcut && (
-                        <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] px-2 py-1 rounded-[var(--radius-sm)] ml-auto shrink-0">
+                        <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-1)] px-2 py-1 rounded-[var(--radius-sm)] ml-auto shrink-0">
                           {item.shortcut}
                         </kbd>
                       )}
@@ -219,13 +219,13 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
         {/* Footer hints */}
         <div className="flex items-center gap-4 px-4 h-8 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1">
-            <kbd className="bg-[var(--color-bg-tertiary)] px-1 rounded">↑↓</kbd> navigate
+            <kbd className="bg-[var(--color-surface-1)] px-1 rounded">↑↓</kbd> navigate
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="bg-[var(--color-bg-tertiary)] px-1 rounded">↵</kbd> select
+            <kbd className="bg-[var(--color-surface-1)] px-1 rounded">↵</kbd> select
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="bg-[var(--color-bg-tertiary)] px-1 rounded">esc</kbd> close
+            <kbd className="bg-[var(--color-surface-1)] px-1 rounded">esc</kbd> close
           </span>
         </div>
       </div>

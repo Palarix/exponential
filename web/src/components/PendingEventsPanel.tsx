@@ -39,7 +39,7 @@ export default function PendingEventsPanel({
         className={`
           fixed top-0 right-0 bottom-0 z-50
           w-full max-w-sm
-          bg-[var(--color-bg-secondary)]
+          bg-[var(--color-surface-1)]
           border-l border-[var(--color-border-subtle)]
           shadow-[var(--shadow-lg)]
           transform transition-transform duration-200 ease-out
@@ -60,7 +60,7 @@ export default function PendingEventsPanel({
           </div>
           <button
             onClick={onToggle}
-            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -110,7 +110,7 @@ export default function PendingEventsPanel({
           <div className="flex gap-2">
             <button
               onClick={onDiscard}
-              className="flex-1 px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
+              className="flex-1 px-3 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] rounded-[var(--radius-md)] transition-colors"
             >
               Discard
             </button>

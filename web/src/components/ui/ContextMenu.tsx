@@ -290,14 +290,14 @@ export default function ContextMenu({
           {filterInput("Set assignee...")}
           <div className="max-h-60 overflow-y-auto">
             {issue.assignee && !q && (
-              <button onClick={() => handleAction("UPDATE", { assignee: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+              <button onClick={() => handleAction("UPDATE", { assignee: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">
                 Remove assignee
               </button>
             )}
             {knownPeople.map(person => {
               const isCurrent = person === issue.assignee;
               return (
-                <button key={person} onClick={() => handleAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                <button key={person} onClick={() => handleAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                   <Avatar name={person} size="sm" />
                   <span className="truncate">{person.split(" <")[0]}</span>
                   {isCurrent && <CheckIcon />}
@@ -320,14 +320,14 @@ export default function ContextMenu({
           <div className="px-3 py-2 text-xs font-medium text-[var(--color-text-muted)]">Move to cycle...</div>
           <div className="border-t border-[var(--color-border-subtle)]" />
           {issue.cycle_id && (
-            <button onClick={() => handleAction("UPDATE", { cycle_id: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+            <button onClick={() => handleAction("UPDATE", { cycle_id: "" })} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">
               No cycle
             </button>
           )}
           {cycles.filter(c => c.status !== 'completed').map(c => {
             const isCurrent = c.id === issue.cycle_id;
             return (
-              <button key={c.id} onClick={() => handleAction("UPDATE", { cycle_id: c.id })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+              <button key={c.id} onClick={() => handleAction("UPDATE", { cycle_id: c.id })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <span>Cycle {c.number}</span>
                 <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
                 {isCurrent && <CheckIcon />}
@@ -353,7 +353,7 @@ export default function ContextMenu({
 
   if (confirmDelete === "choose") {
     return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
+      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
         <div className="flex flex-col gap-2">
           <button onClick={() => handleAction("DELETE", { cascade: false })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">
@@ -362,7 +362,7 @@ export default function ContextMenu({
           <button onClick={() => handleAction("DELETE", { cascade: true })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">
             Delete sub-issues too
           </button>
-          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors text-left">
+          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] transition-colors text-left">
             Cancel
           </button>
         </div>
@@ -373,13 +373,13 @@ export default function ContextMenu({
 
   if (confirmDelete === "confirm") {
     return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
+      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
         <div className="flex items-center gap-2">
           <button onClick={() => handleAction("DELETE", {})} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
             Delete
           </button>
-          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] transition-colors">
             Cancel
           </button>
         </div>
@@ -391,14 +391,14 @@ export default function ContextMenu({
   return createPortal(
     <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] flex items-start">
       {/* Main menu */}
-      <div className="min-w-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
+      <div className="min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
         {MENU_ITEMS.map((item, i) => (
           <button
             key={item.id}
             ref={el => { if (el) itemRefs.current.set(item.id, el); }}
             onClick={() => openSubMenu(item.id)}
             onMouseEnter={() => { setFocusIndex(i); openSubMenu(item.id); }}
-            className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === i ? "bg-[var(--color-bg-hover)]" : ""}`}
+            className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === i ? "bg-[var(--color-hover-surface-3)]" : ""}`}
           >
             <span className="text-[var(--color-text-muted)] w-4 shrink-0 flex items-center justify-center">{item.icon}</span>
             <span>{item.label}</span>
@@ -412,7 +412,7 @@ export default function ContextMenu({
         <button
           onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
           onMouseEnter={() => { setFocusIndex(MENU_ITEMS.length); setSubMenu(null); }}
-          className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-bg-hover)]" : ""}`}
+          className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-hover-surface-3)]" : ""}`}
         >
           <span className="w-4 shrink-0 flex items-center justify-center">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -427,7 +427,7 @@ export default function ContextMenu({
       {/* Flyout sub-menu */}
       {subMenu && (
         <div
-          className="min-w-50 max-w-70 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden ml-1"
+          className="min-w-50 max-w-70 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden ml-1"
           style={{ marginTop: Math.max(0, subMenuOffset - 30) }}
         >
           {renderSubMenuPanel()}

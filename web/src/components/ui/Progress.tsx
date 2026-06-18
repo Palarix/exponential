@@ -45,7 +45,7 @@ export default function Progress({
         </div>
       )}
       <div
-        className={`w-full bg-[var(--color-bg-tertiary)] rounded-full overflow-hidden ${sizeStyles[size]}`}
+        className={`w-full bg-[var(--color-surface-1)] rounded-full overflow-hidden ${sizeStyles[size]}`}
         role="progressbar"
         aria-valuenow={value}
         aria-valuemin={0}
@@ -92,7 +92,7 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--color-bg-tertiary)"
+          stroke="var(--color-surface-1)"
           strokeWidth={strokeWidth}
         />
         <circle

@@ -149,7 +149,7 @@ function ProjectItem({ instance }: { instance: Instance }) {
     return (
       <div
         title={instance.root_dir}
-        className={`${baseClass} bg-[var(--color-bg-hover)] text-[var(--color-text-primary)] font-medium cursor-default`}
+        className={`${baseClass} bg-[var(--color-hover-surface)] text-[var(--color-text-primary)] font-medium cursor-default`}
       >
         <span className="text-[var(--color-text-primary)]">{icon}</span>
         <span className="truncate flex-1">{instance.name}</span>
@@ -163,7 +163,7 @@ function ProjectItem({ instance }: { instance: Instance }) {
     <a
       href={`http://localhost:${instance.port}/`}
       title={instance.root_dir}
-      className={`${baseClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]`}
+      className={`${baseClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]`}
     >
       <span className="text-[var(--color-text-muted)]">{icon}</span>
       <span className="truncate flex-1">{instance.name}</span>
@@ -197,8 +197,8 @@ function NavItem({
         ${collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2"}
         ${
           isActive
-            ? "bg-[var(--color-bg-hover)] text-[var(--color-text-primary)] font-medium"
-            : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
+            ? "bg-[var(--color-hover-surface)] text-[var(--color-text-primary)] font-medium"
+            : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]"
         }
       `
         .trim()
@@ -273,15 +273,15 @@ export default function Layout({
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-bg-sidebar)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--color-base)]">
       {/* Sidebar */}
-      <aside className={`${collapsed ? "w-12" : "w-62"} flex-shrink-0 bg-[var(--color-bg-sidebar)] flex flex-col select-none transition-[width] duration-200`}>
+      <aside className={`${collapsed ? "w-12" : "w-62"} flex-shrink-0 flex flex-col select-none transition-[width] duration-200`}>
         {/* Workspace header */}
         <div className={`flex items-center h-13 ${collapsed ? "justify-center px-2 pt-2" : "gap-2 px-4 pt-2"}`}>
           {collapsed ? (
             <button
               onClick={toggleSidebar}
-              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
               title="Expand sidebar"
             >
               <img src="/xpo.svg" alt="Exponential" className="w-5 h-5 opacity-80" />
@@ -296,7 +296,7 @@ export default function Layout({
               <div className="flex-1" />
               <button
                 onClick={onSearch}
-                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="Search issues"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -305,7 +305,7 @@ export default function Layout({
               </button>
               <button
                 onClick={onNewIssue}
-                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="New issue"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -314,7 +314,7 @@ export default function Layout({
               </button>
               <button
                 onClick={toggleSidebar}
-                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="Collapse sidebar"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -409,7 +409,7 @@ export default function Layout({
 
       {/* Main */}
       <div className="flex-1 pt-2 pr-2 overflow-hidden flex flex-col">
-        <main className="flex-1 overflow-hidden bg-[var(--color-bg-primary)] rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] border-b-0">
+        <main className="flex-1 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] border-b-0" style={{ background: "linear-gradient(160deg, #1A1B1C 0%, var(--color-surface) 20%)" }}>
           {children}
         </main>
         <div className="flex items-center px-4 py-2 shrink-0 gap-3">

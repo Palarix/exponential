@@ -76,7 +76,7 @@ export default function EstimatePicker({ current, onSelect, onClose }: EstimateP
             key={est}
             onClick={() => onSelect(est)}
             onMouseEnter={() => setFocusIndex(i)}
-            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === i ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === i ? "bg-[var(--color-hover-surface-3)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
           >
             <span>{estimateLabel(est)}</span>
             {isCurrent && <CheckIcon />}

@@ -35,7 +35,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
         <div className="flex items-center gap-2">
           <button
             onClick={onDiscard}
-            className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-[var(--radius-md)] transition-colors"
+            className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] rounded-[var(--radius-md)] transition-colors"
           >
             Discard All
           </button>
@@ -61,7 +61,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
               return (
                 <div
                   key={i}
-                  className="flex items-start gap-3 px-5 py-3 border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                  className="flex items-start gap-3 px-5 py-3 border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 >
                   {/* Type badge */}
                   <TypeBadge type={event.type} />

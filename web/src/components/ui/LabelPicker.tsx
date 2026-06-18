@@ -205,7 +205,7 @@ export default function LabelPicker({
           <button
             onClick={() => onToggle(label)}
             onMouseEnter={() => setFocusIndex(i)}
-            className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)] ${isFocused ? "bg-[var(--color-bg-hover)]" : ""}`}
+            className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-hover-surface-3)] ${isFocused ? "bg-[var(--color-hover-surface-3)]" : ""}`}
           >
             {singleSelect ? (
               <span
@@ -245,7 +245,7 @@ export default function LabelPicker({
         <button
           onClick={() => handleSelect(search.trim())}
           onMouseEnter={() => setFocusIndex(filtered.length)}
-          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === filtered.length ? "bg-[var(--color-bg-hover)]" : ""}`}
+          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === filtered.length ? "bg-[var(--color-hover-surface-3)]" : ""}`}
         >
           <span className="text-[var(--color-text-muted)]">Create</span>
           <LabelBadge borderless={borderlessBadges} label={search.trim()} />

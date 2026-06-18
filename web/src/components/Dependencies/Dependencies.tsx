@@ -147,7 +147,7 @@ function DependencyRow({
 function IssueLink({ issue, onClick }: { issue: Issue; onClick?: () => void }) {
   return (
     <div
-      className="flex-1 flex items-center gap-2 px-3 py-2 hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)] min-w-0"
+      className="flex-1 flex items-center gap-2 px-3 py-2 hover:bg-[var(--color-hover-surface)] cursor-pointer transition-colors duration-[var(--duration-fast)] min-w-0"
       onClick={onClick}
     >
       <div className="flex-1 min-w-0">

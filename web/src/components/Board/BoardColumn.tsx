@@ -46,7 +46,7 @@ export default function BoardColumn({
     return (
       <button
         onClick={onToggleCollapse}
-        className={`flex flex-col items-center gap-2 w-10 shrink-0 rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)]/40 border border-[var(--color-border-subtle)] ${borderStyle} py-3 hover:bg-[var(--color-bg-hover)] transition-colors cursor-pointer`}
+        className={`flex flex-col items-center gap-2 w-10 shrink-0 rounded-[var(--radius-md)] bg-[var(--color-surface-1)]/40 border border-[var(--color-border-subtle)] ${borderStyle} py-3 hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer`}
       >
         <StatusIcon status={column.id} size={14} />
         <span className="text-xs font-medium text-[var(--color-text-muted)] [writing-mode:vertical-lr] rotate-180">
@@ -59,14 +59,14 @@ export default function BoardColumn({
 
   return (
     <div
-      className={`flex flex-col flex-1 min-w-0 rounded-[var(--radius-md)] bg-[var(--color-bg-secondary)]/40 transition-colors duration-[var(--duration-fast)] ${showHighlight ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5" : ""} ${column.isBacklog ? "border border-dashed border-[var(--color-border-default)]" : ""}`}
+      className={`flex flex-col flex-1 min-w-0 rounded-[var(--radius-md)] bg-[var(--color-surface-1)]/40 transition-colors duration-[var(--duration-fast)] ${showHighlight ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5" : ""} ${column.isBacklog ? "border border-dashed border-[var(--color-border-default)]" : ""}`}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center gap-2">
           <StatusIcon status={column.id} size={14} />
           <span className="text-sm font-medium text-[var(--color-text-primary)]">{column.label}</span>
           {column.shortcut && (
-            <kbd className="inline-flex items-center justify-center min-w-4 h-4 px-1 text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
+            <kbd className="inline-flex items-center justify-center min-w-4 h-4 px-1 text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
               {column.shortcut}
             </kbd>
           )}

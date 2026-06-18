@@ -113,7 +113,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
         <h1 className="text-sm font-medium text-[var(--color-text-primary)]">Labels</h1>
         <button
           onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}
-          className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-hover)] transition-colors"
+          className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -127,7 +127,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
         <div className="max-w-7xl mx-auto py-4">
           {/* Create form */}
           {creating && (
-            <div className="mx-4 mb-4 p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]">
+            <div className="mx-4 mb-4 p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-surface-1)]">
               <div className="flex items-center gap-3 mb-3">
                 <input
                   ref={createInputRef}
@@ -138,7 +138,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                     if (e.key === "Escape") setCreating(false);
                   }}
                   placeholder="Label name"
-                  className="flex-1 h-8 px-3 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
+                  className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
                 />
               </div>
               <div className="flex items-center gap-2 mb-3">
@@ -147,7 +147,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                   <button
                     key={c}
                     onClick={() => setNewColor(c)}
-                    className={`w-6 h-6 rounded-full transition-transform ${newColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-bg-secondary)] scale-110" : "hover:scale-110"}`}
+                    className={`w-6 h-6 rounded-full transition-transform ${newColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
                     style={{ background: c }}
                   />
                 ))}
@@ -158,14 +158,14 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                 </span>
                 <button
                   onClick={() => setCreating(false)}
-                  className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                  className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreate}
                   disabled={!newName.trim()}
-                  className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors"
+                  className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
                 >
                   Create
                 </button>
@@ -193,7 +193,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
               {labels.map((label) => (
                 <div key={label.name}>
                   {editing === label.name ? (
-                    <div className="px-4 py-3 bg-[var(--color-bg-secondary)]">
+                    <div className="px-4 py-3 bg-[var(--color-surface-1)]">
                       <div className="flex items-center gap-3 mb-3">
                         <input
                           ref={editInputRef}
@@ -203,7 +203,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                             if (e.key === "Enter") saveEdit();
                             if (e.key === "Escape") cancelEditing();
                           }}
-                          className="flex-1 h-8 px-3 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
+                          className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
                         />
                       </div>
                       <div className="flex items-center gap-2 mb-3">
@@ -212,7 +212,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                           <button
                             key={c}
                             onClick={() => setEditColor(c)}
-                            className={`w-6 h-6 rounded-full transition-transform ${editColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-bg-secondary)] scale-110" : "hover:scale-110"}`}
+                            className={`w-6 h-6 rounded-full transition-transform ${editColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
                             style={{ background: c }}
                           />
                         ))}
@@ -228,21 +228,21 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                         </span>
                         <button
                           onClick={cancelEditing}
-                          className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                          className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={saveEdit}
                           disabled={!editName.trim()}
-                          className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors"
+                          className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
                         >
                           Save
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-bg-hover)] transition-colors">
+                    <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors">
                       <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
                       <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
                         {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
@@ -261,7 +261,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                           </button>
                           <button
                             onClick={() => setConfirmDelete(null)}
-                            className="h-6 px-2 text-xs rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                            className="h-6 px-2 text-xs rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                           >
                             No
                           </button>
@@ -270,7 +270,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => startEditing(label)}
-                            className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                            className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-1)] transition-colors"
                             title="Edit label"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -279,7 +279,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                           </button>
                           <button
                             onClick={() => setConfirmDelete(label.name)}
-                            className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                            className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-surface-1)] transition-colors"
                             title="Delete label"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

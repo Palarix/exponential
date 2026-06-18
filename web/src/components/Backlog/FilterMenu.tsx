@@ -200,7 +200,7 @@ function SubMenu({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter..."
-            className="w-full px-2 py-1 text-xs bg-[var(--color-bg-tertiary)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none border border-[var(--color-border-subtle)] focus:border-[var(--color-border-default)]"
+            className="w-full px-2 py-1 text-xs bg-[var(--color-surface-1)] rounded-[var(--radius-sm)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none border border-[var(--color-border-subtle)] focus:border-[var(--color-border-default)]"
           />
         </div>
       )}
@@ -213,7 +213,7 @@ function SubMenu({
               key={opt.value}
               data-filter-option
               onClick={() => onToggle(opt.value)}
-              className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : "hover:bg-[var(--color-bg-hover)]"}`}
+              className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors ${isFocused ? "bg-[var(--color-hover-surface-3)]" : "hover:bg-[var(--color-hover-surface-3)]"}`}
             >
               <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0 ${isSelected ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}>
                 {isSelected && (
@@ -374,7 +374,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
   return createPortal(
     <>
       {/* Main menu */}
-      <div ref={menuRef} style={menuStyle} className="z-50 w-52 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
+      <div ref={menuRef} style={menuStyle} className="z-50 w-52 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
         <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
           Add Filter...
         </div>
@@ -387,7 +387,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
               ref={(el) => { if (el) dimRowRefs.current.set(dim.key, el); }}
               onMouseEnter={() => setOpenDim(dim.key)}
               onClick={() => setOpenDim(isOpen ? null : dim.key)}
-              className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-xs text-left transition-colors ${isOpen ? "bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"}`}
+              className={`flex items-center gap-2.5 w-full px-3 py-1.5 text-xs text-left transition-colors ${isOpen ? "bg-[var(--color-hover-surface-3)] text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)]"}`}
             >
               <span className="text-[var(--color-text-muted)] shrink-0">{dim.icon}</span>
               <span className="flex-1">{dim.label}</span>
@@ -424,7 +424,7 @@ const SubMenuPortal = forwardRef<HTMLDivElement, {
   const selected = getSelected(dim, filters);
 
   return (
-    <div ref={ref} style={style} className="z-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)]">
+    <div ref={ref} style={style} className="z-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)]">
       <SubMenu
         options={options}
         selected={selected}

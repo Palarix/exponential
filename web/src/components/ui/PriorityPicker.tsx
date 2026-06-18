@@ -72,7 +72,7 @@ export default function PriorityPicker({ current, onSelect, onClose }: PriorityP
             key={opt.value}
             onClick={() => onSelect(opt.value)}
             onMouseEnter={() => setFocusIndex(i)}
-            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${focusIndex === i ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === i ? "bg-[var(--color-hover-surface-3)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
           >
             <PriorityIcon priority={opt.value} size={14} />
             <span>{opt.label}</span>

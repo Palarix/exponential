@@ -283,7 +283,7 @@ export default function ActivityFeed({
         return (
           <div
             key={key}
-            className="flex items-center px-5 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            className="flex items-center px-5 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface)] transition-colors"
           >
             <span className="shrink-0 mr-2">
               <ActIcon k={desc.icon} />

@@ -11,22 +11,28 @@
    ======================================== */
 
 @theme {
-  /* Backgrounds — Linear surface levels
-     L0  7,7,7     sidebar + app chrome
-     L1  15,15,16  main content + aside
-     L2  22,23,24  cards, group headers, inputs
-     L3  27,27,28  popovers */
-  --color-bg-primary: #0f0f10;
-  --color-bg-secondary: #161718;
-  --color-bg-tertiary: #161718;
-  --color-bg-elevated: #1b1b1c;
-  --color-bg-hover: #242425;
-  --color-bg-sidebar: #070707;
+  /* Surface hierarchy — each layer sits above the previous one.
+     Hover states step up one layer so they're always distinct.
+     ──────────────────────────────────────────────────────────
+     Layer       Bg        Hover     Border           */
+  --color-base:       #070707; /* sidebar, app chrome          */
+  --color-surface:    #0f0f0f; /* main content canvas          */
+  --color-surface-1:  #161616; /* sections, panels, columns    */
+  --color-surface-2:  #1c1c1c; /* cards, inputs, group headers */
+  --color-surface-3:  #222222; /* popovers, modals, dropdowns  */
+  --color-surface-4:  #2a2a2a; /* hover on surface-3 items     */
 
-  /* Borders */
-  --color-border-default: #28292a;
-  --color-border-subtle: #1b1b1c;
-  --color-border-card: #1e1f20;
+  /* Per-layer hover — always one step above resting surface */
+  --color-hover-surface:    #161616; /* hover on surface    */
+  --color-hover-surface-1:  #1c1c1c; /* hover on surface-1  */
+  --color-hover-surface-2:  #222222; /* hover on surface-2  */
+  --color-hover-surface-3:  #2a2a2a; /* hover on surface-3  */
+
+  /* Borders — sit between adjacent layers */
+  --color-border-subtle:   #1e1e1e; /* dividers within content   */
+  --color-border-default:  #282828; /* cards, columns, inputs    */
+  --color-border-elevated: #2a2a2a; /* elevated container edges  */
+  --color-border-overlay:  #323232; /* popovers, modals          */
   --color-border-focus: rgba(94, 106, 210, 0.5);
 
   /* Text */
@@ -94,13 +100,13 @@
 
 html {
   font-family: var(--font-sans);
-  background: var(--color-bg-primary);
+  background: var(--color-surface);
   color: var(--color-text-primary);
 }
 
 body {
   min-height: 100vh;
-  background: var(--color-bg-primary);
+  background: var(--color-surface);
 }
 
 *::-webkit-scrollbar {
@@ -178,15 +184,15 @@ body {
 .prose-exponential code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--color-bg-hover);
-  border: 1px solid var(--color-border-card);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   padding: 0.25em 0.35em;
 }
 
 .prose-exponential pre {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border-card);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   padding: 0.75em 1em;
   overflow-x: auto;
@@ -231,7 +237,7 @@ body {
   height: 14px;
   border: 1.5px solid var(--color-border-default);
   border-radius: 3px;
-  background: var(--color-bg-primary);
+  background: var(--color-surface);
   position: relative;
   top: 2px;
   margin-right: 0.25em;
@@ -313,7 +319,7 @@ body {
   height: 14px;
   border: 1.5px solid var(--color-border-default);
   border-radius: 3px;
-  background: var(--color-bg-primary);
+  background: var(--color-surface);
   position: relative;
   top: 2px;
   cursor: pointer;

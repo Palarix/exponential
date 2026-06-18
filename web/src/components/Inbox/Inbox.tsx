@@ -237,7 +237,7 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
         {tab === "new" && unreadGroups.length > 0 && (
           <button
             onClick={onMarkAllRead}
-            className="px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-hover)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] transition-colors"
+            className="px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-surface-1)] hover:bg-[var(--color-hover-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] transition-colors"
           >
             Mark all as read
           </button>
@@ -275,10 +275,10 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
                   className={`
                     rounded-[var(--radius-md)] border transition-colors
                     ${isFocused
-                      ? "bg-[var(--color-bg-secondary)] border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]"
+                      ? "bg-[var(--color-surface-1)] border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]"
                       : group.hasUnread
-                        ? "bg-[var(--color-bg-secondary)] border-[var(--color-border-default)]"
-                        : "bg-[var(--color-bg-secondary)] border-[var(--color-border-subtle)]"
+                        ? "bg-[var(--color-surface-1)] border-[var(--color-border-default)]"
+                        : "bg-[var(--color-surface-1)] border-[var(--color-border-subtle)]"
                     }
                   `.trim().replace(/\s+/g, " ")}
                 >
@@ -323,7 +323,7 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
                         return (
                           <div
                             key={evtKey}
-                            className={`rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] ${hasDetail ? "cursor-pointer hover:border-[var(--color-border-default)]" : ""} transition-colors`}
+                            className={`rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] ${hasDetail ? "cursor-pointer hover:border-[var(--color-border-default)]" : ""} transition-colors`}
                             onClick={hasDetail ? () => toggleComment(evtKey) : undefined}
                           >
                             <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -349,7 +349,7 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
                             )}
                             {hasDetail && isExpanded && (
                               <div className="px-3 pb-3 -mt-0.5">
-                                <div className="ml-6 rounded-[var(--radius-md)] bg-[var(--color-bg-primary)] border border-[var(--color-border-default)] px-3 py-2">
+                                <div className="ml-6 rounded-[var(--radius-md)] bg-[var(--color-surface)] border border-[var(--color-border-default)] px-3 py-2">
                                   <div className="prose-exponential text-sm">
                                     <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                                       {desc.detail!}
@@ -394,7 +394,7 @@ export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAll
               <div className="flex justify-center pt-2 pb-4">
                 <button
                   onClick={() => setVisibleCount(c => c + GROUPS_PER_PAGE)}
-                  className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-hover)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] transition-colors"
+                  className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-surface-1)] hover:bg-[var(--color-hover-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] transition-colors"
                 >
                   Load more ({groups.length - visibleCount} remaining)
                 </button>

@@ -52,7 +52,7 @@ export function SortableBoardCard({
           onContextMenu(e.clientX, e.clientY);
         }
       }}
-      className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-bg-elevated)] border cursor-pointer transition-colors duration-[var(--duration-fast)] ${isFocused ? "border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]" : "border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)]"}`}
+      className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-2)] border cursor-pointer transition-colors duration-[var(--duration-fast)] ${isFocused ? "border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]" : "border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-hover-surface-2)]"}`}
     >
       <BoardCardContent issue={issue} meta={meta} />
     </div>
@@ -70,7 +70,7 @@ export function BoardCard({
 }) {
   return (
     <div
-      className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] ${isOverlay ? "shadow-lg cursor-grabbing" : ""}`}
+      className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] ${isOverlay ? "shadow-lg cursor-grabbing" : ""}`}
     >
       <BoardCardContent issue={issue} meta={meta} />
     </div>

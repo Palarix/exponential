@@ -149,27 +149,27 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
   );
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-primary)]">
+    <div className="h-full flex flex-col bg-[var(--color-surface)]">
       {/* ── Top bar ── */}
-      <div className="shrink-0 flex items-center px-5 h-12 border-b border-[var(--color-border-default)] bg-[var(--color-bg-secondary)]">
+      <div className="shrink-0 flex items-center px-5 h-12 border-b border-[var(--color-border-default)] bg-[var(--color-surface-1)]">
         <div className="flex items-center gap-2">
           <StatusIcon status={issue.status} size={16} isInferred={issue.is_inferred} />
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{issue.title}</span>
           <span className="text-sm font-mono text-[var(--color-text-muted)]">{issue.id}</span>
         </div>
         <div className="flex-1 flex justify-end">
-          <button onClick={onClose} className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors">
             <X size={20} />
           </button>
         </div>
       </div>
 
       {/* ── Merge bar (3-column) ── */}
-      <div className="shrink-0 border-b border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-5 py-3">
+      <div className="shrink-0 border-b border-[var(--color-border-default)] bg-[var(--color-surface-1)] px-5 py-3">
         <div className="grid grid-cols-3 items-center gap-3">
           {/* Left: branch direction */}
           <div className="flex items-center gap-2 text-sm">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] font-mono text-xs">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-surface-1)] text-[var(--color-text-secondary)] font-mono text-xs">
               <GitBranch size={12} />main
             </span>
             <span className="text-[var(--color-text-muted)]">←</span>
@@ -218,14 +218,14 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
               {strategyOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setStrategyOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] py-1">
+                  <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] py-1">
                     {([
                       { key: "squash", label: "Squash and merge", desc: "Single commit on main" },
                       { key: "merge", label: "Create merge commit", desc: "Preserves branch history" },
                       { key: "ff", label: "Fast-forward", desc: "Linear, no merge commit" },
                     ] as const).map((opt) => (
                       <button key={opt.key} onClick={() => { setMergeStrategy(opt.key); setCommitMessage(defaultCommitMessage(opt.key)); setStrategyOpen(false); }}
-                        className={`w-full px-3 py-2 text-left hover:bg-[var(--color-bg-hover)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}>
+                        className={`w-full px-3 py-2 text-left hover:bg-[var(--color-hover-surface)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}>
                         <div className="text-sm">{opt.label}</div>
                         <div className="text-xs text-[var(--color-text-muted)]">{opt.desc}</div>
                       </button>
@@ -248,7 +248,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
           <button key={t.key} onClick={() => setActiveTab(t.key)}
             className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === t.key ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}>
             {t.label}
-            <span className="ml-1.5 text-xs tabular-nums px-1.5 py-0.5 rounded-full bg-[var(--color-bg-tertiary)]">{t.count}</span>
+            <span className="ml-1.5 text-xs tabular-nums px-1.5 py-0.5 rounded-full bg-[var(--color-surface-1)]">{t.count}</span>
             {activeTab === t.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />}
           </button>
         ))}
@@ -275,13 +275,13 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
         <>
           <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setConfirmOpen(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
+            <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
               <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-subtle)]">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
                   <GitMerge size={16} className="text-[var(--color-accent-primary)]" />
                   Confirm merge
                 </div>
-                <button onClick={() => setConfirmOpen(false)} className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]">
+                <button onClick={() => setConfirmOpen(false)} className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]">
                   <X size={16} />
                 </button>
               </div>
@@ -304,7 +304,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
                     value={commitMessage}
                     onChange={(e) => setCommitMessage(e.target.value)}
                     rows={6}
-                    className="w-full text-sm font-mono bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
+                    className="w-full text-sm font-mono bg-[var(--color-surface-1)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
                   />
                 </div>
                 {mergeError && (
@@ -319,7 +319,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
                 </label>
                 <div className="ml-auto flex items-center gap-2">
                   <button onClick={() => setConfirmOpen(false)}
-                    className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                    className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors">
                     Cancel
                   </button>
                   <button onClick={handleMerge} disabled={merging || !commitMessage.trim()}
@@ -345,10 +345,10 @@ function CommitsTab({ commits, selectedCommit, commitDiffs, commitDiffLoading, o
 }) {
   return (
     <div className="h-full flex">
-      <div className="w-80 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-bg-secondary)]">
+      <div className="w-80 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
         {commits.map((c) => (
           <button key={c.sha} onClick={() => onSelectCommit(c.sha)}
-            className={`flex items-start gap-3 w-full px-4 py-3 text-left border-b border-[var(--color-border-subtle)] transition-colors ${selectedCommit === c.sha ? "bg-[var(--color-accent-primary)]/5" : "hover:bg-[var(--color-bg-hover)]"}`}>
+            className={`flex items-start gap-3 w-full px-4 py-3 text-left border-b border-[var(--color-border-subtle)] transition-colors ${selectedCommit === c.sha ? "bg-[var(--color-accent-primary)]/5" : "hover:bg-[var(--color-hover-surface)]"}`}>
             <GitCommitVertical size={16} className="text-[var(--color-text-muted)] shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <div className="text-sm text-[var(--color-text-primary)] leading-snug">{c.message}</div>
@@ -390,9 +390,9 @@ function FilesTab({ files, fileDiffs, selectedFile, onSelectFile, fileFilter, on
 
   return (
     <div className="h-full flex">
-      <div className="w-72 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-bg-secondary)]">
+      <div className="w-72 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
         <div className="p-3 border-b border-[var(--color-border-subtle)]">
-          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-bg-tertiary)] border border-[var(--color-border-default)]">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)]">
             <Search size={13} className="text-[var(--color-text-muted)]" />
             <input value={fileFilter} onChange={(e) => onFilterChange(e.target.value)} placeholder="Filter files..."
               className="flex-1 text-xs bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
@@ -400,13 +400,13 @@ function FilesTab({ files, fileDiffs, selectedFile, onSelectFile, fileFilter, on
         </div>
         {selectedFile && (
           <button onClick={() => onSelectFile(null)}
-            className="w-full px-4 py-2 text-xs text-[var(--color-accent-primary)] hover:bg-[var(--color-bg-hover)] text-left border-b border-[var(--color-border-subtle)]">
+            className="w-full px-4 py-2 text-xs text-[var(--color-accent-primary)] hover:bg-[var(--color-hover-surface)] text-left border-b border-[var(--color-border-subtle)]">
             ← Show all files
           </button>
         )}
         {files.map((f) => (
           <button key={f.path} onClick={() => onSelectFile(selectedFile === f.path ? null : f.path)}
-            className={`flex items-center gap-2 w-full px-4 py-2 text-xs text-left border-b border-[var(--color-border-subtle)] transition-colors ${selectedFile === f.path ? "bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"}`}>
+            className={`flex items-center gap-2 w-full px-4 py-2 text-xs text-left border-b border-[var(--color-border-subtle)] transition-colors ${selectedFile === f.path ? "bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}>
             <FileDiff size={12} className={`shrink-0 ${f.status === "A" ? "text-green-500" : f.status === "D" ? "text-red-500" : "text-[var(--color-text-muted)]"}`} />
             <span className="font-mono truncate flex-1">{f.path}</span>
             <span className="shrink-0 tabular-nums"><span className="text-green-500">+{f.insertions}</span> <span className="text-red-500">-{f.deletions}</span></span>
@@ -452,7 +452,7 @@ function ConversationTab({ issue, newComment, onNewCommentChange, onAddComment, 
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."
           rows={3}
-          className="w-full text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
+          className="w-full text-sm bg-[var(--color-surface-1)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
         />
         <div className="flex justify-end mt-2">
           <button onClick={onAddComment} disabled={saving || !newComment.trim()}
@@ -490,7 +490,7 @@ function DiffViewer({ diffs }: { diffs: Map<string, string[]> }) {
           <div key={file} className="border-b border-[var(--color-border-default)]">
             <button
               onClick={() => toggle(file)}
-              className="sticky top-0 z-10 flex items-center gap-2 w-full px-4 py-2 text-xs font-mono bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] transition-colors text-left"
+              className="sticky top-0 z-10 flex items-center gap-2 w-full px-4 py-2 text-xs font-mono bg-[var(--color-surface-1)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors text-left"
             >
               {isCollapsed ? <ChevronRight size={13} className="text-[var(--color-text-muted)] shrink-0" /> : <ChevronDown size={13} className="text-[var(--color-text-muted)] shrink-0" />}
               <FileDiff size={13} className="text-[var(--color-text-muted)] shrink-0" />

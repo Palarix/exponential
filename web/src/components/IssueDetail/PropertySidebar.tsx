@@ -253,7 +253,7 @@ export default function PropertySidebar({
         )}
 
         {/* Properties card */}
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Properties</div>
           <div className="space-y-1">
             {/* Status */}
@@ -281,7 +281,7 @@ export default function PropertySidebar({
                           key={opt.value}
                           onClick={() => handleStatusChange(opt.value)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <StatusIcon status={opt.value} size={14} />
                           <span>{opt.label}</span>
@@ -327,7 +327,7 @@ export default function PropertySidebar({
                           key={est}
                           onClick={() => handleEstimateChange(est)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
                           {isCurrent && (
@@ -368,7 +368,7 @@ export default function PropertySidebar({
                           key={opt.value}
                           onClick={() => handlePriorityChange(opt.value)}
                           onMouseEnter={() => setPopoverIndex(i)}
-                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-bg-hover)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
                           <PriorityIcon priority={opt.value} />
                           <span>{opt.label}</span>
@@ -414,14 +414,14 @@ export default function PropertySidebar({
                     <div className="border-t border-[var(--color-border-subtle)]" />
                     <div className="max-h-60 overflow-y-auto">
                       {issue.parent_id && (
-                        <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                        <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
                           Remove parent
                         </button>
                       )}
                       {parentCandidates.slice(0, 15).map((candidate) => {
                         const isCurrent = candidate.id === issue.parent_id;
                         return (
-                          <button key={candidate.id} onClick={() => handleParentChange(candidate.id)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
+                          <button key={candidate.id} onClick={() => handleParentChange(candidate.id)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-2)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
                             <StatusIcon status={candidate.status} size={12} isInferred={candidate.is_inferred} />
                             <span className="truncate">{candidate.title}</span>
                             {isCurrent && (
@@ -473,14 +473,14 @@ export default function PropertySidebar({
                     <div className="border-t border-[var(--color-border-subtle)]" />
                     <div className="max-h-60 overflow-y-auto">
                       {issue.assignee && (
-                        <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                        <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
                           Remove assignee
                         </button>
                       )}
                       {knownPeople.map((person) => {
                         const isCurrent = person === issue.assignee;
                         return (
-                          <button key={person} onClick={() => handleAssigneeChange(person)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
+                          <button key={person} onClick={() => handleAssigneeChange(person)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-2)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                             <Avatar name={person} size="sm" />
                             <span className="truncate">{person.split(" <")[0]}</span>
                             {isCurrent && (
@@ -525,7 +525,7 @@ export default function PropertySidebar({
                       {issue.cycle_id && (
                         <button
                           onClick={() => handleCycleChange(null)}
-                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
                         >
                           No cycle
                         </button>
@@ -536,7 +536,7 @@ export default function PropertySidebar({
                           <button
                             key={c.id}
                             onClick={() => handleCycleChange(c.id)}
-                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-bg-hover)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
+                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-2)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                           >
                             <span>Cycle {c.number}</span>
                             <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
@@ -557,7 +557,7 @@ export default function PropertySidebar({
         </div>
 
         {/* Labels card */}
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Labels</div>
           <div className="flex items-center gap-2 flex-wrap">
             {issue.labels && issue.labels.length > 0 ? (
@@ -572,7 +572,7 @@ export default function PropertySidebar({
                   setOpenPopover(next);
                   if (next) setPopoverIndex(0);
                 }}
-                className="w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -595,14 +595,14 @@ export default function PropertySidebar({
 
         {/* Branch stats card */}
         {issue.branch_stats && issue.branch_stats.commits > 0 && (
-          <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
+          <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
             <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Branch</div>
             <div className="text-sm text-[var(--color-text-primary)] font-mono truncate mb-2">
               {issue.branch_stats.branch}
             </div>
             {issue.branch_stats.head_sha && (
               <div className="flex items-center gap-2 mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-bg-tertiary)] text-xs font-mono text-[var(--color-text-secondary)]">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-1)] text-xs font-mono text-[var(--color-text-secondary)]">
                   <GitCommitVertical size={12} strokeWidth={1.5} />
                   {issue.branch_stats.head_sha}
                 </span>
@@ -624,13 +624,13 @@ export default function PropertySidebar({
         )}
 
         {/* Metadata card */}
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3 space-y-2">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3 space-y-2">
           <MetaRow label="Created" value={formatRelativeTime(issue.created_at)} />
           <MetaRow label="Updated" value={formatRelativeTime(issue.updated_at)} />
         </div>
 
         {/* Relations card */}
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] px-4 py-3">
+        <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Relations</div>
           {issue.dependencies && issue.dependencies.length > 0 && (
             <div className="space-y-1 mb-2">
@@ -687,10 +687,10 @@ export default function PropertySidebar({
                     value={addRelSearch}
                     onChange={(e) => setAddRelSearch(e.target.value)}
                     placeholder="Search issues by title or ID..."
-                    className="w-full text-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2"
+                    className="w-full text-sm bg-[var(--color-surface-1)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2"
                   />
                   <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
-                    <div className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-secondary)]">
+                    <div className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
                       <span className="w-4" />
                       <span className="flex-1">Title</span>
                       <span className="w-24 shrink-0">Labels</span>
@@ -702,7 +702,7 @@ export default function PropertySidebar({
                         <button
                           key={candidate.id}
                           onClick={() => handleAddRelation(candidate.id, addRelKind)}
-                          className="flex items-center gap-3 w-full px-3 py-2 text-sm text-left hover:bg-[var(--color-bg-hover)] transition-colors border-b border-[var(--color-border-subtle)] last:border-b-0"
+                          className="flex items-center gap-3 w-full px-3 py-2 text-sm text-left hover:bg-[var(--color-hover-surface-2)] transition-colors border-b border-[var(--color-border-subtle)] last:border-b-0"
                         >
                           <StatusIcon status={candidate.status} size={14} />
                           <div className="flex-1 min-w-0">
@@ -739,7 +739,7 @@ export default function PropertySidebar({
         {/* Delete */}
         <div className="pt-2">
           {confirmDelete === "choose" ? (
-            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-error)] p-3">
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-error)] p-3">
               <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
               <div className="flex flex-col gap-2">
                 <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">
@@ -748,19 +748,19 @@ export default function PropertySidebar({
                 <button onClick={() => handleDelete(true)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">
                   Delete sub-issues too
                 </button>
-                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors text-left">
+                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-2)] transition-colors text-left">
                   Cancel
                 </button>
               </div>
             </div>
           ) : confirmDelete === "confirm" ? (
-            <div className="rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-error)] p-3">
+            <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-error)] p-3">
               <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue? This cannot be undone.</p>
               <div className="flex items-center gap-2">
                 <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
                   Delete
                 </button>
-                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors">
+                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
                   Cancel
                 </button>
               </div>
@@ -768,7 +768,7 @@ export default function PropertySidebar({
           ) : (
             <button
               onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />

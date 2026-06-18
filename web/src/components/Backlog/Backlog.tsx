@@ -898,7 +898,7 @@ export default function Backlog({
         )}
         <div className="ml-auto flex items-center gap-3">
           {(search || searchFocused) && (
-            <div className="flex items-center gap-2 bg-[var(--color-bg-tertiary)] rounded-[var(--radius-md)] px-2 py-1">
+            <div className="flex items-center gap-2 bg-[var(--color-surface-1)] rounded-[var(--radius-md)] px-2 py-1">
               <svg
                 className="w-4 h-4 text-[var(--color-text-muted)] shrink-0"
                 fill="none"
@@ -934,7 +934,7 @@ export default function Backlog({
             <button
               ref={filterBtnRef}
               onClick={() => setShowFilterMenu((v) => !v)}
-              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors relative"
+              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
             >
               <svg
                 className="w-4 h-4"
@@ -968,7 +968,7 @@ export default function Backlog({
             <button
               ref={sortBtnRef}
               onClick={() => setShowSortMenu((v) => !v)}
-              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
             >
               <svg
                 className="w-4 h-4"
@@ -988,7 +988,7 @@ export default function Backlog({
             {showSortMenu && (
               <div
                 ref={sortMenuRef}
-                className="absolute right-0 top-full mt-1 z-50 min-w-35 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
+                className="absolute right-0 top-full mt-1 z-50 min-w-35 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
               >
                 {SORT_OPTIONS.map((opt) => (
                   <button
@@ -997,7 +997,7 @@ export default function Backlog({
                       onSortChange(opt.value);
                       setShowSortMenu(false);
                     }}
-                    className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)] bg-[var(--color-bg-hover)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"}`}
+                    className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)] bg-[var(--color-hover-surface)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
                   >
                     {opt.label}
                     {opt.value === sortKey && (
@@ -1082,7 +1082,7 @@ export default function Backlog({
                           setKeyboardNav(false);
                           setFocusedIndex(groupIndex);
                         }}
-                        className={`flex items-center gap-3 w-full px-5 py-2 border-b border-[var(--color-border-subtle)] transition-colors duration-[var(--duration-fast)] select-none ${groupRow.isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${!isDropGroup && isFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : !isDropGroup && isFocused ? "bg-[var(--color-bg-hover)]" : !isDropGroup ? "bg-[var(--color-bg-secondary)]" : ""}`}
+                        className={`flex items-center gap-3 w-full px-5 py-2 border-b border-[var(--color-border-subtle)] transition-colors duration-[var(--duration-fast)] select-none ${groupRow.isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${!isDropGroup && isFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : !isDropGroup && isFocused ? "bg-[var(--color-hover-surface)]" : !isDropGroup ? "bg-[var(--color-surface-1)]" : ""}`}
                       >
                         <span className="w-4 shrink-0 flex items-center justify-center">
                           <svg
@@ -1144,7 +1144,7 @@ export default function Backlog({
                             e.stopPropagation();
                             startInlineCreate(groupRow.status);
                           }}
-                          className="ml-auto p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                          className="ml-auto p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                           title={`New ${groupRow.label} issue`}
                         >
                           <svg
@@ -1165,7 +1165,7 @@ export default function Backlog({
                     )}
                   </GroupHeaderDnd>
                   {isInlineActive && (
-                    <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-tertiary)]">
+                    <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
                       <span className="w-4 shrink-0" />
                       <PriorityIcon priority={0} size={16} />
                       <span className="w-28 shrink-0" />
@@ -1256,7 +1256,7 @@ export default function Backlog({
                                 setKeyboardNav(false);
                                 setFocusedIndex(i);
                               }}
-                              className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-bg-hover)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-bg-hover)]" : keyboardNav ? "" : "hover:bg-[var(--color-bg-hover)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
+                              className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-hover-surface)]" : keyboardNav ? "" : "hover:bg-[var(--color-hover-surface)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
                               style={{ paddingLeft: `${20 + indent}px` }}
                             >
                               {treeGuides.map((guide, k) =>

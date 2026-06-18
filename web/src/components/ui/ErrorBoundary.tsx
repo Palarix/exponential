@@ -44,14 +44,14 @@ export default class ErrorBoundary extends Component<Props, State> {
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
             An unexpected error occurred while rendering this view.
           </p>
-          <pre className="mt-2 max-w-full overflow-x-auto text-xs font-mono text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] px-3 py-2 text-left">
+          <pre className="mt-2 max-w-full overflow-x-auto text-xs font-mono text-[var(--color-text-muted)] bg-[var(--color-surface-1)] rounded-[var(--radius-md)] px-3 py-2 text-left">
             {this.state.error.message}
           </pre>
         </div>
 
         <button
           onClick={this.handleReset}
-          className="px-4 py-2 text-sm bg-[var(--color-bg-secondary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+          className="px-4 py-2 text-sm bg-[var(--color-surface-1)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
         >
           Try Again
         </button>

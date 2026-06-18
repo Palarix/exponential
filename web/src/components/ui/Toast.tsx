@@ -27,8 +27,8 @@ export function useToast() {
 }
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-  success: "bg-[var(--color-bg-elevated)] border-[var(--color-border-default)] text-[var(--color-text-primary)]",
-  info: "bg-[var(--color-bg-elevated)] border-[var(--color-border-default)] text-[var(--color-text-primary)]",
+  success: "bg-[var(--color-surface-3)] border-[var(--color-border-default)] text-[var(--color-text-primary)]",
+  info: "bg-[var(--color-surface-3)] border-[var(--color-border-default)] text-[var(--color-text-primary)]",
   error: "bg-[var(--color-error)]/10 border-[var(--color-error)]/40 text-[var(--color-error)]",
 };
 

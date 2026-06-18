@@ -57,7 +57,7 @@ export default function InlineDropdown({
         ref={btnRef}
         type="button"
         onClick={handleOpen}
-        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors ${borderless ? "hover:bg-[var(--color-bg-hover)]" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
+        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors ${borderless ? "hover:bg-[var(--color-hover-surface-3)]" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
       >
         {selected ? (
           <>
@@ -74,14 +74,14 @@ export default function InlineDropdown({
       {open && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-[100] min-w-40 bg-[var(--color-bg-elevated)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
+          className="fixed z-[100] min-w-40 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
           style={{ top: pos.top, left: pos.left }}
         >
           {options.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { onChange(opt.value); setOpen(false); }}
-              className="flex items-center gap-2 w-full h-8 px-3 text-sm hover:bg-[var(--color-bg-hover)] transition-colors"
+              className="flex items-center gap-2 w-full h-8 px-3 text-sm hover:bg-[var(--color-hover-surface-3)] transition-colors"
             >
               {opt.icon || (opt.dot && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opt.dot }} />)}
               <span className="text-[var(--color-text-primary)]">{opt.label}</span>

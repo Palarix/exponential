@@ -222,7 +222,7 @@ export default function ActivityTimeline({
           return (
             <div
               key={`cmt-${i}`}
-              className="rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] py-3 px-4 border border-[var(--color-border-card)]"
+              className="rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]"
             >
               <div className="flex items-center gap-3 mb-2">
                 <Avatar name={entry.author} size="sm" />
@@ -244,7 +244,7 @@ export default function ActivityTimeline({
       </div>
 
       {/* Comment input */}
-      <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-bg-secondary)] border border-[var(--color-border-card)] overflow-hidden">
+      <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] overflow-hidden">
         <textarea
           ref={commentRef}
           value={newComment}

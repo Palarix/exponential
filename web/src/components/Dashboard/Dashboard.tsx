@@ -403,7 +403,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                     <button
                       key={item.issue_id}
                       onClick={() => issue && onIssueClick?.(issue)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--color-bg-elevated)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] transition-colors text-left"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] transition-colors text-left"
                     >
                       <StatusIcon status={issue?.status || "BACKLOG"} size={14} isInferred={issue?.is_inferred} />
                       <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">{item.issue_id}</span>
@@ -435,7 +435,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   <span>Person</span><span className="text-right w-10">WIP</span><span className="text-right w-10">Pts</span><span className="text-right w-12">Blocked</span>
                 </div>
                 {metrics.workload.map((w) => (
-                  <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-bg-hover)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
+                  <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-hover-surface)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar name={w.assignee} size="xs" />
                       <span className="text-sm text-[var(--color-text-primary)] truncate">{w.assignee.split(" <")[0]}</span>
@@ -460,7 +460,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                 {metrics.epics.map((ep) => {
                   const issue = issues.find((i) => i.id === ep.issue_id);
                   return (
-                    <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-bg-hover)]">
+                    <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-hover-surface)]">
                       <StatusIcon status={issue?.status || "PLANNED"} size={14} isInferred={issue?.is_inferred} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
                       <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />

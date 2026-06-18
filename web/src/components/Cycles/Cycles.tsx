@@ -91,7 +91,7 @@ function BreakdownBar({ cycle, issues }: { cycle: Cycle; issues: Issue[] }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="w-32 h-1.5 rounded-full bg-[var(--color-bg-hover)] overflow-hidden flex">
+      <div className="w-32 h-1.5 rounded-full bg-[var(--color-hover-surface)] overflow-hidden flex">
         {counts.completed > 0 && (
           <div className="h-full bg-[var(--color-success)]" style={{ width: `${(counts.completed / counts.total) * 100}%` }} />
         )}
@@ -138,7 +138,7 @@ function TimelineRow({ cycle, issues, lineColor, onClick }: { cycle: Cycle; issu
 
       <button
         onClick={onClick}
-        className="group flex-1 flex items-center gap-4 pl-4 pr-6 py-3 min-w-0 text-left transition-colors hover:bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] mr-4 ml-2"
+        className="group flex-1 flex items-center gap-4 pl-4 pr-6 py-3 min-w-0 text-left transition-colors hover:bg-[var(--color-surface-1)] rounded-[var(--radius-md)] mr-4 ml-2"
       >
         <CycleIcon status={cycle.status} />
 
@@ -382,7 +382,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
                     <button
                       key={issue.id}
                       onClick={() => onIssueClick(issue)}
-                      className="w-full flex items-center gap-3 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-bg-hover)] text-left transition-colors"
+                      className="w-full flex items-center gap-3 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover-surface)] text-left transition-colors"
                     >
                       <StatusIcon status={issue.status} size={16} isInferred={issue.is_inferred} />
                       <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">
@@ -406,13 +406,13 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
             cycle.status === 'current' ? 'bg-[var(--color-accent-primary)]/15 text-[var(--color-accent-primary)]' :
-            cycle.status === 'upcoming' ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]' :
+            cycle.status === 'upcoming' ? 'bg-[var(--color-hover-surface)] text-[var(--color-text-secondary)]' :
             cycle.status === 'completed' ? 'bg-[var(--color-success)]/15 text-[var(--color-success)]' :
-            'bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]'
+            'bg-[var(--color-hover-surface)] text-[var(--color-text-muted)]'
           } capitalize`}>
             {cycle.status}
           </span>
-          <span className="px-2 py-0.5 rounded-full text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-hover)]">
+          <span className="px-2 py-0.5 rounded-full text-xs text-[var(--color-text-muted)] bg-[var(--color-hover-surface)]">
             {formatShortDate(cycle.start)} &rarr; {formatShortDate(cycle.end)}
           </span>
         </div>
@@ -475,7 +475,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
             {assigneeBreakdown.map(a => (
               <div key={a.name} className="flex items-center gap-2">
                 {a.name === 'Unassigned' ? (
-                  <div className="w-5 h-5 rounded-full bg-[var(--color-bg-hover)] flex items-center justify-center shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-[var(--color-hover-surface)] flex items-center justify-center shrink-0">
                     <svg className="w-3 h-3 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
                       <circle cx="8" cy="6" r="2.5" />
                       <path d="M3.5 13.5C4 11 5.8 9.5 8 9.5s4 1.5 4.5 4" strokeLinecap="round" />
@@ -563,7 +563,7 @@ export default function Cycles({ issues, onIssueClick, onRefresh: _onRefresh, se
         <div>
           <h3 className="text-sm font-medium text-[var(--color-text-primary)]">No cycles configured</h3>
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            Run <code className="px-1.5 py-0.5 bg-[var(--color-bg-secondary)] rounded text-xs font-mono">xpo cycle init</code> to set up iterations.
+            Run <code className="px-1.5 py-0.5 bg-[var(--color-surface-1)] rounded text-xs font-mono">xpo cycle init</code> to set up iterations.
           </p>
         </div>
       </div>

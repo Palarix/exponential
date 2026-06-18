@@ -23,7 +23,7 @@ const GRID_STYLE = {
 
 const TOOLTIP_STYLE = {
   contentStyle: {
-    background: "var(--color-bg-elevated)",
+    background: "var(--color-surface-2)",
     border: "1px solid var(--color-border-default)",
     borderRadius: "var(--radius-md)",
     fontSize: 12,
@@ -74,7 +74,7 @@ export function DistributionBar({ median, p75, p90, max, unit = "d" }: {
 
   return (
     <div className="mt-2">
-      <div className="relative h-3 rounded-full overflow-hidden bg-[var(--color-bg-tertiary)]">
+      <div className="relative h-3 rounded-full overflow-hidden bg-[var(--color-surface-1)]">
         {/* Green: 0 → p50 */}
         <div className="absolute inset-y-0 left-0 bg-[var(--color-success)]" style={{ width: `${pct(median)}%` }} />
         {/* Amber: p50 → p75 */}

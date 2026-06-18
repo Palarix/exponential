@@ -7,7 +7,7 @@ export default function SubProgress({ done, total }: { done: number; total: numb
         cy="8"
         r="6"
         fill="none"
-        stroke="var(--color-bg-tertiary)"
+        stroke="var(--color-surface-1)"
         strokeWidth="2"
       />
       <circle

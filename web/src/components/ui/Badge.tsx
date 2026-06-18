@@ -20,13 +20,13 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: "bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]",
+  default: "bg-[var(--color-surface-1)] text-[var(--color-text-secondary)]",
   success: "bg-[var(--color-success-bg)] text-[var(--color-success)]",
   warning: "bg-[var(--color-warning-bg)] text-[var(--color-warning)]",
   error: "bg-[var(--color-error-bg)] text-[var(--color-error)]",
   info: "bg-[var(--color-info-bg)] text-[var(--color-info)]",
-  backlog: "bg-[var(--color-bg-tertiary)] text-[var(--color-status-backlog)]",
-  planned: "bg-[var(--color-bg-tertiary)] text-[var(--color-status-planned)]",
+  backlog: "bg-[var(--color-surface-1)] text-[var(--color-status-backlog)]",
+  planned: "bg-[var(--color-surface-1)] text-[var(--color-status-planned)]",
   doing: "bg-[var(--color-warning-bg)] text-[var(--color-status-doing)]",
   blocked: "bg-[var(--color-error-bg)] text-[var(--color-status-blocked)]",
   done: "bg-[var(--color-success-bg)] text-[var(--color-status-done)]",
