@@ -2,57 +2,39 @@ import { useEffect, useRef } from "react";
 
 interface SSEOptions {
   onEvent: () => void;
-  fallbackInterval?: number;
 }
 
-export function useSSE({ onEvent, fallbackInterval = 30000 }: SSEOptions) {
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const fallbackRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export function useSSE({ onEvent }: SSEOptions) {
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   useEffect(() => {
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
     const connect = () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+      es = new EventSource("/api/events");
 
-      const es = new EventSource("/api/events");
-      eventSourceRef.current = es;
-
-      es.onopen = () => {
-        // Keep fallback polling active even when SSE is connected.
-        // SSE only broadcasts changes made through the HTTP handlers;
-        // external changes (CLI, MCP) write directly to issues.db
-        // and need polling to be picked up.
-      };
-
-      const handleEvent = () => onEvent();
+      const handleEvent = () => onEventRef.current();
       es.addEventListener("issue_created", handleEvent);
       es.addEventListener("issue_updated", handleEvent);
       es.addEventListener("issue_deleted", handleEvent);
       es.addEventListener("issue_merged", handleEvent);
       es.addEventListener("issue_commented", handleEvent);
+      es.addEventListener("refresh", handleEvent);
 
       es.onerror = () => {
-        es.close();
-        eventSourceRef.current = null;
-        if (!fallbackRef.current) {
-          fallbackRef.current = setInterval(onEvent, fallbackInterval);
-        }
-        setTimeout(connect, 5000);
+        es?.close();
+        es = null;
+        reconnectTimer = setTimeout(connect, 5000);
       };
     };
 
     connect();
-    fallbackRef.current = setInterval(onEvent, fallbackInterval);
 
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      if (fallbackRef.current) {
-        clearInterval(fallbackRef.current);
-      }
+      clearTimeout(reconnectTimer);
+      es?.close();
     };
-  }, [onEvent, fallbackInterval]);
+  }, []);
 }

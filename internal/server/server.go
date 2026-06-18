@@ -84,13 +84,13 @@ func (s *Server) Bind() (net.Listener, error) {
 
 // ServeOn serves HTTP on the provided listener. Use after Bind.
 func (s *Server) ServeOn(l net.Listener) error {
+	s.WatchDB()
 	mux := s.SetupRoutes()
 	log.Printf("Starting xpo board server on http://localhost:%d", s.Port)
 	server := &http.Server{
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Handler:     mux,
+		ReadTimeout: 15 * time.Second,
+		IdleTimeout: 60 * time.Second,
 	}
 	return server.Serve(l)
 }

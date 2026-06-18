@@ -49,7 +49,6 @@ func (h *SSEHub) Broadcast(evt SSEEvent) {
 		select {
 		case ch <- evt:
 		default:
-			// Drop if client is slow
 		}
 	}
 }
@@ -101,6 +100,8 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 				eventName = "issue_merged"
 			case "COMMENT":
 				eventName = "issue_commented"
+			case "REFRESH":
+				eventName = "refresh"
 			}
 			fmt.Fprintf(w, "event: %s\ndata: {\"issue_id\":%q,\"type\":%q,\"timestamp\":%q}\n\n",
 				eventName, evt.IssueID, evt.Type, time.Now().UTC().Format(time.RFC3339))

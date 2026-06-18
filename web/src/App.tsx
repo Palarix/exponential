@@ -273,7 +273,7 @@ function App() {
     fetchInboxData();
   }, [fetchData, fetchInboxData]);
 
-  useSSE({ onEvent: handleSSEEvent, fallbackInterval: 30000 });
+  useSSE({ onEvent: handleSSEEvent });
 
   const handleIssueClick = (issue: Issue) => {
     setSelectedIssueId(issue.id);
