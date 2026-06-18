@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 		cfg, err = config.LoadConfig()
 		if err != nil {
 			// If config fails to load, we only allow certain commands
-			allowed := []string{"init", "help", "version", "doctor", "login", "logout", "whoami"}
+			allowed := []string{"init", "help", "version", "doctor", "login", "logout", "whoami", "demo"}
 			for _, a := range allowed {
 				if cmd.Name() == a {
 					return nil
@@ -36,7 +36,7 @@ var rootCmd = &cobra.Command{
 
 		// Check Data Model Version
 		// Exceptions: commands that don't need strict version match or are used to fix it
-		exceptions := []string{"init", "help", "version", "doctor", "migrate", "login", "logout", "whoami", "serve"}
+		exceptions := []string{"init", "help", "version", "doctor", "migrate", "login", "logout", "whoami", "serve", "demo"}
 		for _, ex := range exceptions {
 			if cmd.Name() == ex {
 				return nil

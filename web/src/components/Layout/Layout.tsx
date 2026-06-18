@@ -284,18 +284,16 @@ export default function Layout({
               className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
               title="Expand sidebar"
             >
-              <img src="/logo-light.svg" alt="Exponential" className="w-5 h-5 opacity-80" />
+              <img src="/xpo.svg" alt="Exponential" className="w-5 h-5 opacity-80" />
             </button>
           ) : (
             <>
               <img
-                src="/logo-light.svg"
+                src="/xpo.svg"
                 alt="Exponential"
                 className="w-5 h-5 opacity-80"
               />
-              <span className="font-semibold text-[var(--color-text-primary)] text-base tracking-tight flex-1">
-                Exponential
-              </span>
+              <div className="flex-1" />
               <button
                 onClick={onSearch}
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
