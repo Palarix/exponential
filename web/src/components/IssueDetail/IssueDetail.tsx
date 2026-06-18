@@ -291,7 +291,7 @@ export default function IssueDetail({
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main content */}
-        <div className="flex-1 overflow-y-auto min-w-0" style={{ scrollbarGutter: "stable" }}>
+        <div className="flex-1 overflow-y-auto min-w-0">
           <div className="max-w-4xl mx-auto px-8 py-12">
             {/* Title */}
             {editingField === "title" ? (

@@ -60,7 +60,7 @@ export default function DistributionSection({
             </p>
           </div>
         ) : (
-          <div className="space-y-2 h-40 overflow-y-auto auto-hide-scrollbar">
+          <div className="space-y-2 h-40 overflow-y-auto overscroll-contain pr-2">
             {rows.map(({ key, label, count, pct, barWidth }) => (
               <div key={key} className="flex items-center gap-2 h-6">
                 <div className="flex-1 min-w-0">{label}</div>

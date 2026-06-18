@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Tell browsers this is a dark UI so native controls
+   (scrollbars, form elements) render in dark mode. */
+:root {
+  color-scheme: dark;
+}
+
 /* ========================================
    EXPONENTIAL DESIGN SYSTEM — LINEAR-INSPIRED
    ======================================== */
@@ -97,11 +103,6 @@ body {
   background: var(--color-bg-primary);
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-default) transparent;
-}
-
 *::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -118,6 +119,13 @@ body {
 
 *::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+@supports (scrollbar-color: auto) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-default) transparent;
+  }
 }
 
 /* ========================================
@@ -387,28 +395,6 @@ body {
 }
 
 /* ========================================
-   SCROLLBAR
-   ======================================== */
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* ========================================
    FOCUS STATES
    ======================================== */
 
@@ -426,15 +412,3 @@ body {
   color: var(--color-text-primary);
 }
 
-/* ========================================
-   AUTO-HIDE SCROLLBAR
-   ======================================== */
-
-.auto-hide-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.auto-hide-scrollbar:hover {
-  scrollbar-color: var(--color-border-default) transparent;
-}
