@@ -17,6 +17,7 @@ import type { Issue } from "../../api/client";
 import {
   Avatar,
   EmptyState,
+  EstimateBadge,
   LabelBadge,
   StatusIcon,
   PriorityIcon,
@@ -118,7 +119,9 @@ export default function Backlog({
     y: number;
   } | null>(null);
   const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
-  const [showStoryPoints, setShowStoryPoints] = useState(() => localStorage.getItem("exponential-backlog-show-points") === "true");
+  const [showStoryPoints, setShowStoryPoints] = useState(
+    () => localStorage.getItem("exponential-backlog-show-points") === "true",
+  );
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const showFilterMenuRef = useRef(showFilterMenu);
   showFilterMenuRef.current = showFilterMenu;
@@ -128,11 +131,13 @@ export default function Backlog({
   const inlineRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchCycles().then(data => {
-      if (data.enabled && data.cycles) {
-        setCycleMap(new Map(data.cycles.map(c => [c.id, c.number])));
-      }
-    }).catch(() => {});
+    fetchCycles()
+      .then((data) => {
+        if (data.enabled && data.cycles) {
+          setCycleMap(new Map(data.cycles.map((c) => [c.id, c.number])));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleInlineCreate = useCallback(
@@ -178,7 +183,11 @@ export default function Backlog({
         : [...current, label];
       await addDraft(issue.id, "UPDATE", { labels });
       onRefresh();
-      showToast(current.includes(label) ? `Removed label "${label}"` : `Added label "${label}"`);
+      showToast(
+        current.includes(label)
+          ? `Removed label "${label}"`
+          : `Added label "${label}"`,
+      );
     },
     [onRefresh, showToast],
   );
@@ -207,20 +216,33 @@ export default function Backlog({
   const query = search.toLowerCase();
   const filteredIssues = issues.filter((i) => {
     if (!visibleStatuses.includes(i.status)) return false;
-    if (query && !(
-      i.title.toLowerCase().includes(query) ||
-      i.id.toLowerCase().includes(query) ||
-      i.labels?.some((l) => l.toLowerCase().includes(query))
-    )) return false;
-    if (filters.statuses.length > 0 && !filters.statuses.includes(i.status)) return false;
-    if (filters.labels.length > 0 && !filters.labels.some((l) => i.labels?.includes(l))) return false;
+    if (
+      query &&
+      !(
+        i.title.toLowerCase().includes(query) ||
+        i.id.toLowerCase().includes(query) ||
+        i.labels?.some((l) => l.toLowerCase().includes(query))
+      )
+    )
+      return false;
+    if (filters.statuses.length > 0 && !filters.statuses.includes(i.status))
+      return false;
+    if (
+      filters.labels.length > 0 &&
+      !filters.labels.some((l) => i.labels?.includes(l))
+    )
+      return false;
     if (filters.assignees.length > 0) {
       const match = i.assignee
         ? filters.assignees.includes(i.assignee)
         : filters.assignees.includes("__unassigned__");
       if (!match) return false;
     }
-    if (filters.priorities.length > 0 && !filters.priorities.includes(i.priority || 0)) return false;
+    if (
+      filters.priorities.length > 0 &&
+      !filters.priorities.includes(i.priority || 0)
+    )
+      return false;
     if (filters.epicId && i.parent_id !== filters.epicId) return false;
     return true;
   });
@@ -392,7 +414,10 @@ export default function Backlog({
         const last = groupIssues[groupIssues.length - 1];
         const lastKey = last?.sort_order || null;
         const newKey = generateKeyBetween(lastKey, null);
-        await addDraft(droppedId, "UPDATE", { status: groupTarget, sort_order: newKey });
+        await addDraft(droppedId, "UPDATE", {
+          status: groupTarget,
+          sort_order: newKey,
+        });
         onRefresh();
         return;
       }
@@ -408,7 +433,13 @@ export default function Backlog({
         update.parent_id = targetParentId;
         const siblings = issues
           .filter((i) => i.parent_id === targetParentId)
-          .sort((a, b) => (a.sort_order || '') < (b.sort_order || '') ? -1 : (a.sort_order || '') > (b.sort_order || '') ? 1 : 0);
+          .sort((a, b) =>
+            (a.sort_order || "") < (b.sort_order || "")
+              ? -1
+              : (a.sort_order || "") > (b.sort_order || "")
+                ? 1
+                : 0,
+          );
         const withoutDragged = siblings.filter((i) => i.id !== droppedId);
         let insertIdx = withoutDragged.findIndex(
           (i) => i.id === targetRow.issue.id,
@@ -593,7 +624,10 @@ export default function Backlog({
       // Cross-group without meta key: no indicator (group highlight handled by onDragOver)
       const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
       const targetStatus = getRowStatusGroup(overRowIndex);
-      if (draggedStatus !== targetStatus && !(modifiersRef.current.meta || modifiersRef.current.ctrl)) {
+      if (
+        draggedStatus !== targetStatus &&
+        !(modifiersRef.current.meta || modifiersRef.current.ctrl)
+      ) {
         setDropIndicator(null);
         return;
       }
@@ -631,12 +665,7 @@ export default function Backlog({
       const nestTarget = dropNestTargetId;
       resetDropState();
       if (!groupTarget && !indicatorTarget && !nestTarget) return;
-      await performDrop(
-        droppedId,
-        groupTarget,
-        indicatorTarget,
-        nestTarget,
-      );
+      await performDrop(droppedId, groupTarget, indicatorTarget, nestTarget);
     },
     [
       dropGroupStatus,
@@ -813,9 +842,36 @@ export default function Backlog({
         description="Your backlog is empty. Create an issue to start tracking work for your project."
         icon={
           <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
-            <rect x="30" y="20" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <rect x="30" y="42" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <rect x="30" y="64" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <rect
+              x="30"
+              y="20"
+              width="100"
+              height="14"
+              rx="4"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+              strokeDasharray="4 3"
+            />
+            <rect
+              x="30"
+              y="42"
+              width="100"
+              height="14"
+              rx="4"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+              strokeDasharray="4 3"
+            />
+            <rect
+              x="30"
+              y="64"
+              width="100"
+              height="14"
+              rx="4"
+              stroke="var(--color-text-muted)"
+              strokeWidth="1.5"
+              strokeDasharray="4 3"
+            />
             <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
           </svg>
         }
@@ -880,8 +936,18 @@ export default function Backlog({
               onClick={() => setShowFilterMenu((v) => !v)}
               className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] transition-colors relative"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                />
               </svg>
               Filter
               {hasActiveFilters(filters) && (
@@ -1041,18 +1107,37 @@ export default function Backlog({
                           className="text-sm text-[var(--color-text-muted)] tabular-nums cursor-pointer hover:text-[var(--color-text-secondary)] transition-colors inline-flex items-center gap-1 h-5"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setShowStoryPoints((v) => { const next = !v; localStorage.setItem("exponential-backlog-show-points", String(next)); return next; });
+                            setShowStoryPoints((v) => {
+                              const next = !v;
+                              localStorage.setItem(
+                                "exponential-backlog-show-points",
+                                String(next),
+                              );
+                              return next;
+                            });
                           }}
-                          title={showStoryPoints ? "Story points — click for issue count" : "Issue count — click for story points"}
+                          title={
+                            showStoryPoints
+                              ? "Story points — click for issue count"
+                              : "Issue count — click for story points"
+                          }
                         >
                           <span className="w-3.5 shrink-0 inline-flex items-center justify-center">
                             {showStoryPoints ? (
-                              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="currentColor"><path d="M6 1L11 11H1z" /></svg>
+                              <svg
+                                className="w-3 h-3"
+                                viewBox="0 0 12 12"
+                                fill="currentColor"
+                              >
+                                <path d="M6 1L11 11H1z" />
+                              </svg>
                             ) : (
                               <span className="font-medium">#</span>
                             )}
                           </span>
-                          {showStoryPoints ? groupRow.storyPoints : groupRow.count}
+                          {showStoryPoints
+                            ? groupRow.storyPoints
+                            : groupRow.count}
                         </span>
                         <button
                           onClick={(e) => {
@@ -1249,14 +1334,22 @@ export default function Backlog({
                                   }
                                   className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
                                 >
-                                  <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
+                                  <StatusIcon
+                                    status={issue.status}
+                                    size={14}
+                                    isInferred={issue.is_inferred}
+                                  />
                                 </button>
                                 {openPopover?.issueId === issue.id &&
                                   openPopover?.type === "status" && (
-                                    <Popover onClose={() => setOpenPopover(null)}>
+                                    <Popover
+                                      onClose={() => setOpenPopover(null)}
+                                    >
                                       <StatusPicker
                                         current={issue.status}
-                                        onSelect={v => handleQuickStatus(issue.id, v)}
+                                        onSelect={(v) =>
+                                          handleQuickStatus(issue.id, v)
+                                        }
                                         onClose={() => setOpenPopover(null)}
                                       />
                                     </Popover>
@@ -1301,12 +1394,19 @@ export default function Backlog({
                                   {childDone}/{childTotal}
                                 </span>
                               )}
-                              {issue.branch_stats && issue.branch_stats.commits > 0 && (
-                                <span className="inline-flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums" title={`${issue.branch_stats.branch} — ${issue.branch_stats.commits} commit${issue.branch_stats.commits === 1 ? "" : "s"}, ${issue.branch_stats.files_changed} file${issue.branch_stats.files_changed === 1 ? "" : "s"}, +${issue.branch_stats.insertions} -${issue.branch_stats.deletions}`}>
-                                  <GitCommitVertical size={14} strokeWidth={1.5} />
-                                  {issue.branch_stats.commits}
-                                </span>
-                              )}
+                              {issue.branch_stats &&
+                                issue.branch_stats.commits > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums"
+                                    title={`${issue.branch_stats.branch} — ${issue.branch_stats.commits} commit${issue.branch_stats.commits === 1 ? "" : "s"}, ${issue.branch_stats.files_changed} file${issue.branch_stats.files_changed === 1 ? "" : "s"}, +${issue.branch_stats.insertions} -${issue.branch_stats.deletions}`}
+                                  >
+                                    <GitCommitVertical
+                                      size={14}
+                                      strokeWidth={1.5}
+                                    />
+                                    {issue.branch_stats.commits}
+                                  </span>
+                                )}
                               <div className="flex-1" />
                               {issue.is_pending && (
                                 <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
@@ -1356,12 +1456,28 @@ export default function Backlog({
                                   )}
                               </div>
                               {issue.cycle_id && (
-                                <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0" title={`Cycle ${cycleMap.get(issue.cycle_id) ?? issue.cycle_id}`}>
-                                  <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none">
-                                    <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
-                                    <path d="M7.5 5.5v9l7-4.5z" fill="currentColor" />
+                                <span
+                                  className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0"
+                                  title={`Cycle ${cycleMap.get(issue.cycle_id) ?? issue.cycle_id}`}
+                                >
+                                  <svg
+                                    className="w-3.5 h-3.5"
+                                    viewBox="0 0 20 20"
+                                    fill="none"
+                                  >
+                                    <circle
+                                      cx="10"
+                                      cy="10"
+                                      r="9"
+                                      stroke="currentColor"
+                                      strokeWidth="1.5"
+                                    />
+                                    <path
+                                      d="M7.5 5.5v9l7-4.5z"
+                                      fill="currentColor"
+                                    />
                                   </svg>
-                                  {cycleMap.get(issue.cycle_id) ?? ''}
+                                  {cycleMap.get(issue.cycle_id) ?? ""}
                                 </span>
                               )}
                               <div
@@ -1380,47 +1496,20 @@ export default function Backlog({
                                           },
                                     )
                                   }
-                                  className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums w-10 justify-end hover:opacity-70 transition-opacity"
+                                  className="flex items-center w-10 justify-end hover:opacity-70 transition-opacity"
                                 >
-                                  {(hasChildren ? childPointsTotal - childPointsDone : issue.estimate) > 0 ? (
-                                    <>
-                                      <svg
-                                        className="w-3 h-3"
-                                        viewBox="0 0 16 16"
-                                        fill="none"
-                                      >
-                                        <path
-                                          d="M8 2L14 14H2L8 2Z"
-                                          stroke="currentColor"
-                                          strokeWidth="1.5"
-                                          strokeLinejoin="round"
-                                        />
-                                      </svg>
-                                      {hasChildren ? childPointsTotal - childPointsDone : issue.estimate}
-                                    </>
-                                  ) : (
-                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <svg
-                                        className="w-3 h-3"
-                                        viewBox="0 0 16 16"
-                                        fill="none"
-                                      >
-                                        <path
-                                          d="M8 2L14 14H2L8 2Z"
-                                          stroke="currentColor"
-                                          strokeWidth="1.5"
-                                          strokeLinejoin="round"
-                                        />
-                                      </svg>
-                                    </span>
-                                  )}
+                                  <EstimateBadge value={hasChildren ? childPointsTotal - childPointsDone : issue.estimate} />
                                 </button>
                                 {openPopover?.issueId === issue.id &&
                                   openPopover?.type === "estimate" && (
-                                    <Popover onClose={() => setOpenPopover(null)}>
+                                    <Popover
+                                      onClose={() => setOpenPopover(null)}
+                                    >
                                       <EstimatePicker
                                         current={issue.estimate || 0}
-                                        onSelect={v => handleQuickEstimate(issue.id, v)}
+                                        onSelect={(v) =>
+                                          handleQuickEstimate(issue.id, v)
+                                        }
                                         onClose={() => setOpenPopover(null)}
                                       />
                                     </Popover>
@@ -1464,24 +1553,25 @@ export default function Backlog({
             : null}
         </DragOverlay>
       </DndContext>
-      {contextMenu && (() => {
-        const ctxIssue = issues.find(i => i.id === contextMenu.issueId);
-        if (!ctxIssue) return null;
-        return (
-          <ContextMenu
-            issue={ctxIssue}
-            issues={issues}
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onClose={() => setContextMenu(null)}
-            onRefresh={onRefresh}
-            allLabels={allKnownLabels}
-            contributors={contributors}
-            onConfigLabelsChange={onConfigLabelsChange}
-            patchIssue={patchIssue}
-          />
-        );
-      })()}
+      {contextMenu &&
+        (() => {
+          const ctxIssue = issues.find((i) => i.id === contextMenu.issueId);
+          if (!ctxIssue) return null;
+          return (
+            <ContextMenu
+              issue={ctxIssue}
+              issues={issues}
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onClose={() => setContextMenu(null)}
+              onRefresh={onRefresh}
+              allLabels={allKnownLabels}
+              contributors={contributors}
+              onConfigLabelsChange={onConfigLabelsChange}
+              patchIssue={patchIssue}
+            />
+          );
+        })()}
     </div>
   );
 }

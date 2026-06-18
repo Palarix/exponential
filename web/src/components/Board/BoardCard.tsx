@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
-import { Avatar, LabelBadge, PriorityIcon, SubProgress } from "../ui";
+import { Avatar, EstimateBadge, LabelBadge, PriorityIcon, SubProgress } from "../ui";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -103,14 +103,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
         {issue.is_pending && (
           <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
         )}
-        {issue.estimate > 0 && (
-          <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
-            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-              <path d="M8 2L14 14H2L8 2Z" />
-            </svg>
-            {issue.estimate}
-          </span>
-        )}
+        <EstimateBadge value={issue.estimate} />
         {issue.priority > 0 && <PriorityIcon priority={issue.priority} size={14} />}
         {issue.assignee && <Avatar name={issue.assignee} size="sm" />}
       </div>

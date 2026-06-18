@@ -12,6 +12,7 @@ export { default as Popover, PopoverHeader } from './Popover';
 export { default as LabelPicker } from './LabelPicker';
 export { default as StatusPicker } from './StatusPicker';
 export { default as PriorityPicker } from './PriorityPicker';
+export { default as EstimateBadge } from './EstimateBadge';
 export { default as EstimatePicker } from './EstimatePicker';
 export { default as ContextMenu } from './ContextMenu';
 export { default as SubProgress } from './SubProgress';
