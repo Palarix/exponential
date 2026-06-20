@@ -89,6 +89,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}, nil)
 	srv.MCPHandler = mcpHandler
 
+	srv.WatchDB()
+	srv.WatchGitRefs()
+
 	// Start listening
 	listener, err := net.Listen("tcp", serveAddr)
 	if err != nil {
