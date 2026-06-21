@@ -644,8 +644,9 @@ func (c *Client) pickIssue(opts DriveOptions) (*model.Issue, error) {
 	}
 
 	// Sort by priority (urgent first: 1=Urgent, 2=High, 3=Medium, 4=Low,
-	// 0=none goes last), then by estimate (lower first for tractability),
-	// then by board sort order, then by creation time.
+	// 0=none goes last), then by board order (sort_order), then by
+	// creation time. Board order is primary within the same priority —
+	// the user arranged issues in the order they want them worked.
 	sort.SliceStable(eligible, func(i, j int) bool {
 		pi, pj := eligible[i].Priority, eligible[j].Priority
 		if pi != pj {
@@ -656,9 +657,6 @@ func (c *Client) pickIssue(opts DriveOptions) (*model.Issue, error) {
 				return true
 			}
 			return pi < pj
-		}
-		if eligible[i].Estimate != eligible[j].Estimate {
-			return eligible[i].Estimate < eligible[j].Estimate
 		}
 		if eligible[i].SortOrder != eligible[j].SortOrder {
 			return eligible[i].SortOrder < eligible[j].SortOrder
