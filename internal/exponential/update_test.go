@@ -133,6 +133,77 @@ func TestUpdateIssue_FirstStartSkipsDoingParent(t *testing.T) {
 	}
 }
 
+func TestUpdateIssue_LastCompletedTrigger(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.LastCompleted = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	child1, _ := tr.AddIssue(model.CreatePayload{Title: "story1", ParentID: parent.ID, Status: "DONE"})
+	_ = child1
+	child2, _ := tr.AddIssue(model.CreatePayload{Title: "story2", ParentID: parent.ID, Status: "DOING"})
+
+	msgs, err := tr.UpdateIssue(child2.ID, model.UpdatePayload{Status: sp("DONE")}, "done")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDone {
+		t.Errorf("parent status = %s, want DONE (last-completed trigger)", issues[parent.ID].Status)
+	}
+
+	autoCompleted := false
+	for _, m := range msgs {
+		if strings.Contains(m, "Auto-completed parent") {
+			autoCompleted = true
+		}
+	}
+	if !autoCompleted {
+		t.Errorf("expected auto-completed message, got: %v", msgs)
+	}
+}
+
+func TestUpdateIssue_LastCompletedNotLastChild(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.LastCompleted = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	child1, _ := tr.AddIssue(model.CreatePayload{Title: "story1", ParentID: parent.ID, Status: "DOING"})
+	tr.AddIssue(model.CreatePayload{Title: "story2", ParentID: parent.ID, Status: "PLANNED"})
+
+	tr.UpdateIssue(child1.ID, model.UpdatePayload{Status: sp("DONE")}, "done")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDoing {
+		t.Errorf("parent status = %s, want DOING (not all children done)", issues[parent.ID].Status)
+	}
+}
+
+func TestUpdateIssue_LastCompletedOff(t *testing.T) {
+	tr := setupLocalTransport(t)
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	child, _ := tr.AddIssue(model.CreatePayload{Title: "story", ParentID: parent.ID, Status: "DOING"})
+
+	tr.UpdateIssue(child.ID, model.UpdatePayload{Status: sp("DONE")}, "done")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDoing {
+		t.Errorf("parent status = %s, want DOING (last_completed disabled)", issues[parent.ID].Status)
+	}
+}
+
+func TestUpdateIssue_LastCompletedSkipsPlannedParent(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.LastCompleted = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "PLANNED"})
+	child, _ := tr.AddIssue(model.CreatePayload{Title: "story", ParentID: parent.ID, Status: "DOING"})
+
+	tr.UpdateIssue(child.ID, model.UpdatePayload{Status: sp("DONE")}, "done")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusPlanned {
+		t.Errorf("parent status = %s, want PLANNED (trigger only fires when parent is DOING)", issues[parent.ID].Status)
+	}
+}
+
 func TestUpdateIssue_NonStatusFields(t *testing.T) {
 	tr := setupLocalTransport(t)
 	issue, _ := tr.AddIssue(model.CreatePayload{Title: "original", Estimate: 3})

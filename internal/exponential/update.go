@@ -106,6 +106,35 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 				}
 			}
 		}
+
+		// --- Last-completed trigger: parent auto-closes when last child is done ---
+		if t.Config.Automations.LastCompleted && targetIssue.ParentID != "" && newStatus == model.StatusDone {
+			parent, pExists := issues[targetIssue.ParentID]
+			if pExists && !parent.Deleted && parent.Status == model.StatusDoing {
+				allDone := true
+				for _, sibling := range issues {
+					if sibling.ParentID != parent.ID || sibling.Deleted || sibling.ID == id {
+						continue
+					}
+					if sibling.Status != model.StatusDone {
+						allDone = false
+						break
+					}
+				}
+				if allDone {
+					parentStatus := string(model.StatusDone)
+					parentEvent := model.Event{
+						ID:        parent.ID,
+						Type:      model.EventTypeUpdate,
+						Payload:   model.UpdatePayload{Status: &parentStatus},
+						CreatedAt: timestamp,
+						CreatedBy: user,
+					}
+					eventsToAppend = append(eventsToAppend, parentEvent)
+					messages = append(messages, fmt.Sprintf("Auto-completed parent %s", parent.ID))
+				}
+			}
+		}
 	}
 
 	// 4. Commit Changes
