@@ -110,7 +110,7 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 		// --- Last-completed trigger: parent auto-closes when last child is done ---
 		if t.Config.Automations.LastCompleted && targetIssue.ParentID != "" && newStatus == model.StatusDone {
 			parent, pExists := issues[targetIssue.ParentID]
-			if pExists && !parent.Deleted && parent.Status == model.StatusDoing {
+			if pExists && !parent.Deleted && parent.Status != model.StatusDone {
 				allDone := true
 				for _, sibling := range issues {
 					if sibling.ParentID != parent.ID || sibling.Deleted || sibling.ID == id {

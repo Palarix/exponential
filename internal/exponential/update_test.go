@@ -190,7 +190,7 @@ func TestUpdateIssue_LastCompletedOff(t *testing.T) {
 	}
 }
 
-func TestUpdateIssue_LastCompletedSkipsPlannedParent(t *testing.T) {
+func TestUpdateIssue_LastCompletedFiresForPlannedParent(t *testing.T) {
 	tr := setupLocalTransport(t)
 	tr.Config.Automations.LastCompleted = true
 	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "PLANNED"})
@@ -199,8 +199,8 @@ func TestUpdateIssue_LastCompletedSkipsPlannedParent(t *testing.T) {
 	tr.UpdateIssue(child.ID, model.UpdatePayload{Status: sp("DONE")}, "done")
 
 	issues := readAllIssues(t)
-	if issues[parent.ID].Status != model.StatusPlanned {
-		t.Errorf("parent status = %s, want PLANNED (trigger only fires when parent is DOING)", issues[parent.ID].Status)
+	if issues[parent.ID].Status != model.StatusDone {
+		t.Errorf("parent status = %s, want DONE (last child completed)", issues[parent.ID].Status)
 	}
 }
 
