@@ -120,6 +120,17 @@ xpo review <id>                         # unified diff from the terminal
 xpo merge <id>                          # squash-merge + close
 ```
 
+### Autonomous agent loop
+
+```bash
+xpo drive                               # pick next PLANNED ticket + implement
+xpo drive --dry-run                     # preview which ticket would be picked
+xpo drive --id <id>                     # drive a specific ticket
+xpo drive --no-merge                    # skip merge, leave branch for review
+xpo drive --resume                      # pick up an in-progress ticket
+xpo drive --supervisor claude --coder claude  # override agents
+```
+
 ### Inbox
 
 ```bash
@@ -280,12 +291,18 @@ contributors:
   - "Alice <alice@example.com>"
   - "Bob <bob@example.com>"
 
-# Automatic state propagation between parent and child issues (all default to true)
+# Automatic state propagation between parent and child issues (both default to true)
 automations:
-  auto_complete_parent: false       # move parent to DONE when all children are DONE
-  auto_close_sub_issues: false      # move children to DONE when parent moves to DONE
-  auto_progress_sub_issues: false   # advance children when parent moves forward
-  auto_progress_parent: false       # advance parent when a child moves forward
+  first_start: true       # when any child starts (→ DOING), move parent to DOING
+  last_completed: true     # when last child is DONE and parent is DOING, move parent to DONE
+
+# Autonomous agent execution loop (xpo drive)
+drive:
+  supervisor: claude       # agent for evaluation steps (spec, context, review, summary)
+  coder: claude            # agent for implementation step
+  max_retries: 3           # max implementation attempts before blocking
+  test_cmd: make test      # test command (optional — supervisor detects if omitted)
+  timeout: 30m             # max wall-clock time for a single drive run
 
 # Role-based permissions (only enforced in distributed / server mode).
 # When this block is absent, all operations are allowed.
