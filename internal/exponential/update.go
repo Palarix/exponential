@@ -3,11 +3,13 @@ package exponential
 import (
 	"fmt"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/sortorder"
 	"github.com/palarix/exponential/internal/storage"
 )
 
@@ -41,6 +43,28 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 	}
 	eventsToAppend = append(eventsToAppend, primaryEvent)
 	messages = append(messages, fmt.Sprintf("Updated %s", id))
+
+	// Auto-assign sort_order when status changes and no explicit sort_order is set
+	if payload.Status != nil && payload.SortOrder == nil {
+		newStatus := model.IssueStatus(*payload.Status)
+		if newStatus != targetIssue.Status {
+			var keys []string
+			for _, iss := range issues {
+				if iss.Status == newStatus && iss.SortOrder != "" {
+					keys = append(keys, iss.SortOrder)
+				}
+			}
+			sort.Strings(keys)
+			lastKey := ""
+			if len(keys) > 0 {
+				lastKey = keys[len(keys)-1]
+			}
+			if key, err := sortorder.GenerateKeyBetween(lastKey, ""); err == nil {
+				payload.SortOrder = &key
+				primaryEvent.Payload = payload
+			}
+		}
+	}
 
 	// 3. Logic & Side Effects based on Status Change
 	if payload.Status != nil {
