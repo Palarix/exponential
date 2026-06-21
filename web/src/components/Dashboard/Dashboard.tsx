@@ -274,7 +274,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   </div>
                 </div>
                 <p className="text-xs text-[var(--color-text-muted)] pt-3 flex items-center gap-1">
-                  pts last 7d
+                  pts last week
                   {metrics && metrics.velocity.delta !== 0 && (
                     <span className={`inline-flex items-center gap-0.5 ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
                       {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}

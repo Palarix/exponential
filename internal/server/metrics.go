@@ -148,8 +148,11 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	var m pulseMetrics
 	m.WIP.StaleThresholdDays = staleWipDays
 
-	last7dStart := now.AddDate(0, 0, -7)
-	prior7dStart := now.AddDate(0, 0, -14)
+	// Calendar-week boundaries for velocity/throughput comparison.
+	// "Last week" = most recent completed Mon–Sun; "prior week" = the one before.
+	thisWeekStart := startOfWeek(now)
+	lastWeekStart := thisWeekStart.AddDate(0, 0, -7)
+	priorWeekStart := thisWeekStart.AddDate(0, 0, -14)
 
 	// Pre-build 8 weekly buckets (oldest → newest, ending on the current week).
 	bucketsByKey := make(map[string]int)
@@ -216,10 +219,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		if doneAt != nil {
 			_, isParent := parentIDs[issue.ID]
 			if !isParent {
-				if doneAt.After(last7dStart) {
+				if !doneAt.Before(lastWeekStart) && doneAt.Before(thisWeekStart) {
 					m.Throughput.Last7d++
 					m.Velocity.Last7dPoints += points
-				} else if doneAt.After(prior7dStart) {
+				} else if !doneAt.Before(priorWeekStart) && doneAt.Before(lastWeekStart) {
 					m.Throughput.Prior7d++
 					m.Velocity.Prior7dPoints += points
 				}

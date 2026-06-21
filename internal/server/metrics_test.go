@@ -101,32 +101,37 @@ func TestMetrics_Blockers(t *testing.T) {
 }
 
 func TestMetrics_Throughput(t *testing.T) {
-	now := time.Now()
+	// Use a fixed Wednesday so calendar-week boundaries are predictable.
+	now := time.Date(2026, 6, 17, 12, 0, 0, 0, time.Local) // Wednesday
+	lastWeekWed := now.AddDate(0, 0, -7)                     // last Wed = inside last completed week
+	priorWeekWed := now.AddDate(0, 0, -14)                   // two weeks ago = inside prior week
 	issues := map[string]*model.Issue{
-		"a": makeMetricIssue("a", model.StatusDone, withUpdatedAt(now.Add(-2*24*time.Hour))),
-		"b": makeMetricIssue("b", model.StatusDone, withUpdatedAt(now.Add(-10*24*time.Hour))),
+		"a": makeMetricIssue("a", model.StatusDone, withUpdatedAt(lastWeekWed)),
+		"b": makeMetricIssue("b", model.StatusDone, withUpdatedAt(priorWeekWed)),
 		"c": makeMetricIssue("c", model.StatusDoing),
 	}
 
 	m := computePulseMetrics(issues, now)
 	if m.Throughput.Last7d != 1 {
-		t.Errorf("throughput last 7d = %d, want 1 (only a)", m.Throughput.Last7d)
+		t.Errorf("throughput last week = %d, want 1 (only a)", m.Throughput.Last7d)
 	}
 }
 
 func TestMetrics_Velocity(t *testing.T) {
-	now := time.Now()
+	now := time.Date(2026, 6, 17, 12, 0, 0, 0, time.Local) // Wednesday
+	lastWeekWed := now.AddDate(0, 0, -7)
+	priorWeekWed := now.AddDate(0, 0, -14)
 	issues := map[string]*model.Issue{
-		"a": makeMetricIssue("a", model.StatusDone, withEstimate(3), withUpdatedAt(now.Add(-2*24*time.Hour))),
-		"b": makeMetricIssue("b", model.StatusDone, withEstimate(5), withUpdatedAt(now.Add(-10*24*time.Hour))),
+		"a": makeMetricIssue("a", model.StatusDone, withEstimate(3), withUpdatedAt(lastWeekWed)),
+		"b": makeMetricIssue("b", model.StatusDone, withEstimate(5), withUpdatedAt(priorWeekWed)),
 	}
 
 	m := computePulseMetrics(issues, now)
 	if m.Velocity.Last7dPoints != 3 {
-		t.Errorf("velocity last 7d = %d, want 3 (only a)", m.Velocity.Last7dPoints)
+		t.Errorf("velocity last week = %d, want 3 (only a)", m.Velocity.Last7dPoints)
 	}
 	if m.Velocity.Prior7dPoints != 5 {
-		t.Errorf("velocity prior 7d = %d, want 5 (only b)", m.Velocity.Prior7dPoints)
+		t.Errorf("velocity prior week = %d, want 5 (only b)", m.Velocity.Prior7dPoints)
 	}
 }
 
@@ -306,19 +311,34 @@ func TestMetrics_BugAge(t *testing.T) {
 }
 
 func TestMetrics_VelocityExcludesParents(t *testing.T) {
-	now := time.Now()
+	now := time.Date(2026, 6, 17, 12, 0, 0, 0, time.Local) // Wednesday
+	lastWeekTue := now.AddDate(0, 0, -8)
 	issues := map[string]*model.Issue{
-		"epic": makeMetricIssue("epic", model.StatusDone, withLabels("epic"), withEstimate(0), withUpdatedAt(now.Add(-1*time.Hour))),
-		"c1":   makeMetricIssue("c1", model.StatusDone, withParent("epic"), withEstimate(5), withUpdatedAt(now.Add(-2*time.Hour))),
-		"c2":   makeMetricIssue("c2", model.StatusDone, withParent("epic"), withEstimate(8), withUpdatedAt(now.Add(-3*time.Hour))),
+		"epic": makeMetricIssue("epic", model.StatusDone, withLabels("epic"), withEstimate(0), withUpdatedAt(lastWeekTue)),
+		"c1":   makeMetricIssue("c1", model.StatusDone, withParent("epic"), withEstimate(5), withUpdatedAt(lastWeekTue)),
+		"c2":   makeMetricIssue("c2", model.StatusDone, withParent("epic"), withEstimate(8), withUpdatedAt(lastWeekTue)),
 	}
 
 	m := computePulseMetrics(issues, now)
 	if m.Velocity.Last7dPoints != 13 {
-		t.Errorf("velocity last 7d = %d, want 13 (children only, not parent)", m.Velocity.Last7dPoints)
+		t.Errorf("velocity last week = %d, want 13 (children only, not parent)", m.Velocity.Last7dPoints)
 	}
 	if m.Throughput.Last7d != 2 {
-		t.Errorf("throughput last 7d = %d, want 2 (children only)", m.Throughput.Last7d)
+		t.Errorf("throughput last week = %d, want 2 (children only)", m.Throughput.Last7d)
+	}
+}
+
+func TestMetrics_VelocityExcludesCurrentWeek(t *testing.T) {
+	now := time.Date(2026, 6, 17, 12, 0, 0, 0, time.Local) // Wednesday
+	lastWeekWed := now.AddDate(0, 0, -7)
+	issues := map[string]*model.Issue{
+		"this_week": makeMetricIssue("this_week", model.StatusDone, withEstimate(10), withUpdatedAt(now.Add(-1*time.Hour))),
+		"last_week": makeMetricIssue("last_week", model.StatusDone, withEstimate(3), withUpdatedAt(lastWeekWed)),
+	}
+
+	m := computePulseMetrics(issues, now)
+	if m.Velocity.Last7dPoints != 3 {
+		t.Errorf("velocity last week = %d, want 3 (current week excluded)", m.Velocity.Last7dPoints)
 	}
 }
 
