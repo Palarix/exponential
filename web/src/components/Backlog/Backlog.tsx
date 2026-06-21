@@ -30,6 +30,7 @@ import {
   ContextMenu,
   useToast,
   ChevronRightIcon,
+  Modal,
 } from "../ui";
 import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
@@ -158,14 +159,62 @@ export default function Backlog({
     [onRefresh, issues],
   );
 
+  const STATUS_LABELS: Record<string, string> = {
+    BACKLOG: "Backlog",
+    PLANNED: "Planned",
+    DOING: "In Progress",
+    BLOCKED: "Blocked",
+    DONE: "Done",
+  };
+
+  const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
+    issueId: string;
+    title: string;
+    status: string;
+    children: { id: string; title: string; status: string }[];
+  } | null>(null);
+
+  const applyStatusChange = useCallback(
+    async (issueId: string, status: string, includeChildren: boolean) => {
+      await addDraft(issueId, "UPDATE", { status });
+      if (includeChildren) {
+        const children = issues.filter(
+          (i) => i.parent_id === issueId && i.status !== status,
+        );
+        for (const child of children) {
+          await addDraft(child.id, "UPDATE", { status });
+        }
+      }
+      onRefresh();
+    },
+    [issues, onRefresh],
+  );
+
   const handleQuickStatus = useCallback(
     async (issueId: string, status: string) => {
-      await addDraft(issueId, "UPDATE", { status });
+      const children = issues.filter(
+        (i) => i.parent_id === issueId && i.status !== status,
+      );
       setOpenPopover(null);
+      if (children.length > 0) {
+        const issue = issues.find((i) => i.id === issueId);
+        setMoveChildrenPrompt({
+          issueId,
+          title: issue?.title || issueId,
+          status,
+          children: children.map((c) => ({
+            id: c.id,
+            title: c.title,
+            status: c.status,
+          })),
+        });
+        return;
+      }
+      await addDraft(issueId, "UPDATE", { status });
       onRefresh();
       showToast(`Status changed to ${status}`);
     },
-    [onRefresh, showToast],
+    [issues, onRefresh, showToast],
   );
   const handleQuickEstimate = useCallback(
     async (issueId: string, estimate: number) => {
@@ -1485,7 +1534,13 @@ export default function Backlog({
                                   }
                                   className="flex items-center w-10 justify-end hover:opacity-70 transition-opacity"
                                 >
-                                  <EstimateBadge value={hasChildren ? childPointsTotal - childPointsDone : issue.estimate} />
+                                  <EstimateBadge
+                                    value={
+                                      hasChildren
+                                        ? childPointsTotal - childPointsDone
+                                        : issue.estimate
+                                    }
+                                  />
                                 </button>
                                 {openPopover?.issueId === issue.id &&
                                   openPopover?.type === "estimate" && (
@@ -1559,6 +1614,106 @@ export default function Backlog({
             />
           );
         })()}
+      <Modal
+        isOpen={!!moveChildrenPrompt}
+        onClose={() => setMoveChildrenPrompt(null)}
+        title="Update sub-issues?"
+        size="xl"
+        showCloseButton={false}
+      >
+        {moveChildrenPrompt &&
+          (() => {
+            const targetLabel =
+              STATUS_LABELS[moveChildrenPrompt.status] ||
+              moveChildrenPrompt.status;
+            const fullChildren = moveChildrenPrompt.children.map((c) => {
+              const full = issues.find((i) => i.id === c.id);
+              return full || c;
+            });
+            return (
+              <>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-6">
+                  <span className="text-text-primary">
+                    {moveChildrenPrompt.title}
+                  </span>{" "}
+                  has {moveChildrenPrompt.children.length}{" "}
+                  {moveChildrenPrompt.children.length === 1
+                    ? "sub-issue "
+                    : "sub-issues "}
+                  in a different status. Do you want to change their status to{" "}
+                  <span className="inline-flex items-center gap-1.5 align-middle">
+                    <StatusIcon status={moveChildrenPrompt.status} size={14} />
+                    <strong className="text-[var(--color-text-primary)]">
+                      {targetLabel}
+                    </strong>
+                  </span>{" "}
+                  at the same time?
+                </p>
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8">
+                  {fullChildren.map((child, i) => (
+                    <div
+                      key={child.id}
+                      className={`flex items-center gap-3 px-4 py-2.5 text-sm ${i > 0 ? "border-t border-[var(--color-border-subtle)]" : ""}`}
+                    >
+                      <StatusIcon status={child.status} size={14} />
+                      <span className="text-[var(--color-text-primary)] truncate min-w-0">
+                        {child.title}
+                      </span>
+                      {"priority" in child && (child as Issue).priority > 0 && (
+                        <PriorityIcon
+                          priority={(child as Issue).priority}
+                          size={14}
+                        />
+                      )}
+                      <div className="flex-1" />
+                      {"labels" in child &&
+                        (child as Issue).labels?.map((label: string) => (
+                          <LabelBadge key={label} label={label} />
+                        ))}
+                      {"estimate" in child && (child as Issue).estimate > 0 && (
+                        <EstimateBadge value={(child as Issue).estimate} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-4">
+                  <button
+                    className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                    onClick={() => setMoveChildrenPrompt(null)}
+                  >
+                    Abort
+                  </button>
+                  <div className="flex-1" />
+                  <button
+                    className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                    onClick={async () => {
+                      const { issueId, status } = moveChildrenPrompt;
+                      setMoveChildrenPrompt(null);
+                      await applyStatusChange(issueId, status, false);
+                      showToast("Status changed");
+                    }}
+                  >
+                    Just this issue
+                  </button>
+
+                  <button
+                    className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
+                    onClick={async () => {
+                      const { issueId, status, children } = moveChildrenPrompt;
+                      setMoveChildrenPrompt(null);
+                      await applyStatusChange(issueId, status, true);
+                      showToast(
+                        `Updated ${children.length + 1} issues to ${targetLabel}`,
+                      );
+                    }}
+                  >
+                    Update all
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+      </Modal>
     </div>
   );
 }

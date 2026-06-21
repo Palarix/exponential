@@ -122,7 +122,8 @@ export default function Modal({
             {title && (
               <h2
                 id="modal-title"
-                className="text-sm font-semibold text-[var(--color-text-primary)]"
+                className="font-semibold text-[var(--color-text-primary)]"
+                style={{ fontSize: '1rem' }}
               >
                 {title}
               </h2>
