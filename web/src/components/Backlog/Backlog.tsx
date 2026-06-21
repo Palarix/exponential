@@ -528,21 +528,21 @@ export default function Backlog({
       if (overRaw.startsWith("group-")) {
         const status = overRaw.slice("group-".length);
         const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
-        if (draggedStatus === status) {
-          // Same group — show insert bar above the first issue in this group
+        const groupIsEmpty = !rows.some(
+          (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
+        );
+        if (groupIsEmpty || draggedStatus !== status) {
+          // Empty group or cross-group: highlight the group as drop target
+          setDropIndicator(null);
+          setDropGroupStatus(status);
+          setDropNestTargetId(null);
+        } else {
+          // Same group with issues — show insert bar above the first issue
           const firstIssueIdx = rows.findIndex(
             (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
           );
-          if (firstIssueIdx !== -1) {
-            setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
-            setDropGroupStatus(null);
-            setDropNestTargetId(null);
-          } else {
-            setDropGroupStatus(null);
-          }
-        } else {
-          setDropIndicator(null);
-          setDropGroupStatus(status);
+          setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
+          setDropGroupStatus(null);
           setDropNestTargetId(null);
         }
         return;
@@ -600,17 +600,15 @@ export default function Backlog({
       const overRaw = event.over?.id ? String(event.over.id) : null;
       if (!overRaw) return;
 
-      // When over a group header, show insert above first issue (same group only)
+      // When over a group header, show insert above first issue or highlight empty group
       if (overRaw.startsWith("group-")) {
         const status = overRaw.slice("group-".length);
         const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
-        if (draggedStatus === status) {
-          const firstIssueIdx = rows.findIndex(
-            (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
-          );
-          if (firstIssueIdx !== -1) {
-            setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
-          }
+        const firstIssueIdx = rows.findIndex(
+          (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
+        );
+        if (draggedStatus === status && firstIssueIdx !== -1) {
+          setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
         }
         return;
       }

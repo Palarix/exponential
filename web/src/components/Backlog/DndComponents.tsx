@@ -1,9 +1,15 @@
-import { useDraggable, useDroppable, closestCenter, type CollisionDetection } from "@dnd-kit/core";
+import { useDraggable, useDroppable, pointerWithin, closestCenter, type CollisionDetection } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
 import { CopyableId, LabelBadge, StatusIcon } from "../ui";
 
 export const backlogCollision: CollisionDetection = (args) => {
+  // First check if the pointer is directly within a group header
+  const pointer = pointerWithin(args);
+  const directGroup = pointer.find((c) => String(c.id).startsWith("group-"));
+  if (directGroup) return [directGroup];
+
+  // Otherwise use closest center, preferring issue rows
   const all = closestCenter(args);
   const rows = all.filter((c) => !String(c.id).startsWith("group-"));
   return rows.length > 0 ? rows : all;
