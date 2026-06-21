@@ -400,6 +400,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	// ── Implementation ──────────────────────────────────────────────
 	base := DefaultBranch()
 	feedback := ""
+	lastTestOutput := ""
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		result.Attempts = attempt
 
@@ -432,6 +433,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		var testErr error
 		_ = log.spin("Running tests", func() error {
 			testOut, testErr = runTestCmd(testCmd)
+			lastTestOutput = testOut
 			return nil
 		})
 		if testErr != nil {
@@ -469,28 +471,28 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		}
 	}
 
-	// ── Summary ─────────────────────────────────────────────────────
-	log.phase("Summary")
+	// ── Walkthrough ─────────────────────────────────────────────────
+	log.phase("Walkthrough")
 	diff := GetDiffText(branch, base)
 	elapsed := time.Since(issue.UpdatedAt).Round(time.Second)
-	var summaryText string
-	err = log.spin("Generating summary", func() error {
-		summaryPrompt := buildSummaryPrompt(spec, diff, elapsed.String())
-		r, sErr := supExec.Run(ctx, summaryPrompt)
+	var walkthrough string
+	err = log.spin("Generating walkthrough", func() error {
+		prompt := buildWalkthroughPrompt(spec, diff, testCmd, lastTestOutput)
+		r, sErr := supExec.Run(ctx, prompt)
 		if sErr == nil {
-			summaryText = r.Output
+			walkthrough = r.Output
 		}
 		return sErr
 	})
 	if err != nil {
-		summaryText = fmt.Sprintf("Implementation completed in %d attempt(s).", result.Attempts)
+		walkthrough = fmt.Sprintf("Implementation completed in %d attempt(s).", result.Attempts)
 	}
 
-	comment := fmt.Sprintf("## xpo drive — completed\n\n%s", summaryText)
+	comment := fmt.Sprintf("## xpo drive — walkthrough\n\n%s", walkthrough)
 	c.AddComment(issue.ID, comment)
 	status := string(model.StatusDone)
 	c.UpdateIssue(issue.ID, model.UpdatePayload{Status: &status}, "drive")
-	log.summary(summaryText)
+	log.summary(walkthrough)
 
 	// Commit issues.db changes on the feature branch so checkout doesn't fail
 	if isGit {
@@ -521,7 +523,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	issueType := issueTypeLabel(issue.Labels)
 	stats := mergeStats(supExec.Stats(), coderExec.Stats())
 	result.Status = "done"
-	result.Summary = summaryText
+	result.Summary = walkthrough
 	fmt.Println()
 	secondary := fmt.Sprintf("%s · %s cycle · %d pts", wallTime, elapsed, issue.Estimate)
 	if usage := formatStats(stats); usage != "" {
@@ -795,17 +797,41 @@ Respond ONLY in JSON: {"done": true} or {"done": false, "feedback": "...what nee
 		spec, truncate(diff, 50000), testStatus, truncate(testOutput, 10000))
 }
 
-func buildSummaryPrompt(spec, diff, elapsed string) string {
-	return fmt.Sprintf(`Summarize what was implemented in 2-3 sentences.
+func buildWalkthroughPrompt(spec, diff, testCmd, testOutput string) string {
+	testSection := ""
+	if testOutput != "" {
+		testSection = fmt.Sprintf("\n## Test output\n%s\n", truncate(testOutput, 5000))
+	}
+	return fmt.Sprintf(`You are writing a walkthrough of an implementation for a code reviewer.
+Explain it like a senior engineer walking a colleague through a PR.
 
-Spec: %s
-
-Diff:
+## Spec
 %s
 
-Cycle time: %s
+## Diff
+%s
+%s
+Write the walkthrough in markdown with these sections:
 
-Write a concise summary suitable for an issue tracker comment. No JSON — just plain text.`, spec, truncate(diff, 30000), elapsed)
+### Rationale
+Why this approach? What alternatives were considered and why were they rejected? 1-3 sentences.
+
+### Changes
+File-by-file walkthrough. For each changed file, one line explaining what changed and why.
+Use backtick code spans for file and function names.
+
+### Decisions
+Any non-obvious choices or tradeoffs. Skip this section if everything was straightforward.
+
+### How to verify
+Concrete steps to test the changes. Include commands to run (e.g. %s),
+specific behavior to check, and edge cases to try.
+
+### Risks
+Anything the reviewer should look closely at. Skip this section if there are no concerns.
+
+Keep it concise — this is a walkthrough, not a novel. No JSON — just markdown.`,
+		spec, truncate(diff, 40000), testSection, testCmd)
 }
 
 func coalesce(values ...string) string {
