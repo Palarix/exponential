@@ -21,12 +21,7 @@ func setupLocalTransport(t *testing.T) *LocalTransport {
 	return &LocalTransport{
 		Config: &config.Config{
 			Prefix: "test-",
-			Automations: config.Automations{
-				AutoCompleteParent:    true,
-				AutoCloseSubIssues:    true,
-				AutoProgressSubIssues: true,
-				AutoProgressParent:    true,
-			},
+			Automations: config.Automations{},
 		},
 		UserOverride: "Tester <test@example.com>",
 	}

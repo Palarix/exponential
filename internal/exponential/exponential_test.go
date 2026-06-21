@@ -161,21 +161,6 @@ func TestParentChildRelationship(t *testing.T) {
 	}
 }
 
-func TestCannotCompleteParentWithIncompleteChildren(t *testing.T) {
-	client, cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
-	client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
-
-	// Try to complete parent - should fail
-	status := string(model.StatusDone)
-	_, err := client.UpdateIssue(parent.ID, model.UpdatePayload{Status: &status}, "done")
-	if err == nil {
-		t.Error("Expected error when completing parent with incomplete children")
-	}
-}
-
 func TestBlockingRules(t *testing.T) {
 	client, cleanup := setupTestEnv(t)
 	defer cleanup()
@@ -203,115 +188,6 @@ func TestBlockingRules(t *testing.T) {
 	_, err = client.UpdateIssue(blocked.ID, model.UpdatePayload{Status: &status}, "start")
 	if err != nil {
 		t.Errorf("Expected success starting issue after blocker done: %v", err)
-	}
-}
-
-func TestAutoCompleteParent(t *testing.T) {
-	cfg := &config.Config{
-		Prefix:           "test-",
-		User:             "Test User <test@test.com>",
-		EstimationSystem: "fibonacci",
-		CountUnestimated: true,
-		Version:          2,
-		Automations: config.Automations{
-			AutoCompleteParent: true,
-		},
-	}
-
-	tmpDir := t.TempDir()
-	xpoDir := filepath.Join(tmpDir, ".xpo")
-	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
-	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
-
-	client := NewClient(cfg)
-
-	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
-	child, _ := client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
-
-	// Complete the child
-	doneStatus := string(model.StatusDone)
-	client.UpdateIssue(child.ID, model.UpdatePayload{Status: &doneStatus}, "done")
-
-	// Read with config - parent should be auto-completed
-	events, _ := storage.ReadEvents()
-	issues := ProjectIssuesWithConfig(events, cfg)
-
-	if issues[parent.ID].Status != model.StatusDone {
-		t.Errorf("Expected parent to be auto-completed, got status %s", issues[parent.ID].Status)
-	}
-}
-
-func TestAutoCloseSubIssues(t *testing.T) {
-	cfg := &config.Config{
-		Prefix:           "test-",
-		User:             "Test User <test@test.com>",
-		EstimationSystem: "fibonacci",
-		CountUnestimated: true,
-		Version:          2,
-		Automations: config.Automations{
-			AutoCloseSubIssues: true,
-		},
-	}
-
-	tmpDir := t.TempDir()
-	xpoDir := filepath.Join(tmpDir, ".xpo")
-	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
-	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
-
-	client := NewClient(cfg)
-
-	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
-	child, _ := client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
-
-	// Complete the parent - should auto-close child
-	doneStatus := string(model.StatusDone)
-	msgs, err := client.UpdateIssue(parent.ID, model.UpdatePayload{Status: &doneStatus}, "done")
-	if err != nil {
-		t.Fatalf("UpdateIssue failed: %v", err)
-	}
-
-	// Should have auto-close message
-	found := false
-	for _, msg := range msgs {
-		if msg == "Auto-closed sub-issue "+child.ID {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("Expected auto-close message for child, got: %v", msgs)
-	}
-
-	// Verify child is done
-	events, _ := storage.ReadEvents()
-	issues := ProjectIssues(events)
-	if issues[child.ID].Status != model.StatusDone {
-		t.Errorf("Expected child to be auto-closed, got status %s", issues[child.ID].Status)
-	}
-}
-
-func TestAutomationsOff(t *testing.T) {
-	client, cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	parent, _ := client.AddIssue(model.CreatePayload{Title: "Parent"})
-	child, _ := client.AddIssue(model.CreatePayload{Title: "Child", ParentID: parent.ID})
-
-	// Complete the child
-	doneStatus := string(model.StatusDone)
-	client.UpdateIssue(child.ID, model.UpdatePayload{Status: &doneStatus}, "done")
-
-	// Read WITHOUT automations - parent should NOT be auto-completed
-	events, _ := storage.ReadEvents()
-	issues := ProjectIssues(events)
-
-	if issues[parent.ID].Status == model.StatusDone {
-		t.Error("Parent should NOT be auto-completed when automations are off")
 	}
 }
 

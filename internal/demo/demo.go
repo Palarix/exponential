@@ -313,10 +313,8 @@ version: 3
 estimation_system: fibonacci
 count_unestimated: true
 automations:
-    auto_complete_parent: true
-    auto_close_sub_issues: true
-    auto_progress_sub_issues: true
-    auto_progress_parent: true
+    first_start: false
+    last_completed: false
 labels:
     bug: "#eb5757"
     feature: "#b36cd9"

@@ -123,10 +123,8 @@ type Style struct {
 }
 
 type Automations struct {
-	AutoCompleteParent    bool `mapstructure:"auto_complete_parent" yaml:"auto_complete_parent"`
-	AutoCloseSubIssues    bool `mapstructure:"auto_close_sub_issues" yaml:"auto_close_sub_issues"`
-	AutoProgressSubIssues bool `mapstructure:"auto_progress_sub_issues" yaml:"auto_progress_sub_issues"`
-	AutoProgressParent    bool `mapstructure:"auto_progress_parent" yaml:"auto_progress_parent"`
+	FirstStart    bool `mapstructure:"first_start" yaml:"first_start"`
+	LastCompleted bool `mapstructure:"last_completed" yaml:"last_completed"`
 }
 
 // BuiltinLabels are the default labels seeded into new projects.
@@ -370,10 +368,8 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("style.theme", "default")
 	v.SetDefault("estimation_system", "fibonacci")
 	v.SetDefault("count_unestimated", true)
-	v.SetDefault("automations.auto_complete_parent", true)
-	v.SetDefault("automations.auto_close_sub_issues", true)
-	v.SetDefault("automations.auto_progress_sub_issues", true)
-	v.SetDefault("automations.auto_progress_parent", true)
+	v.SetDefault("automations.first_start", false)
+	v.SetDefault("automations.last_completed", false)
 	v.SetDefault("drive.supervisor", "claude")
 	v.SetDefault("drive.coder", "claude")
 	v.SetDefault("drive.max_retries", 3)

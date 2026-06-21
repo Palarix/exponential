@@ -226,64 +226,8 @@ func applyCycleRollover(issues map[string]*model.Issue, cc config.CycleConfig, n
 	}
 }
 
-// applyAutomations applies config-driven automation rules as derived state.
+// applyAutomations applies config-driven derived state at projection time.
 func applyAutomations(issues map[string]*model.Issue, cfg *config.Config) {
-	if cfg.Automations.AutoCompleteParent {
-		// Auto-complete parent when all children are done
-		for _, issue := range issues {
-			if issue.ParentID == "" {
-				continue
-			}
-			// Find parent
-			parent, ok := issues[issue.ParentID]
-			if !ok || parent.Status == model.StatusDone {
-				continue
-			}
-			// Check if all children of this parent are done
-			allDone := true
-			hasChildren := false
-			for _, child := range issues {
-				if child.ParentID == parent.ID {
-					hasChildren = true
-					if child.Status != model.StatusDone {
-						allDone = false
-						break
-					}
-				}
-			}
-			if hasChildren && allDone {
-				parent.Status = model.StatusDone
-				parent.InferredStatus = true
-			}
-		}
-	}
-
-	if cfg.Automations.AutoProgressParent {
-		// Auto-progress parent when a sub-issue is progressed
-		for _, issue := range issues {
-			if issue.ParentID == "" {
-				continue
-			}
-			parent, ok := issues[issue.ParentID]
-			if !ok {
-				continue
-			}
-			// If child is DOING/PLANNED and parent is BACKLOG, progress parent
-			if (issue.Status == model.StatusDoing || issue.Status == model.StatusPlanned) &&
-				parent.Status == model.StatusBacklog {
-				parent.Status = model.StatusPlanned
-				parent.InferredStatus = true
-			}
-			if issue.Status == model.StatusDoing && parent.Status == model.StatusPlanned {
-				parent.Status = model.StatusDoing
-				parent.InferredStatus = true
-			}
-		}
-	}
-
-	// Note: auto_close_sub_issues and auto_progress_sub_issues are applied at event-time
-	// in UpdateIssue, not at projection time, because they generate actual events.
-
 	// Aggregate parent estimates from children
 	for _, issue := range issues {
 		if issue.ParentID != "" {

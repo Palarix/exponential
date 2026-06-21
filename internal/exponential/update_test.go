@@ -59,102 +59,22 @@ func TestUpdateIssue_BlockedByResolved(t *testing.T) {
 	}
 }
 
-func TestUpdateIssue_CannotCompleteWithIncompleteChildren(t *testing.T) {
+func TestUpdateIssue_ParentCanCompleteWithIncompleteChildren(t *testing.T) {
 	tr := setupLocalTransport(t)
-	tr.Config.Automations.AutoCloseSubIssues = false
 	parent, _ := tr.AddIssue(model.CreatePayload{Title: "parent"})
-	tr.AddIssue(model.CreatePayload{Title: "child", ParentID: parent.ID})
+	child, _ := tr.AddIssue(model.CreatePayload{Title: "child", ParentID: parent.ID})
 
 	_, err := tr.UpdateIssue(parent.ID, model.UpdatePayload{Status: sp("DONE")}, "update")
-	if err == nil {
-		t.Error("expected error when completing parent with incomplete children")
-	}
-	if !strings.Contains(err.Error(), "unfinished sub-issues") {
-		t.Errorf("error should mention sub-issues, got: %s", err)
-	}
-}
-
-func TestUpdateIssue_AutoCloseSubIssues(t *testing.T) {
-	tr := setupLocalTransport(t)
-	parent, _ := tr.AddIssue(model.CreatePayload{Title: "parent"})
-	child1, _ := tr.AddIssue(model.CreatePayload{Title: "child1", ParentID: parent.ID})
-	child2, _ := tr.AddIssue(model.CreatePayload{Title: "child2", ParentID: parent.ID})
-
-	msgs, err := tr.UpdateIssue(parent.ID, model.UpdatePayload{Status: sp("DONE")}, "update")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("completing parent with incomplete children should succeed, got: %v", err)
 	}
 
 	issues := readAllIssues(t)
-	if issues[child1.ID].Status != model.StatusDone {
-		t.Errorf("child1 status = %s, want DONE", issues[child1.ID].Status)
+	if issues[parent.ID].Status != model.StatusDone {
+		t.Errorf("parent status = %s, want DONE", issues[parent.ID].Status)
 	}
-	if issues[child2.ID].Status != model.StatusDone {
-		t.Errorf("child2 status = %s, want DONE", issues[child2.ID].Status)
-	}
-
-	autoMsgs := 0
-	for _, m := range msgs {
-		if strings.Contains(m, "Auto-closed") {
-			autoMsgs++
-		}
-	}
-	if autoMsgs != 2 {
-		t.Errorf("expected 2 auto-close messages, got %d", autoMsgs)
-	}
-}
-
-func TestUpdateIssue_AutoProgressChildren_BacklogToPlanned(t *testing.T) {
-	tr := setupLocalTransport(t)
-	parent, _ := tr.AddIssue(model.CreatePayload{Title: "parent"})
-	child, _ := tr.AddIssue(model.CreatePayload{Title: "child", ParentID: parent.ID})
-
-	tr.UpdateIssue(parent.ID, model.UpdatePayload{Status: sp("PLANNED")}, "update")
-
-	issues := readAllIssues(t)
-	if issues[child.ID].Status != model.StatusPlanned {
-		t.Errorf("child status = %s, want PLANNED (auto-progressed from BACKLOG)", issues[child.ID].Status)
-	}
-}
-
-func TestUpdateIssue_AutoProgressChildren_PlannedToDoing(t *testing.T) {
-	tr := setupLocalTransport(t)
-	parent, _ := tr.AddIssue(model.CreatePayload{Title: "parent"})
-	child, _ := tr.AddIssue(model.CreatePayload{Title: "child", ParentID: parent.ID, Status: "PLANNED"})
-
-	tr.UpdateIssue(parent.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
-
-	issues := readAllIssues(t)
-	if issues[child.ID].Status != model.StatusDoing {
-		t.Errorf("child status = %s, want DOING (auto-progressed from PLANNED)", issues[child.ID].Status)
-	}
-}
-
-func TestUpdateIssue_AutoProgressSkipsNonMatchingChildren(t *testing.T) {
-	tr := setupLocalTransport(t)
-	parent, _ := tr.AddIssue(model.CreatePayload{Title: "parent"})
-	doingChild, _ := tr.AddIssue(model.CreatePayload{Title: "already doing", ParentID: parent.ID, Status: "DOING"})
-
-	tr.UpdateIssue(parent.ID, model.UpdatePayload{Status: sp("PLANNED")}, "update")
-
-	issues := readAllIssues(t)
-	if issues[doingChild.ID].Status != model.StatusDoing {
-		t.Errorf("DOING child should not regress to PLANNED, got %s", issues[doingChild.ID].Status)
-	}
-}
-
-func TestUpdateIssue_AutomationsOff(t *testing.T) {
-	tr := setupLocalTransport(t)
-	tr.Config.Automations.AutoCloseSubIssues = false
-	tr.Config.Automations.AutoProgressSubIssues = false
-	parent, _ := tr.AddIssue(model.CreatePayload{Title: "parent"})
-	child, _ := tr.AddIssue(model.CreatePayload{Title: "child", ParentID: parent.ID})
-
-	tr.UpdateIssue(parent.ID, model.UpdatePayload{Status: sp("PLANNED")}, "update")
-
-	issues := readAllIssues(t)
 	if issues[child.ID].Status != model.StatusBacklog {
-		t.Errorf("child status = %s, want BACKLOG (automations disabled)", issues[child.ID].Status)
+		t.Errorf("child status = %s, want BACKLOG (should not be affected)", issues[child.ID].Status)
 	}
 }
 

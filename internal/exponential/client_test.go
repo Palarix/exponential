@@ -20,10 +20,7 @@ func setupClient(t *testing.T) *Client {
 
 	cfg := &config.Config{
 		Prefix: "test-",
-		Automations: config.Automations{
-			AutoCompleteParent: true,
-			AutoCloseSubIssues: true,
-		},
+		Automations: config.Automations{},
 	}
 	c := NewClient(cfg)
 	c.UserOverride = "Tester <test@example.com>"
