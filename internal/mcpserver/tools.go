@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -48,12 +49,31 @@ type eventSummary struct {
 }
 
 type listIn struct {
-	Statuses    []string `json:"statuses,omitempty" jsonschema:"Filter by status: BACKLOG, PLANNED, DOING, BLOCKED, DONE"`
-	Label       string   `json:"label,omitempty" jsonschema:"Substring match on a label"`
-	Assignee    string   `json:"assignee,omitempty" jsonschema:"Substring match on assignee"`
-	Parent      string   `json:"parent,omitempty" jsonschema:"Only return sub-issues of this parent ID"`
-	Match       string   `json:"match,omitempty" jsonschema:"Substring match across id, title, status, parent, assignee, labels"`
-	IncludeDone bool     `json:"include_done,omitempty" jsonschema:"Include DONE issues (otherwise only recent DONE are shown)"`
+	Status      flexStrings `json:"status,omitempty" jsonschema:"Filter by status: BACKLOG, PLANNED, DOING, BLOCKED, DONE"`
+	Label       string      `json:"label,omitempty" jsonschema:"Substring match on a label"`
+	Assignee    string      `json:"assignee,omitempty" jsonschema:"Substring match on assignee"`
+	Parent      string      `json:"parent,omitempty" jsonschema:"Only return sub-issues of this parent ID"`
+	Match       string      `json:"match,omitempty" jsonschema:"Substring match across id, title, status, parent, assignee, labels"`
+	IncludeDone bool        `json:"include_done,omitempty" jsonschema:"Include DONE issues (otherwise only recent DONE are shown)"`
+}
+
+// flexStrings accepts either a single string or an array of strings in JSON.
+type flexStrings []string
+
+func (f *flexStrings) UnmarshalJSON(data []byte) error {
+	// Try as array first
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*f = arr
+		return nil
+	}
+	// Fall back to single string
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	*f = []string{s}
+	return nil
 }
 
 type listOut struct {
@@ -209,7 +229,7 @@ func (t *toolset) register(s *mcp.Server) {
 func (t *toolset) list(ctx context.Context, req *mcp.CallToolRequest, in listIn) (*mcp.CallToolResult, listOut, error) {
 	c := t.clientFor(req)
 	opts := exponential.FilterOptions{
-		Statuses: in.Statuses,
+		Statuses: []string(in.Status),
 		Label:    in.Label,
 		Assignee: in.Assignee,
 		ParentID: in.Parent,
