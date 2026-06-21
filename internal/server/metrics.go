@@ -191,6 +191,15 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	}
 	workload := make(map[string]*workAccum)
 
+	// Build set of parent IDs so we can exclude them from velocity/throughput.
+	// Only leaf issues contribute points; counting parents would double-count.
+	parentIDs := make(map[string]struct{})
+	for _, issue := range issues {
+		if !issue.Deleted && issue.ParentID != "" {
+			parentIDs[issue.ParentID] = struct{}{}
+		}
+	}
+
 	for _, issue := range issues {
 		if issue.Deleted {
 			continue
@@ -205,21 +214,25 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		}
 
 		if doneAt != nil {
-			if doneAt.After(last7dStart) {
-				m.Throughput.Last7d++
-				m.Velocity.Last7dPoints += points
-			} else if doneAt.After(prior7dStart) {
-				m.Throughput.Prior7d++
-				m.Velocity.Prior7dPoints += points
+			_, isParent := parentIDs[issue.ID]
+			if !isParent {
+				if doneAt.After(last7dStart) {
+					m.Throughput.Last7d++
+					m.Velocity.Last7dPoints += points
+				} else if doneAt.After(prior7dStart) {
+					m.Throughput.Prior7d++
+					m.Velocity.Prior7dPoints += points
+				}
+				weekKey := startOfWeek(*doneAt).Format("2006-01-02")
+				if _, ok := bucketsByKey[weekKey]; ok {
+					bucketsByKey[weekKey] += points
+				}
+				dayKey := doneAt.Format("2006-01-02")
+				if _, ok := dailyByKey[dayKey]; ok {
+					dailyByKey[dayKey] += points
+				}
 			}
 			weekKey := startOfWeek(*doneAt).Format("2006-01-02")
-			if _, ok := bucketsByKey[weekKey]; ok {
-				bucketsByKey[weekKey] += points
-			}
-			dayKey := doneAt.Format("2006-01-02")
-			if _, ok := dailyByKey[dayKey]; ok {
-				dailyByKey[dayKey] += points
-			}
 			if t, ok := trendByKey[weekKey]; ok {
 				t.Completed++
 			}

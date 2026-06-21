@@ -305,6 +305,23 @@ func TestMetrics_BugAge(t *testing.T) {
 	}
 }
 
+func TestMetrics_VelocityExcludesParents(t *testing.T) {
+	now := time.Now()
+	issues := map[string]*model.Issue{
+		"epic": makeMetricIssue("epic", model.StatusDone, withLabels("epic"), withEstimate(0), withUpdatedAt(now.Add(-1*time.Hour))),
+		"c1":   makeMetricIssue("c1", model.StatusDone, withParent("epic"), withEstimate(5), withUpdatedAt(now.Add(-2*time.Hour))),
+		"c2":   makeMetricIssue("c2", model.StatusDone, withParent("epic"), withEstimate(8), withUpdatedAt(now.Add(-3*time.Hour))),
+	}
+
+	m := computePulseMetrics(issues, now)
+	if m.Velocity.Last7dPoints != 13 {
+		t.Errorf("velocity last 7d = %d, want 13 (children only, not parent)", m.Velocity.Last7dPoints)
+	}
+	if m.Throughput.Last7d != 2 {
+		t.Errorf("throughput last 7d = %d, want 2 (children only)", m.Throughput.Last7d)
+	}
+}
+
 func TestMetrics_AttentionCappedAt5(t *testing.T) {
 	now := time.Now()
 	issues := make(map[string]*model.Issue)
