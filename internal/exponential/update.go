@@ -87,6 +87,25 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 			}
 		}
 
+		// --- First-start trigger: parent auto-starts when any child starts ---
+		if t.Config.Automations.FirstStart && targetIssue.ParentID != "" {
+			if newStatus == model.StatusDoing || newStatus == model.StatusBlocked {
+				parent, pExists := issues[targetIssue.ParentID]
+				if pExists && !parent.Deleted &&
+					(parent.Status == model.StatusBacklog || parent.Status == model.StatusPlanned) {
+					parentStatus := string(model.StatusDoing)
+					parentEvent := model.Event{
+						ID:        parent.ID,
+						Type:      model.EventTypeUpdate,
+						Payload:   model.UpdatePayload{Status: &parentStatus},
+						CreatedAt: timestamp,
+						CreatedBy: user,
+					}
+					eventsToAppend = append(eventsToAppend, parentEvent)
+					messages = append(messages, fmt.Sprintf("Auto-started parent %s", parent.ID))
+				}
+			}
+		}
 	}
 
 	// 4. Commit Changes

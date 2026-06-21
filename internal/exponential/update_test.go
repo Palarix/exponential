@@ -78,6 +78,61 @@ func TestUpdateIssue_ParentCanCompleteWithIncompleteChildren(t *testing.T) {
 	}
 }
 
+func TestUpdateIssue_FirstStartTrigger(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.FirstStart = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic"})
+	child, _ := tr.AddIssue(model.CreatePayload{Title: "story", ParentID: parent.ID})
+
+	msgs, err := tr.UpdateIssue(child.ID, model.UpdatePayload{Status: sp("DOING")}, "start")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDoing {
+		t.Errorf("parent status = %s, want DOING (first-start trigger)", issues[parent.ID].Status)
+	}
+
+	autoStarted := false
+	for _, m := range msgs {
+		if strings.Contains(m, "Auto-started parent") {
+			autoStarted = true
+		}
+	}
+	if !autoStarted {
+		t.Errorf("expected auto-start message, got: %v", msgs)
+	}
+}
+
+func TestUpdateIssue_FirstStartTriggerOff(t *testing.T) {
+	tr := setupLocalTransport(t)
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic"})
+	tr.AddIssue(model.CreatePayload{Title: "story", ParentID: parent.ID, Status: "PLANNED"})
+
+	child2, _ := tr.AddIssue(model.CreatePayload{Title: "story2", ParentID: parent.ID})
+	tr.UpdateIssue(child2.ID, model.UpdatePayload{Status: sp("DOING")}, "start")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusBacklog {
+		t.Errorf("parent status = %s, want BACKLOG (first_start disabled)", issues[parent.ID].Status)
+	}
+}
+
+func TestUpdateIssue_FirstStartSkipsDoingParent(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.FirstStart = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	child, _ := tr.AddIssue(model.CreatePayload{Title: "story", ParentID: parent.ID})
+
+	tr.UpdateIssue(child.ID, model.UpdatePayload{Status: sp("DOING")}, "start")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDoing {
+		t.Errorf("parent status = %s, want DOING (already in progress)", issues[parent.ID].Status)
+	}
+}
+
 func TestUpdateIssue_NonStatusFields(t *testing.T) {
 	tr := setupLocalTransport(t)
 	issue, _ := tr.AddIssue(model.CreatePayload{Title: "original", Estimate: 3})
