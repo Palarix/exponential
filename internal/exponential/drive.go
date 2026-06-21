@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/ui"
@@ -156,24 +157,35 @@ func (l *driveLogger) info(msg string) {
 	}
 }
 
-func (l *driveLogger) summary(text string) {
+func (l *driveLogger) walkthrough(text string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	width := 76
+	width := 80
 	if l.isTTY {
-		if w := ui.TerminalWidth(); w > 8 {
-			width = w - 8
+		if w := ui.TerminalWidth(); w > 4 {
+			width = w - 4
 		}
 	}
 
-	wrapped := wordWrap(strings.TrimSpace(text), width)
-	border := "  │ "
 	if l.isTTY {
-		border = dimStyle.Render(border)
+		renderer, err := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(width),
+		)
+		if err == nil {
+			rendered, err := renderer.Render(strings.TrimSpace(text))
+			if err == nil {
+				fmt.Print(rendered)
+				return
+			}
+		}
 	}
+
+	// Fallback: plain text with word wrap
+	wrapped := wordWrap(strings.TrimSpace(text), width)
 	for _, line := range strings.Split(wrapped, "\n") {
-		fmt.Printf("%s%s\n", border, line)
+		fmt.Printf("  %s\n", line)
 	}
 }
 
@@ -476,7 +488,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	diff := GetDiffText(branch, base)
 	elapsed := time.Since(issue.UpdatedAt).Round(time.Second)
 	var walkthrough string
-	err = log.spin("Generating walkthrough", func() error {
+	err = log.spin("Preparing walkthrough", func() error {
 		prompt := buildWalkthroughPrompt(spec, diff, testCmd, lastTestOutput)
 		r, sErr := supExec.Run(ctx, prompt)
 		if sErr == nil {
@@ -492,7 +504,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	c.AddComment(issue.ID, comment)
 	status := string(model.StatusDone)
 	c.UpdateIssue(issue.ID, model.UpdatePayload{Status: &status}, "drive")
-	log.summary(walkthrough)
+	log.walkthrough(walkthrough)
 
 	// Commit issues.db changes on the feature branch so checkout doesn't fail
 	if isGit {
@@ -827,7 +839,7 @@ Any non-obvious choices or tradeoffs. Skip this section if everything was straig
 Concrete steps to test the changes. Include commands to run (e.g. %s),
 specific behavior to check, and edge cases to try.
 
-### Risks
+### What to look out for
 Anything the reviewer should look closely at. Skip this section if there are no concerns.
 
 Keep it concise — this is a walkthrough, not a novel. No JSON — just markdown.`,
