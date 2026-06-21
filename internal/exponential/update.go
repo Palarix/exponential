@@ -33,6 +33,11 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 	var eventsToAppend []model.Event
 	var messages []string
 
+	// Guard: reject self-referencing parent
+	if payload.ParentID != nil && *payload.ParentID == id {
+		return nil, fmt.Errorf("cannot set issue %s as its own parent", id)
+	}
+
 	// 2. Prepare Primary Update
 	primaryEvent := model.Event{
 		ID:        id,

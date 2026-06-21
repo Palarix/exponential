@@ -396,7 +396,7 @@ export default function Backlog({
       indicatorTarget: { rowIndex: number; position: "above" | "below" } | null,
       nestTarget: string | null,
     ) => {
-      if (nestTarget) {
+      if (nestTarget && nestTarget !== droppedId) {
         await addDraft(droppedId, "UPDATE", { parent_id: nestTarget });
         onRefresh();
         return;
