@@ -72,15 +72,23 @@ func InitProject(force bool) (*InitResult, error) {
 		contentStr = string(content)
 	}
 
-	ignoreEntry := ".xpo/issues.snapshot.json"
-	if !strings.Contains(contentStr, ignoreEntry) {
+	ignoreEntries := []string{".xpo/issues.snapshot.json", ".xpo/git.lock"}
+	var toAdd []string
+	for _, entry := range ignoreEntries {
+		if !strings.Contains(contentStr, entry) {
+			toAdd = append(toAdd, entry)
+		}
+	}
+	if len(toAdd) > 0 {
 		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err == nil {
 			defer f.Close()
 			if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
 				f.WriteString("\n")
 			}
-			f.WriteString(ignoreEntry + "\n")
+			for _, entry := range toAdd {
+				f.WriteString(entry + "\n")
+			}
 		} else {
 			result.Notes = append(result.Notes, fmt.Sprintf("Could not write to .gitignore: %v", err))
 		}

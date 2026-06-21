@@ -29,6 +29,15 @@ type Config struct {
 	Contributors      []string          `mapstructure:"contributors" yaml:"contributors"`
 	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
 	Permissions       PermissionsConfig `mapstructure:"permissions" yaml:"permissions,omitempty"`
+	Drive             DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
+}
+
+type DriveConfig struct {
+	Supervisor string `mapstructure:"supervisor" yaml:"supervisor"`
+	Coder      string `mapstructure:"coder" yaml:"coder"`
+	MaxRetries int    `mapstructure:"max_retries" yaml:"max_retries"`
+	TestCmd    string `mapstructure:"test_cmd" yaml:"test_cmd"`
+	Timeout    string `mapstructure:"timeout" yaml:"timeout"`
 }
 
 type PermissionsConfig struct {
@@ -365,6 +374,10 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("automations.auto_close_sub_issues", true)
 	v.SetDefault("automations.auto_progress_sub_issues", true)
 	v.SetDefault("automations.auto_progress_parent", true)
+	v.SetDefault("drive.supervisor", "claude")
+	v.SetDefault("drive.coder", "claude")
+	v.SetDefault("drive.max_retries", 3)
+	v.SetDefault("drive.timeout", "30m")
 
 	// Config file locations
 	v.SetConfigName("config")

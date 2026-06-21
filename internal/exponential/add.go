@@ -3,9 +3,12 @@ package exponential
 import (
 	"fmt"
 	"os/exec"
+	"sort"
 	"time"
 
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/sortorder"
+	"github.com/palarix/exponential/internal/storage"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
@@ -27,6 +30,31 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 	for i := range payload.Dependencies {
 		if payload.Dependencies[i].SourceID == "" {
 			payload.Dependencies[i].SourceID = id
+		}
+	}
+
+	// Auto-assign sort_order if not provided — append at end of target status group
+	if payload.SortOrder == "" {
+		targetStatus := model.IssueStatus(payload.Status)
+		if targetStatus == "" {
+			targetStatus = model.StatusBacklog
+		}
+		if events, err := storage.ReadEvents(); err == nil {
+			issues := ProjectIssues(events)
+			var keys []string
+			for _, iss := range issues {
+				if iss.Status == targetStatus && iss.SortOrder != "" {
+					keys = append(keys, iss.SortOrder)
+				}
+			}
+			sort.Strings(keys)
+			lastKey := ""
+			if len(keys) > 0 {
+				lastKey = keys[len(keys)-1]
+			}
+			if key, err := sortorder.GenerateKeyBetween(lastKey, ""); err == nil {
+				payload.SortOrder = key
+			}
 		}
 	}
 
