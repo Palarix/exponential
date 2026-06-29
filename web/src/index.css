@@ -15,7 +15,7 @@
      Hover states step up one layer so they're always distinct.
      ──────────────────────────────────────────────────────────
      Layer       Bg        Hover     Border           */
-  --color-base:       #070707; /* sidebar, app chrome          */
+  --color-chrome:     #070707; /* sidebar, app chrome          */
   --color-surface:    #0f0f0f; /* main content canvas          */
   --color-surface-1:  #161616; /* sections, panels, columns    */
   --color-surface-2:  #1c1c1c; /* cards, inputs, group headers */
@@ -407,6 +407,14 @@ body {
 .focus-ring:focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
+}
+
+@layer base {
+  textarea:focus-visible,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):focus-visible {
+    box-shadow: 0 0 0 1px var(--color-border-focus);
+    border-radius: var(--radius-md);
+  }
 }
 
 /* ========================================

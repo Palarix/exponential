@@ -254,7 +254,7 @@ export default function Layout({
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-base)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--color-chrome)]">
       {/* Sidebar */}
       <aside className={`${collapsed ? "w-12" : "w-62"} flex-shrink-0 flex flex-col select-none transition-[width] duration-200`}>
         {/* Workspace header */}

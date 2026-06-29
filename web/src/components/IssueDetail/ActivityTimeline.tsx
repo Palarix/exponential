@@ -225,14 +225,14 @@ export default function ActivityTimeline({
       </div>
 
       {/* Comment input */}
-      <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] overflow-hidden">
+      <div className="mt-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] overflow-hidden transition-colors focus-within:border-[var(--color-border-focus)]">
         <textarea
           ref={commentRef}
           value={newComment}
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."
           rows={1}
-          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
+          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none focus-visible:shadow-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAddComment();
           }}
