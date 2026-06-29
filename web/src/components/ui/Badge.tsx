@@ -78,7 +78,7 @@ export function LabelBadge({ label, borderless }: { label: string; borderless?: 
       : label;
 
   return (
-    <span className={`inline-flex items-center gap-2 text-xs font-medium text-text-secondary rounded-2xl h-6 px-2 ${borderless ? "" : "border border-[var(--color-border-default)]"}`}>
+    <span className={`inline-flex items-center gap-2 text-xs font-medium text-text-secondary rounded-2xl h-6 px-2 ${borderless ? "" : "border border-[var(--color-border-label)]"}`}>
       <span
         className="w-2 h-2 rounded-full shrink-0"
         style={{ background: color }}
