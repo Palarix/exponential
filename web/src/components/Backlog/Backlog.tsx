@@ -101,9 +101,7 @@ export default function Backlog({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     () => new Set(),
   );
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [nodeToggleCount, setNodeToggleCount] = useState(0);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [keyboardNav, setKeyboardNav] = useState(false);
   const [inlineCreateStatus, setInlineCreateStatus] = useState<string | null>(
@@ -309,6 +307,15 @@ export default function Backlog({
     return map;
   }, [issues]);
 
+  const expandedNodes = useMemo(() => {
+    void nodeToggleCount;
+    const stored = localStorage.getItem(`exponential-backlog-nodes-collapsed`);
+    const collapsed: Set<string> = stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    const expanded = new Set(Array.from(childrenByParent.keys()));
+    for (const id of collapsed) expanded.delete(id);
+    return expanded;
+  }, [childrenByParent, nodeToggleCount]);
+
   useEffect(() => {
     const storageKey = `exponential-backlog-expanded-${activeTab}`;
     const stored = localStorage.getItem(storageKey);
@@ -323,7 +330,6 @@ export default function Backlog({
       }
     }
     setExpandedGroups(next);
-    setExpandedNodes(new Set(Array.from(childrenByParent.keys())));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -344,12 +350,13 @@ export default function Backlog({
   );
 
   const toggleNode = useCallback((id: string) => {
-    setExpandedNodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const nodesKey = `exponential-backlog-nodes-collapsed`;
+    const stored = localStorage.getItem(nodesKey);
+    const collapsed: Set<string> = stored ? new Set(JSON.parse(stored)) : new Set();
+    if (collapsed.has(id)) collapsed.delete(id);
+    else collapsed.add(id);
+    localStorage.setItem(nodesKey, JSON.stringify(Array.from(collapsed)));
+    setNodeToggleCount((c) => c + 1);
   }, []);
 
   const rows = useBacklogRows(
