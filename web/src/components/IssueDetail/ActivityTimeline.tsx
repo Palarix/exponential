@@ -232,7 +232,7 @@ export default function ActivityTimeline({
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."
           rows={1}
-          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none focus-visible:shadow-none"
+          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAddComment();
           }}

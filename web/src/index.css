@@ -409,13 +409,6 @@ body {
   outline-offset: 2px;
 }
 
-@layer base {
-  textarea:focus-visible,
-  input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):focus-visible {
-    box-shadow: 0 0 0 1px var(--color-border-focus);
-    border-radius: var(--radius-md);
-  }
-}
 
 /* ========================================
    SELECTION

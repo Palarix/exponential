@@ -34,6 +34,7 @@ export default function Modal({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.stopPropagation();
         onClose();
         return;
       }
@@ -76,6 +77,7 @@ export default function Modal({
       requestAnimationFrame(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
+        if (document.activeElement && dialog.contains(document.activeElement) && document.activeElement !== dialog) return;
         const first = dialog.querySelector<HTMLElement>(FOCUSABLE);
         if (first) first.focus();
         else dialog.focus();
