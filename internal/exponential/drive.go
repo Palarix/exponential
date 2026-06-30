@@ -299,7 +299,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 			log.ok("Ready")
 		}
 		fmt.Println()
-		log.info("xpo drive --id " + issue.ID)
+		log.info("xpo drive " + issue.ID)
 		fmt.Println()
 		result.Status = "dry-run"
 		return result, nil
@@ -599,7 +599,7 @@ func (c *Client) pickIssue(opts DriveOptions) (*model.Issue, error) {
 		if len(doing) == 1 {
 			return doing[0], nil
 		}
-		return nil, fmt.Errorf("multiple in-progress issues — use --id to specify which one to resume")
+		return nil, fmt.Errorf("multiple in-progress issues — specify the issue ID as an argument to resume")
 	}
 
 	// Without --resume, prefer a DOING issue if exactly one exists (pick up

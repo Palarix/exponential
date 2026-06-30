@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	driveID         string
 	driveFilter     string
 	driveTestCmd    string
 	driveDryRun     bool
@@ -21,8 +20,8 @@ var (
 )
 
 var driveCmd = &cobra.Command{
-	Use:   "drive",
-	Short: "Autonomous agent execution loop for a single ticket",
+	Use:               "drive [issue-id]",
+	Short:             "Autonomous agent execution loop for a single ticket",
 	Long: `Pick a PLANNED ticket, hand it to an AI coding agent loop,
 verify the result, and commit.
 
@@ -33,16 +32,23 @@ Configure defaults in .xpo/config.yaml:
     coder: claude
     max_retries: 3
     test_cmd: make test`,
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
-		runDrive()
+		runDrive(args)
 	},
 }
 
-func runDrive() {
+func runDrive(args []string) {
+	id := ""
+	if len(args) > 0 {
+		id = args[0]
+	}
+
 	client := exponential.NewClient(cfg)
 
 	opts := exponential.DriveOptions{
-		IssueID:    driveID,
+		IssueID:    id,
 		Filter:     driveFilter,
 		TestCmd:    driveTestCmd,
 		DryRun:     driveDryRun,
@@ -69,7 +75,6 @@ func runDrive() {
 }
 
 func init() {
-	driveCmd.Flags().StringVar(&driveID, "id", "", "Drive a specific issue (skip auto-pick)")
 	driveCmd.Flags().StringVar(&driveFilter, "filter", "", "Filter issues by label")
 	driveCmd.Flags().StringVar(&driveTestCmd, "test-cmd", "", "Override test command")
 	driveCmd.Flags().BoolVar(&driveDryRun, "dry-run", false, "Show which ticket would be picked without executing")
