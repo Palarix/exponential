@@ -16,12 +16,16 @@ type LocalTransport struct {
 	Config       *config.Config
 	Collapse     bool
 	UserOverride string
+	OnBehalfOf   string
 	Source       string
 }
 
 func (t *LocalTransport) appendEvent(evt model.Event) error {
 	if t.Source != "" {
 		evt.Source = t.Source
+	}
+	if t.OnBehalfOf != "" {
+		evt.OnBehalfOf = t.OnBehalfOf
 	}
 	if t.Collapse {
 		return storage.AppendEventCollapsed(evt)

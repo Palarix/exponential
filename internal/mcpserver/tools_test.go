@@ -75,14 +75,17 @@ func TestRegisterTools_WithoutHTTP(t *testing.T) {
 	RegisterTools(srv, cfg, nil, nil)
 }
 
-func TestHttpUserOverride_TakesPrecedence(t *testing.T) {
+func TestHttpUserOverride_SetsOnBehalfOf(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
 	ts.httpUserOverride = "Alice <alice@test.com>"
 	c := ts.clientFor(nil)
-	if c.UserOverride != "Alice <alice@test.com>" {
-		t.Errorf("expected Alice, got %q", c.UserOverride)
+	if c.OnBehalfOf != "Alice <alice@test.com>" {
+		t.Errorf("expected OnBehalfOf Alice, got %q", c.OnBehalfOf)
+	}
+	if c.Source != "mcp" {
+		t.Errorf("expected Source mcp, got %q", c.Source)
 	}
 }
 

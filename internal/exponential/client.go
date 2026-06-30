@@ -24,6 +24,7 @@ type Client struct {
 	Config       *config.Config
 	Collapse     bool
 	UserOverride string
+	OnBehalfOf   string
 	Source       string
 	local        *LocalTransport
 }
@@ -53,6 +54,7 @@ func (c *Client) syncLocal() {
 	if c.local != nil {
 		c.local.Collapse = c.Collapse
 		c.local.UserOverride = c.UserOverride
+		c.local.OnBehalfOf = c.OnBehalfOf
 		c.local.Source = c.Source
 	}
 }

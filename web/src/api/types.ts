@@ -89,6 +89,7 @@ export interface InboxItem {
   payload: Record<string, unknown>;
   created_at: string;
   created_by: string;
+  on_behalf_of?: string;
 }
 
 export interface InboxStatus {

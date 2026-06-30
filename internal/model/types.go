@@ -27,12 +27,13 @@ type MergePayload struct {
 }
 
 type Event struct {
-	ID        string      `json:"id"`
-	Type      EventType   `json:"type"`
-	Payload   interface{} `json:"payload"`
-	CreatedAt time.Time   `json:"created_at"`
-	CreatedBy string      `json:"created_by"` // Format: "First Last <email>"
-	Source    string      `json:"source,omitempty"` // Origin channel: "web", "mcp", "cli"
+	ID         string      `json:"id"`
+	Type       EventType   `json:"type"`
+	Payload    interface{} `json:"payload"`
+	CreatedAt  time.Time   `json:"created_at"`
+	CreatedBy  string      `json:"created_by"`            // Actor: "First Last <email>" or agent identity
+	OnBehalfOf string      `json:"on_behalf_of,omitempty"` // Principal: user the actor is working for
+	Source     string      `json:"source,omitempty"`       // Origin channel: "web", "mcp", "cli"
 }
 
 type CreatePayload struct {

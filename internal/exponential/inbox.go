@@ -18,6 +18,7 @@ type InboxItem struct {
 	Payload    interface{}     `json:"payload"`
 	CreatedAt  time.Time       `json:"created_at"`
 	CreatedBy  string          `json:"created_by"`
+	OnBehalfOf string          `json:"on_behalf_of,omitempty"`
 }
 
 // emailOf extracts a lowercased email from a "Name <email>" or bare-email
@@ -64,13 +65,22 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 			participates[id] = true
 		}
 	}
+	for _, evt := range events {
+		if evt.OnBehalfOf != "" && identityMatches(evt.OnBehalfOf, me) {
+			participates[evt.ID] = true
+		}
+	}
 
 	var items []InboxItem
 	for _, evt := range events {
 		if !since.IsZero() && !evt.CreatedAt.After(since) {
 			continue
 		}
-		if identityMatches(evt.CreatedBy, me) && evt.Source != "mcp" {
+		principal := evt.OnBehalfOf
+		if principal == "" {
+			principal = evt.CreatedBy
+		}
+		if identityMatches(principal, me) && evt.Source != "mcp" {
 			continue // skip interactive self-actions; keep agent-on-behalf-of-user
 		}
 		if !isMeaningfulInboxEvent(evt) {
@@ -86,6 +96,7 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 			Payload:    evt.Payload,
 			CreatedAt:  evt.CreatedAt,
 			CreatedBy:  evt.CreatedBy,
+			OnBehalfOf: evt.OnBehalfOf,
 		})
 	}
 

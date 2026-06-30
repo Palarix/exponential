@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { isEditableTarget } from "../../utils/keyboard";
+import { fetchUser, type User } from "../../api/client";
 import type { InboxItem, Issue } from "../../api/client";
 import {
   StatusIcon,
@@ -51,7 +52,20 @@ function groupByIssue(items: InboxItem[], lastReadTime: number): IssueGroup[] {
   return Array.from(map.values()).sort((a, b) => b.latestAt - a.latestAt);
 }
 
-function buildChangeSummary(events: InboxItem[]): string[] {
+function extractEmail(identity: string): string {
+  return identity.match(/<([^>]+)>/)?.[1]?.toLowerCase().trim() || "";
+}
+
+function agentLabel(evt: InboxItem, userEmail: string): string | null {
+  if (!evt.on_behalf_of) return null;
+  const principalEmail = extractEmail(evt.on_behalf_of);
+  if (principalEmail && principalEmail === userEmail) {
+    return `${shortName(evt.created_by)} (You)`;
+  }
+  return shortName(evt.created_by);
+}
+
+function buildChangeSummary(events: InboxItem[], userEmail: string): string[] {
   const parts: string[] = [];
   let commentCount = 0;
   const statusChanges: string[] = [];
@@ -59,8 +73,10 @@ function buildChangeSummary(events: InboxItem[]): string[] {
   let wasMerged = false;
   let wasCreated = false;
   let otherUpdates = 0;
+  let actor: string | null = null;
 
   for (const evt of events) {
+    if (!actor) actor = agentLabel(evt, userEmail);
     const p = evt.payload || {};
     switch (evt.type) {
       case "COMMENT":
@@ -86,6 +102,7 @@ function buildChangeSummary(events: InboxItem[]): string[] {
     }
   }
 
+  if (actor) parts.push(actor);
   if (wasCreated) parts.push("Issue created");
   for (const s of statusChanges) parts.push(`Status ${s}`);
   if (wasMerged) parts.push("Merged");
@@ -142,12 +159,17 @@ export default function Inbox({
   filters,
   onFiltersChange,
 }: InboxProps) {
+  const [user, setUser] = useState<User | null>(null);
   const [visibleCount, setVisibleCount] = useState(GROUPS_PER_PAGE);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [keyboardNav, setKeyboardNav] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    fetchUser().then(setUser).catch(() => {});
+  }, []);
 
   const lastReadTime = lastRead ? new Date(lastRead).getTime() : 0;
 
@@ -244,13 +266,15 @@ export default function Inbox({
     return () => document.removeEventListener("keydown", handler);
   }, [visibleGroups, handleMarkAllRead]);
 
+  const userEmail = user?.email?.toLowerCase().trim() || "";
+
   const changeSummary = useMemo(() => {
     if (!selectedGroup) return [];
     const unreadEvents = selectedGroup.events.filter(
       e => new Date(e.created_at).getTime() > lastReadTime
     );
-    return buildChangeSummary(unreadEvents.length > 0 ? unreadEvents : selectedGroup.events);
-  }, [selectedGroup, lastReadTime]);
+    return buildChangeSummary(unreadEvents.length > 0 ? unreadEvents : selectedGroup.events, userEmail);
+  }, [selectedGroup, lastReadTime, userEmail]);
 
   return (
     <div className="flex h-full">

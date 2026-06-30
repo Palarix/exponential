@@ -95,13 +95,14 @@ func (t *toolset) clientFor(req *mcp.CallToolRequest) *exponential.Client {
 	c := exponential.NewClient(t.cfg)
 	c.Source = "mcp"
 	if t.httpUserOverride != "" {
-		c.UserOverride = t.httpUserOverride
+		c.OnBehalfOf = t.httpUserOverride
 	} else {
-		var session mcp.Session
-		if req != nil {
-			session = req.GetSession()
-		}
-		c.UserOverride = resolveAgentIdentity(session, t.cfg.User)
+		c.OnBehalfOf = c.GetUser()
 	}
+	var session mcp.Session
+	if req != nil {
+		session = req.GetSession()
+	}
+	c.UserOverride = resolveAgentIdentity(session, t.cfg.User)
 	return c
 }
