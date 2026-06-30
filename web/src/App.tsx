@@ -14,6 +14,8 @@ const Dependencies = lazy(() => import('./components/Dependencies/Dependencies')
 const Labels = lazy(() => import('./components/Labels/Labels'));
 const Cycles = lazy(() => import('./components/Cycles/Cycles'));
 const Inbox = lazy(() => import('./components/Inbox/Inbox'));
+const MyIssues = lazy(() => import('./components/MyIssues/MyIssues'));
+import type { MyIssuesTab } from './components/MyIssues/MyIssues';
 const IssueDetail = lazy(() => import('./components/IssueDetail/IssueDetail'));
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
@@ -23,7 +25,7 @@ import { isEditableTarget } from './utils/keyboard';
 import { type BacklogFilters, EMPTY_FILTERS, hasActiveFilters } from './components/Backlog/filters';
 import FilterChips from './components/Backlog/FilterChips';
 
-type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels';
+type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels' | 'my-issues';
 
 const VIEW_LABELS: Record<View, string> = {
   dashboard: 'Dashboard',
@@ -33,6 +35,7 @@ const VIEW_LABELS: Record<View, string> = {
   cycles: 'Cycles',
   dependencies: 'Dependencies',
   labels: 'Labels',
+  'my-issues': 'My Issues',
 };
 
 const VIEW_ROUTES: Record<string, View> = {
@@ -43,6 +46,7 @@ const VIEW_ROUTES: Record<string, View> = {
   'cycles': 'cycles',
   'dependencies': 'dependencies',
   'labels': 'labels',
+  'my-issues': 'my-issues',
 };
 const ROUTE_VIEWS: Record<View, string> = {
   backlog: 'issues',
@@ -52,6 +56,7 @@ const ROUTE_VIEWS: Record<View, string> = {
   cycles: 'cycles',
   dependencies: 'dependencies',
   labels: 'labels',
+  'my-issues': 'my-issues',
 };
 
 function parseHash(): { view: View; issueId: string | null; cycleId: string | null } {
@@ -115,6 +120,14 @@ function App() {
     if (stored) { try { return JSON.parse(stored); } catch {} }
     return EMPTY_FILTERS;
   });
+  const [myIssuesTab, setMyIssuesTab] = useState<MyIssuesTab>(() =>
+    (localStorage.getItem('exponential-my-issues-tab') as MyIssuesTab) || 'assigned'
+  );
+  const [myIssuesFilters, setMyIssuesFilters] = useState<BacklogFilters>(() => {
+    const stored = localStorage.getItem(`exponential-my-issues-filters-${myIssuesTab}`);
+    if (stored) { try { return JSON.parse(stored); } catch {} }
+    return EMPTY_FILTERS;
+  });
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxLastRead, setInboxLastRead] = useState('');
   const [inboxUnread, setInboxUnread] = useState(0);
@@ -124,6 +137,19 @@ function App() {
     setBacklogFilters(f);
     localStorage.setItem(`exponential-backlog-filters-${backlogTab}`, JSON.stringify(f));
   }, [backlogTab]);
+
+  const handleMyIssuesTabChange = useCallback((t: MyIssuesTab) => {
+    setMyIssuesTab(t);
+    localStorage.setItem('exponential-my-issues-tab', t);
+    const stored = localStorage.getItem(`exponential-my-issues-filters-${t}`);
+    if (stored) { try { setMyIssuesFilters(JSON.parse(stored)); } catch {} }
+    else setMyIssuesFilters(EMPTY_FILTERS);
+  }, []);
+
+  const handleMyIssuesFiltersChange = useCallback((f: BacklogFilters) => {
+    setMyIssuesFilters(f);
+    localStorage.setItem(`exponential-my-issues-filters-${myIssuesTab}`, JSON.stringify(f));
+  }, [myIssuesTab]);
 
   const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
 
@@ -164,6 +190,7 @@ function App() {
     d: 'dependencies',
     l: 'labels',
     c: 'cycles',
+    m: 'my-issues',
   };
 
   useEffect(() => {
@@ -400,6 +427,17 @@ function App() {
         );
       case 'labels':
         return <Labels issues={issues} onConfigLabelsChange={setConfigLabels} onRefresh={fetchData} />;
+      case 'my-issues':
+        return (
+          <MyIssues
+            issues={issues}
+            onIssueClick={handleIssueClick}
+            activeTab={myIssuesTab}
+            onTabChange={handleMyIssuesTabChange}
+            filters={myIssuesFilters}
+            onFiltersChange={handleMyIssuesFiltersChange}
+          />
+        );
     }
   };
 
@@ -422,9 +460,13 @@ function App() {
         connected={!error}
         cyclesEnabled={cyclesEnabled}
         inboxUnread={inboxUnread}
-        statusBarLeft={view === 'backlog' && hasActiveFilters(backlogFilters) ? (
-          <FilterChips filters={backlogFilters} onChange={handleFiltersChange} />
-        ) : undefined}
+        statusBarLeft={
+          view === 'backlog' && hasActiveFilters(backlogFilters) ? (
+            <FilterChips filters={backlogFilters} onChange={handleFiltersChange} />
+          ) : view === 'my-issues' && hasActiveFilters(myIssuesFilters) ? (
+            <FilterChips filters={myIssuesFilters} onChange={handleMyIssuesFiltersChange} />
+          ) : undefined
+        }
       >
         <ErrorBoundary onReset={fetchData}>
           <Suspense fallback={null}>

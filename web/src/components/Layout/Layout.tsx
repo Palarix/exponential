@@ -19,9 +19,10 @@ import {
   SearchIcon,
   SidebarIcon,
   TagIcon,
+  UserIcon,
 } from "../ui";
 
-type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels";
+type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels" | "my-issues";
 
 interface LayoutProps {
   children: ReactNode;
@@ -311,6 +312,12 @@ export default function Layout({
               collapsed={collapsed}
             />
           ))}
+          <NavItem
+            item={{ id: "my-issues" as View, label: "My Issues", icon: <UserIcon /> }}
+            isActive={currentView === "my-issues"}
+            onClick={() => onViewChange("my-issues" as View)}
+            collapsed={collapsed}
+          />
           {cyclesEnabled && (
             <NavItem
               item={{ id: "cycles" as View, label: "Cycles", icon: <CyclesIcon /> }}
