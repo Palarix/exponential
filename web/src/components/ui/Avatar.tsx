@@ -9,6 +9,9 @@ const SIZE_PX: Record<AvatarSize, number> = {
   lg: 24,
 };
 
+const failedEmails = new Set<string>();
+const loadedHashes = new Set<string>();
+
 interface AvatarProps {
   name: string;
   size?: AvatarSize;
@@ -17,18 +20,25 @@ interface AvatarProps {
 export default function Avatar({ name, size = "md" }: AvatarProps) {
   const px = SIZE_PX[size];
   const email = name.match(/<([^>]+)>/)?.[1]?.toLowerCase().trim() || "";
-  const [failed, setFailed] = useState(!email);
+  const hash = email ? md5(email) : "";
+  const [failed, setFailed] = useState(!email || failedEmails.has(email));
 
   if (!failed) {
+    const src = `https://www.gravatar.com/avatar/${hash}?s=${px * 2}&d=404`;
     return (
       <img
-        src={`https://www.gravatar.com/avatar/${md5(email)}?s=${px * 2}&d=404`}
+        src={src}
         width={px}
         height={px}
         className="rounded-full shrink-0"
         alt=""
         title={name}
-        onError={() => setFailed(true)}
+        loading="lazy"
+        onLoad={() => loadedHashes.add(hash)}
+        onError={() => {
+          failedEmails.add(email);
+          setFailed(true);
+        }}
       />
     );
   }
