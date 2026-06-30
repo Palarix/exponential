@@ -37,6 +37,10 @@
   --color-border-control: #404040; /* checkboxes, toggles        */
   --color-border-focus: rgba(94, 106, 210, 0.5);
 
+  /* Diff gutter — opaque approximations of add/del tints over --color-surface */
+  --color-diff-gutter-add: #0f1a0f;
+  --color-diff-gutter-del: #1a0f0f;
+
   /* Text */
   --color-text-primary: #e4e4e7;
   --color-text-secondary: #949496;

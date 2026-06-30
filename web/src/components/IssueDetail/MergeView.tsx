@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -96,12 +96,6 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
 
   const fileDiffs = useMemo(() => parseDiffByFile(diff), [diff]);
   const commitFileDiffs = useMemo(() => parseDiffByFile(commitDiffText), [commitDiffText]);
-
-  const filteredFiles = useMemo(() => {
-    if (!fileFilter) return files;
-    const q = fileFilter.toLowerCase();
-    return files.filter((f) => f.path.toLowerCase().includes(q));
-  }, [files, fileFilter]);
 
   const defaultCommitMessage = useCallback((strategy: string) => {
     const bs = issue.branch_stats!;
@@ -261,7 +255,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
             commitDiffLoading={commitDiffLoading} onSelectCommit={loadCommitDiff} />
         )}
         {activeTab === "files" && (
-          <FilesTab files={filteredFiles} fileDiffs={fileDiffs} selectedFile={selectedFile}
+          <FilesTab fileDiffs={fileDiffs} selectedFile={selectedFile}
             onSelectFile={setSelectedFile} fileFilter={fileFilter} onFilterChange={setFileFilter} />
         )}
         {activeTab === "conversation" && (
@@ -374,19 +368,142 @@ function CommitsTab({ commits, selectedCommit, commitDiffs, commitDiffLoading, o
   );
 }
 
-/* ─── Files Tab: file list left, diff right ─── */
-function FilesTab({ files, fileDiffs, selectedFile, onSelectFile, fileFilter, onFilterChange }: {
-  files: FileInfo[]; fileDiffs: Map<string, string[]>;
+/* ─── File tree ─── */
+
+interface FileTreeNode {
+  name: string;
+  path: string;
+  isFile: boolean;
+  children: FileTreeNode[];
+}
+
+function buildFileTree(paths: string[]): FileTreeNode[] {
+  const root: FileTreeNode[] = [];
+  for (const filePath of paths) {
+    const parts = filePath.split("/");
+    let nodes = root;
+    let currentPath = "";
+    for (let i = 0; i < parts.length; i++) {
+      currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+      const isLast = i === parts.length - 1;
+      let node = nodes.find(n => n.name === parts[i]);
+      if (!node) {
+        node = { name: parts[i], path: currentPath, isFile: isLast, children: [] };
+        nodes.push(node);
+      }
+      nodes = node.children;
+    }
+  }
+  return root;
+}
+
+function flattenSingleChildDirs(nodes: FileTreeNode[]): FileTreeNode[] {
+  return nodes.map(node => {
+    if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
+      const merged: FileTreeNode = {
+        name: `${node.name}/${node.children[0].name}`,
+        path: node.children[0].path,
+        isFile: false,
+        children: flattenSingleChildDirs(node.children[0].children),
+      };
+      return merged;
+    }
+    return { ...node, children: flattenSingleChildDirs(node.children) };
+  });
+}
+
+function FileTreeView({ nodes, depth, selectedFile, onSelectFile, collapsedDirs, onToggleDir, fileDiffs }: {
+  nodes: FileTreeNode[]; depth: number;
+  selectedFile: string | null; onSelectFile: (f: string | null) => void;
+  collapsedDirs: Set<string>; onToggleDir: (path: string) => void;
+  fileDiffs: Map<string, string[]>;
+}) {
+  return (
+    <>
+      {nodes.map(node => {
+        const isCollapsed = collapsedDirs.has(node.path);
+        if (!node.isFile) {
+          return (
+            <div key={node.path}>
+              <button
+                onClick={() => onToggleDir(node.path)}
+                className="flex items-center gap-1.5 w-full py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors text-left"
+                style={{ paddingLeft: `${12 + depth * 12}px` }}
+              >
+                {isCollapsed
+                  ? <ChevronRight size={12} className="shrink-0" />
+                  : <ChevronDown size={12} className="shrink-0" />
+                }
+                <span className="font-mono truncate">{node.name}/</span>
+              </button>
+              {!isCollapsed && (
+                <FileTreeView
+                  nodes={node.children} depth={depth + 1}
+                  selectedFile={selectedFile} onSelectFile={onSelectFile}
+                  collapsedDirs={collapsedDirs} onToggleDir={onToggleDir}
+                  fileDiffs={fileDiffs}
+                />
+              )}
+            </div>
+          );
+        }
+        const diffLines = fileDiffs.get(node.path);
+        const hasAdd = diffLines?.some(l => l.startsWith("+") && !l.startsWith("+++"));
+        const hasDel = diffLines?.some(l => l.startsWith("-") && !l.startsWith("---"));
+        const statusColor = hasAdd && !hasDel ? "text-green-500" : hasDel && !hasAdd ? "text-red-500" : "text-[var(--color-text-muted)]";
+        return (
+          <button
+            key={node.path}
+            onClick={() => onSelectFile(selectedFile === node.path ? null : node.path)}
+            className={`flex items-center gap-1.5 w-full py-1.5 pr-3 text-xs text-left transition-colors ${selectedFile === node.path ? "bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+            style={{ paddingLeft: `${12 + depth * 12}px` }}
+          >
+            <FileDiff size={12} className={`shrink-0 ${statusColor}`} />
+            <span className="font-mono truncate">{node.name}</span>
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
+/* ─── Files Tab: file tree left, diff right ─── */
+function FilesTab({ fileDiffs, selectedFile, onSelectFile, fileFilter, onFilterChange }: {
+  fileDiffs: Map<string, string[]>;
   selectedFile: string | null; onSelectFile: (f: string | null) => void;
   fileFilter: string; onFilterChange: (v: string) => void;
 }) {
-  const visibleDiffs = useMemo(() => {
-    if (selectedFile) {
-      const d = fileDiffs.get(selectedFile);
-      return d ? new Map([[selectedFile, d]]) : new Map();
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+
+  const toggleDir = useCallback((path: string) => {
+    setCollapsedDirs(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }, []);
+
+  const diffPaths = useMemo(() => Array.from(fileDiffs.keys()), [fileDiffs]);
+  const filteredPaths = useMemo(() => {
+    if (!fileFilter) return diffPaths;
+    const q = fileFilter.toLowerCase();
+    return diffPaths.filter(p => p.toLowerCase().includes(q));
+  }, [diffPaths, fileFilter]);
+  const tree = useMemo(() => flattenSingleChildDirs(buildFileTree(filteredPaths)), [filteredPaths]);
+
+  const diffRef = useRef<HTMLDivElement>(null);
+
+  const handleSelectFile = useCallback((file: string | null) => {
+    onSelectFile(file);
+    if (file && diffRef.current) {
+      const el = diffRef.current.querySelector(`[data-diff-file="${CSS.escape(file)}"]`) as HTMLElement | null;
+      if (el) {
+        const container = diffRef.current;
+        const offset = el.offsetTop - container.offsetTop - 50;
+        container.scrollTo({ top: offset, behavior: "smooth" });
+      }
     }
-    return fileDiffs;
-  }, [selectedFile, fileDiffs]);
+  }, [onSelectFile]);
 
   return (
     <div className="h-full flex">
@@ -398,23 +515,17 @@ function FilesTab({ files, fileDiffs, selectedFile, onSelectFile, fileFilter, on
               className="flex-1 text-xs bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
           </div>
         </div>
-        {selectedFile && (
-          <button onClick={() => onSelectFile(null)}
-            className="w-full px-4 py-2 text-xs text-[var(--color-accent-primary)] hover:bg-[var(--color-hover-surface)] text-left border-b border-[var(--color-border-subtle)]">
-            ← Show all files
-          </button>
-        )}
-        {files.map((f) => (
-          <button key={f.path} onClick={() => onSelectFile(selectedFile === f.path ? null : f.path)}
-            className={`flex items-center gap-2 w-full px-4 py-2 text-xs text-left border-b border-[var(--color-border-subtle)] transition-colors ${selectedFile === f.path ? "bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}>
-            <FileDiff size={12} className={`shrink-0 ${f.status === "A" ? "text-green-500" : f.status === "D" ? "text-red-500" : "text-[var(--color-text-muted)]"}`} />
-            <span className="font-mono truncate flex-1">{f.path}</span>
-            <span className="shrink-0 tabular-nums"><span className="text-green-500">+{f.insertions}</span> <span className="text-red-500">-{f.deletions}</span></span>
-          </button>
-        ))}
+        <div className="py-1">
+          <FileTreeView
+            nodes={tree} depth={0}
+            selectedFile={selectedFile} onSelectFile={handleSelectFile}
+            collapsedDirs={collapsedDirs} onToggleDir={toggleDir}
+            fileDiffs={fileDiffs}
+          />
+        </div>
       </div>
-      <div className="flex-1 overflow-auto">
-        <DiffViewer diffs={visibleDiffs} />
+      <div ref={diffRef} className="flex-1 overflow-auto">
+        <DiffViewer diffs={fileDiffs} />
       </div>
     </div>
   );
@@ -466,15 +577,25 @@ function ConversationTab({ issue, newComment, onNewCommentChange, onAddComment, 
 }
 
 /* ─── Diff viewer with line numbers + collapsible cards ─── */
+type DiffMode = "unified" | "split";
+
 function DiffViewer({ diffs }: { diffs: Map<string, string[]> }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<DiffMode>(
+    () => (localStorage.getItem("exponential-diff-mode") as DiffMode) || "unified",
+  );
 
-  const toggle = useCallback((file: string) => {
+  const toggleFile = useCallback((file: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(file)) next.delete(file); else next.add(file);
       return next;
     });
+  }, []);
+
+  const setDiffMode = useCallback((m: DiffMode) => {
+    setMode(m);
+    localStorage.setItem("exponential-diff-mode", m);
   }, []);
 
   if (diffs.size === 0) {
@@ -483,52 +604,270 @@ function DiffViewer({ diffs }: { diffs: Map<string, string[]> }) {
 
   return (
     <div>
-      {Array.from(diffs.entries()).map(([file, rawLines]) => {
-        const isCollapsed = collapsed.has(file);
-        const numbered = isCollapsed ? [] : addLineNumbers(rawLines);
-        return (
-          <div key={file} className="border-b border-[var(--color-border-default)]">
-            <button
-              onClick={() => toggle(file)}
-              className="sticky top-0 z-10 flex items-center gap-2 w-full px-4 py-2 text-xs font-mono bg-[var(--color-surface-1)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors text-left"
-            >
-              {isCollapsed ? <ChevronRight size={13} className="text-[var(--color-text-muted)] shrink-0" /> : <ChevronDown size={13} className="text-[var(--color-text-muted)] shrink-0" />}
-              <FileDiff size={13} className="text-[var(--color-text-muted)] shrink-0" />
-              <span className="text-[var(--color-text-primary)] font-semibold">{file}</span>
-            </button>
-            {!isCollapsed && (
-              <table className="w-full text-xs font-mono leading-5 border-collapse">
-                <tbody>
-                  {numbered.map((ln, i) => (
-                    <tr key={i} className={
-                      ln.type === "add" ? "bg-green-500/10"
-                      : ln.type === "del" ? "bg-red-500/10"
-                      : ln.type === "hunk" ? "bg-[var(--color-accent-primary)]/5"
-                      : ""
-                    }>
-                      <td className="w-12 text-right pr-2 select-none text-[var(--color-text-muted)]/50 border-r border-[var(--color-border-subtle)]">
-                        {ln.oldNum || ""}
-                      </td>
-                      <td className="w-12 text-right pr-2 select-none text-[var(--color-text-muted)]/50 border-r border-[var(--color-border-subtle)]">
-                        {ln.newNum || ""}
-                      </td>
-                      <td className={`pl-3 pr-4 whitespace-pre ${
-                        ln.type === "add" ? "text-green-400"
-                        : ln.type === "del" ? "text-red-400"
-                        : ln.type === "hunk" ? "text-[var(--color-accent-primary)]"
-                        : "text-[var(--color-text-secondary)]"
-                      }`}>
-                        {ln.text}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );
-      })}
+      {/* Mode toggle */}
+      <div className="sticky top-0 z-20 flex items-center justify-end px-4 py-1.5 bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)]">
+        <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+          <button
+            onClick={() => setDiffMode("unified")}
+            className={`px-2.5 py-1 text-xs transition-colors ${mode === "unified" ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
+          >
+            Unified
+          </button>
+          <button
+            onClick={() => setDiffMode("split")}
+            className={`px-2.5 py-1 text-xs border-l border-[var(--color-border-default)] transition-colors ${mode === "split" ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
+          >
+            Split
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        {Array.from(diffs.entries()).map(([file, rawLines]) => {
+          const isCollapsed = collapsed.has(file);
+          return (
+            <div key={file} data-diff-file={file} className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+              <button
+                onClick={() => toggleFile(file)}
+                className="flex items-center gap-2 w-full px-4 py-2 text-xs font-mono bg-[var(--color-surface-1)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors text-left"
+              >
+                {isCollapsed ? <ChevronRight size={13} className="text-[var(--color-text-muted)] shrink-0" /> : <ChevronDown size={13} className="text-[var(--color-text-muted)] shrink-0" />}
+                <FileDiff size={13} className="text-[var(--color-text-muted)] shrink-0" />
+                <span className="text-[var(--color-text-primary)] font-semibold flex-1">{file}</span>
+                {(() => {
+                  const add = rawLines.filter(l => l.startsWith("+") && !l.startsWith("+++")).length;
+                  const del = rawLines.filter(l => l.startsWith("-") && !l.startsWith("---")).length;
+                  if (add > 0 || del > 0) {
+                    return (
+                      <span className="text-[var(--color-text-muted)] tabular-nums shrink-0">
+                        <span className="text-green-500">+{add}</span>{" "}
+                        <span className="text-red-500">-{del}</span>
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </button>
+              {!isCollapsed && (
+                <div className="overflow-x-auto">
+                  {mode === "unified" ? <UnifiedDiff lines={rawLines} /> : <SplitDiff lines={rawLines} />}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+function rowBg(type: string): string {
+  if (type === "add") return "bg-green-500/10";
+  if (type === "del") return "bg-red-500/10";
+  if (type === "hunk") return "bg-[var(--color-accent-primary)]/5";
+  return "";
+}
+
+function gutterBg(type: string): string {
+  if (type === "add") return "bg-[var(--color-diff-gutter-add)]";
+  if (type === "del") return "bg-[var(--color-diff-gutter-del)]";
+  return "bg-[var(--color-surface)]";
+}
+
+function UnifiedDiff({ lines }: { lines: string[] }) {
+  const numbered = addLineNumbers(lines);
+  return (
+    <table className="text-xs font-mono leading-5 border-collapse" style={{ minWidth: "100%" }}>
+      <tbody>
+        {numbered.filter(ln => ln.type !== "meta").map((ln, i) => (
+          <tr key={i} className={rowBg(ln.type)}>
+            {ln.type === "hunk" ? (
+              <>
+                <td className="sticky left-0 z-[1] w-[50px] min-w-[50px] max-w-[50px] bg-[var(--color-accent-primary)]/10" style={{ boxShadow: "1px 0 0 var(--color-border-subtle)" }} />
+                <td className="sticky left-[50px] z-[1] w-[50px] min-w-[50px] max-w-[50px] bg-[var(--color-accent-primary)]/10" style={{ boxShadow: "1px 0 0 var(--color-border-subtle)" }} />
+                <td className="bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)] whitespace-pre">
+                  <span className="sticky left-[100px] pl-3 pr-4">{ln.text}</span>
+                </td>
+              </>
+            ) : (
+              <>
+                <td className={`sticky left-0 z-[1] w-[50px] min-w-[50px] max-w-[50px] text-right pr-2 select-none text-[var(--color-text-muted)]/50 ${gutterBg(ln.type)}`} style={{ boxShadow: "1px 0 0 var(--color-border-subtle)" }}>
+                  {ln.oldNum || ""}
+                </td>
+                <td className={`sticky left-[50px] z-[1] w-[50px] min-w-[50px] max-w-[50px] text-right pr-2 select-none text-[var(--color-text-muted)]/50 ${gutterBg(ln.type)}`} style={{ boxShadow: "1px 0 0 var(--color-border-subtle)" }}>
+                  {ln.newNum || ""}
+                </td>
+                <td className={`pl-3 pr-4 whitespace-pre ${
+                  ln.type === "add" ? "text-green-400"
+                  : ln.type === "del" ? "text-red-400"
+                  : "text-[var(--color-text-secondary)]"
+                }`}>
+                  {ln.text}
+                </td>
+              </>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+interface SplitLine {
+  num: string;
+  text: string;
+  type: "ctx" | "add" | "del" | "empty";
+}
+
+function buildSplitLines(lines: string[]): { left: SplitLine[]; right: SplitLine[] }[] {
+  const chunks: { left: SplitLine[]; right: SplitLine[] }[] = [];
+  let oldLine = 0;
+  let newLine = 0;
+  let currentLeft: SplitLine[] = [];
+  let currentRight: SplitLine[] = [];
+  let pendingDels: string[] = [];
+  let pendingAdds: string[] = [];
+  let delStart = 0;
+  let addStart = 0;
+
+  const flushPending = () => {
+    const max = Math.max(pendingDels.length, pendingAdds.length);
+    for (let i = 0; i < max; i++) {
+      if (i < pendingDels.length) {
+        currentLeft.push({ num: String(delStart + i), text: pendingDels[i], type: "del" });
+      } else {
+        currentLeft.push({ num: "", text: "", type: "empty" });
+      }
+      if (i < pendingAdds.length) {
+        currentRight.push({ num: String(addStart + i), text: pendingAdds[i], type: "add" });
+      } else {
+        currentRight.push({ num: "", text: "", type: "empty" });
+      }
+    }
+    pendingDels = [];
+    pendingAdds = [];
+  };
+
+  for (const line of lines) {
+    if (line.startsWith("@@")) {
+      flushPending();
+      if (currentLeft.length > 0 || currentRight.length > 0) {
+        chunks.push({ left: currentLeft, right: currentRight });
+        currentLeft = [];
+        currentRight = [];
+      }
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        oldLine = parseInt(match[1], 10);
+        newLine = parseInt(match[2], 10);
+      }
+      chunks.push({
+        left: [{ num: "", text: line, type: "ctx" }],
+        right: [{ num: "", text: line, type: "ctx" }],
+      });
+    } else if (line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\") || line.startsWith("similarity") || line.startsWith("rename ") || line.startsWith("new file") || line.startsWith("deleted file") || line.startsWith("old mode") || line.startsWith("new mode") || line.startsWith("copy ")) {
+      continue;
+    } else if (oldLine === 0 && newLine === 0) {
+      continue;
+    } else if (line.startsWith("-")) {
+      if (pendingAdds.length > 0) {
+        flushPending();
+      }
+      if (pendingDels.length === 0) delStart = oldLine;
+      pendingDels.push(line);
+      oldLine++;
+    } else if (line.startsWith("+")) {
+      if (pendingAdds.length === 0) addStart = newLine;
+      pendingAdds.push(line);
+      newLine++;
+    } else {
+      flushPending();
+      currentLeft.push({ num: String(oldLine), text: line, type: "ctx" });
+      currentRight.push({ num: String(newLine), text: line, type: "ctx" });
+      oldLine++;
+      newLine++;
+    }
+  }
+
+  flushPending();
+  if (currentLeft.length > 0 || currentRight.length > 0) {
+    chunks.push({ left: currentLeft, right: currentRight });
+  }
+
+  return chunks;
+}
+
+function splitCellBg(type: string): string {
+  if (type === "del") return "bg-red-500/10";
+  if (type === "add") return "bg-green-500/10";
+  if (type === "empty") return "bg-[var(--color-surface-1)]";
+  return "";
+}
+
+function SplitDiff({ lines }: { lines: string[] }) {
+  const chunks = useMemo(() => buildSplitLines(lines), [lines]);
+
+  const rows: { left: SplitLine; right: SplitLine; isHunk: boolean }[] = [];
+  for (const chunk of chunks) {
+    for (let ri = 0; ri < chunk.left.length; ri++) {
+      const left = chunk.left[ri];
+      const right = chunk.right[ri] || { num: "", text: "", type: "empty" as const };
+      const isHunk = left.type === "ctx" && left.text.startsWith("@@");
+      rows.push({ left, right, isHunk });
+    }
+  }
+
+  return (
+    <table className="w-full text-xs font-mono leading-5 border-collapse" style={{ tableLayout: "fixed" }}>
+      <colgroup>
+        <col style={{ width: 50 }} />
+        <col />
+        <col style={{ width: 50 }} />
+        <col />
+      </colgroup>
+      <tbody>
+        {rows.map((row, i) => {
+          if (row.isHunk) {
+            return (
+              <tr key={i}>
+                <td className="bg-[var(--color-accent-primary)]/10 border-r border-[var(--color-border-subtle)]" />
+                <td className="bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)] pl-3 pr-4 whitespace-pre truncate">
+                  {row.left.text}
+                </td>
+                <td className="bg-[var(--color-accent-primary)]/10 border-l border-r border-[var(--color-border-subtle)]" />
+                <td className="bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)] pl-3 pr-4 whitespace-pre truncate">
+                  {row.right.text}
+                </td>
+              </tr>
+            );
+          }
+          return (
+            <tr key={i}>
+              <td className={`text-right pr-2 select-none text-[var(--color-text-muted)]/50 border-r border-[var(--color-border-subtle)] ${splitCellBg(row.left.type)}`}>
+                {row.left.num}
+              </td>
+              <td className={`whitespace-pre truncate pl-3 pr-4 ${splitCellBg(row.left.type)} ${
+                row.left.type === "del" ? "text-red-400"
+                : row.left.type === "empty" ? ""
+                : "text-[var(--color-text-secondary)]"
+              }`}>
+                {row.left.text}
+              </td>
+              <td className={`text-right pr-2 select-none text-[var(--color-text-muted)]/50 border-l border-r border-[var(--color-border-subtle)] ${splitCellBg(row.right.type)}`}>
+                {row.right.num}
+              </td>
+              <td className={`whitespace-pre truncate pl-3 pr-4 ${splitCellBg(row.right.type)} ${
+                row.right.type === "add" ? "text-green-400"
+                : row.right.type === "empty" ? ""
+                : "text-[var(--color-text-secondary)]"
+              }`}>
+                {row.right.text}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -554,7 +893,9 @@ function addLineNumbers(lines: string[]): NumberedLine[] {
         newLine = parseInt(match[2], 10);
       }
       result.push({ oldNum: "", newNum: "", text: line, type: "hunk" });
-    } else if (line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\")) {
+    } else if (line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\") || line.startsWith("similarity") || line.startsWith("rename ") || line.startsWith("new file") || line.startsWith("deleted file") || line.startsWith("old mode") || line.startsWith("new mode") || line.startsWith("copy ")) {
+      result.push({ oldNum: "", newNum: "", text: line, type: "meta" });
+    } else if (oldLine === 0 && newLine === 0) {
       result.push({ oldNum: "", newNum: "", text: line, type: "meta" });
     } else if (line.startsWith("+")) {
       result.push({ oldNum: "", newNum: String(newLine), text: line, type: "add" });
@@ -580,7 +921,7 @@ function parseDiffByFile(diff: string): Map<string, string[]> {
   for (const line of lines) {
     if (line.startsWith("diff --git")) {
       if (currentFile) result.set(currentFile, currentLines);
-      const match = line.match(/b\/(.+)$/);
+      const match = line.match(/ b\/(.+)$/);
       currentFile = match ? match[1] : "";
       currentLines = [line];
     } else if (currentFile) {
