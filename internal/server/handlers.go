@@ -82,6 +82,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 
 	client := exponential.NewClient(s.Config)
 	client.Collapse = true
+	client.Source = "web"
 	if user, ok := auth.UserFromContext(r.Context()); ok {
 		client.UserOverride = user.Raw
 	}

@@ -70,8 +70,8 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 		if !since.IsZero() && !evt.CreatedAt.After(since) {
 			continue
 		}
-		if identityMatches(evt.CreatedBy, me) {
-			continue // don't notify about your own actions
+		if identityMatches(evt.CreatedBy, me) && evt.Source != "mcp" {
+			continue // skip interactive self-actions; keep agent-on-behalf-of-user
 		}
 		if !isMeaningfulInboxEvent(evt) {
 			continue // skip bookkeeping noise (e.g. sort-order-only updates)

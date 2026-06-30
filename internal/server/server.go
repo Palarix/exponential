@@ -157,6 +157,12 @@ func (s *Server) broadcastEvent(eventType, issueID string) {
 	}
 }
 
+// BroadcastEvent is the exported form of broadcastEvent for use by external
+// callers (e.g. MCP tool handlers that need to push SSE notifications).
+func (s *Server) BroadcastEvent(eventType, issueID string) {
+	s.broadcastEvent(eventType, issueID)
+}
+
 func (s *Server) statDB() (mtime time.Time, size int64, exists bool) {
 	info, err := os.Stat(filepath.Join(".xpo", "issues.db"))
 	if err != nil {

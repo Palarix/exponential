@@ -57,7 +57,7 @@ func TestRegisterTools_WithHTTPAuth(t *testing.T) {
 	ctx := auth.WithUser(context.Background(), user)
 	req, _ := http.NewRequestWithContext(ctx, "POST", "/mcp", nil)
 
-	RegisterTools(srv, cfg, req)
+	RegisterTools(srv, cfg, req, nil)
 }
 
 func TestRegisterTools_WithoutHTTP(t *testing.T) {
@@ -72,7 +72,7 @@ func TestRegisterTools_WithoutHTTP(t *testing.T) {
 	}
 
 	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
-	RegisterTools(srv, cfg, nil)
+	RegisterTools(srv, cfg, nil, nil)
 }
 
 func TestHttpUserOverride_TakesPrecedence(t *testing.T) {

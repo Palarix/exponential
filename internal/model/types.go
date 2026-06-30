@@ -32,6 +32,7 @@ type Event struct {
 	Payload   interface{} `json:"payload"`
 	CreatedAt time.Time   `json:"created_at"`
 	CreatedBy string      `json:"created_by"` // Format: "First Last <email>"
+	Source    string      `json:"source,omitempty"` // Origin channel: "web", "mcp", "cli"
 }
 
 type CreatePayload struct {

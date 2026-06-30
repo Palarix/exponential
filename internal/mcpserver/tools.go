@@ -308,6 +308,7 @@ func (t *toolset) add(ctx context.Context, req *mcp.CallToolRequest, in inputs.A
 	if err != nil {
 		return nil, addOut{}, err
 	}
+	t.broadcast("CREATE", issue.ID)
 	return textResult(fmt.Sprintf("Created %s: %s", issue.ID, issue.Title)),
 		addOut{ID: issue.ID, Title: issue.Title, Status: string(issue.Status)}, nil
 }
@@ -328,6 +329,7 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in updat
 	if err != nil {
 		return nil, updateOut{}, err
 	}
+	t.broadcast("UPDATE", in.ID)
 	return textResult(strings.Join(msgs, "\n")), updateOut{ID: in.ID, Messages: msgs}, nil
 }
 
@@ -345,6 +347,7 @@ func (t *toolset) comment(ctx context.Context, req *mcp.CallToolRequest, in comm
 	if err := c.AddComment(in.ID, in.Body); err != nil {
 		return nil, commentOut{}, err
 	}
+	t.broadcast("COMMENT", in.ID)
 	return textResult(fmt.Sprintf("Comment added to %s", in.ID)), commentOut{ID: in.ID}, nil
 }
 
@@ -373,6 +376,7 @@ func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in linkIn)
 	if _, err := c.UpdateIssue(src.ID, model.UpdatePayload{Dependencies: newDeps}, "link"); err != nil {
 		return nil, linkOut{}, err
 	}
+	t.broadcast("UPDATE", src.ID)
 	return textResult(fmt.Sprintf("Linked %s %s %s", src.ID, kind, tgt.ID)),
 		linkOut{Source: src.ID, Target: tgt.ID, Kind: kind}, nil
 }
@@ -386,6 +390,7 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startI
 	if err != nil {
 		return nil, startOut{}, err
 	}
+	t.broadcast("UPDATE", in.ID)
 	text := strings.Join(msgs, "\n")
 	return textResult(text), startOut{ID: in.ID, Branch: branch, Messages: msgs}, nil
 }
@@ -416,6 +421,7 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 	if err != nil {
 		return nil, mergeOut{}, err
 	}
+	t.broadcast("MERGE", in.ID)
 
 	text := strings.Join(result.Messages, "\n")
 	return textResult(text), mergeOut{ID: in.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil

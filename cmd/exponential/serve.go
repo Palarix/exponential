@@ -84,7 +84,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			Name:    "xpo",
 			Version: version.CLIVersion,
 		}, nil)
-		mcpserver.RegisterTools(mcpSrv, cfg, r)
+		mcpserver.RegisterTools(mcpSrv, cfg, r, srv.BroadcastEvent)
 		return mcpSrv
 	}, nil)
 	srv.MCPHandler = mcpHandler

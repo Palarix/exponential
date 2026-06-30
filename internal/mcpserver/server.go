@@ -59,17 +59,25 @@ func isCleanShutdown(err error) bool {
 type toolset struct {
 	cfg              *config.Config
 	httpUserOverride string
+	onEvent          func(eventType, issueID string)
 }
 
 func newToolset(cfg *config.Config) *toolset {
 	return &toolset{cfg: cfg}
 }
 
+func (t *toolset) broadcast(eventType, issueID string) {
+	if t.onEvent != nil {
+		t.onEvent(eventType, issueID)
+	}
+}
+
 // RegisterTools registers all xpo MCP tools on the given server.
 // When httpReq is non-nil (HTTP transport), the authenticated user identity
 // from the request context is used for event attribution.
-func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request) {
+func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request, onEvent func(eventType, issueID string)) {
 	ts := newToolset(cfg)
+	ts.onEvent = onEvent
 	if httpReq != nil {
 		if user, ok := auth.UserFromContext(httpReq.Context()); ok {
 			ts.httpUserOverride = user.Raw
@@ -85,6 +93,7 @@ func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request) {
 // env var / config default.
 func (t *toolset) clientFor(req *mcp.CallToolRequest) *exponential.Client {
 	c := exponential.NewClient(t.cfg)
+	c.Source = "mcp"
 	if t.httpUserOverride != "" {
 		c.UserOverride = t.httpUserOverride
 	} else {
