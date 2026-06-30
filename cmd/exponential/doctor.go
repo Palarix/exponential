@@ -90,6 +90,35 @@ var doctorCmd = &cobra.Command{
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s Exponential database exists\n", ui.OKPrefix)))
 		}
 
+		// Check .gitignore for required xpo entries
+		requiredIgnores := []string{".xpo/issues.snapshot.json", ".xpo/git.lock"}
+		gitignoreContent, _ := os.ReadFile(".gitignore")
+		gitignoreStr := string(gitignoreContent)
+		var missingIgnores []string
+		for _, entry := range requiredIgnores {
+			if !strings.Contains(gitignoreStr, entry) {
+				missingIgnores = append(missingIgnores, entry)
+			}
+		}
+		if len(missingIgnores) > 0 {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.gitignore` missing entries: %s\n", ui.NotePrefix, strings.Join(missingIgnores, ", "))))
+			f, err := os.OpenFile(".gitignore", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Could not update `.gitignore`: %v\n", ui.ErrorPrefix, err)))
+			} else {
+				if len(gitignoreStr) > 0 && !strings.HasSuffix(gitignoreStr, "\n") {
+					f.WriteString("\n")
+				}
+				for _, entry := range missingIgnores {
+					f.WriteString(entry + "\n")
+				}
+				f.Close()
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Added missing entries to `.gitignore`\n", ui.OKPrefix)))
+			}
+		} else {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.gitignore` has required xpo entries\n", ui.OKPrefix)))
+		}
+
 		// Check .mcp.json
 		mcpStatus := exponential.DetectMCPConfig()
 		if mcpStatus.HasExponential {

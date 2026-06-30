@@ -4,3 +4,4 @@
 # Snapshots
 .xpo/issues.snapshot.json
 NOTES.md
+.xpo/git.lock
