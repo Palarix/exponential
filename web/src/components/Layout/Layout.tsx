@@ -37,16 +37,6 @@ interface LayoutProps {
   statusBarLeft?: ReactNode;
 }
 
-const PRIMARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
-  { id: "dashboard", label: "Overview", icon: <DashboardIcon /> },
-  { id: "backlog", label: "Issues", icon: <ListIcon /> },
-  { id: "board", label: "Board", icon: <BoardIcon /> },
-];
-
-const SECONDARY_NAV: { id: View; label: string; icon: ReactNode }[] = [
-  { id: "labels", label: "Labels", icon: <TagIcon /> },
-  { id: "dependencies", label: "Dependencies", icon: <LinkIcon /> },
-];
 
 function ProjectSelector({
   instances,
@@ -303,19 +293,35 @@ export default function Layout({
 
         {/* Nav */}
         <nav className={`pt-1 space-y-1 ${collapsed ? "px-1" : "px-2"}`}>
-          {PRIMARY_NAV.map((item) => (
-            <NavItem
-              key={item.id}
-              item={item}
-              isActive={currentView === item.id}
-              onClick={() => onViewChange(item.id)}
-              collapsed={collapsed}
-            />
-          ))}
+          <NavItem
+            item={{ id: "dashboard", label: "Overview", icon: <DashboardIcon /> }}
+            isActive={currentView === "dashboard"}
+            onClick={() => onViewChange("dashboard")}
+            collapsed={collapsed}
+          />
           <NavItem
             item={{ id: "my-issues" as View, label: "My Issues", icon: <UserIcon /> }}
             isActive={currentView === "my-issues"}
             onClick={() => onViewChange("my-issues" as View)}
+            collapsed={collapsed}
+          />
+          <NavItem
+            item={{ id: "inbox" as View, label: "Notifications", icon: <BellIcon /> }}
+            isActive={currentView === "inbox"}
+            onClick={() => onViewChange("inbox" as View)}
+            badge={inboxUnread}
+            collapsed={collapsed}
+          />
+          <NavItem
+            item={{ id: "backlog", label: "Issues", icon: <ListIcon /> }}
+            isActive={currentView === "backlog"}
+            onClick={() => onViewChange("backlog")}
+            collapsed={collapsed}
+          />
+          <NavItem
+            item={{ id: "board", label: "Board", icon: <BoardIcon /> }}
+            isActive={currentView === "board"}
+            onClick={() => onViewChange("board")}
             collapsed={collapsed}
           />
           {cyclesEnabled && (
@@ -327,21 +333,17 @@ export default function Layout({
             />
           )}
           <NavItem
-            item={{ id: "inbox" as View, label: "Notifications", icon: <BellIcon /> }}
-            isActive={currentView === "inbox"}
-            onClick={() => onViewChange("inbox" as View)}
-            badge={inboxUnread}
+            item={{ id: "labels", label: "Labels", icon: <TagIcon /> }}
+            isActive={currentView === "labels"}
+            onClick={() => onViewChange("labels")}
             collapsed={collapsed}
           />
-          {SECONDARY_NAV.map((item) => (
-            <NavItem
-              key={item.id}
-              item={item}
-              isActive={currentView === item.id}
-              onClick={() => onViewChange(item.id)}
-              collapsed={collapsed}
-            />
-          ))}
+          <NavItem
+            item={{ id: "dependencies", label: "Dependencies", icon: <LinkIcon /> }}
+            isActive={currentView === "dependencies"}
+            onClick={() => onViewChange("dependencies")}
+            collapsed={collapsed}
+          />
         </nav>
 
         {/* Spacer */}

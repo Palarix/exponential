@@ -34,6 +34,7 @@
   --color-border-elevated: #2a2a2a; /* elevated container edges  */
   --color-border-overlay:  #323232; /* popovers, modals          */
   --color-border-label:   #404040; /* label badge outlines       */
+  --color-border-control: #404040; /* checkboxes, toggles        */
   --color-border-focus: rgba(94, 106, 210, 0.5);
 
   /* Text */

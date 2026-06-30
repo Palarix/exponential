@@ -131,7 +131,17 @@ function App() {
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxLastRead, setInboxLastRead] = useState('');
   const [inboxUnread, setInboxUnread] = useState(0);
+  const [inboxFilters, setInboxFilters] = useState<BacklogFilters>(() => {
+    const stored = localStorage.getItem('exponential-inbox-filters');
+    if (stored) { try { return JSON.parse(stored); } catch {} }
+    return EMPTY_FILTERS;
+  });
   const showToast = useToast();
+
+  const handleInboxFiltersChange = useCallback((f: BacklogFilters) => {
+    setInboxFilters(f);
+    localStorage.setItem('exponential-inbox-filters', JSON.stringify(f));
+  }, []);
 
   const handleFiltersChange = useCallback((f: BacklogFilters) => {
     setBacklogFilters(f);
@@ -386,7 +396,20 @@ function App() {
 
     switch (view) {
       case 'inbox':
-        return <Inbox items={inboxItems} lastRead={inboxLastRead} issues={issues} onIssueClick={handleIssueClick} onMarkAllRead={handleMarkAllRead} />;
+        return (
+          <Inbox
+            items={inboxItems}
+            lastRead={inboxLastRead}
+            issues={issues}
+            onMarkAllRead={handleMarkAllRead}
+            onRefresh={fetchData}
+            prefix={prefix}
+            contributors={contributors}
+            onConfigLabelsChange={setConfigLabels}
+            filters={inboxFilters}
+            onFiltersChange={handleInboxFiltersChange}
+          />
+        );
       case 'dashboard':
         return <Dashboard issues={issues} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} />;
       case 'backlog':
@@ -465,6 +488,8 @@ function App() {
             <FilterChips filters={backlogFilters} onChange={handleFiltersChange} />
           ) : view === 'my-issues' && hasActiveFilters(myIssuesFilters) ? (
             <FilterChips filters={myIssuesFilters} onChange={handleMyIssuesFiltersChange} />
+          ) : view === 'inbox' && hasActiveFilters(inboxFilters) ? (
+            <FilterChips filters={inboxFilters} onChange={handleInboxFiltersChange} />
           ) : undefined
         }
       >

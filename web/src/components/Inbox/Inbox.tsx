@@ -1,103 +1,25 @@
-import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { isEditableTarget } from "../../utils/keyboard";
-import Markdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
 import type { InboxItem, Issue } from "../../api/client";
 import {
   StatusIcon,
-  PlusIcon,
-  CommentIcon,
-  MergeIcon,
+  LabelBadge,
+  BellIcon,
   CheckCircleIcon,
-  PlayIcon,
-  BlockedIcon,
-  ArchiveIcon,
-  UserIcon,
 } from "../ui";
-import { shortName, formatRelativeTime, stripMarkdown } from "../../utils/format";
+import { shortName, formatRelativeTime } from "../../utils/format";
+import FilterMenu from "../Backlog/FilterMenu";
+import { type BacklogFilters, hasActiveFilters } from "../Backlog/filters";
 
-type ActIconKey =
-  | "create" | "comment" | "merge"
-  | "status-done" | "status-doing" | "status-blocked" | "status-planned" | "status-backlog"
-  | "assign" | "update";
+const IssueDetail = lazy(() => import("../IssueDetail/IssueDetail"));
 
-const ICON_COLORS: Partial<Record<ActIconKey, string>> = {
-  "status-done": "text-[var(--color-success)]",
-  "status-doing": "text-[var(--color-warning)]",
-  "status-blocked": "text-[var(--color-error)]",
-  "status-planned": "text-[var(--color-text-secondary)]",
+const STATUS_LABEL: Record<string, string> = {
+  BACKLOG: "moved to Backlog",
+  PLANNED: "marked as Planned",
+  DOING: "started working",
+  BLOCKED: "marked as Blocked",
+  DONE: "completed",
 };
-
-function ActIcon({ k }: { k: ActIconKey }) {
-  const color = ICON_COLORS[k] ?? "text-[var(--color-text-muted)]";
-  const cls = `w-4 h-4 shrink-0 ${color}`;
-
-  const icons: Record<ActIconKey, ReactNode> = {
-    create: <PlusIcon className={cls} />,
-    comment: <CommentIcon className={cls} />,
-    merge: <MergeIcon className={cls} />,
-    "status-done": <CheckCircleIcon className={cls} />,
-    "status-doing": <PlayIcon className={cls} />,
-    "status-blocked": <BlockedIcon className={cls} />,
-    "status-planned": (
-      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-      </svg>
-    ),
-    "status-backlog": <ArchiveIcon className={cls} />,
-    assign: <UserIcon className={cls} />,
-    update: (
-      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-      </svg>
-    ),
-  };
-  return <>{icons[k]}</>;
-}
-
-const STATUS_LABEL: Record<string, { verb: string; icon: ActIconKey }> = {
-  BACKLOG: { verb: "moved this to Backlog", icon: "status-backlog" },
-  PLANNED: { verb: "marked this as Planned", icon: "status-planned" },
-  DOING: { verb: "started working on this", icon: "status-doing" },
-  BLOCKED: { verb: "marked this as Blocked", icon: "status-blocked" },
-  DONE: { verb: "completed this", icon: "status-done" },
-};
-
-interface EventDescription {
-  icon: ActIconKey;
-  sentence: ReactNode;
-  detail?: string;
-}
-
-function describeItem(item: InboxItem, who: string): EventDescription | null {
-  const p = item.payload || {};
-  const name = <span className="font-medium text-[var(--color-text-primary)]">{who}</span>;
-  switch (item.type) {
-    case "CREATE":
-      return { icon: "create", sentence: <>{name} created this issue</> };
-    case "COMMENT":
-      return { icon: "comment", sentence: <>{name} left a comment</>, detail: String(p.text ?? "") };
-    case "MERGE": {
-      const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
-      return { icon: "merge", sentence: <>{name} merged this{strategy}</> };
-    }
-    case "UPDATE": {
-      if (p.status) {
-        const s = STATUS_LABEL[String(p.status)] ?? { verb: `moved this to ${String(p.status)}`, icon: "status-backlog" as ActIconKey };
-        return { icon: s.icon, sentence: <>{name} {s.verb}</> };
-      }
-      if (p.assignee !== undefined) {
-        const assignee = String(p.assignee);
-        if (!assignee) return { icon: "assign", sentence: <>{name} removed the assignee</> };
-        return { icon: "assign", sentence: <>{name} assigned this to <span className="font-medium text-[var(--color-text-primary)]">{shortName(assignee)}</span></> };
-      }
-      return { icon: "update", sentence: <>{name} updated this issue</> };
-    }
-    default:
-      return null;
-  }
-}
 
 interface IssueGroup {
   issueId: string;
@@ -129,293 +51,376 @@ function groupByIssue(items: InboxItem[], lastReadTime: number): IssueGroup[] {
   return Array.from(map.values()).sort((a, b) => b.latestAt - a.latestAt);
 }
 
-const GROUPS_PER_PAGE = 20;
+function buildChangeSummary(events: InboxItem[]): string[] {
+  const parts: string[] = [];
+  let commentCount = 0;
+  const statusChanges: string[] = [];
+  let assigneeChange: string | null = null;
+  let wasMerged = false;
+  let wasCreated = false;
+  let otherUpdates = 0;
+
+  for (const evt of events) {
+    const p = evt.payload || {};
+    switch (evt.type) {
+      case "COMMENT":
+        commentCount++;
+        break;
+      case "CREATE":
+        wasCreated = true;
+        break;
+      case "MERGE":
+        wasMerged = true;
+        break;
+      case "UPDATE":
+        if (p.status) {
+          const label = STATUS_LABEL[String(p.status)] ?? `moved to ${String(p.status)}`;
+          if (!statusChanges.includes(label)) statusChanges.push(label);
+        } else if (p.assignee !== undefined) {
+          const a = String(p.assignee);
+          assigneeChange = a ? `reassigned to ${shortName(a)}` : "assignee removed";
+        } else {
+          otherUpdates++;
+        }
+        break;
+    }
+  }
+
+  if (wasCreated) parts.push("Issue created");
+  for (const s of statusChanges) parts.push(`Status ${s}`);
+  if (wasMerged) parts.push("Merged");
+  if (assigneeChange) parts.push(assigneeChange.charAt(0).toUpperCase() + assigneeChange.slice(1));
+  if (commentCount > 0) parts.push(`${commentCount} new comment${commentCount !== 1 ? "s" : ""}`);
+  if (otherUpdates > 0) parts.push(`${otherUpdates} other update${otherUpdates !== 1 ? "s" : ""}`);
+  return parts;
+}
+
+function applyFilters(groups: IssueGroup[], issues: Issue[], filters: BacklogFilters): IssueGroup[] {
+  return groups.filter(group => {
+    const issue = issues.find(i => i.id === group.issueId);
+    if (!issue) return true;
+    if (filters.statuses.length > 0 && !filters.statuses.includes(issue.status)) return false;
+    if (filters.labels.length > 0 && !filters.labels.some(l => issue.labels?.includes(l))) return false;
+    if (filters.assignees.length > 0) {
+      const match = issue.assignee
+        ? filters.assignees.includes(issue.assignee)
+        : filters.assignees.includes("__unassigned__");
+      if (!match) return false;
+    }
+    if (filters.priorities.length > 0 && !filters.priorities.includes(issue.priority || 0)) return false;
+    if (filters.epicId && issue.parent_id !== filters.epicId) return false;
+    return true;
+  });
+}
+
+// ── Main component ────────────────────────────────────────────────
+
+const GROUPS_PER_PAGE = 30;
 
 interface InboxProps {
   items: InboxItem[];
   lastRead: string;
   issues: Issue[];
-  onIssueClick?: (issue: Issue) => void;
   onMarkAllRead: () => void;
+  onRefresh: () => void;
+  prefix: string;
+  contributors: string[];
+  onConfigLabelsChange: (labels: Record<string, string>) => void;
+  filters: BacklogFilters;
+  onFiltersChange: (filters: BacklogFilters) => void;
 }
 
-type Tab = "new" | "read";
-
-export default function Inbox({ items, lastRead, issues, onIssueClick, onMarkAllRead }: InboxProps) {
-  const [tab, setTab] = useState<Tab>("new");
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(() => new Set());
+export default function Inbox({
+  items,
+  lastRead,
+  issues,
+  onMarkAllRead,
+  onRefresh,
+  prefix,
+  contributors,
+  onConfigLabelsChange,
+  filters,
+  onFiltersChange,
+}: InboxProps) {
   const [visibleCount, setVisibleCount] = useState(GROUPS_PER_PAGE);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [keyboardNav, setKeyboardNav] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   const lastReadTime = lastRead ? new Date(lastRead).getTime() : 0;
 
   const groups = useMemo(() => groupByIssue(items, lastReadTime), [items, lastReadTime]);
   const unreadGroups = useMemo(() => groups.filter(g => g.hasUnread), [groups]);
-  const readGroups = useMemo(() => groups.filter(g => !g.hasUnread), [groups]);
-  const activeGroups = tab === "new" ? unreadGroups : readGroups;
-  const visibleGroups = activeGroups.slice(0, visibleCount);
-  const hasMore = visibleCount < activeGroups.length;
+  const filteredGroups = useMemo(
+    () => hasActiveFilters(filters) ? applyFilters(unreadGroups, issues, filters) : unreadGroups,
+    [unreadGroups, issues, filters],
+  );
+  const notificationIssues = useMemo(() => {
+    const ids = new Set(unreadGroups.map(g => g.issueId));
+    return issues.filter(i => ids.has(i.id));
+  }, [unreadGroups, issues]);
+  const visibleGroups = filteredGroups.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredGroups.length;
 
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [keyboardNav, setKeyboardNav] = useState(false);
+  const selectedIssue = selectedId ? issues.find(i => i.id === selectedId) ?? null : null;
+  const selectedGroup = selectedId ? groups.find(g => g.issueId === selectedId) ?? null : null;
 
-  const focusedGroup = keyboardNav && focusedIndex >= 0 ? visibleGroups[focusedIndex] : null;
+  const issueIds = useMemo(() => visibleGroups.map(g => g.issueId), [visibleGroups]);
+  const selectedNavIndex = selectedId ? issueIds.indexOf(selectedId) : -1;
 
-  useEffect(() => {
-    if (!keyboardNav || !focusedGroup) return;
-    const el = document.querySelector(`[data-inbox-group="${focusedGroup.issueId}"]`);
-    el?.scrollIntoView({ block: "nearest" });
-  }, [focusedGroup, keyboardNav]);
+  const selectGroup = useCallback((issueId: string) => {
+    setSelectedId(issueId);
+  }, []);
 
-  useEffect(() => {
+  const handleMarkAllRead = useCallback(() => {
+    setSelectedId(null);
     setFocusedIndex(-1);
-    setKeyboardNav(false);
-  }, [tab]);
+    onMarkAllRead();
+  }, [onMarkAllRead]);
 
+  const navigateIssue = useCallback((direction: "prev" | "next") => {
+    const idx = selectedNavIndex + (direction === "prev" ? -1 : 1);
+    if (idx >= 0 && idx < issueIds.length) {
+      setSelectedId(issueIds[idx]);
+      setFocusedIndex(idx);
+    }
+  }, [selectedNavIndex, issueIds]);
+
+  // Auto-select first group if nothing is selected
+  useEffect(() => {
+    if (!selectedId && visibleGroups.length > 0) {
+      setSelectedId(visibleGroups[0].issueId);
+      setFocusedIndex(0);
+    }
+  }, [visibleGroups, selectedId]);
+
+  // Scroll focused card into view
+  useEffect(() => {
+    if (!keyboardNav || focusedIndex < 0) return;
+    const el = document.querySelector(`[data-inbox-group="${issueIds[focusedIndex]}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [focusedIndex, keyboardNav, issueIds]);
+
+  // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
 
+      if (e.key === "f") {
+        e.preventDefault();
+        setShowFilterMenu(v => !v);
+        return;
+      }
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);
-        setFocusedIndex(i => Math.min(i + 1, visibleGroups.length - 1));
+        setFocusedIndex(i => {
+          const next = Math.min(i + 1, visibleGroups.length - 1);
+          setSelectedId(visibleGroups[next]?.issueId ?? null);
+          return next;
+        });
         return;
       }
       if (e.key === "ArrowUp" || e.key === "k") {
         e.preventDefault();
         setKeyboardNav(true);
-        setFocusedIndex(i => Math.max(i - 1, 0));
-        return;
-      }
-      if (e.key === "ArrowRight" && focusedGroup) {
-        e.preventDefault();
-        if (!expandedGroups.has(focusedGroup.issueId)) toggleGroup(focusedGroup.issueId);
-        return;
-      }
-      if (e.key === "ArrowLeft" && focusedGroup) {
-        e.preventDefault();
-        if (expandedGroups.has(focusedGroup.issueId)) toggleGroup(focusedGroup.issueId);
+        setFocusedIndex(i => {
+          const next = Math.max(i - 1, 0);
+          setSelectedId(visibleGroups[next]?.issueId ?? null);
+          return next;
+        });
         return;
       }
       if (e.key === "r") {
         e.preventDefault();
-        onMarkAllRead();
-        return;
-      }
-      if (e.key === "Enter" && focusedGroup) {
-        e.preventDefault();
-        const issue = issues.find(it => it.id === focusedGroup.issueId);
-        if (issue) onIssueClick?.(issue);
+        handleMarkAllRead();
         return;
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [visibleGroups, focusedGroup, issues, onIssueClick, expandedGroups]);
+  }, [visibleGroups, handleMarkAllRead]);
 
-  const toggleGroup = (id: string) => {
-    setExpandedGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleComment = (key: string) => {
-    setExpandedComments(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  const changeSummary = useMemo(() => {
+    if (!selectedGroup) return [];
+    const unreadEvents = selectedGroup.events.filter(
+      e => new Date(e.created_at).getTime() > lastReadTime
+    );
+    return buildChangeSummary(unreadEvents.length > 0 ? unreadEvents : selectedGroup.events);
+  }, [selectedGroup, lastReadTime]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header with tabs */}
-      <div className="flex items-center gap-4 px-6 py-3 border-b border-[var(--color-border-subtle)]">
-        <button
-          onClick={() => { setTab("new"); setVisibleCount(GROUPS_PER_PAGE); }}
-          className={`text-sm pb-0.5 border-b-2 transition-colors ${tab === "new" ? "text-[var(--color-text-primary)] font-medium border-[var(--color-accent-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
-        >
-          New{unreadGroups.length > 0 && ` (${unreadGroups.length})`}
-        </button>
-        <button
-          onClick={() => { setTab("read"); setVisibleCount(GROUPS_PER_PAGE); }}
-          className={`text-sm pb-0.5 border-b-2 transition-colors ${tab === "read" ? "text-[var(--color-text-primary)] font-medium border-[var(--color-accent-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
-        >
-          Read
-        </button>
-        <div className="flex-1" />
-        {tab === "new" && unreadGroups.length > 0 && (
-          <button
-            onClick={onMarkAllRead}
-            className="px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-surface-1)] hover:bg-[var(--color-hover-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] transition-colors"
-          >
-            Mark all as read
-          </button>
-        )}
+    <div className="flex h-full">
+      {/* Left panel — notification cards */}
+      <div className="w-80 xl:w-96 shrink-0 flex flex-col border-r border-[var(--color-border-subtle)]">
+        {/* Header */}
+        <div className="flex items-center gap-3 pl-4 pr-3 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+          <span className="text-sm font-medium text-[var(--color-text-primary)]">
+            Notifications
+          </span>
+          <div className="flex-1" />
+          <div className="relative">
+            <button
+              ref={filterBtnRef}
+              onClick={() => setShowFilterMenu(v => !v)}
+              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                />
+              </svg>
+              Filter
+              {hasActiveFilters(filters) && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+              )}
+            </button>
+            {showFilterMenu && (
+              <FilterMenu
+                issues={notificationIssues}
+                filters={filters}
+                onChange={onFiltersChange}
+                anchorRef={filterBtnRef}
+                onClose={() => setShowFilterMenu(false)}
+              />
+            )}
+          </div>
+          {unreadGroups.length > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] hover:bg-[var(--color-hover-surface)] hover:text-[var(--color-text-primary)] transition-colors"
+              title="Mark all as read (r)"
+            >
+              <CheckCircleIcon className="w-3.5 h-3.5" />
+              Mark all read
+            </button>
+          )}
+        </div>
+
+        {/* Card list */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredGroups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
+              <BellIcon className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />
+              <div className="text-center">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                  {hasActiveFilters(filters) ? "No matching notifications" : "All caught up"}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  {hasActiveFilters(filters) ? "Try adjusting your filters." : "No new notifications."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {visibleGroups.map((group, gi) => {
+                const issue = issues.find(it => it.id === group.issueId);
+                const isSelected = group.issueId === selectedId;
+                const isFocused = keyboardNav && gi === focusedIndex;
+
+                return (
+                  <div
+                    key={group.issueId}
+                    data-inbox-group={group.issueId}
+                    onClick={() => {
+                      selectGroup(group.issueId);
+                      setFocusedIndex(gi);
+                      setKeyboardNav(false);
+                    }}
+                    className={`
+                      px-4 py-2.5 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)]
+                      ${isSelected || isFocused
+                        ? "bg-[var(--color-surface-2)]"
+                        : "hover:bg-[var(--color-hover-surface)]"
+                      }
+                    `.trim().replace(/\s+/g, " ")}
+                  >
+                    {/* Top row: status + issue ID … time */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {issue && <StatusIcon status={issue.status} size={13} isInferred={issue.is_inferred} />}
+                      <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">
+                        {group.issueId}
+                      </span>
+                      <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0">
+                        {formatRelativeTime(new Date(group.latestAt).toISOString())}
+                      </span>
+                    </div>
+                    {/* Title */}
+                    <div className={`text-sm truncate mt-1 ${isSelected ? "text-[var(--color-text-primary)] font-medium" : "text-[var(--color-text-primary)]"}`}>
+                      {group.issueTitle}
+                    </div>
+                    {/* Labels */}
+                    {issue?.labels && issue.labels.length > 0 && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {issue.labels.map(label => (
+                          <LabelBadge key={label} label={label} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {hasMore && (
+                <div className="flex justify-center py-3">
+                  <button
+                    onClick={() => setVisibleCount(c => c + GROUPS_PER_PAGE)}
+                    className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+                  >
+                    Load more ({filteredGroups.length - visibleCount} remaining)
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Feed */}
-      <div className="flex-1 overflow-y-auto">
-        {activeGroups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
-            <svg width="120" height="90" viewBox="0 0 120 90" fill="none" className="opacity-20">
-              <rect x="20" y="10" width="80" height="55" rx="6" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
-              <path d="M20 25l40 22 40-22" stroke="var(--color-text-muted)" strokeWidth="1.5" />
-              <path d="M40 75h40" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 4" />
-            </svg>
-            <div className="text-center">
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                {tab === "new" ? "All caught up" : "Nothing here yet"}
-              </p>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                {tab === "new" ? "No new notifications." : "Read notifications will appear here."}
-              </p>
-            </div>
+      {/* Right panel — change summary + issue detail */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {selectedIssue ? (
+          <div className="flex-1 overflow-hidden">
+            <Suspense fallback={null}>
+              <IssueDetail
+                issue={selectedIssue}
+                issues={issues}
+                currentIndex={selectedNavIndex}
+                totalCount={issueIds.length}
+                onClose={() => setSelectedId(null)}
+                onNavigate={navigateIssue}
+                onRefresh={onRefresh}
+                prefix={prefix}
+                contributors={contributors}
+                onConfigLabelsChange={onConfigLabelsChange}
+                banner={changeSummary.length > 0 ? (
+                  <div className="flex items-center gap-2 px-5 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] shrink-0">
+                    <svg className="w-4 h-4 text-[var(--color-accent-primary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      {changeSummary.join(" · ")}
+                    </span>
+                  </div>
+                ) : undefined}
+              />
+            </Suspense>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto py-4 px-4 space-y-3">
-            {visibleGroups.map((group, gi) => {
-              const issue = issues.find(it => it.id === group.issueId);
-              const isFocused = keyboardNav && gi === focusedIndex;
-
-              return (
-                <div
-                  key={group.issueId}
-                  data-inbox-group={group.issueId}
-                  className={`
-                    rounded-[var(--radius-md)] border transition-colors
-                    ${isFocused
-                      ? "bg-[var(--color-surface-1)] border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]"
-                      : group.hasUnread
-                        ? "bg-[var(--color-surface-1)] border-[var(--color-border-default)]"
-                        : "bg-[var(--color-surface-1)] border-[var(--color-border-subtle)]"
-                    }
-                  `.trim().replace(/\s+/g, " ")}
-                >
-                  {/* Card header: status + ID + title + event count */}
-                  <div className="flex items-center gap-2 px-4 py-3">
-                    {issue && <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />}
-                    <a
-                      href={`#/issues/${group.issueId}`}
-                      onClick={(e) => {
-                        if (issue) {
-                          e.preventDefault();
-                          onIssueClick?.(issue);
-                        }
-                      }}
-                      className="font-mono text-sm font-semibold text-[var(--color-accent-primary)] hover:text-[var(--color-accent-primary-hover)] transition-colors shrink-0"
-                    >
-                      {group.issueId}
-                    </a>
-                    <span className="text-sm truncate text-[var(--color-text-primary)]">
-                      {group.issueTitle}
-                    </span>
-                    <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0">
-                      {group.events.length} {group.events.length === 1 ? "event" : "events"}
-                    </span>
-                  </div>
-
-                  {/* Event cards — latest always shown, older behind toggle */}
-                  <div className="px-3 pb-3 pt-1 space-y-2">
-                    {(() => {
-                      const latest = group.events[0];
-                      const olderEvents = group.events.slice(1);
-                      const isGroupOpen = expandedGroups.has(group.issueId);
-
-                      const renderEvent = (evt: InboxItem, i: number) => {
-                        const who = shortName(evt.created_by);
-                        const desc = describeItem(evt, who);
-                        if (!desc) return null;
-                        const evtKey = `${evt.issue_id}-${evt.created_at}-${i}`;
-                        const isExpanded = expandedComments.has(evtKey);
-                        const hasDetail = !!desc.detail;
-                        const previewText = desc.detail ? stripMarkdown(desc.detail) : "";
-                        return (
-                          <div
-                            key={evtKey}
-                            className={`rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] ${hasDetail ? "cursor-pointer hover:border-[var(--color-border-default)]" : ""} transition-colors`}
-                            onClick={hasDetail ? () => toggleComment(evtKey) : undefined}
-                          >
-                            <div className="flex items-center gap-2.5 px-3 py-2.5">
-                              <ActIcon k={desc.icon} />
-                              <span className="text-sm text-[var(--color-text-secondary)] min-w-0 truncate">
-                                {desc.sentence}
-                              </span>
-                              <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0 whitespace-nowrap">
-                                {formatRelativeTime(evt.created_at)}
-                              </span>
-                              {hasDetail && (
-                                <svg className={`w-3.5 h-3.5 shrink-0 text-[var(--color-text-muted)] transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                </svg>
-                              )}
-                            </div>
-                            {hasDetail && !isExpanded && (
-                              <div className="px-3 pb-2.5 -mt-1">
-                                <p className="text-xs text-[var(--color-text-muted)] italic truncate pl-6">
-                                  &ldquo;{previewText.slice(0, 200)}{previewText.length > 200 ? "…" : ""}&rdquo;
-                                </p>
-                              </div>
-                            )}
-                            {hasDetail && isExpanded && (
-                              <div className="px-3 pb-3 -mt-0.5">
-                                <div className="ml-6 rounded-[var(--radius-md)] bg-[var(--color-surface)] border border-[var(--color-border-default)] px-3 py-2">
-                                  <div className="prose-exponential text-sm">
-                                    <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                      {desc.detail!}
-                                    </Markdown>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      };
-
-                      return (
-                        <>
-                          {renderEvent(latest, 0)}
-                          {olderEvents.length > 0 && !isGroupOpen && (
-                            <button
-                              onClick={() => toggleGroup(group.issueId)}
-                              className="w-full text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] py-1 transition-colors"
-                            >
-                              {olderEvents.length} more {olderEvents.length === 1 ? "event" : "events"}
-                            </button>
-                          )}
-                          {isGroupOpen && olderEvents.map((evt, i) => renderEvent(evt, i + 1))}
-                          {isGroupOpen && olderEvents.length > 0 && (
-                            <button
-                              onClick={() => toggleGroup(group.issueId)}
-                              className="w-full text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] py-1 transition-colors"
-                            >
-                              Show less
-                            </button>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            })}
-
-            {hasMore && (
-              <div className="flex justify-center pt-2 pb-4">
-                <button
-                  onClick={() => setVisibleCount(c => c + GROUPS_PER_PAGE)}
-                  className="px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-surface-1)] hover:bg-[var(--color-hover-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] transition-colors"
-                >
-                  Load more ({groups.length - visibleCount} remaining)
-                </button>
-              </div>
-            )}
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <BellIcon className="w-12 h-12 text-[var(--color-text-muted)] opacity-20" />
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Select a notification to view details
+            </p>
           </div>
         )}
       </div>

@@ -25,6 +25,7 @@ interface IssueDetailProps {
   prefix: string;
   contributors: string[];
   onConfigLabelsChange: (labels: Record<string, string>) => void;
+  banner?: React.ReactNode;
 }
 
 export default function IssueDetail({
@@ -38,6 +39,7 @@ export default function IssueDetail({
   prefix,
   contributors,
   onConfigLabelsChange,
+  banner,
 }: IssueDetailProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -284,6 +286,7 @@ export default function IssueDetail({
         </div>
       </div>
 
+      {banner}
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main content */}

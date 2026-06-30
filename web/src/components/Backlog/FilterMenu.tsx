@@ -215,7 +215,7 @@ function SubMenu({
               onClick={() => onToggle(opt.value)}
               className={`flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors ${isFocused ? "bg-[var(--color-hover-surface-3)]" : "hover:bg-[var(--color-hover-surface-3)]"}`}
             >
-              <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0 ${isSelected ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}>
+              <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0 ${isSelected ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-control)]"}`}>
                 {isSelected && (
                   <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -259,7 +259,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     setMenuStyle({ position: "fixed", top, left, visibility: "visible" });
   }, [anchorRef]);
 
-  // Position sub-menu to the left of the hovered row
+  // Position sub-menu next to the hovered row, preferring right when space allows
   useEffect(() => {
     if (!openDim) { setSubStyle({ position: "fixed", visibility: "hidden" }); return; }
     const row = dimRowRefs.current.get(openDim);
@@ -267,10 +267,13 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     if (!row || !menu) return;
     const rRect = row.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
+    const subWidth = 212;
+    const spaceRight = window.innerWidth - mRect.right;
+    const left = spaceRight >= subWidth ? mRect.right + 4 : mRect.left - subWidth - 4;
     setSubStyle({
       position: "fixed",
       top: rRect.top,
-      left: mRect.left - 212,
+      left,
       visibility: "visible",
     });
   }, [openDim]);

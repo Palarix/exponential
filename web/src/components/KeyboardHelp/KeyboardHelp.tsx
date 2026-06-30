@@ -20,12 +20,13 @@ const GLOBAL: ShortcutGroup = {
     { keys: [mod, "K"], label: "Open command palette" },
     { keys: ["C"], label: "Create new issue" },
     { keys: ["G", "O"], label: "Go to Overview" },
+    { keys: ["G", "M"], label: "Go to My Issues" },
+    { keys: ["G", "N"], label: "Go to Notifications" },
     { keys: ["G", "I"], label: "Go to Issues" },
     { keys: ["G", "B"], label: "Go to Board" },
-    { keys: ["G", "N"], label: "Go to Notifications" },
-    { keys: ["G", "D"], label: "Go to Dependencies" },
-    { keys: ["G", "L"], label: "Go to Labels" },
     { keys: ["G", "C"], label: "Go to Cycles" },
+    { keys: ["G", "L"], label: "Go to Labels" },
+    { keys: ["G", "D"], label: "Go to Dependencies" },
   ],
 };
 
@@ -77,11 +78,9 @@ const PICKERS: ShortcutGroup = {
 const INBOX: ShortcutGroup = {
   title: "Notifications",
   shortcuts: [
-    { keys: ["J", "↓"], label: "Next group" },
-    { keys: ["K", "↑"], label: "Previous group" },
-    { keys: ["→"], label: "Expand events" },
-    { keys: ["←"], label: "Collapse events" },
-    { keys: ["Enter"], label: "Open issue" },
+    { keys: ["J", "↓"], label: "Next notification" },
+    { keys: ["K", "↑"], label: "Previous notification" },
+    { keys: ["F"], label: "Toggle filters" },
     { keys: ["R"], label: "Mark all as read" },
   ],
 };
@@ -160,7 +159,7 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
           ))}
         </div>
 
-        <div className="flex items-center justify-center px-5 py-2.5 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)]">
+        <div className="flex items-center justify-end gap-1.5 px-5 py-2.5 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)]">
           Press <Kbd>?</Kbd> or <Kbd>Esc</Kbd> to close
         </div>
       </div>
