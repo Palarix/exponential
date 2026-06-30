@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
-import { Avatar, EstimateBadge, LabelBadge, PriorityIcon, SubProgress, RefreshIcon } from "../ui";
+import { Avatar, BranchBadge, EstimateBadge, LabelBadge, PriorityIcon, SubProgress, RefreshIcon } from "../ui";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -80,8 +80,9 @@ export function BoardCard({
 function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
   const hasChildren = meta.childTotal > 0;
   const hasLabels = issue.labels && issue.labels.length > 0;
+  const hasBranch = !!issue.branch_stats;
   const cycleId = issue.effective_cycle_id || issue.cycle_id;
-  const hasBottom = hasChildren || hasLabels || cycleId;
+  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId;
   return (
     <>
       {/* NW: ID + parent | NE: pending, priority, assignee */}
@@ -123,6 +124,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
                 {meta.childDone}/{meta.childTotal}
               </span>
             )}
+            {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
             {issue.labels?.map((label) => (
               <LabelBadge key={label} label={label} />
             ))}

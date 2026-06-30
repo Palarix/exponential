@@ -16,6 +16,7 @@ import { createIssue, addDraft, fetchCycles } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
   Avatar,
+  BranchBadge,
   EmptyState,
   EstimateBadge,
   LabelBadge,
@@ -45,7 +46,6 @@ import {
   DragOverlayCard,
 } from "./DndComponents";
 import { useBacklogRows, type RowItem } from "./useBacklogRows";
-import { GitCommitVertical } from "lucide-react";
 
 export type Tab = "all" | "active" | "backlog";
 
@@ -1437,19 +1437,9 @@ export default function Backlog({
                                   {childDone}/{childTotal}
                                 </span>
                               )}
-                              {issue.branch_stats &&
-                                issue.branch_stats.commits > 0 && (
-                                  <span
-                                    className="inline-flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums"
-                                    title={`${issue.branch_stats.branch} — ${issue.branch_stats.commits} commit${issue.branch_stats.commits === 1 ? "" : "s"}, ${issue.branch_stats.files_changed} file${issue.branch_stats.files_changed === 1 ? "" : "s"}, +${issue.branch_stats.insertions} -${issue.branch_stats.deletions}`}
-                                  >
-                                    <GitCommitVertical
-                                      size={14}
-                                      strokeWidth={1.5}
-                                    />
-                                    {issue.branch_stats.commits}
-                                  </span>
-                                )}
+                              {issue.branch_stats && (
+                                <BranchBadge stats={issue.branch_stats} />
+                              )}
                               <div className="flex-1" />
                               {issue.is_pending && (
                                 <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />

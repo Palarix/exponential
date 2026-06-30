@@ -3,6 +3,7 @@ import { fetchUser, type User } from "../../api/client";
 import type { Issue } from "../../api/types";
 import {
   Avatar,
+  BranchBadge,
   StatusIcon,
   PriorityIcon,
   CopyableId,
@@ -11,7 +12,6 @@ import {
   UserIcon,
 } from "../ui";
 import { formatShortDate } from "../../utils/format";
-import { GitCommitVertical } from "lucide-react";
 import { isEditableTarget } from "../../utils/keyboard";
 import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "../Backlog/filters";
@@ -220,14 +220,8 @@ export default function MyIssues({
               <span className="text-sm truncate min-w-0 text-[var(--color-text-primary)]">
                 {issue.title}
               </span>
-              {issue.branch_stats && issue.branch_stats.commits > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0 tabular-nums"
-                  title={`${issue.branch_stats.branch} — ${issue.branch_stats.commits} commit${issue.branch_stats.commits === 1 ? "" : "s"}, ${issue.branch_stats.files_changed} file${issue.branch_stats.files_changed === 1 ? "" : "s"}, +${issue.branch_stats.insertions} -${issue.branch_stats.deletions}`}
-                >
-                  <GitCommitVertical size={14} strokeWidth={1.5} />
-                  {issue.branch_stats.commits}
-                </span>
+              {issue.branch_stats && (
+                <BranchBadge stats={issue.branch_stats} />
               )}
               <div className="flex-1" />
               {issue.labels?.map((label) => (

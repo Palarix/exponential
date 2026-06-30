@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker, FolderIcon, PersonIcon, CyclesIcon, TrashIcon } from "../ui";
-import { GitCommitVertical, GitMerge } from "lucide-react";
+import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
 import { PriorityIcon, EstimateIcon } from "./icons";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -587,32 +587,34 @@ export default function PropertySidebar({
         </div>
 
         {/* Branch stats card */}
-        {issue.branch_stats && issue.branch_stats.commits > 0 && (
+        {issue.branch_stats && (
           <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
-            <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Branch</div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-[var(--color-text-muted)]">Branch</span>
+              {issue.branch_stats.head_sha && (
+                <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-2xl border border-[var(--color-border-label)] text-xs font-mono text-[var(--color-text-secondary)]">
+                  <GitBranch size={12} strokeWidth={1.5} />
+                  {issue.branch_stats.head_sha}
+                </span>
+              )}
+            </div>
             <div className="text-sm text-[var(--color-text-primary)] font-mono truncate mb-2">
               {issue.branch_stats.branch}
             </div>
-            {issue.branch_stats.head_sha && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-1)] text-xs font-mono text-[var(--color-text-secondary)]">
-                  <GitCommitVertical size={12} strokeWidth={1.5} />
-                  {issue.branch_stats.head_sha}
+            {issue.branch_stats.commits > 0 && (
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-[var(--color-text-secondary)]">
+                  {issue.branch_stats.commits} {issue.branch_stats.commits === 1 ? "commit" : "commits"}
                 </span>
+                <span className="text-[var(--color-text-muted)]">·</span>
+                <span className="text-[var(--color-text-secondary)]">
+                  {issue.branch_stats.files_changed} {issue.branch_stats.files_changed === 1 ? "file" : "files"}
+                </span>
+                <span className="text-[var(--color-text-muted)]">·</span>
+                <span className="text-green-500">+{issue.branch_stats.insertions}</span>
+                <span className="text-red-500">-{issue.branch_stats.deletions}</span>
               </div>
             )}
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-[var(--color-text-secondary)]">
-                {issue.branch_stats.commits} {issue.branch_stats.commits === 1 ? "commit" : "commits"}
-              </span>
-              <span className="text-[var(--color-text-muted)]">·</span>
-              <span className="text-[var(--color-text-secondary)]">
-                {issue.branch_stats.files_changed} {issue.branch_stats.files_changed === 1 ? "file" : "files"}
-              </span>
-              <span className="text-[var(--color-text-muted)]">·</span>
-              <span className="text-green-500">+{issue.branch_stats.insertions}</span>
-              <span className="text-red-500">-{issue.branch_stats.deletions}</span>
-            </div>
           </div>
         )}
 
