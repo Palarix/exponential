@@ -43,23 +43,25 @@ func RenderIssueList(issues []*model.Issue, termWidth int, prefix string) string
 	idWidth := len(prefix) + 8
 	statusWidth := 10
 	labelWidth := 12
+	tagsWidth := 5
 	assigneeWidth := 12
 	estWidth := 5
 	timeWidth := 10
-	padding := 6 // spaces between columns
+	padding := 7 // spaces between columns
 
 	// Calculate title width from remaining space
-	titleWidth := termWidth - idWidth - statusWidth - labelWidth - assigneeWidth - estWidth - timeWidth - padding
+	titleWidth := termWidth - idWidth - statusWidth - labelWidth - tagsWidth - assigneeWidth - estWidth - timeWidth - padding
 	if titleWidth < 20 {
 		titleWidth = 20
 	}
 
 	// Header
-	header := fmt.Sprintf("%s %s %s %s %s %s %s",
+	header := fmt.Sprintf("%s %s %s %s %s %s %s %s",
 		RenderCell("ID", idWidth, MutedStyle),
 		RenderCell("STATUS", statusWidth, MutedStyle),
-		RenderCell("LABELS", labelWidth, MutedStyle),
+		RenderCell("LABEL", labelWidth, MutedStyle),
 		RenderCell("TITLE", titleWidth, MutedStyle),
+		RenderCell("TAGS", tagsWidth, MutedStyle),
 		RenderCell("EST", estWidth, MutedStyle),
 		RenderCell("ASSIGNEE", assigneeWidth, MutedStyle),
 		RenderCell("UPDATED", timeWidth, MutedStyle),
@@ -77,21 +79,18 @@ func RenderIssueList(issues []*model.Issue, termWidth int, prefix string) string
 		// Status
 		statusStr := fmt.Sprintf("%s %s", icon, string(i.Status))
 
-		// Labels
+		// Primary label (first label, colored)
 		labelStr := ""
 		if len(i.Labels) > 0 {
-			var parts []string
-			for _, l := range i.Labels {
-				color := LabelColor(l)
-				style := lipgloss.NewStyle().Foreground(color)
-				parts = append(parts, style.Render(l))
-			}
-			joined := strings.Join(parts, ",")
-			if lipgloss.Width(joined) > labelWidth {
-				labelStr = Truncate(joined, labelWidth)
-			} else {
-				labelStr = joined
-			}
+			color := LabelColor(i.Labels[0])
+			style := lipgloss.NewStyle().Foreground(color)
+			labelStr = style.Render(Truncate(i.Labels[0], labelWidth))
+		}
+
+		// Tags: +N for additional labels beyond the primary
+		tagsStr := ""
+		if len(i.Labels) > 1 {
+			tagsStr = fmt.Sprintf("+%d", len(i.Labels)-1)
 		}
 
 		// Title (with optional branch stats suffix)
@@ -130,11 +129,12 @@ func RenderIssueList(issues []*model.Issue, termWidth int, prefix string) string
 			titleStyle = titleStyle.Foreground(DoneColor).Strikethrough(true)
 		}
 
-		row := fmt.Sprintf("%s %s %s %s %s %s %s",
+		row := fmt.Sprintf("%s %s %s %s %s %s %s %s",
 			RenderCell(idStr, idWidth, MutedStyle),
 			RenderCell(statusStr, statusWidth, stStyle),
 			RenderCell(labelStr, labelWidth, lipgloss.NewStyle()),
 			RenderCell(title, titleWidth, titleStyle),
+			RenderCell(tagsStr, tagsWidth, MutedStyle),
 			RenderCell(estStr, estWidth, lipgloss.NewStyle()),
 			RenderCell(assigneeStr, assigneeWidth, MutedStyle),
 			RenderCell(timeStr, timeWidth, MutedStyle),
