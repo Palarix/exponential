@@ -170,7 +170,7 @@ func printCycleWithIssues(c config.Cycle, cfg *config.Config) {
 	}
 
 	width := ui.TerminalWidth()
-	fmt.Print(ui.RenderIssueList(issues, width))
+	fmt.Print(ui.RenderIssueList(issues, width, cfg.Prefix))
 }
 
 func writeCycleConfig(cc config.CycleConfig) error {

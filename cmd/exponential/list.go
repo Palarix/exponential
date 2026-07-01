@@ -57,7 +57,7 @@ var listCmd = &cobra.Command{
 
 		// Detect terminal width
 		width := ui.TerminalWidth()
-		fmt.Print(ui.RenderIssueList(issues, width))
+		fmt.Print(ui.RenderIssueList(issues, width, cfg.Prefix))
 	},
 }
 

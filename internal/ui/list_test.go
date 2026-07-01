@@ -49,7 +49,7 @@ func TestRenderIssueList_Formatting(t *testing.T) {
 	// Actually, to properly test the specific fix (compact strings), we need to see "3mo ago" vs "3 months ago".
 	// But since we can't control "now" easily without a refactor for DI, we will check line length.
 
-	output := RenderIssueList(issues, termWidth)
+	output := RenderIssueList(issues, termWidth, "issue-")
 	lines := strings.Split(output, "\n")
 
 	for _, line := range lines {
