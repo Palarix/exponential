@@ -1,6 +1,9 @@
 # Exponential binary
 /xpo
 
+# Generated frontend assets (rebuilt by `make frontend`/`make build`)
+internal/server/static/
+
 # Snapshots
 .xpo/issues.snapshot.json
 NOTES.md

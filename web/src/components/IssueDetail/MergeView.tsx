@@ -7,7 +7,7 @@ import {
   fetchMergeability, mergeIssue, addDraft, ApiError,
 } from "../../api/client";
 import type { Issue, CommitInfo, FileInfo, Mergeability } from "../../api/client";
-import { GitCommitVertical, GitMerge, X, Check, AlertTriangle, FileDiff, ChevronDown, ChevronRight, GitBranch, Search } from "lucide-react";
+import { GitCommitVertical, GitMerge, X, Check, AlertTriangle, FileDiff, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitBranch, Search } from "lucide-react";
 import { StatusIcon, Avatar } from "../ui";
 import { formatRelativeTime } from "../../utils/format";
 
@@ -337,6 +337,8 @@ function CommitsTab({ commits, selectedCommit, commitDiffs, commitDiffLoading, o
   commitDiffs: Map<string, string[]>; commitDiffLoading: boolean;
   onSelectCommit: (sha: string) => void;
 }) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
   return (
     <div className="h-full flex">
       <div className="w-80 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
@@ -362,7 +364,7 @@ function CommitsTab({ commits, selectedCommit, commitDiffs, commitDiffLoading, o
         {selectedCommit && commitDiffLoading && (
           <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">Loading...</div>
         )}
-        {selectedCommit && !commitDiffLoading && <DiffViewer diffs={commitDiffs} />}
+        {selectedCommit && !commitDiffLoading && <DiffViewer diffs={commitDiffs} collapsed={collapsed} setCollapsed={setCollapsed} />}
       </div>
     </div>
   );
@@ -474,6 +476,7 @@ function FilesTab({ fileDiffs, selectedFile, onSelectFile, fileFilter, onFilterC
   fileFilter: string; onFilterChange: (v: string) => void;
 }) {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
+  const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
 
   const toggleDir = useCallback((path: string) => {
     setCollapsedDirs(prev => {
@@ -495,13 +498,22 @@ function FilesTab({ fileDiffs, selectedFile, onSelectFile, fileFilter, onFilterC
 
   const handleSelectFile = useCallback((file: string | null) => {
     onSelectFile(file);
-    if (file && diffRef.current) {
-      const el = diffRef.current.querySelector(`[data-diff-file="${CSS.escape(file)}"]`) as HTMLElement | null;
-      if (el) {
-        const container = diffRef.current;
-        const offset = el.offsetTop - container.offsetTop - 50;
-        container.scrollTo({ top: offset, behavior: "smooth" });
-      }
+    if (file) {
+      setCollapsedCards(prev => {
+        if (!prev.has(file)) return prev;
+        const next = new Set(prev);
+        next.delete(file);
+        return next;
+      });
+      requestAnimationFrame(() => {
+        if (!diffRef.current) return;
+        const el = diffRef.current.querySelector(`[data-diff-file="${CSS.escape(file)}"]`) as HTMLElement | null;
+        if (el) {
+          const container = diffRef.current;
+          const offset = el.offsetTop - container.offsetTop - 50;
+          container.scrollTo({ top: offset, behavior: "smooth" });
+        }
+      });
     }
   }, [onSelectFile]);
 
@@ -525,7 +537,7 @@ function FilesTab({ fileDiffs, selectedFile, onSelectFile, fileFilter, onFilterC
         </div>
       </div>
       <div ref={diffRef} className="flex-1 overflow-auto">
-        <DiffViewer diffs={fileDiffs} />
+        <DiffViewer diffs={fileDiffs} collapsed={collapsedCards} setCollapsed={setCollapsedCards} />
       </div>
     </div>
   );
@@ -579,8 +591,11 @@ function ConversationTab({ issue, newComment, onNewCommentChange, onAddComment, 
 /* ─── Diff viewer with line numbers + collapsible cards ─── */
 type DiffMode = "unified" | "split";
 
-function DiffViewer({ diffs }: { diffs: Map<string, string[]> }) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+function DiffViewer({ diffs, collapsed, setCollapsed }: {
+  diffs: Map<string, string[]>;
+  collapsed: Set<string>;
+  setCollapsed: React.Dispatch<React.SetStateAction<Set<string>>>;
+}) {
   const [mode, setMode] = useState<DiffMode>(
     () => (localStorage.getItem("exponential-diff-mode") as DiffMode) || "unified",
   );
@@ -598,14 +613,33 @@ function DiffViewer({ diffs }: { diffs: Map<string, string[]> }) {
     localStorage.setItem("exponential-diff-mode", m);
   }, []);
 
+  const expandAll = useCallback(() => setCollapsed(new Set()), []);
+  const collapseAll = useCallback(() => setCollapsed(new Set(diffs.keys())), [diffs]);
+
   if (diffs.size === 0) {
     return <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">No changes to display</div>;
   }
 
   return (
     <div>
-      {/* Mode toggle */}
-      <div className="sticky top-0 z-20 flex items-center justify-end px-4 py-1.5 bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)]">
+      {/* Toolbar */}
+      <div className="sticky top-0 z-20 flex items-center justify-end gap-2 px-4 py-1.5 bg-[var(--color-surface)] border-b border-[var(--color-border-subtle)]">
+        <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+          <button
+            onClick={expandAll}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+          >
+            <ChevronsUpDown size={13} />
+            Expand all
+          </button>
+          <button
+            onClick={collapseAll}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs border-l border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+          >
+            <ChevronsDownUp size={13} />
+            Collapse all
+          </button>
+        </div>
         <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
           <button
             onClick={() => setDiffMode("unified")}
