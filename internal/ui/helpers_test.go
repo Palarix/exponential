@@ -14,10 +14,10 @@ func TestTruncate(t *testing.T) {
 	}{
 		{"hello", 10, "hello"},
 		{"hello", 5, "hello"},
-		{"hello world", 8, "hello..."},
+		{"hello world", 8, "hello w…"},
 		{"ab", 3, "ab"},
-		{"abcdef", 3, "abc"},
-		{"abcdef", 2, "ab"},
+		{"abcdef", 3, "ab…"},
+		{"abcdef", 2, "a…"},
 		{"", 5, ""},
 	}
 	for _, tc := range cases {

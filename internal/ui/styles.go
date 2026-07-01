@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/palarix/exponential/internal/model"
 	"golang.org/x/term"
 )
@@ -170,15 +171,10 @@ func RenderCell(content string, width int, style lipgloss.Style) string {
 	return rendered
 }
 
-// Truncate truncates a string to a given width.
+// Truncate truncates a string to a given visual width, preserving ANSI
+// escape sequences and handling wide characters correctly.
 func Truncate(s string, maxWidth int) string {
-	if len(s) <= maxWidth {
-		return s
-	}
-	if maxWidth <= 3 {
-		return s[:maxWidth]
-	}
-	return s[:maxWidth-3] + "..."
+	return ansi.Truncate(s, maxWidth, "…")
 }
 
 // ExtractEmail extracts the email from a "Name <email>" formatted string.
