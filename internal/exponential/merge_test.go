@@ -83,15 +83,41 @@ func TestMergeIssue_Squash(t *testing.T) {
 		t.Errorf("expected DONE, got %s", issue.Status)
 	}
 
-	// Verify MERGE event exists
+	// Verify event ordering: MERGE then DONE (UPDATE with status)
 	hasMerge := false
-	for _, e := range issue.Events {
+	hasDone := false
+	mergeIdx, doneIdx := -1, -1
+	for idx, e := range events {
+		if e.ID != issue.ID {
+			continue
+		}
 		if e.Type == model.EventTypeMerge {
 			hasMerge = true
+			mergeIdx = idx
+		}
+		if e.Type == model.EventTypeUpdate {
+			// After JSON roundtrip the payload may be a map
+			if p, ok := e.Payload.(model.UpdatePayload); ok {
+				if p.Status != nil && *p.Status == string(model.StatusDone) {
+					hasDone = true
+					doneIdx = idx
+				}
+			} else if m, ok := e.Payload.(map[string]interface{}); ok {
+				if s, ok := m["status"].(string); ok && s == string(model.StatusDone) {
+					hasDone = true
+					doneIdx = idx
+				}
+			}
 		}
 	}
 	if !hasMerge {
 		t.Error("expected MERGE event in issue history")
+	}
+	if !hasDone {
+		t.Error("expected DONE update event in issue history")
+	}
+	if hasMerge && hasDone && mergeIdx >= doneIdx {
+		t.Errorf("expected MERGE event (idx %d) before DONE event (idx %d)", mergeIdx, doneIdx)
 	}
 }
 

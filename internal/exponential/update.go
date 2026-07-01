@@ -13,8 +13,12 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
-// UpdateIssue updates an issue and handles side effects.
-func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, action string) ([]string, error) {
+// applyUpdate builds and appends update events (including cascading
+// automations) without creating a git commit.  Callers that need to
+// bundle the update into a larger commit (e.g. MergeIssue) use this
+// directly; standalone updates go through UpdateIssue which adds the
+// git commit step.
+func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]string, error) {
 	// 1. Read and Project State
 	events, err := storage.ReadEvents()
 	if err != nil {
@@ -137,17 +141,27 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 		}
 	}
 
-	// 4. Commit Changes
+	// 4. Append Events
 	for _, evt := range eventsToAppend {
 		if err := t.appendEvent(evt); err != nil {
 			return nil, fmt.Errorf("failed to append event for %s: %w", evt.ID, err)
 		}
 	}
 
-	// 5. Git Commit (if enabled)
+	return messages, nil
+}
+
+// UpdateIssue updates an issue, handles side effects, and optionally
+// creates a git commit when AutoCommit is enabled.
+func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, action string) ([]string, error) {
+	messages, err := t.applyUpdate(id, payload)
+	if err != nil {
+		return nil, err
+	}
+
 	if t.Config.AutoCommit {
 		commitMsg := fmt.Sprintf("xpo: %s %s", action, id)
-		if len(eventsToAppend) > 1 {
+		if len(messages) > 1 {
 			commitMsg += " (with cascading updates)"
 		}
 		_ = exec.Command("git", "add", ".xpo/issues.db").Run()

@@ -99,29 +99,32 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		switch opts.Strategy {
 		case MergeStrategySquash:
 			mergeErr = runGitMerge("--squash", mergeRef)
-			if mergeErr == nil {
-				if err := c.local.appendEvent(event); err != nil {
-					return fmt.Errorf("failed to record event: %w", err)
-				}
-				exec.Command("git", "add", ".xpo/issues.db").Run()
-				mergeErr = exec.Command("git", "commit", "-m", commitMsg).Run()
-			}
 		case MergeStrategyFF:
 			mergeErr = runGitMerge("--ff-only", mergeRef)
-			if mergeErr == nil {
-				if err := c.local.appendEvent(event); err != nil {
-					return fmt.Errorf("failed to record event: %w", err)
-				}
-				exec.Command("git", "add", ".xpo/issues.db").Run()
-				exec.Command("git", "commit", "-m", commitMsg).Run()
-			}
 		default:
 			mergeErr = runGitMerge("--no-ff", "-m", commitMsg, mergeRef)
-			if mergeErr == nil {
-				if err := c.local.appendEvent(event); err != nil {
-					return fmt.Errorf("failed to record event: %w", err)
-				}
-				exec.Command("git", "add", ".xpo/issues.db").Run()
+		}
+
+		if mergeErr == nil {
+			// MERGE event first
+			if err := c.local.appendEvent(event); err != nil {
+				return fmt.Errorf("failed to record merge event: %w", err)
+			}
+
+			// DONE transition with full business logic (cascading automations)
+			doneStatus := string(model.StatusDone)
+			doneMessages, err := c.local.applyUpdate(issue.ID, model.UpdatePayload{Status: &doneStatus})
+			if err != nil {
+				return fmt.Errorf("failed to apply DONE transition: %w", err)
+			}
+			result.Messages = append(result.Messages, doneMessages...)
+
+			// Commit everything together
+			exec.Command("git", "add", ".xpo/issues.db").Run()
+			switch opts.Strategy {
+			case MergeStrategySquash, MergeStrategyFF:
+				mergeErr = exec.Command("git", "commit", "-m", commitMsg).Run()
+			default:
 				exec.Command("git", "commit", "--amend", "--no-edit").Run()
 			}
 		}
