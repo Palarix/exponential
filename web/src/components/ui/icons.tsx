@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { GitMerge } from "lucide-react";
 
 interface IconProps {
   className?: string;
@@ -96,11 +97,7 @@ export function CommentIcon({ className = "w-4 h-4" }: IconProps) {
 }
 
 export function MergeIcon({ className = "w-4 h-4" }: IconProps) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5-3L16.5 18m0 0L12 13.5M16.5 18V4.5" />
-    </svg>
-  );
+  return <GitMerge className={className} />;
 }
 
 export function UserIcon({ className = "w-4 h-4" }: IconProps) {
@@ -232,6 +229,23 @@ export function RefreshIcon({ className = "w-4 h-4" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.7 6.2h3.3V2.9M2 13.1v-3.3h3.3M2.7 6.2a5.5 5.5 0 019.2-2.5l2.1 2.1M13.3 9.8a5.5 5.5 0 01-9.2 2.5L2 10.2" />
+    </svg>
+  );
+}
+
+export function TimelineIcon({ className = "w-4 h-4" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 3.5v5h3.5M8 14.5a6.5 6.5 0 100-13 6.5 6.5 0 000 13z" />
+    </svg>
+  );
+}
+
+export function GitCommitIcon({ className = "w-4 h-4" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="3" />
+      <path strokeLinecap="round" d="M8 1.5v3.5M8 11v3.5" />
     </svg>
   );
 }

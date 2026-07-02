@@ -96,3 +96,18 @@ export interface InboxStatus {
   last_read: string;
   unread: number;
 }
+
+export interface TimelineEntry {
+  kind: 'issue_event' | 'commit';
+  timestamp: string;
+  issue_id: string;
+  issue_title?: string;
+  event_type?: string;
+  payload?: Record<string, unknown>;
+  created_by?: string;
+  source?: string;
+  sha?: string;
+  message?: string;
+  author?: string;
+  branch?: string;
+}

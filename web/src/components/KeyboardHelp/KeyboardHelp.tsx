@@ -27,6 +27,7 @@ const GLOBAL: ShortcutGroup = {
     { keys: ["G", "C"], label: "Go to Cycles" },
     { keys: ["G", "L"], label: "Go to Labels" },
     { keys: ["G", "D"], label: "Go to Dependencies" },
+    { keys: ["G", "T"], label: "Go to Timeline" },
   ],
 };
 

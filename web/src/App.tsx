@@ -15,6 +15,7 @@ const Labels = lazy(() => import('./components/Labels/Labels'));
 const Cycles = lazy(() => import('./components/Cycles/Cycles'));
 const Inbox = lazy(() => import('./components/Inbox/Inbox'));
 const MyIssues = lazy(() => import('./components/MyIssues/MyIssues'));
+const Timeline = lazy(() => import('./components/Timeline/Timeline'));
 import type { MyIssuesTab } from './components/MyIssues/MyIssues';
 const IssueDetail = lazy(() => import('./components/IssueDetail/IssueDetail'));
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, ErrorBoundary, useToast } from './components/ui';
@@ -25,7 +26,7 @@ import { isEditableTarget } from './utils/keyboard';
 import { type BacklogFilters, EMPTY_FILTERS, hasActiveFilters } from './components/Backlog/filters';
 import FilterChips from './components/Backlog/FilterChips';
 
-type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels' | 'my-issues';
+type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels' | 'my-issues' | 'timeline';
 
 const VIEW_LABELS: Record<View, string> = {
   dashboard: 'Dashboard',
@@ -36,6 +37,7 @@ const VIEW_LABELS: Record<View, string> = {
   dependencies: 'Dependencies',
   labels: 'Labels',
   'my-issues': 'My Issues',
+  timeline: 'Timeline',
 };
 
 const VIEW_ROUTES: Record<string, View> = {
@@ -47,6 +49,7 @@ const VIEW_ROUTES: Record<string, View> = {
   'dependencies': 'dependencies',
   'labels': 'labels',
   'my-issues': 'my-issues',
+  'timeline': 'timeline',
 };
 const ROUTE_VIEWS: Record<View, string> = {
   backlog: 'issues',
@@ -57,6 +60,7 @@ const ROUTE_VIEWS: Record<View, string> = {
   dependencies: 'dependencies',
   labels: 'labels',
   'my-issues': 'my-issues',
+  timeline: 'timeline',
 };
 
 function parseHash(): { view: View; issueId: string | null; cycleId: string | null } {
@@ -201,6 +205,7 @@ function App() {
     l: 'labels',
     c: 'cycles',
     m: 'my-issues',
+    t: 'timeline',
   };
 
   useEffect(() => {
@@ -461,6 +466,8 @@ function App() {
             onFiltersChange={handleMyIssuesFiltersChange}
           />
         );
+      case 'timeline':
+        return <Timeline issues={issues} onIssueClick={handleIssueClick} />;
     }
   };
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/palarix/exponential/internal/auth"
@@ -1043,4 +1044,28 @@ func (s *Server) handleAuthVerify(w http.ResponseWriter, r *http.Request) {
 		"token":      token,
 		"expires_at": expiry.Format(time.RFC3339),
 	})
+}
+
+func (s *Server) handleTimeline(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+	kindFilter := r.URL.Query().Get("kind")
+
+	allEvents, err := s.GetAllEvents()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to load events")
+		return
+	}
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
+		return
+	}
+
+	timeline := exponential.BuildTimeline(allEvents, issues, limit, kindFilter)
+	respondJSON(w, http.StatusOK, timeline)
 }

@@ -97,6 +97,7 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		handleCap("GET /api/instances", "issue.read", s.handleListInstances)
 		handleCap("GET /api/metrics", "issue.read", s.handleMetrics)
 		handleCap("GET /api/activity", "issue.read", s.handleActivity)
+		handleCap("GET /api/timeline", "issue.read", s.handleTimeline)
 		handleCap("GET /api/inbox", "issue.read", s.handleInbox)
 		handleCap("GET /api/inbox/status", "issue.read", s.handleInboxStatus)
 		handleCap("GET /api/cycles", "issue.read", s.handleGetCycles)

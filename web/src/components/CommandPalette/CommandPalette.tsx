@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Issue } from '../../api/client';
-import { StatusIcon, LabelBadge, SearchIcon, LinkIcon, BellIcon, PlusIcon, ListIcon, BoardIcon } from '../ui';
+import { StatusIcon, LabelBadge, SearchIcon, LinkIcon, BellIcon, PlusIcon, ListIcon, BoardIcon, TimelineIcon } from '../ui';
 
-type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies';
+type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -30,6 +30,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   dashboard: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
   dependencies: <LinkIcon />,
   inbox: <BellIcon />,
+  timeline: <TimelineIcon />,
 };
 
 function fuzzyMatch(text: string, query: string): boolean {
@@ -78,6 +79,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
       { id: 'dashboard', label: 'Dashboard' },
       { id: 'dependencies', label: 'Dependencies' },
       { id: 'inbox', label: 'Notifications' },
+      { id: 'timeline', label: 'Timeline' },
     ];
     for (const nav of navItems) {
       if (!query || fuzzyMatch(nav.label, query)) {

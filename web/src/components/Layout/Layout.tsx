@@ -19,10 +19,11 @@ import {
   SearchIcon,
   SidebarIcon,
   TagIcon,
+  TimelineIcon,
   UserIcon,
 } from "../ui";
 
-type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels" | "my-issues";
+type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels" | "my-issues" | "timeline";
 
 interface LayoutProps {
   children: ReactNode;
@@ -342,6 +343,12 @@ export default function Layout({
             item={{ id: "dependencies", label: "Dependencies", icon: <LinkIcon /> }}
             isActive={currentView === "dependencies"}
             onClick={() => onViewChange("dependencies")}
+            collapsed={collapsed}
+          />
+          <NavItem
+            item={{ id: "timeline" as View, label: "Timeline", icon: <TimelineIcon /> }}
+            isActive={currentView === "timeline"}
+            onClick={() => onViewChange("timeline" as View)}
             collapsed={collapsed}
           />
         </nav>

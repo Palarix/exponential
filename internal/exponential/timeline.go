@@ -1,0 +1,135 @@
+package exponential
+
+import (
+	"fmt"
+	"os/exec"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/palarix/exponential/internal/model"
+)
+
+type TimelineEntry struct {
+	Kind       string      `json:"kind"`
+	Timestamp  time.Time   `json:"timestamp"`
+	IssueID    string      `json:"issue_id,omitempty"`
+	IssueTitle string      `json:"issue_title,omitempty"`
+	EventType  string      `json:"event_type,omitempty"`
+	Payload    interface{} `json:"payload,omitempty"`
+	CreatedBy  string      `json:"created_by,omitempty"`
+	Source     string      `json:"source,omitempty"`
+	SHA        string      `json:"sha,omitempty"`
+	Message    string      `json:"message,omitempty"`
+	Author     string      `json:"author,omitempty"`
+	Branch     string      `json:"branch,omitempty"`
+}
+
+func IsMeaningfulActivityEvent(evt model.Event) bool {
+	switch evt.Type {
+	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge:
+		return true
+	case model.EventTypeUpdate:
+		payload, ok := evt.Payload.(map[string]interface{})
+		if !ok {
+			return true
+		}
+		if len(payload) == 1 {
+			if _, hasOnlySortOrder := payload["sort_order"]; hasOnlySortOrder {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func listRecentCommits(branch string, maxCount int) []DetailedCommit {
+	out, err := exec.Command("git", "log", "--format=%H%n%s%n%an%n%aI",
+		"-n", fmt.Sprintf("%d", maxCount), branch).Output()
+	if err != nil {
+		return nil
+	}
+	text := strings.TrimSpace(string(out))
+	if text == "" {
+		return nil
+	}
+	lines := strings.Split(text, "\n")
+	var commits []DetailedCommit
+	for i := 0; i+3 < len(lines); i += 4 {
+		sha := lines[i]
+		if len(sha) > 12 {
+			sha = sha[:12]
+		}
+		commits = append(commits, DetailedCommit{
+			SHA:     sha,
+			Message: lines[i+1],
+			Author:  lines[i+2],
+			Date:    lines[i+3],
+		})
+	}
+	return commits
+}
+
+func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit int, kindFilter string) []TimelineEntry {
+	titles := make(map[string]string, len(issues))
+	for id, issue := range issues {
+		titles[id] = issue.Title
+	}
+
+	var entries []TimelineEntry
+
+	if kindFilter == "" || kindFilter == "issue_event" {
+		for i := len(events) - 1; i >= 0; i-- {
+			evt := events[i]
+			if !IsMeaningfulActivityEvent(evt) {
+				continue
+			}
+			entries = append(entries, TimelineEntry{
+				Kind:       "issue_event",
+				Timestamp:  evt.CreatedAt,
+				IssueID:    evt.ID,
+				IssueTitle: titles[evt.ID],
+				EventType:  string(evt.Type),
+				Payload:    evt.Payload,
+				CreatedBy:  evt.CreatedBy,
+				Source:     evt.Source,
+			})
+		}
+	}
+
+	if kindFilter == "" || kindFilter == "commit" {
+		base := DefaultBranch()
+		commits := listRecentCommits(base, 500)
+		for _, c := range commits {
+			ts, _ := time.Parse(time.RFC3339, c.Date)
+			entry := TimelineEntry{
+				Kind:      "commit",
+				Timestamp: ts,
+				SHA:       c.SHA,
+				Message:   c.Message,
+				Author:    c.Author,
+				Branch:    base,
+			}
+			for id := range titles {
+				if strings.Contains(c.Message, id) {
+					entry.IssueID = id
+					entry.IssueTitle = titles[id]
+					break
+				}
+			}
+			entries = append(entries, entry)
+		}
+	}
+
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].Timestamp.After(entries[j].Timestamp)
+	})
+
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
+	}
+
+	return entries
+}

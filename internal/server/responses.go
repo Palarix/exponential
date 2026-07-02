@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/model"
 )
 
@@ -132,25 +133,8 @@ func getUserNameEmail(cfg *config.Config) (string, string) {
 	return raw, ""
 }
 
-// isMeaningfulActivityEvent returns true for events that should appear in the
-// project-wide activity feed. Filters out sort_order-only UPDATE events (drag-
-// reorder noise) and DELETE events.
+// isMeaningfulActivityEvent delegates to the exported version in package
+// exponential so the same filter is shared with BuildTimeline.
 func isMeaningfulActivityEvent(evt model.Event) bool {
-	switch evt.Type {
-	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge:
-		return true
-	case model.EventTypeUpdate:
-		payload, ok := evt.Payload.(map[string]interface{})
-		if !ok {
-			return true
-		}
-		if len(payload) == 1 {
-			if _, hasOnlySortOrder := payload["sort_order"]; hasOnlySortOrder {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
-	}
+	return exponential.IsMeaningfulActivityEvent(evt)
 }

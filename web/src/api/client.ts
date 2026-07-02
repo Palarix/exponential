@@ -1,8 +1,8 @@
-import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus } from './types';
+import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry } from './types';
 
 const API_BASE = '/api';
 
-export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus };
+export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry };
 
 export class ApiError extends Error {
   status: number;
@@ -101,6 +101,14 @@ export interface ActivityEvent {
 
 export async function fetchActivity(): Promise<ActivityEvent[]> {
   return request(`${API_BASE}/activity`);
+}
+
+export async function fetchTimeline(limit?: number, kind?: string): Promise<TimelineEntry[]> {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  if (kind) params.set('kind', kind);
+  const qs = params.toString();
+  return request(`${API_BASE}/timeline${qs ? '?' + qs : ''}`);
 }
 
 export interface EpicProgress {
