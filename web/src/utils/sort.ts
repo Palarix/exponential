@@ -86,9 +86,13 @@ export function sortIssuesWithinGroups(issues: Issue[], sortKey: SortKey): Issue
 
 export function sortGroup(issues: Issue[], sortKey: SortKey): Issue[] {
   if (sortKey === 'manual') {
-    return [...issues].sort((a, b) =>
-      compareKeys(a.sort_order || '', b.sort_order || '')
-    );
+    return [...issues].sort((a, b) => {
+      if (a.status === 'DONE' && b.status === 'DONE') return compareBySortKey(a, b, 'updated');
+      return compareKeys(a.sort_order || '', b.sort_order || '');
+    });
   }
-  return [...issues].sort((a, b) => compareBySortKey(a, b, sortKey));
+  return [...issues].sort((a, b) => {
+    if (a.status === 'DONE' && b.status === 'DONE') return compareBySortKey(a, b, 'updated');
+    return compareBySortKey(a, b, sortKey);
+  });
 }
