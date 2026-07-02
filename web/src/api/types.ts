@@ -97,6 +97,21 @@ export interface InboxStatus {
   unread: number;
 }
 
+export interface CommitDetail {
+  sha: string;
+  subject: string;
+  body?: string;
+  author: string;
+  date: string;
+  files: CommitFile[];
+}
+
+export interface CommitFile {
+  path: string;
+  additions: number;
+  deletions: number;
+}
+
 export interface TimelineEntry {
   kind: 'issue_event' | 'commit';
   timestamp: string;

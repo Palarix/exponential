@@ -72,6 +72,63 @@ func listRecentCommits(branch string, maxCount int) []DetailedCommit {
 	return commits
 }
 
+type CommitDetail struct {
+	SHA     string       `json:"sha"`
+	Subject string       `json:"subject"`
+	Body    string       `json:"body,omitempty"`
+	Author  string       `json:"author"`
+	Date    string       `json:"date"`
+	Files   []CommitFile `json:"files"`
+}
+
+type CommitFile struct {
+	Path       string `json:"path"`
+	Additions  int    `json:"additions"`
+	Deletions  int    `json:"deletions"`
+}
+
+func GetCommitDetail(sha string) *CommitDetail {
+	out, err := exec.Command("git", "log", "-1", "--format=%H%n%s%n%an%n%aI%n%b", sha).Output()
+	if err != nil {
+		return nil
+	}
+	lines := strings.SplitN(strings.TrimRight(string(out), "\n"), "\n", 5)
+	if len(lines) < 4 {
+		return nil
+	}
+	detail := &CommitDetail{
+		SHA:     lines[0][:12],
+		Subject: lines[1],
+		Author:  lines[2],
+		Date:    lines[3],
+	}
+	if len(lines) == 5 {
+		detail.Body = strings.TrimSpace(lines[4])
+	}
+
+	stat, err := exec.Command("git", "diff-tree", "--no-commit-id", "--numstat", "-r", sha).Output()
+	if err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(stat)), "\n") {
+			if line == "" {
+				continue
+			}
+			parts := strings.Fields(line)
+			if len(parts) < 3 {
+				continue
+			}
+			add, del := 0, 0
+			fmt.Sscanf(parts[0], "%d", &add)
+			fmt.Sscanf(parts[1], "%d", &del)
+			detail.Files = append(detail.Files, CommitFile{
+				Path:      parts[2],
+				Additions: add,
+				Deletions: del,
+			})
+		}
+	}
+	return detail
+}
+
 func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit int, kindFilter string) []TimelineEntry {
 	titles := make(map[string]string, len(issues))
 	for id, issue := range issues {

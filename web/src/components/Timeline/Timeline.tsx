@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, type ReactNode } from "react";
-import { fetchTimeline } from "../../api/client";
-import type { TimelineEntry, Issue } from "../../api/client";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { fetchTimeline, fetchCommitDetail } from "../../api/client";
+import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, formatShortDate } from "../../utils/format";
 import {
   PlusIcon,
@@ -238,6 +239,33 @@ function dayLabel(dateStr: string): string {
   return formatShortDate(dateStr);
 }
 
+function daySummary(entries: TimelineEntry[]): string {
+  let commits = 0;
+  let events = 0;
+  for (const e of entries) {
+    if (e.kind === "commit") commits++;
+    else events++;
+  }
+  const parts: string[] = [];
+  if (events > 0) parts.push(`${events} event${events === 1 ? "" : "s"}`);
+  if (commits > 0) parts.push(`${commits} commit${commits === 1 ? "" : "s"}`);
+  return parts.join(", ");
+}
+
+function entryActor(entry: TimelineEntry): string {
+  if (entry.kind === "commit") return shortName(entry.author ?? "");
+  return shortName(entry.created_by ?? "");
+}
+
+function extractContributors(entries: TimelineEntry[]): string[] {
+  const seen = new Set<string>();
+  for (const e of entries) {
+    const name = entryActor(e);
+    if (name) seen.add(name);
+  }
+  return Array.from(seen).sort((a, b) => a.localeCompare(b));
+}
+
 const FILTER_OPTIONS: { value: KindFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "issue_event", label: "Issues" },
@@ -251,8 +279,9 @@ export default function Timeline({
   issues: Issue[];
   onIssueClick?: (issue: Issue) => void;
 }) {
-  const [entries, setEntries] = useState<TimelineEntry[]>([]);
+  const [rawEntries, setRawEntries] = useState<TimelineEntry[]>([]);
   const [filter, setFilter] = useState<KindFilter>("all");
+  const [person, setPerson] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(100);
 
@@ -260,7 +289,7 @@ export default function Timeline({
     try {
       const kind = filter === "all" ? undefined : filter;
       const data = await fetchTimeline(limit, kind);
-      setEntries(data ?? []);
+      setRawEntries(data ?? []);
     } finally {
       setLoading(false);
     }
@@ -269,6 +298,12 @@ export default function Timeline({
   useEffect(() => {
     load();
   }, [load]);
+
+  const contributors = useMemo(() => extractContributors(rawEntries), [rawEntries]);
+  const entries = useMemo(
+    () => person ? rawEntries.filter((e) => entryActor(e) === person) : rawEntries,
+    [rawEntries, person],
+  );
 
   const handleLoadMore = () => setLimit((prev) => prev + 100);
 
@@ -280,13 +315,10 @@ export default function Timeline({
     );
   }
 
-  if (entries.length === 0) {
+  if (rawEntries.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">Timeline</span>
-          <FilterToggle filter={filter} onFilterChange={setFilter} />
-        </div>
+        <HeaderBar filter={filter} onFilterChange={setFilter} person={person} onPersonChange={setPerson} contributors={contributors} />
         <EmptyState
           icon={<TimelineIcon className="w-12 h-12" />}
           title="No activity yet"
@@ -300,12 +332,9 @@ export default function Timeline({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">Timeline</span>
-        <FilterToggle filter={filter} onFilterChange={setFilter} />
-      </div>
+      <HeaderBar filter={filter} onFilterChange={setFilter} person={person} onPersonChange={setPerson} contributors={contributors} />
       <div className="flex-1 overflow-y-auto">
-        <div className="py-2">
+        <div className="max-w-7xl mx-auto py-2">
           {Array.from(days.entries()).map(([day, dayEntries], dayIdx) => (
             <DayGroup
               key={day}
@@ -341,28 +370,104 @@ export default function Timeline({
   );
 }
 
-function FilterToggle({
+function HeaderBar({
   filter,
   onFilterChange,
+  person,
+  onPersonChange,
+  contributors,
 }: {
   filter: KindFilter;
   onFilterChange: (f: KindFilter) => void;
+  person: string;
+  onPersonChange: (p: string) => void;
+  contributors: string[];
 }) {
   return (
-    <div className="ml-auto flex items-center gap-1 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] p-0.5">
-      {FILTER_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onFilterChange(opt.value)}
-          className={`px-2.5 py-1 text-xs font-medium rounded-[var(--radius-sm)] transition-colors ${
-            filter === opt.value
-              ? "bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm"
-              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+      <span className="text-sm font-medium text-[var(--color-text-primary)]">Timeline</span>
+
+      <div className="ml-auto flex items-center gap-2">
+        {contributors.length > 1 && (
+          <PersonFilter person={person} onPersonChange={onPersonChange} contributors={contributors} />
+        )}
+        <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] p-0.5">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => onFilterChange(opt.value)}
+              className={`px-2.5 py-1 text-xs font-medium rounded-[var(--radius-sm)] transition-colors ${
+                filter === opt.value
+                  ? "bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonFilter({
+  person,
+  onPersonChange,
+  contributors,
+}: {
+  person: string;
+  onPersonChange: (p: string) => void;
+  contributors: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-[var(--radius-sm)] transition-colors border ${
+          person
+            ? "border-[var(--color-accent-primary)] text-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10"
+            : "border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+        }`}
+      >
+        <UserIcon className="w-3 h-3" />
+        {person || "Everyone"}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] py-1">
+          <button
+            onClick={() => { onPersonChange(""); setOpen(false); }}
+            className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+              !person ? "text-[var(--color-accent-primary)] font-medium" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"
+            }`}
+          >
+            Everyone
+          </button>
+          {contributors.map((c) => (
+            <button
+              key={c}
+              onClick={() => { onPersonChange(c); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                person === c ? "text-[var(--color-accent-primary)] font-medium" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -396,7 +501,11 @@ function DayGroup({
           <div className="text-[var(--color-text-muted)] text-[8px] leading-none shrink-0">●</div>
           <div className="w-px h-2 bg-[var(--color-border-default)]" />
         </div>
-        <div className="flex-1" />
+        <div className="flex-1 flex items-end pb-1 pl-3">
+          <span className="text-[11px] text-[var(--color-text-muted)]">
+            {daySummary(entries)}
+          </span>
+        </div>
       </div>
 
       {/* Activity entries */}
@@ -409,6 +518,122 @@ function DayGroup({
           isLastEntry={isLast && i === entries.length - 1}
         />
       ))}
+    </>
+  );
+}
+
+function CommitSHA({ sha }: { sha: string }) {
+  const [detail, setDetail] = useState<CommitDetail | null>(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (open) { setOpen(false); return; }
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const pad = 8;
+      let top = rect.bottom + 4;
+      let left = rect.left;
+      if (left + 560 > window.innerWidth - pad) {
+        left = window.innerWidth - 560 - pad;
+      }
+      if (top + 400 > window.innerHeight - pad) {
+        top = rect.top - 400 - 4;
+      }
+      setPos({ top, left });
+    }
+    setOpen(true);
+    if (!detail) {
+      setLoading(true);
+      try {
+        const d = await fetchCommitDetail(sha);
+        setDetail(d);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (btnRef.current && !btnRef.current.contains(e.target as Node) &&
+          popRef.current && !popRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const dismiss = (e: Event) => {
+      if (popRef.current && popRef.current.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    document.addEventListener("scroll", dismiss, true);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+      document.removeEventListener("scroll", dismiss, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleClick}
+        className="font-mono text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] px-1.5 py-0.5 rounded-[var(--radius-sm)] hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer align-middle"
+      >
+        {sha.slice(0, 7)}
+      </button>
+      {open && createPortal(
+        <div
+          ref={popRef}
+          style={{ position: "fixed", top: pos.top, left: pos.left }}
+          className="z-50 w-[560px] max-h-[400px] overflow-y-auto bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)]"
+        >
+          {loading ? (
+            <div className="px-4 py-6 text-center text-xs text-[var(--color-text-muted)]">Loading...</div>
+          ) : detail ? (
+            <div>
+              <div className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-xs text-[var(--color-text-muted)]">{detail.sha}</span>
+                </div>
+                <p className="text-sm font-medium text-[var(--color-text-primary)] leading-snug">{detail.subject}</p>
+                {detail.body && (
+                  <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed whitespace-pre-wrap">{detail.body}</p>
+                )}
+                <div className="flex items-center gap-2 mt-2 text-[11px] text-[var(--color-text-muted)]">
+                  <span>{detail.author}</span>
+                  <span>·</span>
+                  <span>{formatRelativeTime(detail.date)}</span>
+                </div>
+              </div>
+              {detail.files.length > 0 && (
+                <div className="px-4 py-2 max-h-48 overflow-y-auto">
+                  <div className="text-[11px] text-[var(--color-text-muted)] mb-1.5">{detail.files.length} file{detail.files.length === 1 ? "" : "s"} changed</div>
+                  {detail.files.map((f) => (
+                    <div key={f.path} className="flex items-center gap-2 py-0.5 text-xs">
+                      <span className="truncate min-w-0 text-[var(--color-text-secondary)]">{f.path}</span>
+                      <span className="ml-auto shrink-0 tabular-nums">
+                        {f.additions > 0 && <span className="text-[var(--color-success)]">+{f.additions}</span>}
+                        {f.additions > 0 && f.deletions > 0 && " "}
+                        {f.deletions > 0 && <span className="text-[var(--color-error)]">-{f.deletions}</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>,
+        document.body,
+      )}
     </>
   );
 }
@@ -458,9 +683,7 @@ function TimelineRow({
     ? <>
         <span className="font-medium text-[var(--color-text-primary)]">{shortName(entry.author ?? "")}</span>
         {" committed "}
-        <span className="font-mono text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] px-1.5 py-0.5 rounded-[var(--radius-sm)]">
-          {entry.sha?.slice(0, 7)}
-        </span>
+        <CommitSHA sha={entry.sha ?? ""} />
         {entry.issue_id
           ? <>
               {" on "}

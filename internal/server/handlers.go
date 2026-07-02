@@ -1069,3 +1069,17 @@ func (s *Server) handleTimeline(w http.ResponseWriter, r *http.Request) {
 	timeline := exponential.BuildTimeline(allEvents, issues, limit, kindFilter)
 	respondJSON(w, http.StatusOK, timeline)
 }
+
+func (s *Server) handleCommitDetail(w http.ResponseWriter, r *http.Request) {
+	sha := r.PathValue("sha")
+	if sha == "" {
+		respondError(w, http.StatusBadRequest, "commit SHA required")
+		return
+	}
+	detail := exponential.GetCommitDetail(sha)
+	if detail == nil {
+		respondError(w, http.StatusNotFound, "commit not found")
+		return
+	}
+	respondJSON(w, http.StatusOK, detail)
+}
