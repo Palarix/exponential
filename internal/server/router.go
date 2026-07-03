@@ -91,6 +91,7 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		handleCap("GET /api/issues/{id}/files", "issue.read", s.handleGetIssueFiles)
 		handleCap("GET /api/issues/{id}/diff", "issue.read", s.handleGetIssueDiff)
 		handleCap("GET /api/issues/{id}/commits/{sha}/diff", "issue.read", s.handleGetCommitDiff)
+		handleCap("GET /api/issues/{id}/artifacts/{filename}", "issue.read", s.handleGetArtifact)
 		handleCap("GET /api/issues/{id}/mergeability", "issue.read", s.handleMergeability)
 		handleCap("GET /api/config", "issue.read", s.handleGetConfig)
 		handleCap("GET /api/pending", "issue.read", s.handleGetPending)

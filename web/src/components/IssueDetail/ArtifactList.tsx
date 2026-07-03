@@ -1,5 +1,7 @@
 import type { ArtifactSummary } from "../../api/types";
-import { FileCodeCorner, FileBracesCorner, Paperclip } from "lucide-react";
+import type { Issue } from "../../api/client";
+import { fetchArtifactContent } from "../../api/client";
+import { FileCodeCorner, FileBracesCorner, Paperclip, Download } from "lucide-react";
 import { formatRelativeTime, shortName } from "../../utils/format";
 
 const TYPE_ICON: Record<string, typeof FileCodeCorner> = {
@@ -12,10 +14,24 @@ const TYPE_LABEL: Record<string, string> = {
   walkthrough: "Walkthrough",
 };
 
+function downloadArtifact(issueId: string, filename: string) {
+  fetchArtifactContent(issueId, filename).then((content) => {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
 export default function ArtifactList({
   artifacts,
+  issue,
 }: {
   artifacts: ArtifactSummary[];
+  issue: Issue;
 }) {
   if (artifacts.length === 0) return null;
 
@@ -31,7 +47,7 @@ export default function ArtifactList({
           return (
             <div
               key={a.filename}
-              className="flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--color-hover-surface)] transition-colors"
+              className="group flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--color-hover-surface)] transition-colors"
             >
               <Icon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
               <span className="text-sm font-medium text-[var(--color-text-primary)] min-w-0 truncate">
@@ -43,6 +59,13 @@ export default function ArtifactList({
                 </span>
               )}
               <div className="flex-1" />
+              <button
+                onClick={() => downloadArtifact(issue.id, a.filename)}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-all"
+                title={`Download ${a.filename}`}
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
               <span className="text-xs text-[var(--color-text-muted)] shrink-0">
                 {shortName(a.updated_by)}
               </span>

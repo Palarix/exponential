@@ -70,6 +70,28 @@ func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, issueToResponse(issue))
 }
 
+func (s *Server) handleGetArtifact(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	filename := r.PathValue("filename")
+	if id == "" || filename == "" {
+		respondError(w, http.StatusBadRequest, "issue ID and filename required")
+		return
+	}
+
+	client := exponential.NewClient(s.Config)
+	content, err := client.ReadArtifact(id, filename)
+	if err != nil {
+		respondError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"issue_id": id,
+		"filename": filename,
+		"content":  content,
+	})
+}
+
 func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		IssueID string          `json:"issue_id"`

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
-import { addDraft, ApiError } from "../../api/client";
+import { addDraft, fetchArtifactContent, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { StatusIcon, CopyableId, useToast } from "../ui";
 import { ChevronRight } from "lucide-react";
@@ -15,6 +15,8 @@ import ArtifactList from "./ArtifactList";
 import ActivityTimeline from "./ActivityTimeline";
 import PropertySidebar from "./PropertySidebar";
 import MergeView from "./MergeView";
+
+type DetailTab = "details" | "spec" | "walkthrough";
 
 interface IssueDetailProps {
   issue: Issue;
@@ -54,6 +56,8 @@ export default function IssueDetail({
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [mergeViewOpen, setMergeViewOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<DetailTab>("details");
+  const [artifactContent, setArtifactContent] = useState<Record<string, string>>({});
   const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,6 +67,8 @@ export default function IssueDetail({
     setNewComment("");
     setOptimisticTitle(null);
     setOptimisticDescription(null);
+    setActiveTab("details");
+    setArtifactContent({});
   }, [issue.id]);
 
   useEffect(() => {
@@ -76,6 +82,15 @@ export default function IssueDetail({
       setOptimisticDescription(null);
     }
   }, [issue.description, optimisticDescription]);
+
+  useEffect(() => {
+    if (activeTab === "details") return;
+    const filename = activeTab === "spec" ? "spec.md" : "walkthrough.md";
+    if (artifactContent[filename] !== undefined) return;
+    fetchArtifactContent(issue.id, filename)
+      .then((content) => setArtifactContent((prev) => ({ ...prev, [filename]: content })))
+      .catch(() => setArtifactContent((prev) => ({ ...prev, [filename]: "" })));
+  }, [activeTab, issue.id, issue.updated_at]);
 
   const saveDraft = useCallback(
     async (type: string, payload: unknown) => {
@@ -292,7 +307,7 @@ export default function IssueDetail({
       {/* Body */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main content */}
-        <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="flex-1 overflow-y-auto min-w-0" style={{ scrollbarGutter: "stable both-edges" }}>
           <div className="max-w-4xl mx-auto px-8 py-12">
             {/* Title */}
             {editingField === "title" ? (
@@ -331,50 +346,110 @@ export default function IssueDetail({
               );
             })()}
 
-            {/* Description */}
-            <div className="mt-4">
-              {editingField === "description" ? (
-                <MarkdownEditor
-                  value={editDescription}
-                  onChange={setEditDescription}
-                  onSave={handleSaveDescription}
-                  onCancel={() => setEditingField(null)}
-                  autoFocus
-                  clickEvent={descClickEvent}
-                  className="prose-exponential"
-                />
-              ) : (
-                <div
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest('a')) return;
-                    setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description");
-                  }}
-                  className="cursor-text min-h-10 prose-exponential"
-                >
-                  {(optimisticDescription ?? issue.description) ? (
-                    <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                      {linkifyIssueIds(optimisticDescription ?? issue.description ?? "", prefix)}
-                    </Markdown>
-                  ) : (
-                    <p className="text-base text-[var(--color-text-muted)]">Add a description...</p>
+            {/* Tabs */}
+            {(() => {
+              const hasSpec = issue.artifacts?.some((a) => a.artifact_type === "spec");
+              const hasWalkthrough = issue.artifacts?.some((a) => a.artifact_type === "walkthrough");
+              const hasTabs = hasSpec || hasWalkthrough;
+
+              const tabs: { key: DetailTab; label: string }[] = [
+                { key: "details", label: "Details" },
+                ...(hasSpec ? [{ key: "spec" as DetailTab, label: "Spec" }] : []),
+                ...(hasWalkthrough ? [{ key: "walkthrough" as DetailTab, label: "Walkthrough" }] : []),
+              ];
+
+              return (
+                <>
+                  {hasTabs && (
+                    <div className="flex items-center gap-1 mt-4 border-b border-[var(--color-border-subtle)]">
+                      {tabs.map((tab) => (
+                        <button
+                          key={tab.key}
+                          onClick={() => setActiveTab(tab.key)}
+                          className={`px-3 py-2 text-sm font-medium transition-colors relative ${
+                            activeTab === tab.key
+                              ? "text-[var(--color-text-primary)]"
+                              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                          }`}
+                        >
+                          {tab.label}
+                          {activeTab === tab.key && (
+                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                </div>
-              )}
-            </div>
 
-            <SubIssuesTable issue={issue} issues={issues} onRefresh={onRefresh} />
+                  {activeTab === "details" && (
+                    <>
+                      {/* Description */}
+                      <div className={hasTabs ? "mt-6" : "mt-4"}>
+                        {editingField === "description" ? (
+                          <MarkdownEditor
+                            value={editDescription}
+                            onChange={setEditDescription}
+                            onSave={handleSaveDescription}
+                            onCancel={() => setEditingField(null)}
+                            autoFocus
+                            clickEvent={descClickEvent}
+                            className="prose-exponential"
+                          />
+                        ) : (
+                          <div
+                            onClick={(e) => {
+                              if ((e.target as HTMLElement).closest('a')) return;
+                              setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description");
+                            }}
+                            className="cursor-text min-h-10 prose-exponential"
+                          >
+                            {(optimisticDescription ?? issue.description) ? (
+                              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                                {linkifyIssueIds(optimisticDescription ?? issue.description ?? "", prefix)}
+                              </Markdown>
+                            ) : (
+                              <p className="text-base text-[var(--color-text-muted)]">Add a description...</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
-            <ArtifactList artifacts={issue.artifacts ?? []} />
+                      <SubIssuesTable issue={issue} issues={issues} onRefresh={onRefresh} />
 
-            <ActivityTimeline
-              issue={issue}
-              newComment={newComment}
-              onNewCommentChange={setNewComment}
-              onAddComment={handleAddComment}
-              saving={saving}
-              commentRef={commentRef}
-              prefix={prefix}
-            />
+                      <ArtifactList artifacts={issue.artifacts ?? []} issue={issue} />
+
+                      <ActivityTimeline
+                        issue={issue}
+                        newComment={newComment}
+                        onNewCommentChange={setNewComment}
+                        onAddComment={handleAddComment}
+                        saving={saving}
+                        commentRef={commentRef}
+                        prefix={prefix}
+                      />
+                    </>
+                  )}
+
+                  {(activeTab === "spec" || activeTab === "walkthrough") && (() => {
+                    const filename = activeTab === "spec" ? "spec.md" : "walkthrough.md";
+                    const content = artifactContent[filename];
+                    return (
+                      <div className="mt-6 prose-exponential">
+                        {content === undefined ? (
+                          <p className="text-sm text-[var(--color-text-muted)]">Loading...</p>
+                        ) : content ? (
+                          <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                            {linkifyIssueIds(content, prefix)}
+                          </Markdown>
+                        ) : (
+                          <p className="text-sm text-[var(--color-text-muted)]">No content.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </>
+              );
+            })()}
           </div>
         </div>
 

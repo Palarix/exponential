@@ -66,6 +66,11 @@ export async function fetchIssueHistory(issueId: string): Promise<HistoryEvent[]
   return request(`${API_BASE}/issues/${issueId}/history`);
 }
 
+export async function fetchArtifactContent(issueId: string, filename: string): Promise<string> {
+  const res: { content: string } = await request(`${API_BASE}/issues/${issueId}/artifacts/${encodeURIComponent(filename)}`);
+  return res.content;
+}
+
 export async function saveAll(message?: string): Promise<void> {
   return request(`${API_BASE}/save`, {
     method: 'POST',
