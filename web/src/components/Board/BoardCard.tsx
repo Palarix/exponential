@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
 import { Avatar, BranchBadge, EstimateBadge, LabelBadge, PriorityIcon, SubProgress } from "../ui";
-import { RefreshCw, FileCodeCorner, FileBracesCorner, Paperclip } from "lucide-react";
+import { RefreshCw, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -83,11 +83,8 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
   const hasLabels = issue.labels && issue.labels.length > 0;
   const hasBranch = !!issue.branch_stats;
   const cycleId = issue.effective_cycle_id || issue.cycle_id;
-  const hasSpec = issue.artifacts?.some((a) => a.artifact_type === "spec");
-  const hasWalkthrough = issue.artifacts?.some((a) => a.artifact_type === "walkthrough");
-  const hasAttachments = issue.artifacts?.some((a) => a.artifact_type === "generic");
-  const hasArtifacts = hasSpec || hasWalkthrough || hasAttachments;
-  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId || hasArtifacts;
+  const artifactCount = issue.artifacts?.length ?? 0;
+  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId || artifactCount > 0;
   return (
     <>
       {/* NW: ID + parent | NE: pending, priority, assignee */}
@@ -130,11 +127,10 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
               </span>
             )}
             {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
-            {hasArtifacts && (
-              <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
-                {hasSpec && <span title="Spec"><FileCodeCorner className="w-3 h-3" /></span>}
-                {hasWalkthrough && <span title="Walkthrough"><FileBracesCorner className="w-3 h-3" /></span>}
-                {hasAttachments && <span title="Attachments"><Paperclip className="w-3 h-3" /></span>}
+            {artifactCount > 0 && (
+              <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)]">
+                <Paperclip className="w-3 h-3" />
+                {artifactCount}
               </span>
             )}
             {issue.labels?.map((label) => (

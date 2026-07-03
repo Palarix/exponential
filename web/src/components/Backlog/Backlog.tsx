@@ -32,7 +32,7 @@ import {
   useToast,
   Modal,
 } from "../ui";
-import { ChevronRight, FileCodeCorner, FileBracesCorner, Paperclip } from "lucide-react";
+import { ChevronRight, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
@@ -1441,10 +1441,9 @@ export default function Backlog({
                                 <BranchBadge stats={issue.branch_stats} />
                               )}
                               {issue.artifacts && issue.artifacts.length > 0 && (
-                                <span className="flex items-center gap-1 text-[var(--color-text-muted)] shrink-0">
-                                  {issue.artifacts.some((a) => a.artifact_type === "spec") && <span title="Spec"><FileCodeCorner className="w-3 h-3" /></span>}
-                                  {issue.artifacts.some((a) => a.artifact_type === "walkthrough") && <span title="Walkthrough"><FileBracesCorner className="w-3 h-3" /></span>}
-                                  {issue.artifacts.some((a) => a.artifact_type === "generic") && <span title="Attachments"><Paperclip className="w-3 h-3" /></span>}
+                                <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)] shrink-0">
+                                  <Paperclip className="w-3 h-3" />
+                                  {issue.artifacts.length}
                                 </span>
                               )}
                               <div className="flex-1" />
