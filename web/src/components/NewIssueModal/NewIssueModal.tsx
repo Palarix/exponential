@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { createIssue, addDraft, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { computeAppendKey } from "../../utils/sort";
-import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, InlineDropdown, ChevronDownIcon, FolderIcon, PersonIcon, TagIcon } from "../ui";
+import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, InlineDropdown } from "../ui";
+import { ChevronDown, Folder, UserRound, Tag } from "lucide-react";
 import type { DropdownOption } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
 
@@ -128,7 +129,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
           <div>
             <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${labels.length === 0 ? "border-[var(--color-error)]/40" : ""}`}>
               {labels[0] ? <LabelBadge label={labels[0]} borderless /> : <span className="text-[var(--color-text-muted)]">Label *</span>}
-              <ChevronDownIcon className="w-3 h-3 text-[var(--color-text-muted)]" />
+              <ChevronDown className="w-3 h-3 text-[var(--color-text-muted)]" />
             </button>
             {labelOpen && createPortal(
               <div ref={labelMenuRef} className="fixed z-[100] min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1" style={{ top: labelPos.top, left: labelPos.left }}>
@@ -152,7 +153,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className="relative">
                 <button type="button" onClick={() => { setMorePopover(morePopover === "parent" ? null : "parent"); setParentSearch(""); }} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
-                  <FolderIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                  <Folder className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   <span className={`truncate max-w-50 ${parentId ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{parentId ? (issues.find((i) => i.id === parentId)?.title || parentId) : "No parent"}</span>
                 </button>
                 {morePopover === "parent" && (
@@ -169,7 +170,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
               </div>
               <div className="relative">
                 <button type="button" onClick={() => { setMorePopover(morePopover === "assignee" ? null : "assignee"); setAssigneeSearch(""); }} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
-                  {assignee ? <Avatar name={assignee} size="xs" /> : <PersonIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />}
+                  {assignee ? <Avatar name={assignee} size="xs" /> : <UserRound className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />}
                   <span className={`truncate max-w-40 ${assignee ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{assignee ? assignee.split(" <")[0] : "No assignee"}</span>
                 </button>
                 {morePopover === "assignee" && (
@@ -186,7 +187,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
               </div>
               <div className="relative">
                 <button type="button" onClick={() => setMorePopover(morePopover === "labels" ? null : "labels")} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
-                  <TagIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                  <Tag className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   {additionalLabels.length > 0 ? <span className="flex items-center gap-2">{additionalLabels.map((l) => <LabelBadge key={l} label={l} borderless />)}</span> : <span className="text-[var(--color-text-muted)]">Additional labels</span>}
                 </button>
                 {morePopover === "labels" && (

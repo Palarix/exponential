@@ -5,9 +5,8 @@ import type { InboxItem, Issue } from "../../api/client";
 import {
   StatusIcon,
   LabelBadge,
-  BellIcon,
-  CheckCircleIcon,
 } from "../ui";
+import { Bell, CheckCircle } from "lucide-react";
 import { shortName, formatRelativeTime } from "../../utils/format";
 import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "../Backlog/filters";
@@ -326,7 +325,7 @@ export default function Inbox({
               className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] hover:bg-[var(--color-hover-surface)] hover:text-[var(--color-text-primary)] transition-colors"
               title="Mark all as read (r)"
             >
-              <CheckCircleIcon className="w-3.5 h-3.5" />
+              <CheckCircle className="w-3.5 h-3.5" />
               Mark all read
             </button>
           )}
@@ -336,7 +335,7 @@ export default function Inbox({
         <div className="flex-1 overflow-y-auto">
           {filteredGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
-              <BellIcon className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />
+              <Bell className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />
               <div className="text-center">
                 <p className="text-sm font-medium text-[var(--color-text-primary)]">
                   {hasActiveFilters(filters) ? "No matching notifications" : "All caught up"}
@@ -441,7 +440,7 @@ export default function Inbox({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-3">
-            <BellIcon className="w-12 h-12 text-[var(--color-text-muted)] opacity-20" />
+            <Bell className="w-12 h-12 text-[var(--color-text-muted)] opacity-20" />
             <p className="text-sm text-[var(--color-text-muted)]">
               Select a notification to view details
             </p>

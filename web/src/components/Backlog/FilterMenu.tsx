@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo, forwardRef } from "react";
 import { createPortal } from "react-dom";
 import type { Issue } from "../../api/client";
-import { StatusIcon, LabelBadge, Avatar, PriorityIcon, ChevronRightIcon } from "../ui";
+import { StatusIcon, LabelBadge, Avatar, PriorityIcon } from "../ui";
+import { ChevronRight } from "lucide-react";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import type { BacklogFilters } from "./filters";
 
@@ -397,7 +398,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
               {sel.length > 0 && (
                 <span className="text-xs text-[var(--color-accent-primary)] tabular-nums">{sel.length}</span>
               )}
-              <ChevronRightIcon className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
+              <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
             </button>
           );
         })}

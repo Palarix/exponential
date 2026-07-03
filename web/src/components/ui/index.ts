@@ -22,4 +22,3 @@ export { default as EmptyState } from './EmptyState';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as Toggle } from './Toggle';
 export { default as ToastProvider, useToast } from './Toast';
-export * from './icons';

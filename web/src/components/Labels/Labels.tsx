@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useContext, useRef, useEffect } from "r
 import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelColorsContext, LabelBadge } from "../ui/Badge";
-import { TrashIcon } from "../ui/icons";
+import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 
 interface LabelsProps {
@@ -283,7 +283,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                             className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-surface-1)] transition-colors"
                             title="Delete label"
                           >
-                            <TrashIcon />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       )}

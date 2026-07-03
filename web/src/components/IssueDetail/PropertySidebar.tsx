@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
-import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker, FolderIcon, PersonIcon, CyclesIcon, TrashIcon } from "../ui";
+import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
+import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
-import { PriorityIcon, EstimateIcon } from "./icons";
+import { PriorityIcon } from "./icons";
+import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 
 const RELATION_TYPES = [
@@ -265,7 +267,7 @@ export default function PropertySidebar({
                   onClick={() => setOpenPopover(openPopover === "status" ? null : "status")}
                   className="w-full justify-start"
                 >
-                  <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
+                  <StatusIcon status={issue.status} size={16} isInferred={issue.is_inferred} />
                   <span className="text-sm text-[var(--color-text-primary)]">
                     {statusMeta?.label || issue.status}
                   </span>
@@ -283,7 +285,7 @@ export default function PropertySidebar({
                           onMouseEnter={() => setPopoverIndex(i)}
                           className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
                         >
-                          <StatusIcon status={opt.value} size={14} />
+                          <StatusIcon status={opt.value} size={16} />
                           <span>{opt.label}</span>
                           {isCurrent ? (
                             <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -309,7 +311,7 @@ export default function PropertySidebar({
                   onClick={() => setOpenPopover(openPopover === "estimate" ? null : "estimate")}
                   className="w-full justify-start"
                 >
-                  <EstimateIcon />
+                  <EstimateIcon size={16} />
                   <span className="text-sm text-[var(--color-text-primary)]">
                     {issue.estimate
                       ? `${issue.estimate} Point${issue.estimate !== 1 ? "s" : ""}`
@@ -397,7 +399,7 @@ export default function PropertySidebar({
                   }}
                   className="w-full justify-start"
                 >
-                  <FolderIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                  <Folder className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   <span className="text-sm text-[var(--color-text-primary)] truncate">
                     {issue.parent_id
                       ? (issues.find(i => i.id === issue.parent_id)?.title || issue.parent_id)
@@ -454,7 +456,7 @@ export default function PropertySidebar({
                   {issue.assignee ? (
                     <Avatar name={issue.assignee} size="xs" />
                   ) : (
-                    <PersonIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                    <UserRound className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   )}
                   <span className="text-sm text-[var(--color-text-primary)] truncate">
                     {issue.assignee ? issue.assignee.split(" <")[0] : "No assignee"}
@@ -505,7 +507,7 @@ export default function PropertySidebar({
                     onClick={() => setOpenPopover(openPopover === "cycle" ? null : "cycle")}
                     className="w-full justify-start"
                   >
-                    <CyclesIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                    <RefreshCw className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                     <span className="text-sm text-[var(--color-text-primary)] truncate">
                       {issue.cycle_id
                         ? `Cycle ${cycles.find(c => c.id === issue.cycle_id)?.number || issue.cycle_id}`
@@ -765,7 +767,7 @@ export default function PropertySidebar({
               onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
               className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
             >
-              <TrashIcon />
+              <Trash2 size={16} />
               Delete issue
             </button>
           )}

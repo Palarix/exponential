@@ -2,18 +2,23 @@ import type { ReactNode } from "react";
 import type { ActivityEvent, Issue } from "../../api/client";
 import { shortName, formatRelativeTime } from "../../utils/format";
 import {
-  PlusIcon,
-  CommentIcon,
-  MergeIcon,
-  CheckCircleIcon,
-  PlayIcon,
-  BlockedIcon,
-  ArchiveIcon,
-  TriangleIcon,
-  UserIcon,
-  FolderIcon,
-  LinkIcon,
-} from "../ui/icons";
+  Plus,
+  MessageSquareMore,
+  GitMerge,
+  CheckCircle,
+  Play,
+  Ban,
+  Archive,
+  Triangle,
+  User,
+  Folder,
+  Link,
+  CircleDot,
+  Pencil,
+  SquareDashedBottomCode,
+  Tag,
+  TriangleAlert,
+} from "lucide-react";
 
 type ActIconKey =
   | "create"
@@ -44,75 +49,30 @@ const ICON_COLORS: Partial<Record<ActIconKey, string>> = {
 const SHARED_ICONS: Partial<
   Record<ActIconKey, (props: { className?: string }) => ReactNode>
 > = {
-  create: PlusIcon,
-  comment: CommentIcon,
-  merge: MergeIcon,
-  "status-done": CheckCircleIcon,
-  "status-doing": PlayIcon,
-  "status-blocked": BlockedIcon,
-  "status-backlog": ArchiveIcon,
-  estimate: TriangleIcon,
-  assign: UserIcon,
-  parent: FolderIcon,
-  relations: LinkIcon,
+  create: Plus,
+  comment: MessageSquareMore,
+  merge: GitMerge,
+  "status-done": CheckCircle,
+  "status-doing": Play,
+  "status-blocked": Ban,
+  "status-backlog": Archive,
+  "status-planned": CircleDot,
+  estimate: Triangle,
+  assign: User,
+  parent: Folder,
+  relations: Link,
+  rename: Pencil,
+  description: SquareDashedBottomCode,
+  labels: Tag,
+  priority: TriangleAlert,
 };
 
 function ActIcon({ k }: { k: ActIconKey }) {
   const color = ICON_COLORS[k] ?? "text-[var(--color-text-muted)]";
   const cls = `w-4 h-4 shrink-0 ${color}`;
-
-  const Shared = SHARED_ICONS[k];
-  if (Shared) return <Shared className={cls} />;
-
-  /* Inline SVG fallback for icons without an exact shared match */
-  const paths: Partial<Record<ActIconKey, ReactNode>> = {
-    "status-planned": (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-      />
-    ),
-    rename: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
-      />
-    ),
-    description: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-      />
-    ),
-    labels: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"
-      />
-    ),
-    priority: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-      />
-    ),
-  };
-  return (
-    <svg
-      className={cls}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.75}
-    >
-      {paths[k]}
-    </svg>
-  );
+  const Icon = SHARED_ICONS[k];
+  if (Icon) return <Icon className={cls} />;
+  return null;
 }
 
 function describeActivity(

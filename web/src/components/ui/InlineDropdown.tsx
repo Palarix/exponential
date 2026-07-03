@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDownIcon } from "./icons";
+import { ChevronDown } from "lucide-react";
 
 export interface DropdownOption {
   value: string;
@@ -68,7 +68,7 @@ export default function InlineDropdown({
         ) : (
           <span className="text-[var(--color-text-muted)]">{placeholder}</span>
         )}
-        <ChevronDownIcon className="w-3 h-3 text-[var(--color-text-muted)]" />
+        <ChevronDown className="w-3 h-3 text-[var(--color-text-muted)]" />
       </button>
       {open && createPortal(
         <div

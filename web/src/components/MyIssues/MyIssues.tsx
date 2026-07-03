@@ -9,8 +9,8 @@ import {
   CopyableId,
   LabelBadge,
   EmptyState,
-  UserIcon,
 } from "../ui";
+import { User as UserIcon } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { isEditableTarget } from "../../utils/keyboard";
 import FilterMenu from "../Backlog/FilterMenu";

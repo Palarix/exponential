@@ -5,23 +5,23 @@ import {
   type Instance,
   type User,
 } from "../../api/client";
+import { Avatar } from "../ui";
 import {
-  Avatar,
-  BellIcon,
-  BoardIcon,
-  ChevronUpIcon,
-  CyclesIcon,
-  DashboardIcon,
-  EditIcon,
-  FolderIcon,
-  LinkIcon,
-  ListIcon,
-  SearchIcon,
-  SidebarIcon,
-  TagIcon,
-  TimelineIcon,
-  UserIcon,
-} from "../ui";
+  Bell,
+  Columns3,
+  ChevronUp,
+  RefreshCw,
+  LayoutDashboard,
+  Pencil,
+  Folder,
+  Link,
+  List,
+  Search,
+  PanelLeft,
+  Tag,
+  Clock,
+  User as UserIcon,
+} from "lucide-react";
 
 type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels" | "my-issues" | "timeline";
 
@@ -89,7 +89,7 @@ function ProjectSelector({
                   className={`${itemClass} bg-[var(--color-hover-surface)] text-[var(--color-text-primary)] font-medium cursor-default`}
                 >
                   <span className="text-[var(--color-text-primary)] shrink-0">
-                    <FolderIcon />
+                    <Folder size={16} />
                   </span>
                   <span className="truncate flex-1">{inst.name}</span>
                   <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
@@ -106,7 +106,7 @@ function ProjectSelector({
                 className={`${itemClass} text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]`}
               >
                 <span className="text-[var(--color-text-muted)] shrink-0">
-                  <FolderIcon />
+                  <Folder size={16} />
                 </span>
                 <span className="truncate flex-1">{inst.name}</span>
                 <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
@@ -130,15 +130,16 @@ function ProjectSelector({
           .replace(/\s+/g, " ")}
       >
         <span className="text-[var(--color-text-muted)] shrink-0">
-          <FolderIcon />
+          <Folder size={16} />
         </span>
         {!collapsed && (
           <>
             <span className="truncate flex-1 text-left">
               {current?.name ?? "Projects"}
             </span>
-            <ChevronUpIcon
-              className={`w-3 h-3 shrink-0 text-[var(--color-text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
+            <ChevronUp
+              size={12}
+              className={`shrink-0 text-[var(--color-text-muted)] transition-transform ${open ? "rotate-180" : ""}`}
             />
           </>
         )}
@@ -272,21 +273,21 @@ export default function Layout({
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="Search issues"
               >
-                <SearchIcon />
+                <Search size={16} />
               </button>
               <button
                 onClick={onNewIssue}
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="New issue"
               >
-                <EditIcon />
+                <Pencil size={16} />
               </button>
               <button
                 onClick={toggleSidebar}
                 className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                 title="Collapse sidebar"
               >
-                <SidebarIcon />
+                <PanelLeft size={16} />
               </button>
             </>
           )}
@@ -295,58 +296,58 @@ export default function Layout({
         {/* Nav */}
         <nav className={`pt-1 space-y-1 ${collapsed ? "px-1" : "px-2"}`}>
           <NavItem
-            item={{ id: "dashboard", label: "Overview", icon: <DashboardIcon /> }}
+            item={{ id: "dashboard", label: "Overview", icon: <LayoutDashboard size={16} /> }}
             isActive={currentView === "dashboard"}
             onClick={() => onViewChange("dashboard")}
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "my-issues" as View, label: "My Issues", icon: <UserIcon /> }}
+            item={{ id: "my-issues" as View, label: "My Issues", icon: <UserIcon size={16} /> }}
             isActive={currentView === "my-issues"}
             onClick={() => onViewChange("my-issues" as View)}
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "inbox" as View, label: "Notifications", icon: <BellIcon /> }}
+            item={{ id: "inbox" as View, label: "Notifications", icon: <Bell size={16} /> }}
             isActive={currentView === "inbox"}
             onClick={() => onViewChange("inbox" as View)}
             badge={inboxUnread}
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "backlog", label: "Issues", icon: <ListIcon /> }}
+            item={{ id: "backlog", label: "Issues", icon: <List size={16} /> }}
             isActive={currentView === "backlog"}
             onClick={() => onViewChange("backlog")}
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "board", label: "Board", icon: <BoardIcon /> }}
+            item={{ id: "board", label: "Board", icon: <Columns3 size={16} /> }}
             isActive={currentView === "board"}
             onClick={() => onViewChange("board")}
             collapsed={collapsed}
           />
           {cyclesEnabled && (
             <NavItem
-              item={{ id: "cycles" as View, label: "Cycles", icon: <CyclesIcon /> }}
+              item={{ id: "cycles" as View, label: "Cycles", icon: <RefreshCw size={16} /> }}
               isActive={currentView === "cycles"}
               onClick={() => onViewChange("cycles" as View)}
               collapsed={collapsed}
             />
           )}
           <NavItem
-            item={{ id: "labels", label: "Labels", icon: <TagIcon /> }}
+            item={{ id: "labels", label: "Labels", icon: <Tag size={16} /> }}
             isActive={currentView === "labels"}
             onClick={() => onViewChange("labels")}
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "dependencies", label: "Dependencies", icon: <LinkIcon /> }}
+            item={{ id: "dependencies", label: "Dependencies", icon: <Link size={16} /> }}
             isActive={currentView === "dependencies"}
             onClick={() => onViewChange("dependencies")}
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "timeline" as View, label: "Timeline", icon: <TimelineIcon /> }}
+            item={{ id: "timeline" as View, label: "Timeline", icon: <Clock size={16} /> }}
             isActive={currentView === "timeline"}
             onClick={() => onViewChange("timeline" as View)}
             collapsed={collapsed}

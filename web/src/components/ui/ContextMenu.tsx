@@ -7,7 +7,7 @@ import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
-import { PersonIcon, TriangleIcon, RefreshIcon, ChevronRightIcon, TrashIcon, CheckIcon } from "./icons";
+import { UserRound, Triangle, RefreshCw, ChevronRight, Trash2, Check, Tag } from "lucide-react";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
 
@@ -59,35 +59,30 @@ const MENU_ITEMS: MenuItem[] = [
     id: "assignee",
     label: "Assignee",
     shortcut: "A",
-    icon: <PersonIcon />,
+    icon: <UserRound size={16} />,
   },
   {
     id: "labels",
     label: "Labels",
     shortcut: "L",
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.2 2H4a2 2 0 00-2 2v3.2c0 .4.2.8.5 1.1l5.8 5.8c.6.6 1.5.6 2.1 0l3.2-3.2c.6-.6.6-1.5 0-2.1L7.8 2.5c-.3-.3-.7-.5-1.1-.5z" />
-        <circle cx="5.5" cy="5.5" r="0.75" fill="currentColor" />
-      </svg>
-    ),
+    icon: <Tag size={16} />,
   },
   {
     id: "estimate",
     label: "Estimate",
     shortcut: "E",
-    icon: <TriangleIcon />,
+    icon: <Triangle size={16} />,
   },
   {
     id: "cycle",
     label: "Cycle",
     shortcut: "C",
-    icon: <RefreshIcon />,
+    icon: <RefreshCw size={16} />,
   },
 ];
 
 const Chevron = () => (
-  <ChevronRightIcon className="w-3 h-3 ml-auto text-[var(--color-text-muted)]" />
+  <ChevronRight className="w-3 h-3 ml-auto text-[var(--color-text-muted)]" />
 );
 
 export default function ContextMenu({
@@ -286,7 +281,7 @@ export default function ContextMenu({
                 <button key={person} onClick={() => handleAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                   <Avatar name={person} size="sm" />
                   <span className="truncate">{person.split(" <")[0]}</span>
-                  {isCurrent && <CheckIcon className="w-4 h-4 ml-auto shrink-0" />}
+                  {isCurrent && <Check className="w-4 h-4 ml-auto shrink-0" />}
                 </button>
               );
             })}
@@ -316,7 +311,7 @@ export default function ContextMenu({
               <button key={c.id} onClick={() => handleAction("UPDATE", { cycle_id: c.id })} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
                 <span>Cycle {c.number}</span>
                 <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
-                {isCurrent && <CheckIcon className="w-4 h-4 ml-auto shrink-0" />}
+                {isCurrent && <Check className="w-4 h-4 ml-auto shrink-0" />}
               </button>
             );
           })}
@@ -401,7 +396,7 @@ export default function ContextMenu({
           className={`flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-error)] transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === MENU_ITEMS.length ? "bg-[var(--color-hover-surface-3)]" : ""}`}
         >
           <span className="w-4 shrink-0 flex items-center justify-center">
-            <TrashIcon />
+            <Trash2 size={16} />
           </span>
           <span>Delete</span>
           <span className="ml-auto text-xs opacity-70">{navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}{"⌫"}</span>

@@ -4,20 +4,26 @@ import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, formatShortDate } from "../../utils/format";
 import {
-  PlusIcon,
-  CommentIcon,
-  MergeIcon,
-  CheckCircleIcon,
-  PlayIcon,
-  BlockedIcon,
-  ArchiveIcon,
-  TriangleIcon,
-  UserIcon,
-  FolderIcon,
-  LinkIcon,
-  GitCommitIcon,
-  TimelineIcon,
-} from "../ui/icons";
+  Plus,
+  MessageSquareMore,
+  GitMerge,
+  Play,
+  Ban,
+  Archive,
+  Triangle,
+  User,
+  Folder,
+  Link,
+  GitCommitVertical,
+  Clock,
+  Check,
+  CircleDot,
+  Pencil,
+  SquareDashedBottomCode,
+  Tag,
+  TriangleAlert,
+  Calendar,
+} from "lucide-react";
 import EmptyState from "../ui/EmptyState";
 import StatusIcon from "../ui/StatusIcon";
 
@@ -42,16 +48,16 @@ type ActIconKey =
   | "parent"
   | "relations";
 
-const MUTED = "ring-[var(--color-text-muted)] text-[var(--color-text-secondary)]";
+const MUTED = "bg-[var(--color-hover-surface-2)] text-[var(--color-text-muted)]";
 
 const CIRCLE_STYLE: Record<ActIconKey, string> = {
-  create: "ring-[var(--color-accent-primary)] text-[var(--color-accent-primary)]",
+  create: "bg-[rgba(94,106,210,0.15)] text-[var(--color-accent-primary)]",
   commit: MUTED,
-  merge: "ring-[var(--color-accent-primary)] text-[var(--color-accent-primary)]",
+  merge: "bg-[rgba(94,106,210,0.15)] text-[var(--color-accent-primary)]",
   comment: MUTED,
-  "status-done": "ring-[var(--color-success)] text-[var(--color-success)]",
-  "status-doing": "ring-[var(--color-warning)] text-[var(--color-warning)]",
-  "status-blocked": "ring-[var(--color-error)] text-[var(--color-error)]",
+  "status-done": "bg-[var(--color-success-bg)] text-[var(--color-success)]",
+  "status-doing": "bg-[var(--color-warning-bg)] text-[var(--color-warning)]",
+  "status-blocked": "bg-[var(--color-error-bg)] text-[var(--color-error)]",
   "status-planned": MUTED,
   "status-backlog": MUTED,
   estimate: MUTED,
@@ -67,72 +73,29 @@ const CIRCLE_STYLE: Record<ActIconKey, string> = {
 const SHARED_ICONS: Partial<
   Record<ActIconKey, (props: { className?: string }) => ReactNode>
 > = {
-  create: PlusIcon,
-  comment: CommentIcon,
-  merge: MergeIcon,
-  commit: GitCommitIcon,
-  "status-done": CheckCircleIcon,
-  "status-doing": PlayIcon,
-  "status-blocked": BlockedIcon,
-  "status-backlog": ArchiveIcon,
-  estimate: TriangleIcon,
-  assign: UserIcon,
-  parent: FolderIcon,
-  relations: LinkIcon,
+  create: Plus,
+  comment: MessageSquareMore,
+  merge: GitMerge,
+  commit: GitCommitVertical,
+  "status-done": Check,
+  "status-doing": Play,
+  "status-blocked": Ban,
+  "status-backlog": Archive,
+  estimate: Triangle,
+  assign: User,
+  parent: Folder,
+  relations: Link,
+  "status-planned": CircleDot,
+  rename: Pencil,
+  description: SquareDashedBottomCode,
+  labels: Tag,
+  priority: TriangleAlert,
 };
 
 function ActIcon({ k }: { k: ActIconKey }) {
-  const cls = "w-3 h-3 shrink-0";
-  const Shared = SHARED_ICONS[k];
-  if (Shared) return <Shared className={cls} />;
-  const paths: Partial<Record<ActIconKey, ReactNode>> = {
-    "status-planned": (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-      />
-    ),
-    rename: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
-      />
-    ),
-    description: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-      />
-    ),
-    labels: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"
-      />
-    ),
-    priority: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-      />
-    ),
-  };
-  return (
-    <svg
-      className={cls}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.75}
-    >
-      {paths[k]}
-    </svg>
-  );
+  const Icon = SHARED_ICONS[k];
+  if (Icon) return <Icon className="w-2.5 h-2.5 shrink-0" />;
+  return null;
 }
 
 function resolveIconKey(entry: TimelineEntry): ActIconKey | null {
@@ -320,7 +283,7 @@ export default function Timeline({
       <div className="h-full flex flex-col">
         <HeaderBar filter={filter} onFilterChange={setFilter} person={person} onPersonChange={setPerson} contributors={contributors} />
         <EmptyState
-          icon={<TimelineIcon className="w-12 h-12" />}
+          icon={<Clock className="w-12 h-12" />}
           title="No activity yet"
           description="Events and commits will appear here as work progresses."
         />
@@ -442,7 +405,7 @@ function PersonFilter({
             : "border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
         }`}
       >
-        <UserIcon className="w-3 h-3" />
+        <User className="w-3 h-3" />
         {person || "Everyone"}
       </button>
       {open && (
@@ -491,21 +454,35 @@ function DayGroup({
     <>
       {/* Day header row — bullet on the continuous line */}
       <div className="flex items-stretch px-5">
-        <div className="w-24 shrink-0 flex items-end justify-end pr-4 pb-1">
+        <div className="w-24 shrink-0 flex flex-col justify-end pr-4">
+          <div className="flex-1" />
+        </div>
+        <div className="w-7 flex flex-col items-center shrink-0">
+          <div className={`w-px ${isFirst ? "h-3" : "min-h-6"} ${isFirst ? "bg-transparent" : "bg-[var(--color-border-default)]"}`} />
+        </div>
+        <div className="flex-1" />
+      </div>
+      <div className="flex items-center px-5">
+        <div className="w-24 shrink-0 flex justify-end pr-4">
           <span className="text-xs font-semibold text-[var(--color-text-primary)] tracking-wider whitespace-nowrap">
             {dayLabel(day)}
           </span>
         </div>
-        <div className="w-7 flex flex-col items-center shrink-0">
-          <div className={`w-px ${isFirst ? "h-3" : "min-h-6"} ${isFirst ? "bg-transparent" : "bg-[var(--color-border-default)]"}`} />
-          <div className="text-[var(--color-text-muted)] text-[8px] leading-none shrink-0">●</div>
-          <div className="w-px h-2 bg-[var(--color-border-default)]" />
+        <div className="w-7 flex justify-center shrink-0">
+          <Calendar size={16} className="shrink-0 text-[var(--color-text-muted)]" />
         </div>
-        <div className="flex-1 flex items-end pb-1 pl-3">
-          <span className="text-[11px] text-[var(--color-text-muted)]">
+        <div className="flex-1 pl-3 h-7">
+          <span className="text-[13px] text-[var(--color-text-muted)]">
             {daySummary(entries)}
           </span>
         </div>
+      </div>
+      <div className="flex items-stretch px-5">
+        <div className="w-24 shrink-0" />
+        <div className="w-7 flex flex-col items-center shrink-0">
+          <div className="w-px h-2 bg-[var(--color-border-default)]" />
+        </div>
+        <div className="flex-1" />
       </div>
 
       {/* Activity entries */}
@@ -713,7 +690,7 @@ function TimelineRow({
       </div>
       <div className="w-7 flex flex-col items-center shrink-0">
         <div className="w-px flex-1 bg-[var(--color-border-default)]" />
-        <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center bg-[var(--color-bg-primary)] ring-1 ${circleStyle}`}>
+        <div className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center ${circleStyle}`}>
           <ActIcon k={iconKey} />
         </div>
         <div className={`w-px flex-1 ${isLastEntry ? "bg-transparent" : "bg-[var(--color-border-default)]"}`} />

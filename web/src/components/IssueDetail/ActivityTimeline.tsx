@@ -4,7 +4,8 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
-import { Avatar, LabelBadge, StatusIcon, TriangleIcon, ChevronDownIcon } from "../ui";
+import { Avatar, LabelBadge, StatusIcon } from "../ui";
+import { Triangle, ChevronDown } from "lucide-react";
 import { shortName, formatRelativeTime, linkifyIssueIds } from "../../utils/format";
 
 type ActivityEntry =
@@ -33,7 +34,7 @@ function StatusChip({ status }: { status: string }) {
 function EstimateChip({ points }: { points: number }) {
   return (
     <span className="flex items-center gap-1 font-medium text-[var(--color-text-primary)]">
-      <TriangleIcon className="w-3 h-3" />
+      <Triangle className="w-3 h-3" />
       {points} {points === 1 ? "Point" : "Points"}
     </span>
   );
@@ -179,7 +180,7 @@ export default function ActivityTimeline({
           title={sortNewest ? "Showing newest first" : "Showing oldest first"}
         >
           {sortNewest ? "Newest" : "Oldest"}
-          <ChevronDownIcon className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`} />
+          <ChevronDown className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`} />
         </button>
       </div>
 

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Issue } from '../../api/client';
-import { StatusIcon, LabelBadge, SearchIcon, LinkIcon, BellIcon, PlusIcon, ListIcon, BoardIcon, TimelineIcon } from '../ui';
+import { StatusIcon, LabelBadge } from '../ui';
+import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard } from "lucide-react";
 
 type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline';
 
@@ -25,12 +26,12 @@ interface CommandItem {
 }
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
-  backlog: <ListIcon />,
-  board: <BoardIcon />,
-  dashboard: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
-  dependencies: <LinkIcon />,
-  inbox: <BellIcon />,
-  timeline: <TimelineIcon />,
+  backlog: <List size={16} />,
+  board: <Columns3 size={16} />,
+  dashboard: <LayoutDashboard size={16} />,
+  dependencies: <Link size={16} />,
+  inbox: <Bell size={16} />,
+  timeline: <Clock size={16} />,
 };
 
 function fuzzyMatch(text: string, query: string): boolean {
@@ -65,7 +66,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
       results.push({
         id: 'action:new',
         group: 'Actions',
-        icon: <PlusIcon />,
+        icon: <Plus size={16} />,
         label: 'Create new issue',
         shortcut: 'C',
         action: () => { onClose(); onNewIssue(); },
@@ -166,7 +167,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
       >
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 h-12 border-b border-[var(--color-border-subtle)]">
-          <SearchIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+          <Search className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
           <input
             ref={inputRef}
             value={query}

@@ -30,9 +30,9 @@ import {
   SubProgress,
   ContextMenu,
   useToast,
-  ChevronRightIcon,
   Modal,
 } from "../ui";
+import { ChevronRight } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
@@ -1416,7 +1416,7 @@ export default function Backlog({
                                 </span>
                               )}
                               {parentBreadcrumb && (
-                                <ChevronRightIcon className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
+                                <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
                               )}
                               <span
                                 className={`text-sm truncate min-w-0 ${isGhostParent ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"}`}

@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCycles, fetchCycleProgress } from '../../api/client';
 import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
-import { StatusIcon, PersonIcon } from '../ui';
+import { StatusIcon } from '../ui';
+import { UserRound } from "lucide-react";
 
 interface CyclesProps {
   issues: Issue[];
@@ -476,7 +477,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
               <div key={a.name} className="flex items-center gap-2">
                 {a.name === 'Unassigned' ? (
                   <div className="w-5 h-5 rounded-full bg-[var(--color-hover-surface)] flex items-center justify-center shrink-0">
-                    <PersonIcon className="w-3 h-3 text-[var(--color-text-muted)]" />
+                    <UserRound className="w-3 h-3 text-[var(--color-text-muted)]" />
                   </div>
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-[var(--color-accent-primary)] flex items-center justify-center shrink-0 text-xs font-medium text-white">

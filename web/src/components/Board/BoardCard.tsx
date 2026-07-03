@@ -1,7 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
-import { Avatar, BranchBadge, EstimateBadge, LabelBadge, PriorityIcon, SubProgress, RefreshIcon } from "../ui";
+import { Avatar, BranchBadge, EstimateBadge, LabelBadge, PriorityIcon, SubProgress } from "../ui";
+import { RefreshCw } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -132,7 +133,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
             {cycleId && (
               <span className="flex items-center gap-0.5 tabular-nums">
-                <RefreshIcon className="w-3 h-3" />
+                <RefreshCw className="w-3 h-3" />
                 {cycleId}
               </span>
             )}

@@ -1,5 +1,6 @@
 import type { PendingState, Issue } from '../../api/client';
-import { StatusIcon, LabelBadge, ChevronRightIcon } from '../ui';
+import { StatusIcon, LabelBadge } from '../ui';
+import { ChevronRight } from "lucide-react";
 
 interface PendingChangesProps {
   pending: PendingState;
@@ -26,7 +27,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
           >
             Issues
           </button>
-          <ChevronRightIcon className="w-3 h-3 text-[var(--color-text-muted)]" />
+          <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)]" />
           <span className="text-sm font-medium text-[var(--color-text-primary)]">Pending Changes</span>
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{events.length}</span>
         </div>
