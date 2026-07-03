@@ -25,4 +25,16 @@ type Transport interface {
 	CheckDuplicates(title string) ([]*model.Issue, error)
 	GetUser() string
 	GetInbox(since time.Time) ([]InboxItem, error)
+
+	// Artifacts
+	AddArtifact(issueID, artifactType, filename, content string) error
+	ReadArtifact(issueID, filename string) (string, error)
+	DeleteArtifact(issueID, filename string) error
+	ListArtifacts(issueID string) ([]model.ArtifactSummary, error)
+	WriteSpec(issueID, content string) error
+	ReadSpec(issueID string) (string, error)
+	DeleteSpec(issueID string) error
+	WriteWalkthrough(issueID, content string) error
+	ReadWalkthrough(issueID string) (string, error)
+	DeleteWalkthrough(issueID string) error
 }

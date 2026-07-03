@@ -112,6 +112,56 @@ func (c *Client) GetInbox(since time.Time) ([]InboxItem, error) {
 	return c.Transport.GetInbox(since)
 }
 
+func (c *Client) AddArtifact(issueID, artifactType, filename, content string) error {
+	c.syncLocal()
+	return c.Transport.AddArtifact(issueID, artifactType, filename, content)
+}
+
+func (c *Client) ReadArtifact(issueID, filename string) (string, error) {
+	c.syncLocal()
+	return c.Transport.ReadArtifact(issueID, filename)
+}
+
+func (c *Client) DeleteArtifact(issueID, filename string) error {
+	c.syncLocal()
+	return c.Transport.DeleteArtifact(issueID, filename)
+}
+
+func (c *Client) ListArtifacts(issueID string) ([]model.ArtifactSummary, error) {
+	c.syncLocal()
+	return c.Transport.ListArtifacts(issueID)
+}
+
+func (c *Client) WriteSpec(issueID, content string) error {
+	c.syncLocal()
+	return c.Transport.WriteSpec(issueID, content)
+}
+
+func (c *Client) ReadSpec(issueID string) (string, error) {
+	c.syncLocal()
+	return c.Transport.ReadSpec(issueID)
+}
+
+func (c *Client) DeleteSpec(issueID string) error {
+	c.syncLocal()
+	return c.Transport.DeleteSpec(issueID)
+}
+
+func (c *Client) WriteWalkthrough(issueID, content string) error {
+	c.syncLocal()
+	return c.Transport.WriteWalkthrough(issueID, content)
+}
+
+func (c *Client) ReadWalkthrough(issueID string) (string, error) {
+	c.syncLocal()
+	return c.Transport.ReadWalkthrough(issueID)
+}
+
+func (c *Client) DeleteWalkthrough(issueID string) error {
+	c.syncLocal()
+	return c.Transport.DeleteWalkthrough(issueID)
+}
+
 // resolveIssue is a convenience for git-only methods that need to resolve
 // an issue ID from a projected issue map.
 func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {

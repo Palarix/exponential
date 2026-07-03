@@ -131,6 +131,48 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			issue.Status = model.StatusDone
 			issue.UpdatedAt = evt.CreatedAt
 			issue.Events = append(issue.Events, evt)
+
+		case model.EventTypeArtifact:
+			issue, exists := issues[evt.ID]
+			if !exists {
+				continue
+			}
+
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p model.ArtifactPayload
+			json.Unmarshal(payloadBytes, &p)
+
+			switch p.Action {
+			case "created", "updated":
+				found := false
+				for i, a := range issue.Artifacts {
+					if a.Filename == p.Filename {
+						issue.Artifacts[i].UpdatedAt = evt.CreatedAt
+						issue.Artifacts[i].UpdatedBy = evt.CreatedBy
+						found = true
+						break
+					}
+				}
+				if !found {
+					issue.Artifacts = append(issue.Artifacts, model.ArtifactSummary{
+						ArtifactType: p.ArtifactType,
+						Filename:     p.Filename,
+						UpdatedAt:    evt.CreatedAt,
+						UpdatedBy:    evt.CreatedBy,
+					})
+				}
+			case "deleted":
+				filtered := issue.Artifacts[:0]
+				for _, a := range issue.Artifacts {
+					if a.Filename != p.Filename {
+						filtered = append(filtered, a)
+					}
+				}
+				issue.Artifacts = filtered
+			}
+
+			issue.UpdatedAt = evt.CreatedAt
+			issue.Events = append(issue.Events, evt)
 		}
 	}
 

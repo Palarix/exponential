@@ -107,3 +107,151 @@ func TestBackfillSortOrderAllKeyed(t *testing.T) {
 		t.Fatalf("expected a5, got %s", issues["c"].SortOrder)
 	}
 }
+
+func TestProjectIssues_ArtifactCreated(t *testing.T) {
+	events := []model.Event{
+		{
+			ID:        "test-abc",
+			Type:      model.EventTypeCreate,
+			Payload:   model.CreatePayload{Title: "test issue"},
+			CreatedAt: time.Now(),
+			CreatedBy: "Tester <test@example.com>",
+		},
+		{
+			ID:   "test-abc",
+			Type: model.EventTypeArtifact,
+			Payload: model.ArtifactPayload{
+				ArtifactType: "spec",
+				Filename:     "spec.md",
+				Action:       "created",
+			},
+			CreatedAt: time.Now(),
+			CreatedBy: "Tester <test@example.com>",
+		},
+	}
+
+	issues := ProjectIssues(events)
+	issue := issues["test-abc"]
+	if issue == nil {
+		t.Fatal("issue not found")
+	}
+	if len(issue.Artifacts) != 1 {
+		t.Fatalf("expected 1 artifact, got %d", len(issue.Artifacts))
+	}
+	a := issue.Artifacts[0]
+	if a.ArtifactType != "spec" {
+		t.Errorf("artifact type = %q, want %q", a.ArtifactType, "spec")
+	}
+	if a.Filename != "spec.md" {
+		t.Errorf("filename = %q, want %q", a.Filename, "spec.md")
+	}
+}
+
+func TestProjectIssues_ArtifactUpdated(t *testing.T) {
+	now := time.Now()
+	events := []model.Event{
+		{
+			ID:        "test-abc",
+			Type:      model.EventTypeCreate,
+			Payload:   model.CreatePayload{Title: "test issue"},
+			CreatedAt: now,
+			CreatedBy: "Tester <test@example.com>",
+		},
+		{
+			ID:   "test-abc",
+			Type: model.EventTypeArtifact,
+			Payload: model.ArtifactPayload{
+				ArtifactType: "spec",
+				Filename:     "spec.md",
+				Action:       "created",
+			},
+			CreatedAt: now,
+			CreatedBy: "Alice <alice@example.com>",
+		},
+		{
+			ID:   "test-abc",
+			Type: model.EventTypeArtifact,
+			Payload: model.ArtifactPayload{
+				ArtifactType: "spec",
+				Filename:     "spec.md",
+				Action:       "updated",
+			},
+			CreatedAt: now.Add(time.Minute),
+			CreatedBy: "Bob <bob@example.com>",
+		},
+	}
+
+	issues := ProjectIssues(events)
+	issue := issues["test-abc"]
+	if len(issue.Artifacts) != 1 {
+		t.Fatalf("expected 1 artifact after update, got %d", len(issue.Artifacts))
+	}
+	a := issue.Artifacts[0]
+	if a.UpdatedBy != "Bob <bob@example.com>" {
+		t.Errorf("updated_by = %q, want Bob", a.UpdatedBy)
+	}
+	if !a.UpdatedAt.Equal(now.Add(time.Minute)) {
+		t.Errorf("updated_at not advanced")
+	}
+}
+
+func TestProjectIssues_ArtifactDeleted(t *testing.T) {
+	events := []model.Event{
+		{
+			ID:        "test-abc",
+			Type:      model.EventTypeCreate,
+			Payload:   model.CreatePayload{Title: "test issue"},
+			CreatedAt: time.Now(),
+			CreatedBy: "Tester <test@example.com>",
+		},
+		{
+			ID:   "test-abc",
+			Type: model.EventTypeArtifact,
+			Payload: model.ArtifactPayload{
+				ArtifactType: "spec",
+				Filename:     "spec.md",
+				Action:       "created",
+			},
+			CreatedAt: time.Now(),
+			CreatedBy: "Tester <test@example.com>",
+		},
+		{
+			ID:   "test-abc",
+			Type: model.EventTypeArtifact,
+			Payload: model.ArtifactPayload{
+				ArtifactType: "spec",
+				Filename:     "spec.md",
+				Action:       "deleted",
+			},
+			CreatedAt: time.Now(),
+			CreatedBy: "Tester <test@example.com>",
+		},
+	}
+
+	issues := ProjectIssues(events)
+	issue := issues["test-abc"]
+	if len(issue.Artifacts) != 0 {
+		t.Fatalf("expected 0 artifacts after delete, got %d", len(issue.Artifacts))
+	}
+}
+
+func TestProjectIssues_ArtifactOnMissingIssue(t *testing.T) {
+	events := []model.Event{
+		{
+			ID:   "test-nonexistent",
+			Type: model.EventTypeArtifact,
+			Payload: model.ArtifactPayload{
+				ArtifactType: "spec",
+				Filename:     "spec.md",
+				Action:       "created",
+			},
+			CreatedAt: time.Now(),
+			CreatedBy: "Tester <test@example.com>",
+		},
+	}
+
+	issues := ProjectIssues(events)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues, got %d", len(issues))
+	}
+}

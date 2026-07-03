@@ -351,6 +351,46 @@ func (r *RemoteTransport) GetInbox(since time.Time) ([]InboxItem, error) {
 	return decodeJSON[[]InboxItem](resp)
 }
 
+func (t *RemoteTransport) AddArtifact(issueID, artifactType, filename, content string) error {
+	return ErrLocalOnly
+}
+
+func (t *RemoteTransport) ReadArtifact(issueID, filename string) (string, error) {
+	return "", ErrLocalOnly
+}
+
+func (t *RemoteTransport) DeleteArtifact(issueID, filename string) error {
+	return ErrLocalOnly
+}
+
+func (t *RemoteTransport) ListArtifacts(issueID string) ([]model.ArtifactSummary, error) {
+	return nil, ErrLocalOnly
+}
+
+func (t *RemoteTransport) WriteSpec(issueID, content string) error {
+	return ErrLocalOnly
+}
+
+func (t *RemoteTransport) ReadSpec(issueID string) (string, error) {
+	return "", ErrLocalOnly
+}
+
+func (t *RemoteTransport) DeleteSpec(issueID string) error {
+	return ErrLocalOnly
+}
+
+func (t *RemoteTransport) WriteWalkthrough(issueID, content string) error {
+	return ErrLocalOnly
+}
+
+func (t *RemoteTransport) ReadWalkthrough(issueID string) (string, error) {
+	return "", ErrLocalOnly
+}
+
+func (t *RemoteTransport) DeleteWalkthrough(issueID string) error {
+	return ErrLocalOnly
+}
+
 func (r *RemoteTransport) GetUser() string {
 	if r.User != "" {
 		return r.User

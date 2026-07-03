@@ -7,11 +7,12 @@ import (
 type EventType string
 
 const (
-	EventTypeCreate  EventType = "CREATE"
-	EventTypeUpdate  EventType = "UPDATE"
-	EventTypeDelete  EventType = "DELETE"
-	EventTypeComment EventType = "COMMENT"
-	EventTypeMerge   EventType = "MERGE"
+	EventTypeCreate   EventType = "CREATE"
+	EventTypeUpdate   EventType = "UPDATE"
+	EventTypeDelete   EventType = "DELETE"
+	EventTypeComment  EventType = "COMMENT"
+	EventTypeMerge    EventType = "MERGE"
+	EventTypeArtifact EventType = "ARTIFACT"
 )
 
 type DeletePayload struct {
@@ -24,6 +25,19 @@ type MergePayload struct {
 	BaseSHA  string `json:"base_sha"`
 	MergeSHA string `json:"merge_sha"`
 	Strategy string `json:"strategy"`
+}
+
+type ArtifactPayload struct {
+	ArtifactType string `json:"artifact_type"`
+	Filename     string `json:"filename"`
+	Action       string `json:"action"`
+}
+
+type ArtifactSummary struct {
+	ArtifactType string    `json:"artifact_type"`
+	Filename     string    `json:"filename"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	UpdatedBy    string    `json:"updated_by"`
 }
 
 type Event struct {
@@ -119,6 +133,7 @@ type Issue struct {
 	UpdatedAt time.Time
 	Events    []Event
 	Comments  []Comment
+	Artifacts []ArtifactSummary
 }
 
 type DependencyKind string

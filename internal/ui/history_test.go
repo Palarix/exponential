@@ -36,6 +36,7 @@ func TestRenderHistory_AllTypes(t *testing.T) {
 		{ID: "x", Type: model.EventTypeUpdate, CreatedBy: "Bob <b@c.com>", CreatedAt: now, Payload: model.UpdatePayload{}},
 		{ID: "x", Type: model.EventTypeComment, CreatedBy: "Carol <c@d.com>", CreatedAt: now, Payload: model.CommentPayload{Text: "hi"}},
 		{ID: "x", Type: model.EventTypeDelete, CreatedBy: "Dave <d@e.com>", CreatedAt: now},
+		{ID: "x", Type: model.EventTypeArtifact, CreatedBy: "Eve <e@f.com>", CreatedAt: now, Payload: model.ArtifactPayload{ArtifactType: "spec", Filename: "spec.md", Action: "created"}},
 	}
 	got := captureStdout(t, func() { RenderHistory(events, 100) })
 	if !strings.Contains(got, "CREATE") {
@@ -49,5 +50,19 @@ func TestRenderHistory_AllTypes(t *testing.T) {
 	}
 	if !strings.Contains(got, "DELETE") {
 		t.Error("should show DELETE event type")
+	}
+	if !strings.Contains(got, "ARTIFACT") {
+		t.Error("should show ARTIFACT event type")
+	}
+}
+
+func TestRenderHistory_ArtifactDetail(t *testing.T) {
+	now := time.Now()
+	events := []model.Event{
+		{ID: "x", Type: model.EventTypeArtifact, CreatedBy: "Eve <e@f.com>", CreatedAt: now, Payload: model.ArtifactPayload{ArtifactType: "spec", Filename: "spec.md", Action: "created"}},
+	}
+	got := captureStdout(t, func() { RenderHistory(events, 100) })
+	if !strings.Contains(got, "spec.md created") {
+		t.Errorf("should show artifact filename and action in detail, got %q", got)
 	}
 }

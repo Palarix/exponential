@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -49,6 +50,11 @@ func RenderHistory(events []model.Event, termWidth int) {
 			detail = "Deleted issue"
 		case model.EventTypeCreate:
 			detail = "Created issue"
+		case model.EventTypeArtifact:
+			payloadBytes, _ := json.Marshal(evt.Payload)
+			var p model.ArtifactPayload
+			json.Unmarshal(payloadBytes, &p)
+			detail = fmt.Sprintf("%s %s", p.Filename, p.Action)
 		}
 		detail = Truncate(detail, detailWidth)
 
