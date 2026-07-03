@@ -279,17 +279,17 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "spec",
-		Description: "Write, read, or delete the spec (spec.md) artifact on an issue. Operations: write, read, delete.",
+		Description: "Read, write, or delete the design spec (spec.md) for an issue. Specs are written before implementation to capture requirements, acceptance criteria, and design decisions. Use `write` to create/update, `read` to retrieve, `delete` to remove.",
 	}, t.spec)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "walkthrough",
-		Description: "Write, read, or delete the walkthrough (walkthrough.md) artifact on an issue. Operations: write, read, delete.",
+		Description: "Read, write, or delete the implementation walkthrough (walkthrough.md) for an issue. Walkthroughs are written after implementation to document what changed and why. Use `write` to create/update, `read` to retrieve, `delete` to remove.",
 	}, t.walkthrough)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "artifact",
-		Description: "Add, read, delete, or list generic artifacts on an issue. Operations: add, read, delete, list. Cannot write to reserved filenames (spec.md, walkthrough.md) — use the dedicated spec/walkthrough tools.",
+		Description: "Manage generic file artifacts on an issue. Use `add` to attach a file, `read` to retrieve it, `delete` to remove it, `list` to see all artifacts. Cannot write to spec.md or walkthrough.md — use the dedicated spec/walkthrough tools for those.",
 	}, t.artifact)
 }
 

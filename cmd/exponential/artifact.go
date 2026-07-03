@@ -21,6 +21,23 @@ var (
 var artifactCmd = &cobra.Command{
 	Use:   "artifact",
 	Short: "Manage issue artifacts (specs, walkthroughs, attachments)",
+	Long: `Manage file artifacts attached to issues.
+
+Artifacts are files stored in .xpo/artifacts/<issue-id>/ and committed
+alongside your code. There are three types:
+
+  spec          Design spec written before implementation (spec.md).
+                Dedicated shorthand: xpo artifact add --spec / show --spec.
+  walkthrough   Post-implementation summary (walkthrough.md).
+                Dedicated shorthand: xpo artifact add --walkthrough / show --walkthrough.
+  generic       Any other file (logs, screenshots, configs) attached by name.
+                Use --name <filename> to add or a positional arg to read.
+
+Storage layout:
+
+  .xpo/artifacts/<issue-id>/spec.md
+  .xpo/artifacts/<issue-id>/walkthrough.md
+  .xpo/artifacts/<issue-id>/<generic-file>`,
 }
 
 var artifactAddCmd = &cobra.Command{
@@ -62,9 +79,18 @@ var artifactAddCmd = &cobra.Command{
 }
 
 var artifactShowCmd = &cobra.Command{
-	Use:               "show <issue-id> [filename]",
-	Short:             "Print artifact content to stdout",
-	Args:              cobra.RangeArgs(1, 2),
+	Use:   "show <issue-id> [filename]",
+	Short: "Print artifact content to stdout",
+	Long: `Print the contents of an artifact to stdout.
+
+Specify which artifact to read using one of:
+
+  xpo artifact show <id> <filename>   positional filename
+  xpo artifact show <id> --spec       shorthand for spec.md
+  xpo artifact show <id> --walkthrough shorthand for walkthrough.md
+
+Exactly one of the above must be provided.`,
+	Args: cobra.RangeArgs(1, 2),
 	ValidArgsFunction: completeIssueIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		issueID := args[0]
@@ -90,9 +116,18 @@ var artifactShowCmd = &cobra.Command{
 }
 
 var artifactDeleteCmd = &cobra.Command{
-	Use:               "delete <issue-id> [filename]",
-	Short:             "Remove an artifact from an issue",
-	Args:              cobra.RangeArgs(1, 2),
+	Use:   "delete <issue-id> [filename]",
+	Short: "Remove an artifact from an issue",
+	Long: `Delete an artifact from an issue.
+
+Specify which artifact to remove using one of:
+
+  xpo artifact delete <id> <filename>   positional filename
+  xpo artifact delete <id> --spec       shorthand for spec.md
+  xpo artifact delete <id> --walkthrough shorthand for walkthrough.md
+
+Exactly one of the above must be provided.`,
+	Args: cobra.RangeArgs(1, 2),
 	ValidArgsFunction: completeIssueIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		issueID := args[0]
@@ -117,9 +152,17 @@ var artifactDeleteCmd = &cobra.Command{
 }
 
 var artifactListCmd = &cobra.Command{
-	Use:               "list <issue-id>",
-	Short:             "List artifacts attached to an issue",
-	Args:              cobra.ExactArgs(1),
+	Use:   "list <issue-id>",
+	Short: "List artifacts attached to an issue",
+	Long: `List all artifacts attached to an issue in a table.
+
+Output columns:
+
+  TYPE        Artifact type: spec, walkthrough, or generic.
+  FILENAME    The filename stored in .xpo/artifacts/<issue-id>/.
+  UPDATED     Relative timestamp of the last write (e.g. "2 hours ago").
+  UPDATED BY  Identity of the user or agent that last wrote the artifact.`,
+	Args: cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		issueID := args[0]

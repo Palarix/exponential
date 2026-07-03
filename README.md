@@ -159,6 +159,56 @@ xpo migrate           # upgrade data model to latest version
 
 Run `xpo --help` or `xpo <command> --help` for the full surface.
 
+## Artifacts
+
+Issues can have **file artifacts** — files stored in `.xpo/artifacts/<issue-id>/` and committed alongside your code in git. Artifacts travel with the repository, so specs, walkthroughs, and supporting files are always available wherever the code is checked out.
+
+### First-class artifacts
+
+Two artifact types have dedicated CLI subcommands and MCP tools:
+
+- **`spec.md`** — a design spec written _before_ implementation to capture requirements, acceptance criteria, and design decisions.
+- **`walkthrough.md`** — a post-implementation summary documenting what changed and why.
+
+### Generic artifacts
+
+Any other file (logs, screenshots, configs, test outputs) can be attached to an issue as a generic artifact.
+
+### CLI usage
+
+```bash
+# Write a spec from a file
+xpo artifact add <id> --spec --file spec-draft.md
+
+# Write a walkthrough from stdin
+echo "## Summary" | xpo artifact add <id> --walkthrough
+
+# Attach a generic file
+xpo artifact add <id> --name debug.log --file /tmp/debug.log
+
+# Read artifacts
+xpo artifact show <id> --spec              # print spec.md
+xpo artifact show <id> --walkthrough       # print walkthrough.md
+xpo artifact show <id> debug.log           # print a generic artifact
+
+# List all artifacts on an issue
+xpo artifact list <id>
+
+# Delete an artifact
+xpo artifact delete <id> --spec
+xpo artifact delete <id> debug.log
+```
+
+### Storage layout
+
+```
+.xpo/artifacts/
+  <issue-id>/
+    spec.md              # design spec (first-class)
+    walkthrough.md       # implementation walkthrough (first-class)
+    <generic-file>       # any other attached file
+```
+
 ## Web UI
 
 `xpo board` spins up a local web server (default port `8080`), embeds the React frontend from the binary, and opens your browser. The UI is 
@@ -369,6 +419,9 @@ After any of these, restart Claude Code (or run `/mcp` in-session) and the seven
 | `link` | Add a dependency/relationship between two existing issues |
 | `start` | Start work on an issue (set to DOING + create branch) |
 | `merge` | Merge an issue's branch and close the issue |
+| `spec` | Read, write, or delete the design spec (spec.md) on an issue |
+| `walkthrough` | Read, write, or delete the implementation walkthrough on an issue |
+| `artifact` | Manage generic file artifacts (add, read, delete, list) |
 
 ### Reducing permission prompts
 

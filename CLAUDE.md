@@ -15,6 +15,9 @@ An `xpo` MCP server is registered in [.mcp.json](.mcp.json). **Always use the MC
 | Add a comment | `mcp__xpo__comment` |
 | Add a dependency link | `mcp__xpo__link` |
 | View audit trail | `mcp__xpo__history` |
+| Read/write/delete a spec | `mcp__xpo__spec` |
+| Read/write/delete a walkthrough | `mcp__xpo__walkthrough` |
+| Manage generic artifacts | `mcp__xpo__artifact` |
 
 Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`) are done by calling `update` with the `status` field. When you write descriptions or comments with the mcp__xpo__* tools, do not escape non-printing characters.
 
@@ -60,6 +63,12 @@ When the tracker records who made a change, identify yourself as an agent. Use t
 ### Linking
 
 Use `link` to express relationships. Supported types: `blocks`, `blocked_by`, `depends_on`, `dependency_of`, `duplicates`, `duplicated_by`, `relates_to`. When a task spawns follow-up work, link the new issue back to the originating one.
+
+### Specs and Walkthroughs
+
+- Before starting implementation, read the issue's spec (if any) via `spec` with `operation: "read"`. The spec captures requirements, acceptance criteria, and design decisions agreed upon before coding begins.
+- After implementation, write a walkthrough via `walkthrough` with `operation: "write"` summarizing what changed and why.
+- Use `artifact` for attaching supplemental files (test outputs, design diagrams, logs) that support the issue but don't fit into spec or walkthrough.
 
 ### Completion comments
 
