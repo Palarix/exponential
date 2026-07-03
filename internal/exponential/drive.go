@@ -12,7 +12,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/ui"
@@ -157,63 +156,6 @@ func (l *driveLogger) info(msg string) {
 	}
 }
 
-func (l *driveLogger) walkthrough(text string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	width := 80
-	if l.isTTY {
-		if w := ui.TerminalWidth(); w > 4 {
-			width = w - 4
-		}
-	}
-
-	if l.isTTY {
-		renderer, err := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
-			glamour.WithWordWrap(width),
-		)
-		if err == nil {
-			rendered, err := renderer.Render(strings.TrimSpace(text))
-			if err == nil {
-				fmt.Print(rendered)
-				return
-			}
-		}
-	}
-
-	// Fallback: plain text with word wrap
-	wrapped := wordWrap(strings.TrimSpace(text), width)
-	for _, line := range strings.Split(wrapped, "\n") {
-		fmt.Printf("  %s\n", line)
-	}
-}
-
-func wordWrap(text string, width int) string {
-	if width <= 0 {
-		return text
-	}
-	var out strings.Builder
-	for _, paragraph := range strings.Split(text, "\n") {
-		if out.Len() > 0 {
-			out.WriteByte('\n')
-		}
-		line := ""
-		for _, word := range strings.Fields(paragraph) {
-			if line == "" {
-				line = word
-			} else if len(line)+1+len(word) > width {
-				out.WriteString(line)
-				out.WriteByte('\n')
-				line = word
-			} else {
-				line += " " + word
-			}
-		}
-		out.WriteString(line)
-	}
-	return out.String()
-}
 
 // spin runs a braille spinner while fn executes, then clears itself.
 // The caller is responsible for printing the result line.
@@ -502,7 +444,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	c.WriteWalkthrough(issue.ID, walkthrough)
 	status := string(model.StatusDone)
 	c.UpdateIssue(issue.ID, model.UpdatePayload{Status: &status}, "drive")
-	log.walkthrough(walkthrough)
+	log.ok(fmt.Sprintf("Walkthrough saved → xpo artifact show %s --walkthrough", issue.ID))
 
 	// Commit issues.db changes on the feature branch so checkout doesn't fail
 	if isGit {
