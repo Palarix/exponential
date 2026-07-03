@@ -45,7 +45,7 @@ export default function Avatar({ name, size = "md" }: AvatarProps) {
 
   return (
     <div
-      className="rounded-full bg-[var(--color-hover-surface)] flex items-center justify-center font-medium text-[var(--color-text-secondary)] shrink-0"
+      className="rounded-full bg-zinc-700 flex items-center justify-center font-medium text-[var(--color-text-secondary)] shrink-0"
       style={{ width: px, height: px, fontSize: px * 0.5 }}
       title={name}
     >
