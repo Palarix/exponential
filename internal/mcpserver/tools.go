@@ -102,6 +102,7 @@ type showOut struct {
 	CreatedAt    string             `json:"created_at"`
 	UpdatedAt    string             `json:"updated_at"`
 	Dependencies []model.Dependency `json:"dependencies,omitempty"`
+	Artifacts    []artifactOutEntry `json:"artifacts,omitempty"`
 	Comments     []commentSummary   `json:"comments,omitempty"`
 	Events       []eventSummary     `json:"events,omitempty"`
 }
@@ -175,6 +176,59 @@ type linkOut struct {
 	Kind   string `json:"kind"`
 }
 
+// --- Artifact tool types ---
+
+type specIn struct {
+	Operation string `json:"operation" jsonschema:"Operation: write, read, or delete"`
+	IssueID   string `json:"issue_id" jsonschema:"Issue ID"`
+	Content   string `json:"content,omitempty" jsonschema:"Markdown content (required for write)"`
+}
+
+type specOut struct {
+	OK      bool   `json:"ok"`
+	IssueID string `json:"issue_id"`
+	Path    string `json:"path,omitempty"`
+	Content string `json:"content,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type walkthroughIn struct {
+	Operation string `json:"operation" jsonschema:"Operation: write, read, or delete"`
+	IssueID   string `json:"issue_id" jsonschema:"Issue ID"`
+	Content   string `json:"content,omitempty" jsonschema:"Markdown content (required for write)"`
+}
+
+type walkthroughOut struct {
+	OK      bool   `json:"ok"`
+	IssueID string `json:"issue_id"`
+	Path    string `json:"path,omitempty"`
+	Content string `json:"content,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+type artifactIn struct {
+	Operation string `json:"operation" jsonschema:"Operation: add, read, delete, or list"`
+	IssueID   string `json:"issue_id" jsonschema:"Issue ID"`
+	Filename  string `json:"filename,omitempty" jsonschema:"Artifact filename (required for add, read, delete)"`
+	Content   string `json:"content,omitempty" jsonschema:"File content (required for add)"`
+}
+
+type artifactOutEntry struct {
+	ArtifactType string `json:"type"`
+	Filename     string `json:"filename"`
+	UpdatedAt    string `json:"updated_at"`
+	UpdatedBy    string `json:"updated_by"`
+}
+
+type artifactOut struct {
+	OK        bool               `json:"ok"`
+	IssueID   string             `json:"issue_id"`
+	Path      string             `json:"path,omitempty"`
+	Content   string             `json:"content,omitempty"`
+	Artifacts []artifactOutEntry `json:"artifacts,omitempty"`
+	Error     string             `json:"error,omitempty"`
+}
+
 // --- Registration ---
 
 func (t *toolset) register(s *mcp.Server) {
@@ -222,6 +276,21 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "merge",
 		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. Requires a clean working tree.",
 	}, t.merge)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "spec",
+		Description: "Write, read, or delete the spec (spec.md) artifact on an issue. Operations: write, read, delete.",
+	}, t.spec)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "walkthrough",
+		Description: "Write, read, or delete the walkthrough (walkthrough.md) artifact on an issue. Operations: write, read, delete.",
+	}, t.walkthrough)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "artifact",
+		Description: "Add, read, delete, or list generic artifacts on an issue. Operations: add, read, delete, list. Cannot write to reserved filenames (spec.md, walkthrough.md) — use the dedicated spec/walkthrough tools.",
+	}, t.artifact)
 }
 
 // --- Handlers ---
@@ -273,6 +342,7 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in showIn)
 		CreatedAt:    issue.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:    issue.UpdatedAt.Format(time.RFC3339),
 		Dependencies: issue.Dependencies,
+		Artifacts:    toArtifactEntries(issue.Artifacts),
 		Comments:     toCommentSummaries(issue.Comments),
 	}
 	if in.IncludeEvents {
@@ -427,6 +497,151 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 	return textResult(text), mergeOut{ID: in.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil
 }
 
+// --- Artifact handlers ---
+
+func (t *toolset) spec(ctx context.Context, req *mcp.CallToolRequest, in specIn) (*mcp.CallToolResult, specOut, error) {
+	if in.IssueID == "" {
+		return nil, specOut{OK: false, Error: "'issue_id' is required"}, fmt.Errorf("'issue_id' is required")
+	}
+	c := t.clientFor(req)
+	path := fmt.Sprintf(".xpo/artifacts/%s/spec.md", in.IssueID)
+
+	switch in.Operation {
+	case "write":
+		if in.Content == "" {
+			return nil, specOut{OK: false, Error: "'content' is required for write"}, fmt.Errorf("'content' is required for write")
+		}
+		if err := c.WriteSpec(in.IssueID, in.Content); err != nil {
+			return nil, specOut{OK: false, Error: err.Error()}, err
+		}
+		t.broadcast("ARTIFACT", in.IssueID)
+		return textResult(fmt.Sprintf("Spec written for %s", in.IssueID)),
+			specOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+
+	case "read":
+		content, err := c.ReadSpec(in.IssueID)
+		if err != nil {
+			return nil, specOut{OK: false, Error: err.Error()}, err
+		}
+		return textResult(content),
+			specOut{OK: true, IssueID: in.IssueID, Path: path, Content: content}, nil
+
+	case "delete":
+		if err := c.DeleteSpec(in.IssueID); err != nil {
+			return nil, specOut{OK: false, Error: err.Error()}, err
+		}
+		t.broadcast("ARTIFACT", in.IssueID)
+		return textResult(fmt.Sprintf("Spec deleted from %s", in.IssueID)),
+			specOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+
+	default:
+		return nil, specOut{OK: false, Error: "invalid operation: must be write, read, or delete"},
+			fmt.Errorf("invalid operation %q: must be write, read, or delete", in.Operation)
+	}
+}
+
+func (t *toolset) walkthrough(ctx context.Context, req *mcp.CallToolRequest, in walkthroughIn) (*mcp.CallToolResult, walkthroughOut, error) {
+	if in.IssueID == "" {
+		return nil, walkthroughOut{OK: false, Error: "'issue_id' is required"}, fmt.Errorf("'issue_id' is required")
+	}
+	c := t.clientFor(req)
+	path := fmt.Sprintf(".xpo/artifacts/%s/walkthrough.md", in.IssueID)
+
+	switch in.Operation {
+	case "write":
+		if in.Content == "" {
+			return nil, walkthroughOut{OK: false, Error: "'content' is required for write"}, fmt.Errorf("'content' is required for write")
+		}
+		if err := c.WriteWalkthrough(in.IssueID, in.Content); err != nil {
+			return nil, walkthroughOut{OK: false, Error: err.Error()}, err
+		}
+		t.broadcast("ARTIFACT", in.IssueID)
+		return textResult(fmt.Sprintf("Walkthrough written for %s", in.IssueID)),
+			walkthroughOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+
+	case "read":
+		content, err := c.ReadWalkthrough(in.IssueID)
+		if err != nil {
+			return nil, walkthroughOut{OK: false, Error: err.Error()}, err
+		}
+		return textResult(content),
+			walkthroughOut{OK: true, IssueID: in.IssueID, Path: path, Content: content}, nil
+
+	case "delete":
+		if err := c.DeleteWalkthrough(in.IssueID); err != nil {
+			return nil, walkthroughOut{OK: false, Error: err.Error()}, err
+		}
+		t.broadcast("ARTIFACT", in.IssueID)
+		return textResult(fmt.Sprintf("Walkthrough deleted from %s", in.IssueID)),
+			walkthroughOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+
+	default:
+		return nil, walkthroughOut{OK: false, Error: "invalid operation: must be write, read, or delete"},
+			fmt.Errorf("invalid operation %q: must be write, read, or delete", in.Operation)
+	}
+}
+
+func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in artifactIn) (*mcp.CallToolResult, artifactOut, error) {
+	if in.IssueID == "" {
+		return nil, artifactOut{OK: false, Error: "'issue_id' is required"}, fmt.Errorf("'issue_id' is required")
+	}
+	c := t.clientFor(req)
+
+	switch in.Operation {
+	case "add":
+		if in.Filename == "" {
+			return nil, artifactOut{OK: false, Error: "'filename' is required for add"}, fmt.Errorf("'filename' is required for add")
+		}
+		if in.Content == "" {
+			return nil, artifactOut{OK: false, Error: "'content' is required for add"}, fmt.Errorf("'content' is required for add")
+		}
+		if err := c.AddArtifact(in.IssueID, "generic", in.Filename, in.Content); err != nil {
+			return nil, artifactOut{OK: false, Error: err.Error()}, err
+		}
+		path := fmt.Sprintf(".xpo/artifacts/%s/%s", in.IssueID, in.Filename)
+		t.broadcast("ARTIFACT", in.IssueID)
+		return textResult(fmt.Sprintf("Artifact %s added to %s", in.Filename, in.IssueID)),
+			artifactOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+
+	case "read":
+		if in.Filename == "" {
+			return nil, artifactOut{OK: false, Error: "'filename' is required for read"}, fmt.Errorf("'filename' is required for read")
+		}
+		content, err := c.ReadArtifact(in.IssueID, in.Filename)
+		if err != nil {
+			return nil, artifactOut{OK: false, Error: err.Error()}, err
+		}
+		path := fmt.Sprintf(".xpo/artifacts/%s/%s", in.IssueID, in.Filename)
+		return textResult(content),
+			artifactOut{OK: true, IssueID: in.IssueID, Path: path, Content: content}, nil
+
+	case "delete":
+		if in.Filename == "" {
+			return nil, artifactOut{OK: false, Error: "'filename' is required for delete"}, fmt.Errorf("'filename' is required for delete")
+		}
+		if err := c.DeleteArtifact(in.IssueID, in.Filename); err != nil {
+			return nil, artifactOut{OK: false, Error: err.Error()}, err
+		}
+		path := fmt.Sprintf(".xpo/artifacts/%s/%s", in.IssueID, in.Filename)
+		t.broadcast("ARTIFACT", in.IssueID)
+		return textResult(fmt.Sprintf("Artifact %s deleted from %s", in.Filename, in.IssueID)),
+			artifactOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+
+	case "list":
+		artifacts, err := c.ListArtifacts(in.IssueID)
+		if err != nil {
+			return nil, artifactOut{OK: false, Error: err.Error()}, err
+		}
+		entries := toArtifactEntries(artifacts)
+		return textResult(fmt.Sprintf("%d artifact(s)", len(entries))),
+			artifactOut{OK: true, IssueID: in.IssueID, Artifacts: entries}, nil
+
+	default:
+		return nil, artifactOut{OK: false, Error: "invalid operation: must be add, read, delete, or list"},
+			fmt.Errorf("invalid operation %q: must be add, read, delete, or list", in.Operation)
+	}
+}
+
 // --- Helpers ---
 
 func toSummary(i *model.Issue) issueSummary {
@@ -444,6 +659,22 @@ func toSummary(i *model.Issue) issueSummary {
 		BranchStats:      i.BranchStats,
 		UpdatedAt:        i.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+func toArtifactEntries(as []model.ArtifactSummary) []artifactOutEntry {
+	if len(as) == 0 {
+		return nil
+	}
+	out := make([]artifactOutEntry, len(as))
+	for i, a := range as {
+		out[i] = artifactOutEntry{
+			ArtifactType: a.ArtifactType,
+			Filename:     a.Filename,
+			UpdatedAt:    a.UpdatedAt.Format(time.RFC3339),
+			UpdatedBy:    a.UpdatedBy,
+		}
+	}
+	return out
 }
 
 func toCommentSummaries(cs []model.Comment) []commentSummary {

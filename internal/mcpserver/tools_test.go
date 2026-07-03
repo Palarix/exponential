@@ -338,3 +338,254 @@ func TestAgentIdentityFallsBackToConfig(t *testing.T) {
 		t.Errorf("CreatedBy: got %q want config default", showRes.CreatedBy)
 	}
 }
+
+// --- Artifact tool tests ---
+
+func TestSpecWriteReadDelete(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Spec test"})
+
+	// Write
+	_, res, err := ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: a.ID, Content: "# Spec\n\nDetails here.",
+	})
+	if err != nil {
+		t.Fatalf("spec write failed: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("expected OK=true, got error: %s", res.Error)
+	}
+	if res.IssueID != a.ID {
+		t.Errorf("IssueID: got %q want %q", res.IssueID, a.ID)
+	}
+
+	// Read
+	_, readRes, err := ts.spec(context.Background(), nil, specIn{
+		Operation: "read", IssueID: a.ID,
+	})
+	if err != nil {
+		t.Fatalf("spec read failed: %v", err)
+	}
+	if readRes.Content != "# Spec\n\nDetails here." {
+		t.Errorf("content mismatch: %q", readRes.Content)
+	}
+
+	// Show includes artifact
+	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	if len(showRes.Artifacts) != 1 {
+		t.Fatalf("expected 1 artifact in show, got %d", len(showRes.Artifacts))
+	}
+	if showRes.Artifacts[0].Filename != "spec.md" {
+		t.Errorf("artifact filename: got %q want spec.md", showRes.Artifacts[0].Filename)
+	}
+	if showRes.Artifacts[0].ArtifactType != "spec" {
+		t.Errorf("artifact type: got %q want spec", showRes.Artifacts[0].ArtifactType)
+	}
+
+	// Delete
+	_, delRes, err := ts.spec(context.Background(), nil, specIn{
+		Operation: "delete", IssueID: a.ID,
+	})
+	if err != nil {
+		t.Fatalf("spec delete failed: %v", err)
+	}
+	if !delRes.OK {
+		t.Fatalf("expected OK=true on delete")
+	}
+
+	// Read after delete should fail
+	_, _, err = ts.spec(context.Background(), nil, specIn{
+		Operation: "read", IssueID: a.ID,
+	})
+	if err == nil {
+		t.Fatal("expected error reading deleted spec")
+	}
+}
+
+func TestSpecRequiresContent(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+
+	_, _, err := ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: a.ID, Content: "",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty content")
+	}
+}
+
+func TestSpecInvalidOperation(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+
+	_, _, err := ts.spec(context.Background(), nil, specIn{
+		Operation: "invalid", IssueID: a.ID,
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid operation")
+	}
+}
+
+func TestWalkthroughWriteReadDelete(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Walk test"})
+
+	_, res, err := ts.walkthrough(context.Background(), nil, walkthroughIn{
+		Operation: "write", IssueID: a.ID, Content: "# Walkthrough\n\nStep by step.",
+	})
+	if err != nil {
+		t.Fatalf("walkthrough write failed: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("expected OK=true")
+	}
+
+	_, readRes, err := ts.walkthrough(context.Background(), nil, walkthroughIn{
+		Operation: "read", IssueID: a.ID,
+	})
+	if err != nil {
+		t.Fatalf("walkthrough read failed: %v", err)
+	}
+	if readRes.Content != "# Walkthrough\n\nStep by step." {
+		t.Errorf("content mismatch: %q", readRes.Content)
+	}
+
+	_, _, err = ts.walkthrough(context.Background(), nil, walkthroughIn{
+		Operation: "delete", IssueID: a.ID,
+	})
+	if err != nil {
+		t.Fatalf("walkthrough delete failed: %v", err)
+	}
+
+	_, _, err = ts.walkthrough(context.Background(), nil, walkthroughIn{
+		Operation: "read", IssueID: a.ID,
+	})
+	if err == nil {
+		t.Fatal("expected error reading deleted walkthrough")
+	}
+}
+
+func TestArtifactAddReadDeleteList(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Artifact test"})
+
+	// Add
+	_, res, err := ts.artifact(context.Background(), nil, artifactIn{
+		Operation: "add", IssueID: a.ID, Filename: "notes.md", Content: "Some notes.",
+	})
+	if err != nil {
+		t.Fatalf("artifact add failed: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("expected OK=true")
+	}
+
+	// List
+	_, listRes, err := ts.artifact(context.Background(), nil, artifactIn{
+		Operation: "list", IssueID: a.ID,
+	})
+	if err != nil {
+		t.Fatalf("artifact list failed: %v", err)
+	}
+	if len(listRes.Artifacts) != 1 {
+		t.Fatalf("expected 1 artifact, got %d", len(listRes.Artifacts))
+	}
+	if listRes.Artifacts[0].Filename != "notes.md" {
+		t.Errorf("filename: got %q want notes.md", listRes.Artifacts[0].Filename)
+	}
+
+	// Read
+	_, readRes, err := ts.artifact(context.Background(), nil, artifactIn{
+		Operation: "read", IssueID: a.ID, Filename: "notes.md",
+	})
+	if err != nil {
+		t.Fatalf("artifact read failed: %v", err)
+	}
+	if readRes.Content != "Some notes." {
+		t.Errorf("content mismatch: %q", readRes.Content)
+	}
+
+	// Delete
+	_, _, err = ts.artifact(context.Background(), nil, artifactIn{
+		Operation: "delete", IssueID: a.ID, Filename: "notes.md",
+	})
+	if err != nil {
+		t.Fatalf("artifact delete failed: %v", err)
+	}
+
+	// List after delete
+	_, listRes2, _ := ts.artifact(context.Background(), nil, artifactIn{
+		Operation: "list", IssueID: a.ID,
+	})
+	if len(listRes2.Artifacts) != 0 {
+		t.Errorf("expected 0 artifacts after delete, got %d", len(listRes2.Artifacts))
+	}
+}
+
+func TestArtifactRejectsReservedFilenames(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+
+	for _, name := range []string{"spec.md", "walkthrough.md"} {
+		_, _, err := ts.artifact(context.Background(), nil, artifactIn{
+			Operation: "add", IssueID: a.ID, Filename: name, Content: "nope",
+		})
+		if err == nil {
+			t.Errorf("expected error for reserved filename %q", name)
+		}
+	}
+}
+
+func TestArtifactRequiresFilename(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+
+	for _, op := range []string{"add", "read", "delete"} {
+		_, _, err := ts.artifact(context.Background(), nil, artifactIn{
+			Operation: op, IssueID: a.ID, Filename: "", Content: "x",
+		})
+		if err == nil {
+			t.Errorf("expected error for %s without filename", op)
+		}
+	}
+}
+
+func TestArtifactInvalidOperation(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+
+	_, _, err := ts.artifact(context.Background(), nil, artifactIn{
+		Operation: "explode", IssueID: a.ID,
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid operation")
+	}
+}
+
+func TestShowArtifactsEmptyByDefault(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "no artifacts"})
+
+	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	if len(showRes.Artifacts) != 0 {
+		t.Errorf("expected empty artifacts, got %d", len(showRes.Artifacts))
+	}
+}
