@@ -1372,7 +1372,7 @@ export default function Backlog({
                               />
                               <CopyableId
                                 id={issue.id}
-                                className="text-xs w-24 text-left shrink-0 truncate tabular-nums"
+                                className="text-xs text-left shrink-0 tabular-nums"
                               />
                               <div
                                 className="relative shrink-0"
