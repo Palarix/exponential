@@ -13,6 +13,7 @@ import (
 // GitCommit stages and commits the issues.db file.
 func GitCommit(msg string) {
 	_ = exec.Command("git", "add", ".xpo/issues.db").Run()
+	_ = exec.Command("git", "add", ".xpo/artifacts/").Run()
 	_ = exec.Command("git", "commit", "-m", msg).Run()
 }
 

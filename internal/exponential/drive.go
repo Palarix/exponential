@@ -384,8 +384,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		}
 		if sr.RevisedSpec != "" {
 			spec = sr.RevisedSpec
-			desc := spec
-			if _, err := c.UpdateIssue(issue.ID, model.UpdatePayload{Description: &desc}, "drive"); err != nil {
+			if err := c.WriteSpec(issue.ID, spec); err != nil {
 				return nil, recoverHint(fmt.Errorf("update spec: %w", err))
 			}
 			log.ok("Spec revised, re-evaluating")
@@ -500,8 +499,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		walkthrough = fmt.Sprintf("Implementation completed in %d attempt(s).", result.Attempts)
 	}
 
-	comment := fmt.Sprintf("## xpo drive — walkthrough\n\n%s", walkthrough)
-	c.AddComment(issue.ID, comment)
+	c.WriteWalkthrough(issue.ID, walkthrough)
 	status := string(model.StatusDone)
 	c.UpdateIssue(issue.ID, model.UpdatePayload{Status: &status}, "drive")
 	log.walkthrough(walkthrough)
