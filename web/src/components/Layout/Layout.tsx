@@ -302,19 +302,6 @@ export default function Layout({
             collapsed={collapsed}
           />
           <NavItem
-            item={{ id: "my-issues" as View, label: "My Issues", icon: <UserIcon size={16} /> }}
-            isActive={currentView === "my-issues"}
-            onClick={() => onViewChange("my-issues" as View)}
-            collapsed={collapsed}
-          />
-          <NavItem
-            item={{ id: "inbox" as View, label: "Notifications", icon: <Bell size={16} /> }}
-            isActive={currentView === "inbox"}
-            onClick={() => onViewChange("inbox" as View)}
-            badge={inboxUnread}
-            collapsed={collapsed}
-          />
-          <NavItem
             item={{ id: "backlog", label: "Issues", icon: <List size={16} /> }}
             isActive={currentView === "backlog"}
             onClick={() => onViewChange("backlog")}
@@ -335,6 +322,12 @@ export default function Layout({
             />
           )}
           <NavItem
+            item={{ id: "timeline" as View, label: "Timeline", icon: <Clock size={16} /> }}
+            isActive={currentView === "timeline"}
+            onClick={() => onViewChange("timeline" as View)}
+            collapsed={collapsed}
+          />
+          <NavItem
             item={{ id: "labels", label: "Labels", icon: <Tag size={16} /> }}
             isActive={currentView === "labels"}
             onClick={() => onViewChange("labels")}
@@ -346,10 +339,18 @@ export default function Layout({
             onClick={() => onViewChange("dependencies")}
             collapsed={collapsed}
           />
+          <div className={`my-1 ${collapsed ? "mx-1" : "mx-3"} border-t border-[var(--color-border-default)]`} />
           <NavItem
-            item={{ id: "timeline" as View, label: "Timeline", icon: <Clock size={16} /> }}
-            isActive={currentView === "timeline"}
-            onClick={() => onViewChange("timeline" as View)}
+            item={{ id: "my-issues" as View, label: "My Issues", icon: <UserIcon size={16} /> }}
+            isActive={currentView === "my-issues"}
+            onClick={() => onViewChange("my-issues" as View)}
+            collapsed={collapsed}
+          />
+          <NavItem
+            item={{ id: "inbox" as View, label: "Notifications", icon: <Bell size={16} /> }}
+            isActive={currentView === "inbox"}
+            onClick={() => onViewChange("inbox" as View)}
+            badge={inboxUnread}
             collapsed={collapsed}
           />
         </nav>
