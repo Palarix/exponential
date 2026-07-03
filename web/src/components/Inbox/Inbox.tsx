@@ -98,6 +98,12 @@ function buildChangeSummary(events: InboxItem[], userEmail: string): string[] {
           otherUpdates++;
         }
         break;
+      case "ARTIFACT": {
+        const action = String(p.action || "updated");
+        const filename = String(p.filename || "artifact");
+        parts.push(`${filename} ${action}`);
+        break;
+      }
     }
   }
 

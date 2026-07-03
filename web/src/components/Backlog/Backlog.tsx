@@ -32,7 +32,7 @@ import {
   useToast,
   Modal,
 } from "../ui";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, FileText, BookOpen, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
@@ -1439,6 +1439,13 @@ export default function Backlog({
                               )}
                               {issue.branch_stats && (
                                 <BranchBadge stats={issue.branch_stats} />
+                              )}
+                              {issue.artifacts && issue.artifacts.length > 0 && (
+                                <span className="flex items-center gap-1 text-[var(--color-text-muted)] shrink-0">
+                                  {issue.artifacts.some((a) => a.artifact_type === "spec") && <span title="Spec"><FileText className="w-3 h-3" /></span>}
+                                  {issue.artifacts.some((a) => a.artifact_type === "walkthrough") && <span title="Walkthrough"><BookOpen className="w-3 h-3" /></span>}
+                                  {issue.artifacts.some((a) => a.artifact_type === "generic") && <span title="Attachments"><Paperclip className="w-3 h-3" /></span>}
+                                </span>
                               )}
                               <div className="flex-1" />
                               {issue.is_pending && (

@@ -11,6 +11,7 @@ import { isEditableTarget } from "../../utils/keyboard";
 import { linkifyIssueIds } from "../../utils/format";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import SubIssuesTable from "./SubIssuesTable";
+import ArtifactList from "./ArtifactList";
 import ActivityTimeline from "./ActivityTimeline";
 import PropertySidebar from "./PropertySidebar";
 import MergeView from "./MergeView";
@@ -362,6 +363,8 @@ export default function IssueDetail({
             </div>
 
             <SubIssuesTable issue={issue} issues={issues} onRefresh={onRefresh} />
+
+            <ArtifactList artifacts={issue.artifacts ?? []} />
 
             <ActivityTimeline
               issue={issue}

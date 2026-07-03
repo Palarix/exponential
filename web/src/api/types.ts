@@ -7,6 +7,13 @@ export interface BranchStats {
   deletions: number;
 }
 
+export interface ArtifactSummary {
+  artifact_type: string;
+  filename: string;
+  updated_at: string;
+  updated_by: string;
+}
+
 export interface Issue {
   id: string;
   title: string;
@@ -21,6 +28,7 @@ export interface Issue {
   effective_cycle_id?: string;
   labels?: string[];
   dependencies?: Dependency[];
+  artifacts?: ArtifactSummary[];
   comments?: Comment[];
   created_at: string;
   created_by: string;
@@ -85,7 +93,7 @@ export interface Event {
 export interface InboxItem {
   issue_id: string;
   issue_title: string;
-  type: 'CREATE' | 'UPDATE' | 'COMMENT' | 'MERGE' | 'DELETE';
+  type: 'CREATE' | 'UPDATE' | 'COMMENT' | 'MERGE' | 'DELETE' | 'ARTIFACT';
   payload: Record<string, unknown>;
   created_at: string;
   created_by: string;

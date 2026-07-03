@@ -29,6 +29,7 @@ type IssueResponse struct {
 	BranchStats      *model.BranchStats   `json:"branch_stats,omitempty"`
 	Labels           []string             `json:"labels,omitempty"`
 	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
+	Artifacts    []ArtifactResponse   `json:"artifacts,omitempty"`
 	Comments     []CommentResponse    `json:"comments,omitempty"`
 	CreatedAt    time.Time            `json:"created_at"`
 	CreatedBy    string               `json:"created_by"`
@@ -47,6 +48,13 @@ type CommentResponse struct {
 	Text      string    `json:"text"`
 	CreatedBy string    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type ArtifactResponse struct {
+	ArtifactType string    `json:"artifact_type"`
+	Filename     string    `json:"filename"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	UpdatedBy    string    `json:"updated_by"`
 }
 
 type PendingResponse struct {
@@ -83,6 +91,15 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		CreatedAt:   issue.CreatedAt,
 		CreatedBy:   issue.CreatedBy,
 		UpdatedAt:   issue.UpdatedAt,
+	}
+
+	for _, a := range issue.Artifacts {
+		resp.Artifacts = append(resp.Artifacts, ArtifactResponse{
+			ArtifactType: a.ArtifactType,
+			Filename:     a.Filename,
+			UpdatedAt:    a.UpdatedAt,
+			UpdatedBy:    a.UpdatedBy,
+		})
 	}
 
 	for _, dep := range issue.Dependencies {

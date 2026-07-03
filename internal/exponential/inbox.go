@@ -112,7 +112,7 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 // and are skipped. Works for both typed and map[string]interface{} payloads.
 func isMeaningfulInboxEvent(evt model.Event) bool {
 	switch evt.Type {
-	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge:
+	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge, model.EventTypeArtifact:
 		return true
 	case model.EventTypeUpdate:
 		var p model.UpdatePayload
@@ -202,6 +202,11 @@ func FormatInboxItem(item InboxItem, me string) string {
 			return fmt.Sprintf("%s merged %s via %s", who, id, p.Strategy)
 		}
 		return fmt.Sprintf("%s merged %s", who, id)
+
+	case model.EventTypeArtifact:
+		var p model.ArtifactPayload
+		decodePayload(item.Payload, &p)
+		return fmt.Sprintf("%s %s %s on %s", who, p.Action, p.Filename, id)
 
 	case model.EventTypeDelete:
 		return fmt.Sprintf("%s deleted %s", who, id)

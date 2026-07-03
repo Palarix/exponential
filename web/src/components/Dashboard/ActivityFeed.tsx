@@ -18,6 +18,7 @@ import {
   SquareDashedBottomCode,
   Tag,
   TriangleAlert,
+  Paperclip,
 } from "lucide-react";
 
 type ActIconKey =
@@ -36,7 +37,8 @@ type ActIconKey =
   | "assign"
   | "priority"
   | "parent"
-  | "relations";
+  | "relations"
+  | "artifact";
 
 const ICON_COLORS: Partial<Record<ActIconKey, string>> = {
   "status-done": "text-[var(--color-success)]",
@@ -65,6 +67,7 @@ const SHARED_ICONS: Partial<
   description: SquareDashedBottomCode,
   labels: Tag,
   priority: TriangleAlert,
+  artifact: Paperclip,
 };
 
 function ActIcon({ k }: { k: ActIconKey }) {
@@ -165,6 +168,22 @@ function describeActivity(
           sentence: <>{name} updated relationships of</>,
         };
       return null;
+    }
+    case "ARTIFACT": {
+      const action = String(p.action || "updated");
+      const filename = String(p.filename || "artifact");
+      return {
+        icon: "artifact" as ActIconKey,
+        sentence: (
+          <>
+            {name} {action}{" "}
+            <span className="font-mono text-[var(--color-text-primary)]">
+              {filename}
+            </span>{" "}
+            on
+          </>
+        ),
+      };
     }
     default:
       return null;

@@ -105,6 +105,16 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
         </>
       );
     }
+    case "ARTIFACT": {
+      const action = String(p.action || "updated");
+      const filename = String(p.filename || "artifact");
+      return (
+        <>
+          {action}{" "}
+          <span className="font-mono text-xs font-medium text-[var(--color-text-primary)]">{filename}</span>
+        </>
+      );
+    }
     default:
       return null;
   }

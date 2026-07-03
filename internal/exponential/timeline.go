@@ -27,7 +27,7 @@ type TimelineEntry struct {
 
 func IsMeaningfulActivityEvent(evt model.Event) bool {
 	switch evt.Type {
-	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge:
+	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge, model.EventTypeArtifact:
 		return true
 	case model.EventTypeUpdate:
 		payload, ok := evt.Payload.(map[string]interface{})
