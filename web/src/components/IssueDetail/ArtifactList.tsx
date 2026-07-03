@@ -1,10 +1,10 @@
 import type { ArtifactSummary } from "../../api/types";
-import { FileText, BookOpen, Paperclip } from "lucide-react";
+import { FileCodeCorner, FileBracesCorner, Paperclip } from "lucide-react";
 import { formatRelativeTime, shortName } from "../../utils/format";
 
-const TYPE_ICON: Record<string, typeof FileText> = {
-  spec: FileText,
-  walkthrough: BookOpen,
+const TYPE_ICON: Record<string, typeof FileCodeCorner> = {
+  spec: FileCodeCorner,
+  walkthrough: FileBracesCorner,
 };
 
 const TYPE_LABEL: Record<string, string> = {

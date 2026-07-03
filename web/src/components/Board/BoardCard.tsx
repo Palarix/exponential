@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
 import { Avatar, BranchBadge, EstimateBadge, LabelBadge, PriorityIcon, SubProgress } from "../ui";
-import { RefreshCw, FileText, BookOpen, Paperclip } from "lucide-react";
+import { RefreshCw, FileCodeCorner, FileBracesCorner, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 
 export interface CardMeta {
@@ -132,8 +132,8 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
             {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
             {hasArtifacts && (
               <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
-                {hasSpec && <span title="Spec"><FileText className="w-3 h-3" /></span>}
-                {hasWalkthrough && <span title="Walkthrough"><BookOpen className="w-3 h-3" /></span>}
+                {hasSpec && <span title="Spec"><FileCodeCorner className="w-3 h-3" /></span>}
+                {hasWalkthrough && <span title="Walkthrough"><FileBracesCorner className="w-3 h-3" /></span>}
                 {hasAttachments && <span title="Attachments"><Paperclip className="w-3 h-3" /></span>}
               </span>
             )}
