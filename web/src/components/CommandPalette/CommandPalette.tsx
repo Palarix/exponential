@@ -162,7 +162,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
-        className="relative w-full max-w-140 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
+        className="relative w-full max-w-[860px] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
