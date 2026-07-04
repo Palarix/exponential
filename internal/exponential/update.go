@@ -3,6 +3,7 @@ package exponential
 import (
 	"fmt"
 	"os/exec"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,22 +14,14 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
-// applyUpdate builds and appends update events (including cascading
-// automations) without creating a git commit.  Callers that need to
-// bundle the update into a larger commit (e.g. MergeIssue) use this
-// directly; standalone updates go through UpdateIssue which adds the
-// git commit step.
-func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]string, error) {
-	// 1. Read and Project State
-	events, err := storage.ReadEvents()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read events: %w", err)
-	}
-	issues := ProjectIssues(events)
-
+// buildUpdate resolves the target issue, prunes unchanged fields, and
+// returns the events that should be appended (primary update + cascading
+// automations) along with human-readable messages.  It performs no I/O;
+// callers are responsible for persisting the returned events.
+func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, issues map[string]*model.Issue) ([]model.Event, []string, error) {
 	targetIssue, err := t.resolveIssue(issues, id)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	id = targetIssue.ID // Use the resolved ID
 
@@ -39,10 +32,16 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]
 
 	// Guard: reject self-referencing parent
 	if payload.ParentID != nil && *payload.ParentID == id {
-		return nil, fmt.Errorf("cannot set issue %s as its own parent", id)
+		return nil, nil, fmt.Errorf("cannot set issue %s as its own parent", id)
 	}
 
-	// 2. Prepare Primary Update
+	// Prune fields that already match current state so redundant updates are no-ops.
+	pruneUnchangedFields(&payload, targetIssue)
+	if payloadEmpty(payload) {
+		return nil, nil, nil
+	}
+
+	// Prepare Primary Update
 	primaryEvent := model.Event{
 		ID:        id,
 		Type:      model.EventTypeUpdate,
@@ -75,7 +74,7 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]
 		}
 	}
 
-	// 3. Logic & Side Effects based on Status Change
+	// Cascading side effects based on status change
 	if payload.Status != nil {
 		newStatus := model.IssueStatus(*payload.Status)
 
@@ -85,7 +84,7 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]
 				if dep.Kind == model.DependencyBlockedBy {
 					blocker, bExists := issues[dep.TargetID]
 					if bExists && blocker.Status != model.StatusDone && !blocker.Deleted {
-						return nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
+						return nil, nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
 					}
 				}
 			}
@@ -141,8 +140,24 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]
 		}
 	}
 
-	// 4. Append Events
-	for _, evt := range eventsToAppend {
+	return eventsToAppend, messages, nil
+}
+
+// applyUpdate reads current state, builds update events via buildUpdate,
+// and appends them to storage.  Does not create a git commit.
+func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]string, error) {
+	events, err := storage.ReadEvents()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read events: %w", err)
+	}
+	issues := ProjectIssues(events)
+
+	toAppend, messages, err := t.buildUpdate(id, payload, issues)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, evt := range toAppend {
 		if err := t.appendEvent(evt); err != nil {
 			return nil, fmt.Errorf("failed to append event for %s: %w", evt.ID, err)
 		}
@@ -287,4 +302,102 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 	}
 
 	return payload, nil
+}
+
+// pruneUnchangedFields nils out payload fields that already match the
+// current issue state so redundant updates produce no events.  Fields
+// are matched by name between UpdatePayload and Issue using reflection,
+// so new fields are handled automatically.
+func pruneUnchangedFields(p *model.UpdatePayload, issue *model.Issue) {
+	pv := reflect.ValueOf(p).Elem()
+	iv := reflect.ValueOf(issue).Elem()
+	pt := pv.Type()
+
+	for i := 0; i < pt.NumField(); i++ {
+		pf := pv.Field(i)
+		name := pt.Field(i).Name
+		issueField := iv.FieldByName(name)
+		if !issueField.IsValid() {
+			continue
+		}
+
+		switch pf.Kind() {
+		case reflect.Ptr:
+			if pf.IsNil() {
+				continue
+			}
+			if fieldsEqual(pf.Elem(), issueField) {
+				pf.Set(reflect.Zero(pf.Type()))
+			}
+		case reflect.Slice:
+			if pf.IsNil() {
+				continue
+			}
+			if fieldsEqual(pf, issueField) {
+				pf.Set(reflect.Zero(pf.Type()))
+			}
+		}
+	}
+}
+
+func payloadEmpty(p model.UpdatePayload) bool {
+	v := reflect.ValueOf(p)
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := v.Field(i)
+		switch f.Kind() {
+		case reflect.Ptr:
+			if !f.IsNil() {
+				return false
+			}
+		case reflect.Slice:
+			if !f.IsNil() {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// fieldsEqual compares a payload value against an issue value.  Type
+// aliases with the same underlying kind (e.g. string vs IssueStatus)
+// are converted before comparing.  Slices are compared as unordered sets.
+func fieldsEqual(a, b reflect.Value) bool {
+	if a.Type() != b.Type() {
+		if a.Type().ConvertibleTo(b.Type()) {
+			a = a.Convert(b.Type())
+		} else {
+			return false
+		}
+	}
+	if a.Kind() == reflect.Slice {
+		return unorderedSlicesEqual(a, b)
+	}
+	return reflect.DeepEqual(a.Interface(), b.Interface())
+}
+
+func unorderedSlicesEqual(a, b reflect.Value) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+	if a.Len() == 0 {
+		return true
+	}
+	as := sprintSorted(a)
+	bs := sprintSorted(b)
+	for i := range as {
+		if as[i] != bs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func sprintSorted(v reflect.Value) []string {
+	s := make([]string, v.Len())
+	for i := range s {
+		s[i] = fmt.Sprintf("%v", v.Index(i).Interface())
+	}
+	sort.Strings(s)
+	return s
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 type MergeStrategy string
@@ -106,16 +107,27 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		}
 
 		if mergeErr == nil {
-			// MERGE event first
+			// Build DONE transition events against pre-merge state
+			// (ProjectIssues infers DONE from MERGE, so we must read
+			// state before appending the MERGE event).
+			preEvents, _ := storage.ReadEvents()
+			preMergeState := ProjectIssues(preEvents)
+
+			doneStatus := string(model.StatusDone)
+			doneEvents, doneMessages, err := c.local.buildUpdate(
+				issue.ID, model.UpdatePayload{Status: &doneStatus}, preMergeState)
+			if err != nil {
+				return fmt.Errorf("failed to build DONE transition: %w", err)
+			}
+
+			// Append MERGE event, then DONE transition events
 			if err := c.local.appendEvent(event); err != nil {
 				return fmt.Errorf("failed to record merge event: %w", err)
 			}
-
-			// DONE transition with full business logic (cascading automations)
-			doneStatus := string(model.StatusDone)
-			doneMessages, err := c.local.applyUpdate(issue.ID, model.UpdatePayload{Status: &doneStatus})
-			if err != nil {
-				return fmt.Errorf("failed to apply DONE transition: %w", err)
+			for _, evt := range doneEvents {
+				if err := c.local.appendEvent(evt); err != nil {
+					return fmt.Errorf("failed to apply DONE transition: %w", err)
+				}
 			}
 			result.Messages = append(result.Messages, doneMessages...)
 

@@ -442,13 +442,11 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	}
 
 	c.WriteWalkthrough(issue.ID, walkthrough)
-	status := string(model.StatusDone)
-	c.UpdateIssue(issue.ID, model.UpdatePayload{Status: &status}, "drive")
 	log.ok(fmt.Sprintf("Walkthrough saved → xpo artifact show %s --walkthrough", issue.ID))
 
 	// Commit issues.db changes on the feature branch so checkout doesn't fail
 	if isGit {
-		GitCommit(fmt.Sprintf("xpo: close %s", issue.ID))
+		GitCommit(fmt.Sprintf("xpo: add walkthrough for %s", issue.ID))
 	}
 
 	// ── Cleanup ─────────────────────────────────────────────────────
@@ -714,6 +712,7 @@ func buildCoderPrompt(spec, context string, files []string, testCmd, branch, fee
 	b.WriteString(fmt.Sprintf("- Work on branch: %s\n", branch))
 	b.WriteString(fmt.Sprintf("- Run tests with: %s\n", testCmd))
 	b.WriteString("- Commit your changes when tests pass\n")
+	b.WriteString("- Do NOT manage issue lifecycle (no status transitions, no comments via xpo tools) — the driver handles that\n")
 	if feedback != "" {
 		b.WriteString("\n## Feedback from previous attempt\n\n")
 		b.WriteString(feedback)

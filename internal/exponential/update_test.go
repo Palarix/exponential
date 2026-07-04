@@ -246,3 +246,88 @@ func TestUpdateIssue_IssueNotFound(t *testing.T) {
 		t.Error("expected error for nonexistent issue")
 	}
 }
+
+func TestUpdateIssue_RedundantStatusIsNoop(t *testing.T) {
+	tr := setupLocalTransport(t)
+	issue, _ := tr.AddIssue(model.CreatePayload{Title: "test", Status: "DOING"})
+
+	eventsBefore := countEvents(t, issue.ID)
+	msgs, err := tr.UpdateIssue(issue.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 0 {
+		t.Errorf("expected no messages for noop, got %v", msgs)
+	}
+	eventsAfter := countEvents(t, issue.ID)
+	if eventsAfter != eventsBefore {
+		t.Errorf("event count changed: %d → %d (expected no new events)", eventsBefore, eventsAfter)
+	}
+}
+
+func TestUpdateIssue_RedundantPriorityIsNoop(t *testing.T) {
+	tr := setupLocalTransport(t)
+	issue, _ := tr.AddIssue(model.CreatePayload{Title: "test", Priority: 2})
+
+	eventsBefore := countEvents(t, issue.ID)
+	msgs, err := tr.UpdateIssue(issue.ID, model.UpdatePayload{Priority: ip(2)}, "update")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 0 {
+		t.Errorf("expected no messages for noop, got %v", msgs)
+	}
+	eventsAfter := countEvents(t, issue.ID)
+	if eventsAfter != eventsBefore {
+		t.Errorf("event count changed: %d → %d", eventsBefore, eventsAfter)
+	}
+}
+
+func TestUpdateIssue_RedundantLabelsIsNoop(t *testing.T) {
+	tr := setupLocalTransport(t)
+	issue, _ := tr.AddIssue(model.CreatePayload{Title: "test", Labels: []string{"bug", "feature"}})
+
+	eventsBefore := countEvents(t, issue.ID)
+	// Different order, same set
+	msgs, err := tr.UpdateIssue(issue.ID, model.UpdatePayload{Labels: []string{"feature", "bug"}}, "update")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 0 {
+		t.Errorf("expected no messages for noop, got %v", msgs)
+	}
+	eventsAfter := countEvents(t, issue.ID)
+	if eventsAfter != eventsBefore {
+		t.Errorf("event count changed: %d → %d", eventsBefore, eventsAfter)
+	}
+}
+
+func TestUpdateIssue_MixedRedundantAndNewFields(t *testing.T) {
+	tr := setupLocalTransport(t)
+	issue, _ := tr.AddIssue(model.CreatePayload{Title: "test", Priority: 2})
+
+	msgs, err := tr.UpdateIssue(issue.ID, model.UpdatePayload{
+		Priority: ip(2),   // redundant
+		Title:    sp("new"), // actual change
+	}, "update")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) == 0 {
+		t.Error("expected messages for actual change")
+	}
+	issues := readAllIssues(t)
+	if issues[issue.ID].Title != "new" {
+		t.Errorf("title = %q, want %q", issues[issue.ID].Title, "new")
+	}
+}
+
+func countEvents(t *testing.T, id string) int {
+	t.Helper()
+	issues := readAllIssues(t)
+	issue, ok := issues[id]
+	if !ok {
+		t.Fatalf("issue %s not found", id)
+	}
+	return len(issue.Events)
+}
