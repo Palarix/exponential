@@ -316,8 +316,9 @@ func TestAgentIdentityFromEnv(t *testing.T) {
 	}
 
 	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
-	if showRes.CreatedBy != "AgentTest <agent@test>" {
-		t.Errorf("CreatedBy: got %q want %q", showRes.CreatedBy, "AgentTest <agent@test>")
+	// Projected issue shows the principal (on_behalf_of), not the agent
+	if showRes.CreatedBy != "Test User <test@test.com>" {
+		t.Errorf("CreatedBy: got %q want %q", showRes.CreatedBy, "Test User <test@test.com>")
 	}
 }
 

@@ -11,6 +11,13 @@ import (
 	"github.com/palarix/exponential/internal/sortorder"
 )
 
+func principalOf(evt model.Event) string {
+	if evt.OnBehalfOf != "" {
+		return evt.OnBehalfOf
+	}
+	return evt.CreatedBy
+}
+
 func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	issues := make(map[string]*model.Issue)
 
@@ -39,7 +46,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				CycleID:      p.CycleID,
 				Status:       status,
 				CreatedAt:    evt.CreatedAt,
-				CreatedBy:    evt.CreatedBy,
+				CreatedBy:    principalOf(evt),
 				UpdatedAt:    evt.CreatedAt,
 				Events:       []model.Event{evt},
 				Dependencies: p.Dependencies,
