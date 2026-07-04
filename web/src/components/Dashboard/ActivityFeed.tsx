@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ActivityEvent, Issue } from "../../api/client";
-import { shortName, formatRelativeTime } from "../../utils/format";
+import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import {
   Plus,
   MessageSquareMore,
@@ -19,6 +19,7 @@ import {
   Tag,
   TriangleAlert,
   Paperclip,
+  Bot,
 } from "lucide-react";
 
 type ActIconKey =
@@ -81,23 +82,25 @@ function ActIcon({ k }: { k: ActIconKey }) {
 function describeActivity(
   evt: ActivityEvent,
   who: string,
+  via?: string,
 ): { icon: ActIconKey; sentence: ReactNode } | null {
   const p = evt.payload || {};
   const name = (
     <span className="text-[var(--color-text-primary)] mr-1">{who}</span>
   );
+  const viaLabel = via ? <span title={via}><Bot className="w-3.5 h-3.5 inline-block align-[-2px] ml-1 mr-0.5 text-[var(--color-text-muted)]" /></span> : null;
   switch (evt.type) {
     case "CREATE":
-      return { icon: "create", sentence: <>{name} created</> };
+      return { icon: "create", sentence: <>{name}{viaLabel} created</> };
     case "COMMENT":
-      return { icon: "comment", sentence: <>{name} commented on</> };
+      return { icon: "comment", sentence: <>{name}{viaLabel} commented on</> };
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return {
         icon: "merge",
         sentence: (
           <>
-            {name} merged{strategy}
+            {name}{viaLabel} merged{strategy}
           </>
         ),
       };
@@ -123,7 +126,7 @@ function describeActivity(
           icon: icons[status] ?? "status-backlog",
           sentence: (
             <>
-              {name} {verbs[status] ?? `moved to ${status}`}
+              {name}{viaLabel} {verbs[status] ?? `moved to ${status}`}
             </>
           ),
         };
@@ -133,13 +136,13 @@ function describeActivity(
         if (!assignee)
           return {
             icon: "assign",
-            sentence: <>{name} removed the assignee from</>,
+            sentence: <>{name}{viaLabel} removed the assignee from</>,
           };
         return {
           icon: "assign",
           sentence: (
             <>
-              {name} assigned{" "}
+              {name}{viaLabel} assigned{" "}
               <span className="text-[var(--color-text-primary)]">
                 {shortName(assignee)}
               </span>{" "}
@@ -149,23 +152,23 @@ function describeActivity(
         };
       }
       if (Array.isArray(p.labels))
-        return { icon: "labels", sentence: <>{name} relabeled</> };
+        return { icon: "labels", sentence: <>{name}{viaLabel} relabeled</> };
       if (p.estimate !== undefined)
-        return { icon: "estimate", sentence: <>{name} estimated</> };
+        return { icon: "estimate", sentence: <>{name}{viaLabel} estimated</> };
       if (p.priority !== undefined)
-        return { icon: "priority", sentence: <>{name} changed priority of</> };
-      if (p.title) return { icon: "rename", sentence: <>{name} renamed</> };
+        return { icon: "priority", sentence: <>{name}{viaLabel} changed priority of</> };
+      if (p.title) return { icon: "rename", sentence: <>{name}{viaLabel} renamed</> };
       if (p.description !== undefined)
         return {
           icon: "description",
-          sentence: <>{name} updated the description of</>,
+          sentence: <>{name}{viaLabel} updated the description of</>,
         };
       if (p.parent_id !== undefined)
-        return { icon: "parent", sentence: <>{name} changed parent of</> };
+        return { icon: "parent", sentence: <>{name}{viaLabel} changed parent of</> };
       if (Array.isArray(p.dependencies))
         return {
           icon: "relations",
-          sentence: <>{name} updated relationships of</>,
+          sentence: <>{name}{viaLabel} updated relationships of</>,
         };
       return null;
     }
@@ -176,7 +179,7 @@ function describeActivity(
         icon: "artifact" as ActIconKey,
         sentence: (
           <>
-            {name} {action}{" "}
+            {name}{viaLabel} {action}{" "}
             <span className="font-mono text-[var(--color-text-primary)]">
               {filename}
             </span>{" "}
@@ -212,8 +215,8 @@ export default function ActivityFeed({
   return (
     <div className="py-1">
       {activity.map((evt, i) => {
-        const who = shortName(evt.created_by);
-        const desc = describeActivity(evt, who);
+        const actor = displayActor(evt.created_by, evt.on_behalf_of);
+        const desc = describeActivity(evt, actor.principal, actor.via);
         if (!desc) return null;
         const issue = issues.find((it) => it.id === evt.issue_id);
         const title = evt.issue_title || evt.issue_id;

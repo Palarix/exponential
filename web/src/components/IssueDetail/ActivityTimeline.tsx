@@ -5,12 +5,12 @@ import remarkGfm from "remark-gfm";
 import { fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { Avatar, LabelBadge, StatusIcon } from "../ui";
-import { Triangle, ChevronDown } from "lucide-react";
-import { shortName, formatRelativeTime, linkifyIssueIds } from "../../utils/format";
+import { Triangle, ChevronDown, Bot } from "lucide-react";
+import { formatRelativeTime, linkifyIssueIds, displayActor } from "../../utils/format";
 
 type ActivityEntry =
-  | { kind: "system"; author: string; content: React.ReactNode; time: string }
-  | { kind: "comment"; author: string; text: string; time: string };
+  | { kind: "system"; author: string; via?: string; content: React.ReactNode; time: string }
+  | { kind: "comment"; author: string; via?: string; text: string; time: string };
 
 const STATUS_LABELS: Record<string, string> = {
   BACKLOG: "Backlog",
@@ -101,7 +101,6 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
           {p.strategy && (
             <> via {String(p.strategy)}</>
           )}
-          {" "}and closed this issue
         </>
       );
     }
@@ -150,11 +149,13 @@ export default function ActivityTimeline({
     const items: ActivityEntry[] = [];
 
     for (const evt of history) {
+      const actor = displayActor(evt.created_by, evt.on_behalf_of);
       if (evt.type === "COMMENT") {
         const p = evt.payload || {};
         items.push({
           kind: "comment",
-          author: evt.created_by,
+          author: actor.principal,
+          via: actor.via,
           text: String(p.text || ""),
           time: evt.created_at,
         });
@@ -163,7 +164,8 @@ export default function ActivityTimeline({
         if (desc) {
           items.push({
             kind: "system",
-            author: evt.created_by,
+            author: actor.principal,
+            via: actor.via,
             content: desc,
             time: evt.created_at,
           });
@@ -203,7 +205,8 @@ export default function ActivityTimeline({
                 className="flex items-center gap-2 px-4 py-2 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
                 <Avatar name={entry.author} size="sm" />
-                <span>{shortName(entry.author)}</span>
+                <span>{entry.author}</span>
+                {entry.via && <span title={entry.via}><Bot className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></span>}
                 {entry.content}
                 <span>·</span>
                 <span>{formatRelativeTime(entry.time)}</span>
@@ -219,8 +222,9 @@ export default function ActivityTimeline({
               <div className="flex items-center gap-3 mb-2">
                 <Avatar name={entry.author} size="sm" />
                 <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                  {shortName(entry.author)}
+                  {entry.author}
                 </span>
+                {entry.via && <span title={entry.via}><Bot className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></span>}
                 <span className="text-sm text-[var(--color-text-muted)]">
                   {formatRelativeTime(entry.time)}
                 </span>

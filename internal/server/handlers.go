@@ -647,6 +647,7 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 		Payload    interface{} `json:"payload"`
 		CreatedAt  time.Time   `json:"created_at"`
 		CreatedBy  string      `json:"created_by"`
+		OnBehalfOf string      `json:"on_behalf_of,omitempty"`
 	}
 
 	out := make([]activityItem, 0, maxItems)
@@ -662,6 +663,7 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 			Payload:    evt.Payload,
 			CreatedAt:  evt.CreatedAt,
 			CreatedBy:  evt.CreatedBy,
+			OnBehalfOf: evt.OnBehalfOf,
 		})
 	}
 
@@ -783,12 +785,16 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 		if evt.ID != id {
 			continue
 		}
-		history = append(history, map[string]interface{}{
+		entry := map[string]interface{}{
 			"type":       evt.Type,
 			"payload":    evt.Payload,
 			"created_at": evt.CreatedAt,
 			"created_by": evt.CreatedBy,
-		})
+		}
+		if evt.OnBehalfOf != "" {
+			entry["on_behalf_of"] = evt.OnBehalfOf
+		}
+		history = append(history, entry)
 	}
 
 	respondJSON(w, http.StatusOK, history)

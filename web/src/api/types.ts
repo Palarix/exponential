@@ -128,6 +128,7 @@ export interface TimelineEntry {
   event_type?: string;
   payload?: Record<string, unknown>;
   created_by?: string;
+  on_behalf_of?: string;
   source?: string;
   sha?: string;
   message?: string;

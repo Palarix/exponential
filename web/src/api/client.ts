@@ -60,6 +60,7 @@ export interface HistoryEvent {
   payload: Record<string, unknown>;
   created_at: string;
   created_by: string;
+  on_behalf_of?: string;
 }
 
 export async function fetchIssueHistory(issueId: string): Promise<HistoryEvent[]> {
@@ -102,6 +103,7 @@ export interface ActivityEvent {
   payload: Record<string, unknown>;
   created_at: string;
   created_by: string;
+  on_behalf_of?: string;
 }
 
 export async function fetchActivity(): Promise<ActivityEvent[]> {

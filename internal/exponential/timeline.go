@@ -18,6 +18,7 @@ type TimelineEntry struct {
 	EventType  string      `json:"event_type,omitempty"`
 	Payload    interface{} `json:"payload,omitempty"`
 	CreatedBy  string      `json:"created_by,omitempty"`
+	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
 	Source     string      `json:"source,omitempty"`
 	SHA        string      `json:"sha,omitempty"`
 	Message    string      `json:"message,omitempty"`
@@ -151,6 +152,7 @@ func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit i
 				EventType:  string(evt.Type),
 				Payload:    evt.Payload,
 				CreatedBy:  evt.CreatedBy,
+				OnBehalfOf: evt.OnBehalfOf,
 				Source:     evt.Source,
 			})
 		}

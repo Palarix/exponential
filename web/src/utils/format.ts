@@ -2,6 +2,21 @@ export function shortName(fullName: string): string {
   return fullName.split(" <")[0];
 }
 
+export interface ActorDisplay {
+  principal: string;
+  via?: string;
+}
+
+export function displayActor(createdBy: string, onBehalfOf?: string): ActorDisplay {
+  if (onBehalfOf) {
+    return {
+      principal: shortName(onBehalfOf),
+      via: shortName(createdBy),
+    };
+  }
+  return { principal: shortName(createdBy) };
+}
+
 export function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();

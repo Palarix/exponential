@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } fro
 import { createPortal } from "react-dom";
 import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
-import { shortName, formatRelativeTime, formatShortDate } from "../../utils/format";
+import { shortName, formatRelativeTime, formatShortDate, displayActor } from "../../utils/format";
 import {
   Plus,
   MessageSquareMore,
@@ -23,6 +23,7 @@ import {
   Tag,
   TriangleAlert,
   Calendar,
+  Bot,
 } from "lucide-react";
 import EmptyState from "../ui/EmptyState";
 import StatusIcon from "../ui/StatusIcon";
@@ -135,19 +136,21 @@ interface EventDescription {
 function describeIssueEvent(
   evt: TimelineEntry,
   who: string,
+  via?: string,
 ): EventDescription | null {
   const p = evt.payload || {};
   const name = (
     <span className="font-medium text-[var(--color-text-primary)]">{who}</span>
   );
+  const viaLabel = via ? <span title={via}><Bot className="w-3.5 h-3.5 inline-block align-[-2px] ml-1 mr-0.5 text-[var(--color-text-muted)]" /></span> : null;
   switch (evt.event_type) {
     case "CREATE":
-      return { before: <>{name} created</> };
+      return { before: <>{name}{viaLabel} created</> };
     case "COMMENT":
-      return { before: <>{name} commented on</> };
+      return { before: <>{name}{viaLabel} commented on</> };
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
-      return { before: <>{name} merged</>, after: strategy || undefined };
+      return { before: <>{name}{viaLabel} merged</>, after: strategy || undefined };
     }
     case "UPDATE": {
       if (p.status) {
@@ -160,20 +163,20 @@ function describeIssueEvent(
         };
         const status = String(p.status);
         const [verb, suffix] = verbs[status] ?? ["moved", `to ${status}`];
-        return { before: <>{name} {verb}</>, after: suffix || undefined };
+        return { before: <>{name}{viaLabel} {verb}</>, after: suffix || undefined };
       }
       if (p.assignee !== undefined) {
         const assignee = String(p.assignee);
-        if (!assignee) return { before: <>{name} unassigned</> };
-        return { before: <>{name} assigned</>, after: <>to <span className="font-medium text-[var(--color-text-primary)]">{shortName(assignee)}</span></> };
+        if (!assignee) return { before: <>{name}{viaLabel} unassigned</> };
+        return { before: <>{name}{viaLabel} assigned</>, after: <>to <span className="font-medium text-[var(--color-text-primary)]">{shortName(assignee)}</span></> };
       }
-      if (Array.isArray(p.labels)) return { before: <>{name} relabeled</> };
-      if (p.estimate !== undefined) return { before: <>{name} estimated</> };
-      if (p.priority !== undefined) return { before: <>{name} changed priority on</> };
-      if (p.title) return { before: <>{name} renamed</> };
-      if (p.description !== undefined) return { before: <>{name} updated the description of</> };
-      if (p.parent_id !== undefined) return { before: <>{name} changed parent of</> };
-      if (Array.isArray(p.dependencies)) return { before: <>{name} updated relationships on</> };
+      if (Array.isArray(p.labels)) return { before: <>{name}{viaLabel} relabeled</> };
+      if (p.estimate !== undefined) return { before: <>{name}{viaLabel} estimated</> };
+      if (p.priority !== undefined) return { before: <>{name}{viaLabel} changed priority on</> };
+      if (p.title) return { before: <>{name}{viaLabel} renamed</> };
+      if (p.description !== undefined) return { before: <>{name}{viaLabel} updated the description of</> };
+      if (p.parent_id !== undefined) return { before: <>{name}{viaLabel} changed parent of</> };
+      if (Array.isArray(p.dependencies)) return { before: <>{name}{viaLabel} updated relationships on</> };
       return null;
     }
     default: return null;
@@ -217,7 +220,8 @@ function daySummary(entries: TimelineEntry[]): string {
 
 function entryActor(entry: TimelineEntry): string {
   if (entry.kind === "commit") return shortName(entry.author ?? "");
-  return shortName(entry.created_by ?? "");
+  const actor = displayActor(entry.created_by ?? "", entry.on_behalf_of);
+  return actor.principal;
 }
 
 function extractContributors(entries: TimelineEntry[]): string[] {
@@ -664,13 +668,14 @@ function TimelineRow({
         {entry.issue_id
           ? <>
               {" on "}
-              <IssueLink issue={issue} title={title} onClick={onIssueClick} />
+              <span className="font-mono text-xs text-[var(--color-text-secondary)]">{entry.branch}</span>
             </>
           : <> <span className="text-[var(--color-text-primary)]">{entry.message}</span></>
         }
       </>
     : (() => {
-        const desc = describeIssueEvent(entry, shortName(entry.created_by ?? ""));
+        const actor = displayActor(entry.created_by ?? "", entry.on_behalf_of);
+        const desc = describeIssueEvent(entry, actor.principal, actor.via);
         if (!desc) return null;
         return <>
           {desc.before}

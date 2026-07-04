@@ -46,6 +46,7 @@ func runDrive(args []string) {
 	}
 
 	client := exponential.NewClient(cfg)
+	client.OnBehalfOf = client.GetUser()
 
 	opts := exponential.DriveOptions{
 		IssueID:    id,
