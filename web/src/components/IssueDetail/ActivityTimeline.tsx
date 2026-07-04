@@ -5,8 +5,9 @@ import remarkGfm from "remark-gfm";
 import { fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { Avatar, LabelBadge, StatusIcon } from "../ui";
-import { Triangle, ChevronDown, Bot } from "lucide-react";
+import { Triangle, ChevronDown } from "lucide-react";
 import { formatRelativeTime, linkifyIssueIds, displayActor } from "../../utils/format";
+import Tooltip from "../ui/Tooltip";
 
 type ActivityEntry =
   | { kind: "system"; author: string; via?: string; content: React.ReactNode; time: string }
@@ -205,8 +206,7 @@ export default function ActivityTimeline({
                 className="flex items-center gap-2 px-4 py-2 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
                 <Avatar name={entry.author} size="sm" />
-                <span>{entry.author}</span>
-                {entry.via && <span title={entry.via}><Bot className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></span>}
+                <Tooltip content={entry.via || ""}><span>{entry.author}</span></Tooltip>
                 {entry.content}
                 <span>·</span>
                 <span>{formatRelativeTime(entry.time)}</span>
@@ -221,10 +221,11 @@ export default function ActivityTimeline({
             >
               <div className="flex items-center gap-3 mb-2">
                 <Avatar name={entry.author} size="sm" />
-                <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                  {entry.author}
-                </span>
-                {entry.via && <span title={entry.via}><Bot className="w-3.5 h-3.5 text-[var(--color-text-muted)]" /></span>}
+                <Tooltip content={entry.via || ""}>
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">
+                    {entry.author}
+                  </span>
+                </Tooltip>
                 <span className="text-sm text-[var(--color-text-muted)]">
                   {formatRelativeTime(entry.time)}
                 </span>

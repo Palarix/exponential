@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ActivityEvent, Issue } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
+import Tooltip from "../ui/Tooltip";
 import {
   Plus,
   MessageSquareMore,
@@ -19,7 +20,6 @@ import {
   Tag,
   TriangleAlert,
   Paperclip,
-  Bot,
 } from "lucide-react";
 
 type ActIconKey =
@@ -86,21 +86,20 @@ function describeActivity(
 ): { icon: ActIconKey; sentence: ReactNode } | null {
   const p = evt.payload || {};
   const name = (
-    <span className="text-[var(--color-text-primary)] mr-1">{who}</span>
+    <Tooltip content={via || ""}><span className="text-[var(--color-text-primary)] mr-1">{who}</span></Tooltip>
   );
-  const viaLabel = via ? <span title={via}><Bot className="w-3.5 h-3.5 inline-block align-[-2px] ml-1 mr-0.5 text-[var(--color-text-muted)]" /></span> : null;
   switch (evt.type) {
     case "CREATE":
-      return { icon: "create", sentence: <>{name}{viaLabel} created</> };
+      return { icon: "create", sentence: <>{name} created</> };
     case "COMMENT":
-      return { icon: "comment", sentence: <>{name}{viaLabel} commented on</> };
+      return { icon: "comment", sentence: <>{name} commented on</> };
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return {
         icon: "merge",
         sentence: (
           <>
-            {name}{viaLabel} merged{strategy}
+            {name} merged{strategy}
           </>
         ),
       };
@@ -126,7 +125,7 @@ function describeActivity(
           icon: icons[status] ?? "status-backlog",
           sentence: (
             <>
-              {name}{viaLabel} {verbs[status] ?? `moved to ${status}`}
+              {name} {verbs[status] ?? `moved to ${status}`}
             </>
           ),
         };
@@ -136,13 +135,13 @@ function describeActivity(
         if (!assignee)
           return {
             icon: "assign",
-            sentence: <>{name}{viaLabel} removed the assignee from</>,
+            sentence: <>{name} removed the assignee from</>,
           };
         return {
           icon: "assign",
           sentence: (
             <>
-              {name}{viaLabel} assigned{" "}
+              {name} assigned{" "}
               <span className="text-[var(--color-text-primary)]">
                 {shortName(assignee)}
               </span>{" "}
@@ -152,23 +151,23 @@ function describeActivity(
         };
       }
       if (Array.isArray(p.labels))
-        return { icon: "labels", sentence: <>{name}{viaLabel} relabeled</> };
+        return { icon: "labels", sentence: <>{name} relabeled</> };
       if (p.estimate !== undefined)
-        return { icon: "estimate", sentence: <>{name}{viaLabel} estimated</> };
+        return { icon: "estimate", sentence: <>{name} estimated</> };
       if (p.priority !== undefined)
-        return { icon: "priority", sentence: <>{name}{viaLabel} changed priority of</> };
-      if (p.title) return { icon: "rename", sentence: <>{name}{viaLabel} renamed</> };
+        return { icon: "priority", sentence: <>{name} changed priority of</> };
+      if (p.title) return { icon: "rename", sentence: <>{name} renamed</> };
       if (p.description !== undefined)
         return {
           icon: "description",
-          sentence: <>{name}{viaLabel} updated the description of</>,
+          sentence: <>{name} updated the description of</>,
         };
       if (p.parent_id !== undefined)
-        return { icon: "parent", sentence: <>{name}{viaLabel} changed parent of</> };
+        return { icon: "parent", sentence: <>{name} changed parent of</> };
       if (Array.isArray(p.dependencies))
         return {
           icon: "relations",
-          sentence: <>{name}{viaLabel} updated relationships of</>,
+          sentence: <>{name} updated relationships of</>,
         };
       return null;
     }
@@ -179,7 +178,7 @@ function describeActivity(
         icon: "artifact" as ActIconKey,
         sentence: (
           <>
-            {name}{viaLabel} {action}{" "}
+            {name} {action}{" "}
             <span className="font-mono text-[var(--color-text-primary)]">
               {filename}
             </span>{" "}

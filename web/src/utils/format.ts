@@ -10,8 +10,8 @@ export interface ActorDisplay {
 export function displayActor(createdBy: string, onBehalfOf?: string): ActorDisplay {
   if (onBehalfOf) {
     return {
-      principal: shortName(onBehalfOf),
-      via: shortName(createdBy),
+      principal: shortName(createdBy),
+      via: shortName(onBehalfOf),
     };
   }
   return { principal: shortName(createdBy) };
