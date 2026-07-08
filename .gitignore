@@ -3,6 +3,7 @@
 
 # Generated frontend assets (rebuilt by `make frontend`/`make build`)
 internal/server/static/
+!internal/server/static/.gitkeep
 
 # Snapshots
 .xpo/issues.snapshot.json
