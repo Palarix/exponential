@@ -1,20 +1,20 @@
 # Exponential
 
-The git-native issue tracker for humans and AI agents. Issues are committed alongside the code that resolves them, the board is a single binary you can run anywhere, and AI agents talk to it through a native MCP server — no SaaS, no API keys.
+Mission control for human-agent software teams. Issues live in your git repo, the board is a single binary, and AI agents talk to it through a native MCP server. No SaaS, no API keys, no database to run.
 
 ## Why xpo
 
-- **Git-native** — issues live in `.xpo/` and are tracked with your code. Branches, merges, and history apply to your backlog the same way they apply to everything else.
-- **Single binary** — `xpo` ships the CLI, the web UI, and the MCP server in one Go executable. No Node.js, no Docker, no database to run.
-- **Agent-first** — a built-in MCP server gives AI coding agents structured tools for reading, writing, and linking issues. No more shelling out to a CLI and praying about quoting.
+- **Git-native** — issues live in `.xpo/` and travel with your code. Branches, merges, and history apply to your backlog the same way they apply to everything else.
+- **Single binary** — `xpo` ships the CLI, the web UI, and the MCP server in one Go executable.
+- **Agent-first** — a built-in MCP server gives AI coding agents structured tools for reading, writing, and linking issues. No shelling out to a CLI and praying about quoting.
 - **Event-sourced** — every change is an append-only event with a full audit trail. Merge conflicts are rare; "who changed what, when, and why" is always answerable.
-- **Local web UI** — `xpo board` opens a Kanban in your browser. Drag-and-drop, sub-issues, keyboard shortcuts, command palette.
+- **Local web UI** — `xpo board` opens a Kanban board in your browser. Drag-and-drop, sub-issues, keyboard shortcuts, command palette.
 
 ## Quickstart
 
 ```bash
 # 1. Install (see below for other methods)
-go install github.com/palarix/xpo/cmd/xpo@latest
+go install github.com/palarix/exponential/cmd/exponential@latest
 
 # 2. Initialize in your project
 cd path/to/your/repo
@@ -27,18 +27,18 @@ xpo add "Wire up login form" --label feature
 xpo board
 ```
 
-That's the whole loop. Everything else is a refinement of these four steps (see below)
+That's the whole loop. Everything else is a refinement of these four steps.
 
 ## Installation
 
 ### Binary download
 
-Grab the latest release for your platform from [GitHub Releases](https://github.com/palarix/xpo/releases) and put it on your `PATH`.
+Grab the latest release for your platform from [GitHub Releases](https://github.com/palarix/exponential/releases) and put it on your `PATH`.
 
 ### Go install
 
 ```bash
-go install github.com/palarix/xpo/cmd/xpo@latest
+go install github.com/palarix/exponential/cmd/exponential@latest
 ```
 
 Requires Go 1.25+. This builds the CLI without the embedded web UI. For the full build (CLI + web UI), build from source.
@@ -48,8 +48,8 @@ Requires Go 1.25+. This builds the CLI without the embedded web UI. For the full
 Requires Go 1.25+ and [bun](https://bun.sh).
 
 ```bash
-git clone https://github.com/palarix/xpo.git
-cd xpo
+git clone https://github.com/palarix/exponential.git
+cd exponential
 make && make install
 ```
 
@@ -211,7 +211,7 @@ xpo artifact delete <id> debug.log
 
 ## Web UI
 
-`xpo board` spins up a local web server (default port `8080`), embeds the React frontend from the binary, and opens your browser. The UI is 
+`xpo board` spins up a local web server (default port `8080`), embeds the React frontend from the binary, and opens your browser:
 
 - Drag-and-drop across status columns (hold `Cmd`/`Ctrl` for precise-slot mode).
 - Hold `Alt` while dragging onto another issue to nest it as a sub-issue.
@@ -271,7 +271,7 @@ xpo logout
 
 ### Board
 
-In distributed mode `xpo board` will proxy to your remote so you get the full web UI locally while data lives on the server:
+In distributed mode `xpo board` will proxy to your remote so you get the full web UI locally while data lives on the server.
 
 ### Docker deployment
 
@@ -404,7 +404,7 @@ This appends an entry under `mcpServers` in your user-level Claude Code settings
 
 **3. Manual user-level edit.** Add the snippet from option 1 to `~/.claude/settings.json` under `mcpServers`.
 
-After any of these, restart Claude Code (or run `/mcp` in-session) and the seven MCP tools become available to the agent.
+After any of these, restart Claude Code (or run `/mcp` in-session) and the MCP tools become available to the agent.
 
 ### Available tools
 
@@ -483,10 +483,10 @@ make release VERSION=x.y.z  # bump version, stamp changelog, tag
 ### Project structure
 
 ```
-cmd/xpo/          CLI commands (Cobra)
+cmd/exponential/  CLI commands (Cobra)
 internal/
   auth/             JWT signing/verification, SSH key auth, middleware
-  xpo/            Core business logic — transports, projections, workflows
+  exponential/      Core business logic — transports, projections, workflows
   config/           Config loading, cycles, permissions
   mcpserver/        MCP protocol handler and tool definitions
   model/            Domain types (Issue, Event, Dependency, etc.)

@@ -8,3 +8,15 @@ internal/server/static/
 .xpo/issues.snapshot.json
 NOTES.md
 .xpo/git.lock
+
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store

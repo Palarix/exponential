@@ -1,6 +1,6 @@
 # Exponential Design System
 
-dark theme design system for the Exponential web application.
+Dark theme design system for the Exponential web application.
 
 ## Color Tokens
 

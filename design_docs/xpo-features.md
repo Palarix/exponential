@@ -211,7 +211,7 @@ Gaps and absent capabilities, for roadmap context:
 - **No roadmap / timeline view** — no Gantt chart or date-based planning
 - **No cross-repo issues** — each `.xpo/` is scoped to one repository
 - **No API for external integrations** — REST API is local-only, no stable public contract
-- **No import/export** — no migration path from Jira, Linear, GitHub Issues, etc.
+- **No import/export** — no migration path from Jira, GitHub Issues, etc.
 - **No templates** — no issue templates or recurring issue patterns
 - **No custom fields** — fixed schema, no user-defined metadata
 - **No search saved views** — filters are ephemeral, not persistable
