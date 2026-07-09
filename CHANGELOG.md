@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Updated agent instructions to MCP-first workflow — MCP tools are now the primary interface, CLI command reference is supplemental
+
+### Fixed
+
+- Makefile `frontend` and `clean` targets now preserve `internal/server/static/.gitkeep` so CI test runs don't fail from a missing embed directory
+
 ## [1.0.0] - 2026-07-08
 
 ### Changed
