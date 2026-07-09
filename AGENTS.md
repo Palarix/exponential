@@ -1,165 +1,87 @@
 # Agent Instructions
 
-This repository uses the `xpo` issue tracker as the persistent project memory and to manage development tasks. As an AI agent, you should use `xpo` to understand the current state of the project, plan your work, record new findings, and to document the rationale and work done to implement your tasks.
+This repository uses the `xpo` issue tracker (Exponential) as the persistent project memory and to manage development tasks. As an AI agent, you should use `xpo` to understand the current state of the project, plan your work, record new findings, and to document the rationale and work done to implement your tasks.
+
+## How to Interact with `xpo`
+
+An `xpo` MCP server is registered in [.mcp.json](.mcp.json). **Always use the MCP tools** — do not shell out to the `xpo` CLI for the agent workflow.
+
+| Action | MCP tool |
+|---|---|
+| List / search issues | `mcp__xpo__list` |
+| Read one issue | `mcp__xpo__show` |
+| Create an issue | `mcp__xpo__add` |
+| Update fields (incl. **status transitions**, labels, assignee, story_points, parent) | `mcp__xpo__update` |
+| Add a comment | `mcp__xpo__comment` |
+| Add a dependency link | `mcp__xpo__link` |
+| View audit trail | `mcp__xpo__history` |
+| Read/write/delete a spec | `mcp__xpo__spec` |
+| Read/write/delete a walkthrough | `mcp__xpo__walkthrough` |
+| Manage generic artifacts | `mcp__xpo__artifact` |
+
+Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`) are done by calling `update` with the `status` field. When you write descriptions or comments with the MCP tools, do not escape non-printing characters.
+
+> The CLI command reference under [claude/skills/](claude/skills/) is supplemental material for downstream users of `xpo` to install in their own projects. It is not the interface this repository's agents should use.
 
 ## Development Workflow
 
-```bash
-# 1. Check for existing tasks and discover issue-ids
-xpo ls
-
-# 2a. Check task details if existing entry
-xpo show <issue-id>
-
-# 2b. Create new entry if not exists
-xpo add --label '<type>' <title>
-
-# 3. Set issue status to in progress
-xpo start <issue-id>
-
-# 4. Make changes
-# ...
-
-# 5. Test changes
-go test ./...
-go build ./...
-
-# 6. Add a comment with a summary of the changes or walkthrough
-xpo comment <issue-id> "<summary>"
-
-# 7. Set issue status to done
-xpo done <issue-id>
-```
-
-## Using `xpo` to Organize Your Work
-
-`xpo` serves as the persistent memory and issue tracker for this project.
-
-- **Start** by reading the backlog to understand what needs to be done.
-- **Update** the status of tasks you are working on.
-- **Record** any new tasks or bugs you discover as new issues. Do not just fix them implicitly or leave them as TODO comments in code; create a tracked issue so it can be prioritized.
-- **Persist** your planning. If a task is too big, break it down into child tasks in `xpo`.
-- **Organize** your work: use issues labeled as `epic` with sub-issues (`issues` with a `parent-id` set) to organize large chunks of work.
+1. **Discover** — `list` to see the board; `show` for details on candidate issues.
+2. **Plan** — if no issue covers the work, create one with `add` (only after the user approves the design).
+3. **Start** — `update` with `status: "DOING"` before editing any code.
+4. **Implement & test** — make changes, then run `make test` / `make build` to check against the test suite.
+5. **Document** — `comment` with a markdown summary of what changed and why.
+6. **Complete** — `update` with `status: "DONE"` once the user approves.
 
 ## Strict Workflow Rules
 
-1. **No "Ghost" Work**: Any work done by an agent MUST be backed by a xpo task/bug/epic.
-2. **Only pick up planned work:** Do not pick up and start work on issues with the `BACKLOG` status. Issues must be `PLANNED` to be eligible for being worked on.
-3. **Missing Tasks**: If no issue exists for your current objective, you must create it first. Do this only _after_ the user approves your initial design/plan.
-4. **In-Progress**: Before starting any code work (editing files), you MUST set the corresponding xpo task to `DOING` using `xpo start`.
-5. **Completion**: You MUST set the xpo task to `DONE` using `xpo done` _only after_ the user approves the final review/walkthrough. You MUST add a comment to the issue first that summarized your changes.
+1. **No "ghost" work** — every code change MUST be backed by an xpo issue.
+2. **Only pick up planned work** — do not start work on issues with `BACKLOG` status. Issues must be `PLANNED` to be eligible.
+3. **Check dependencies first** — before picking up an issue, inspect its `dependencies` array via `show`. If any `depends_on` or `blocked_by` targets are not `DONE`, flag the unresolved blockers before starting work.
+4. **Missing tasks** — if no issue exists for your current objective, create it first, but only _after_ the user approves your design/plan.
+5. **In-progress before edits** — before touching any file, transition the issue to `DOING` via `update`.
+6. **Comment before complete** — add a summary comment via `comment` _before_ transitioning to `DONE`, and only do so after the user approves the final walkthrough.
+7. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `link`), not left as TODOs in code.
 
 ## Agent Identity
 
-When performing actions that modify the tracker (add, update), ensure you are identified as an agent if possible. For instance, if you are an `OpenCode Agent`, identify yourself as `OpenCode <agent@opencode.local>` - using the host machine name as part of the email address is highly encouraged so we can identify code contributed from different execution environments!
+When the tracker records who made a change, identify yourself as an agent. Use the form `<Agent Name> <agent@<host>.local>` — e.g. `Claude Code <agent@nicbet-wsl.local>`. The host portion helps distinguish contributions from different execution environments.
 
-## Usage Guide
+## Usage Notes
 
-### 1. Discovery (Reading the State)
+### Discovery
 
-- Before creating new issues, first ensure that there are no existing issues that already cover the same work (`xpo ls`)
-- If an issue looks related, inspect issue details first (`xpo show <id>`) to determine if its related
-- Only if no related issues exist, you may create a new issue in the project
+- Before creating a new issue, search with `list` (use the `match` parameter for free-text search) to ensure no existing issue already covers the work.
+- If an issue looks related, read it fully with `show` before deciding.
 
-#### Examples:
+### Creating Issues
 
-**List all issues:**
+- Always set at least one label via the `labels` parameter. Prefer the built-in labels (`bug`, `feature`, `epic`) unless something more specific fits.
+- Keep titles under 100 characters.
+- Descriptions render as **Markdown** in the web UI. Use headings, lists, code blocks, bold/italic, and links. Use double newlines between paragraphs. Markdown checklists (`- [ ] Title`) can sub-divide task steps.
+- When a new issue belongs to an Epic, set `parent` to the epic's ID.
 
-```bash
-./xpo list
-```
+### Linking
 
-Use this to find your assigned task or pick the next prioritized item from the backlog.
+Use `link` to express relationships. Supported types: `blocks`, `blocked_by`, `depends_on`, `dependency_of`, `duplicates`, `duplicated_by`, `relates_to`. When a task spawns follow-up work, link the new issue back to the originating one.
 
-**Read a specific issue:**
+### Specs and Walkthroughs
 
-```bash
-./xpo show <issue-id>
-```
+- **Before starting implementation**, read the issue's spec (if any) via `spec` with `operation: "read"`. The spec captures requirements, acceptance criteria, and design decisions agreed upon before coding begins.
+- **After implementation**, write a walkthrough via `walkthrough` with `operation: "write"` summarizing what changed and why.
+- Use `artifact` for attaching supplemental files (test outputs, design diagrams, logs) that support the issue but don't fit into spec or walkthrough.
 
-Always read the full details of an issue before starting work. It may contain description, acceptance criteria, or context from previous agents.
+### Completion Comments
 
-### 2. Planning (Creating Issues)
+Comments are markdown. A good completion comment includes:
 
-- Always add a label to new issues using the `--label <name>` option
-- When possible pick from the built-in labels ('bug', 'feature', 'epic') unless another label is more appropriate
-- Keep the title under 100 characters
-- You may use markdown for the description and are encouraged to do so. Markdown supports checklists (`- [ ] Title` format) you can use to further sub-divide the task steps.
-- When a new issue belongs conceptually to an Epic, add the corresponding epic as a parent to the new issue (`--parent <id>` option)
+- A short **Summary** section listing what changed (use backtick code spans for file/function names).
+- The **rationale** — why this approach, why not the alternatives.
+- Anything a future agent reading the issue would need to pick up where you left off.
 
-#### Examples:
+## Building This Project
 
-**Create an Epic (High-level goal):**
-
-```bash
-./xpo add --label "epic" "Refactor Database Layer" --desc 'Move from SQLite to Postgres'
-```
-
-**Create a Task (Actionable item):**
-
-```bash
-./xpo add --label "task" "Create Migration Script" -p <epic-id> --desc 'Write SQL migration'
-```
-
-**Filing Bugs/Findings:**
-If you encounter a bug or necessary refactor while working on something else, file it immediately so it isn't lost.
-
-```bash
-./xpo add --label "bug" "Race condition in login" --desc 'Observed when...'
-```
-
-### 3. Execution (Updating Status)
-
-- Mark the issue as "in progress" by calling `xpo start <id>` before starting your work and making code changes
-- Record any new tasks, issues or bugs discovered during your work as new issues using `xpo add` (see above)
-- When new tasks, issue or bugs are created this way, link them to the currently worked on issue using the `dependencies` mechanism
-
-#### Examples:
-
-**Start a task:**
-
-```bash
-# Mark the given issue-id as being in progress by starting work on that issue
-./xpo start <issue-id>
-```
-
-**Update details:**
-
-```bash
-# Add a new comment to the given issue-id
-xpo comment <issue-id> 'Updated description with new findings...'
-```
-
-**Add a dependency link between two issues**:
-
-```bash
-# Add a dependency of given type from some-id to other-id
-./xpo link <some-id> <other-id> -t "<type>"
-```
-
-### 4. Completion (Finishing Work)
-
-- When work on your issue, task, or bug is complete, first add a summary of the changes together with your rationale for the changes as a comment using the `xpo comment <id>` command.
-- Then mark the issue as completed using the `xpo done <id>` command.
-
-#### Examples:
-
-**Add walkthrough:**
-
-```bash
-# Add a new comment to the given issue-id
-xpo comment <issue-id> 'Summary of the changes and rationale followed'
-```
-
-**Mark as Done:**
-
-```bash
-./xpo done <issue-id>
-```
-
-## Building this project
-
-- Use the `make cli` command to compile the `xpo` binary.
-- Use the `make frontend` command to compile the web application assets.
-- Use the `make build` command to build the CLI and embed the web application assets in the Go binary.
-- Use the `make test` command to execute the test suite
+- `make cli` — compile the `xpo` binary.
+- `make frontend` — build the web application assets.
+- `make build` — build the CLI with the web assets embedded.
+- `make test` — run the test suite.
+- Always use `bun` and `bunx` over `npm` and `npx` when available.
