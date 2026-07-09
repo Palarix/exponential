@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-//go:embed static/*
+//go:embed all:static
 var staticFiles embed.FS
 
 // GetStaticHandler returns an http.Handler for the embedded static files.
