@@ -9,6 +9,7 @@ frontend:
 	cd web && bun install && bun run build
 	rm -rf internal/server/static
 	cp -r web/dist internal/server/static
+	touch internal/server/static/.gitkeep
 
 # Build the Go binary (depends on frontend)
 build: frontend cli
@@ -22,6 +23,8 @@ clean:
 	rm -f $(BINARY_NAME)
 	rm -rf web/dist
 	rm -rf internal/server/static
+	mkdir -p internal/server/static
+	touch internal/server/static/.gitkeep
 
 test:
 	go test -v ./...
