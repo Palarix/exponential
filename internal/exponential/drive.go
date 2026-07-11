@@ -56,11 +56,13 @@ type evalResponse struct {
 	Feedback string `json:"feedback,omitempty"`
 }
 
-// driveLogger handles formatted output for xpo drive with phase headers.
+// driveLogger handles formatted output for xpo drive with collapsible phases.
 type driveLogger struct {
 	isTTY      bool
 	mu         sync.Mutex
 	phaseStart time.Time
+	phaseTitle string
+	lineCount  int // step lines printed in current phase (excl. header)
 }
 
 func newDriveLogger() *driveLogger {
@@ -77,13 +79,24 @@ var (
 	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#6c757d"))
 )
 
+func (l *driveLogger) header(issueID, title, agent string) {
+	line := fmt.Sprintf("Driving %s %s (%s)", issueID, title, agent)
+	if l.isTTY {
+		fmt.Printf("\n%s\n", phaseStyle.Render(line))
+	} else {
+		fmt.Printf("\n%s\n", line)
+	}
+}
+
 func (l *driveLogger) phase(title string) {
 	l.endPhase()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.phaseStart = time.Now()
+	l.phaseTitle = title
+	l.lineCount = 0
 	if l.isTTY {
-		fmt.Printf("\n%s\n", phaseStyle.Render(title))
+		fmt.Printf("\n%s %s\n", dimStyle.Render("●"), phaseStyle.Render(title))
 	} else {
 		fmt.Printf("\n%s\n", title)
 	}
@@ -97,11 +110,21 @@ func (l *driveLogger) endPhase() {
 	}
 	elapsed := time.Since(l.phaseStart).Round(time.Millisecond)
 	l.phaseStart = time.Time{}
+
 	if l.isTTY {
-		fmt.Printf("  %s\n", dimStyle.Render(fmt.Sprintf("completed in %s", formatDuration(elapsed))))
+		// Erase all step lines + phase header + leading blank line
+		totalLines := l.lineCount + 2
+		for i := 0; i < totalLines; i++ {
+			fmt.Printf("\033[A\r\033[K")
+		}
+		fmt.Printf("%s %s %s\n",
+			successStyle.Render("✔"),
+			l.phaseTitle,
+			dimStyle.Render(fmt.Sprintf("(%s)", formatDuration(elapsed))))
 	} else {
-		fmt.Printf("  completed in %s\n", formatDuration(elapsed))
+		fmt.Printf("completed in %s\n", formatDuration(elapsed))
 	}
+	l.lineCount = 0
 }
 
 func formatDuration(d time.Duration) string {
@@ -119,6 +142,7 @@ func formatDuration(d time.Duration) string {
 func (l *driveLogger) ok(msg string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.lineCount++
 	if l.isTTY {
 		fmt.Printf("  %s %s\n", successStyle.Render("✔"), msg)
 	} else {
@@ -129,6 +153,7 @@ func (l *driveLogger) ok(msg string) {
 func (l *driveLogger) fail(msg string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.lineCount++
 	if l.isTTY {
 		fmt.Printf("  %s %s\n", failStyle.Render("✘"), msg)
 	} else {
@@ -139,6 +164,7 @@ func (l *driveLogger) fail(msg string) {
 func (l *driveLogger) warn(msg string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.lineCount++
 	if l.isTTY {
 		fmt.Printf("  %s %s\n", warnStyle.Render("⚠"), msg)
 	} else {
@@ -149,6 +175,7 @@ func (l *driveLogger) warn(msg string) {
 func (l *driveLogger) info(msg string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.lineCount++
 	if l.isTTY {
 		fmt.Printf("  %s\n", dimStyle.Render(msg))
 	} else {
@@ -192,11 +219,280 @@ func (l *driveLogger) spin(label string, fn func() error) error {
 	return err
 }
 
+var toolLabels = map[string]string{
+	"Read":         "Reading",
+	"Edit":         "Editing",
+	"Write":        "Writing",
+	"Bash":         "",
+	"WebSearch":    "Searching",
+	"WebFetch":     "Fetching",
+	"LSP":          "Analyzing",
+	"TaskCreate":   "Planning",
+	"TaskUpdate":   "Tracking",
+	"ToolSearch":   "Loading tools",
+	"NotebookEdit": "Editing notebook",
+}
+
+func toolLabel(name string) string {
+	if label, ok := toolLabels[name]; ok {
+		return label
+	}
+	if strings.HasPrefix(name, "mcp__") {
+		parts := strings.SplitN(name, "__", 3)
+		if len(parts) == 3 {
+			return fmt.Sprintf("Using %s", parts[2])
+		}
+	}
+	return fmt.Sprintf("Using %s", name)
+}
+
+func termWidth() int {
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		return 80
+	}
+	return w
+}
+
+var thinkingVerbs = []string{
+	"Thinking",
+	"Pondering",
+	"Mulling",
+	"Considering",
+	"Tinkering",
+	"Deliberating",
+	"Noodling",
+	"Iterating",
+	"Puzzling",
+	"Hacking",
+	"Brewing",
+	"Wrangling",
+	"Cooking",
+	"Sketching",
+	"Assembling",
+}
+
+type thinkingCycler struct {
+	idx int
+}
+
+func (tc *thinkingCycler) next() string {
+	verb := thinkingVerbs[tc.idx%len(thinkingVerbs)]
+	tc.idx++
+	return verb
+}
+
+// newStreamDisplay creates a streaming display with a background ticker for
+// smooth spinner animation. The callback updates state; the ticker renders.
+func (l *driveLogger) newStreamDisplay(label string, showText bool) (*streamDisplay, StreamCallback) {
+	sd := &streamDisplay{
+		isTTY:     l.isTTY,
+		label:     label,
+		showText:  showText,
+		frames:    []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
+		idleLabel: thinkingVerbs[0],
+		stop:      make(chan struct{}),
+	}
+	return sd, sd.callback
+}
+
+type streamDisplay struct {
+	isTTY         bool
+	label         string
+	showText      bool
+	compact       bool
+	frames        []string
+	frameIdx      int
+	headerPrinted bool
+	mu            sync.Mutex
+	activity      string
+	detail        string
+	textBuf       string
+	thinking      thinkingCycler
+	isThinking    bool
+	thinkingNext  time.Time
+	idleLabel     string
+	idleNext      time.Time
+	stop          chan struct{}
+	wg            sync.WaitGroup
+}
+
+func (sd *streamDisplay) callback(ev StreamEvent) {
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	switch ev.Kind {
+	case StreamToolStart:
+		if ev.Text != "" {
+			sd.isThinking = false
+			sd.activity = toolLabel(ev.Text)
+			if ev.ToolArg != "" {
+				sd.detail = shortenPath(ev.ToolArg)
+			}
+			sd.textBuf = ""
+		}
+	case StreamToolDone:
+		sd.activity = ""
+		sd.detail = ""
+	case StreamThinking:
+		sd.isThinking = true
+		sd.thinkingNext = time.Now()
+		sd.activity = sd.thinking.next()
+		sd.detail = ""
+		sd.textBuf = ""
+	case StreamText:
+		if sd.showText {
+			sd.textBuf += ev.Text
+			if len(sd.textBuf) > 80 {
+				sd.textBuf = sd.textBuf[len(sd.textBuf)-80:]
+			}
+		}
+	case StreamStatus:
+		// Ignore low-level statuses like "requesting"
+	}
+}
+
+// start begins the background render ticker.
+func (sd *streamDisplay) start() {
+	if !sd.isTTY {
+		fmt.Printf("  · %s\n", sd.label)
+		return
+	}
+	sd.wg.Add(1)
+	go func() {
+		defer sd.wg.Done()
+		for {
+			select {
+			case <-sd.stop:
+				return
+			default:
+				sd.mu.Lock()
+				sd.render()
+				sd.mu.Unlock()
+				time.Sleep(40 * time.Millisecond)
+			}
+		}
+	}()
+}
+
+func (sd *streamDisplay) render() {
+	frame := sd.frames[sd.frameIdx%len(sd.frames)]
+	sd.frameIdx++
+
+	if sd.isThinking && time.Now().After(sd.thinkingNext) {
+		sd.activity = sd.thinking.next()
+		sd.thinkingNext = time.Now().Add(3 * time.Second)
+	}
+
+	if !sd.headerPrinted {
+		if !sd.compact {
+			fmt.Printf("  %s %s\n", dimStyle.Render("○"), sd.label)
+		}
+		sd.headerPrinted = true
+	}
+
+	// Build the detail sub-line
+	// Cycle the idle label every 3 seconds
+	if sd.activity == "" && sd.detail == "" && time.Now().After(sd.idleNext) {
+		sd.idleLabel = sd.thinking.next()
+		sd.idleNext = time.Now().Add(3 * time.Second)
+	}
+
+	var detail string
+	switch {
+	case sd.activity != "" && sd.detail != "":
+		detail = sd.activity + " " + sd.detail
+	case sd.activity != "":
+		detail = sd.activity
+	case sd.detail != "":
+		detail = sd.detail
+	default:
+		detail = sd.idleLabel
+	}
+	if sd.textBuf != "" {
+		snippet := strings.TrimSpace(sd.textBuf)
+		snippet = strings.ReplaceAll(snippet, "\n", " ")
+		if len(snippet) > 50 {
+			snippet = "…" + snippet[len(snippet)-49:]
+		}
+		if detail != "" {
+			detail += " · " + snippet
+		} else {
+			detail = snippet
+		}
+	}
+
+	line := frame + " " + detail
+	maxLen := termWidth() - 5
+	if maxLen > 0 && len(line) > maxLen {
+		line = line[:maxLen-1] + "…"
+	}
+	fmt.Printf("\r\033[K  %s %s", dimStyle.Render("└"), dimStyle.Render(line))
+}
+
+// shortenPath trims a file path to just the last two components for display.
+func shortenPath(s string) string {
+	if len(s) <= 40 {
+		return s
+	}
+	parts := strings.Split(s, "/")
+	if len(parts) <= 2 {
+		return s
+	}
+	return "…/" + strings.Join(parts[len(parts)-2:], "/")
+}
+
+func (sd *streamDisplay) clear() {
+	close(sd.stop)
+	sd.wg.Wait()
+	if !sd.isTTY {
+		return
+	}
+	if sd.compact {
+		// Compact mode: only the detail line to clear
+		fmt.Printf("\r\033[K")
+	} else if sd.headerPrinted {
+		// Clear detail line, move up, clear header
+		fmt.Printf("\r\033[K\033[A\r\033[K")
+	}
+}
+
+// spinStreaming runs an agent call with streaming progress display.
+func (l *driveLogger) spinStreaming(label string, exec AgentExecutor, ctx context.Context, prompt string) (*AgentResult, error) {
+	sd, cb := l.newStreamDisplay(label, false)
+	sd.start()
+	result, err := exec.RunStreaming(ctx, prompt, cb)
+	sd.clear()
+	return result, err
+}
+
+// spinStreamingCompact runs an agent call showing only the detail line
+// directly, with no step header. Used when a phase has a single step.
+func (l *driveLogger) spinStreamingCompact(exec AgentExecutor, ctx context.Context, prompt string) (*AgentResult, error) {
+	sd, cb := l.newStreamDisplay("", false)
+	sd.compact = true
+	sd.start()
+	result, err := exec.RunStreaming(ctx, prompt, cb)
+	sd.clear()
+	return result, err
+}
+
+// spinStreamingJSON runs a supervisor agent call with streaming progress,
+// parses the JSON result, and suppresses text deltas (which are raw JSON).
+func (l *driveLogger) spinStreamingJSON(label string, exec AgentExecutor, ctx context.Context, prompt string, out interface{}) error {
+	sd, cb := l.newStreamDisplay(label, false)
+	sd.start()
+	err := supervisorStreamJSON(ctx, exec, prompt, out, cb)
+	sd.clear()
+	return err
+}
+
 func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	log := newDriveLogger()
 	cfg := c.Config
-	supervisor := coalesce(opts.Supervisor, cfg.Drive.Supervisor, "claude")
-	coder := coalesce(opts.Coder, cfg.Drive.Coder, "claude")
+	supervisor := coalesce(opts.Supervisor, cfg.Drive.Supervisor.Agent, "claude")
+	supervisorModel := cfg.Drive.Supervisor.Model
+	coder := coalesce(opts.Coder, cfg.Drive.Coder.Agent, "claude")
 	isGit := CheckGitRepo()
 
 	// ── Pre-flight ──────────────────────────────────────────────────
@@ -212,7 +508,6 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		return &DriveResult{Status: "no-work", Messages: []string{"Nothing to pick"}}, nil
 	}
 
-	issueMeta := formatIssueMeta(issue)
 	result := &DriveResult{IssueID: issue.ID, Title: issue.Title}
 
 	var problems []string
@@ -232,9 +527,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	}
 
 	if opts.DryRun {
-		log.phase("Pre-flight")
-		log.ok(issueMeta)
-		log.ok(fmt.Sprintf("Agent: %s", agentLine))
+		log.header(issue.ID, issue.Title, agentLine)
 		if len(problems) > 0 {
 			log.fail(strings.Join(problems, "; "))
 		} else {
@@ -254,7 +547,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	driveStart := time.Now()
 
 	// Create agent executors
-	supExec := NewAgentExecutor(supervisor)
+	supExec := NewAgentExecutor(supervisor, supervisorModel)
 	coderExec := NewAgentExecutor(coder)
 
 	// Set agent identity — attribute work to the agent, not the user
@@ -282,9 +575,8 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	}
 
 	// ── Preparation ─────────────────────────────────────────────────
+	log.header(issue.ID, issue.Title, agentLine)
 	log.phase("Preparation")
-	log.ok(issueMeta)
-	log.ok(fmt.Sprintf("Agent: %s", agentLine))
 
 	branch, _, err := c.StartWork(issue.ID, true)
 	if err != nil {
@@ -311,42 +603,62 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 
 	spec := issue.Description
 
-	// Evaluate spec
+	// Evaluate spec — first pass is always just evaluation
 	var sr specResponse
-	for attempt := 0; attempt < 3; attempt++ {
-		err := log.spin("Evaluating spec", func() error {
-			return supervisorJSON(ctx, supExec, buildSpecPrompt(spec), &sr)
-		})
-		if err != nil {
-			return nil, recoverHint(fmt.Errorf("spec evaluation: %w", err))
-		}
-		if sr.Ready {
-			log.ok("Spec is implementation-ready")
-			break
-		}
-		if sr.RevisedSpec != "" {
-			spec = sr.RevisedSpec
-			if err := c.WriteSpec(issue.ID, spec); err != nil {
-				return nil, recoverHint(fmt.Errorf("update spec: %w", err))
+	err = log.spinStreamingJSON("Evaluating spec", supExec, ctx, buildSpecPrompt(spec), &sr)
+	if err != nil {
+		return nil, recoverHint(fmt.Errorf("spec evaluation: %w", err))
+	}
+	if sr.Ready {
+		log.ok("Spec is implementation-ready")
+	} else {
+		log.warn("Spec needs work")
+		// Revise up to 3 times
+		for attempt := 0; attempt < 3; attempt++ {
+			if sr.RevisedSpec != "" {
+				spec = sr.RevisedSpec
 			}
-			log.ok("Spec revised, re-evaluating")
-		}
-		if attempt == 2 {
-			return nil, recoverHint(fmt.Errorf("spec not ready after 3 revisions"))
+			reviseLabel := "Revising spec"
+			if attempt > 0 {
+				reviseLabel = fmt.Sprintf("Revising spec (attempt %d)", attempt+1)
+			}
+			err = log.spinStreamingJSON(reviseLabel, supExec, ctx, buildSpecPrompt(spec), &sr)
+			if err != nil {
+				return nil, recoverHint(fmt.Errorf("spec revision: %w", err))
+			}
+			if sr.Ready {
+				if sr.RevisedSpec != "" {
+					spec = sr.RevisedSpec
+				}
+				if err := c.WriteSpec(issue.ID, spec); err != nil {
+					return nil, recoverHint(fmt.Errorf("save spec: %w", err))
+				}
+				log.ok("Spec revised and ready")
+				break
+			}
+			if attempt == 2 {
+				return nil, recoverHint(fmt.Errorf("spec not ready after 3 revisions"))
+			}
 		}
 	}
 
 	// Plan implementation
 	var cr contextResponse
-	err = log.spin("Planning implementation", func() error {
-		return supervisorJSON(ctx, supExec, buildContextPrompt(spec), &cr)
-	})
+	err = log.spinStreamingJSON("Planning implementation", supExec, ctx, buildContextPrompt(spec), &cr)
 	if err != nil {
 		return nil, recoverHint(fmt.Errorf("planning: %w", err))
 	}
 	testCmd := coalesce(opts.TestCmd, cfg.Drive.TestCmd, cr.TestCmd)
-	if testCmd == "" {
-		return nil, recoverHint(fmt.Errorf("no test command: set --test-cmd, configure [drive] test_cmd, or ensure the supervisor detects one"))
+	if testCmd != "" {
+		if _, err := runTestCmd(testCmd); err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() != 1 {
+				// Exit code 1 = tests ran but failed (legitimate).
+				// Other codes (2=make error, 126=permission, 127=not found, etc.)
+				// indicate the test command itself is broken.
+				log.warn(fmt.Sprintf("Test command failed (exit %d): %s — skipping tests", exitErr.ExitCode(), testCmd))
+				testCmd = ""
+			}
+		}
 	}
 	log.ok(fmt.Sprintf("Context ready — %d files identified", len(cr.Files)))
 
@@ -364,11 +676,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		}
 
 		coderPrompt := buildCoderPrompt(spec, cr.Context, cr.Files, testCmd, branch, feedback)
-		workLabel := fmt.Sprintf("Working on %s %s", dimStyle.Render(issue.ID), issue.Title)
-		err := log.spin(workLabel, func() error {
-			_, e := coderExec.Run(ctx, coderPrompt)
-			return e
-		})
+		_, err := log.spinStreamingCompact(coderExec, ctx, coderPrompt)
 		if err != nil {
 			log.fail(fmt.Sprintf("Agent error: %v", err))
 			feedback = fmt.Sprintf("Agent failed with error: %v", err)
@@ -384,21 +692,24 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 		diff := GetDiffText(branch, base)
 		var testOut string
 		var testErr error
-		_ = log.spin("Running tests", func() error {
-			testOut, testErr = runTestCmd(testCmd)
-			lastTestOutput = testOut
-			return nil
-		})
-		if testErr != nil {
-			log.fail("Tests failed")
+		if testCmd != "" {
+			_ = log.spin("Running tests", func() error {
+				testOut, testErr = runTestCmd(testCmd)
+				lastTestOutput = testOut
+				return nil
+			})
+			if testErr != nil {
+				log.fail("Tests failed")
+			} else {
+				log.ok("Tests passed")
+			}
 		} else {
-			log.ok("Tests passed")
+			log.info("No test command — set drive.test_cmd in .xpo/config.yaml or pass --test-cmd")
 		}
 
+		testsSkipped := testCmd == ""
 		var er evalResponse
-		err = log.spin("Reviewing implementation", func() error {
-			return supervisorJSON(ctx, supExec, buildEvalPrompt(spec, diff, testOut, testErr), &er)
-		})
+		err = log.spinStreamingJSON("Reviewing implementation", supExec, ctx, buildEvalPrompt(spec, diff, testOut, testErr, testsSkipped), &er)
 		if err != nil {
 			return nil, recoverHint(fmt.Errorf("evaluation: %w", err))
 		}
@@ -427,16 +738,12 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	// ── Walkthrough ─────────────────────────────────────────────────
 	log.phase("Walkthrough")
 	diff := GetDiffText(branch, base)
-	elapsed := time.Since(issue.UpdatedAt).Round(time.Second)
 	var walkthrough string
-	err = log.spin("Preparing walkthrough", func() error {
-		prompt := buildWalkthroughPrompt(spec, diff, testCmd, lastTestOutput)
-		r, sErr := supExec.Run(ctx, prompt)
-		if sErr == nil {
-			walkthrough = r.Output
-		}
-		return sErr
-	})
+	walkthroughResult, err := log.spinStreaming("Preparing walkthrough", supExec, ctx,
+		buildWalkthroughPrompt(spec, diff, testCmd, lastTestOutput))
+	if err == nil {
+		walkthrough = walkthroughResult.Output
+	}
 	if err != nil {
 		walkthrough = fmt.Sprintf("Implementation completed in %d attempt(s).", result.Attempts)
 	}
@@ -470,19 +777,19 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	// ── Final ───────────────────────────────────────────────────────
 	log.endPhase()
 	wallTime := time.Since(driveStart).Round(time.Second)
-	issueType := issueTypeLabel(issue.Labels)
 	stats := mergeStats(supExec.Stats(), coderExec.Stats())
 	result.Status = "done"
 	result.Summary = walkthrough
-	fmt.Println()
-	secondary := fmt.Sprintf("%s · %s cycle · %d pts", wallTime, elapsed, issue.Estimate)
-	if usage := formatStats(stats); usage != "" {
-		secondary += " · " + usage
+	secondary := formatDuration(wallTime)
+	if stats.TokensIn > 0 || stats.TokensOut > 0 {
+		secondary += fmt.Sprintf(" · %dk in / %dk out", stats.TokensIn/1000, stats.TokensOut/1000)
 	}
-	fmt.Printf("%s %s  %s\n",
+	if stats.CostUSD > 0 {
+		secondary += fmt.Sprintf(" · $%.2f", stats.CostUSD)
+	}
+	fmt.Printf("%s Done %s\n",
 		successStyle.Render("✔"),
-		fmt.Sprintf("%s complete", issueType),
-		dimStyle.Render(secondary))
+		dimStyle.Render("("+secondary+")"))
 	fmt.Println()
 	return result, nil
 }
@@ -655,6 +962,19 @@ func supervisorJSON(ctx context.Context, exec AgentExecutor, prompt string, out 
 	return json.Unmarshal(blob, out)
 }
 
+// supervisorStreamJSON is like supervisorJSON but streams progress events via cb.
+func supervisorStreamJSON(ctx context.Context, exec AgentExecutor, prompt string, out interface{}, cb StreamCallback) error {
+	result, err := exec.RunStreaming(ctx, prompt, cb)
+	if err != nil {
+		return err
+	}
+	blob := extractJSON(result.Output)
+	if blob == nil {
+		return fmt.Errorf("no JSON found in agent output:\n%s", truncate(result.Output, 500))
+	}
+	return json.Unmarshal(blob, out)
+}
+
 func runTestCmd(testCmd string) (string, error) {
 	cmd := exec.Command("sh", "-c", testCmd)
 	out, err := cmd.CombinedOutput()
@@ -662,26 +982,24 @@ func runTestCmd(testCmd string) (string, error) {
 }
 
 func buildSpecPrompt(spec string) string {
-	return fmt.Sprintf(`You are evaluating whether an issue spec is ready for an AI coding agent to implement.
+	return fmt.Sprintf(`You are a supervisor agent overseeing an AI coding agent. Your job is to evaluate specs, plan work, review implementations, and write walkthroughs. Always respond ONLY in the JSON format requested.
 
-Here is the issue spec:
+First task: evaluate whether this issue spec is ready for implementation.
+
+## Spec
 
 %s
 
-Is this spec implementation-ready? A good spec has:
-- Clear acceptance criteria or expected behavior
-- Enough detail to know what "done" looks like
-- No ambiguous requirements
-
-If the spec is NOT ready, revise it to be implementation-ready while preserving the original intent.
+A good spec has clear acceptance criteria, enough detail to know what "done" looks like, and no ambiguous requirements. If the spec is NOT ready, revise it to be implementation-ready while preserving the original intent.
 
 Respond ONLY in JSON: {"ready": true} or {"ready": false, "revised_spec": "...improved spec..."}`, spec)
 }
 
 func buildContextPrompt(spec string) string {
-	return fmt.Sprintf(`You are preparing context for an AI coding agent that will implement the following spec.
+	return fmt.Sprintf(`Next task: prepare context for the coding agent to implement this spec.
 
-Spec:
+## Spec
+
 %s
 
 Examine the repository and identify:
@@ -721,12 +1039,19 @@ func buildCoderPrompt(spec, context string, files []string, testCmd, branch, fee
 	return b.String()
 }
 
-func buildEvalPrompt(spec, diff, testOutput string, testErr error) string {
-	testStatus := "PASSED"
-	if testErr != nil {
-		testStatus = "FAILED"
+func buildEvalPrompt(spec, diff, testOutput string, testErr error, testsSkipped bool) string {
+	var testSection string
+	if testsSkipped {
+		testSection = "No test command was configured — evaluate based on the diff alone.\n"
+	} else {
+		testStatus := "PASSED"
+		if testErr != nil {
+			testStatus = "FAILED"
+		}
+		testSection = fmt.Sprintf("Test output (%s):\n%s\n", testStatus, truncate(testOutput, 10000))
 	}
-	return fmt.Sprintf(`You are evaluating whether an implementation meets a spec.
+
+	return fmt.Sprintf(`Next task: the coding agent has completed its implementation. Review whether it meets the spec.
 
 ## Spec
 %s
@@ -734,16 +1059,12 @@ func buildEvalPrompt(spec, diff, testOutput string, testErr error) string {
 ## Diff
 %s
 
-## Test output (%s)
+## Tests
 %s
-
-Did this implementation meet the goal? Consider:
-- Does the diff address all requirements in the spec?
-- Did tests pass?
-- Are there any obvious issues?
+Does the diff address all requirements in the spec? Are there any obvious issues?
 
 Respond ONLY in JSON: {"done": true} or {"done": false, "feedback": "...what needs to change..."}`,
-		spec, truncate(diff, 50000), testStatus, truncate(testOutput, 10000))
+		spec, truncate(diff, 50000), testSection)
 }
 
 func buildWalkthroughPrompt(spec, diff, testCmd, testOutput string) string {
@@ -751,8 +1072,11 @@ func buildWalkthroughPrompt(spec, diff, testCmd, testOutput string) string {
 	if testOutput != "" {
 		testSection = fmt.Sprintf("\n## Test output\n%s\n", truncate(testOutput, 5000))
 	}
-	return fmt.Sprintf(`You are writing a walkthrough of an implementation for a code reviewer.
-Explain it like a senior engineer walking a colleague through a PR.
+	verifyCmd := testCmd
+	if verifyCmd == "" {
+		verifyCmd = "the project's test command"
+	}
+	return fmt.Sprintf(`Final task: write a walkthrough of the implementation for a code reviewer. Explain it like a senior engineer walking a colleague through a PR.
 
 ## Spec
 %s
@@ -780,7 +1104,7 @@ specific behavior to check, and edge cases to try.
 Anything the reviewer should look closely at. Skip this section if there are no concerns.
 
 Keep it concise — this is a walkthrough, not a novel. No JSON — just markdown.`,
-		spec, truncate(diff, 40000), testSection, testCmd)
+		spec, truncate(diff, 40000), testSection, verifyCmd)
 }
 
 func coalesce(values ...string) string {

@@ -33,11 +33,16 @@ type Config struct {
 }
 
 type DriveConfig struct {
-	Supervisor string `mapstructure:"supervisor" yaml:"supervisor"`
-	Coder      string `mapstructure:"coder" yaml:"coder"`
-	MaxRetries int    `mapstructure:"max_retries" yaml:"max_retries"`
-	TestCmd    string `mapstructure:"test_cmd" yaml:"test_cmd"`
-	Timeout    string `mapstructure:"timeout" yaml:"timeout"`
+	Supervisor DriveAgentConfig `mapstructure:"supervisor" yaml:"supervisor"`
+	Coder      DriveAgentConfig `mapstructure:"coder" yaml:"coder"`
+	MaxRetries int              `mapstructure:"max_retries" yaml:"max_retries"`
+	TestCmd    string           `mapstructure:"test_cmd" yaml:"test_cmd"`
+	Timeout    string           `mapstructure:"timeout" yaml:"timeout"`
+}
+
+type DriveAgentConfig struct {
+	Agent string `mapstructure:"agent" yaml:"agent"`
+	Model string `mapstructure:"model" yaml:"model,omitempty"`
 }
 
 type PermissionsConfig struct {
@@ -370,8 +375,9 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("count_unestimated", true)
 	v.SetDefault("automations.first_start", true)
 	v.SetDefault("automations.last_completed", true)
-	v.SetDefault("drive.supervisor", "claude")
-	v.SetDefault("drive.coder", "claude")
+	v.SetDefault("drive.supervisor.agent", "claude")
+	v.SetDefault("drive.supervisor.model", "sonnet")
+	v.SetDefault("drive.coder.agent", "claude")
 	v.SetDefault("drive.max_retries", 3)
 	v.SetDefault("drive.timeout", "30m")
 
