@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from "@tiptap/react";
+import { DOMParser as PMDOMParser } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
@@ -46,6 +47,7 @@ export default function MarkdownEditor({
     onSaveRef.current?.();
   }, []);
 
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
   const initialValue = useRef(value);
 
   const extensions = useMemo(() => [
@@ -91,7 +93,36 @@ export default function MarkdownEditor({
         return false;
       },
       handleTextInput: () => { dirty.current = true; return false; },
-      handlePaste: () => { dirty.current = true; return false; },
+      handlePaste: (_view, event) => {
+        dirty.current = true;
+        const ed = editorRef.current;
+        if (!ed) return false;
+        const clipHtml = event.clipboardData?.getData("text/html") || "";
+        const clipText = event.clipboardData?.getData("text/plain") || "";
+        if (!clipHtml && !clipText) return false;
+        const richTag = /<(h[1-6]|strong|em|b|i|a\s|ul|ol|li|table|blockquote|pre|img|hr)\b/i;
+        let insertHtml: string;
+        if (clipHtml && richTag.test(clipHtml)) {
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = clipHtml;
+          const { state } = ed.view;
+          const fragment = PMDOMParser.fromSchema(state.schema).parse(wrapper);
+          const storage = ed.storage as Record<string, any>;
+          const md = storage.markdown.serializer.serialize(fragment) as string;
+          insertHtml = storage.markdown.parser.parse(md) as string;
+        } else if (clipText) {
+          const storage = ed.storage as Record<string, any>;
+          insertHtml = storage.markdown.parser.parse(clipText) as string;
+        } else {
+          return false;
+        }
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = insertHtml;
+        const { state } = ed.view;
+        const slice = PMDOMParser.fromSchema(state.schema).parseSlice(wrapper);
+        ed.view.dispatch(state.tr.replaceSelection(slice));
+        return true;
+      },
       handleDrop: () => { dirty.current = true; return false; },
     },
     onUpdate: ({ editor: ed }) => {
@@ -100,6 +131,8 @@ export default function MarkdownEditor({
       onChangeRef.current?.(md);
     },
   });
+
+  editorRef.current = editor;
 
   useEffect(() => {
     if (!editor || !clickEvent) return;
