@@ -8,6 +8,7 @@ import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
 import { UserRound, Triangle, RefreshCw, ChevronRight, Trash2, Check, Tag } from "lucide-react";
+import { toggleLabel } from "../../utils/labels";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
 
@@ -159,8 +160,7 @@ export default function ContextMenu({
   }, [issue.id, onRefresh, closeAll, patchIssue]);
 
   const handleLabelToggle = useCallback((label: string) => {
-    const current = issue.labels || [];
-    const labels = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
+    const labels = toggleLabel(issue.labels || [], label);
     if (patchIssue) patchIssue(issue.id, { labels });
     addDraft(issue.id, "UPDATE", { labels }).then(() => onRefresh());
   }, [issue.id, issue.labels, onRefresh, patchIssue]);

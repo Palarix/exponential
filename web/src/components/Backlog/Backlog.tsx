@@ -34,6 +34,8 @@ import {
 } from "../ui";
 import { ChevronRight, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
+import { useAllLabels } from "../../hooks/useLabels";
+import { toggleLabel } from "../../utils/labels";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isEditableTarget } from "../../utils/keyboard";
@@ -226,24 +228,16 @@ export default function Backlog({
   const handleQuickLabelToggle = useCallback(
     async (issue: Issue, label: string) => {
       const current = issue.labels || [];
-      const labels = current.includes(label)
-        ? current.filter((l) => l !== label)
-        : [...current, label];
-      await addDraft(issue.id, "UPDATE", { labels });
+      const next = toggleLabel(current, label);
+      const removed = next.length < current.length;
+      await addDraft(issue.id, "UPDATE", { labels: next });
       onRefresh();
-      showToast(
-        current.includes(label)
-          ? `Removed label "${label}"`
-          : `Added label "${label}"`,
-      );
+      showToast(removed ? `Removed label "${label}"` : `Added label "${label}"`);
     },
     [onRefresh, showToast],
   );
 
-  const allKnownLabels = useMemo(
-    () => Array.from(new Set(issues.flatMap((i) => i.labels || []))).sort(),
-    [issues],
-  );
+  const allKnownLabels = useAllLabels(issues);
 
   const startInlineCreate = useCallback(
     (status: string) => {

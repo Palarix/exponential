@@ -35,6 +35,8 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 		return nil, nil, fmt.Errorf("cannot set issue %s as its own parent", id)
 	}
 
+	payload.Labels = normalizeLabels(payload.Labels, t.Config)
+
 	// Prune fields that already match current state so redundant updates are no-ops.
 	pruneUnchangedFields(&payload, targetIssue)
 	if payloadEmpty(payload) {

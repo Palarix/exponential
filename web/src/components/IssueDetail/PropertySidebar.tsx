@@ -5,6 +5,8 @@ import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, 
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
+import { useAllLabels } from "../../hooks/useLabels";
+import { toggleLabel } from "../../utils/labels";
 import { PriorityIcon } from "./icons";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -113,11 +115,7 @@ export default function PropertySidebar({
 
   const handleLabelToggle = useCallback(
     (label: string) => {
-      const current = issue.labels || [];
-      const next = current.includes(label)
-        ? current.filter((l) => l !== label)
-        : [...current, label];
-      saveDraft("UPDATE", { labels: next });
+      saveDraft("UPDATE", { labels: toggleLabel(issue.labels || [], label) });
     },
     [issue.labels, saveDraft],
   );
@@ -219,10 +217,7 @@ export default function PropertySidebar({
     );
   }, [issues, issue.id, parentSearch]);
 
-  const allKnownLabels = useMemo(() =>
-    Array.from(new Set(issues.flatMap((i) => i.labels || []))).sort(),
-    [issues]
-  );
+  const allKnownLabels = useAllLabels(issues);
 
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === issue.status);
 

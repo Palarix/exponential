@@ -4,13 +4,46 @@ import (
 	"fmt"
 	"os/exec"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/sortorder"
 	"github.com/palarix/exponential/internal/storage"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
+
+// normalizeLabels maps each label to its canonical casing from the project
+// config or built-in defaults, and deduplicates the result.
+func normalizeLabels(labels []string, cfg *config.Config) []string {
+	if len(labels) == 0 {
+		return labels
+	}
+	lookup := make(map[string]string)
+	for k := range config.BuiltinLabels {
+		lookup[strings.ToLower(k)] = k
+	}
+	if cfg != nil {
+		for k := range cfg.Labels {
+			lookup[strings.ToLower(k)] = k
+		}
+	}
+	seen := make(map[string]bool)
+	out := make([]string, 0, len(labels))
+	for _, l := range labels {
+		canonical, ok := lookup[strings.ToLower(l)]
+		if !ok {
+			canonical = l
+		}
+		key := strings.ToLower(canonical)
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, canonical)
+		}
+	}
+	return out
+}
 
 // AddIssue creates a new issue and persists it. If payload.Status is empty,
 // the issue defaults to BACKLOG. Side-effect rules (auto-progress, blocked_by
@@ -26,6 +59,8 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 		prefix = t.Config.Prefix
 	}
 	id = prefix + id
+
+	payload.Labels = normalizeLabels(payload.Labels, t.Config)
 
 	for i := range payload.Dependencies {
 		if payload.Dependencies[i].SourceID == "" {

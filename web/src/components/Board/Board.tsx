@@ -18,6 +18,8 @@ import type { Issue } from '../../api/client';
 import { EmptyState, Popover, StatusPicker, EstimatePicker, ContextMenu } from '../ui';
 import { LabelPicker } from '../ui';
 import { sortGroup } from '../../utils/sort';
+import { useAllLabels } from '../../hooks/useLabels';
+import { toggleLabel } from '../../utils/labels';
 import { isEditableTarget } from '../../utils/keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
@@ -270,7 +272,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   const [openPopover, setOpenPopover] = useState<{ issueId: string; type: "status" | "labels" | "estimate" } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
 
-  const allKnownLabels = useMemo(() => [...new Set(issues.flatMap(i => i.labels || []))], [issues]);
+  const allKnownLabels = useAllLabels(issues);
   const openPopoverRef = useRef(openPopover);
   openPopoverRef.current = openPopover;
 
@@ -488,11 +490,10 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
             {openPopover.type === "labels" && (
               <Popover onClose={() => setOpenPopover(null)}>
                 <LabelPicker
-                  allLabels={[...new Set(issues.flatMap(i => i.labels || []))]}
+                  allLabels={allKnownLabels}
                   selected={issue.labels || []}
                   onToggle={async (label) => {
-                    const current = issue.labels || [];
-                    const labels = current.includes(label) ? current.filter(l => l !== label) : [...current, label];
+                    const labels = toggleLabel(issue.labels || [], label);
                     await addDraft(issue.id, "UPDATE", { labels });
                     onRefresh();
                   }}

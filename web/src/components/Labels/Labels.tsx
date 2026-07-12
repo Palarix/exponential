@@ -4,6 +4,7 @@ import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/
 import { LabelColorsContext, LabelBadge } from "../ui/Badge";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
+import { labelColor, canonicalLabel } from "../../utils/labels";
 
 interface LabelsProps {
   issues: Issue[];
@@ -40,17 +41,22 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
   }, [issues]);
 
   const labels: LabelInfo[] = useMemo(() => {
-    const allNames = new Set<string>();
-    for (const name of Object.keys(configLabels)) allNames.add(name);
-    for (const name of Object.keys(labelCounts)) allNames.add(name);
+    const seen = new Map<string, string>();
+    for (const name of Object.keys(configLabels)) seen.set(name.toLowerCase(), name);
+    for (const name of Object.keys(labelCounts)) {
+      if (!seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), canonicalLabel(name, configLabels));
+    }
 
-    return Array.from(allNames)
-      .sort((a, b) => a.localeCompare(b))
-      .map((name) => ({
-        name,
-        color: configLabels[name] || configLabels[name.toLowerCase()] || "var(--color-text-muted)",
-        count: labelCounts[name] || 0,
-      }));
+    return Array.from(seen.values())
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+      .map((name) => {
+        const lk = name.toLowerCase();
+        let count = 0;
+        for (const [k, v] of Object.entries(labelCounts)) {
+          if (k.toLowerCase() === lk) count += v;
+        }
+        return { name, color: labelColor(name, configLabels), count };
+      });
   }, [configLabels, labelCounts]);
 
   useEffect(() => {

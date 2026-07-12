@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import { labelColor as resolveLabelColor } from "../../utils/labels";
 
 type BadgeVariant =
   | "default"
@@ -68,10 +69,7 @@ export const DefaultLabelsContext = createContext<{ name: string; color: string 
 
 export function LabelBadge({ label, borderless }: { label: string; borderless?: boolean }) {
   const configColors = useContext(LabelColorsContext);
-  const color =
-    configColors[label] ||
-    configColors[label.toLowerCase()] ||
-    "var(--color-text-muted)";
+  const color = resolveLabelColor(label, configColors);
   const displayLabel =
     label === label.toLowerCase()
       ? label.charAt(0).toUpperCase() + label.slice(1)

@@ -2,6 +2,7 @@ import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "r
 import { LabelBadge, LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./Badge";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { addConfigLabel } from "../../api/client";
+import { labelColor } from "../../utils/labels";
 
 interface LabelPickerProps {
   allLabels: string[];
@@ -74,8 +75,7 @@ export default function LabelPicker({
 
   const handleSelect = useCallback(
     (name: string) => {
-      const hasColor =
-        configLabels[name] || configLabels[name.toLowerCase()];
+      const hasColor = labelColor(name, configLabels) !== "var(--color-text-muted)";
       if (!hasColor && onConfigLabelsChange) {
         setCreatingLabel(name);
       } else {
@@ -190,7 +190,7 @@ export default function LabelPicker({
       </div>
       <div className="border-t border-[var(--color-border-subtle)]" />
       {filtered.map((label, i) => {
-        const isActive = selected.includes(label);
+        const isActive = selected.some(s => s.toLowerCase() === label.toLowerCase());
         const isFocused = i === focusIndex;
         const isDefault = !hideDefaultLabels && defaultLabelSet.has(label.toLowerCase());
         const prev = i > 0 ? filtered[i - 1] : null;

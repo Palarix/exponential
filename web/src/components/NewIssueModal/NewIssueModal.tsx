@@ -7,6 +7,7 @@ import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, In
 import { ChevronDown, Folder, UserRound, Tag } from "lucide-react";
 import type { DropdownOption } from "../ui";
 import MarkdownEditor from "../MarkdownEditor";
+import { useAllLabels } from "../../hooks/useLabels";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "BACKLOG", label: "Backlog", icon: <StatusIcon status="BACKLOG" size={14} /> },
@@ -52,7 +53,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
 
-  const allKnownLabels = useMemo(() => Array.from(new Set(issues.flatMap((i) => i.labels || []))).sort(), [issues]);
+  const allKnownLabels = useAllLabels(issues);
 
   const knownPeople = useMemo(() => {
     const byEmail = new Map<string, string>();
