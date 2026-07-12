@@ -6,7 +6,7 @@ import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
 import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
 import { ArrowUp, ArrowDown } from "lucide-react";
-import { Sparkline, DailyVelocityChart, CumulativeChart } from "./charts";
+import { DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
 
@@ -267,44 +267,57 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
             {/* Stats row: Velocity + Cycle Time + Lead Time + Staleness */}
             <div className="px-5 pb-3 grid grid-cols-4 gap-3">
               <PulseCard title="Velocity">
-                <div className="flex-1 flex items-center">
-                  <div className="flex items-baseline justify-between gap-3 w-full">
-                    <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">{metrics ? metrics.velocity.last_7d_points : "—"}</p>
-                    {metrics && metrics.velocity.weekly_buckets.length > 0 && <Sparkline buckets={metrics.velocity.weekly_buckets} />}
-                  </div>
-                </div>
-                <p className="text-xs text-[var(--color-text-muted)] pt-3 flex items-center gap-1">
-                  pts last week
-                  {metrics && metrics.velocity.delta !== 0 && (
-                    <span className={`inline-flex items-center gap-0.5 ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
-                      {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
-                      {metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}
-                    </span>
+                <table className="w-full text-center tabular-nums border-collapse">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Last Week</th>
+                      <th className="font-normal py-1.5">Current</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{metrics ? metrics.velocity.last_7d_points : "—"} <span className="text-xs font-normal text-[var(--color-text-muted)]">pts</span></td>
+                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)]">{metrics ? metrics.velocity.current_week_points : "—"} <span className="text-xs font-normal text-[var(--color-text-muted)]">pts</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 flex items-center gap-1">
+                  {metrics && metrics.velocity.delta !== 0 ? (
+                    <>
+                      <span className={`inline-flex items-center ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                        {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
+                      </span>
+                      <span>{metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}pts vs prior</span>
+                    </>
+                  ) : metrics && metrics.velocity.prior_7d_points > 0 ? (
+                    <span>no change vs prior week</span>
+                  ) : (
+                    <span>no prior week data</span>
                   )}
                 </p>
               </PulseCard>
               <PulseCard title="Cycle Time">
                 {metrics && metrics.flow.cycle_count > 0 ? (
                   <>
-                    <table className="w-full text-center tabular-nums border-collapse border border-[var(--color-border-subtle)] rounded">
+                    <table className="w-full text-center tabular-nums border-collapse">
                       <thead>
                         <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Min</th>
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Median</th>
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">P90</th>
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Max</th>
+                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Min</th>
+                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Median</th>
+                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">P90</th>
+                          <th className="font-normal py-1.5">Max</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_min_hrs)}</td>
-                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_p90_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.cycle_time_max_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_min_hrs)}</td>
+                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_p90_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)]">{formatDuration(metrics.flow.cycle_time_max_hrs)}</td>
                         </tr>
                       </tbody>
                     </table>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">start → done · {metrics.flow.cycle_count} issues</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">Based on start → done · {metrics.flow.cycle_count} issues</p>
                   </>
                 ) : (
                   <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
@@ -313,25 +326,25 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
               <PulseCard title="Lead Time">
                 {metrics && metrics.flow.lead_count > 0 ? (
                   <>
-                    <table className="w-full text-center tabular-nums border-collapse border border-[var(--color-border-subtle)] rounded">
+                    <table className="w-full text-center tabular-nums border-collapse">
                       <thead>
                         <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Min</th>
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Median</th>
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">P90</th>
-                          <th className="font-normal py-1.5 border border-[var(--color-border-subtle)]">Max</th>
+                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Min</th>
+                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Median</th>
+                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">P90</th>
+                          <th className="font-normal py-1.5">Max</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_min_hrs)}</td>
-                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_p90_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]">{formatDuration(metrics.flow.lead_time_max_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_min_hrs)}</td>
+                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_p90_hrs)}</td>
+                          <td className="py-2 text-sm text-[var(--color-text-muted)]">{formatDuration(metrics.flow.lead_time_max_hrs)}</td>
                         </tr>
                       </tbody>
                     </table>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">created → done · {metrics.flow.lead_count} issues</p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">Based on created → done · {metrics.flow.lead_count} issues</p>
                   </>
                 ) : (
                   <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
@@ -357,20 +370,22 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   ];
                   const max = Math.max(1, ...bars.map(b => b.count));
                   return (
-                    <div>
-                      <div className="flex items-end gap-1 h-10">
-                        {bars.map(b => (
-                          <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
-                            <span className="text-xs text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
-                            <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
-                          </div>
-                        ))}
+                    <>
+                      <div>
+                        <div className="flex items-end gap-1 h-10">
+                          {bars.map(b => (
+                            <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
+                              <span className="text-xs text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
+                              <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-1 mt-1.5">
+                          {bars.map(b => <span key={b.label} className="flex-1 text-center text-xs text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
+                        </div>
                       </div>
-                      <div className="flex gap-1 mt-1.5">
-                        {bars.map(b => <span key={b.label} className="flex-1 text-center text-xs text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
-                      </div>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 tabular-nums">{total} open issues</p>
-                    </div>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 tabular-nums">Based on {total} open issues</p>
+                    </>
                   );
                 })()}
               </PulseCard>

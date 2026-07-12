@@ -340,6 +340,9 @@ func TestMetrics_VelocityExcludesCurrentWeek(t *testing.T) {
 	if m.Velocity.Last7dPoints != 3 {
 		t.Errorf("velocity last week = %d, want 3 (current week excluded)", m.Velocity.Last7dPoints)
 	}
+	if m.Velocity.CurrentWeekPoints != 10 {
+		t.Errorf("velocity current week = %d, want 10", m.Velocity.CurrentWeekPoints)
+	}
 }
 
 func TestMetrics_AttentionCappedAt5(t *testing.T) {

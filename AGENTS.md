@@ -40,8 +40,8 @@ Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`
 4. **Check dependencies first** — before picking up an issue, inspect its `dependencies` array via `show`. If any `depends_on` or `blocked_by` targets are not `DONE`, flag the unresolved blockers before starting work.
 5. **Ensure there is a spec** - before starting your implementation work, ensure there is an up-to-date spec attached to the issue. If none exists create one from the current state of the project. For requirements that are unclear or decisions that require user input, now is the time to loop back and ask the user.
 6. **In-progress before edits** — before touching any file, transition the issue to `DOING` via `update`.
-7. **Attach a walkthrough when done** - when you finish the implementation (evidenced by passing tests), attach a walkthrough document to the issue. The walkthrough shall be written from the perspective of a senior engineer explaining the code changes to a junior developer.
-8. **Comment before complete** — add a summary comment via `comment` _before_ transitioning to `DONE`, and only do so after the user approves the final walkthrough.
+7. **Comment when done implementing** - when you finish the implementation (evidenced by passing tests), add a summary comment via `comment`.
+8. **Attach a walkthrough before done** — attach a walkthrough document to the issue  _before_ transitioning to `DONE`. The walkthrough shall be written from the perspective of a senior engineer explaining the code changes to a junior developer.
 9. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `link`), not left as TODOs in code.
 
 ## Agent Identity

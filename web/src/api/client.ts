@@ -135,6 +135,7 @@ export interface EpicProgress {
 
 export interface PulseMetrics {
   velocity: {
+    current_week_points: number;
     last_7d_points: number;
     prior_7d_points: number;
     delta: number;

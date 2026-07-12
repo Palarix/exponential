@@ -93,11 +93,12 @@ type dailyBucket struct {
 
 type pulseMetrics struct {
 	Velocity struct {
-		Last7dPoints  int              `json:"last_7d_points"`
-		Prior7dPoints int              `json:"prior_7d_points"`
-		Delta         int              `json:"delta"`
-		WeeklyBuckets []velocityBucket `json:"weekly_buckets"`
-		DailyBuckets  []dailyBucket    `json:"daily_buckets"`
+		CurrentWeekPoints int              `json:"current_week_points"`
+		Last7dPoints      int              `json:"last_7d_points"`
+		Prior7dPoints     int              `json:"prior_7d_points"`
+		Delta             int              `json:"delta"`
+		WeeklyBuckets     []velocityBucket `json:"weekly_buckets"`
+		DailyBuckets      []dailyBucket    `json:"daily_buckets"`
 	} `json:"velocity"`
 	Throughput struct {
 		Last7d  int `json:"last_7d"`
@@ -219,7 +220,9 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		if doneAt != nil {
 			_, isParent := parentIDs[issue.ID]
 			if !isParent {
-				if !doneAt.Before(lastWeekStart) && doneAt.Before(thisWeekStart) {
+				if !doneAt.Before(thisWeekStart) {
+					m.Velocity.CurrentWeekPoints += points
+				} else if !doneAt.Before(lastWeekStart) && doneAt.Before(thisWeekStart) {
 					m.Throughput.Last7d++
 					m.Velocity.Last7dPoints += points
 				} else if !doneAt.Before(priorWeekStart) && doneAt.Before(lastWeekStart) {
