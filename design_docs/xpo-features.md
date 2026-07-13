@@ -187,7 +187,8 @@ Layered config: built-in defaults → user `~/.config/xpo/config.yaml` → proje
 
 - MCP server for native agent integration
 - Agent identity tracking (`CreatedBy` field)
-- `xpo doctor` auto-detects and configures agent instruction files (CLAUDE.md, AGENTS.md, GEMINI.md)
+- `xpo init` auto-detects installed agents and creates instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, .cursorrules) with a portable workflow skill
+- `xpo doctor` configures additional agent files discovered after init
 - Duplicate detection on issue creation
 
 ### Multi-Instance

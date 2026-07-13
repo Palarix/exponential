@@ -16,7 +16,7 @@ xpo add "Wire up login form" --label feature
 xpo board
 ```
 
-Run `xpo init` and you're tracking work in under a minute.
+Run `xpo init` and you're tracking work in under a minute. It creates the issue database, configures `.mcp.json` for agent access, and generates agent instruction files with a portable development workflow skill for any detected agents (Claude Code, Gemini, Cursor, Aider, etc.).
 
 ## Why Exponential
 
