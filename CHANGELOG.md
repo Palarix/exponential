@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.2] - 2026-07-13
 
 ### Added
 
@@ -20,12 +20,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated agent instructions to MCP-first workflow — MCP tools are now the primary interface, CLI command reference is supplemental
 - Drive config restructured: `supervisor` and `coder` are now nested objects with `agent` and `model` subkeys
 
 ### Fixed
 
+- Normalize labels case-insensitively to prevent duplicates
+- Show current week running total in dashboard velocity card
+- Parse pasted text as markdown in MarkdownEditor
 - Makefile `frontend` and `clean` targets now preserve `internal/server/static/.gitkeep` so CI test runs don't fail from a missing embed directory
+
+## [1.0.1] - 2026-07-09
+
+### Changed
+
+- Updated agent instructions to MCP-first workflow — MCP tools are now the primary interface, CLI command reference is supplemental
+- Updated README with screenshot
+
+### Fixed
+
+- Added placeholder file to `internal/server/static/` so Go embed works without a prior frontend build
 
 ## [1.0.0] - 2026-07-08
 
