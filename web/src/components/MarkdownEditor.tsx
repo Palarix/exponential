@@ -1,6 +1,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import { DOMParser as PMDOMParser } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
 import TaskList from "@tiptap/extension-task-list";
@@ -11,6 +12,9 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
 import { useRef, useCallback, useEffect, useMemo } from "react";
+import FormattingBar from "./FormattingBar";
+
+type BlurEvent = React.FocusEvent<HTMLDivElement>;
 
 interface MarkdownEditorProps {
   value: string;
@@ -48,6 +52,7 @@ export default function MarkdownEditor({
   }, []);
 
   const editorRef = useRef<ReturnType<typeof useEditor>>(null);
+  const bubbleMenuRef = useRef<HTMLDivElement>(null);
   const initialValue = useRef(value);
 
   const extensions = useMemo(() => [
@@ -58,6 +63,7 @@ export default function MarkdownEditor({
     Link.configure({ openOnClick: false }),
     TaskList,
     TaskItem.configure({ nested: true }),
+    Underline,
     Table.configure({ resizable: false }),
     TableRow,
     TableCell,
@@ -125,6 +131,9 @@ export default function MarkdownEditor({
       },
       handleDrop: () => { dirty.current = true; return false; },
     },
+    onTransaction: ({ transaction }) => {
+      if (transaction.docChanged) dirty.current = true;
+    },
     onUpdate: ({ editor: ed }) => {
       if (!dirty.current) return;
       const md = (ed.storage as Record<string, any>).markdown.getMarkdown() as string;
@@ -146,12 +155,14 @@ export default function MarkdownEditor({
   return (
     <div className={className}>
       <div
-        onBlur={(e) => {
+        onBlur={(e: BlurEvent) => {
           if (suppressBlurSave.current) { suppressBlurSave.current = false; return; }
           if (e.currentTarget.contains(e.relatedTarget)) return;
+          if (bubbleMenuRef.current?.contains(e.relatedTarget as Node)) return;
           onSaveRef.current?.();
         }}
       >
+        {editor && <FormattingBar editor={editor} menuRef={bubbleMenuRef} />}
         <EditorContent editor={editor} />
       </div>
       {(onSave || onCancel) && (
