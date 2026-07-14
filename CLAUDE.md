@@ -80,6 +80,12 @@ Comments are markdown. A good completion comment includes:
 - The **rationale** — why this approach, why not the alternatives.
 - Anything a future agent reading the issue would need to pick up where you left off.
 
+### Keeping the Changelog actual
+
+- When a user asks for making a commit, ensure you update the CHANGELOG.md
+- If work was done based on a story or issue, reference the issue id in the changelog entry
+
+
 ## Building this project
 
 - `make cli` — compile the `xpo` binary.

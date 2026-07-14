@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { createIssue, addDraft, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
@@ -41,6 +41,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   const [estimate, setEstimate] = useState("0");
   const [saving, setSaving] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const labelMenuRef = useRef<HTMLDivElement>(null);
   const [labelPos, setLabelPos] = useState({ top: 0, left: 0 });
@@ -96,6 +97,30 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
     setLabelOpen(!labelOpen);
   };
 
+  const hasContent = title.trim() !== "" || description.trim() !== "";
+
+  const resetForm = () => {
+    setTitle(""); setDescription(""); setLabels(["feature"]); setStatus("BACKLOG"); setEstimate("0"); setParentId(""); setAssignee(""); setAdditionalLabels([]); setMoreOpen(false); setConfirmDiscard(false);
+  };
+
+  const handleClose = () => {
+    if (confirmDiscard) { setConfirmDiscard(false); return; }
+    if (!hasContent) { resetForm(); onClose(); return; }
+    setConfirmDiscard(true);
+  };
+
+  const handleDiscard = () => { resetForm(); onClose(); };
+  const handleCancelDiscard = useCallback(() => setConfirmDiscard(false), []);
+
+  useEffect(() => {
+    if (!confirmDiscard) return;
+    const trap = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopImmediatePropagation(); e.preventDefault(); setConfirmDiscard(false); }
+    };
+    document.addEventListener("keydown", trap, true);
+    return () => document.removeEventListener("keydown", trap, true);
+  }, [confirmDiscard]);
+
   const canCreate = title.trim() && labels.length > 0;
 
   const handleCreate = async () => {
@@ -110,7 +135,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
       const estimateNum = parseInt(estimate, 10);
       if (estimateNum > 0) update.estimate = estimateNum;
       if (Object.keys(update).length > 0) await addDraft(issueId, "UPDATE", update);
-      setTitle(""); setDescription(""); setLabels(["feature"]); setStatus("BACKLOG"); setEstimate("0"); setParentId(""); setAssignee(""); setAdditionalLabels([]); setMoreOpen(false);
+      resetForm();
       onCreated();
     } catch (err) {
       console.error("Failed to create issue:", err instanceof ApiError ? err.message : err);
@@ -124,8 +149,8 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="New Issue" size="2xl">
-      <div className="space-y-4" onKeyDown={handleModalKeyDown}>
+    <Modal isOpen={isOpen} onClose={handleClose} title="New Issue" size="2xl">
+      <div className="space-y-4 relative" onKeyDown={handleModalKeyDown}>
         <div className="flex items-center gap-2">
           <div>
             <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${labels.length === 0 ? "border-[var(--color-error)]/40" : ""}`}>
@@ -201,9 +226,23 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
           )}
         </div>
         <div className="flex items-center justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="ghost" size="sm" onClick={handleClose}>Cancel</Button>
           <Button size="sm" onClick={handleCreate} disabled={!canCreate || saving} loading={saving}>Create Issue</Button>
         </div>
+        {confirmDiscard && createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/30" onClick={handleCancelDiscard} aria-hidden="true" />
+            <div role="alertdialog" aria-labelledby="discard-title" aria-describedby="discard-desc" className="relative bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] p-5 max-w-sm w-full">
+              <h3 id="discard-title" className="text-sm font-semibold text-[var(--color-text-primary)]">Discard this issue?</h3>
+              <p id="discard-desc" className="text-sm text-[var(--color-text-secondary)] mt-3">Your issue draft has unsaved changes.</p>
+              <div className="flex items-center justify-end gap-2 mt-4">
+                <Button variant="ghost" size="sm" onClick={handleCancelDiscard}>Cancel</Button>
+                <Button variant="danger" size="sm" onClick={handleDiscard}>Discard</Button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
       </div>
     </Modal>
   );
