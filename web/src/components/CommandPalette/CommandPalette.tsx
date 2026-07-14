@@ -96,7 +96,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
 
     // Issues (only when there's a query, or show recent)
     const matchedIssues = query
-      ? issues.filter(i => fuzzyMatch(i.title, query) || i.id.includes(query.toLowerCase()) || i.labels?.some(l => fuzzyMatch(l, query)))
+      ? issues.filter(i => { const q = query.toLowerCase(); return i.title.toLowerCase().includes(q) || i.id.includes(q) || i.labels?.some(l => l.toLowerCase().includes(q)); })
       : issues.slice(0, 8);
 
     for (const issue of matchedIssues.slice(0, 12)) {
