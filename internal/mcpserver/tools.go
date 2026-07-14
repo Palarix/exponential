@@ -369,6 +369,20 @@ func (t *toolset) add(ctx context.Context, req *mcp.CallToolRequest, in inputs.A
 		return nil, addOut{}, err
 	}
 	c := t.clientFor(req)
+	if payload.ParentID != "" {
+		parent, err := c.GetIssue(payload.ParentID)
+		if err != nil {
+			return nil, addOut{}, fmt.Errorf("parent: %w", err)
+		}
+		payload.ParentID = parent.ID
+	}
+	for i, dep := range payload.Dependencies {
+		tgt, err := c.GetIssue(dep.TargetID)
+		if err != nil {
+			return nil, addOut{}, fmt.Errorf("links[%d]: %w", i, err)
+		}
+		payload.Dependencies[i].TargetID = tgt.ID
+	}
 	if payload.Estimate > 0 {
 		if err := config.ValidateEstimate(c.Config.EstimationSystem, payload.Estimate); err != nil {
 			return nil, addOut{}, err
@@ -395,6 +409,20 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in updat
 		return nil, updateOut{}, fmt.Errorf("no fields set: provide at least one field to update")
 	}
 	c := t.clientFor(req)
+	if payload.ParentID != nil && *payload.ParentID != "" {
+		parent, err := c.GetIssue(*payload.ParentID)
+		if err != nil {
+			return nil, updateOut{}, fmt.Errorf("parent: %w", err)
+		}
+		*payload.ParentID = parent.ID
+	}
+	for i, dep := range payload.Dependencies {
+		tgt, err := c.GetIssue(dep.TargetID)
+		if err != nil {
+			return nil, updateOut{}, fmt.Errorf("links[%d]: %w", i, err)
+		}
+		payload.Dependencies[i].TargetID = tgt.ID
+	}
 	msgs, err := c.UpdateIssue(in.ID, payload, "update")
 	if err != nil {
 		return nil, updateOut{}, err

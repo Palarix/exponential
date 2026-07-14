@@ -165,7 +165,7 @@ function App() {
     localStorage.setItem(`exponential-my-issues-filters-${myIssuesTab}`, JSON.stringify(f));
   }, [myIssuesTab]);
 
-  const selectedIssue = selectedIssueId ? issues.find(i => i.id === selectedIssueId) ?? null : null;
+  const selectedIssue = selectedIssueId ? (issues.find(i => i.id === selectedIssueId) ?? issues.find(i => i.id.endsWith(selectedIssueId)) ?? null) : null;
 
   const defaultNavOrder = useMemo(() =>
     sortIssuesWithinGroups(issues, sortKey).map(i => i.id),
@@ -396,6 +396,27 @@ function App() {
           contributors={contributors}
           onConfigLabelsChange={setConfigLabels}
         />
+      );
+    }
+
+    if (selectedIssueId) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-6 px-8">
+          <div className="opacity-25">
+            <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+          </div>
+          <div className="flex flex-col items-center gap-2 max-w-96 text-center">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Issue not found</h2>
+            <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+              No issue matching <span className="font-mono text-[var(--color-text-primary)]">{selectedIssueId}</span> was found. It may have been deleted or the link may be incorrect.
+            </p>
+          </div>
+          <button onClick={() => setSelectedIssueId(null)} className="px-4 py-2 text-sm bg-[var(--color-accent-primary)] text-white rounded-[var(--radius-md)] hover:opacity-90 transition-opacity">
+            Back to Backlog
+          </button>
+        </div>
       );
     }
 

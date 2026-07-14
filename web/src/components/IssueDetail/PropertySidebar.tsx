@@ -627,12 +627,12 @@ export default function PropertySidebar({
           {issue.dependencies && issue.dependencies.length > 0 && (
             <div className="space-y-1 mb-2">
               {issue.dependencies.map((dep, i) => {
-                const target = issues.find(t => t.id === dep.target_id);
+                const target = issues.find(t => t.id === dep.target_id) ?? issues.find(t => t.id.endsWith(dep.target_id));
                 return (
                   <div key={i} className="group flex items-center gap-2 text-sm">
                     <span className="text-[var(--color-text-muted)] shrink-0">{dep.kind.replace(/_/g, " ")}</span>
                     {target && <StatusIcon status={target.status} size={12} isInferred={target.is_inferred} />}
-                    <a href={`#/issues/${dep.target_id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
+                    <a href={`#/issues/${target ? target.id : dep.target_id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
                       {target ? target.title : dep.target_id}
                     </a>
                     <button onClick={() => handleRemoveRelation(i)} className="ml-auto shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity">
