@@ -631,10 +631,16 @@ export default function PropertySidebar({
                 return (
                   <div key={i} className="group flex items-center gap-2 text-sm">
                     <span className="text-[var(--color-text-muted)] shrink-0">{dep.kind.replace(/_/g, " ")}</span>
-                    {target && <StatusIcon status={target.status} size={12} isInferred={target.is_inferred} />}
-                    <a href={`#/issues/${target ? target.id : dep.target_id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
-                      {target ? target.title : dep.target_id}
-                    </a>
+                    {target ? (
+                      <>
+                        <StatusIcon status={target.status} size={12} isInferred={target.is_inferred} />
+                        <a href={`#/issues/${target.id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
+                          {target.title}
+                        </a>
+                      </>
+                    ) : (
+                      <span className="text-[var(--color-text-muted)] italic truncate">{dep.target_id} (deleted)</span>
+                    )}
                     <button onClick={() => handleRemoveRelation(i)} className="ml-auto shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity">
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

@@ -438,6 +438,14 @@ func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in linkIn)
 	if err != nil {
 		return nil, linkOut{}, fmt.Errorf("target: %w", err)
 	}
+	if src.ID == tgt.ID {
+		return nil, linkOut{}, fmt.Errorf("cannot link an issue to itself")
+	}
+	for _, dep := range src.Dependencies {
+		if dep.TargetID == tgt.ID && string(dep.Kind) == kind {
+			return nil, linkOut{}, fmt.Errorf("link %s %s already exists on %s", kind, tgt.ID, src.ID)
+		}
+	}
 	newDeps := append(src.Dependencies, model.Dependency{
 		SourceID: src.ID,
 		TargetID: tgt.ID,
