@@ -96,6 +96,14 @@ func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 	if p.Estimate < 0 {
 		return fmt.Errorf("estimate must not be negative")
 	}
+	if p.CycleID != "" {
+		if !c.Config.Cycles.Enabled {
+			return fmt.Errorf("cycles are not enabled")
+		}
+		if _, err := c.Config.Cycles.CycleForID(p.CycleID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -131,6 +139,14 @@ func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
 	}
 	if p.Estimate != nil && *p.Estimate < 0 {
 		return fmt.Errorf("estimate must not be negative")
+	}
+	if p.CycleID != nil && *p.CycleID != "" {
+		if !c.Config.Cycles.Enabled {
+			return fmt.Errorf("cycles are not enabled")
+		}
+		if _, err := c.Config.Cycles.CycleForID(*p.CycleID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
