@@ -107,7 +107,7 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		handle("GET /api/user", s.handleGetUser)
 
 		// Write endpoints
-		handleCap("POST /api/draft", "issue.create", s.handleDraft)
+		handleCap("POST /api/draft", "issue.read", s.handleDraft)
 		handleCap("POST /api/save", "issue.update", s.handleSave)
 		handleCap("DELETE /api/pending", "issue.update", s.handleDiscardPending)
 		handleCap("POST /api/config/labels", "issue.update", s.handleAddLabel)

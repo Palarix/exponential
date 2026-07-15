@@ -112,6 +112,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 
 	switch model.EventType(req.Type) {
 	case model.EventTypeCreate:
+		if !s.requireCapability(w, r, "issue.create") {
+			return
+		}
 		var p model.CreatePayload
 		if err := json.Unmarshal(req.Payload, &p); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid CREATE payload")
@@ -130,6 +133,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issue.ID})
 
 	case model.EventTypeUpdate:
+		if !s.requireCapability(w, r, "issue.update") {
+			return
+		}
 		if req.IssueID == "" {
 			respondError(w, http.StatusBadRequest, "issue_id is required")
 			return
@@ -151,6 +157,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeComment:
+		if !s.requireCapability(w, r, "issue.comment") {
+			return
+		}
 		if req.IssueID == "" {
 			respondError(w, http.StatusBadRequest, "issue_id is required")
 			return
@@ -172,6 +181,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeDelete:
+		if !s.requireCapability(w, r, "issue.delete") {
+			return
+		}
 		if req.IssueID == "" {
 			respondError(w, http.StatusBadRequest, "issue_id is required")
 			return

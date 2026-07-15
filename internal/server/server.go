@@ -56,6 +56,29 @@ type Server struct {
 	SSEHub *SSEHub
 }
 
+// requireCapability checks whether the request has the named capability.
+// Returns true if the check passes (or auth is disabled). When it returns
+// false it has already written a 403 response.
+func (s *Server) requireCapability(w http.ResponseWriter, r *http.Request, capability string) bool {
+	if s.SigningKey == nil {
+		return true
+	}
+	perms := s.Config.Permissions
+	if !perms.Enabled() {
+		return true
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+		return false
+	}
+	if !perms.HasCapability(user.Email, capability) {
+		http.Error(w, fmt.Sprintf(`{"error":"forbidden: requires %s capability"}`, capability), http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
 // NewServer creates a new Server instance.
 func NewServer(cfg *config.Config, port int, devMode bool, devPort int) *Server {
 	return &Server{
