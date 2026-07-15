@@ -60,12 +60,33 @@ func (c *Client) syncLocal() {
 	}
 }
 
+const (
+	MaxTitleLen       = 500
+	MaxDescriptionLen = 100 * 1024
+	MaxAssigneeLen    = 200
+	MaxLabelLen       = 100
+)
+
 // ValidateCreatePayload checks and resolves a CreatePayload before it is
 // stored. It validates title, status, estimate, and resolves parent_id and
 // dependency target IDs to their canonical forms.
 func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 	if p.Title == "" {
 		return fmt.Errorf("title is required")
+	}
+	if len(p.Title) > MaxTitleLen {
+		return fmt.Errorf("title exceeds maximum length of %d characters", MaxTitleLen)
+	}
+	if len(p.Description) > MaxDescriptionLen {
+		return fmt.Errorf("description exceeds maximum size of %d bytes", MaxDescriptionLen)
+	}
+	if len(p.Assignee) > MaxAssigneeLen {
+		return fmt.Errorf("assignee exceeds maximum length of %d characters", MaxAssigneeLen)
+	}
+	for _, l := range p.Labels {
+		if len(l) > MaxLabelLen {
+			return fmt.Errorf("label %q exceeds maximum length of %d characters", l, MaxLabelLen)
+		}
 	}
 	if p.Status != "" {
 		switch model.IssueStatus(p.Status) {
@@ -111,6 +132,20 @@ func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 // stored. It validates status and resolves parent_id and dependency target IDs
 // to their canonical forms.
 func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
+	if p.Title != nil && len(*p.Title) > MaxTitleLen {
+		return fmt.Errorf("title exceeds maximum length of %d characters", MaxTitleLen)
+	}
+	if p.Description != nil && len(*p.Description) > MaxDescriptionLen {
+		return fmt.Errorf("description exceeds maximum size of %d bytes", MaxDescriptionLen)
+	}
+	if p.Assignee != nil && len(*p.Assignee) > MaxAssigneeLen {
+		return fmt.Errorf("assignee exceeds maximum length of %d characters", MaxAssigneeLen)
+	}
+	for _, l := range p.Labels {
+		if len(l) > MaxLabelLen {
+			return fmt.Errorf("label %q exceeds maximum length of %d characters", l, MaxLabelLen)
+		}
+	}
 	if p.Status != nil {
 		switch model.IssueStatus(*p.Status) {
 		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
@@ -178,7 +213,12 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 	return c.Transport.UpdateIssue(id, payload, action)
 }
 
+const MaxCommentLen = 100 * 1024
+
 func (c *Client) AddComment(issueID, text string) error {
+	if len(text) > MaxCommentLen {
+		return fmt.Errorf("comment exceeds maximum size of %d bytes", MaxCommentLen)
+	}
 	c.syncLocal()
 	return c.Transport.AddComment(issueID, text)
 }

@@ -49,9 +49,14 @@ func (t *LocalTransport) AddArtifact(issueID, artifactType, filename, content st
 // writeArtifact is the shared internal implementation used by AddArtifact
 // and the first-class WriteSpec/WriteWalkthrough convenience methods. It
 // does not enforce the reserved-filename check.
+const MaxArtifactContentLen = 1024 * 1024
+
 func (t *LocalTransport) writeArtifact(issueID, artifactType, filename, content string) error {
 	if err := validateArtifactFilename(filename); err != nil {
 		return err
+	}
+	if len(content) > MaxArtifactContentLen {
+		return fmt.Errorf("artifact content exceeds maximum size of %d bytes", MaxArtifactContentLen)
 	}
 
 	issue, err := t.GetIssue(issueID)
