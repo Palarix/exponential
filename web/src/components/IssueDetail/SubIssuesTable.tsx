@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { createIssue } from "../../api/client";
 import type { Issue } from "../../api/client";
-import { computeAppendKey, sortGroup } from "../../utils/sort";
+import { computeAppendKey } from "../../utils/sort";
 import { Avatar, LabelBadge, PriorityIcon, StatusIcon } from "../ui";
 import { Triangle } from "lucide-react";
 
 export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
-  const children = useMemo(() => sortGroup(issues.filter(i => i.parent_id === issue.id), 'manual'), [issues, issue.id]);
+  const children = useMemo(() => [...issues.filter(i => i.parent_id === issue.id)].sort((a, b) => (a.sort_order || '').localeCompare(b.sort_order || '')), [issues, issue.id]);
   const [expanded, setExpanded] = useState(true);
   const [inlineTitle, setInlineTitle] = useState("");
   const [showInline, setShowInline] = useState(false);
