@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/auth"
-	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/registry"
 	"github.com/palarix/exponential/internal/storage"
@@ -113,7 +113,14 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	switch model.EventType(req.Type) {
 	case model.EventTypeCreate:
 		var p model.CreatePayload
-		json.Unmarshal(req.Payload, &p)
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid CREATE payload")
+			return
+		}
+		if err := client.ValidateCreatePayload(&p); err != nil {
+			respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		issue, err := client.AddIssue(p)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to create issue")
@@ -123,8 +130,19 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issue.ID})
 
 	case model.EventTypeUpdate:
+		if req.IssueID == "" {
+			respondError(w, http.StatusBadRequest, "issue_id is required")
+			return
+		}
 		var p model.UpdatePayload
-		json.Unmarshal(req.Payload, &p)
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid UPDATE payload")
+			return
+		}
+		if err := client.ValidateUpdatePayload(&p); err != nil {
+			respondError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if _, err := client.UpdateIssue(req.IssueID, p, "update"); err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update issue %s", req.IssueID))
 			return
@@ -133,8 +151,19 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeComment:
+		if req.IssueID == "" {
+			respondError(w, http.StatusBadRequest, "issue_id is required")
+			return
+		}
 		var p model.CommentPayload
-		json.Unmarshal(req.Payload, &p)
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid COMMENT payload")
+			return
+		}
+		if p.Text == "" {
+			respondError(w, http.StatusBadRequest, "comment text is required")
+			return
+		}
 		if err := client.AddComment(req.IssueID, p.Text); err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to add comment to issue %s", req.IssueID))
 			return
@@ -143,8 +172,15 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeDelete:
+		if req.IssueID == "" {
+			respondError(w, http.StatusBadRequest, "issue_id is required")
+			return
+		}
 		var p model.DeletePayload
-		json.Unmarshal(req.Payload, &p)
+		if err := json.Unmarshal(req.Payload, &p); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid DELETE payload")
+			return
+		}
 		if err := client.DeleteIssue(req.IssueID, p.Reason, p.Cascade); err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete issue %s", req.IssueID))
 			return

@@ -60,6 +60,70 @@ func (c *Client) syncLocal() {
 	}
 }
 
+// ValidateCreatePayload checks and resolves a CreatePayload before it is
+// stored. It validates title, status, estimate, and resolves parent_id and
+// dependency target IDs to their canonical forms.
+func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
+	if p.Title == "" {
+		return fmt.Errorf("title is required")
+	}
+	if p.Status != "" {
+		switch model.IssueStatus(p.Status) {
+		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+		default:
+			return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", p.Status)
+		}
+	}
+	if p.ParentID != "" {
+		parent, err := c.GetIssue(p.ParentID)
+		if err != nil {
+			return fmt.Errorf("parent: %w", err)
+		}
+		p.ParentID = parent.ID
+	}
+	for i, dep := range p.Dependencies {
+		tgt, err := c.GetIssue(dep.TargetID)
+		if err != nil {
+			return fmt.Errorf("dependencies[%d]: %w", i, err)
+		}
+		p.Dependencies[i].TargetID = tgt.ID
+	}
+	if p.Estimate > 0 {
+		if err := config.ValidateEstimate(c.Config.EstimationSystem, p.Estimate); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateUpdatePayload checks and resolves an UpdatePayload before it is
+// stored. It validates status and resolves parent_id and dependency target IDs
+// to their canonical forms.
+func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
+	if p.Status != nil {
+		switch model.IssueStatus(*p.Status) {
+		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+		default:
+			return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", *p.Status)
+		}
+	}
+	if p.ParentID != nil && *p.ParentID != "" {
+		parent, err := c.GetIssue(*p.ParentID)
+		if err != nil {
+			return fmt.Errorf("parent: %w", err)
+		}
+		*p.ParentID = parent.ID
+	}
+	for i, dep := range p.Dependencies {
+		tgt, err := c.GetIssue(dep.TargetID)
+		if err != nil {
+			return fmt.Errorf("dependencies[%d]: %w", i, err)
+		}
+		p.Dependencies[i].TargetID = tgt.ID
+	}
+	return nil
+}
+
 // --- Transport delegation methods ---
 
 func (c *Client) GetIssue(id string) (*model.Issue, error) {
