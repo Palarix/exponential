@@ -93,6 +93,9 @@ func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 			return err
 		}
 	}
+	if p.Estimate < 0 {
+		return fmt.Errorf("estimate must not be negative")
+	}
 	return nil
 }
 
@@ -120,6 +123,14 @@ func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
 			return fmt.Errorf("dependencies[%d]: %w", i, err)
 		}
 		p.Dependencies[i].TargetID = tgt.ID
+	}
+	if p.Estimate != nil && *p.Estimate > 0 {
+		if err := config.ValidateEstimate(c.Config.EstimationSystem, *p.Estimate); err != nil {
+			return err
+		}
+	}
+	if p.Estimate != nil && *p.Estimate < 0 {
+		return fmt.Errorf("estimate must not be negative")
 	}
 	return nil
 }
