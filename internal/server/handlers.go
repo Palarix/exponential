@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -546,6 +547,8 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+var hexColorRe = regexp.MustCompile(`^#?[0-9a-fA-F]{6}$`)
+
 func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name  string `json:"name"`
@@ -557,6 +560,10 @@ func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Name == "" || req.Color == "" {
 		respondError(w, http.StatusBadRequest, "name and color required")
+		return
+	}
+	if !hexColorRe.MatchString(req.Color) {
+		respondError(w, http.StatusBadRequest, "color must be a 6-digit hex value (e.g. #FF5733 or FF5733)")
 		return
 	}
 
@@ -585,6 +592,10 @@ func (s *Server) handleUpdateLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.OldName == "" || req.NewName == "" || req.Color == "" {
 		respondError(w, http.StatusBadRequest, "old_name, new_name, and color required")
+		return
+	}
+	if !hexColorRe.MatchString(req.Color) {
+		respondError(w, http.StatusBadRequest, "color must be a 6-digit hex value (e.g. #FF5733 or FF5733)")
 		return
 	}
 
@@ -996,15 +1007,21 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		DeleteBranch  bool   `json:"delete_branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		body.Strategy = "squash"
+		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
+		return
 	}
 
 	strategy := exponential.MergeStrategySquash
 	switch body.Strategy {
+	case "", "squash":
+		// default
 	case "merge":
 		strategy = exponential.MergeStrategyMerge
 	case "ff":
 		strategy = exponential.MergeStrategyFF
+	default:
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("invalid merge strategy %q: must be one of squash, merge, ff", body.Strategy))
+		return
 	}
 
 	if !exponential.IsWorkingTreeClean() {

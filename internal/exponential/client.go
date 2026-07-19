@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/config"
@@ -67,6 +68,24 @@ const (
 	MaxLabelLen       = 100
 )
 
+func validateAssigneeFormat(assignee string) error {
+	if assignee == "" {
+		return nil
+	}
+	open := strings.IndexByte(assignee, '<')
+	close := strings.IndexByte(assignee, '>')
+	if open >= 0 || close >= 0 {
+		if open < 0 || close < 0 || close <= open+1 {
+			return fmt.Errorf("invalid assignee format: mismatched angle brackets (expected 'Name <email>')")
+		}
+		email := assignee[open+1 : close]
+		if !strings.Contains(email, "@") {
+			return fmt.Errorf("invalid assignee format: email inside angle brackets must contain '@'")
+		}
+	}
+	return nil
+}
+
 // ValidateCreatePayload checks and resolves a CreatePayload before it is
 // stored. It validates title, status, estimate, and resolves parent_id and
 // dependency target IDs to their canonical forms.
@@ -82,6 +101,9 @@ func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 	}
 	if len(p.Assignee) > MaxAssigneeLen {
 		return fmt.Errorf("assignee exceeds maximum length of %d characters", MaxAssigneeLen)
+	}
+	if err := validateAssigneeFormat(p.Assignee); err != nil {
+		return err
 	}
 	for _, l := range p.Labels {
 		if len(l) > MaxLabelLen {
@@ -108,6 +130,9 @@ func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 			return fmt.Errorf("dependencies[%d]: %w", i, err)
 		}
 		p.Dependencies[i].TargetID = tgt.ID
+	}
+	if p.Priority < 0 || p.Priority > 4 {
+		return fmt.Errorf("priority must be between 0 and 4 (0=None, 1=Urgent, 2=High, 3=Medium, 4=Low)")
 	}
 	if p.Estimate > 0 {
 		if err := config.ValidateEstimate(c.Config.EstimationSystem, p.Estimate); err != nil {
@@ -141,6 +166,11 @@ func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
 	if p.Assignee != nil && len(*p.Assignee) > MaxAssigneeLen {
 		return fmt.Errorf("assignee exceeds maximum length of %d characters", MaxAssigneeLen)
 	}
+	if p.Assignee != nil {
+		if err := validateAssigneeFormat(*p.Assignee); err != nil {
+			return err
+		}
+	}
 	for _, l := range p.Labels {
 		if len(l) > MaxLabelLen {
 			return fmt.Errorf("label %q exceeds maximum length of %d characters", l, MaxLabelLen)
@@ -166,6 +196,9 @@ func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
 			return fmt.Errorf("dependencies[%d]: %w", i, err)
 		}
 		p.Dependencies[i].TargetID = tgt.ID
+	}
+	if p.Priority != nil && (*p.Priority < 0 || *p.Priority > 4) {
+		return fmt.Errorf("priority must be between 0 and 4 (0=None, 1=Urgent, 2=High, 3=Medium, 4=Low)")
 	}
 	if p.Estimate != nil && *p.Estimate > 0 {
 		if err := config.ValidateEstimate(c.Config.EstimationSystem, *p.Estimate); err != nil {

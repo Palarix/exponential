@@ -295,6 +295,13 @@ func (t *toolset) register(s *mcp.Server) {
 // --- Handlers ---
 
 func (t *toolset) list(ctx context.Context, req *mcp.CallToolRequest, in listIn) (*mcp.CallToolResult, listOut, error) {
+	for _, s := range in.Status {
+		switch model.IssueStatus(s) {
+		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+		default:
+			return nil, listOut{}, fmt.Errorf("invalid status filter %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", s)
+		}
+	}
 	c := t.clientFor(req)
 	opts := exponential.FilterOptions{
 		Statuses: []string(in.Status),
@@ -392,15 +399,19 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in updat
 		return nil, updateOut{}, fmt.Errorf("no fields set: provide at least one field to update")
 	}
 	c := t.clientFor(req)
-	if err := c.ValidateUpdatePayload(&payload); err != nil {
-		return nil, updateOut{}, err
-	}
-	msgs, err := c.UpdateIssue(in.ID, payload, "update")
+	issue, err := c.GetIssue(in.ID)
 	if err != nil {
 		return nil, updateOut{}, err
 	}
-	t.broadcast("UPDATE", in.ID)
-	return textResult(strings.Join(msgs, "\n")), updateOut{ID: in.ID, Messages: msgs}, nil
+	if err := c.ValidateUpdatePayload(&payload); err != nil {
+		return nil, updateOut{}, err
+	}
+	msgs, err := c.UpdateIssue(issue.ID, payload, "update")
+	if err != nil {
+		return nil, updateOut{}, err
+	}
+	t.broadcast("UPDATE", issue.ID)
+	return textResult(strings.Join(msgs, "\n")), updateOut{ID: issue.ID, Messages: msgs}, nil
 }
 
 func (t *toolset) comment(ctx context.Context, req *mcp.CallToolRequest, in commentIn) (*mcp.CallToolResult, commentOut, error) {
@@ -411,14 +422,15 @@ func (t *toolset) comment(ctx context.Context, req *mcp.CallToolRequest, in comm
 		return nil, commentOut{}, fmt.Errorf("'body' is required")
 	}
 	c := t.clientFor(req)
-	if _, err := c.GetIssue(in.ID); err != nil {
+	issue, err := c.GetIssue(in.ID)
+	if err != nil {
 		return nil, commentOut{}, err
 	}
-	if err := c.AddComment(in.ID, in.Body); err != nil {
+	if err := c.AddComment(issue.ID, in.Body); err != nil {
 		return nil, commentOut{}, err
 	}
-	t.broadcast("COMMENT", in.ID)
-	return textResult(fmt.Sprintf("Comment added to %s", in.ID)), commentOut{ID: in.ID}, nil
+	t.broadcast("COMMENT", issue.ID)
+	return textResult(fmt.Sprintf("Comment added to %s", issue.ID)), commentOut{ID: issue.ID}, nil
 }
 
 func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in linkIn) (*mcp.CallToolResult, linkOut, error) {
@@ -464,13 +476,17 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startI
 		return nil, startOut{}, fmt.Errorf("'id' is required")
 	}
 	c := t.clientFor(req)
-	branch, msgs, err := c.StartWork(in.ID, in.Force)
+	issue, err := c.GetIssue(in.ID)
 	if err != nil {
 		return nil, startOut{}, err
 	}
-	t.broadcast("UPDATE", in.ID)
+	branch, msgs, err := c.StartWork(issue.ID, in.Force)
+	if err != nil {
+		return nil, startOut{}, err
+	}
+	t.broadcast("UPDATE", issue.ID)
 	text := strings.Join(msgs, "\n")
-	return textResult(text), startOut{ID: in.ID, Branch: branch, Messages: msgs}, nil
+	return textResult(text), startOut{ID: issue.ID, Branch: branch, Messages: msgs}, nil
 }
 
 func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeIn) (*mcp.CallToolResult, mergeOut, error) {
@@ -484,14 +500,22 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 
 	strategy := exponential.MergeStrategySquash
 	switch in.Strategy {
+	case "", "squash":
+		// default
 	case "merge":
 		strategy = exponential.MergeStrategyMerge
 	case "ff":
 		strategy = exponential.MergeStrategyFF
+	default:
+		return nil, mergeOut{}, fmt.Errorf("invalid merge strategy %q: must be one of squash, merge, ff", in.Strategy)
 	}
 
 	c := t.clientFor(req)
-	result, err := c.MergeIssue(in.ID, exponential.MergeOptions{
+	issue, err := c.GetIssue(in.ID)
+	if err != nil {
+		return nil, mergeOut{}, err
+	}
+	result, err := c.MergeIssue(issue.ID, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: in.CommitMessage,
 		DeleteBranch:  in.DeleteBranch,
@@ -499,10 +523,10 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 	if err != nil {
 		return nil, mergeOut{}, err
 	}
-	t.broadcast("MERGE", in.ID)
+	t.broadcast("MERGE", issue.ID)
 
 	text := strings.Join(result.Messages, "\n")
-	return textResult(text), mergeOut{ID: in.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil
+	return textResult(text), mergeOut{ID: issue.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil
 }
 
 // --- Artifact handlers ---
@@ -512,35 +536,40 @@ func (t *toolset) spec(ctx context.Context, req *mcp.CallToolRequest, in specIn)
 		return nil, specOut{OK: false, Error: "'issue_id' is required"}, fmt.Errorf("'issue_id' is required")
 	}
 	c := t.clientFor(req)
-	path := fmt.Sprintf(".xpo/artifacts/%s/spec.md", in.IssueID)
+	issue, err := c.GetIssue(in.IssueID)
+	if err != nil {
+		return nil, specOut{OK: false, Error: err.Error()}, err
+	}
+	issueID := issue.ID
+	path := fmt.Sprintf(".xpo/artifacts/%s/spec.md", issueID)
 
 	switch in.Operation {
 	case "write":
 		if in.Content == "" {
 			return nil, specOut{OK: false, Error: "'content' is required for write"}, fmt.Errorf("'content' is required for write")
 		}
-		if err := c.WriteSpec(in.IssueID, in.Content); err != nil {
+		if err := c.WriteSpec(issueID, in.Content); err != nil {
 			return nil, specOut{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", in.IssueID)
-		return textResult(fmt.Sprintf("Spec written for %s", in.IssueID)),
-			specOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+		t.broadcast("ARTIFACT", issueID)
+		return textResult(fmt.Sprintf("Spec written for %s", issueID)),
+			specOut{OK: true, IssueID: issueID, Path: path}, nil
 
 	case "read":
-		content, err := c.ReadSpec(in.IssueID)
+		content, err := c.ReadSpec(issueID)
 		if err != nil {
 			return nil, specOut{OK: false, Error: err.Error()}, err
 		}
 		return textResult(content),
-			specOut{OK: true, IssueID: in.IssueID, Path: path, Content: content}, nil
+			specOut{OK: true, IssueID: issueID, Path: path, Content: content}, nil
 
 	case "delete":
-		if err := c.DeleteSpec(in.IssueID); err != nil {
+		if err := c.DeleteSpec(issueID); err != nil {
 			return nil, specOut{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", in.IssueID)
-		return textResult(fmt.Sprintf("Spec deleted from %s", in.IssueID)),
-			specOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+		t.broadcast("ARTIFACT", issueID)
+		return textResult(fmt.Sprintf("Spec deleted from %s", issueID)),
+			specOut{OK: true, IssueID: issueID, Path: path}, nil
 
 	default:
 		return nil, specOut{OK: false, Error: "invalid operation: must be write, read, or delete"},
@@ -553,35 +582,40 @@ func (t *toolset) walkthrough(ctx context.Context, req *mcp.CallToolRequest, in 
 		return nil, walkthroughOut{OK: false, Error: "'issue_id' is required"}, fmt.Errorf("'issue_id' is required")
 	}
 	c := t.clientFor(req)
-	path := fmt.Sprintf(".xpo/artifacts/%s/walkthrough.md", in.IssueID)
+	issue, err := c.GetIssue(in.IssueID)
+	if err != nil {
+		return nil, walkthroughOut{OK: false, Error: err.Error()}, err
+	}
+	issueID := issue.ID
+	path := fmt.Sprintf(".xpo/artifacts/%s/walkthrough.md", issueID)
 
 	switch in.Operation {
 	case "write":
 		if in.Content == "" {
 			return nil, walkthroughOut{OK: false, Error: "'content' is required for write"}, fmt.Errorf("'content' is required for write")
 		}
-		if err := c.WriteWalkthrough(in.IssueID, in.Content); err != nil {
+		if err := c.WriteWalkthrough(issueID, in.Content); err != nil {
 			return nil, walkthroughOut{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", in.IssueID)
-		return textResult(fmt.Sprintf("Walkthrough written for %s", in.IssueID)),
-			walkthroughOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+		t.broadcast("ARTIFACT", issueID)
+		return textResult(fmt.Sprintf("Walkthrough written for %s", issueID)),
+			walkthroughOut{OK: true, IssueID: issueID, Path: path}, nil
 
 	case "read":
-		content, err := c.ReadWalkthrough(in.IssueID)
+		content, err := c.ReadWalkthrough(issueID)
 		if err != nil {
 			return nil, walkthroughOut{OK: false, Error: err.Error()}, err
 		}
 		return textResult(content),
-			walkthroughOut{OK: true, IssueID: in.IssueID, Path: path, Content: content}, nil
+			walkthroughOut{OK: true, IssueID: issueID, Path: path, Content: content}, nil
 
 	case "delete":
-		if err := c.DeleteWalkthrough(in.IssueID); err != nil {
+		if err := c.DeleteWalkthrough(issueID); err != nil {
 			return nil, walkthroughOut{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", in.IssueID)
-		return textResult(fmt.Sprintf("Walkthrough deleted from %s", in.IssueID)),
-			walkthroughOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+		t.broadcast("ARTIFACT", issueID)
+		return textResult(fmt.Sprintf("Walkthrough deleted from %s", issueID)),
+			walkthroughOut{OK: true, IssueID: issueID, Path: path}, nil
 
 	default:
 		return nil, walkthroughOut{OK: false, Error: "invalid operation: must be write, read, or delete"},
@@ -594,6 +628,11 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in art
 		return nil, artifactOut{OK: false, Error: "'issue_id' is required"}, fmt.Errorf("'issue_id' is required")
 	}
 	c := t.clientFor(req)
+	issue, err := c.GetIssue(in.IssueID)
+	if err != nil {
+		return nil, artifactOut{OK: false, Error: err.Error()}, err
+	}
+	issueID := issue.ID
 
 	switch in.Operation {
 	case "add":
@@ -603,46 +642,46 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in art
 		if in.Content == "" {
 			return nil, artifactOut{OK: false, Error: "'content' is required for add"}, fmt.Errorf("'content' is required for add")
 		}
-		if err := c.AddArtifact(in.IssueID, "generic", in.Filename, in.Content); err != nil {
+		if err := c.AddArtifact(issueID, "generic", in.Filename, in.Content); err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
-		path := fmt.Sprintf(".xpo/artifacts/%s/%s", in.IssueID, in.Filename)
-		t.broadcast("ARTIFACT", in.IssueID)
-		return textResult(fmt.Sprintf("Artifact %s added to %s", in.Filename, in.IssueID)),
-			artifactOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+		path := fmt.Sprintf(".xpo/artifacts/%s/%s", issueID, in.Filename)
+		t.broadcast("ARTIFACT", issueID)
+		return textResult(fmt.Sprintf("Artifact %s added to %s", in.Filename, issueID)),
+			artifactOut{OK: true, IssueID: issueID, Path: path}, nil
 
 	case "read":
 		if in.Filename == "" {
 			return nil, artifactOut{OK: false, Error: "'filename' is required for read"}, fmt.Errorf("'filename' is required for read")
 		}
-		content, err := c.ReadArtifact(in.IssueID, in.Filename)
+		content, err := c.ReadArtifact(issueID, in.Filename)
 		if err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
-		path := fmt.Sprintf(".xpo/artifacts/%s/%s", in.IssueID, in.Filename)
+		path := fmt.Sprintf(".xpo/artifacts/%s/%s", issueID, in.Filename)
 		return textResult(content),
-			artifactOut{OK: true, IssueID: in.IssueID, Path: path, Content: content}, nil
+			artifactOut{OK: true, IssueID: issueID, Path: path, Content: content}, nil
 
 	case "delete":
 		if in.Filename == "" {
 			return nil, artifactOut{OK: false, Error: "'filename' is required for delete"}, fmt.Errorf("'filename' is required for delete")
 		}
-		if err := c.DeleteArtifact(in.IssueID, in.Filename); err != nil {
+		if err := c.DeleteArtifact(issueID, in.Filename); err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
-		path := fmt.Sprintf(".xpo/artifacts/%s/%s", in.IssueID, in.Filename)
-		t.broadcast("ARTIFACT", in.IssueID)
-		return textResult(fmt.Sprintf("Artifact %s deleted from %s", in.Filename, in.IssueID)),
-			artifactOut{OK: true, IssueID: in.IssueID, Path: path}, nil
+		path := fmt.Sprintf(".xpo/artifacts/%s/%s", issueID, in.Filename)
+		t.broadcast("ARTIFACT", issueID)
+		return textResult(fmt.Sprintf("Artifact %s deleted from %s", in.Filename, issueID)),
+			artifactOut{OK: true, IssueID: issueID, Path: path}, nil
 
 	case "list":
-		artifacts, err := c.ListArtifacts(in.IssueID)
+		artifacts, err := c.ListArtifacts(issueID)
 		if err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
 		entries := toArtifactEntries(artifacts)
 		return textResult(fmt.Sprintf("%d artifact(s)", len(entries))),
-			artifactOut{OK: true, IssueID: in.IssueID, Artifacts: entries}, nil
+			artifactOut{OK: true, IssueID: issueID, Artifacts: entries}, nil
 
 	default:
 		return nil, artifactOut{OK: false, Error: "invalid operation: must be add, read, delete, or list"},
