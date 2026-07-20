@@ -76,8 +76,9 @@ export default function PriorityPicker({ current, onSelect, onClose }: PriorityP
           >
             <PriorityIcon priority={opt.value} size={14} />
             <span>{opt.label}</span>
-            {isCurrent && <CheckIcon />}
-            {!isCurrent && <span className="ml-auto text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
+            <span className="ml-auto w-4 flex items-center justify-center shrink-0">
+              {isCurrent ? <CheckIcon /> : <span className="text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
+            </span>
           </button>
         );
       })}
@@ -88,7 +89,7 @@ export default function PriorityPicker({ current, onSelect, onClose }: PriorityP
 
 function CheckIcon() {
   return (
-    <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );

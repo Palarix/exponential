@@ -26,6 +26,7 @@ import {
   Popover,
   LabelPicker,
   StatusPicker,
+  PriorityPicker,
   EstimatePicker,
   SubProgress,
   ContextMenu,
@@ -113,7 +114,7 @@ export default function Backlog({
   const showToast = useToast();
   const [openPopover, setOpenPopover] = useState<{
     issueId: string;
-    type: "status" | "estimate" | "labels";
+    type: "status" | "estimate" | "labels" | "priority";
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     issueId: string;
@@ -224,6 +225,14 @@ export default function Backlog({
       showToast(`Estimate set to ${estimate || "none"}`);
     },
     [onRefresh, showToast],
+  );
+  const handleQuickPriority = useCallback(
+    async (issueId: string, priority: number) => {
+      await addDraft(issueId, "UPDATE", { priority });
+      setOpenPopover(null);
+      onRefresh();
+    },
+    [onRefresh],
   );
   const handleQuickLabelToggle = useCallback(
     async (issue: Issue, label: string) => {
@@ -854,6 +863,11 @@ export default function Backlog({
           setOpenPopover({ issueId: row.issue.id, type: "estimate" });
           return;
         }
+        if (e.key === "p") {
+          e.preventDefault();
+          setOpenPopover({ issueId: row.issue.id, type: "priority" });
+          return;
+        }
       }
     };
     document.addEventListener("keydown", handler);
@@ -1360,10 +1374,41 @@ export default function Backlog({
                               ) : (
                                 <span className="w-4 shrink-0" />
                               )}
-                              <PriorityIcon
-                                priority={issue.priority || 0}
-                                size={16}
-                              />
+                              <div
+                                className="relative shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() =>
+                                    setOpenPopover(
+                                      openPopover?.issueId === issue.id &&
+                                        openPopover?.type === "priority"
+                                        ? null
+                                        : { issueId: issue.id, type: "priority" },
+                                    )
+                                  }
+                                  className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
+                                >
+                                  <PriorityIcon
+                                    priority={issue.priority || 0}
+                                    size={16}
+                                  />
+                                </button>
+                                {openPopover?.issueId === issue.id &&
+                                  openPopover?.type === "priority" && (
+                                    <Popover
+                                      onClose={() => setOpenPopover(null)}
+                                    >
+                                      <PriorityPicker
+                                        current={issue.priority || 0}
+                                        onSelect={(v) =>
+                                          handleQuickPriority(issue.id, v)
+                                        }
+                                        onClose={() => setOpenPopover(null)}
+                                      />
+                                    </Popover>
+                                  )}
+                              </div>
                               <CopyableId
                                 id={issue.id}
                                 className="text-xs text-left shrink-0 tabular-nums"

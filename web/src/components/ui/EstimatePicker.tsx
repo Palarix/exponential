@@ -79,8 +79,9 @@ export default function EstimatePicker({ current, onSelect, onClose }: EstimateP
             className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === i ? "bg-[var(--color-hover-surface-3)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
           >
             <span>{estimateLabel(est)}</span>
-            {isCurrent && <CheckIcon />}
-            {!isCurrent && <span className="ml-auto text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
+            <span className="ml-auto w-4 flex items-center justify-center shrink-0">
+              {isCurrent ? <CheckIcon /> : <span className="text-xs text-[var(--color-text-muted)]">{i + 1}</span>}
+            </span>
           </button>
         );
       })}
@@ -91,7 +92,7 @@ export default function EstimatePicker({ current, onSelect, onClose }: EstimateP
 
 function CheckIcon() {
   return (
-    <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
