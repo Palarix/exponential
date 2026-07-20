@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Checkmark and shortcut number alignment in status, priority, and estimate picker popovers
-
+- Generated agent instructions now include the project's issue ID prefix and an example ID (xpo-2ba758)
 - Board view now sorts issues within each status column the same way as the Backlog — by `sort_order` for active statuses, by recency for DONE (xpo-337854)
 - Relationship links in issue detail view now resolve correctly — dependency target IDs and parent IDs are resolved to canonical `xpo-` prefixed IDs via `GetIssue()` in MCP add/update tools (xpo-147414)
 - Existing dependencies with prefixless IDs matched via suffix fallback in the frontend (xpo-147414)

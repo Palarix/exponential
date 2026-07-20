@@ -80,11 +80,12 @@ func DetectAgentFiles() []AgentDetectionResult {
 // GenerateAgentStub generates the thin always-on stub for agent instruction files.
 // This contains only hard invariants and a directive to load the xpo-workflow skill.
 func GenerateAgentStub(prefix string) string {
-	_ = prefix
 	return `# Exponential Agent Instructions
 
 This project uses ` + "`xpo`" + ` (Exponential) via the MCP server registered in ` + "`.mcp.json`" + `.
 Always use the MCP tools — never shell out to the ` + "`xpo`" + ` CLI.
+
+Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`" + prefix + "a1b2c3`" + `).
 
 ## Hard Rules
 
