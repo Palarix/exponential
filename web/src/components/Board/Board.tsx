@@ -45,10 +45,17 @@ const COLUMNS = [
 type Containers = Record<string, string[]>;
 
 function buildContainers(issues: Issue[]): Containers {
-  const sorted = sortGroup(issues, 'manual');
   const result: Containers = {};
-  for (const col of COLUMNS) result[col.id] = [];
-  for (const issue of sorted) result[issue.status]?.push(issue.id);
+  const byStatus = new Map<string, Issue[]>();
+  for (const col of COLUMNS) {
+    result[col.id] = [];
+    byStatus.set(col.id, []);
+  }
+  for (const issue of issues) byStatus.get(issue.status)?.push(issue);
+  for (const col of COLUMNS) {
+    const key = col.id === 'DONE' ? ('updated' as const) : ('manual' as const);
+    result[col.id] = sortGroup(byStatus.get(col.id)!, key).map((i) => i.id);
+  }
   return result;
 }
 
