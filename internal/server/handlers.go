@@ -951,7 +951,12 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files := exponential.ListFilesChanged(issue.BranchStats.Branch, base)
+	var files []exponential.FileStat
+	if issue.BranchStats.Commits == 0 && issue.BranchStats.HasUncommitted {
+		files = exponential.ListWorkingTreeFilesChanged()
+	} else {
+		files = exponential.ListFilesChanged(issue.BranchStats.Branch, base)
+	}
 	type fileJSON struct {
 		Status     string `json:"status"`
 		Path       string `json:"path"`
@@ -971,7 +976,12 @@ func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	diff := exponential.GetDiffText(issue.BranchStats.Branch, base)
+	var diff string
+	if issue.BranchStats.Commits == 0 && issue.BranchStats.HasUncommitted {
+		diff = exponential.GetWorkingTreeDiffText()
+	} else {
+		diff = exponential.GetDiffText(issue.BranchStats.Branch, base)
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(diff))

@@ -5,6 +5,7 @@ export interface BranchStats {
   files_changed: number;
   insertions: number;
   deletions: number;
+  has_uncommitted: boolean;
 }
 
 export interface ArtifactSummary {

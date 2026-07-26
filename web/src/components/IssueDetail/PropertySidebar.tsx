@@ -238,14 +238,14 @@ export default function PropertySidebar({
           </button>
         )}
 
-        {/* Merge button */}
-        {issue.branch_stats && issue.branch_stats.commits > 0 && issue.status !== "DONE" && onOpenMerge && (
+        {/* Merge / Review button */}
+        {issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && issue.status !== "DONE" && onOpenMerge && (
           <button
             onClick={onOpenMerge}
             className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity"
           >
             <GitMerge size={16} />
-            Merge Branch
+            {issue.branch_stats.commits > 0 ? "Merge Branch" : "Review Changes"}
           </button>
         )}
 

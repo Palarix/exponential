@@ -189,7 +189,9 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
                 <Check size={16} />Ready to merge
               </div>
             )}
-            <span className="text-xs text-[var(--color-text-muted)] mt-0.5">Merging will close this issue</span>
+            <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
+              {bs.commits === 0 && bs.has_uncommitted ? "Commit your changes to enable merging" : "Merging will close this issue"}
+            </span>
           </div>
 
           {/* Right: merge button + strategy */}
@@ -338,6 +340,18 @@ function CommitsTab({ commits, selectedCommit, commitDiffs, commitDiffLoading, o
   onSelectCommit: (sha: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  if (commits.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
+        <div className="text-center">
+          <GitCommitVertical size={24} className="mx-auto mb-2 opacity-40" />
+          <p>No commits yet</p>
+          <p className="text-xs mt-1">Uncommitted changes are shown in the Files tab</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex">

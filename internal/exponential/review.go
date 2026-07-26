@@ -168,6 +168,16 @@ func GetDiffText(branch, base string) string {
 	return string(out)
 }
 
+// GetWorkingTreeDiffText returns the combined staged + unstaged diff
+// relative to HEAD for the currently checked-out branch.
+func GetWorkingTreeDiffText() string {
+	out, err := exec.Command("git", "diff", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
 // ListBranchCommits returns the commits on branch relative to base,
 // newest first.
 func ListBranchCommits(branch, base string) []CommitEntry {
@@ -190,13 +200,23 @@ func ListBranchCommits(branch, base string) []CommitEntry {
 	return commits
 }
 
+// ListWorkingTreeFilesChanged returns per-file stats for uncommitted
+// changes (staged + unstaged) relative to HEAD.
+func ListWorkingTreeFilesChanged() []FileStat {
+	return listFilesChangedFromDiff("HEAD")
+}
+
 // ListFilesChanged returns per-file stats for the branch relative to base.
 func ListFilesChanged(branch, base string) []FileStat {
-	numOut, err := exec.Command("git", "diff", "--numstat", base+"..."+branch).Output()
+	return listFilesChangedFromDiff(base + "..." + branch)
+}
+
+func listFilesChangedFromDiff(diffRef string) []FileStat {
+	numOut, err := exec.Command("git", "diff", "--numstat", diffRef).Output()
 	if err != nil {
 		return nil
 	}
-	nameOut, _ := exec.Command("git", "diff", "--name-status", base+"..."+branch).Output()
+	nameOut, _ := exec.Command("git", "diff", "--name-status", diffRef).Output()
 
 	statusMap := make(map[string]string)
 	for _, line := range strings.Split(strings.TrimSpace(string(nameOut)), "\n") {

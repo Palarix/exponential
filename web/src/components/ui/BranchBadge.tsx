@@ -7,8 +7,11 @@ interface BranchBadgeProps {
 
 export default function BranchBadge({ stats }: BranchBadgeProps) {
   const hasCommits = stats.commits > 0;
+  const hasUncommitted = !hasCommits && stats.has_uncommitted;
   const title = hasCommits
     ? `${stats.branch} — ${stats.commits} commit${stats.commits === 1 ? "" : "s"}, ${stats.files_changed} file${stats.files_changed === 1 ? "" : "s"}, +${stats.insertions} -${stats.deletions}`
+    : hasUncommitted
+    ? `${stats.branch} — uncommitted changes: ${stats.files_changed} file${stats.files_changed === 1 ? "" : "s"}, +${stats.insertions} -${stats.deletions}`
     : `${stats.branch} — no commits yet`;
 
   return (
@@ -23,6 +26,9 @@ export default function BranchBadge({ stats }: BranchBadgeProps) {
           <span className="text-[var(--color-border-label)]">|</span>
           {stats.commits}
         </>
+      )}
+      {hasUncommitted && (
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="uncommitted changes" />
       )}
     </span>
   );

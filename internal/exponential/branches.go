@@ -116,6 +116,8 @@ func branchMatchesIssue(branches []string, issueID string) bool {
 
 // computeBranchStats returns commit count, files changed, and line
 // insertions/deletions for a branch relative to the base branch.
+// When the branch is checked out and has no commits ahead of base,
+// it also detects uncommitted working-tree changes.
 func computeBranchStats(branch, base string) *model.BranchStats {
 	stats := &model.BranchStats{Branch: branch}
 
@@ -133,11 +135,47 @@ func computeBranchStats(branch, base string) *model.BranchStats {
 		}
 	}
 
-	if out, err := exec.Command("git", "diff", "--shortstat", base+"..."+branch).Output(); err == nil {
-		parseShortstat(strings.TrimSpace(string(out)), stats)
+	if stats.Commits > 0 {
+		if out, err := exec.Command("git", "diff", "--shortstat", base+"..."+branch).Output(); err == nil {
+			parseShortstat(strings.TrimSpace(string(out)), stats)
+		}
+	} else if branch == CurrentBranch() {
+		fillUncommittedStats(stats)
 	}
 
 	return stats
+}
+
+// fillUncommittedStats detects staged and unstaged working-tree changes
+// and populates the stats when the branch has no commits ahead of base.
+func fillUncommittedStats(stats *model.BranchStats) {
+	out, err := exec.Command("git", "diff", "--shortstat", "HEAD").Output()
+	if err != nil {
+		return
+	}
+	line := strings.TrimSpace(string(out))
+
+	cachedOut, err := exec.Command("git", "diff", "--shortstat", "--cached").Output()
+	if err == nil {
+		cachedLine := strings.TrimSpace(string(cachedOut))
+		if cachedLine != "" {
+			var staged model.BranchStats
+			parseShortstat(cachedLine, &staged)
+			stats.FilesChanged += staged.FilesChanged
+			stats.Insertions += staged.Insertions
+			stats.Deletions += staged.Deletions
+			stats.HasUncommitted = true
+		}
+	}
+
+	if line != "" {
+		var unstaged model.BranchStats
+		parseShortstat(line, &unstaged)
+		stats.FilesChanged += unstaged.FilesChanged
+		stats.Insertions += unstaged.Insertions
+		stats.Deletions += unstaged.Deletions
+		stats.HasUncommitted = true
+	}
 }
 
 // parseShortstat parses output like "7 files changed, 142 insertions(+), 38 deletions(-)"

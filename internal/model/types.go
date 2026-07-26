@@ -101,12 +101,13 @@ const (
 )
 
 type BranchStats struct {
-	Branch       string `json:"branch"`
-	HeadSHA      string `json:"head_sha"`
-	Commits      int    `json:"commits"`
-	FilesChanged int    `json:"files_changed"`
-	Insertions   int    `json:"insertions"`
-	Deletions    int    `json:"deletions"`
+	Branch         string `json:"branch"`
+	HeadSHA        string `json:"head_sha"`
+	Commits        int    `json:"commits"`
+	FilesChanged   int    `json:"files_changed"`
+	Insertions     int    `json:"insertions"`
+	Deletions      int    `json:"deletions"`
+	HasUncommitted bool   `json:"has_uncommitted"`
 }
 
 type Issue struct {
