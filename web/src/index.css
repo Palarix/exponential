@@ -151,7 +151,7 @@ body {
 }
 
 .prose-exponential p {
-  margin: 0.75em 0;
+  margin: 0.875em 0;
 }
 
 .prose-exponential p:first-child {
@@ -165,7 +165,8 @@ body {
 .prose-exponential h1, .prose-exponential h2, .prose-exponential h3, .prose-exponential h4 {
   color: var(--color-text-primary);
   font-weight: 600;
-  margin: 1.5em 0 0.5em;
+  line-height: 1.3;
+  margin-bottom: 0.75em;
 }
 
 .prose-exponential > :first-child,
@@ -174,9 +175,10 @@ body {
   margin-top: 0;
 }
 
-.prose-exponential h1 { font-size: 1.25em; }
-.prose-exponential h2 { font-size: 1.1em; }
-.prose-exponential h3 { font-size: 1em; }
+.prose-exponential h1 { font-size: 1.375em; margin-top: 2.5em; }
+.prose-exponential h2 { font-size: 1.2em; margin-top: 2em; }
+.prose-exponential h3 { font-size: 1.05em; margin-top: 1.5em; }
+.prose-exponential h4 { font-size: 1em; margin-top: 1.25em; }
 
 .prose-exponential strong {
   color: var(--color-text-primary);
@@ -189,11 +191,11 @@ body {
 
 .prose-exponential code {
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: 0.875em;
   background: var(--color-surface-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  padding: 0.25em 0.35em;
+  padding: 0.2em 0.35em;
 }
 
 .prose-exponential pre {
@@ -202,22 +204,41 @@ body {
   border-radius: var(--radius-md);
   padding: 0.75em 1em;
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 1em 0;
 }
 
 .prose-exponential pre code {
   background: none;
   border: none;
   padding: 0;
+  font-size: 0.9375em;
 }
 
 .prose-exponential ul, .prose-exponential ol {
+  padding-left: 1.125em;
+  margin: 0.875em 0;
+}
+
+.prose-exponential li > ul, .prose-exponential li > ol {
   padding-left: 1.5em;
-  margin: 0.75em 0;
+  margin: 0.375em 0;
 }
 
 .prose-exponential li {
-  margin: 0.35em 0;
+  margin: 0.375em 0;
+  padding-left: 0.375em;
+}
+
+.prose-exponential li > p {
+  margin: 0.375em 0;
+}
+
+.prose-exponential li > p:first-child {
+  margin-top: 0;
+}
+
+.prose-exponential li > p:last-child {
+  margin-bottom: 0;
 }
 
 .prose-exponential ul li {
@@ -283,13 +304,42 @@ body {
   border-left: 2px solid var(--color-border-default);
   padding-left: 1em;
   color: var(--color-text-muted);
-  margin: 0.75em 0;
+  margin: 1em 0;
 }
 
 .prose-exponential hr {
   border: none;
   border-top: 1px solid var(--color-border-subtle);
+  margin: 1.5em 0;
+}
+
+/* Tables */
+.prose-exponential table {
+  width: 100%;
+  border-collapse: collapse;
   margin: 1em 0;
+  font-size: 0.9375em;
+  border: 1px solid var(--color-border-default);
+}
+
+.prose-exponential th,
+.prose-exponential td {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--color-border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose-exponential thead th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 0.875em;
+  background: var(--color-surface-1);
+  border-color: var(--color-border-default);
+}
+
+.prose-exponential table code {
+  font-size: 0.9em;
 }
 
 /* ========================================
@@ -350,6 +400,29 @@ body {
 
 .prose-exponential .tiptap ul[data-type="taskList"] li > div > p {
   margin: 0;
+}
+
+.prose-exponential .tiptap table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  border: 1px solid var(--color-border-default);
+}
+
+.prose-exponential .tiptap th,
+.prose-exponential .tiptap td {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--color-border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose-exponential .tiptap th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 0.875em;
+  background: var(--color-surface-1);
+  border-color: var(--color-border-default);
 }
 
 .prose-exponential .tiptap p.is-editor-empty:first-child::before {
