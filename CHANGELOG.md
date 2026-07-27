@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Issue detail scrollbar moved to the right edge of the viewport; property sidebar is now sticky-positioned and scrolls independently on short screens (xpo-a8be39)
 - Activity timeline system entries (status changes, merges, artifact updates) now render with tighter vertical spacing; comment cards retain generous margins (xpo-13153f)
 
+### Fixed
+
+- Scroll position now resets to top when navigating between issues via arrow keys or prev/next buttons (xpo-a6a17e)
+
 ## [1.0.3] - 2026-07-20
 
 ### Added

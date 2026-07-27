@@ -60,6 +60,11 @@ export default function IssueDetail({
   const [artifactContent, setArtifactContent] = useState<Record<string, string>>({});
   const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo(0, 0);
+  }, [issue.id]);
 
   useEffect(() => {
     setEditingField(null);
@@ -305,7 +310,7 @@ export default function IssueDetail({
 
       {banner}
       {/* Body */}
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
         <div className="flex min-h-full max-w-[76rem] mx-auto">
         {/* Main content */}
         <div className="flex-1 min-w-0">
