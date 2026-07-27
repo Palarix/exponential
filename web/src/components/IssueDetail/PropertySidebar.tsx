@@ -222,8 +222,8 @@ export default function PropertySidebar({
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === issue.status);
 
   return (
-    <div className="w-80 overflow-y-auto shrink-0">
-      <div className="p-5 space-y-3">
+    <div className="w-80 shrink-0 sticky top-0 self-start max-h-screen overflow-y-auto pt-12">
+      <div className="px-5 pb-5 space-y-3">
         {/* Start Work button */}
         {(issue.status === "BACKLOG" || issue.status === "PLANNED") && (
           <button

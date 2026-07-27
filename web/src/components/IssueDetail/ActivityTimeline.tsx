@@ -6,12 +6,28 @@ import { fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { Avatar, LabelBadge, StatusIcon } from "../ui";
 import { Triangle, ChevronDown } from "lucide-react";
-import { formatRelativeTime, linkifyIssueIds, displayActor } from "../../utils/format";
+import {
+  formatRelativeTime,
+  linkifyIssueIds,
+  displayActor,
+} from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 
 type ActivityEntry =
-  | { kind: "system"; author: string; via?: string; content: React.ReactNode; time: string }
-  | { kind: "comment"; author: string; via?: string; text: string; time: string };
+  | {
+      kind: "system";
+      author: string;
+      via?: string;
+      content: React.ReactNode;
+      time: string;
+    }
+  | {
+      kind: "comment";
+      author: string;
+      via?: string;
+      text: string;
+      time: string;
+    };
 
 const STATUS_LABELS: Record<string, string> = {
   BACKLOG: "Backlog",
@@ -92,16 +108,20 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
       return "deleted this issue";
     case "MERGE": {
       const branch = p.branch ? String(p.branch) : "";
-      const shortBranch = branch.length > 40 ? branch.slice(0, 40) + "…" : branch;
+      const shortBranch =
+        branch.length > 40 ? branch.slice(0, 40) + "…" : branch;
       return (
         <>
           merged{" "}
           {branch && (
-            <span className="font-mono text-xs text-[var(--color-accent-primary)]" title={branch}>{shortBranch}</span>
+            <span
+              className="font-mono text-xs text-[var(--color-accent-primary)]"
+              title={branch}
+            >
+              {shortBranch}
+            </span>
           )}
-          {p.strategy && (
-            <> via {String(p.strategy)}</>
-          )}
+          {p.strategy && <> via {String(p.strategy)}</>}
         </>
       );
     }
@@ -111,7 +131,9 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
       return (
         <>
           {action}{" "}
-          <span className="font-mono text-xs font-medium text-[var(--color-text-primary)]">{filename}</span>
+          <span className="font-mono text-xs font-medium text-[var(--color-text-primary)]">
+            {filename}
+          </span>
         </>
       );
     }
@@ -193,20 +215,24 @@ export default function ActivityTimeline({
           title={sortNewest ? "Showing newest first" : "Showing oldest first"}
         >
           {sortNewest ? "Newest" : "Oldest"}
-          <ChevronDown className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`} />
+          <ChevronDown
+            className={`w-3 h-3 transition-transform ${sortNewest ? "" : "rotate-180"}`}
+          />
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {entries.map((entry, i) => {
           if (entry.kind === "system") {
             return (
               <div
                 key={`sys-${i}`}
-                className="flex items-center gap-2 px-4 py-2 flex-wrap text-sm text-[var(--color-text-muted)]"
+                className="flex items-center gap-2 px-4 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
                 <Avatar name={entry.author} size="sm" />
-                <Tooltip content={entry.via || ""}><span>{entry.author}</span></Tooltip>
+                <Tooltip content={entry.via || ""}>
+                  <span>{entry.author}</span>
+                </Tooltip>
                 {entry.content}
                 <span>·</span>
                 <span>{formatRelativeTime(entry.time)}</span>
@@ -217,7 +243,7 @@ export default function ActivityTimeline({
           return (
             <div
               key={`cmt-${i}`}
-              className="rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]"
+              className="!mt-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]"
             >
               <div className="flex items-center gap-3 mb-2">
                 <Avatar name={entry.author} size="sm" />

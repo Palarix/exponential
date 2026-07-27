@@ -305,10 +305,11 @@ export default function IssueDetail({
 
       {banner}
       {/* Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+        <div className="flex min-h-full max-w-[76rem] mx-auto">
         {/* Main content */}
-        <div className="flex-1 overflow-y-auto min-w-0" style={{ scrollbarGutter: "stable both-edges" }}>
-          <div className="max-w-4xl mx-auto px-8 py-12">
+        <div className="flex-1 min-w-0">
+          <div className="px-8 py-12">
             {/* Title */}
             {editingField === "title" ? (
               <input
@@ -467,6 +468,7 @@ export default function IssueDetail({
           onConfigLabelsChange={onConfigLabelsChange}
           onOpenMerge={() => setMergeViewOpen(true)}
         />
+        </div>
       </div>
     </div>
   );
