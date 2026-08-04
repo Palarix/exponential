@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Worktree-based concurrent workflows** (xpo-f7ea12) — `xpo start` and `xpo merge` now use git worktrees by default, making multi-agent and multi-session work safe by design. The primary checkout stays parked on `main` as the integration hub; each `xpo start` creates an isolated worktree at `.xpo/worktrees/<branch>/`; `xpo merge` runs from the hub and cleans up the worktree automatically. All issue events serialize through the hub so the web board reflects real-time state from every agent. Opt out per-command with `--no-wt` or globally with `worktrees: false` in config.
+  - Hub-rooted storage layer — all `issues.db` and artifact I/O routes through the primary checkout via `git rev-parse --git-common-dir`, so MCP servers in worktrees read/write the hub's event log (xpo-580061)
+  - `xpo start` creates worktrees with `--force` takeover (removes existing worktree), `worktree_setup` config hook for post-creation build steps (e.g. `make deps`), and MCP `start` tool returns `worktree_path` (xpo-1765ca)
+  - `xpo merge` verifies hub is on the default branch, skips checkout, removes worktree after merge regardless of `--keep-branch`, and relaxes clean check to allow uncommitted `.xpo/` events (xpo-f96832)
 - Review view for branches with uncommitted changes — shows working-tree diff in the merge view even before committing, with merge disabled and guidance to commit first (xpo-4295bf)
-- Hub-rooted storage layer — all `issues.db` and artifact reads/writes now resolve through the primary checkout ("hub") via `git rev-parse --git-common-dir`, enabling future worktree-based concurrent workflows (xpo-580061)
-- Worktree-based `xpo start` — creates a git worktree at `.xpo/worktrees/<branch>/` by default instead of checking out in the primary checkout; `--no-wt` flag and `worktrees: false` config for fallback; `worktree_setup` hook for post-creation build steps (xpo-1765ca)
-- Worktree-aware `xpo merge` — skips branch checkout when hub is on main, removes worktree after merge, relaxes clean check to ignore uncommitted `.xpo/` events (xpo-f96832)
 
 ### Improved
 

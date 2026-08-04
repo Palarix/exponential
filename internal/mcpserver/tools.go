@@ -271,12 +271,12 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start",
-		Description: "Start working on an issue: transitions status to DOING and creates a git branch named <issue-id>-<slug> off the default branch.",
+		Description: "Start working on an issue: transitions status to DOING and creates a git worktree (default) or branch for <issue-id>-<slug> off the default branch. Returns the worktree path when worktrees are enabled.",
 	}, t.start)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "merge",
-		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. Requires a clean working tree.",
+		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. When worktrees are enabled, the merge runs from the hub (primary checkout on main) and the worktree is cleaned up automatically.",
 	}, t.merge)
 
 	mcp.AddTool(s, &mcp.Tool{

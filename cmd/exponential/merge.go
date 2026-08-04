@@ -23,7 +23,7 @@ var (
 var mergeCmd = &cobra.Command{
 	Use:               "merge [id]",
 	Short:             "Merge an issue's branch and close the issue",
-	Long:              "Merge the branch into the default branch, record a MERGE event, and transition to DONE. If no issue ID is given, infers from the current branch.",
+	Long:              "Merge the branch into the default branch, record a MERGE event, and transition to DONE. When worktrees are enabled (default), the merge runs from the hub checkout on main and the worktree is removed automatically. Use --no-wt for the classic checkout-based flow. If no issue ID is given, infers from the current branch.",
 	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {

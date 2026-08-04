@@ -26,6 +26,8 @@ Run `xpo init` and you're tracking work in under a minute. It creates the issue 
 
 **Durable memory.** A context window forgets between sessions; the backlog doesn't. Issues, comments, specs, decisions, and history persist, so the next agent picks up where the last one left off instead of starting cold.
 
+**Concurrent by default.** `xpo start` creates isolated git worktrees so multiple agents can work on different issues in the same repo simultaneously. The primary checkout stays on `main` as the integration hub — no branch switching, no trampled work.
+
 **Event-sourced.** Every change is an append-only event. Merge conflicts are rare. The audit trail is a byproduct, not a feature you switch on.
 
 **Single binary.** `xpo` ships the CLI, the web UI, and the MCP server in one Go executable. No Node.js, no Docker, no database to run.
@@ -89,7 +91,7 @@ The server binds to `127.0.0.1` only. No remote access, no auth needed.
 xpo list                                # see the board (alias: xpo ls)
 xpo show <id>                           # full details for one issue
 xpo add "Title" --label feature         # create
-xpo start <id>                          # move to DOING + create branch
+xpo start <id>                          # move to DOING + create worktree
 xpo done  <id>                          # move to DONE
 xpo comment <id> "Fixed in auth.go"     # markdown comment
 ```
@@ -114,13 +116,15 @@ xpo link <a> <b> --type blocks
 xpo estimate <id> 5
 ```
 
-### Branch workflows
+### Worktree workflows
 
 ```bash
-xpo start <id>                          # creates branch, moves to DOING
+xpo start <id>                          # creates worktree + branch, moves to DOING
 xpo review <id>                         # unified diff from the terminal
-xpo merge <id>                          # squash-merge + close
+xpo merge <id>                          # squash-merge + close, removes worktree
 ```
+
+By default, `xpo start` creates a git worktree at `.xpo/worktrees/<branch>/` so the primary checkout stays on `main`. Multiple agents (or humans) can work on different issues concurrently without trampling each other's uncommitted changes. `xpo merge` runs from the hub and cleans up the worktree automatically. Use `--no-wt` on either command for the classic checkout-based flow, or set `worktrees: false` in `.xpo/config.yaml`.
 
 Run `xpo --help` or `xpo <command> --help` for the full surface.
 
