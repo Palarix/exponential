@@ -1,8 +1,12 @@
 package exponential
 
 import (
+	"bufio"
 	"os/exec"
+	"path/filepath"
 	"strings"
+
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // DefaultBranch returns the name of the default branch by inspecting
@@ -38,4 +42,77 @@ func CheckoutBranch(name string) error {
 func RemoteBranchExists(name string) bool {
 	err := exec.Command("git", "ls-remote", "--exit-code", "--heads", "origin", name).Run()
 	return err == nil
+}
+
+// WorktreeDir returns the canonical worktree path for a branch inside
+// the hub's .xpo/worktrees/ directory.
+func WorktreeDir(branch string) string {
+	return filepath.Join(storage.XpoDir(), "worktrees", branch)
+}
+
+// WorktreeAdd creates a new worktree at path on a new branch from base.
+func WorktreeAdd(path, branch, base string) error {
+	return exec.Command("git", "worktree", "add", "-b", branch, path, base).Run()
+}
+
+// WorktreeAddExisting creates a worktree for an already-existing local branch.
+func WorktreeAddExisting(path, branch string) error {
+	return exec.Command("git", "worktree", "add", path, branch).Run()
+}
+
+// WorktreeRemove removes a worktree directory and its administrative files.
+func WorktreeRemove(path string) error {
+	if err := exec.Command("git", "worktree", "remove", "--force", path).Run(); err != nil {
+		return err
+	}
+	return exec.Command("git", "worktree", "prune").Run()
+}
+
+// WorktreeEntry represents one entry from `git worktree list --porcelain`.
+type WorktreeEntry struct {
+	Path   string
+	Branch string
+}
+
+// WorktreeList returns all worktrees known to git.
+func WorktreeList() ([]WorktreeEntry, error) {
+	out, err := exec.Command("git", "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var entries []WorktreeEntry
+	var current WorktreeEntry
+	scanner := bufio.NewScanner(strings.NewReader(string(out)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			if current.Path != "" {
+				entries = append(entries, current)
+			}
+			current = WorktreeEntry{Path: strings.TrimPrefix(line, "worktree ")}
+		case strings.HasPrefix(line, "branch "):
+			ref := strings.TrimPrefix(line, "branch ")
+			current.Branch = strings.TrimPrefix(ref, "refs/heads/")
+		}
+	}
+	if current.Path != "" {
+		entries = append(entries, current)
+	}
+	return entries, scanner.Err()
+}
+
+// FindWorktreeForBranch returns the worktree path for a branch, if one exists.
+func FindWorktreeForBranch(branch string) (string, bool) {
+	entries, err := WorktreeList()
+	if err != nil {
+		return "", false
+	}
+	for _, e := range entries {
+		if e.Branch == branch {
+			return e.Path, true
+		}
+	}
+	return "", false
 }

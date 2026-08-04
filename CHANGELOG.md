@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Review view for branches with uncommitted changes — shows working-tree diff in the merge view even before committing, with merge disabled and guidance to commit first (xpo-4295bf)
 - Hub-rooted storage layer — all `issues.db` and artifact reads/writes now resolve through the primary checkout ("hub") via `git rev-parse --git-common-dir`, enabling future worktree-based concurrent workflows (xpo-580061)
+- Worktree-based `xpo start` — creates a git worktree at `.xpo/worktrees/<branch>/` by default instead of checking out in the primary checkout; `--no-wt` flag and `worktrees: false` config for fallback; `worktree_setup` hook for post-creation build steps (xpo-1765ca)
 
 ### Improved
 

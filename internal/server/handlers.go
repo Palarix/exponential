@@ -872,7 +872,7 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	client := exponential.NewClient(s.Config)
 	client.Collapse = true
-	branch, msgs, err := client.StartWork(id, force)
+	branch, _, msgs, err := client.StartWork(id, force)
 	s.mu.Unlock()
 
 	if err != nil {

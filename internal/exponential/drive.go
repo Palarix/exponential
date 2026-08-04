@@ -578,7 +578,7 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	log.header(issue.ID, issue.Title, agentLine)
 	log.phase("Preparation")
 
-	branch, _, err := c.StartWork(issue.ID, true)
+	branch, _, _, err := c.StartWork(issue.ID, true)
 	if err != nil {
 		return nil, fmt.Errorf("start: %w", err)
 	}

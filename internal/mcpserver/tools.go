@@ -147,9 +147,10 @@ type startIn struct {
 }
 
 type startOut struct {
-	ID       string   `json:"id"`
-	Branch   string   `json:"branch,omitempty"`
-	Messages []string `json:"messages"`
+	ID           string   `json:"id"`
+	Branch       string   `json:"branch,omitempty"`
+	WorktreePath string   `json:"worktree_path,omitempty"`
+	Messages     []string `json:"messages"`
 }
 
 type mergeIn struct {
@@ -482,13 +483,13 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startI
 	if err != nil {
 		return nil, startOut{}, err
 	}
-	branch, msgs, err := c.StartWork(issue.ID, in.Force)
+	branch, wtPath, msgs, err := c.StartWork(issue.ID, in.Force)
 	if err != nil {
 		return nil, startOut{}, err
 	}
 	t.broadcast("UPDATE", issue.ID)
 	text := strings.Join(msgs, "\n")
-	return textResult(text), startOut{ID: issue.ID, Branch: branch, Messages: msgs}, nil
+	return textResult(text), startOut{ID: issue.ID, Branch: branch, WorktreePath: wtPath, Messages: msgs}, nil
 }
 
 func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeIn) (*mcp.CallToolResult, mergeOut, error) {

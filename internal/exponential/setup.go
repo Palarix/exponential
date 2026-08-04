@@ -72,7 +72,7 @@ func InitProject(force bool) (*InitResult, error) {
 		contentStr = string(content)
 	}
 
-	ignoreEntries := []string{".xpo/issues.snapshot.json", ".xpo/git.lock"}
+	ignoreEntries := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"}
 	var toAdd []string
 	for _, entry := range ignoreEntries {
 		if !strings.Contains(contentStr, entry) {
@@ -95,6 +95,28 @@ func InitProject(force bool) (*InitResult, error) {
 	}
 
 	return result, nil
+}
+
+// EnsureGitignoreEntry adds an entry to .gitignore if it's not already present.
+func EnsureGitignoreEntry(entry string) {
+	gitignorePath := ".gitignore"
+	content, err := os.ReadFile(gitignorePath)
+	var contentStr string
+	if err == nil {
+		contentStr = string(content)
+	}
+	if strings.Contains(contentStr, entry) {
+		return
+	}
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
+		f.WriteString("\n")
+	}
+	f.WriteString(entry + "\n")
 }
 
 // sanitizePrefix converts a folder name to a valid issue ID prefix

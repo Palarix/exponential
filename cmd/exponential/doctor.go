@@ -91,7 +91,7 @@ var doctorCmd = &cobra.Command{
 		}
 
 		// Check .gitignore for required xpo entries
-		requiredIgnores := []string{".xpo/issues.snapshot.json", ".xpo/git.lock"}
+		requiredIgnores := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"}
 		gitignoreContent, _ := os.ReadFile(".gitignore")
 		gitignoreStr := string(gitignoreContent)
 		var missingIgnores []string

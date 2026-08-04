@@ -21,6 +21,7 @@ func setupStartTestEnv(t *testing.T) (*Client, func()) {
 
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
+	storage.ResetHubRoot()
 
 	cfg := &config.Config{
 		Prefix:           "test-",
@@ -28,10 +29,14 @@ func setupStartTestEnv(t *testing.T) (*Client, func()) {
 		EstimationSystem: "fibonacci",
 		CountUnestimated: true,
 		Version:          2,
+		Worktrees:        false,
 	}
 
 	client := NewClient(cfg)
-	cleanup := func() { os.Chdir(origDir) }
+	cleanup := func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}
 	return client, cleanup
 }
 
@@ -56,7 +61,7 @@ func TestStartWork_NonGitRepo(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "PLANNED")
 
-	branch, msgs, err := client.StartWork("test-abc123", false)
+	branch, _, msgs, err := client.StartWork("test-abc123", false)
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
@@ -82,7 +87,7 @@ func TestStartWork_DoneIssue(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "DONE")
 
-	_, _, err := client.StartWork("test-abc123", false)
+	_, _, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
 		t.Fatal("expected error for DONE issue")
 	}
@@ -94,7 +99,7 @@ func TestStartWork_BlockedIssue(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "BLOCKED")
 
-	_, _, err := client.StartWork("test-abc123", false)
+	_, _, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
 		t.Fatal("expected error for BLOCKED issue")
 	}
@@ -104,7 +109,6 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
 
-	// Initialize git repo with "main" as the default branch
 	cwd, _ := os.Getwd()
 	runGit(t, cwd, "init", "-b", "main")
 	runGit(t, cwd, "config", "user.email", "test@test.com")
@@ -115,7 +119,7 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
-	branch, msgs, err := client.StartWork("test-abc123", false)
+	branch, _, msgs, err := client.StartWork("test-abc123", false)
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
@@ -133,7 +137,6 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 		t.Errorf("expected branch creation message in %v", msgs)
 	}
 
-	// Verify we're on the new branch
 	out, _ := exec.Command("git", "branch", "--show-current").Output()
 	currentBranch := string(out)
 	if currentBranch[:len(currentBranch)-1] != "test-abc123-fix-login-flow" {
@@ -156,7 +159,7 @@ func TestStartWork_GitRepo_ExistingBranch_Rejected(t *testing.T) {
 	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
-	_, _, err := client.StartWork("test-abc123", false)
+	_, _, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
 		t.Fatal("expected error for existing branch")
 	}
@@ -180,7 +183,7 @@ func TestStartWork_GitRepo_ExistingBranch_Force(t *testing.T) {
 	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
-	branch, _, err := client.StartWork("test-abc123", true)
+	branch, _, _, err := client.StartWork("test-abc123", true)
 	if err != nil {
 		t.Fatalf("StartWork(force=true) unexpected error: %v", err)
 	}
@@ -195,7 +198,7 @@ func TestStartWork_AlreadyDoing_Rejected(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "DOING")
 
-	_, _, err := client.StartWork("test-abc123", false)
+	_, _, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
 		t.Fatal("expected error for DOING issue")
 	}
@@ -210,7 +213,7 @@ func TestStartWork_AlreadyDoing_Force(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix login", "DOING")
 
-	_, msgs, err := client.StartWork("test-abc123", true)
+	_, _, msgs, err := client.StartWork("test-abc123", true)
 	if err != nil {
 		t.Fatalf("StartWork(force=true) unexpected error: %v", err)
 	}
@@ -222,5 +225,80 @@ func TestStartWork_AlreadyDoing_Force(t *testing.T) {
 	}
 	if !foundForceMsg {
 		t.Errorf("expected force-claiming message in %v", msgs)
+	}
+}
+
+func TestStartWork_Worktree_CreatesWorktree(t *testing.T) {
+	tmpDir := t.TempDir()
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	os.MkdirAll(xpoDir, 0755)
+	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	storage.ResetHubRoot()
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}()
+
+	runGit(t, tmpDir, "init", "-b", "main")
+	runGit(t, tmpDir, "config", "user.email", "test@test.com")
+	runGit(t, tmpDir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(tmpDir, "dummy.txt"), []byte("init"), 0644)
+	runGit(t, tmpDir, "add", ".")
+	runGit(t, tmpDir, "commit", "-m", "init")
+
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
+		Worktrees:        true,
+	}
+	client := NewClient(cfg)
+
+	createTestIssue(t, "test-wt001", "Worktree Feature", "PLANNED")
+
+	branch, wtPath, msgs, err := client.StartWork("test-wt001", false)
+	if err != nil {
+		t.Fatalf("StartWork() unexpected error: %v", err)
+	}
+	if branch != "test-wt001-worktree-feature" {
+		t.Errorf("expected branch 'test-wt001-worktree-feature', got %q", branch)
+	}
+	if wtPath == "" {
+		t.Fatal("expected non-empty worktree path")
+	}
+
+	if _, err := os.Stat(wtPath); os.IsNotExist(err) {
+		t.Fatalf("worktree directory does not exist: %s", wtPath)
+	}
+
+	foundWorktreeMsg := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Created worktree") {
+			foundWorktreeMsg = true
+		}
+	}
+	if !foundWorktreeMsg {
+		t.Errorf("expected worktree creation message in %v", msgs)
+	}
+
+	// Verify primary checkout is still on main
+	out, _ := exec.Command("git", "branch", "--show-current").Output()
+	currentBranch := strings.TrimSpace(string(out))
+	if currentBranch != "main" {
+		t.Errorf("expected primary checkout to stay on main, got %q", currentBranch)
+	}
+
+	// Verify the branch exists in the worktree
+	path, found := FindWorktreeForBranch("test-wt001-worktree-feature")
+	if !found {
+		t.Fatal("expected to find worktree for branch")
+	}
+	if path != wtPath {
+		t.Errorf("worktree path mismatch: got %q, want %q", path, wtPath)
 	}
 }

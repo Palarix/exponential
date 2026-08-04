@@ -30,6 +30,8 @@ type Config struct {
 	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
 	Permissions       PermissionsConfig `mapstructure:"permissions" yaml:"permissions,omitempty"`
 	Drive             DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
+	Worktrees         bool              `mapstructure:"worktrees" yaml:"worktrees"`
+	WorktreeSetup     string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
 }
 
 type DriveConfig struct {
@@ -380,6 +382,7 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("drive.coder.agent", "claude")
 	v.SetDefault("drive.max_retries", 3)
 	v.SetDefault("drive.timeout", "30m")
+	v.SetDefault("worktrees", true)
 
 	// Config file locations
 	v.SetConfigName("config")

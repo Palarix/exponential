@@ -199,15 +199,19 @@ var updateCmd = &cobra.Command{
 // --- Shortcut Commands ---
 
 var startForce bool
+var startNoWorktree bool
 
 var startCmd = &cobra.Command{
 	Use:               "start [id]",
-	Short:             "Start working on an issue (set to DOING + create branch)",
+	Short:             "Start working on an issue (set to DOING + create worktree)",
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
+		if startNoWorktree {
+			cfg.Worktrees = false
+		}
 		client := exponential.NewClient(cfg)
-		_, msgs, err := client.StartWork(args[0], startForce)
+		_, _, msgs, err := client.StartWork(args[0], startForce)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
@@ -270,6 +274,7 @@ func init() {
 
 	rootCmd.AddCommand(updateCmd)
 	startCmd.Flags().BoolVar(&startForce, "force", false, "Take over an issue already in progress or with an existing branch")
+	startCmd.Flags().BoolVar(&startNoWorktree, "no-wt", false, "Use checkout instead of worktree")
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(doneCmd)
 	rootCmd.AddCommand(plannedCmd)
