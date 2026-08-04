@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	mergeSquash      bool
-	mergeFF          bool
+	mergeSquash       bool
+	mergeFF           bool
 	mergeDeleteBranch bool
-	mergeKeepBranch  bool
+	mergeKeepBranch   bool
+	mergeNoWorktree   bool
 )
 
 var mergeCmd = &cobra.Command{
@@ -35,6 +36,9 @@ var mergeCmd = &cobra.Command{
 }
 
 func runMerge(id string) {
+	if mergeNoWorktree {
+		cfg.Worktrees = false
+	}
 	client := exponential.NewClient(cfg)
 	issue, err := client.ResolveReviewIssue(id)
 	if err != nil {
@@ -53,10 +57,18 @@ func runMerge(id string) {
 		os.Exit(0)
 	}
 
-	// Fail early if working tree is dirty
-	if !exponential.IsWorkingTreeClean() {
-		fmt.Println("Error: working tree is not clean — commit or stash your changes first.")
-		os.Exit(1)
+	// Fail early if working tree is dirty (ignore .xpo/ when using worktrees
+	// since events accumulate uncommitted on the hub until merge).
+	if cfg.Worktrees {
+		if !exponential.IsWorkingTreeCleanIgnoringXpo() {
+			fmt.Println("Error: working tree has non-xpo changes — commit or stash them first.")
+			os.Exit(1)
+		}
+	} else {
+		if !exponential.IsWorkingTreeClean() {
+			fmt.Println("Error: working tree is not clean — commit or stash your changes first.")
+			os.Exit(1)
+		}
 	}
 
 	// Show compact summary
@@ -142,5 +154,6 @@ func init() {
 	mergeCmd.Flags().BoolVar(&mergeFF, "ff", false, "Fast-forward only (fails if not possible)")
 	mergeCmd.Flags().BoolVarP(&mergeDeleteBranch, "delete-branch", "d", false, "Delete branch after merge")
 	mergeCmd.Flags().BoolVar(&mergeKeepBranch, "keep-branch", false, "Keep branch after merge (skip prompt)")
+	mergeCmd.Flags().BoolVar(&mergeNoWorktree, "no-wt", false, "Use checkout-based merge instead of worktree-aware merge")
 	rootCmd.AddCommand(mergeCmd)
 }

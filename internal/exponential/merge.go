@@ -52,22 +52,26 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 
 	branch := issue.BranchStats.Branch
 	base := DefaultBranch()
+	useWorktrees := c.Config.Worktrees && CheckGitRepo()
 	result := &MergeResult{}
 
 	gitErr := WithGitLock(func() error {
 		// Capture base SHA before merge
 		baseSHA := resolveRef(base)
 
-		// Switch to default branch
-		if err := CheckoutBranch(base); err != nil {
-			return fmt.Errorf("failed to checkout %s: %w", base, err)
+		if useWorktrees {
+			current := HubBranch()
+			if current != base {
+				return fmt.Errorf("hub checkout is on %s, not %s — park the hub on the default branch before merging", current, base)
+			}
+		} else {
+			if err := CheckoutBranch(base); err != nil {
+				return fmt.Errorf("failed to checkout %s: %w", base, err)
+			}
 		}
 
-		// Determine the local ref to merge — for remote branches, use the
-		// remote tracking ref directly; for local branches, use as-is.
 		mergeRef := branch
 
-		// Record MERGE event before committing so it lands in the same commit
 		user := c.Transport.GetUser()
 		event := model.Event{
 			ID:   issue.ID,
@@ -75,14 +79,13 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			Payload: model.MergePayload{
 				Branch:   branch,
 				BaseSHA:  baseSHA,
-				MergeSHA: "", // filled after commit
+				MergeSHA: "",
 				Strategy: string(opts.Strategy),
 			},
 			CreatedAt: time.Now().UTC(),
 			CreatedBy: user,
 		}
 
-		// Default commit messages per strategy
 		commitMsg := opts.CommitMessage
 		if commitMsg == "" {
 			switch opts.Strategy {
@@ -95,7 +98,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			}
 		}
 
-		// Run the merge + include issues.db in the same commit
 		var mergeErr error
 		switch opts.Strategy {
 		case MergeStrategySquash:
@@ -107,9 +109,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		}
 
 		if mergeErr == nil {
-			// Build DONE transition events against pre-merge state
-			// (ProjectIssues infers DONE from MERGE, so we must read
-			// state before appending the MERGE event).
 			preEvents, _ := storage.ReadEvents()
 			preMergeState := ProjectIssues(preEvents)
 
@@ -120,7 +119,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 				return fmt.Errorf("failed to build DONE transition: %w", err)
 			}
 
-			// Append MERGE event, then DONE transition events
 			if err := c.local.appendEvent(event); err != nil {
 				return fmt.Errorf("failed to record merge event: %w", err)
 			}
@@ -131,7 +129,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			}
 			result.Messages = append(result.Messages, doneMessages...)
 
-			// Commit everything together
 			exec.Command("git", "-C", storage.HubRoot(), "add", ".xpo/issues.db").Run()
 			switch opts.Strategy {
 			case MergeStrategySquash, MergeStrategyFF:
@@ -150,7 +147,17 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		result.MergeSHA = mergeSHA
 		result.Messages = append(result.Messages, fmt.Sprintf("Merged %s into %s (%s)", branch, base, opts.Strategy))
 
-		// Delete branch if requested
+		// Clean up worktree (always — worktrees are ephemeral, even with --keep-branch)
+		if useWorktrees {
+			if wtPath, ok := FindWorktreeForBranch(branch); ok {
+				if err := WorktreeRemove(wtPath); err != nil {
+					result.Messages = append(result.Messages, fmt.Sprintf("Warning: failed to remove worktree %s: %v", wtPath, err))
+				} else {
+					result.Messages = append(result.Messages, fmt.Sprintf("Removed worktree %s", wtPath))
+				}
+			}
+		}
+
 		if opts.DeleteBranch {
 			deleteBranch(branch)
 			result.Messages = append(result.Messages, fmt.Sprintf("Deleted branch %s", branch))
@@ -171,6 +178,42 @@ func IsWorkingTreeClean() bool {
 		return false
 	}
 	return strings.TrimSpace(string(out)) == ""
+}
+
+// IsWorkingTreeCleanIgnoringXpo returns true if the working tree has no
+// uncommitted changes outside of .xpo/. Under the hub model, .xpo/issues.db
+// accumulates uncommitted events until merge — those are expected.
+func IsWorkingTreeCleanIgnoringXpo() bool {
+	out, err := exec.Command("git", "status", "--porcelain").Output()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// porcelain format: "XY path" — path starts at position 3
+		if len(line) < 4 {
+			continue
+		}
+		path := strings.TrimSpace(line[2:])
+		if !strings.HasPrefix(path, ".xpo/") {
+			return false
+		}
+	}
+	return true
+}
+
+// HubBranch returns the current branch of the hub (primary checkout),
+// regardless of which worktree the caller is in.
+func HubBranch() string {
+	hub := storage.HubRoot()
+	out, err := exec.Command("git", "-C", hub, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func resolveRef(ref string) string {

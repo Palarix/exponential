@@ -497,8 +497,15 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 		return nil, mergeOut{}, fmt.Errorf("'id' is required")
 	}
 
-	if !exponential.IsWorkingTreeClean() {
-		return nil, mergeOut{}, fmt.Errorf("working tree is not clean — commit or stash your changes first")
+	c := t.clientFor(req)
+	if c.Config.Worktrees {
+		if !exponential.IsWorkingTreeCleanIgnoringXpo() {
+			return nil, mergeOut{}, fmt.Errorf("working tree has non-xpo changes — commit or stash them first")
+		}
+	} else {
+		if !exponential.IsWorkingTreeClean() {
+			return nil, mergeOut{}, fmt.Errorf("working tree is not clean — commit or stash your changes first")
+		}
 	}
 
 	strategy := exponential.MergeStrategySquash
@@ -513,7 +520,6 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 		return nil, mergeOut{}, fmt.Errorf("invalid merge strategy %q: must be one of squash, merge, ff", in.Strategy)
 	}
 
-	c := t.clientFor(req)
 	issue, err := c.GetIssue(in.ID)
 	if err != nil {
 		return nil, mergeOut{}, err
