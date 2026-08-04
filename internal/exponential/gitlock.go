@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 // from corrupting the working tree. The lock is released when fn
 // returns or if the process crashes.
 func WithGitLock(fn func() error) error {
-	lockPath := filepath.Join(".xpo", "git.lock")
+	lockPath := filepath.Join(storage.XpoDir(), "git.lock")
 	fl := flock.New(lockPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), gitLockTimeout)

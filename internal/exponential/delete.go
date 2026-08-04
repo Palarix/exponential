@@ -74,9 +74,10 @@ func (t *LocalTransport) DeleteIssue(id string, reason string, cascade bool) err
 	}
 
 	if t.Config.AutoCommit {
+		hub := storage.HubRoot()
 		commitMsg := fmt.Sprintf("xpo: delete %s", id)
-		_ = exec.Command("git", "add", ".xpo/issues.db").Run()
-		_ = exec.Command("git", "commit", "-m", commitMsg).Run()
+		_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
+		_ = exec.Command("git", "-C", hub, "commit", "-m", commitMsg).Run()
 	}
 
 	return nil

@@ -187,7 +187,7 @@ func (s *Server) BroadcastEvent(eventType, issueID string) {
 }
 
 func (s *Server) statDB() (mtime time.Time, size int64, exists bool) {
-	info, err := os.Stat(filepath.Join(".xpo", "issues.db"))
+	info, err := os.Stat(filepath.Join(storage.XpoDir(), "issues.db"))
 	if err != nil {
 		return time.Time{}, 0, false
 	}

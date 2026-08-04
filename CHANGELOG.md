@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Review view for branches with uncommitted changes — shows working-tree diff in the merge view even before committing, with merge disabled and guidance to commit first (xpo-4295bf)
+- Hub-rooted storage layer — all `issues.db` and artifact reads/writes now resolve through the primary checkout ("hub") via `git rev-parse --git-common-dir`, enabling future worktree-based concurrent workflows (xpo-580061)
 
 ### Improved
 

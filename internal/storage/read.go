@@ -10,7 +10,7 @@ import (
 )
 
 func ReadEvents() ([]model.Event, error) {
-	f, err := os.Open(filepath.Join(".xpo", "issues.db"))
+	f, err := os.Open(filepath.Join(XpoDir(), "issues.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil
 	}
@@ -33,7 +33,7 @@ func ReadEvents() ([]model.Event, error) {
 
 // ReadArchivedEvents reads events from the archive database
 func ReadArchivedEvents() ([]model.Event, error) {
-	f, err := os.Open(filepath.Join(".xpo", "archive.db"))
+	f, err := os.Open(filepath.Join(XpoDir(), "archive.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil
 	}

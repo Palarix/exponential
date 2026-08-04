@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // WatchDB watches issues.db for external modifications and broadcasts
@@ -16,7 +17,7 @@ func (s *Server) WatchDB() {
 		return
 	}
 
-	dbPath := filepath.Join(".xpo", "issues.db")
+	dbPath := filepath.Join(storage.XpoDir(), "issues.db")
 	absPath, err := filepath.Abs(dbPath)
 	if err != nil {
 		log.Printf("watch: failed to resolve path: %v", err)

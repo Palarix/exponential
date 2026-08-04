@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // AddComment adds a comment to an issue.
@@ -36,9 +37,10 @@ func (t *LocalTransport) AddComment(issueID, text string) error {
 	}
 
 	if t.Config.AutoCommit {
+		hub := storage.HubRoot()
 		commitMsg := fmt.Sprintf("xpo: comment on %s", issueID)
-		_ = exec.Command("git", "add", ".xpo/issues.db").Run()
-		_ = exec.Command("git", "commit", "-m", commitMsg).Run()
+		_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
+		_ = exec.Command("git", "-C", hub, "commit", "-m", commitMsg).Run()
 	}
 
 	return nil

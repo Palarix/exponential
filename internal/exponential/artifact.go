@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 var reservedArtifactNames = map[string]bool{
@@ -33,7 +34,7 @@ func validateArtifactFilename(filename string) error {
 }
 
 func artifactDir(issueID string) string {
-	return filepath.Join(".xpo", "artifacts", issueID)
+	return filepath.Join(storage.XpoDir(), "artifacts", issueID)
 }
 
 // AddArtifact writes a generic artifact for an issue. Reserved filenames

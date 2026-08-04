@@ -108,9 +108,10 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 	}
 
 	if t.Config.AutoCommit {
+		hub := storage.HubRoot()
 		commitMsg := fmt.Sprintf("xpo: create %s - %s", id, payload.Title)
-		_ = exec.Command("git", "add", ".xpo/issues.db").Run()
-		_ = exec.Command("git", "commit", "-m", commitMsg).Run()
+		_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
+		_ = exec.Command("git", "-C", hub, "commit", "-m", commitMsg).Run()
 	}
 
 	status := model.IssueStatus(payload.Status)

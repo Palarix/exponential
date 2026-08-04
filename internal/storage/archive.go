@@ -13,8 +13,8 @@ import (
 
 // ArchiveEvents moves the specified events to archive.db and rewrites issues.db with the active events.
 func ArchiveEvents(active []model.Event, archived []model.Event) error {
-	issuesPath := filepath.Join(".xpo", "issues.db")
-	archivePath := filepath.Join(".xpo", "archive.db")
+	issuesPath := filepath.Join(XpoDir(), "issues.db")
+	archivePath := filepath.Join(XpoDir(), "archive.db")
 
 	// 1. Backup existing issues.db
 	backupPath := fmt.Sprintf("%s.%s.bak", issuesPath, time.Now().Format("20060102150405"))

@@ -9,13 +9,15 @@ import (
 
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // GitCommit stages and commits the issues.db file.
 func GitCommit(msg string) {
-	_ = exec.Command("git", "add", ".xpo/issues.db").Run()
-	_ = exec.Command("git", "add", ".xpo/artifacts/").Run()
-	_ = exec.Command("git", "commit", "-m", msg).Run()
+	hub := storage.HubRoot()
+	_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
+	_ = exec.Command("git", "-C", hub, "add", ".xpo/artifacts/").Run()
+	_ = exec.Command("git", "-C", hub, "commit", "-m", msg).Run()
 }
 
 // Client manages the interaction with the xpo issue tracker.
