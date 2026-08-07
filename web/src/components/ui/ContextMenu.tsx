@@ -7,7 +7,7 @@ import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
-import { UserRound, Triangle, RefreshCw, ChevronRight, Trash2, Check, Tag } from "lucide-react";
+import { UserRound, Triangle, RefreshCw, ChevronRight, Trash2, Check, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
@@ -389,6 +389,21 @@ export default function ContextMenu({
             </span>
           </button>
         ))}
+        {issue.parent_id && (
+          <>
+            <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+            <button
+              onClick={() => handleAction("UPDATE", { parent_id: "" })}
+              onMouseEnter={() => { setFocusIndex(-1); setSubMenu(null); }}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-hover-surface-3)]"
+            >
+              <span className="text-[var(--color-text-muted)] w-4 shrink-0 flex items-center justify-center">
+                <Unlink size={16} />
+              </span>
+              <span>Remove from parent</span>
+            </button>
+          </>
+        )}
         <div className="my-1 border-t border-[var(--color-border-subtle)]" />
         <button
           onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
