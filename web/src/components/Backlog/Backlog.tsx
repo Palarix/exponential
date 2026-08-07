@@ -1709,32 +1709,39 @@ export default function Backlog({
                     <>{" "}{moveChildrenPrompt.doneCount} completed {moveChildrenPrompt.doneCount === 1 ? "issue" : "issues"} will not be updated.</>
                   )}
                 </p>
-                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8">
-                  {fullChildren.map((child, i) => (
-                    <div
-                      key={child.id}
-                      className={`flex items-center gap-3 px-4 py-2.5 text-sm ${i > 0 ? "border-t border-[var(--color-border-subtle)]" : ""}`}
-                    >
-                      <StatusIcon status={child.status} size={14} />
-                      <span className="text-[var(--color-text-primary)] truncate min-w-0">
-                        {child.title}
-                      </span>
-                      {"priority" in child && (child as Issue).priority > 0 && (
-                        <PriorityIcon
-                          priority={(child as Issue).priority}
-                          size={14}
-                        />
-                      )}
-                      <div className="flex-1" />
-                      {"labels" in child &&
-                        (child as Issue).labels?.map((label: string) => (
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8 max-h-64 overflow-y-auto">
+                  {fullChildren.map((child, i) => {
+                    const rawLabels = "labels" in child ? (child as Issue).labels || [] : [];
+                    const { primary: pl, metadata: ml } = splitLabels(rawLabels, defaultLabels);
+                    const allLabels = [...pl, ...ml];
+                    const extraCount = Math.max(0, allLabels.length - 2);
+                    return (
+                      <div
+                        key={child.id}
+                        className={`flex items-center gap-3 px-4 py-2.5 text-sm ${i > 0 ? "border-t border-[var(--color-border-subtle)]" : ""}`}
+                      >
+                        <StatusIcon status={child.status} size={14} />
+                        <span className="text-[var(--color-text-primary)] truncate min-w-0 flex-1">
+                          {child.title}
+                        </span>
+                        {"priority" in child && (child as Issue).priority > 0 && (
+                          <PriorityIcon
+                            priority={(child as Issue).priority}
+                            size={14}
+                          />
+                        )}
+                        {allLabels.slice(0, 2).map((label: string) => (
                           <LabelBadge key={label} label={label} />
                         ))}
-                      {"estimate" in child && (child as Issue).estimate > 0 && (
-                        <EstimateBadge value={(child as Issue).estimate} />
-                      )}
-                    </div>
-                  ))}
+                        {extraCount > 0 && (
+                          <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{extraCount}</span>
+                        )}
+                        {"estimate" in child && (child as Issue).estimate > 0 && (
+                          <EstimateBadge value={(child as Issue).estimate} />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="flex items-center gap-4">
                   <button
