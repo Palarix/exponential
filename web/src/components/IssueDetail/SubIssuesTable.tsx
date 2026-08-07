@@ -86,7 +86,10 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
                 <PriorityIcon priority={child.priority} size={14} />
               )}
               <div className="flex-1" />
-              {child.labels?.map(label => <LabelBadge key={label} label={label} />)}
+              {child.labels?.slice(0, 2).map(label => <LabelBadge key={label} label={label} />)}
+              {(child.labels?.length || 0) > 2 && (
+                <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{child.labels!.length - 2}</span>
+              )}
               {child.estimate > 0 && (
                 <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] tabular-nums shrink-0">
                   <Triangle className="w-3 h-3" />
