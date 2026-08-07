@@ -392,9 +392,12 @@ export default function Inbox({
                     {/* Labels */}
                     {issue?.labels && issue.labels.length > 0 && (
                       <div className="flex items-center gap-2 mt-1.5">
-                        {issue.labels.map(label => (
+                        {issue.labels.slice(0, 2).map(label => (
                           <LabelBadge key={label} label={label} />
                         ))}
+                        {issue.labels.length > 2 && (
+                          <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{issue.labels.length - 2}</span>
+                        )}
                       </div>
                     )}
                   </div>
