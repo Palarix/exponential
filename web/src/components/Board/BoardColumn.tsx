@@ -5,6 +5,7 @@ import type { Issue } from "../../api/client";
 import { StatusIcon } from "../ui";
 import { SortableBoardCard, type CardMeta } from "./BoardCard";
 
+const COLUMN_VISIBLE_COUNT = 50;
 const DONE_VISIBLE_COUNT = 5;
 
 export default function BoardColumn({
@@ -32,10 +33,10 @@ export default function BoardColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${column.id}` });
   const [showAll, setShowAll] = useState(false);
-  const isDone = column.id === "DONE";
-  const shouldTruncate = isDone && itemIds.length > DONE_VISIBLE_COUNT && !showAll;
-  const visibleIds = shouldTruncate ? itemIds.slice(0, DONE_VISIBLE_COUNT) : itemIds;
-  const hiddenCount = itemIds.length - DONE_VISIBLE_COUNT;
+  const cap = column.id === "DONE" ? DONE_VISIBLE_COUNT : COLUMN_VISIBLE_COUNT;
+  const shouldTruncate = itemIds.length > cap && !showAll;
+  const visibleIds = shouldTruncate ? itemIds.slice(0, cap) : itemIds;
+  const hiddenCount = itemIds.length - cap;
 
   const containsActive = activeId !== null && itemIds.includes(activeId);
   const showHighlight = isOver || containsActive;

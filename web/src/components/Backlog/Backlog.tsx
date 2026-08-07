@@ -63,6 +63,8 @@ const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
   backlog: { label: "Backlog", statuses: ["BACKLOG"] },
 };
 
+const GROUP_VISIBLE_COUNT = 100;
+
 interface BacklogProps {
   issues: Issue[];
   onRefresh: () => void;
@@ -107,6 +109,7 @@ export default function Backlog({
     () => new Set(),
   );
   const [nodeToggleCount, setNodeToggleCount] = useState(0);
+  const [showAllGroups, setShowAllGroups] = useState<Set<string>>(() => new Set());
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [keyboardNav, setKeyboardNav] = useState(false);
   const [inlineCreateStatus, setInlineCreateStatus] = useState<string | null>(
@@ -1379,7 +1382,14 @@ export default function Backlog({
                       />
                     </div>
                   )}
-                  {issueRows.map(({ row, index: i }) => {
+                  {(() => {
+                    const groupShowAll = showAllGroups.has(groupRow.status);
+                    const shouldCap = issueRows.length > GROUP_VISIBLE_COUNT && !groupShowAll;
+                    const visibleRows = shouldCap ? issueRows.slice(0, GROUP_VISIBLE_COUNT) : issueRows;
+                    const hiddenCount = issueRows.length - GROUP_VISIBLE_COUNT;
+                    return (
+                      <>
+                  {visibleRows.map(({ row, index: i }) => {
                     const {
                       issue,
                       depth,
@@ -1746,6 +1756,17 @@ export default function Backlog({
                       </div>
                     );
                   })}
+                  {shouldCap && (
+                    <button
+                      onClick={() => setShowAllGroups((prev) => new Set(prev).add(groupRow.status))}
+                      className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors border-b border-[var(--color-border-subtle)]"
+                    >
+                      + {hiddenCount} more
+                    </button>
+                  )}
+                      </>
+                    );
+                  })()}
                 </div>
               );
             });

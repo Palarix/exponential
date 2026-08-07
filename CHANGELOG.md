@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 
+- Render cap for Board (50 per column) and Backlog (100 per group) views — reduces DOM nodes for large projects while keeping all counts and stats accurate; "+N more" button reveals the rest (xpo-f16a94)
 - Label ordering: metadata labels now sort alphabetically to the left, primary labels (matching `default_labels` config) sort to the right in backlog, board, and detail views (xpo-e928c1)
 - Markdown rendering: tables now have full grid borders, cell padding, and distinct header row; headings use graduated top margins for visual hierarchy; lists are nearly flush with body text; overall vertical rhythm between paragraphs, code blocks, and blockquotes increased for better readability (xpo-dbd580)
 - Issue detail scrollbar moved to the right edge of the viewport; property sidebar is now sticky-positioned and scrolls independently on short screens (xpo-a8be39)
