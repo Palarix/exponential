@@ -34,13 +34,14 @@ import {
   useToast,
   Modal,
 } from "../ui";
-import { ChevronRight, Paperclip } from "lucide-react";
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isEditableTarget } from "../../utils/keyboard";
+import Tooltip from "../ui/Tooltip";
 import FilterMenu from "./FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "./filters";
 import {
@@ -368,6 +369,19 @@ export default function Backlog({
     localStorage.setItem(nodesKey, JSON.stringify(Array.from(collapsed)));
     setNodeToggleCount((c) => c + 1);
   }, []);
+
+  const expandAllNodes = useCallback(() => {
+    localStorage.setItem(`exponential-backlog-nodes-collapsed`, "[]");
+    setNodeToggleCount((c) => c + 1);
+  }, []);
+
+  const collapseAllNodes = useCallback(() => {
+    localStorage.setItem(
+      `exponential-backlog-nodes-collapsed`,
+      JSON.stringify(Array.from(childrenByParent.keys())),
+    );
+    setNodeToggleCount((c) => c + 1);
+  }, [childrenByParent]);
 
   const rows = useBacklogRows(
     issues,
@@ -1112,6 +1126,26 @@ export default function Backlog({
               />
             )}
           </div>
+          {childrenByParent.size > 0 && (
+            <>
+              <Tooltip content="Expand all">
+                <button
+                  onClick={expandAllNodes}
+                  className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                >
+                  <ChevronsUpDown size={14} />
+                </button>
+              </Tooltip>
+              <Tooltip content="Collapse all">
+                <button
+                  onClick={collapseAllNodes}
+                  className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                >
+                  <ChevronsDownUp size={14} />
+                </button>
+              </Tooltip>
+            </>
+          )}
           <div className="relative">
             <button
               ref={sortBtnRef}

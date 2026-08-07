@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Expand All / Collapse All icon buttons in the backlog toolbar for toggling all parent issue nodes at once (xpo-b44c4c)
 - **Worktree-based concurrent workflows** (xpo-f7ea12) — `xpo start` and `xpo merge` now use git worktrees by default, making multi-agent and multi-session work safe by design. The primary checkout stays parked on `main` as the integration hub; each `xpo start` creates an isolated worktree at `.xpo/worktrees/<branch>/`; `xpo merge` runs from the hub and cleans up the worktree automatically. All issue events serialize through the hub so the web board reflects real-time state from every agent. Opt out per-command with `--no-wt` or globally with `worktrees: false` in config.
   - Hub-rooted storage layer — all `issues.db` and artifact I/O routes through the primary checkout via `git rev-parse --git-common-dir`, so MCP servers in worktrees read/write the hub's event log (xpo-580061)
   - `xpo start` creates worktrees with `--force` takeover (removes existing worktree), `worktree_setup` config hook for post-creation build steps (e.g. `make deps`), and MCP `start` tool returns `worktree_path` (xpo-1765ca)
