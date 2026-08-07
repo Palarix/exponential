@@ -324,6 +324,9 @@ func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 	sort.Slice(roots, func(i, j int) bool {
 		rootI := issues[roots[i]]
 		rootJ := issues[roots[j]]
+		if rootI.SortOrder != rootJ.SortOrder {
+			return rootI.SortOrder < rootJ.SortOrder
+		}
 		return rootI.CreatedAt.Before(rootJ.CreatedAt)
 	})
 
@@ -343,6 +346,9 @@ func SortIssues(issues map[string]*model.Issue) []*model.Issue {
 				return false
 			}
 
+			if a.SortOrder != b.SortOrder {
+				return a.SortOrder < b.SortOrder
+			}
 			return a.CreatedAt.Before(b.CreatedAt)
 		})
 
