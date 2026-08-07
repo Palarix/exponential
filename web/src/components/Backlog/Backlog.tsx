@@ -1669,7 +1669,7 @@ export default function Backlog({
                                   <EstimateBadge
                                     value={
                                       hasChildren
-                                        ? childPointsTotal - childPointsDone
+                                        ? issue.status === "DONE" ? childPointsDone : childPointsTotal - childPointsDone
                                         : issue.estimate
                                     }
                                   />

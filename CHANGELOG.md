@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Epic "Update sub-issues?" dialog no longer resets completed children; detail view now shows the same cascade prompt as the backlog (xpo-886099)
 - Sub-issues preview in cascade dialog caps labels at 2 (primary first), truncates long titles, and scrolls when the list is long (xpo-ee99a5)
+- Drag-and-drop no longer accidentally changes parent relationships; Alt is now required for nesting and unparenting (xpo-cd0f62)
+- Status group header story points no longer include completed children or double-count parents; DONE parents show delivered points (xpo-dbdfd3)
 - Scroll position now resets to top when navigating between issues via arrow keys or prev/next buttons (xpo-a6a17e)
 
 ## [1.0.3] - 2026-07-20

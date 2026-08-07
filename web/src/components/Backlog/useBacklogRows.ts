@@ -73,15 +73,19 @@ export function useBacklogRows(
       const groupIssues = filteredIssues.filter((i) => i.status === status);
       if (groupIssues.length === 0 && !isAllTab) continue;
 
-      const epicIds = new Set(
-        groupIssues
-          .filter((i) => i.labels?.includes("epic") && groupIssues.some((c) => c.parent_id === i.id))
-          .map((i) => i.id),
-      );
-      const storyPoints = groupIssues.reduce(
-        (sum, i) => sum + (epicIds.has(i.id) ? 0 : (i.estimate || 1)),
-        0,
-      );
+      const groupIssueIds = new Set(groupIssues.map((i) => i.id));
+      const storyPoints = groupIssues.reduce((sum, i) => {
+        const children = childrenByParent.get(i.id);
+        if (children && children.length > 0) {
+          const childrenInGroup = children.filter((c) => groupIssueIds.has(c.id));
+          if (childrenInGroup.length > 0) return sum;
+          const relevant = i.status === "DONE"
+            ? children.filter((c) => c.status === "DONE")
+            : children.filter((c) => c.status !== "DONE");
+          return sum + relevant.reduce((s, c) => s + (c.estimate || 1), 0);
+        }
+        return sum + (i.estimate || 1);
+      }, 0);
       result.push({
         kind: "group",
         status,
@@ -92,7 +96,6 @@ export function useBacklogRows(
       });
 
       if (expandedGroups.has(status) && groupIssues.length > 0) {
-        const groupIssueIds = new Set(groupIssues.map((i) => i.id));
         const effectiveSortKey = status === "DONE" ? ("updated" as const) : sortKey;
 
         if (isAllTab) {
