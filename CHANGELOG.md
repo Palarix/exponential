@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sub-issues preview in cascade dialog caps labels at 2 (primary first), truncates long titles, and scrolls when the list is long (xpo-ee99a5)
 - Drag-and-drop no longer accidentally changes parent relationships; Alt is now required for nesting and unparenting (xpo-cd0f62)
 - Alt parent/unparent now works in Active and Backlog views: nest highlight responds to mid-drag Alt press, ghost parent indicator placement fixed, and "Remove from parent" added to the right-click context menu (xpo-9859c9)
+- Ghost parent row no longer duplicates popovers when the real parent is also visible in a different status group (xpo-377101)
 - Status group header story points no longer include completed children or double-count parents; DONE parents show delivered points (xpo-dbdfd3)
 - Scroll position now resets to top when navigating between issues via arrow keys or prev/next buttons (xpo-a6a17e)
 

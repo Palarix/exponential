@@ -114,7 +114,7 @@ export default function Backlog({
   const [inlineTitle, setInlineTitle] = useState("");
   const showToast = useToast();
   const [openPopover, setOpenPopover] = useState<{
-    issueId: string;
+    rowIndex: number;
     type: "status" | "estimate" | "labels" | "priority";
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -932,24 +932,25 @@ export default function Backlog({
         return;
       }
       if (row.kind === "issue") {
+        const ri = focusedIndexRef.current;
         if (e.key === "s") {
           e.preventDefault();
-          setOpenPopover({ issueId: row.issue.id, type: "status" });
+          setOpenPopover({ rowIndex: ri, type: "status" });
           return;
         }
         if (e.key === "l") {
           e.preventDefault();
-          setOpenPopover({ issueId: row.issue.id, type: "labels" });
+          setOpenPopover({ rowIndex: ri, type: "labels" });
           return;
         }
         if (e.key === "e") {
           e.preventDefault();
-          setOpenPopover({ issueId: row.issue.id, type: "estimate" });
+          setOpenPopover({ rowIndex: ri, type: "estimate" });
           return;
         }
         if (e.key === "p") {
           e.preventDefault();
-          setOpenPopover({ issueId: row.issue.id, type: "priority" });
+          setOpenPopover({ rowIndex: ri, type: "priority" });
           return;
         }
       }
@@ -1465,10 +1466,10 @@ export default function Backlog({
                                 <button
                                   onClick={() =>
                                     setOpenPopover(
-                                      openPopover?.issueId === issue.id &&
+                                      openPopover?.rowIndex === i &&
                                         openPopover?.type === "priority"
                                         ? null
-                                        : { issueId: issue.id, type: "priority" },
+                                        : { rowIndex: i, type: "priority" },
                                     )
                                   }
                                   className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
@@ -1478,7 +1479,7 @@ export default function Backlog({
                                     size={16}
                                   />
                                 </button>
-                                {openPopover?.issueId === issue.id &&
+                                {openPopover?.rowIndex === i &&
                                   openPopover?.type === "priority" && (
                                     <Popover
                                       onClose={() => setOpenPopover(null)}
@@ -1504,10 +1505,10 @@ export default function Backlog({
                                 <button
                                   onClick={() =>
                                     setOpenPopover(
-                                      openPopover?.issueId === issue.id &&
+                                      openPopover?.rowIndex === i &&
                                         openPopover?.type === "status"
                                         ? null
-                                        : { issueId: issue.id, type: "status" },
+                                        : { rowIndex: i, type: "status" },
                                     )
                                   }
                                   className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
@@ -1518,7 +1519,7 @@ export default function Backlog({
                                     isInferred={issue.is_inferred}
                                   />
                                 </button>
-                                {openPopover?.issueId === issue.id &&
+                                {openPopover?.rowIndex === i &&
                                   openPopover?.type === "status" && (
                                     <Popover
                                       onClose={() => setOpenPopover(null)}
@@ -1580,10 +1581,10 @@ export default function Backlog({
                                 <button
                                   onClick={() =>
                                     setOpenPopover(
-                                      openPopover?.issueId === issue.id &&
+                                      openPopover?.rowIndex === i &&
                                         openPopover?.type === "labels"
                                         ? null
-                                        : { issueId: issue.id, type: "labels" },
+                                        : { rowIndex: i, type: "labels" },
                                     )
                                   }
                                   className="flex items-center gap-3 hover:opacity-70 transition-opacity"
@@ -1608,7 +1609,7 @@ export default function Backlog({
                                     </span>
                                   )}
                                 </button>
-                                {openPopover?.issueId === issue.id &&
+                                {openPopover?.rowIndex === i &&
                                   openPopover?.type === "labels" && (
                                     <Popover
                                       onClose={() => setOpenPopover(null)}
@@ -1659,11 +1660,11 @@ export default function Backlog({
                                 <button
                                   onClick={() =>
                                     setOpenPopover(
-                                      openPopover?.issueId === issue.id &&
+                                      openPopover?.rowIndex === i &&
                                         openPopover?.type === "estimate"
                                         ? null
                                         : {
-                                            issueId: issue.id,
+                                            rowIndex: i,
                                             type: "estimate",
                                           },
                                     )
@@ -1678,7 +1679,7 @@ export default function Backlog({
                                     }
                                   />
                                 </button>
-                                {openPopover?.issueId === issue.id &&
+                                {openPopover?.rowIndex === i &&
                                   openPopover?.type === "estimate" && (
                                     <Popover
                                       onClose={() => setOpenPopover(null)}
