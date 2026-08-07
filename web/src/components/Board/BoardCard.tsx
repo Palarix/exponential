@@ -1,9 +1,11 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useContext } from "react";
 import type { Issue } from "../../api/client";
-import { Avatar, BranchBadge, EstimateBadge, LabelBadge, PriorityIcon, SubProgress } from "../ui";
+import { Avatar, BranchBadge, EstimateBadge, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress } from "../ui";
 import { RefreshCw, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
+import { splitLabels } from "../../utils/labels";
 
 export interface CardMeta {
   parentTitle?: string;
@@ -79,6 +81,8 @@ export function BoardCard({
 }
 
 function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
+  const defaultLabels = useContext(DefaultLabelsContext);
+  const { primary: primaryLabels, metadata: metaLabels } = splitLabels(issue.labels || [], defaultLabels);
   const hasChildren = meta.childTotal > 0;
   const hasLabels = issue.labels && issue.labels.length > 0;
   const hasBranch = !!issue.branch_stats;
@@ -116,7 +120,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
         {issue.title}
       </p>
 
-      {/* SW: labels, sub-progress | SE: estimate, date */}
+      {/* SW: labels, sub-progress | SE: cycle, date */}
       {hasBottom && (
         <div className="flex items-center gap-2 mt-2 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
@@ -133,7 +137,10 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
                 {artifactCount}
               </span>
             )}
-            {issue.labels?.map((label) => (
+            {metaLabels.map((label) => (
+              <LabelBadge key={label} label={label} />
+            ))}
+            {primaryLabels.map((label) => (
               <LabelBadge key={label} label={label} />
             ))}
           </div>

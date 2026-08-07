@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, useContext } from "react";
 import { generateKeyBetween } from "fractional-indexing";
 import {
   DndContext,
@@ -20,6 +20,7 @@ import {
   EmptyState,
   EstimateBadge,
   LabelBadge,
+  DefaultLabelsContext,
   StatusIcon,
   PriorityIcon,
   CopyableId,
@@ -36,7 +37,7 @@ import {
 import { ChevronRight, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
-import { toggleLabel } from "../../utils/labels";
+import { toggleLabel, splitLabels } from "../../utils/labels";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isEditableTarget } from "../../utils/keyboard";
@@ -132,6 +133,7 @@ export default function Backlog({
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
+  const defaultLabels = useContext(DefaultLabelsContext);
 
   useEffect(() => {
     fetchCycles()
@@ -1504,9 +1506,19 @@ export default function Backlog({
                                   }
                                   className="flex items-center gap-3 hover:opacity-70 transition-opacity"
                                 >
-                                  {issue.labels?.map((label) => (
-                                    <LabelBadge key={label} label={label} />
-                                  ))}
+                                  {(() => {
+                                    const { primary, metadata } = splitLabels(issue.labels || [], defaultLabels);
+                                    return (
+                                      <>
+                                        {metadata.map((label) => (
+                                          <LabelBadge key={label} label={label} />
+                                        ))}
+                                        {primary.map((label) => (
+                                          <LabelBadge key={label} label={label} />
+                                        ))}
+                                      </>
+                                    );
+                                  })()}
                                   {(!issue.labels ||
                                     issue.labels.length === 0) && (
                                     <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">

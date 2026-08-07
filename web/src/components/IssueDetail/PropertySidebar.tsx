@@ -1,12 +1,12 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useContext } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
-import { Avatar, Button, LabelBadge, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
+import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
-import { toggleLabel } from "../../utils/labels";
+import { toggleLabel, splitLabels } from "../../utils/labels";
 import { PriorityIcon } from "./icons";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -58,6 +58,7 @@ export default function PropertySidebar({
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  const defaultLabels = useContext(DefaultLabelsContext);
 
   useEffect(() => {
     fetchCycles().then(data => {
@@ -551,7 +552,15 @@ export default function PropertySidebar({
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Labels</div>
           <div className="flex items-center gap-2 flex-wrap">
             {issue.labels && issue.labels.length > 0 ? (
-              issue.labels.map((label) => <LabelBadge key={label} label={label} />)
+              (() => {
+                const { primary, metadata } = splitLabels(issue.labels, defaultLabels);
+                return (
+                  <>
+                    {metadata.map((label) => <LabelBadge key={label} label={label} />)}
+                    {primary.map((label) => <LabelBadge key={label} label={label} />)}
+                  </>
+                );
+              })()
             ) : (
               <span className="text-sm text-[var(--color-text-muted)]">None</span>
             )}

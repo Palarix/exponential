@@ -86,6 +86,23 @@ export function LabelBadge({ label, borderless }: { label: string; borderless?: 
   );
 }
 
+export function LabelIndicator({ labels }: { labels: string[] }) {
+  const configColors = useContext(LabelColorsContext);
+  if (labels.length === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-0.5 shrink-0">
+      {labels.map((label) => (
+        <span
+          key={label}
+          className="w-1.5 h-4 rounded-sm"
+          style={{ background: resolveLabelColor(label, configColors) }}
+          title={label}
+        />
+      ))}
+    </span>
+  );
+}
+
 export function StatusBadge({ status }: { status: string }) {
   const variant = status.toLowerCase() as BadgeVariant;
   return (
