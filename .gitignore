@@ -21,5 +21,9 @@ NOTES.md
 # Dependencies
 node_modules/
 
+# Generated stress test data
+/stresstest/
+/tmp/
+
 # OS
 .DS_Store

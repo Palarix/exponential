@@ -1,6 +1,6 @@
 BINARY_NAME=xpo
 
-.PHONY: all build clean test lint frontend install docker release
+.PHONY: all build clean test lint frontend install docker release stressgen
 
 all: build
 
@@ -36,6 +36,9 @@ lint:
 
 install: cli
 	sudo cp ./xpo /usr/local/bin/xpo
+
+stressgen:
+	go run ./tools/stressgen $(or $(OUTPUT),stresstest)
 
 docker:
 	docker build -t palarix/exponential:latest .
