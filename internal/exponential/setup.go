@@ -94,7 +94,32 @@ func InitProject(force bool) (*InitResult, error) {
 		}
 	}
 
+	// 5. Update .gitattributes with merge=union for issues.db
+	EnsureGitattributesEntry(".xpo/issues.db merge=union")
+
 	return result, nil
+}
+
+// EnsureGitattributesEntry adds an entry to .gitattributes if it's not already present.
+func EnsureGitattributesEntry(entry string) {
+	path := ".gitattributes"
+	content, err := os.ReadFile(path)
+	var contentStr string
+	if err == nil {
+		contentStr = string(content)
+	}
+	if strings.Contains(contentStr, entry) {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	if len(contentStr) > 0 && !strings.HasSuffix(contentStr, "\n") {
+		f.WriteString("\n")
+	}
+	f.WriteString(entry + "\n")
 }
 
 // EnsureGitignoreEntry adds an entry to .gitignore if it's not already present.

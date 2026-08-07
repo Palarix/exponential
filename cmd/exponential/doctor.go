@@ -119,6 +119,18 @@ var doctorCmd = &cobra.Command{
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.gitignore` has required xpo entries\n", ui.OKPrefix)))
 		}
 
+		// Check .gitattributes for merge=union on issues.db
+		gitattrsEntry := ".xpo/issues.db merge=union"
+		gitattrsContent, _ := os.ReadFile(".gitattributes")
+		gitattrsStr := string(gitattrsContent)
+		if !strings.Contains(gitattrsStr, gitattrsEntry) {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.gitattributes` missing `merge=union` for issues.db\n", ui.NotePrefix)))
+			exponential.EnsureGitattributesEntry(gitattrsEntry)
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s Added `merge=union` rule to `.gitattributes`\n", ui.OKPrefix)))
+		} else {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.gitattributes` has `merge=union` for issues.db\n", ui.OKPrefix)))
+		}
+
 		// Check .mcp.json
 		mcpStatus := exponential.DetectMCPConfig()
 		if mcpStatus.HasExponential {

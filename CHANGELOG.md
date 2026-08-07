@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `xpo start` creates worktrees with `--force` takeover (removes existing worktree), `worktree_setup` config hook for post-creation build steps (e.g. `make deps`), and MCP `start` tool returns `worktree_path` (xpo-1765ca)
   - `xpo merge` verifies hub is on the default branch, skips checkout, removes worktree after merge regardless of `--keep-branch`, and relaxes clean check to allow uncommitted `.xpo/` events (xpo-f96832)
 - Review view for branches with uncommitted changes — shows working-tree diff in the merge view even before committing, with merge disabled and guidance to commit first (xpo-4295bf)
+- `xpo init` and `xpo doctor` now create/ensure `.gitattributes` with `merge=union` for `issues.db`, preventing merge conflicts on the append-only event log (xpo-c762f7)
 
 ### Improved
 
