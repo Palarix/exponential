@@ -461,6 +461,7 @@ export default function Backlog({
       groupTarget: string | null,
       indicatorTarget: { rowIndex: number; position: "above" | "below" } | null,
       nestTarget: string | null,
+      altHeld: boolean,
     ) => {
       if (nestTarget && nestTarget !== droppedId) {
         await addDraft(droppedId, "UPDATE", { parent_id: nestTarget });
@@ -496,8 +497,10 @@ export default function Backlog({
       const update: Record<string, unknown> = {};
       if (draggedStatus !== status) update.status = status;
       if (targetRow.depth > 0) {
+        if (altHeld) {
+          update.parent_id = targetRow.issue.parent_id!;
+        }
         const targetParentId = targetRow.issue.parent_id!;
-        update.parent_id = targetParentId;
         const siblings = issues
           .filter((i) => i.parent_id === targetParentId)
           .sort((a, b) =>
@@ -522,8 +525,10 @@ export default function Backlog({
           nextKey && nextKey !== prevKey ? nextKey : null,
         );
       } else {
-        const dragged = issues.find((i) => i.id === droppedId);
-        if (dragged?.parent_id) update.parent_id = "";
+        if (altHeld) {
+          const dragged = issues.find((i) => i.id === droppedId);
+          if (dragged?.parent_id) update.parent_id = "";
+        }
         const groupTopLevel = rows
           .filter(
             (r): r is typeof r & { kind: "issue" } =>
@@ -635,7 +640,9 @@ export default function Backlog({
           }
           return false;
         };
-        if (!overRow.issue.parent_id && !isDescendant(draggedId, overRaw)) {
+        const draggedIssue = issues.find((i) => i.id === draggedId);
+        const alreadyChild = draggedIssue?.parent_id === overRaw;
+        if (!overRow.issue.parent_id && !isDescendant(draggedId, overRaw) && !alreadyChild) {
           setDropIndicator(null);
           setDropGroupStatus(null);
           setDropNestTargetId(overRaw);
@@ -660,13 +667,45 @@ export default function Backlog({
     [rows, issues, getRowStatusGroup],
   );
 
+  const findAfterTree = useCallback(
+    (parentIdx: number): { rowIndex: number; position: "above" | "below" } | null => {
+      const nextTop = rows.findIndex(
+        (r, j) => j > parentIdx && r.kind === "issue" && r.depth === 0,
+      );
+      if (nextTop !== -1) return { rowIndex: nextTop, position: "above" };
+      for (let j = rows.length - 1; j > parentIdx; j--) {
+        const r = rows[j];
+        if (r.kind === "issue" && r.depth > 0) return { rowIndex: j, position: "below" };
+      }
+      return null;
+    },
+    [rows],
+  );
+
+  const isSiblingPosition = useCallback(
+    (
+      draggedParentId: string | undefined,
+      targetRow: RowItem & { kind: "issue" },
+      position: "above" | "below",
+    ): boolean => {
+      if (draggedParentId) {
+        if (targetRow.depth === 0) {
+          if (targetRow.issue.id === draggedParentId) return position === "below";
+          return false;
+        }
+        return targetRow.issue.parent_id === draggedParentId;
+      }
+      return targetRow.depth === 0;
+    },
+    [],
+  );
+
   const handleDndMove = useCallback(
     (event: DragMoveEvent) => {
       const draggedId = String(event.active.id);
       const overRaw = event.over?.id ? String(event.over.id) : null;
       if (!overRaw) return;
 
-      // When over a group header, show insert above first issue or highlight empty group
       if (overRaw.startsWith("group-")) {
         const status = overRaw.slice("group-".length);
         const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
@@ -685,9 +724,11 @@ export default function Backlog({
       if (overRowIndex < 0) return;
       const overRow = rows[overRowIndex];
       if (overRow.kind !== "issue") return;
+      if (overRow.issue.id === draggedId) return;
 
-      // Cross-group without meta key: no indicator (group highlight handled by onDragOver)
-      const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
+      const dragged = issues.find((i) => i.id === draggedId);
+      const draggedParentId = dragged?.parent_id;
+      const draggedStatus = dragged?.status;
       const targetStatus = getRowStatusGroup(overRowIndex);
       if (
         draggedStatus !== targetStatus &&
@@ -700,9 +741,19 @@ export default function Backlog({
       const overEl = document.querySelector(`[data-row="${overRowIndex}"]`);
       const overRect = overEl?.getBoundingClientRect();
       if (!overRect) return;
-      const overCenterY = overRect.top + overRect.height / 2;
       const position: "above" | "below" =
-        pointerYRef.current < overCenterY ? "above" : "below";
+        pointerYRef.current < overRect.top + overRect.height / 2 ? "above" : "below";
+
+      // No-op: suppress indicators adjacent to the drag ghost
+      const draggedRowIndex = rows.findIndex(
+        (r) => r.kind === "issue" && r.issue.id === draggedId,
+      );
+      if (draggedRowIndex >= 0) {
+        if (position === "below" && overRowIndex === draggedRowIndex - 1) return;
+        if (position === "above" && overRowIndex === draggedRowIndex + 1) return;
+      }
+
+      // Expanded parent: redirect "below parent" into or past its children
       if (
         position === "below" &&
         overRow.hasChildren &&
@@ -713,13 +764,34 @@ export default function Backlog({
             j > overRowIndex && r.kind === "issue" && r.depth > overRow.depth,
         );
         if (firstChildIdx !== -1) {
-          setDropIndicator({ rowIndex: firstChildIdx, position: "above" });
+          if (modifiersRef.current.alt || draggedParentId === overRow.issue.id) {
+            setDropIndicator({ rowIndex: firstChildIdx, position: "above" });
+          } else {
+            setDropIndicator(findAfterTree(overRowIndex));
+          }
           return;
         }
       }
-      setDropIndicator({ rowIndex: overRowIndex, position });
+
+      // With Alt held, any position is valid (parent changes allowed)
+      if (modifiersRef.current.alt) {
+        setDropIndicator({ rowIndex: overRowIndex, position });
+        return;
+      }
+
+      // Without Alt: constrain to sibling positions, redirect otherwise
+      if (isSiblingPosition(draggedParentId, overRow, position)) {
+        setDropIndicator({ rowIndex: overRowIndex, position });
+      } else if (overRow.depth > 0 && overRow.issue.parent_id) {
+        const parentIdx = rows.findIndex(
+          (r) => r.kind === "issue" && r.issue.id === overRow.issue.parent_id,
+        );
+        setDropIndicator(parentIdx !== -1 ? findAfterTree(parentIdx) : null);
+      } else {
+        setDropIndicator(null);
+      }
     },
-    [rows, issues, expandedNodes, getRowStatusGroup],
+    [rows, issues, expandedNodes, getRowStatusGroup, findAfterTree, isSiblingPosition],
   );
 
   const handleDndEnd = useCallback(
@@ -728,9 +800,10 @@ export default function Backlog({
       const groupTarget = dropGroupStatus;
       const indicatorTarget = dropIndicator;
       const nestTarget = dropNestTargetId;
+      const altHeld = modifiersRef.current.alt;
       resetDropState();
       if (!groupTarget && !indicatorTarget && !nestTarget) return;
-      await performDrop(droppedId, groupTarget, indicatorTarget, nestTarget);
+      await performDrop(droppedId, groupTarget, indicatorTarget, nestTarget, altHeld);
     },
     [
       dropGroupStatus,
