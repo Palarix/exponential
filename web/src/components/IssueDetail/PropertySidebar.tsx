@@ -59,6 +59,11 @@ export default function PropertySidebar({
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const defaultLabels = useContext(DefaultLabelsContext);
+  const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
+    status: string;
+    doneCount: number;
+    children: { id: string; title: string; status: string }[];
+  } | null>(null);
 
   useEffect(() => {
     fetchCycles().then(data => {
@@ -90,12 +95,46 @@ export default function PropertySidebar({
     }
   }, [issue.id, onClose, onRefresh]);
 
+  const applyStatusChange = useCallback(
+    async (status: string, includeChildren: boolean) => {
+      await saveDraft("UPDATE", { status });
+      if (includeChildren) {
+        const children = issues.filter(
+          (i) => i.parent_id === issue.id && i.status !== status && i.status !== "DONE",
+        );
+        for (const child of children) {
+          await addDraft(child.id, "UPDATE", { status });
+        }
+        onRefresh();
+      }
+    },
+    [issue.id, issues, saveDraft, onRefresh],
+  );
+
   const handleStatusChange = useCallback(
     (newStatus: string) => {
-      if (newStatus !== issue.status) saveDraft("UPDATE", { status: newStatus });
-      else setOpenPopover(null);
+      if (newStatus === issue.status) {
+        setOpenPopover(null);
+        return;
+      }
+      const children = issues.filter(
+        (i) => i.parent_id === issue.id && i.status !== newStatus && i.status !== "DONE",
+      );
+      setOpenPopover(null);
+      if (children.length > 0) {
+        const doneCount = issues.filter(
+          (i) => i.parent_id === issue.id && i.status === "DONE",
+        ).length;
+        setMoveChildrenPrompt({
+          status: newStatus,
+          doneCount,
+          children: children.map((c) => ({ id: c.id, title: c.title, status: c.status })),
+        });
+        return;
+      }
+      saveDraft("UPDATE", { status: newStatus });
     },
-    [issue.status, saveDraft, setOpenPopover],
+    [issue.id, issue.status, issues, saveDraft, setOpenPopover],
   );
 
   const handleEstimateChange = useCallback(
@@ -783,6 +822,81 @@ export default function PropertySidebar({
           )}
         </div>
       </div>
+      <Modal
+        isOpen={!!moveChildrenPrompt}
+        onClose={() => setMoveChildrenPrompt(null)}
+        title="Update sub-issues?"
+        size="xl"
+        showCloseButton={false}
+      >
+        {moveChildrenPrompt && (() => {
+          const targetLabel = STATUS_OPTIONS.find((s) => s.value === moveChildrenPrompt.status)?.label || moveChildrenPrompt.status;
+          const fullChildren = moveChildrenPrompt.children.map((c) => {
+            const full = issues.find((i) => i.id === c.id);
+            return full || c;
+          });
+          return (
+            <>
+              <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-6">
+                <span className="text-text-primary">{issue.title}</span>{" "}
+                has {moveChildrenPrompt.children.length}{" "}
+                {moveChildrenPrompt.children.length === 1 ? "sub-issue " : "sub-issues "}
+                in a different status. Do you want to change their status to{" "}
+                <StatusIcon status={moveChildrenPrompt.status} size={12} className="inline-block align-[-1px] mx-0.5" />
+                <strong className="text-[var(--color-text-primary)]">{targetLabel}</strong>{" "}
+                at the same time?
+                {moveChildrenPrompt.doneCount > 0 && (
+                  <>{" "}{moveChildrenPrompt.doneCount} completed {moveChildrenPrompt.doneCount === 1 ? "issue" : "issues"} will not be updated.</>
+                )}
+              </p>
+              <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8">
+                {fullChildren.map((child, i) => (
+                  <div
+                    key={child.id}
+                    className={`flex items-center gap-3 px-4 py-2.5 text-sm ${i > 0 ? "border-t border-[var(--color-border-subtle)]" : ""}`}
+                  >
+                    <StatusIcon status={child.status} size={14} />
+                    <span className="text-[var(--color-text-primary)] truncate min-w-0">{child.title}</span>
+                    <div className="flex-1" />
+                    {"labels" in child && (child as Issue).labels?.map((label: string) => (
+                      <LabelBadge key={label} label={label} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                  onClick={() => setMoveChildrenPrompt(null)}
+                >
+                  Abort
+                </button>
+                <div className="flex-1" />
+                <button
+                  className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                  onClick={async () => {
+                    const { status } = moveChildrenPrompt;
+                    setMoveChildrenPrompt(null);
+                    await applyStatusChange(status, false);
+                  }}
+                >
+                  Just this issue
+                </button>
+                <button
+                  className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
+                  onClick={async () => {
+                    const { status } = moveChildrenPrompt;
+                    setMoveChildrenPrompt(null);
+                    await applyStatusChange(status, true);
+                  }}
+                >
+                  Update all
+                </button>
+              </div>
+            </>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

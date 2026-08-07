@@ -174,6 +174,7 @@ export default function Backlog({
     issueId: string;
     title: string;
     status: string;
+    doneCount: number;
     children: { id: string; title: string; status: string }[];
   } | null>(null);
 
@@ -182,7 +183,7 @@ export default function Backlog({
       await addDraft(issueId, "UPDATE", { status });
       if (includeChildren) {
         const children = issues.filter(
-          (i) => i.parent_id === issueId && i.status !== status,
+          (i) => i.parent_id === issueId && i.status !== status && i.status !== "DONE",
         );
         for (const child of children) {
           await addDraft(child.id, "UPDATE", { status });
@@ -196,15 +197,19 @@ export default function Backlog({
   const handleQuickStatus = useCallback(
     async (issueId: string, status: string) => {
       const children = issues.filter(
-        (i) => i.parent_id === issueId && i.status !== status,
+        (i) => i.parent_id === issueId && i.status !== status && i.status !== "DONE",
       );
       setOpenPopover(null);
       if (children.length > 0) {
+        const doneCount = issues.filter(
+          (i) => i.parent_id === issueId && i.status === "DONE",
+        ).length;
         const issue = issues.find((i) => i.id === issueId);
         setMoveChildrenPrompt({
           issueId,
           title: issue?.title || issueId,
           status,
+          doneCount,
           children: children.map((c) => ({
             id: c.id,
             title: c.title,
@@ -1695,13 +1700,14 @@ export default function Backlog({
                     ? "sub-issue "
                     : "sub-issues "}
                   in a different status. Do you want to change their status to{" "}
-                  <span className="inline-flex items-center gap-1.5 align-middle">
-                    <StatusIcon status={moveChildrenPrompt.status} size={14} />
-                    <strong className="text-[var(--color-text-primary)]">
-                      {targetLabel}
-                    </strong>
-                  </span>{" "}
+                  <StatusIcon status={moveChildrenPrompt.status} size={12} className="inline-block align-[-1px] mx-0.5" />
+                  <strong className="text-[var(--color-text-primary)]">
+                    {targetLabel}
+                  </strong>{" "}
                   at the same time?
+                  {moveChildrenPrompt.doneCount > 0 && (
+                    <>{" "}{moveChildrenPrompt.doneCount} completed {moveChildrenPrompt.doneCount === 1 ? "issue" : "issues"} will not be updated.</>
+                  )}
                 </p>
                 <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8">
                   {fullChildren.map((child, i) => (

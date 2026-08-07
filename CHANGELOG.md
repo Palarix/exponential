@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Epic "Update sub-issues?" dialog no longer resets completed children; detail view now shows the same cascade prompt as the backlog (xpo-886099)
 - Scroll position now resets to top when navigating between issues via arrow keys or prev/next buttons (xpo-a6a17e)
 
 ## [1.0.3] - 2026-07-20
