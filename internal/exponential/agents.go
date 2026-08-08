@@ -40,6 +40,27 @@ type AgentDetectionResult struct {
 	HasExponentialConfig bool
 }
 
+const (
+	agentInstructionsHeading    = "# Agent Instructions"
+	oldAgentInstructionsHeading = "# Exponential Agent Instructions"
+)
+
+// HasAgentInstructions checks whether content contains an agent instructions section
+// (either the current or legacy heading).
+func HasAgentInstructions(content string) bool {
+	return findAgentInstructionsOffset(content) != -1
+}
+
+func findAgentInstructionsOffset(content string) int {
+	if idx := strings.Index(content, oldAgentInstructionsHeading); idx != -1 {
+		return idx
+	}
+	if idx := strings.Index(content, agentInstructionsHeading); idx != -1 {
+		return idx
+	}
+	return -1
+}
+
 // DetectInstalledAgents returns agents whose CLI binary is found on PATH.
 // Falls back to the Generic Agent if no specific agent is detected.
 func DetectInstalledAgents() []AgentConfig {
@@ -68,7 +89,7 @@ func DetectAgentFiles() []AgentDetectionResult {
 		content, err := os.ReadFile(agent.File)
 		if err == nil {
 			result.Exists = true
-			result.HasExponentialConfig = strings.Contains(string(content), "# Exponential Agent Instructions")
+			result.HasExponentialConfig = HasAgentInstructions(string(content))
 		}
 
 		results = append(results, result)
@@ -80,7 +101,7 @@ func DetectAgentFiles() []AgentDetectionResult {
 // GenerateAgentStub generates the thin always-on stub for agent instruction files.
 // This contains only hard invariants and a directive to load the xpo-workflow skill.
 func GenerateAgentStub(prefix string) string {
-	return `# Exponential Agent Instructions
+	return `# Agent Instructions
 
 This project uses ` + "`xpo`" + ` (Exponential) via the MCP server registered in ` + "`.mcp.json`" + `.
 Always use the MCP tools — never shell out to the ` + "`xpo`" + ` CLI.
@@ -452,7 +473,9 @@ func EnsureMCPConfig() error {
 	return os.WriteFile(mcpConfigFile, out, 0644)
 }
 
-// AppendAgentInstructions appends xpo instructions to an agent file.
+// AppendAgentInstructions writes xpo instructions to an agent file.
+// If the file already contains an agent instructions section (current or legacy heading),
+// that section is replaced in place. Otherwise the instructions are appended.
 // For agents with skill support, writes the thin stub; otherwise writes the full docs.
 func AppendAgentInstructions(agent AgentConfig, prefix string) error {
 	var xpoSection string
@@ -470,24 +493,31 @@ func AppendAgentInstructions(agent AgentConfig, prefix string) error {
 	}
 
 	content, err := os.ReadFile(agent.File)
-	if err == nil {
-		f, err := os.OpenFile(agent.File, os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			return fmt.Errorf("could not open %s: %w", agent.File, err)
-		}
-		defer f.Close()
-
-		if !strings.HasSuffix(string(content), "\n") {
-			f.WriteString("\n")
-		}
-		f.WriteString("\n" + xpoSection)
-	} else if os.IsNotExist(err) {
-		if err := os.WriteFile(agent.File, []byte(xpoSection), 0644); err != nil {
-			return fmt.Errorf("could not create %s: %w", agent.File, err)
-		}
-	} else {
+	if os.IsNotExist(err) {
+		return os.WriteFile(agent.File, []byte(xpoSection), 0644)
+	}
+	if err != nil {
 		return fmt.Errorf("could not read %s: %w", agent.File, err)
 	}
 
-	return nil
+	s := string(content)
+	if idx := findAgentInstructionsOffset(s); idx != -1 {
+		before := strings.TrimRight(s[:idx], " \t\n")
+		if before != "" {
+			before += "\n\n"
+		}
+		return os.WriteFile(agent.File, []byte(before+xpoSection), 0644)
+	}
+
+	f, err := os.OpenFile(agent.File, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("could not open %s: %w", agent.File, err)
+	}
+	defer f.Close()
+
+	if !strings.HasSuffix(s, "\n") {
+		f.WriteString("\n")
+	}
+	_, err = f.WriteString("\n" + xpoSection)
+	return err
 }

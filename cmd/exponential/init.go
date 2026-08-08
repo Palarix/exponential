@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/exponential"
@@ -50,13 +49,10 @@ var initCmd = &cobra.Command{
 
 		agents := exponential.DetectInstalledAgents()
 		for _, agent := range agents {
-			agentContent, _ := os.ReadFile(agent.File)
-			if strings.Contains(string(agentContent), "# Exponential Agent Instructions") {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s `%s` already has xpo instructions\n", ui.OKPrefix, agent.File)))
-			} else if err := exponential.AppendAgentInstructions(agent, prefix); err != nil {
-				notes = append(notes, fmt.Sprintf("Could not create `%s`: %v", agent.File, err))
+			if err := exponential.AppendAgentInstructions(agent, prefix); err != nil {
+				notes = append(notes, fmt.Sprintf("Could not configure `%s`: %v", agent.File, err))
 			} else {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `%s` with agent instructions (%s)\n", ui.OKPrefix, agent.File, agent.Name)))
+				fmt.Print(ui.Stylize(fmt.Sprintf("%s Configured `%s` with agent instructions (%s)\n", ui.OKPrefix, agent.File, agent.Name)))
 			}
 
 			if skillDir, err := exponential.WriteAgentSkill(agent); err != nil {
