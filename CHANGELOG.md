@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xpo merge` now stages `.xpo/artifacts/<issue-id>/` (spec, walkthrough, generic artifacts) alongside `issues.db` in the merge commit — previously left as untracked files on `main` (xpo-dda39d)
 - Sub-issues table rows no longer wrap when issues have many labels; shows first 2 labels with "+N" for the rest (xpo-ff3cb7)
 - Notification inbox labels no longer overflow when issues have many labels (xpo-7eff79)
 - MCP `list` tool now returns issues in user-defined sort order instead of creation order (xpo-2792c3)

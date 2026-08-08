@@ -3,6 +3,7 @@ package exponential
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -130,6 +131,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			result.Messages = append(result.Messages, doneMessages...)
 
 			exec.Command("git", "-C", storage.HubRoot(), "add", ".xpo/issues.db").Run()
+			exec.Command("git", "-C", storage.HubRoot(), "add", filepath.Join(".xpo", "artifacts", issue.ID)).Run()
 			switch opts.Strategy {
 			case MergeStrategySquash, MergeStrategyFF:
 				mergeErr = exec.Command("git", "commit", "-m", commitMsg).Run()
