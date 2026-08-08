@@ -31,6 +31,8 @@ var initCmd = &cobra.Command{
 		}
 		if res.Created {
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `.xpo` directory\n", ui.OKPrefix)))
+		} else if !initForce {
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.xpo` directory already exists, refreshing agent configuration\n", ui.OKPrefix)))
 		}
 
 		// --- PHASE 2: Create .mcp.json and agent instructions ---

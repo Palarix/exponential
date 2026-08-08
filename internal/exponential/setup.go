@@ -22,11 +22,9 @@ func InitProject(force bool) (*InitResult, error) {
 
 	// 1. Create .xpo directory
 	if _, err := os.Stat(xpoDir); err == nil {
-		if !force {
-			return nil, fmt.Errorf("directory already exists") // Caller handles UI message
+		if force {
+			result.Notes = append(result.Notes, "Re-initializing existing .xpo directory")
 		}
-		result.Created = false
-		result.Notes = append(result.Notes, "Re-initializing existing .xpo directory")
 	} else {
 		if err := os.MkdirAll(xpoDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create .xpo directory: %w", err)
@@ -34,26 +32,28 @@ func InitProject(force bool) (*InitResult, error) {
 		result.Created = true
 	}
 
-	// 2. Derive prefix and write config.yaml
-	cwd, _ := os.Getwd()
-	folderName := filepath.Base(cwd)
-	prefix := sanitizePrefix(folderName) + "-"
+	// 2. Derive prefix and write config.yaml (only on fresh init or --force)
+	if result.Created || force {
+		cwd, _ := os.Getwd()
+		folderName := filepath.Base(cwd)
+		prefix := sanitizePrefix(folderName) + "-"
 
-	configPath := filepath.Join(xpoDir, "config.yaml")
-	var defaultLabelLines strings.Builder
-	for _, name := range config.BuiltinLabelOrder {
-		defaultLabelLines.WriteString(fmt.Sprintf("  - %s\n", name))
-	}
-	var labelLines strings.Builder
-	for _, name := range config.BuiltinLabelOrder {
-		color := config.BuiltinLabels[name]
-		labelLines.WriteString(fmt.Sprintf("  %s: \"%s\"\n", name, color))
-	}
-	configContent := fmt.Sprintf("prefix: %s\nversion: 3\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  first_start: true\n  last_completed: true\ndefault_labels:\n%slabels:\n%sdrive:\n  supervisor:\n    agent: claude\n    model: sonnet\n  coder:\n    agent: claude\n  max_retries: 3\n  timeout: 30m\n  # test_cmd: make test\n", prefix, defaultLabelLines.String(), labelLines.String())
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
-	} else {
-		result.Notes = append(result.Notes, fmt.Sprintf("Configured issue prefix: %s", prefix))
+		configPath := filepath.Join(xpoDir, "config.yaml")
+		var defaultLabelLines strings.Builder
+		for _, name := range config.BuiltinLabelOrder {
+			defaultLabelLines.WriteString(fmt.Sprintf("  - %s\n", name))
+		}
+		var labelLines strings.Builder
+		for _, name := range config.BuiltinLabelOrder {
+			color := config.BuiltinLabels[name]
+			labelLines.WriteString(fmt.Sprintf("  %s: \"%s\"\n", name, color))
+		}
+		configContent := fmt.Sprintf("prefix: %s\nversion: 3\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  first_start: true\n  last_completed: true\ndefault_labels:\n%slabels:\n%sdrive:\n  supervisor:\n    agent: claude\n    model: sonnet\n  coder:\n    agent: claude\n  max_retries: 3\n  timeout: 30m\n  # test_cmd: make test\n", prefix, defaultLabelLines.String(), labelLines.String())
+		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+			result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
+		} else {
+			result.Notes = append(result.Notes, fmt.Sprintf("Configured issue prefix: %s", prefix))
+		}
 	}
 
 	// 3. Create .xpo/issues.db

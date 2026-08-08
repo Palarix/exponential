@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Review view for branches with uncommitted changes — shows working-tree diff in the merge view even before committing, with merge disabled and guidance to commit first (xpo-4295bf)
 - `xpo init` and `xpo doctor` now create/ensure `.gitattributes` with `merge=union` for `issues.db`, preventing merge conflicts on the append-only event log (xpo-c762f7)
 
+- Generated `xpo-workflow` skill now includes worktree isolation guidance (`start`/`merge` tools, worktree path usage, parallel issue isolation) and an explicit review gate after the completion comment — agents must wait for user tophat before writing walkthrough, committing, or merging (xpo-cf75df)
+- `xpo init` is now idempotent — re-running on an existing project refreshes agent skill files without overwriting `config.yaml`, `issues.db`, or other project state (xpo-cf75df)
+
 ### Improved
 
 - Render cap for Board (50 per column) and Backlog (100 per group) views — reduces DOM nodes for large projects while keeping all counts and stats accurate; "+N more" button reveals the rest (xpo-f16a94)

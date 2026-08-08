@@ -235,10 +235,14 @@ document the question, the answer you chose, and your reasoning. Use a dedicated
 - If the issue you want to work on is in BACKLOG, ask the user if it is okay to transition it. Do not start without approval.
 - Check the issue's dependencies. If any ` + "`depends_on`" + ` or ` + "`blocked_by`" + ` targets are not DONE, stop and ask the user how to proceed.
 - If the issue is already in DOING and assigned to someone else, stop and ask the user before taking it over.
-- Transition to DOING and set ` + "`assignee`" + ` to yourself **before touching any file**.
+- Call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING and creates an isolated git worktree for your changes. After starting, set ` + "`assignee`" + ` to yourself via ` + "`update`" + `.
+- The ` + "`start`" + ` tool returns a ` + "`worktree_path`" + ` — **all file reads, edits, and commands must happen inside that directory**, not in the main checkout. The main checkout stays on the default branch.
+- Each issue gets its own worktree branching from the default branch. This means multiple issues can be worked on in parallel without interfering with each other.
+- To resume or reclaim an issue that is already in DOING, call ` + "`start`" + ` with ` + "`force: true`" + `.
 
 ### 5. Implement & Test
 
+- Work inside the worktree path returned by ` + "`start`" + `. All file reads, edits, builds, and test runs must target that directory — not the main checkout.
 - Follow the spec. The flow steps, decisions, and edge cases are your requirements.
 - If you encounter a decision not covered by the spec, make a reasonable choice and note it in the completion comment. If the decision is significant (would surprise the user or constrain future work), stop and ask.
 - If you realize the spec has a significant gap or is wrong, stop. Explain the issue, propose a spec update, and wait for approval.
@@ -257,6 +261,11 @@ When implementation is done (evidenced by passing tests), add a brief comment:
 
 The comment says "ready." The walkthrough says "how it works." Do not duplicate one into the other.
 
+**Stop here and wait.** Do not write the walkthrough, commit, or merge until the user has reviewed
+the changes and responded. The completion comment is a handoff — the user needs to test the changes
+before anything is finalized. Proceeding without user approval risks wasting work on the walkthrough
+and creating commits or merges the user will want reverted.
+
 ### 7. Review & Spec Update
 
 When the user top-hats and requests changes, update the spec to reflect the corrections **before**
@@ -266,6 +275,9 @@ code diff. Without this step, the spec drifts from reality and future agents rea
 the wrong thing.
 
 ### 8. Walkthrough (After User Review)
+
+**Prerequisite:** the user has explicitly approved the changes. If the user has not responded since
+your completion comment, you are NOT on this step — go back to step 6 and wait.
 
 After the user reviews and approves (including any correction rounds), write a walkthrough using the
 xpo MCP server's ` + "`walkthrough`" + ` tool.
@@ -286,7 +298,16 @@ Do NOT transition to DONE without a walkthrough. If the user asks to close the i
 walkthrough first — it is the only durable record of what was built and why. Without it, all
 context about the implementation is lost when the conversation ends.
 
-Transition to DONE only after: the user approves, tests pass, and the walkthrough is attached.
+When worktrees are enabled, use ` + "`merge`" + ` to complete the issue. It merges the issue branch into
+the default branch from the hub checkout, records a MERGE event, closes the issue, and cleans up
+the worktree automatically.
+
+**Gate:** commit and merge only when ALL of the following are true:
+1. The user has explicitly approved the changes (not just silence after your completion comment)
+2. Tests pass
+3. The walkthrough is attached
+
+If any of these are missing, do not commit or merge — go back to the missing step.
 
 ## Status Graph
 
@@ -329,6 +350,8 @@ may use different naming conventions). The table uses the base tool names.
 | ` + "`show`" + ` | Read one issue with details, dependencies, and comments |
 | ` + "`add`" + ` | Create a new issue |
 | ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE) |
+| ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree (or branch). Returns the worktree path |
+| ` + "`merge`" + ` | Merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |
 | ` + "`link`" + ` | Add a relationship between two issues |
 | ` + "`history`" + ` | View the audit trail for an issue |
