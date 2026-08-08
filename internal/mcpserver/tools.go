@@ -157,7 +157,7 @@ type mergeIn struct {
 	ID            string `json:"id" jsonschema:"Issue ID to merge"`
 	Strategy      string `json:"strategy,omitempty" jsonschema:"Merge strategy: squash (default), merge, or ff"`
 	CommitMessage string `json:"commit_message,omitempty" jsonschema:"Custom commit message (auto-generated if omitted)"`
-	DeleteBranch  bool   `json:"delete_branch,omitempty" jsonschema:"Delete the branch after merge"`
+	KeepBranch    bool   `json:"keep_branch,omitempty" jsonschema:"Keep the branch after merge (default: delete)"`
 }
 
 type mergeOut struct {
@@ -527,7 +527,7 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 	result, err := c.MergeIssue(issue.ID, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: in.CommitMessage,
-		DeleteBranch:  in.DeleteBranch,
+		DeleteBranch:  !in.KeepBranch,
 	})
 	if err != nil {
 		return nil, mergeOut{}, err

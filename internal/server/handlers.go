@@ -1014,7 +1014,7 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Strategy      string `json:"strategy"`
 		CommitMessage string `json:"commit_message"`
-		DeleteBranch  bool   `json:"delete_branch"`
+		KeepBranch    bool   `json:"keep_branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
@@ -1044,7 +1044,7 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 	result, err := client.MergeIssue(id, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: body.CommitMessage,
-		DeleteBranch:  body.DeleteBranch,
+		DeleteBranch:  !body.KeepBranch,
 	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to merge issue %s", id))
