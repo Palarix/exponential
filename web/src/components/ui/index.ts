@@ -19,6 +19,7 @@ export { default as ContextMenu } from './ContextMenu';
 export { default as SubProgress } from './SubProgress';
 export { default as InlineDropdown, type DropdownOption } from './InlineDropdown';
 export { default as EmptyState } from './EmptyState';
+export { default as OverflowLabels } from './OverflowLabels';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as Toggle } from './Toggle';
 export { default as ToastProvider, useToast } from './Toast';

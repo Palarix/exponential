@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 
+- `xpo init` now replaces stale agent instructions instead of skipping files that already have them; heading changed from "Exponential Agent Instructions" to "Agent Instructions"; both old and new headings are detected for backward compatibility (xpo-8f7b7a)
+- `xpo merge` via MCP and REST API now deletes the issue branch by default after merge; pass `keep_branch: true` to opt out (xpo-408db9)
 - Render cap for Board (50 per column) and Backlog (100 per group) views — reduces DOM nodes for large projects while keeping all counts and stats accurate; "+N more" button reveals the rest (xpo-f16a94)
 - Label ordering: metadata labels now sort alphabetically to the left, primary labels (matching `default_labels` config) sort to the right in backlog, board, and detail views (xpo-e928c1)
 - Markdown rendering: tables now have full grid borders, cell padding, and distinct header row; headings use graduated top margins for visual hierarchy; lists are nearly flush with body text; overall vertical rhythm between paragraphs, code blocks, and blockquotes increased for better readability (xpo-dbd580)
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `xpo merge` now stages `.xpo/artifacts/<issue-id>/` (spec, walkthrough, generic artifacts) alongside `issues.db` in the merge commit — previously left as untracked files on `main` (xpo-dda39d)
+- Backlog rows now dynamically fit labels into available space (35% of row width budget) with `+N` overflow, adapting as the window resizes; board cards cap at 2 (xpo-5f9ee7)
 - Sub-issues table rows no longer wrap when issues have many labels; shows first 2 labels with "+N" for the rest (xpo-ff3cb7)
 - Notification inbox labels no longer overflow when issues have many labels (xpo-7eff79)
 - MCP `list` tool now returns issues in user-defined sort order instead of creation order (xpo-2792c3)

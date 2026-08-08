@@ -137,12 +137,20 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
                 {artifactCount}
               </span>
             )}
-            {metaLabels.map((label) => (
-              <LabelBadge key={label} label={label} />
-            ))}
-            {primaryLabels.map((label) => (
-              <LabelBadge key={label} label={label} />
-            ))}
+            {(() => {
+              const all = [...metaLabels, ...primaryLabels];
+              const extra = Math.max(0, all.length - 2);
+              return (
+                <>
+                  {all.slice(0, 2).map((label) => (
+                    <LabelBadge key={label} label={label} />
+                  ))}
+                  {extra > 0 && (
+                    <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{extra}</span>
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
             {cycleId && (

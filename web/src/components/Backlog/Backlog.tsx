@@ -33,6 +33,7 @@ import {
   ContextMenu,
   useToast,
   Modal,
+  OverflowLabels,
 } from "../ui";
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
@@ -1441,6 +1442,7 @@ export default function Backlog({
                             <div
                               ref={setRowRef}
                               data-row={i}
+                              data-backlog-row
                               {...dragProps.attributes}
                               {...dragProps.listeners}
                               onClick={() => onIssueClick?.(issue)}
@@ -1633,21 +1635,9 @@ export default function Backlog({
                                   }
                                   className="flex items-center gap-3 hover:opacity-70 transition-opacity"
                                 >
-                                  {(() => {
-                                    const { primary, metadata } = splitLabels(issue.labels || [], defaultLabels);
-                                    return (
-                                      <>
-                                        {metadata.map((label) => (
-                                          <LabelBadge key={label} label={label} />
-                                        ))}
-                                        {primary.map((label) => (
-                                          <LabelBadge key={label} label={label} />
-                                        ))}
-                                      </>
-                                    );
-                                  })()}
-                                  {(!issue.labels ||
-                                    issue.labels.length === 0) && (
+                                  {issue.labels && issue.labels.length > 0 ? (
+                                    <OverflowLabels labels={issue.labels} />
+                                  ) : (
                                     <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
                                       + label
                                     </span>
