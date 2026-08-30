@@ -121,6 +121,194 @@ func TestMergeIssue_Squash(t *testing.T) {
 	}
 }
 
+func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	})
+
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: false\n"), 0644)
+	os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(".xpo/issues.db merge=union\n"), 0644)
+
+	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: false}
+	client := NewClient(cfg)
+
+	// Seed an initial issue on main
+	storage.ResetHubRoot()
+	evt0 := model.Event{
+		ID:   "test-000000",
+		Type: model.EventTypeCreate,
+		Payload: model.CreatePayload{
+			Title:  "Background issue",
+			Status: "DOING",
+		},
+		CreatedBy: "Test <test@test.com>",
+	}
+	storage.AppendEvent(evt0)
+
+	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	// Create a feature branch
+	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
+
+	// Add a branch-only event and code change
+	evtBranch := model.Event{
+		ID:   "test-abc123",
+		Type: model.EventTypeCreate,
+		Payload: model.CreatePayload{
+			Title:  "Feature issue",
+			Status: "DOING",
+		},
+		CreatedBy: "Test <test@test.com>",
+	}
+	storage.ResetHubRoot()
+	storage.AppendEvent(evtBranch)
+	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "feature work")
+
+	// Go back to main and add a main-only event
+	runGit(t, dir, "checkout", "main")
+	storage.ResetHubRoot()
+	evtMain := model.Event{
+		ID:   "test-000000",
+		Type: model.EventTypeComment,
+		Payload: model.CommentPayload{
+			Text: "Main-only comment after branch diverged",
+		},
+		CreatedBy: "Test <test@test.com>",
+	}
+	storage.AppendEvent(evtMain)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "main-only event")
+
+	// Switch to the feature branch for merge
+	runGit(t, dir, "checkout", "test-abc123/feature")
+	storage.ResetHubRoot()
+
+	result, err := client.MergeIssue("test-abc123", MergeOptions{
+		Strategy:   MergeStrategySquash,
+		KeepBranch: true,
+	})
+	if err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+	if result.MergeSHA == "" {
+		t.Error("expected MergeSHA to be set")
+	}
+
+	// Verify all events survived the merge
+	storage.ResetHubRoot()
+	events, err := storage.ReadEvents()
+	if err != nil {
+		t.Fatalf("ReadEvents failed: %v", err)
+	}
+
+	hasBackgroundCreate := false
+	hasMainComment := false
+	hasBranchCreate := false
+	hasMerge := false
+	for _, e := range events {
+		if e.ID == "test-000000" && e.Type == model.EventTypeCreate {
+			hasBackgroundCreate = true
+		}
+		if e.ID == "test-000000" && e.Type == model.EventTypeComment {
+			hasMainComment = true
+		}
+		if e.ID == "test-abc123" && e.Type == model.EventTypeCreate {
+			hasBranchCreate = true
+		}
+		if e.ID == "test-abc123" && e.Type == model.EventTypeMerge {
+			hasMerge = true
+		}
+	}
+
+	if !hasBackgroundCreate {
+		t.Error("lost the initial create event from main")
+	}
+	if !hasMainComment {
+		t.Error("lost the comment event added on main after branch diverged")
+	}
+	if !hasBranchCreate {
+		t.Error("lost the create event from the feature branch")
+	}
+	if !hasMerge {
+		t.Error("expected MERGE event in issue history")
+	}
+}
+
+func TestUnionLines(t *testing.T) {
+	tests := []struct {
+		name     string
+		base     string
+		theirs   string
+		expected string
+	}{
+		{
+			name:     "disjoint lines",
+			base:     "a\nb\n",
+			theirs:   "c\nd\n",
+			expected: "a\nb\nc\nd\n",
+		},
+		{
+			name:     "overlapping lines",
+			base:     "a\nb\nc\n",
+			theirs:   "a\nb\nd\n",
+			expected: "a\nb\nc\nd\n",
+		},
+		{
+			name:     "identical",
+			base:     "a\nb\n",
+			theirs:   "a\nb\n",
+			expected: "a\nb\n",
+		},
+		{
+			name:     "empty base",
+			base:     "",
+			theirs:   "a\nb\n",
+			expected: "a\nb\n",
+		},
+		{
+			name:     "empty theirs",
+			base:     "a\nb\n",
+			theirs:   "",
+			expected: "a\nb\n",
+		},
+		{
+			name:     "both empty",
+			base:     "",
+			theirs:   "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := unionLines([]byte(tt.base), []byte(tt.theirs))
+			gotStr := string(got)
+			if tt.expected == "" {
+				if got != nil {
+					t.Errorf("expected nil, got %q", gotStr)
+				}
+				return
+			}
+			if gotStr != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, gotStr)
+			}
+		})
+	}
+}
+
 func TestIsWorkingTreeClean(t *testing.T) {
 	dir := t.TempDir()
 	runGit(t, dir, "init", "-b", "main")

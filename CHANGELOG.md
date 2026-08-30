@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xpo merge` with squash or ff-only strategy no longer overwrites `issues.db` events on `main` when worktrees are disabled — performs a line-based union of both versions before committing, matching the `merge=union` behavior that only fires during 3-way merges (xpo-c58af8)
 - `xpo merge` now stages `.xpo/artifacts/<issue-id>/` (spec, walkthrough, generic artifacts) alongside `issues.db` in the merge commit — previously left as untracked files on `main` (xpo-dda39d)
 - Backlog rows now dynamically fit labels into available space (35% of row width budget) with `+N` overflow, adapting as the window resizes; board cards cap at 2 (xpo-5f9ee7)
 - Sub-issues table rows no longer wrap when issues have many labels; shows first 2 labels with "+N" for the rest (xpo-ff3cb7)

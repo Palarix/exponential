@@ -2,6 +2,7 @@ package exponential
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -99,6 +100,14 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			}
 		}
 
+		// Squash and ff-only merges do not invoke the merge=union driver,
+		// so the branch's issues.db would overwrite main's. Save main's
+		// version before the merge so we can union them afterward.
+		var mainIssuesDB []byte
+		if !useWorktrees && opts.Strategy != MergeStrategyMerge {
+			mainIssuesDB, _ = os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
+		}
+
 		var mergeErr error
 		switch opts.Strategy {
 		case MergeStrategySquash:
@@ -110,6 +119,12 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		}
 
 		if mergeErr == nil {
+			if mainIssuesDB != nil {
+				branchIssuesDB, _ := os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
+				merged := unionLines(mainIssuesDB, branchIssuesDB)
+				os.WriteFile(filepath.Join(storage.XpoDir(), "issues.db"), merged, 0644)
+			}
+
 			preEvents, _ := storage.ReadEvents()
 			preMergeState := ProjectIssues(preEvents)
 
@@ -224,6 +239,44 @@ func resolveRef(ref string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// unionLines merges two line-delimited byte slices, keeping all lines from
+// base and appending any lines from theirs that are not already present.
+// This simulates git's merge=union driver for squash/ff merges.
+func unionLines(base, theirs []byte) []byte {
+	baseStr := strings.TrimRight(string(base), "\n")
+	theirStr := strings.TrimRight(string(theirs), "\n")
+
+	if baseStr == "" && theirStr == "" {
+		return nil
+	}
+
+	var baseLines []string
+	if baseStr != "" {
+		baseLines = strings.Split(baseStr, "\n")
+	}
+	var theirLines []string
+	if theirStr != "" {
+		theirLines = strings.Split(theirStr, "\n")
+	}
+
+	seen := make(map[string]struct{}, len(baseLines))
+	for _, line := range baseLines {
+		seen[line] = struct{}{}
+	}
+
+	result := make([]string, len(baseLines))
+	copy(result, baseLines)
+
+	for _, line := range theirLines {
+		if _, ok := seen[line]; !ok {
+			result = append(result, line)
+			seen[line] = struct{}{}
+		}
+	}
+
+	return []byte(strings.Join(result, "\n") + "\n")
 }
 
 func runGitMerge(args ...string) error {
