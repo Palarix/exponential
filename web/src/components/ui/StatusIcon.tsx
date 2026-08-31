@@ -110,6 +110,24 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
         </svg>
       );
 
+    case 'CANCELED':
+      return (
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+          <circle cx="8" cy="8" r="7" fill="var(--color-status-canceled)" />
+          <line x1="5" y1="8" x2="11" y2="8" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+
+    case 'DUPLICATE':
+      return (
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+          <circle cx="8" cy="8" r="7" fill="var(--color-status-duplicate)" />
+          <line x1="5.5" y1="10.5" x2="10.5" y2="5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="6" cy="6" r="1.2" fill="white" />
+          <circle cx="10" cy="10" r="1.2" fill="white" />
+        </svg>
+      );
+
     default:
       return (
         <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>

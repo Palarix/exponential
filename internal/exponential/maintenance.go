@@ -36,7 +36,7 @@ func (c *Client) GetArchiveStats(days int, keep int) (*ArchiveStats, error) {
 	for _, i := range issues {
 		if i.Deleted {
 			deletedIDs = append(deletedIDs, i.ID)
-		} else if i.Status == model.StatusDone {
+		} else if model.IsTerminal(i.Status) {
 			doneIssues = append(doneIssues, i)
 		}
 	}

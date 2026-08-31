@@ -7,6 +7,7 @@ import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
+import { isTerminal } from "../../constants";
 import { PriorityIcon } from "./icons";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -100,7 +101,7 @@ export default function PropertySidebar({
       await saveDraft("UPDATE", { status });
       if (includeChildren) {
         const children = issues.filter(
-          (i) => i.parent_id === issue.id && i.status !== status && i.status !== "DONE",
+          (i) => i.parent_id === issue.id && i.status !== status && !isTerminal(i.status),
         );
         for (const child of children) {
           await addDraft(child.id, "UPDATE", { status });
@@ -118,12 +119,12 @@ export default function PropertySidebar({
         return;
       }
       const children = issues.filter(
-        (i) => i.parent_id === issue.id && i.status !== newStatus && i.status !== "DONE",
+        (i) => i.parent_id === issue.id && i.status !== newStatus && !isTerminal(i.status),
       );
       setOpenPopover(null);
       if (children.length > 0) {
         const doneCount = issues.filter(
-          (i) => i.parent_id === issue.id && i.status === "DONE",
+          (i) => i.parent_id === issue.id && isTerminal(i.status),
         ).length;
         setMoveChildrenPrompt({
           status: newStatus,
@@ -279,7 +280,7 @@ export default function PropertySidebar({
         )}
 
         {/* Merge / Review button */}
-        {issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && issue.status !== "DONE" && onOpenMerge && (
+        {issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge && (
           <button
             onClick={onOpenMerge}
             className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity"

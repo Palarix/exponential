@@ -93,6 +93,36 @@ func TestStartWork_DoneIssue(t *testing.T) {
 	}
 }
 
+func TestStartWork_CanceledIssue(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	createTestIssue(t, "test-abc123", "Fix login", "CANCELED")
+
+	_, _, _, err := client.StartWork("test-abc123", false)
+	if err == nil {
+		t.Fatal("expected error for CANCELED issue")
+	}
+	if !strings.Contains(err.Error(), "CANCELED") {
+		t.Errorf("expected error to mention CANCELED, got: %v", err)
+	}
+}
+
+func TestStartWork_DuplicateIssue(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	createTestIssue(t, "test-abc123", "Fix login", "DUPLICATE")
+
+	_, _, _, err := client.StartWork("test-abc123", false)
+	if err == nil {
+		t.Fatal("expected error for DUPLICATE issue")
+	}
+	if !strings.Contains(err.Error(), "DUPLICATE") {
+		t.Errorf("expected error to mention DUPLICATE, got: %v", err)
+	}
+}
+
 func TestStartWork_BlockedIssue(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()

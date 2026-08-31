@@ -8,10 +8,10 @@ import (
 
 // GetRecentDoneIDs returns a map of the most recently updated DONE issue IDs
 func GetRecentDoneIDs(issues []*model.Issue, count int) map[string]bool {
-	// Filter to only DONE issues
+	// Filter to terminal issues (DONE, CANCELED, DUPLICATE)
 	var doneIssues []*model.Issue
 	for _, i := range issues {
-		if i.Status == model.StatusDone {
+		if model.IsTerminal(i.Status) {
 			doneIssues = append(doneIssues, i)
 		}
 	}

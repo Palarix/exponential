@@ -114,9 +114,10 @@ func (c *Client) ValidateCreatePayload(p *model.CreatePayload) error {
 	}
 	if p.Status != "" {
 		switch model.IssueStatus(p.Status) {
-		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked,
+			model.StatusDone, model.StatusCanceled, model.StatusDuplicate:
 		default:
-			return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", p.Status)
+			return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, DUPLICATE", p.Status)
 		}
 	}
 	if p.ParentID != "" {
@@ -180,9 +181,10 @@ func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
 	}
 	if p.Status != nil {
 		switch model.IssueStatus(*p.Status) {
-		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked,
+			model.StatusDone, model.StatusCanceled, model.StatusDuplicate:
 		default:
-			return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", *p.Status)
+			return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, DUPLICATE", *p.Status)
 		}
 	}
 	if p.ParentID != nil && *p.ParentID != "" {

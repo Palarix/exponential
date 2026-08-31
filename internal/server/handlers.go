@@ -378,12 +378,12 @@ func (s *Server) handleGetCycles(w http.ResponseWriter, r *http.Request) {
 		done, total := 0, 0
 		for _, issue := range issues {
 			eid := issue.EffectiveCycleID
-			if issue.Status == model.StatusDone {
+			if model.IsTerminal(issue.Status) {
 				eid = issue.CycleID
 			}
 			if eid == c.ID {
 				total++
-				if issue.Status == model.StatusDone {
+				if model.IsCompleted(issue.Status) {
 					done++
 				}
 			}
@@ -511,10 +511,11 @@ func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			scope++
-			switch model.IssueStatus(is.status) {
-			case model.StatusDone:
+			st := model.IssueStatus(is.status)
+			switch {
+			case model.IsCompleted(st):
 				completed++
-			case model.StatusDoing, model.StatusBlocked:
+			case st == model.StatusDoing || st == model.StatusBlocked:
 				started++
 			}
 		}

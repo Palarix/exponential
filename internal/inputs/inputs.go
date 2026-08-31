@@ -20,7 +20,7 @@ import (
 type AddInput struct {
 	Title       string      `json:"title" jsonschema:"Issue title (required)"`
 	Description string      `json:"description,omitempty" jsonschema:"Markdown description; multi-line and special characters supported"`
-	Status      string      `json:"status,omitempty" jsonschema:"Initial status: BACKLOG, PLANNED, DOING, BLOCKED, or DONE (default BACKLOG)"`
+	Status      string      `json:"status,omitempty" jsonschema:"Initial status: BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, or DUPLICATE (default BACKLOG)"`
 	Parent      string      `json:"parent,omitempty" jsonschema:"Parent issue ID for sub-issue relationships"`
 	StoryPoints int         `json:"story_points,omitempty" jsonschema:"Effort estimate in story points"`
 	Priority    int         `json:"priority,omitempty"`
@@ -35,7 +35,7 @@ type AddInput struct {
 type UpdateInput struct {
 	Title       *string     `json:"title,omitempty"`
 	Description *string     `json:"description,omitempty" jsonschema:"Replace the issue description"`
-	Status      *string     `json:"status,omitempty" jsonschema:"New status: BACKLOG, PLANNED, DOING, BLOCKED, or DONE"`
+	Status      *string     `json:"status,omitempty" jsonschema:"New status: BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, or DUPLICATE"`
 	Parent      *string     `json:"parent,omitempty"`
 	StoryPoints *int        `json:"story_points,omitempty"`
 	Priority    *int        `json:"priority,omitempty"`
@@ -68,13 +68,14 @@ func DecodeStrict(content string, dst interface{}) error {
 	return nil
 }
 
-// ValidateStatus returns nil if s is one of the five known issue statuses.
+// ValidateStatus returns nil if s is a known issue status.
 func ValidateStatus(s string) error {
 	switch model.IssueStatus(s) {
-	case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+	case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked,
+		model.StatusDone, model.StatusCanceled, model.StatusDuplicate:
 		return nil
 	}
-	return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", s)
+	return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, DUPLICATE", s)
 }
 
 // LinksToDependencies converts agent-facing LinkInputs to internal

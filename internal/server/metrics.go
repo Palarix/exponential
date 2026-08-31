@@ -260,7 +260,7 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 				cycleTimes = append(cycleTimes, doneAt.Sub(*doingAt))
 			}
 		}
-		if issue.Status != model.StatusDone && !issue.Deleted {
+		if !model.IsTerminal(issue.Status) && !issue.Deleted {
 			age := now.Sub(issue.CreatedAt)
 			stalenessTotal++
 			days := age.Hours() / 24
@@ -297,8 +297,8 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 			break
 		}
 
-		// Bug age: open issues (non-DONE) labeled "bug", bucketed by age from CreatedAt.
-		if issue.Status != model.StatusDone && hasBugLabel(issue.Labels) {
+		// Bug age: open issues (non-terminal) labeled "bug", bucketed by age from CreatedAt.
+		if !model.IsTerminal(issue.Status) && hasBugLabel(issue.Labels) {
 			age := now.Sub(issue.CreatedAt)
 			switch {
 			case age < 24*time.Hour:
@@ -365,7 +365,7 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 				wa = &workAccum{entry: workloadEntry{Assignee: issue.Assignee}}
 				workload[issue.Assignee] = wa
 			}
-			if issue.Status == model.StatusDone {
+			if model.IsCompleted(issue.Status) {
 				if doneAt != nil && (wa.lastCompletedAt == nil || doneAt.After(*wa.lastCompletedAt)) {
 					t := *doneAt
 					wa.lastCompletedAt = &t
@@ -534,7 +534,7 @@ func computeEpicProgress(issues map[string]*model.Issue, now time.Time) []epicPr
 				pts = 1
 			}
 			ep.PointsTotal += pts
-			if child.Status == model.StatusDone {
+			if model.IsCompleted(child.Status) {
 				ep.ChildrenDone++
 				ep.PointsDone += pts
 			}

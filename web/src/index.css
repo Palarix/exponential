@@ -66,6 +66,8 @@
   --color-status-doing: #f2c94c;
   --color-status-blocked: #eb5757;
   --color-status-done: #4cb782;
+  --color-status-canceled: #8b8b8b;
+  --color-status-duplicate: #8b8b8b;
 
   /* Typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;

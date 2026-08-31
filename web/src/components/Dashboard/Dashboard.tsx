@@ -4,6 +4,7 @@ import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, PriorityIcon,
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
+import { isTerminal, isCompleted } from "../../constants";
 import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DailyVelocityChart, CumulativeChart } from "./charts";
@@ -74,7 +75,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
     planned: issues.filter((i) => i.status === "PLANNED").length,
     doing: issues.filter((i) => i.status === "DOING").length,
     blocked: issues.filter((i) => i.status === "BLOCKED").length,
-    done: issues.filter((i) => i.status === "DONE").length,
+    done: issues.filter((i) => isCompleted(i.status)).length,
   };
 
   const STATUS_ORDER_MAP: Record<string, { label: string; idx: number }> = {
@@ -83,16 +84,18 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
     DOING: { label: "In Progress", idx: 2 },
     BLOCKED: { label: "Blocked", idx: 3 },
     DONE: { label: "Done", idx: 4 },
+    CANCELED: { label: "Canceled", idx: 5 },
+    DUPLICATE: { label: "Duplicate", idx: 6 },
   };
 
-  const allStatuses = ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"];
+  const allStatuses = ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"];
 
   const statusDistribution = useMemo(() => {
-    const filtered = statusFilter === "active" ? issues.filter((i) => i.status !== "DONE") : issues;
+    const filtered = statusFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;
     const counts = new Map<string, number>();
     for (const i of filtered) counts.set(i.status, (counts.get(i.status) || 0) + 1);
     const total = filtered.length;
-    const visibleStatuses = statusFilter === "active" ? allStatuses.filter(s => s !== "DONE") : allStatuses;
+    const visibleStatuses = statusFilter === "active" ? allStatuses.filter(s => !isTerminal(s)) : allStatuses;
     const rows: DistRow[] = visibleStatuses.map((status) => {
       const count = counts.get(status) || 0;
       return {
@@ -112,7 +115,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
   }, [issues, statusFilter]);
 
   const labelDistribution = useMemo(() => {
-    const filtered = labelFilter === "active" ? issues.filter((i) => i.status !== "DONE") : issues;
+    const filtered = labelFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;
     const counts = new Map<string, number>();
     for (const i of filtered) for (const l of i.labels || []) counts.set(l, (counts.get(l) || 0) + 1);
     const total = filtered.length;
@@ -135,7 +138,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
   }, [issues, labelFilter]);
 
   const assigneeDistribution = useMemo(() => {
-    const filtered = assigneeFilter === "active" ? issues.filter((i) => i.status !== "DONE") : issues;
+    const filtered = assigneeFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;
     const counts = new Map<string, number>();
     let unassigned = 0;
     for (const i of filtered) {
@@ -164,7 +167,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
   }, [issues, assigneeFilter]);
 
   const priorityDistribution = useMemo(() => {
-    const filtered = priorityFilter === "active" ? issues.filter((i) => i.status !== "DONE") : issues;
+    const filtered = priorityFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;
     const counts = new Map<number, number>();
     for (const i of filtered) { const p = i.priority || 0; counts.set(p, (counts.get(p) || 0) + 1); }
     const total = filtered.length;

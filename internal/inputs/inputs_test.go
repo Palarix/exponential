@@ -142,7 +142,7 @@ func TestUpdateInputInvalidStatus(t *testing.T) {
 }
 
 func TestValidateStatus(t *testing.T) {
-	for _, s := range []string{"BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"} {
+	for _, s := range []string{"BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"} {
 		if err := ValidateStatus(s); err != nil {
 			t.Errorf("ValidateStatus(%q) returned error: %v", s, err)
 		}

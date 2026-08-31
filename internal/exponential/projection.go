@@ -265,7 +265,7 @@ func applyCycleRollover(issues map[string]*model.Issue, cc config.CycleConfig, n
 		if issue.CycleID == "" {
 			continue
 		}
-		if issue.Status == model.StatusDone {
+		if model.IsTerminal(issue.Status) {
 			issue.EffectiveCycleID = issue.CycleID
 		} else if cc.IsPastCycle(issue.CycleID, now) {
 			issue.EffectiveCycleID = current.ID

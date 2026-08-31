@@ -93,12 +93,22 @@ type UpdatePayload struct {
 type IssueStatus string
 
 const (
-	StatusBacklog IssueStatus = "BACKLOG"
-	StatusPlanned IssueStatus = "PLANNED"
-	StatusDoing   IssueStatus = "DOING"
-	StatusBlocked IssueStatus = "BLOCKED"
-	StatusDone    IssueStatus = "DONE"
+	StatusBacklog   IssueStatus = "BACKLOG"
+	StatusPlanned   IssueStatus = "PLANNED"
+	StatusDoing     IssueStatus = "DOING"
+	StatusBlocked   IssueStatus = "BLOCKED"
+	StatusDone      IssueStatus = "DONE"
+	StatusCanceled  IssueStatus = "CANCELED"
+	StatusDuplicate IssueStatus = "DUPLICATE"
 )
+
+func IsTerminal(s IssueStatus) bool {
+	return s == StatusDone || s == StatusCanceled || s == StatusDuplicate
+}
+
+func IsCompleted(s IssueStatus) bool {
+	return s == StatusDone
+}
 
 type BranchStats struct {
 	Branch         string `json:"branch"`

@@ -4,7 +4,19 @@ export const STATUS_OPTIONS = [
   { value: "DOING", label: "In Progress" },
   { value: "BLOCKED", label: "Blocked" },
   { value: "DONE", label: "Done" },
+  { value: "CANCELED", label: "Canceled" },
+  { value: "DUPLICATE", label: "Duplicate" },
 ];
+
+export const TERMINAL_STATUSES = new Set(["DONE", "CANCELED", "DUPLICATE"]);
+
+export function isTerminal(status: string): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
+export function isCompleted(status: string): boolean {
+  return status === "DONE";
+}
 
 export const ESTIMATE_OPTIONS = [0, 1, 2, 3, 5, 8];
 

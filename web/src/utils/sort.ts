@@ -12,7 +12,7 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'estimate', label: 'Estimate' },
 ];
 
-export const STATUS_ORDER = ['BACKLOG', 'PLANNED', 'DOING', 'BLOCKED', 'DONE'];
+export const STATUS_ORDER = ['BACKLOG', 'PLANNED', 'DOING', 'BLOCKED', 'DONE', 'CANCELED', 'DUPLICATE'];
 
 export const PRIORITY_LABELS: Record<number, string> = {
   0: 'No priority',

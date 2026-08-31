@@ -1,14 +1,15 @@
 import { useMemo } from "react";
 import type { Issue } from "../../api/client";
+import { isTerminal, isCompleted } from "../../constants";
 import { sortGroup } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import type { Tab } from "./Backlog";
 
 const TAB_CONFIGS: Record<Tab, { statuses: string[] }> = {
-  all: { statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"] },
+  all: { statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"] },
   backlog: { statuses: ["BACKLOG"] },
   active: { statuses: ["PLANNED", "DOING", "BLOCKED"] },
-  done: { statuses: ["DONE"] },
+  done: { statuses: ["DONE", "CANCELED", "DUPLICATE"] },
 };
 
 export type HierarchyMode = "nested" | "flat";
@@ -44,6 +45,8 @@ const STATUS_META: Record<string, { label: string }> = {
   DOING: { label: "In Progress" },
   BLOCKED: { label: "Blocked" },
   DONE: { label: "Done" },
+  CANCELED: { label: "Canceled" },
+  DUPLICATE: { label: "Duplicate" },
 };
 
 export function useBacklogRows(
@@ -54,6 +57,7 @@ export function useBacklogRows(
   expandedNodes: Set<string>,
   sortKey: SortKey,
   hierarchyMode: HierarchyMode = "nested",
+  showEmptyGroups: boolean = false,
 ): RowItem[] {
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Issue[]>();
@@ -71,28 +75,27 @@ export function useBacklogRows(
 
   return useMemo(() => {
     const result: RowItem[] = [];
-    const isAllTab = activeTab === "all";
 
     const issueChildStats = (issue: Issue) => {
       const allChildren = childrenByParent.get(issue.id) || [];
       return {
         allChildren,
         hasChildren: allChildren.length > 0,
-        childDone: allChildren.filter((c) => c.status === "DONE").length,
+        childDone: allChildren.filter((c) => isCompleted(c.status)).length,
         childTotal: allChildren.length,
         childPointsTotal: allChildren.reduce(
           (s, c) => s + (c.estimate || 1),
           0,
         ),
         childPointsDone: allChildren
-          .filter((c) => c.status === "DONE")
+          .filter((c) => isCompleted(c.status))
           .reduce((s, c) => s + (c.estimate || 1), 0),
       };
     };
 
     for (const status of visibleStatuses) {
       const groupIssues = filteredIssues.filter((i) => i.status === status);
-      if (groupIssues.length === 0 && !isAllTab) continue;
+      if (groupIssues.length === 0 && !showEmptyGroups) continue;
 
       const groupIssueIds = new Set(groupIssues.map((i) => i.id));
       const storyPoints = groupIssues.reduce((sum, i) => {
@@ -102,10 +105,9 @@ export function useBacklogRows(
             groupIssueIds.has(c.id),
           );
           if (childrenInGroup.length > 0) return sum;
-          const relevant =
-            i.status === "DONE"
-              ? children.filter((c) => c.status === "DONE")
-              : children.filter((c) => c.status !== "DONE");
+          const relevant = isTerminal(i.status)
+              ? children.filter((c) => isCompleted(c.status))
+              : children.filter((c) => !isTerminal(c.status));
           return sum + relevant.reduce((s, c) => s + (c.estimate || 1), 0);
         }
         return sum + (i.estimate || 1);
@@ -123,7 +125,7 @@ export function useBacklogRows(
       if (!expandedGroups.has(status) || groupIssues.length === 0) continue;
 
       const effectiveSortKey =
-        status === "DONE" ? ("updated" as const) : sortKey;
+        isTerminal(status) ? ("updated" as const) : sortKey;
 
       if (hierarchyMode === "flat") {
         // Group children by parent so siblings stay together.
@@ -293,5 +295,6 @@ export function useBacklogRows(
     childrenByParent,
     sortKey,
     hierarchyMode,
+    showEmptyGroups,
   ]);
 }

@@ -300,9 +300,10 @@ func (t *toolset) register(s *mcp.Server) {
 func (t *toolset) list(ctx context.Context, req *mcp.CallToolRequest, in listIn) (*mcp.CallToolResult, listOut, error) {
 	for _, s := range in.Status {
 		switch model.IssueStatus(s) {
-		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked, model.StatusDone:
+		case model.StatusBacklog, model.StatusPlanned, model.StatusDoing, model.StatusBlocked,
+			model.StatusDone, model.StatusCanceled, model.StatusDuplicate:
 		default:
-			return nil, listOut{}, fmt.Errorf("invalid status filter %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE", s)
+			return nil, listOut{}, fmt.Errorf("invalid status filter %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, DUPLICATE", s)
 		}
 	}
 	c := t.clientFor(req)

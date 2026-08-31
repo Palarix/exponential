@@ -322,6 +322,118 @@ func TestUpdateIssue_MixedRedundantAndNewFields(t *testing.T) {
 	}
 }
 
+func TestUpdateIssue_BlockerCanceled_Unblocks(t *testing.T) {
+	tr := setupLocalTransport(t)
+	blocker, _ := tr.AddIssue(model.CreatePayload{Title: "blocker"})
+	blocked, _ := tr.AddIssue(model.CreatePayload{
+		Title: "blocked",
+		Dependencies: []model.Dependency{
+			{TargetID: blocker.ID, Kind: "blocked_by"},
+		},
+	})
+
+	tr.UpdateIssue(blocker.ID, model.UpdatePayload{Status: sp("CANCELED")}, "update")
+
+	_, err := tr.UpdateIssue(blocked.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
+	if err != nil {
+		t.Errorf("should allow DOING after blocker is CANCELED, got: %s", err)
+	}
+}
+
+func TestUpdateIssue_BlockerDuplicate_Unblocks(t *testing.T) {
+	tr := setupLocalTransport(t)
+	blocker, _ := tr.AddIssue(model.CreatePayload{Title: "blocker"})
+	blocked, _ := tr.AddIssue(model.CreatePayload{
+		Title: "blocked",
+		Dependencies: []model.Dependency{
+			{TargetID: blocker.ID, Kind: "blocked_by"},
+		},
+	})
+
+	tr.UpdateIssue(blocker.ID, model.UpdatePayload{Status: sp("DUPLICATE")}, "update")
+
+	_, err := tr.UpdateIssue(blocked.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
+	if err != nil {
+		t.Errorf("should allow DOING after blocker is DUPLICATE, got: %s", err)
+	}
+}
+
+func TestUpdateIssue_LastCompletedWithCanceledChild(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.LastCompleted = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	child1, _ := tr.AddIssue(model.CreatePayload{Title: "story1", ParentID: parent.ID, Status: "DONE"})
+	_ = child1
+	child2, _ := tr.AddIssue(model.CreatePayload{Title: "story2", ParentID: parent.ID, Status: "DOING"})
+
+	msgs, err := tr.UpdateIssue(child2.ID, model.UpdatePayload{Status: sp("CANCELED")}, "cancel")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDone {
+		t.Errorf("parent status = %s, want DONE (all children terminal)", issues[parent.ID].Status)
+	}
+
+	autoCompleted := false
+	for _, m := range msgs {
+		if strings.Contains(m, "Auto-completed parent") {
+			autoCompleted = true
+		}
+	}
+	if !autoCompleted {
+		t.Errorf("expected auto-completed message, got: %v", msgs)
+	}
+}
+
+func TestUpdateIssue_LastCompletedMixedTerminal(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.LastCompleted = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	tr.AddIssue(model.CreatePayload{Title: "story1", ParentID: parent.ID, Status: "DONE"})
+	tr.AddIssue(model.CreatePayload{Title: "story2", ParentID: parent.ID, Status: "CANCELED"})
+	child3, _ := tr.AddIssue(model.CreatePayload{Title: "story3", ParentID: parent.ID, Status: "DOING"})
+
+	tr.UpdateIssue(child3.ID, model.UpdatePayload{Status: sp("DUPLICATE")}, "duplicate")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDone {
+		t.Errorf("parent status = %s, want DONE (all children terminal: DONE+CANCELED+DUPLICATE)", issues[parent.ID].Status)
+	}
+}
+
+func TestUpdateIssue_LastCompletedNotTriggeredByActiveChild(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.LastCompleted = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "DOING"})
+	tr.AddIssue(model.CreatePayload{Title: "story1", ParentID: parent.ID, Status: "DONE"})
+	tr.AddIssue(model.CreatePayload{Title: "story2", ParentID: parent.ID, Status: "CANCELED"})
+	child3, _ := tr.AddIssue(model.CreatePayload{Title: "story3", ParentID: parent.ID, Status: "DOING"})
+
+	tr.UpdateIssue(child3.ID, model.UpdatePayload{Status: sp("PLANNED")}, "update")
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusDoing {
+		t.Errorf("parent status = %s, want DOING (child3 is PLANNED, not terminal)", issues[parent.ID].Status)
+	}
+}
+
+func TestUpdateIssue_TerminalToActive(t *testing.T) {
+	tr := setupLocalTransport(t)
+	issue, _ := tr.AddIssue(model.CreatePayload{Title: "reopenable", Status: "CANCELED"})
+
+	_, err := tr.UpdateIssue(issue.ID, model.UpdatePayload{Status: sp("PLANNED")}, "reopen")
+	if err != nil {
+		t.Fatalf("should allow reopening CANCELED issue, got: %v", err)
+	}
+
+	issues := readAllIssues(t)
+	if issues[issue.ID].Status != model.StatusPlanned {
+		t.Errorf("status = %s, want PLANNED", issues[issue.ID].Status)
+	}
+}
+
 func countEvents(t *testing.T, id string) int {
 	t.Helper()
 	issues := readAllIssues(t)

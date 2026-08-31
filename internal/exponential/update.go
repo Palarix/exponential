@@ -85,7 +85,7 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 			for _, dep := range targetIssue.Dependencies {
 				if dep.Kind == model.DependencyBlockedBy {
 					blocker, bExists := issues[dep.TargetID]
-					if bExists && blocker.Status != model.StatusDone && !blocker.Deleted {
+					if bExists && !model.IsTerminal(blocker.Status) && !blocker.Deleted {
 						return nil, nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
 					}
 				}
@@ -112,16 +112,16 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 			}
 		}
 
-		// --- Last-completed trigger: parent auto-closes when last child is done ---
-		if t.Config.Automations.LastCompleted && targetIssue.ParentID != "" && newStatus == model.StatusDone {
+		// --- Last-completed trigger: parent auto-closes when last child reaches a terminal status ---
+		if t.Config.Automations.LastCompleted && targetIssue.ParentID != "" && model.IsTerminal(newStatus) {
 			parent, pExists := issues[targetIssue.ParentID]
-			if pExists && !parent.Deleted && parent.Status != model.StatusDone {
+			if pExists && !parent.Deleted && !model.IsTerminal(parent.Status) {
 				allDone := true
 				for _, sibling := range issues {
 					if sibling.ParentID != parent.ID || sibling.Deleted || sibling.ID == id {
 						continue
 					}
-					if sibling.Status != model.StatusDone {
+					if !model.IsTerminal(sibling.Status) {
 						allDone = false
 						break
 					}

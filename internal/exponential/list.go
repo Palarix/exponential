@@ -153,11 +153,11 @@ func FilterIssues(issues []*model.Issue, opts FilterOptions, currentUser string)
 			}
 		}
 
-		if i.Status == model.StatusDone {
+		if model.IsTerminal(i.Status) {
 			show := false
 			if opts.All {
 				show = true
-			} else if validStatuses[string(model.StatusDone)] {
+			} else if validStatuses[string(i.Status)] {
 				show = true
 			} else if recentDoneIDs[i.ID] {
 				show = true

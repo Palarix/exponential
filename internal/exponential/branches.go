@@ -25,7 +25,7 @@ func applyBranchInference(issues map[string]*model.Issue) {
 	for _, issue := range issues {
 		// Status inference: only from remote branches (discovers work on other clones)
 		if matchingBranch(remoteBranches, issue.ID) != "" {
-			if issue.Status != model.StatusDone && issue.Status != model.StatusBlocked && issue.Status != model.StatusDoing {
+			if !model.IsTerminal(issue.Status) && issue.Status != model.StatusBlocked && issue.Status != model.StatusDoing {
 				issue.Status = model.StatusDoing
 				issue.InferredStatus = true
 			}

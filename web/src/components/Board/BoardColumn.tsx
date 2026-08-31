@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import type { Issue } from "../../api/client";
 import { StatusIcon } from "../ui";
 import { SortableBoardCard, type CardMeta } from "./BoardCard";
+import { isTerminal } from "../../constants";
 
 const COLUMN_VISIBLE_COUNT = 50;
 const DONE_VISIBLE_COUNT = 5;
@@ -33,7 +34,7 @@ export default function BoardColumn({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${column.id}` });
   const [showAll, setShowAll] = useState(false);
-  const cap = column.id === "DONE" ? DONE_VISIBLE_COUNT : COLUMN_VISIBLE_COUNT;
+  const cap = isTerminal(column.id) ? DONE_VISIBLE_COUNT : COLUMN_VISIBLE_COUNT;
   const shouldTruncate = itemIds.length > cap && !showAll;
   const visibleIds = shouldTruncate ? itemIds.slice(0, cap) : itemIds;
   const hiddenCount = itemIds.length - cap;

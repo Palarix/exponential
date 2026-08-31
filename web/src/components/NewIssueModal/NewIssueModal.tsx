@@ -6,6 +6,7 @@ import { computeAppendKey } from "../../utils/sort";
 import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, InlineDropdown } from "../ui";
 import { ChevronDown, Folder, UserRound, Tag } from "lucide-react";
 import type { DropdownOption } from "../ui";
+import { isTerminal } from "../../constants";
 import MarkdownEditor from "../MarkdownEditor";
 import { useAllLabels } from "../../hooks/useLabels";
 
@@ -77,7 +78,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
 
   const parentCandidates = useMemo(() => {
     const q = parentSearch.toLowerCase();
-    return issues.filter((i) => !i.parent_id && i.status !== "DONE" && (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q)));
+    return issues.filter((i) => !i.parent_id && !isTerminal(i.status) && (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q)));
   }, [issues, parentSearch]);
 
   const selectLabel = (l: string) => { setLabels([l]); setLabelOpen(false); };

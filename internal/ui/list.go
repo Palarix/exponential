@@ -125,8 +125,8 @@ func RenderIssueList(issues []*model.Issue, termWidth int, prefix string) string
 
 		// Apply status style to the row
 		titleStyle := lipgloss.NewStyle()
-		if i.Status == model.StatusDone {
-			titleStyle = titleStyle.Foreground(DoneColor).Strikethrough(true)
+		if model.IsTerminal(i.Status) {
+			titleStyle = StatusStyle(i.Status)
 		}
 
 		row := fmt.Sprintf("%s %s %s %s %s %s %s %s",

@@ -19,12 +19,12 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 		return "", "", nil, err
 	}
 
-	switch issue.Status {
-	case model.StatusDone:
-		return "", "", nil, fmt.Errorf("issue %s is already DONE", id)
-	case model.StatusBlocked:
+	switch {
+	case model.IsTerminal(issue.Status):
+		return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
+	case issue.Status == model.StatusBlocked:
 		return "", "", nil, fmt.Errorf("issue %s is BLOCKED", id)
-	case model.StatusDoing:
+	case issue.Status == model.StatusDoing:
 		if !force {
 			who := "someone"
 			if issue.Assignee != "" {

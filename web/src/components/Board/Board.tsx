@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { Settings2 } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -15,11 +16,12 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { EmptyState, Popover, StatusPicker, EstimatePicker, ContextMenu } from '../ui';
+import { EmptyState, Popover, StatusPicker, EstimatePicker, ContextMenu, StatusIcon } from '../ui';
 import { LabelPicker } from '../ui';
 import { sortGroup } from '../../utils/sort';
 import { useAllLabels } from '../../hooks/useLabels';
 import { toggleLabel } from '../../utils/labels';
+import { isTerminal, isCompleted } from '../../constants';
 import { isEditableTarget } from '../../utils/keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
@@ -40,6 +42,8 @@ const COLUMNS = [
   { id: 'DOING', label: 'In Progress', shortcut: '3', isBacklog: false },
   { id: 'BLOCKED', label: 'Blocked', shortcut: '4', isBacklog: false },
   { id: 'DONE', label: 'Done', shortcut: '5', isBacklog: false },
+  { id: 'CANCELED', label: 'Canceled', shortcut: '6', isBacklog: false },
+  { id: 'DUPLICATE', label: 'Duplicate', shortcut: '7', isBacklog: false },
 ];
 
 type Containers = Record<string, string[]>;
@@ -53,7 +57,7 @@ function buildContainers(issues: Issue[]): Containers {
   }
   for (const issue of issues) byStatus.get(issue.status)?.push(issue);
   for (const col of COLUMNS) {
-    const key = col.id === 'DONE' ? ('updated' as const) : ('manual' as const);
+    const key = isTerminal(col.id) ? ('updated' as const) : ('manual' as const);
     result[col.id] = sortGroup(byStatus.get(col.id)!, key).map((i) => i.id);
   }
   return result;
@@ -97,6 +101,32 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
       return next;
     });
   }, []);
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("exponential-board-hidden-cols");
+      if (stored) return new Set(JSON.parse(stored));
+    } catch {}
+    return new Set<string>();
+  });
+  const toggleColumnVisible = useCallback((colId: string) => {
+    setHiddenColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(colId)) next.delete(colId); else next.add(colId);
+      localStorage.setItem("exponential-board-hidden-cols", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
+  const [showViewMenu, setShowViewMenu] = useState(false);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showViewMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target as Node)) setShowViewMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showViewMenu]);
+  const visibleColumns = useMemo(() => COLUMNS.filter(c => !hiddenColumns.has(c.id)), [hiddenColumns]);
   const isDraggingRef = useRef(false);
   const pointerYRef = useRef<number>(0);
 
@@ -132,7 +162,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
       const children = childrenByParent.get(issue.id) || [];
       return {
         parentTitle: parent?.title,
-        childDone: children.filter((c) => c.status === 'DONE').length,
+        childDone: children.filter((c) => isCompleted(c.status)).length,
         childTotal: children.length,
       };
     },
@@ -420,11 +450,48 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+      <div className="flex items-center px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
         <span className="text-sm font-medium text-[var(--color-text-primary)]">Board</span>
-        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-          {issues.filter((i) => i.status !== 'BACKLOG').length} issue
-          {issues.filter((i) => i.status !== 'BACKLOG').length !== 1 ? 's' : ''}
+        <span className="ml-auto flex items-center gap-2">
+          <div className="relative" ref={viewMenuRef}>
+            <button
+              onClick={() => setShowViewMenu(v => !v)}
+              className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              <Settings2 size={14} />
+            </button>
+            {showViewMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
+                <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                  Columns
+                </div>
+                {COLUMNS.map((col) => (
+                  <button
+                    key={col.id}
+                    onClick={() => toggleColumnVisible(col.id)}
+                    className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                  >
+                    <StatusIcon status={col.id} size={14} />
+                    {col.label}
+                    {!hiddenColumns.has(col.id) && (
+                      <svg
+                        className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+            {(() => { const n = issues.filter(i => !hiddenColumns.has(i.status)).length; return `${n} issue${n !== 1 ? 's' : ''}`; })()}
+          </span>
         </span>
       </div>
 
@@ -438,7 +505,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
       >
         <div className="flex-1 overflow-hidden p-3">
           <div className="flex gap-3 h-full">
-            {COLUMNS.map((column) => (
+            {visibleColumns.map((column) => (
               <BoardColumn
                 key={column.id}
                 column={column}

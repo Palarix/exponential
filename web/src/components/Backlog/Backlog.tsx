@@ -55,6 +55,7 @@ import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
+import { isTerminal } from "../../constants";
 import { isEditableTarget } from "../../utils/keyboard";
 import Tooltip from "../ui/Tooltip";
 import FilterMenu from "./FilterMenu";
@@ -76,11 +77,11 @@ export type Tab = "all" | "active" | "backlog" | "done";
 const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
   all: {
     label: "All Issues",
-    statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"],
+    statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"],
   },
   backlog: { label: "Backlog", statuses: ["BACKLOG"] },
   active: { label: "Active", statuses: ["PLANNED", "DOING", "BLOCKED"] },
-  done: { label: "Done", statuses: ["DONE"] },
+  done: { label: "Done", statuses: ["DONE", "CANCELED", "DUPLICATE"] },
 };
 
 const GROUP_VISIBLE_COUNT = 100;
@@ -176,6 +177,29 @@ export default function Backlog({
       return next;
     });
   }, [activeTab]);
+  const [showEmptyGroups, setShowEmptyGroups] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(
+        `exponential-backlog-empty-groups-${activeTab}`,
+      );
+      if (stored !== null) return stored === "true";
+      return activeTab === "all" || activeTab === "done";
+    } catch {
+      return activeTab === "all" || activeTab === "done";
+    }
+  });
+  const toggleEmptyGroups = useCallback(() => {
+    setShowEmptyGroups((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(
+          `exponential-backlog-empty-groups-${activeTab}`,
+          String(next),
+        );
+      } catch {}
+      return next;
+    });
+  }, [activeTab]);
   const showFilterMenuRef = useRef(showFilterMenu);
   showFilterMenuRef.current = showFilterMenu;
   const filterBtnRef = useRef<HTMLButtonElement>(null);
@@ -217,6 +241,8 @@ export default function Backlog({
     DOING: "In Progress",
     BLOCKED: "Blocked",
     DONE: "Done",
+    CANCELED: "Canceled",
+    DUPLICATE: "Duplicate",
   };
 
   const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
@@ -241,7 +267,7 @@ export default function Backlog({
           (i) =>
             i.parent_id === issueId &&
             i.status !== status &&
-            i.status !== "DONE",
+            !isTerminal(i.status),
         );
         for (const child of children) {
           await addDraft(child.id, "UPDATE", { status });
@@ -256,12 +282,12 @@ export default function Backlog({
     async (issueId: string, status: string) => {
       const children = issues.filter(
         (i) =>
-          i.parent_id === issueId && i.status !== status && i.status !== "DONE",
+          i.parent_id === issueId && i.status !== status && !isTerminal(i.status),
       );
       setOpenPopover(null);
       if (children.length > 0) {
         const doneCount = issues.filter(
-          (i) => i.parent_id === issueId && i.status === "DONE",
+          (i) => i.parent_id === issueId && isTerminal(i.status),
         ).length;
         const issue = issues.find((i) => i.id === issueId);
         setMoveChildrenPrompt({
@@ -399,7 +425,7 @@ export default function Backlog({
       next = new Set<string>();
       for (const status of visibleStatuses) {
         const count = issues.filter((i) => i.status === status).length;
-        if (count > 0 && (status !== "DONE" || activeTab === "done"))
+        if (count > 0 && (!isTerminal(status) || activeTab === "done"))
           next.add(status);
       }
     }
@@ -409,6 +435,16 @@ export default function Backlog({
         (localStorage.getItem(
           `exponential-backlog-hierarchy-${activeTab}`,
         ) as HierarchyMode) || "nested",
+      );
+    } catch {}
+    try {
+      const emptyStored = localStorage.getItem(
+        `exponential-backlog-empty-groups-${activeTab}`,
+      );
+      setShowEmptyGroups(
+        emptyStored !== null
+          ? emptyStored === "true"
+          : activeTab === "all" || activeTab === "done",
       );
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -463,6 +499,7 @@ export default function Backlog({
     expandedNodes,
     sortKey,
     hierarchyMode,
+    showEmptyGroups,
   );
 
   // Report navigation order to parent
@@ -605,11 +642,11 @@ export default function Backlog({
           (i) =>
             i.parent_id === droppedId &&
             i.status !== groupTarget &&
-            i.status !== "DONE",
+            !isTerminal(i.status),
         );
         if (movableChildren.length > 0) {
           const doneCount = issues.filter(
-            (i) => i.parent_id === droppedId && i.status === "DONE",
+            (i) => i.parent_id === droppedId && isTerminal(i.status),
           ).length;
           setMoveChildrenPrompt({
             issueId: droppedId,
@@ -736,12 +773,12 @@ export default function Backlog({
           (i) =>
             i.parent_id === droppedId &&
             i.status !== update.status &&
-            i.status !== "DONE",
+            !isTerminal(i.status),
         );
         if (movableChildren.length > 0) {
           const issue = issues.find((i) => i.id === droppedId);
           const doneCount = issues.filter(
-            (i) => i.parent_id === droppedId && i.status === "DONE",
+            (i) => i.parent_id === droppedId && isTerminal(i.status),
           ).length;
           setMoveChildrenPrompt({
             issueId: droppedId,
@@ -1474,6 +1511,36 @@ export default function Backlog({
                     <div className="my-1 border-t border-[var(--color-border-subtle)]" />
                   </>
                 )}
+                {!childrenByParent.size && (
+                  <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                    Layout
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    toggleEmptyGroups();
+                    setShowViewMenu(false);
+                  }}
+                  className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                >
+                  Show empty groups
+                  {showEmptyGroups && (
+                    <svg
+                      className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                </button>
+                <div className="my-1 border-t border-[var(--color-border-subtle)]" />
                 <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
                   Sort by
                 </div>
@@ -2054,7 +2121,7 @@ export default function Backlog({
                                         <EstimateBadge
                                           value={
                                             hasChildren
-                                              ? issue.status === "DONE"
+                                              ? isTerminal(issue.status)
                                                 ? childPointsDone
                                                 : childPointsTotal -
                                                   childPointsDone

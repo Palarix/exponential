@@ -13,11 +13,13 @@ import (
 
 // --- Color Constants ---
 var (
-	BacklogColor = lipgloss.Color("#6c757d") // Gray
-	PlannedColor = lipgloss.Color("#ffffff") // White
-	DoingColor   = lipgloss.Color("#198754") // Green
-	BlockedColor = lipgloss.Color("#dc3545") // Red
-	DoneColor    = lipgloss.Color("#adb5bd") // Light Gray
+	BacklogColor   = lipgloss.Color("#6c757d") // Gray
+	PlannedColor   = lipgloss.Color("#ffffff") // White
+	DoingColor     = lipgloss.Color("#198754") // Green
+	BlockedColor   = lipgloss.Color("#dc3545") // Red
+	DoneColor      = lipgloss.Color("#adb5bd") // Light Gray
+	CanceledColor  = lipgloss.Color("#8b8b8b") // Medium Gray
+	DuplicateColor = lipgloss.Color("#8b8b8b") // Medium Gray
 
 	AccentColor = lipgloss.Color("#6f42c1") // Purple
 	MutedColor  = lipgloss.Color("#6c757d") // Gray
@@ -67,6 +69,10 @@ func StatusStyle(status model.IssueStatus) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(BlockedColor).Bold(true)
 	case model.StatusDone:
 		return lipgloss.NewStyle().Foreground(DoneColor).Strikethrough(true)
+	case model.StatusCanceled:
+		return lipgloss.NewStyle().Foreground(CanceledColor).Strikethrough(true)
+	case model.StatusDuplicate:
+		return lipgloss.NewStyle().Foreground(DuplicateColor).Strikethrough(true)
 	default:
 		return lipgloss.NewStyle()
 	}
@@ -85,6 +91,10 @@ func StatusIcon(status model.IssueStatus) string {
 		return "⊘"
 	case model.StatusDone:
 		return "✓"
+	case model.StatusCanceled:
+		return "⊖"
+	case model.StatusDuplicate:
+		return "⊘"
 	default:
 		return " "
 	}

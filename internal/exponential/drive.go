@@ -921,7 +921,7 @@ func hasUnresolvedBlockers(issue *model.Issue, c *Client) bool {
 		if err != nil {
 			continue
 		}
-		if blocker.Status != model.StatusDone {
+		if !model.IsTerminal(blocker.Status) {
 			return true
 		}
 	}
