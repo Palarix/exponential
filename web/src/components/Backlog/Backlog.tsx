@@ -1,4 +1,11 @@
-import { useState, useRef, useEffect, useCallback, useMemo, useContext } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useContext,
+} from "react";
 import { generateKeyBetween } from "fractional-indexing";
 import {
   DndContext,
@@ -35,7 +42,14 @@ import {
   Modal,
   OverflowLabels,
 } from "../ui";
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Paperclip } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  ListTree,
+  Paperclip,
+  Settings2,
+} from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
@@ -51,7 +65,11 @@ import {
   IssueRowDnd,
   DragOverlayCard,
 } from "./DndComponents";
-import { useBacklogRows, type RowItem } from "./useBacklogRows";
+import {
+  useBacklogRows,
+  type RowItem,
+  type HierarchyMode,
+} from "./useBacklogRows";
 
 export type Tab = "all" | "active" | "backlog";
 
@@ -110,7 +128,9 @@ export default function Backlog({
     () => new Set(),
   );
   const [nodeToggleCount, setNodeToggleCount] = useState(0);
-  const [showAllGroups, setShowAllGroups] = useState<Set<string>>(() => new Set());
+  const [showAllGroups, setShowAllGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [keyboardNav, setKeyboardNav] = useState(false);
   const [inlineCreateStatus, setInlineCreateStatus] = useState<string | null>(
@@ -132,6 +152,29 @@ export default function Backlog({
     () => localStorage.getItem("exponential-backlog-show-points") === "true",
   );
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [hierarchyMode, setHierarchyMode] = useState<HierarchyMode>(() => {
+    try {
+      return (
+        (localStorage.getItem(
+          `exponential-backlog-hierarchy-${activeTab}`,
+        ) as HierarchyMode) || "nested"
+      );
+    } catch {
+      return "nested";
+    }
+  });
+  const toggleHierarchy = useCallback(() => {
+    setHierarchyMode((prev) => {
+      const next = prev === "nested" ? "flat" : "nested";
+      try {
+        localStorage.setItem(
+          `exponential-backlog-hierarchy-${activeTab}`,
+          next,
+        );
+      } catch {}
+      return next;
+    });
+  }, [activeTab]);
   const showFilterMenuRef = useRef(showFilterMenu);
   showFilterMenuRef.current = showFilterMenu;
   const filterBtnRef = useRef<HTMLButtonElement>(null);
@@ -181,14 +224,23 @@ export default function Backlog({
     status: string;
     doneCount: number;
     children: { id: string; title: string; status: string }[];
+    pendingUpdate?: Record<string, unknown>;
   } | null>(null);
 
   const applyStatusChange = useCallback(
-    async (issueId: string, status: string, includeChildren: boolean) => {
-      await addDraft(issueId, "UPDATE", { status });
+    async (
+      issueId: string,
+      status: string,
+      includeChildren: boolean,
+      extraFields?: Record<string, unknown>,
+    ) => {
+      await addDraft(issueId, "UPDATE", { status, ...extraFields });
       if (includeChildren) {
         const children = issues.filter(
-          (i) => i.parent_id === issueId && i.status !== status && i.status !== "DONE",
+          (i) =>
+            i.parent_id === issueId &&
+            i.status !== status &&
+            i.status !== "DONE",
         );
         for (const child of children) {
           await addDraft(child.id, "UPDATE", { status });
@@ -202,7 +254,8 @@ export default function Backlog({
   const handleQuickStatus = useCallback(
     async (issueId: string, status: string) => {
       const children = issues.filter(
-        (i) => i.parent_id === issueId && i.status !== status && i.status !== "DONE",
+        (i) =>
+          i.parent_id === issueId && i.status !== status && i.status !== "DONE",
       );
       setOpenPopover(null);
       if (children.length > 0) {
@@ -253,7 +306,9 @@ export default function Backlog({
       const removed = next.length < current.length;
       await addDraft(issue.id, "UPDATE", { labels: next });
       onRefresh();
-      showToast(removed ? `Removed label "${label}"` : `Added label "${label}"`);
+      showToast(
+        removed ? `Removed label "${label}"` : `Added label "${label}"`,
+      );
     },
     [onRefresh, showToast],
   );
@@ -325,7 +380,9 @@ export default function Backlog({
   const expandedNodes = useMemo(() => {
     void nodeToggleCount;
     const stored = localStorage.getItem(`exponential-backlog-nodes-collapsed`);
-    const collapsed: Set<string> = stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    const collapsed: Set<string> = stored
+      ? new Set(JSON.parse(stored) as string[])
+      : new Set();
     const expanded = new Set(Array.from(childrenByParent.keys()));
     for (const id of collapsed) expanded.delete(id);
     return expanded;
@@ -345,6 +402,13 @@ export default function Backlog({
       }
     }
     setExpandedGroups(next);
+    try {
+      setHierarchyMode(
+        (localStorage.getItem(
+          `exponential-backlog-hierarchy-${activeTab}`,
+        ) as HierarchyMode) || "nested",
+      );
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -367,7 +431,9 @@ export default function Backlog({
   const toggleNode = useCallback((id: string) => {
     const nodesKey = `exponential-backlog-nodes-collapsed`;
     const stored = localStorage.getItem(nodesKey);
-    const collapsed: Set<string> = stored ? new Set(JSON.parse(stored)) : new Set();
+    const collapsed: Set<string> = stored
+      ? new Set(JSON.parse(stored))
+      : new Set();
     if (collapsed.has(id)) collapsed.delete(id);
     else collapsed.add(id);
     localStorage.setItem(nodesKey, JSON.stringify(Array.from(collapsed)));
@@ -394,6 +460,7 @@ export default function Backlog({
     expandedGroups,
     expandedNodes,
     sortKey,
+    hierarchyMode,
   );
 
   // Report navigation order to parent
@@ -482,28 +549,81 @@ export default function Backlog({
       altHeld: boolean,
     ) => {
       if (nestTarget && nestTarget !== droppedId) {
-        await addDraft(droppedId, "UPDATE", { parent_id: nestTarget });
+        const draggedIssue = issues.find((i) => i.id === droppedId);
+        const targetRowIdx = rows.findIndex(
+          (r) => r.kind === "issue" && r.issue.id === nestTarget,
+        );
+        const targetStatus =
+          targetRowIdx >= 0 ? getRowStatusGroup(targetRowIdx) : null;
+        const newSiblings = issues
+          .filter((i) => i.parent_id === nestTarget)
+          .sort((a, b) =>
+            (a.sort_order || "") < (b.sort_order || "")
+              ? -1
+              : (a.sort_order || "") > (b.sort_order || "")
+                ? 1
+                : 0,
+          );
+        const lastKey = newSiblings[newSiblings.length - 1]?.sort_order || null;
+        const nestUpdate: Record<string, unknown> = {
+          parent_id: nestTarget,
+          sort_order: generateKeyBetween(lastKey, null),
+        };
+        if (targetStatus && draggedIssue?.status !== targetStatus) {
+          nestUpdate.status = targetStatus;
+        }
+        await addDraft(droppedId, "UPDATE", nestUpdate);
         onRefresh();
         return;
       }
       if (groupTarget) {
-        const groupIssues = rows
-          .filter(
-            (r): r is typeof r & { kind: "issue" } =>
-              r.kind === "issue" && r.depth === 0,
-          )
-          .filter((r) => {
-            const idx = rows.indexOf(r);
-            return getRowStatusGroup(idx) === groupTarget;
-          })
-          .map((r) => r.issue);
-        const last = groupIssues[groupIssues.length - 1];
-        const lastKey = last?.sort_order || null;
-        const newKey = generateKeyBetween(lastKey, null);
-        await addDraft(droppedId, "UPDATE", {
-          status: groupTarget,
-          sort_order: newKey,
-        });
+        const draggedIssue = issues.find((i) => i.id === droppedId);
+        let groupUpdate: Record<string, unknown>;
+        if (draggedIssue?.parent_id) {
+          groupUpdate = { status: groupTarget };
+        } else {
+          const groupIssues = rows
+            .filter(
+              (r): r is typeof r & { kind: "issue" } =>
+                r.kind === "issue" && r.depth === 0,
+            )
+            .filter((r) => {
+              const idx = rows.indexOf(r);
+              return getRowStatusGroup(idx) === groupTarget;
+            })
+            .map((r) => r.issue);
+          const last = groupIssues[groupIssues.length - 1];
+          const lastKey = last?.sort_order || null;
+          groupUpdate = {
+            status: groupTarget,
+            sort_order: generateKeyBetween(lastKey, null),
+          };
+        }
+        const movableChildren = issues.filter(
+          (i) =>
+            i.parent_id === droppedId &&
+            i.status !== groupTarget &&
+            i.status !== "DONE",
+        );
+        if (movableChildren.length > 0) {
+          const doneCount = issues.filter(
+            (i) => i.parent_id === droppedId && i.status === "DONE",
+          ).length;
+          setMoveChildrenPrompt({
+            issueId: droppedId,
+            title: draggedIssue?.title || droppedId,
+            status: groupTarget,
+            doneCount,
+            children: movableChildren.map((c) => ({
+              id: c.id,
+              title: c.title,
+              status: c.status,
+            })),
+            pendingUpdate: groupUpdate,
+          });
+          return;
+        }
+        await addDraft(droppedId, "UPDATE", groupUpdate);
         onRefresh();
         return;
       }
@@ -543,32 +663,98 @@ export default function Backlog({
           nextKey && nextKey !== prevKey ? nextKey : null,
         );
       } else {
-        if (altHeld) {
-          const dragged = issues.find((i) => i.id === droppedId);
-          if (dragged?.parent_id) update.parent_id = "";
+        const dragged = issues.find((i) => i.id === droppedId);
+        const sharedParent =
+          dragged?.parent_id &&
+          targetRow.issue.parent_id === dragged.parent_id
+            ? dragged.parent_id
+            : null;
+        const adoptParent =
+          !sharedParent && altHeld && targetRow.issue.parent_id
+            ? targetRow.issue.parent_id
+            : null;
+        if (sharedParent || adoptParent) {
+          const parentId = (sharedParent || adoptParent)!;
+          if (adoptParent) update.parent_id = adoptParent;
+          const siblings = issues
+            .filter((i) => i.parent_id === parentId)
+            .sort((a, b) =>
+              (a.sort_order || "") < (b.sort_order || "")
+                ? -1
+                : (a.sort_order || "") > (b.sort_order || "")
+                  ? 1
+                  : 0,
+            );
+          const withoutDragged = siblings.filter((i) => i.id !== droppedId);
+          let insertIdx = withoutDragged.findIndex(
+            (i) => i.id === targetRow.issue.id,
+          );
+          if (insertIdx === -1) insertIdx = withoutDragged.length;
+          if (indicatorTarget.position === "below") insertIdx++;
+          const prev = withoutDragged[insertIdx - 1];
+          const next = withoutDragged[insertIdx];
+          const prevKey = prev?.sort_order || null;
+          const nextKey = next?.sort_order || null;
+          update.sort_order = generateKeyBetween(
+            prevKey,
+            nextKey && nextKey !== prevKey ? nextKey : null,
+          );
+        } else {
+          if (altHeld) {
+            if (dragged?.parent_id) update.parent_id = "";
+          }
+          const groupTopLevel = rows
+            .filter(
+              (r): r is typeof r & { kind: "issue" } =>
+                r.kind === "issue" && r.depth === 0,
+            )
+            .filter((r) => {
+              const idx = rows.indexOf(r);
+              return getRowStatusGroup(idx) === status;
+            })
+            .map((r) => r.issue);
+          const withoutDragged = groupTopLevel.filter(
+            (i) => i.id !== droppedId,
+          );
+          let insertIdx = withoutDragged.findIndex(
+            (i) => i.id === targetRow.issue.id,
+          );
+          if (insertIdx === -1) insertIdx = withoutDragged.length;
+          if (indicatorTarget.position === "below") insertIdx++;
+          const prev = withoutDragged[insertIdx - 1];
+          const next = withoutDragged[insertIdx];
+          update.sort_order = generateKeyBetween(
+            prev?.sort_order || null,
+            next?.sort_order || null,
+          );
         }
-        const groupTopLevel = rows
-          .filter(
-            (r): r is typeof r & { kind: "issue" } =>
-              r.kind === "issue" && r.depth === 0,
-          )
-          .filter((r) => {
-            const idx = rows.indexOf(r);
-            return getRowStatusGroup(idx) === status;
-          })
-          .map((r) => r.issue);
-        const withoutDragged = groupTopLevel.filter((i) => i.id !== droppedId);
-        let insertIdx = withoutDragged.findIndex(
-          (i) => i.id === targetRow.issue.id,
+      }
+      if (update.status) {
+        const movableChildren = issues.filter(
+          (i) =>
+            i.parent_id === droppedId &&
+            i.status !== update.status &&
+            i.status !== "DONE",
         );
-        if (insertIdx === -1) insertIdx = withoutDragged.length;
-        if (indicatorTarget.position === "below") insertIdx++;
-        const prev = withoutDragged[insertIdx - 1];
-        const next = withoutDragged[insertIdx];
-        update.sort_order = generateKeyBetween(
-          prev?.sort_order || null,
-          next?.sort_order || null,
-        );
+        if (movableChildren.length > 0) {
+          const issue = issues.find((i) => i.id === droppedId);
+          const doneCount = issues.filter(
+            (i) => i.parent_id === droppedId && i.status === "DONE",
+          ).length;
+          setMoveChildrenPrompt({
+            issueId: droppedId,
+            title: issue?.title || droppedId,
+            status: update.status as string,
+            doneCount,
+            children: movableChildren.map((c) => ({
+              id: c.id,
+              title: c.title,
+              status: c.status,
+            })),
+            pendingUpdate: update,
+          });
+          return;
+        }
       }
       await addDraft(droppedId, "UPDATE", update);
       onRefresh();
@@ -664,7 +850,11 @@ export default function Backlog({
       const isCrossGroup = draggedStatus !== targetStatus;
       if (
         isCrossGroup &&
-        !(modifiersRef.current.meta || modifiersRef.current.ctrl || modifiersRef.current.alt)
+        !(
+          modifiersRef.current.meta ||
+          modifiersRef.current.ctrl ||
+          modifiersRef.current.alt
+        )
       ) {
         setDropIndicator(null);
         setDropGroupStatus(targetStatus);
@@ -676,14 +866,17 @@ export default function Backlog({
   );
 
   const findAfterTree = useCallback(
-    (parentIdx: number): { rowIndex: number; position: "above" | "below" } | null => {
+    (
+      parentIdx: number,
+    ): { rowIndex: number; position: "above" | "below" } | null => {
       const nextTop = rows.findIndex(
         (r, j) => j > parentIdx && r.kind === "issue" && r.depth === 0,
       );
       if (nextTop !== -1) return { rowIndex: nextTop, position: "above" };
       for (let j = rows.length - 1; j > parentIdx; j--) {
         const r = rows[j];
-        if (r.kind === "issue" && r.depth > 0) return { rowIndex: j, position: "below" };
+        if (r.kind === "issue" && r.depth > 0)
+          return { rowIndex: j, position: "below" };
       }
       return null;
     },
@@ -698,12 +891,14 @@ export default function Backlog({
     ): boolean => {
       if (draggedParentId) {
         if (targetRow.depth === 0) {
-          if (targetRow.issue.id === draggedParentId) return position === "below";
+          if (targetRow.issue.id === draggedParentId)
+            return position === "below";
+          if (targetRow.issue.parent_id === draggedParentId) return true;
           return false;
         }
         return targetRow.issue.parent_id === draggedParentId;
       }
-      return targetRow.depth === 0;
+      return targetRow.depth === 0 && !targetRow.issue.parent_id;
     },
     [],
   );
@@ -740,7 +935,11 @@ export default function Backlog({
       const targetStatus = getRowStatusGroup(overRowIndex);
 
       // Evaluate nest target based on current Alt state (responsive to mid-drag Alt press)
-      if (modifiersRef.current.alt && overRow.depth === 0 && !overRow.issue.parent_id) {
+      if (
+        modifiersRef.current.alt &&
+        overRow.depth === 0 &&
+        !overRow.issue.parent_id
+      ) {
         const alreadyChild = draggedParentId === overRaw;
         if (!alreadyChild && !isDescendant(draggedId, overRaw)) {
           setDropNestTargetId(overRaw);
@@ -753,7 +952,11 @@ export default function Backlog({
 
       if (
         draggedStatus !== targetStatus &&
-        !(modifiersRef.current.meta || modifiersRef.current.ctrl || modifiersRef.current.alt)
+        !(
+          modifiersRef.current.meta ||
+          modifiersRef.current.ctrl ||
+          modifiersRef.current.alt
+        )
       ) {
         setDropIndicator(null);
         return;
@@ -763,15 +966,19 @@ export default function Backlog({
       const overRect = overEl?.getBoundingClientRect();
       if (!overRect) return;
       const position: "above" | "below" =
-        pointerYRef.current < overRect.top + overRect.height / 2 ? "above" : "below";
+        pointerYRef.current < overRect.top + overRect.height / 2
+          ? "above"
+          : "below";
 
       // No-op: suppress indicators adjacent to the drag ghost
       const draggedRowIndex = rows.findIndex(
         (r) => r.kind === "issue" && r.issue.id === draggedId,
       );
       if (draggedRowIndex >= 0) {
-        if (position === "below" && overRowIndex === draggedRowIndex - 1) return;
-        if (position === "above" && overRowIndex === draggedRowIndex + 1) return;
+        if (position === "below" && overRowIndex === draggedRowIndex - 1)
+          return;
+        if (position === "above" && overRowIndex === draggedRowIndex + 1)
+          return;
       }
 
       // Expanded parent: redirect "below parent" into or past its children
@@ -785,7 +992,10 @@ export default function Backlog({
             j > overRowIndex && r.kind === "issue" && r.depth > overRow.depth,
         );
         if (firstChildIdx !== -1) {
-          if (modifiersRef.current.alt || draggedParentId === overRow.issue.id) {
+          if (
+            modifiersRef.current.alt ||
+            draggedParentId === overRow.issue.id
+          ) {
             setDropIndicator({ rowIndex: firstChildIdx, position: "above" });
           } else {
             setDropIndicator(findAfterTree(overRowIndex));
@@ -813,7 +1023,15 @@ export default function Backlog({
         setDropIndicator(null);
       }
     },
-    [rows, issues, expandedNodes, getRowStatusGroup, findAfterTree, isSiblingPosition, isDescendant],
+    [
+      rows,
+      issues,
+      expandedNodes,
+      getRowStatusGroup,
+      findAfterTree,
+      isSiblingPosition,
+      isDescendant,
+    ],
   );
 
   const handleDndEnd = useCallback(
@@ -825,7 +1043,13 @@ export default function Backlog({
       const altHeld = modifiersRef.current.alt;
       resetDropState();
       if (!groupTarget && !indicatorTarget && !nestTarget) return;
-      await performDrop(droppedId, groupTarget, indicatorTarget, nestTarget, altHeld);
+      await performDrop(
+        droppedId,
+        groupTarget,
+        indicatorTarget,
+        nestTarget,
+        altHeld,
+      );
     },
     [
       dropGroupStatus,
@@ -836,24 +1060,24 @@ export default function Backlog({
     ],
   );
 
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const sortBtnRef = useRef<HTMLButtonElement>(null);
-  const sortMenuRef = useRef<HTMLDivElement>(null);
+  const [showViewMenu, setShowViewMenu] = useState(false);
+  const viewBtnRef = useRef<HTMLButtonElement>(null);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!showSortMenu) return;
+    if (!showViewMenu) return;
     const handler = (e: MouseEvent) => {
       if (
-        sortMenuRef.current &&
-        !sortMenuRef.current.contains(e.target as Node) &&
-        sortBtnRef.current &&
-        !sortBtnRef.current.contains(e.target as Node)
+        viewMenuRef.current &&
+        !viewMenuRef.current.contains(e.target as Node) &&
+        viewBtnRef.current &&
+        !viewBtnRef.current.contains(e.target as Node)
       )
-        setShowSortMenu(false);
+        setShowViewMenu(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showSortMenu]);
+  }, [showViewMenu]);
 
   // Stable refs for keyboard handler
   const rowsRef = useRef(rows);
@@ -1097,29 +1321,30 @@ export default function Backlog({
             </div>
           )}
           <div className="relative">
-            <button
-              ref={filterBtnRef}
-              onClick={() => setShowFilterMenu((v) => !v)}
-              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            <Tooltip content="Filter">
+              <button
+                ref={filterBtnRef}
+                onClick={() => setShowFilterMenu((v) => !v)}
+                className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] bg-[var(--color-surface-1)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
-                />
-              </svg>
-              Filter
-              {hasActiveFilters(filters) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
-              )}
-            </button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                  />
+                </svg>
+                {hasActiveFilters(filters) && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+                )}
+              </button>
+            </Tooltip>
             {showFilterMenu && (
               <FilterMenu
                 issues={filteredIssues}
@@ -1130,60 +1355,134 @@ export default function Backlog({
               />
             )}
           </div>
-          {childrenByParent.size > 0 && (
-            <>
-              <Tooltip content="Expand all">
-                <button
-                  onClick={expandAllNodes}
-                  className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                >
-                  <ChevronsUpDown size={14} />
-                </button>
-              </Tooltip>
-              <Tooltip content="Collapse all">
-                <button
-                  onClick={collapseAllNodes}
-                  className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                >
-                  <ChevronsDownUp size={14} />
-                </button>
-              </Tooltip>
-            </>
-          )}
           <div className="relative">
-            <button
-              ref={sortBtnRef}
-              onClick={() => setShowSortMenu((v) => !v)}
-              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            <Tooltip content="View options">
+              <button
+                ref={viewBtnRef}
+                onClick={() => setShowViewMenu((v) => !v)}
+                className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] bg-[var(--color-surface-1)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 7h6M3 12h10M3 17h14"
-                />
-              </svg>
-              {SORT_OPTIONS.find((o) => o.value === sortKey)?.label}
-            </button>
-            {showSortMenu && (
+                <Settings2 size={14} />
+              </button>
+            </Tooltip>
+            {showViewMenu && (
               <div
-                ref={sortMenuRef}
-                className="absolute right-0 top-full mt-1 z-50 min-w-35 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
+                ref={viewMenuRef}
+                className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
               >
+                {childrenByParent.size > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                      Layout
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (hierarchyMode !== "flat") toggleHierarchy();
+                        setShowViewMenu(false);
+                      }}
+                      className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "flat" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+                    >
+                      <svg
+                        className="w-3.5 h-3.5 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5"
+                        />
+                      </svg>
+                      Flat
+                      {hierarchyMode === "flat" && (
+                        <svg
+                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (hierarchyMode !== "nested") toggleHierarchy();
+                        setShowViewMenu(false);
+                      }}
+                      className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "nested" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+                    >
+                      <ListTree size={14} className="w-3.5 shrink-0" />
+                      Nested
+                      {hierarchyMode === "nested" && (
+                        <svg
+                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                    {hierarchyMode === "nested" && (
+                      <>
+                        <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+                        <button
+                          onClick={() => {
+                            expandAllNodes();
+                            setShowViewMenu(false);
+                          }}
+                          className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                        >
+                          <ChevronsUpDown
+                            size={14}
+                            className="w-3.5 shrink-0"
+                          />
+                          Expand all
+                        </button>
+                        <button
+                          onClick={() => {
+                            collapseAllNodes();
+                            setShowViewMenu(false);
+                          }}
+                          className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                        >
+                          <ChevronsDownUp
+                            size={14}
+                            className="w-3.5 shrink-0"
+                          />
+                          Collapse all
+                        </button>
+                      </>
+                    )}
+                    <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+                  </>
+                )}
+                <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                  Sort by
+                </div>
                 {SORT_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => {
                       onSortChange(opt.value);
-                      setShowSortMenu(false);
+                      setShowViewMenu(false);
                     }}
-                    className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)] bg-[var(--color-hover-surface)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+                    className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
                   >
                     {opt.label}
                     {opt.value === sortKey && (
@@ -1385,375 +1684,429 @@ export default function Backlog({
                   )}
                   {(() => {
                     const groupShowAll = showAllGroups.has(groupRow.status);
-                    const shouldCap = issueRows.length > GROUP_VISIBLE_COUNT && !groupShowAll;
-                    const visibleRows = shouldCap ? issueRows.slice(0, GROUP_VISIBLE_COUNT) : issueRows;
+                    const shouldCap =
+                      issueRows.length > GROUP_VISIBLE_COUNT && !groupShowAll;
+                    const visibleRows = shouldCap
+                      ? issueRows.slice(0, GROUP_VISIBLE_COUNT)
+                      : issueRows;
                     const hiddenCount = issueRows.length - GROUP_VISIBLE_COUNT;
                     return (
                       <>
-                  {visibleRows.map(({ row, index: i }) => {
-                    const {
-                      issue,
-                      depth,
-                      hasChildren,
-                      childDone,
-                      childTotal,
-                      childPointsDone,
-                      childPointsTotal,
-                      parentBreadcrumb,
-                      isGhostParent,
-                      treeGuides,
-                    } = row;
-                    const isContextTarget = contextMenu?.issueId === issue.id;
-                    const isRowFocused = i === focusedIndex || isContextTarget;
-                    const isNodeExpanded = expandedNodes.has(issue.id);
-                    const indent = depth * 24;
-                    const canDrag = isDndEnabled && !isGhostParent;
-                    const isDropTarget = isDndEnabled && !!activeId;
-                    const showDropAbove =
-                      dropIndicator?.rowIndex === i &&
-                      dropIndicator.position === "above";
-                    const showDropBelow =
-                      dropIndicator?.rowIndex === i &&
-                      dropIndicator.position === "below";
-                    const isNestTarget = dropNestTargetId === issue.id;
-                    const isDraggedOrBatch =
-                      activeId !== null &&
-                      dragBatchRef.current.includes(issue.id);
-                    const dragBatchCount =
-                      activeId === issue.id ? dragBatchRef.current.length : 0;
-                    return (
-                      <div
-                        key={issue.id}
-                        className="relative"
-                        data-context-issue={issue.id}
-                      >
-                        {showDropAbove && (
-                          <div
-                            className="absolute top-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
-                            style={{ left: `${20 + depth * 24}px` }}
-                          />
-                        )}
-                        <IssueRowDnd
-                          id={issue.id}
-                          canDrag={canDrag}
-                          enabled={isDropTarget}
-                        >
-                          {(setRowRef, dragProps) => (
+                        {visibleRows.map(({ row, index: i }) => {
+                          const {
+                            issue,
+                            depth,
+                            hasChildren,
+                            childDone,
+                            childTotal,
+                            childPointsDone,
+                            childPointsTotal,
+                            parentBreadcrumb,
+                            isGhostParent,
+                            treeGuides,
+                          } = row;
+                          const isContextTarget =
+                            contextMenu?.issueId === issue.id;
+                          const isRowFocused =
+                            i === focusedIndex || isContextTarget;
+                          const isNodeExpanded = expandedNodes.has(issue.id);
+                          const indent = depth * 24;
+                          const isGhostRow =
+                            !!isGhostParent || !!row.isGhostChild;
+                          const canDrag = isDndEnabled && !isGhostRow;
+                          const isDropTarget =
+                            isDndEnabled && !!activeId && !isGhostRow;
+                          const dndId = isGhostRow
+                            ? `ghost:${issue.id}`
+                            : issue.id;
+                          const showDropAbove =
+                            dropIndicator?.rowIndex === i &&
+                            dropIndicator.position === "above";
+                          const showDropBelow =
+                            dropIndicator?.rowIndex === i &&
+                            dropIndicator.position === "below";
+                          const isNestTarget = dropNestTargetId === issue.id;
+                          const isDraggedOrBatch =
+                            activeId !== null &&
+                            dragBatchRef.current.includes(issue.id);
+                          const dragBatchCount =
+                            activeId === issue.id
+                              ? dragBatchRef.current.length
+                              : 0;
+                          return (
                             <div
-                              ref={setRowRef}
-                              data-row={i}
-                              data-backlog-row
-                              {...dragProps.attributes}
-                              {...dragProps.listeners}
-                              onClick={() => onIssueClick?.(issue)}
-                              onMouseEnter={() => {
-                                setKeyboardNav(false);
-                                setFocusedIndex(i);
-                              }}
-                              className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] group ${isGhostParent ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-hover-surface)]" : keyboardNav ? "" : "hover:bg-[var(--color-hover-surface)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
-                              style={{ paddingLeft: `${20 + indent}px` }}
+                              key={issue.id}
+                              className="relative"
+                              data-context-issue={issue.id}
                             >
-                              {treeGuides.map((guide, k) =>
-                                guide !== "blank" ? (
-                                  <svg
-                                    key={k}
-                                    className="absolute top-0 h-10 pointer-events-none text-[var(--color-border-default)]"
-                                    style={{
-                                      left: `${20 + k * 24}px`,
-                                      width: "24px",
+                              {showDropAbove && (
+                                <div
+                                  className="absolute top-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
+                                  style={{ left: `${20 + depth * 24}px` }}
+                                />
+                              )}
+                              <IssueRowDnd
+                                id={dndId}
+                                canDrag={canDrag}
+                                enabled={isDropTarget}
+                              >
+                                {(setRowRef, dragProps) => (
+                                  <div
+                                    ref={setRowRef}
+                                    data-row={i}
+                                    data-backlog-row
+                                    {...dragProps.attributes}
+                                    {...dragProps.listeners}
+                                    onClick={() => onIssueClick?.(issue)}
+                                    onMouseEnter={() => {
+                                      setKeyboardNav(false);
+                                      setFocusedIndex(i);
                                     }}
-                                    viewBox="0 0 24 40"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
+                                    className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] select-none group ${isGhostParent || row.isGhostChild ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-hover-surface)]" : keyboardNav ? "" : "hover:bg-[var(--color-hover-surface)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
+                                    style={{ paddingLeft: `${20 + indent}px` }}
                                   >
-                                    {(guide === "pipe" || guide === "tee") && (
-                                      <line x1="8" y1="0" x2="8" y2="40" />
+                                    {treeGuides.map((guide, k) =>
+                                      guide !== "blank" ? (
+                                        <svg
+                                          key={k}
+                                          className="absolute top-0 h-10 pointer-events-none text-[var(--color-border-default)]"
+                                          style={{
+                                            left: `${20 + k * 24}px`,
+                                            width: "24px",
+                                          }}
+                                          viewBox="0 0 24 40"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth="1.5"
+                                        >
+                                          {(guide === "pipe" ||
+                                            guide === "tee") && (
+                                            <line
+                                              x1="8"
+                                              y1="0"
+                                              x2="8"
+                                              y2="40"
+                                            />
+                                          )}
+                                          {guide === "corner" && (
+                                            <line
+                                              x1="8"
+                                              y1="0"
+                                              x2="8"
+                                              y2="20"
+                                            />
+                                          )}
+                                          {(guide === "tee" ||
+                                            guide === "corner") && (
+                                            <line
+                                              x1="8"
+                                              y1="20"
+                                              x2="24"
+                                              y2="20"
+                                            />
+                                          )}
+                                        </svg>
+                                      ) : null,
                                     )}
-                                    {guide === "corner" && (
-                                      <line x1="8" y1="0" x2="8" y2="20" />
+                                    {hasChildren && hierarchyMode === "nested" ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleNode(issue.id);
+                                        }}
+                                        className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10"
+                                      >
+                                        <svg
+                                          className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`}
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          strokeWidth={2.5}
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M9 5l7 7-7 7"
+                                          />
+                                        </svg>
+                                      </button>
+                                    ) : (
+                                      <span className="w-4 shrink-0" />
                                     )}
-                                    {(guide === "tee" ||
-                                      guide === "corner") && (
-                                      <line x1="8" y1="20" x2="24" y2="20" />
-                                    )}
-                                  </svg>
-                                ) : null,
-                              )}
-                              {hasChildren ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleNode(issue.id);
-                                  }}
-                                  className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10"
-                                >
-                                  <svg
-                                    className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`}
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={2.5}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M9 5l7 7-7 7"
+                                    <div
+                                      className="relative shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        onClick={() =>
+                                          setOpenPopover(
+                                            openPopover?.rowIndex === i &&
+                                              openPopover?.type === "priority"
+                                              ? null
+                                              : {
+                                                  rowIndex: i,
+                                                  type: "priority",
+                                                },
+                                          )
+                                        }
+                                        className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
+                                      >
+                                        <PriorityIcon
+                                          priority={issue.priority || 0}
+                                          size={16}
+                                        />
+                                      </button>
+                                      {openPopover?.rowIndex === i &&
+                                        openPopover?.type === "priority" && (
+                                          <Popover
+                                            onClose={() => setOpenPopover(null)}
+                                          >
+                                            <PriorityPicker
+                                              current={issue.priority || 0}
+                                              onSelect={(v) =>
+                                                handleQuickPriority(issue.id, v)
+                                              }
+                                              onClose={() =>
+                                                setOpenPopover(null)
+                                              }
+                                            />
+                                          </Popover>
+                                        )}
+                                    </div>
+                                    <CopyableId
+                                      id={issue.id}
+                                      className="text-xs text-left shrink-0 tabular-nums"
                                     />
-                                  </svg>
-                                </button>
-                              ) : (
-                                <span className="w-4 shrink-0" />
-                              )}
-                              <div
-                                className="relative shrink-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() =>
-                                    setOpenPopover(
-                                      openPopover?.rowIndex === i &&
-                                        openPopover?.type === "priority"
-                                        ? null
-                                        : { rowIndex: i, type: "priority" },
-                                    )
-                                  }
-                                  className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
-                                >
-                                  <PriorityIcon
-                                    priority={issue.priority || 0}
-                                    size={16}
-                                  />
-                                </button>
-                                {openPopover?.rowIndex === i &&
-                                  openPopover?.type === "priority" && (
-                                    <Popover
-                                      onClose={() => setOpenPopover(null)}
+                                    <div
+                                      className="relative shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <PriorityPicker
-                                        current={issue.priority || 0}
-                                        onSelect={(v) =>
-                                          handleQuickPriority(issue.id, v)
+                                      <button
+                                        onClick={() =>
+                                          setOpenPopover(
+                                            openPopover?.rowIndex === i &&
+                                              openPopover?.type === "status"
+                                              ? null
+                                              : { rowIndex: i, type: "status" },
+                                          )
                                         }
-                                        onClose={() => setOpenPopover(null)}
-                                      />
-                                    </Popover>
-                                  )}
-                              </div>
-                              <CopyableId
-                                id={issue.id}
-                                className="text-xs text-left shrink-0 tabular-nums"
-                              />
-                              <div
-                                className="relative shrink-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() =>
-                                    setOpenPopover(
-                                      openPopover?.rowIndex === i &&
-                                        openPopover?.type === "status"
-                                        ? null
-                                        : { rowIndex: i, type: "status" },
-                                    )
-                                  }
-                                  className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
-                                >
-                                  <StatusIcon
-                                    status={issue.status}
-                                    size={14}
-                                    isInferred={issue.is_inferred}
-                                  />
-                                </button>
-                                {openPopover?.rowIndex === i &&
-                                  openPopover?.type === "status" && (
-                                    <Popover
-                                      onClose={() => setOpenPopover(null)}
+                                        className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
+                                      >
+                                        <StatusIcon
+                                          status={issue.status}
+                                          size={14}
+                                          isInferred={issue.is_inferred}
+                                        />
+                                      </button>
+                                      {openPopover?.rowIndex === i &&
+                                        openPopover?.type === "status" && (
+                                          <Popover
+                                            onClose={() => setOpenPopover(null)}
+                                          >
+                                            <StatusPicker
+                                              current={issue.status}
+                                              onSelect={(v) =>
+                                                handleQuickStatus(issue.id, v)
+                                              }
+                                              onClose={() =>
+                                                setOpenPopover(null)
+                                              }
+                                            />
+                                          </Popover>
+                                        )}
+                                    </div>
+                                    {parentBreadcrumb && (
+                                      <span className="text-sm text-[var(--color-text-muted)] truncate shrink-0 max-w-38">
+                                        {parentBreadcrumb}
+                                      </span>
+                                    )}
+                                    {parentBreadcrumb && (
+                                      <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
+                                    )}
+                                    <span
+                                      className={`text-sm truncate min-w-0 ${isGhostParent || row.isGhostChild ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"}`}
                                     >
-                                      <StatusPicker
-                                        current={issue.status}
-                                        onSelect={(v) =>
-                                          handleQuickStatus(issue.id, v)
-                                        }
-                                        onClose={() => setOpenPopover(null)}
-                                      />
-                                    </Popover>
-                                  )}
-                              </div>
-                              {parentBreadcrumb && (
-                                <span className="text-sm text-[var(--color-text-muted)] truncate shrink-0 max-w-38">
-                                  {parentBreadcrumb}
-                                </span>
-                              )}
-                              {parentBreadcrumb && (
-                                <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
-                              )}
-                              <span
-                                className={`text-sm truncate min-w-0 ${isGhostParent ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"}`}
-                              >
-                                {issue.title}
-                              </span>
-                              {dragBatchCount > 1 && (
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">
-                                  {dragBatchCount}
-                                </span>
-                              )}
-                              {hasChildren && (
-                                <span className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
-                                  <SubProgress
-                                    done={childDone}
-                                    total={childTotal}
-                                  />
-                                  {childDone}/{childTotal}
-                                </span>
-                              )}
-                              {issue.branch_stats && (
-                                <BranchBadge stats={issue.branch_stats} />
-                              )}
-                              {issue.artifacts && issue.artifacts.length > 0 && (
-                                <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)] shrink-0">
-                                  <Paperclip className="w-3 h-3" />
-                                  {issue.artifacts.length}
-                                </span>
-                              )}
-                              <div className="flex-1" />
-                              {issue.is_pending && (
-                                <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
-                              )}
-                              <div
-                                className="relative flex items-center gap-3 shrink-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() =>
-                                    setOpenPopover(
-                                      openPopover?.rowIndex === i &&
-                                        openPopover?.type === "labels"
-                                        ? null
-                                        : { rowIndex: i, type: "labels" },
-                                    )
-                                  }
-                                  className="flex items-center gap-3 hover:opacity-70 transition-opacity"
-                                >
-                                  {issue.labels && issue.labels.length > 0 ? (
-                                    <OverflowLabels labels={issue.labels} />
-                                  ) : (
-                                    <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
-                                      + label
+                                      {issue.title}
                                     </span>
-                                  )}
-                                </button>
-                                {openPopover?.rowIndex === i &&
-                                  openPopover?.type === "labels" && (
-                                    <Popover
-                                      onClose={() => setOpenPopover(null)}
+                                    {dragBatchCount > 1 && (
+                                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">
+                                        {dragBatchCount}
+                                      </span>
+                                    )}
+                                    {hasChildren && (
+                                      <span className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
+                                        <SubProgress
+                                          done={childDone}
+                                          total={childTotal}
+                                        />
+                                        {childDone}/{childTotal}
+                                      </span>
+                                    )}
+                                    {issue.branch_stats && (
+                                      <BranchBadge stats={issue.branch_stats} />
+                                    )}
+                                    {issue.artifacts &&
+                                      issue.artifacts.length > 0 && (
+                                        <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)] shrink-0">
+                                          <Paperclip className="w-3 h-3" />
+                                          {issue.artifacts.length}
+                                        </span>
+                                      )}
+                                    <div className="flex-1" />
+                                    {issue.is_pending && (
+                                      <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
+                                    )}
+                                    <div
+                                      className="relative flex items-center gap-3 shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <LabelPicker
-                                        allLabels={allKnownLabels}
-                                        selected={issue.labels || []}
-                                        onToggle={(label) =>
-                                          handleQuickLabelToggle(issue, label)
+                                      <button
+                                        onClick={() =>
+                                          setOpenPopover(
+                                            openPopover?.rowIndex === i &&
+                                              openPopover?.type === "labels"
+                                              ? null
+                                              : { rowIndex: i, type: "labels" },
+                                          )
                                         }
-                                        onConfigLabelsChange={
-                                          onConfigLabelsChange
-                                        }
-                                        onClose={() => setOpenPopover(null)}
-                                      />
-                                    </Popover>
-                                  )}
-                              </div>
-                              {issue.cycle_id && (
-                                <span
-                                  className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0"
-                                  title={`Cycle ${cycleMap.get(issue.cycle_id) ?? issue.cycle_id}`}
-                                >
-                                  <svg
-                                    className="w-3.5 h-3.5"
-                                    viewBox="0 0 20 20"
-                                    fill="none"
-                                  >
-                                    <circle
-                                      cx="10"
-                                      cy="10"
-                                      r="9"
-                                      stroke="currentColor"
-                                      strokeWidth="1.5"
-                                    />
-                                    <path
-                                      d="M7.5 5.5v9l7-4.5z"
-                                      fill="currentColor"
-                                    />
-                                  </svg>
-                                  {cycleMap.get(issue.cycle_id) ?? ""}
-                                </span>
-                              )}
-                              <div
-                                className="relative shrink-0"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  onClick={() =>
-                                    setOpenPopover(
-                                      openPopover?.rowIndex === i &&
-                                        openPopover?.type === "estimate"
-                                        ? null
-                                        : {
-                                            rowIndex: i,
-                                            type: "estimate",
-                                          },
-                                    )
-                                  }
-                                  className="flex items-center w-10 justify-end hover:opacity-70 transition-opacity"
-                                >
-                                  <EstimateBadge
-                                    value={
-                                      hasChildren
-                                        ? issue.status === "DONE" ? childPointsDone : childPointsTotal - childPointsDone
-                                        : issue.estimate
-                                    }
-                                  />
-                                </button>
-                                {openPopover?.rowIndex === i &&
-                                  openPopover?.type === "estimate" && (
-                                    <Popover
-                                      onClose={() => setOpenPopover(null)}
+                                        className="flex items-center gap-3 hover:opacity-70 transition-opacity"
+                                      >
+                                        {issue.labels &&
+                                        issue.labels.length > 0 ? (
+                                          <OverflowLabels
+                                            labels={issue.labels}
+                                          />
+                                        ) : (
+                                          <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
+                                            + label
+                                          </span>
+                                        )}
+                                      </button>
+                                      {openPopover?.rowIndex === i &&
+                                        openPopover?.type === "labels" && (
+                                          <Popover
+                                            onClose={() => setOpenPopover(null)}
+                                          >
+                                            <LabelPicker
+                                              allLabels={allKnownLabels}
+                                              selected={issue.labels || []}
+                                              onToggle={(label) =>
+                                                handleQuickLabelToggle(
+                                                  issue,
+                                                  label,
+                                                )
+                                              }
+                                              onConfigLabelsChange={
+                                                onConfigLabelsChange
+                                              }
+                                              onClose={() =>
+                                                setOpenPopover(null)
+                                              }
+                                            />
+                                          </Popover>
+                                        )}
+                                    </div>
+                                    {issue.cycle_id && (
+                                      <span
+                                        className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0"
+                                        title={`Cycle ${cycleMap.get(issue.cycle_id) ?? issue.cycle_id}`}
+                                      >
+                                        <svg
+                                          className="w-3.5 h-3.5"
+                                          viewBox="0 0 20 20"
+                                          fill="none"
+                                        >
+                                          <circle
+                                            cx="10"
+                                            cy="10"
+                                            r="9"
+                                            stroke="currentColor"
+                                            strokeWidth="1.5"
+                                          />
+                                          <path
+                                            d="M7.5 5.5v9l7-4.5z"
+                                            fill="currentColor"
+                                          />
+                                        </svg>
+                                        {cycleMap.get(issue.cycle_id) ?? ""}
+                                      </span>
+                                    )}
+                                    <div
+                                      className="relative shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <EstimatePicker
-                                        current={issue.estimate || 0}
-                                        onSelect={(v) =>
-                                          handleQuickEstimate(issue.id, v)
+                                      <button
+                                        onClick={() =>
+                                          setOpenPopover(
+                                            openPopover?.rowIndex === i &&
+                                              openPopover?.type === "estimate"
+                                              ? null
+                                              : {
+                                                  rowIndex: i,
+                                                  type: "estimate",
+                                                },
+                                          )
                                         }
-                                        onClose={() => setOpenPopover(null)}
-                                      />
-                                    </Popover>
-                                  )}
-                              </div>
-                              {issue.assignee && (
-                                <Avatar name={issue.assignee} size="sm" />
+                                        className="flex items-center w-10 justify-end hover:opacity-70 transition-opacity"
+                                      >
+                                        <EstimateBadge
+                                          value={
+                                            hasChildren
+                                              ? issue.status === "DONE"
+                                                ? childPointsDone
+                                                : childPointsTotal -
+                                                  childPointsDone
+                                              : issue.estimate
+                                          }
+                                        />
+                                      </button>
+                                      {openPopover?.rowIndex === i &&
+                                        openPopover?.type === "estimate" && (
+                                          <Popover
+                                            onClose={() => setOpenPopover(null)}
+                                          >
+                                            <EstimatePicker
+                                              current={issue.estimate || 0}
+                                              onSelect={(v) =>
+                                                handleQuickEstimate(issue.id, v)
+                                              }
+                                              onClose={() =>
+                                                setOpenPopover(null)
+                                              }
+                                            />
+                                          </Popover>
+                                        )}
+                                    </div>
+                                    {issue.assignee && (
+                                      <Avatar name={issue.assignee} size="sm" />
+                                    )}
+                                    <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
+                                      {formatShortDate(issue.created_at)}
+                                    </span>
+                                  </div>
+                                )}
+                              </IssueRowDnd>
+                              {showDropBelow && (
+                                <div
+                                  className="absolute bottom-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
+                                  style={{ left: `${20 + depth * 24}px` }}
+                                />
                               )}
-                              <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
-                                {formatShortDate(issue.created_at)}
-                              </span>
                             </div>
-                          )}
-                        </IssueRowDnd>
-                        {showDropBelow && (
-                          <div
-                            className="absolute bottom-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
-                            style={{ left: `${20 + depth * 24}px` }}
-                          />
+                          );
+                        })}
+                        {shouldCap && (
+                          <button
+                            onClick={() =>
+                              setShowAllGroups((prev) =>
+                                new Set(prev).add(groupRow.status),
+                              )
+                            }
+                            className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors border-b border-[var(--color-border-subtle)]"
+                          >
+                            + {hiddenCount} more
+                          </button>
                         )}
-                      </div>
-                    );
-                  })}
-                  {shouldCap && (
-                    <button
-                      onClick={() => setShowAllGroups((prev) => new Set(prev).add(groupRow.status))}
-                      className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors border-b border-[var(--color-border-subtle)]"
-                    >
-                      + {hiddenCount} more
-                    </button>
-                  )}
                       </>
                     );
                   })()}
@@ -1823,19 +2176,32 @@ export default function Backlog({
                     ? "sub-issue "
                     : "sub-issues "}
                   in a different status. Do you want to change their status to{" "}
-                  <StatusIcon status={moveChildrenPrompt.status} size={12} className="inline-block align-[-1px] mx-0.5" />
+                  <StatusIcon
+                    status={moveChildrenPrompt.status}
+                    size={12}
+                    className="inline-block align-[-1px] mx-0.5"
+                  />
                   <strong className="text-[var(--color-text-primary)]">
                     {targetLabel}
                   </strong>{" "}
                   at the same time?
                   {moveChildrenPrompt.doneCount > 0 && (
-                    <>{" "}{moveChildrenPrompt.doneCount} completed {moveChildrenPrompt.doneCount === 1 ? "issue" : "issues"} will not be updated.</>
+                    <>
+                      {" "}
+                      {moveChildrenPrompt.doneCount} completed{" "}
+                      {moveChildrenPrompt.doneCount === 1 ? "issue" : "issues"}{" "}
+                      will not be updated.
+                    </>
                   )}
                 </p>
                 <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8 max-h-64 overflow-y-auto">
                   {fullChildren.map((child, i) => {
-                    const rawLabels = "labels" in child ? (child as Issue).labels || [] : [];
-                    const { primary: pl, metadata: ml } = splitLabels(rawLabels, defaultLabels);
+                    const rawLabels =
+                      "labels" in child ? (child as Issue).labels || [] : [];
+                    const { primary: pl, metadata: ml } = splitLabels(
+                      rawLabels,
+                      defaultLabels,
+                    );
                     const allLabels = [...pl, ...ml];
                     const extraCount = Math.max(0, allLabels.length - 2);
                     return (
@@ -1847,21 +2213,25 @@ export default function Backlog({
                         <span className="text-[var(--color-text-primary)] truncate min-w-0 flex-1">
                           {child.title}
                         </span>
-                        {"priority" in child && (child as Issue).priority > 0 && (
-                          <PriorityIcon
-                            priority={(child as Issue).priority}
-                            size={14}
-                          />
-                        )}
+                        {"priority" in child &&
+                          (child as Issue).priority > 0 && (
+                            <PriorityIcon
+                              priority={(child as Issue).priority}
+                              size={14}
+                            />
+                          )}
                         {allLabels.slice(0, 2).map((label: string) => (
                           <LabelBadge key={label} label={label} />
                         ))}
                         {extraCount > 0 && (
-                          <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{extraCount}</span>
+                          <span className="text-xs text-[var(--color-text-muted)] shrink-0">
+                            +{extraCount}
+                          </span>
                         )}
-                        {"estimate" in child && (child as Issue).estimate > 0 && (
-                          <EstimateBadge value={(child as Issue).estimate} />
-                        )}
+                        {"estimate" in child &&
+                          (child as Issue).estimate > 0 && (
+                            <EstimateBadge value={(child as Issue).estimate} />
+                          )}
                       </div>
                     );
                   })}
@@ -1877,9 +2247,16 @@ export default function Backlog({
                   <button
                     className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                     onClick={async () => {
-                      const { issueId, status } = moveChildrenPrompt;
+                      const { issueId, status, pendingUpdate } =
+                        moveChildrenPrompt;
                       setMoveChildrenPrompt(null);
-                      await applyStatusChange(issueId, status, false);
+                      const { status: _s, ...extra } = pendingUpdate || {};
+                      await applyStatusChange(
+                        issueId,
+                        status,
+                        false,
+                        Object.keys(extra).length > 0 ? extra : undefined,
+                      );
                       showToast("Status changed");
                     }}
                   >
@@ -1889,9 +2266,16 @@ export default function Backlog({
                   <button
                     className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
                     onClick={async () => {
-                      const { issueId, status, children } = moveChildrenPrompt;
+                      const { issueId, status, children, pendingUpdate } =
+                        moveChildrenPrompt;
                       setMoveChildrenPrompt(null);
-                      await applyStatusChange(issueId, status, true);
+                      const { status: _s, ...extra } = pendingUpdate || {};
+                      await applyStatusChange(
+                        issueId,
+                        status,
+                        true,
+                        Object.keys(extra).length > 0 ? extra : undefined,
+                      );
                       showToast(
                         `Updated ${children.length + 1} issues to ${targetLabel}`,
                       );

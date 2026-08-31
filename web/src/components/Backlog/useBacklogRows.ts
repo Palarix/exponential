@@ -10,7 +10,8 @@ const TAB_CONFIGS: Record<Tab, { statuses: string[] }> = {
   backlog: { statuses: ["BACKLOG"] },
 };
 
-export type TreeGuide = 'pipe' | 'tee' | 'corner' | 'blank';
+export type HierarchyMode = "nested" | "flat";
+export type TreeGuide = "pipe" | "tee" | "corner" | "blank";
 
 export type RowItem =
   | {
@@ -32,6 +33,7 @@ export type RowItem =
       childPointsTotal: number;
       parentBreadcrumb?: string;
       isGhostParent?: boolean;
+      isGhostChild?: boolean;
       treeGuides: TreeGuide[];
     };
 
@@ -50,6 +52,7 @@ export function useBacklogRows(
   expandedGroups: Set<string>,
   expandedNodes: Set<string>,
   sortKey: SortKey,
+  hierarchyMode: HierarchyMode = "nested",
 ): RowItem[] {
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Issue[]>();
@@ -69,6 +72,23 @@ export function useBacklogRows(
     const result: RowItem[] = [];
     const isAllTab = activeTab === "all";
 
+    const issueChildStats = (issue: Issue) => {
+      const allChildren = childrenByParent.get(issue.id) || [];
+      return {
+        allChildren,
+        hasChildren: allChildren.length > 0,
+        childDone: allChildren.filter((c) => c.status === "DONE").length,
+        childTotal: allChildren.length,
+        childPointsTotal: allChildren.reduce(
+          (s, c) => s + (c.estimate || 1),
+          0,
+        ),
+        childPointsDone: allChildren
+          .filter((c) => c.status === "DONE")
+          .reduce((s, c) => s + (c.estimate || 1), 0),
+      };
+    };
+
     for (const status of visibleStatuses) {
       const groupIssues = filteredIssues.filter((i) => i.status === status);
       if (groupIssues.length === 0 && !isAllTab) continue;
@@ -77,15 +97,19 @@ export function useBacklogRows(
       const storyPoints = groupIssues.reduce((sum, i) => {
         const children = childrenByParent.get(i.id);
         if (children && children.length > 0) {
-          const childrenInGroup = children.filter((c) => groupIssueIds.has(c.id));
+          const childrenInGroup = children.filter((c) =>
+            groupIssueIds.has(c.id),
+          );
           if (childrenInGroup.length > 0) return sum;
-          const relevant = i.status === "DONE"
-            ? children.filter((c) => c.status === "DONE")
-            : children.filter((c) => c.status !== "DONE");
+          const relevant =
+            i.status === "DONE"
+              ? children.filter((c) => c.status === "DONE")
+              : children.filter((c) => c.status !== "DONE");
           return sum + relevant.reduce((s, c) => s + (c.estimate || 1), 0);
         }
         return sum + (i.estimate || 1);
       }, 0);
+
       result.push({
         kind: "group",
         status,
@@ -95,95 +119,178 @@ export function useBacklogRows(
         isEmpty: groupIssues.length === 0,
       });
 
-      if (expandedGroups.has(status) && groupIssues.length > 0) {
-        const effectiveSortKey = status === "DONE" ? ("updated" as const) : sortKey;
+      if (!expandedGroups.has(status) || groupIssues.length === 0) continue;
 
-        if (isAllTab) {
-          const topLevel = sortGroup(
-            groupIssues.filter((i) => !i.parent_id || !groupIssueIds.has(i.parent_id)),
-            effectiveSortKey,
-          );
-          const addTree = (issue: Issue, depth: number, breadcrumb?: string, treeGuides?: TreeGuide[]) => {
-            const allChildren = childrenByParent.get(issue.id) || [];
-            const doneCount = allChildren.filter((c) => c.status === "DONE").length;
-            const childPointsTotal = allChildren.reduce((s, c) => s + (c.estimate || 1), 0);
-            const childPointsDone = allChildren.filter((c) => c.status === "DONE").reduce((s, c) => s + (c.estimate || 1), 0);
-            result.push({
-              kind: "issue",
-              issue,
-              depth,
-              hasChildren: allChildren.length > 0,
-              childDone: doneCount,
-              childTotal: allChildren.length,
-              childPointsDone,
-              childPointsTotal,
-              parentBreadcrumb: breadcrumb,
-              treeGuides: treeGuides || [],
-            });
-            const visibleChildren = sortGroup(
-              allChildren.filter((c) => groupIssueIds.has(c.id)),
-              effectiveSortKey,
-            );
-            if (visibleChildren.length > 0 && expandedNodes.has(issue.id)) {
-              const inherited: TreeGuide[] = (treeGuides || []).map(g => g === 'tee' || g === 'pipe' ? 'pipe' : 'blank');
-              visibleChildren.forEach((child, idx) => {
-                const isLast = idx === visibleChildren.length - 1;
-                addTree(child, depth + 1, undefined, [...inherited, isLast ? 'corner' : 'tee']);
-              });
-            }
-          };
-          for (const issue of topLevel) {
-            const parent = issue.parent_id ? issues.find((i) => i.id === issue.parent_id) : null;
-            addTree(issue, 0, parent ? parent.title : undefined);
+      const effectiveSortKey =
+        status === "DONE" ? ("updated" as const) : sortKey;
+
+      if (hierarchyMode === "flat") {
+        // Group children by parent so siblings stay together.
+        // Order: top-level issues in sort order, each followed by its
+        // children; then orphan groups (parent in different status)
+        // clustered by parent sort position.
+        const topLevel: Issue[] = [];
+        const childGroups = new Map<string, Issue[]>();
+        for (const issue of groupIssues) {
+          if (issue.parent_id) {
+            const group = childGroups.get(issue.parent_id) || [];
+            group.push(issue);
+            childGroups.set(issue.parent_id, group);
+          } else {
+            topLevel.push(issue);
           }
-        } else {
-          const topLevel = sortGroup(
-            groupIssues.filter((i) => !i.parent_id),
-            effectiveSortKey,
-          );
-          const orphanedChildren = groupIssues.filter(
-            (i) => i.parent_id && !groupIssueIds.has(i.parent_id),
-          );
-          const ghostParentIds = new Set(orphanedChildren.map((i) => i.parent_id!));
+        }
 
-          const addTree = (issue: Issue, depth: number, isGhost?: boolean, treeGuides?: TreeGuide[]) => {
-            const allChildren = childrenByParent.get(issue.id) || [];
-            const doneCount = allChildren.filter((c) => c.status === "DONE").length;
-            const childPointsTotal = allChildren.reduce((s, c) => s + (c.estimate || 1), 0);
-            const childPointsDone = allChildren.filter((c) => c.status === "DONE").reduce((s, c) => s + (c.estimate || 1), 0);
-            result.push({
-              kind: "issue",
-              issue,
-              depth,
-              hasChildren: allChildren.length > 0,
-              childDone: doneCount,
-              childTotal: allChildren.length,
-              childPointsDone,
-              childPointsTotal,
-              isGhostParent: isGhost,
-              treeGuides: treeGuides || [],
-            });
-            const visibleChildren = sortGroup(
-              allChildren.filter((c) => groupIssueIds.has(c.id)),
-              effectiveSortKey,
-            );
-            if (visibleChildren.length > 0 && (isGhost || expandedNodes.has(issue.id))) {
-              const inherited: TreeGuide[] = (treeGuides || []).map(g => g === 'tee' || g === 'pipe' ? 'pipe' : 'blank');
-              visibleChildren.forEach((child, idx) => {
-                const isLast = idx === visibleChildren.length - 1;
-                addTree(child, depth + 1, false, [...inherited, isLast ? 'corner' : 'tee']);
-              });
+        const sortedTop = sortGroup(topLevel, effectiveSortKey);
+        const usedParents = new Set<string>();
+        const flatList: { issue: Issue; breadcrumb?: string }[] = [];
+
+        for (const issue of sortedTop) {
+          flatList.push({ issue });
+          const children = childGroups.get(issue.id);
+          if (children) {
+            usedParents.add(issue.id);
+            for (const child of sortGroup(children, effectiveSortKey)) {
+              flatList.push({ issue: child, breadcrumb: issue.title });
             }
-          };
-
-          for (const issue of topLevel) addTree(issue, 0);
-          for (const parentId of ghostParentIds) {
-            const parent = issues.find((i) => i.id === parentId);
-            if (parent) addTree(parent, 0, true);
           }
+        }
+
+        const orphanGroups = [...childGroups.entries()].filter(
+          ([pid]) => !usedParents.has(pid),
+        );
+        orphanGroups.sort((a, b) => {
+          const pa = issues.find((i) => i.id === a[0]);
+          const pb = issues.find((i) => i.id === b[0]);
+          return (pa?.sort_order || "") < (pb?.sort_order || "")
+            ? -1
+            : (pa?.sort_order || "") > (pb?.sort_order || "")
+              ? 1
+              : 0;
+        });
+        for (const [parentId, children] of orphanGroups) {
+          const parent = issues.find((i) => i.id === parentId);
+          for (const child of sortGroup(children, effectiveSortKey)) {
+            flatList.push({ issue: child, breadcrumb: parent?.title });
+          }
+        }
+
+        for (const { issue, breadcrumb } of flatList) {
+          const stats = issueChildStats(issue);
+          result.push({
+            kind: "issue",
+            issue,
+            depth: 0,
+            hasChildren: stats.hasChildren,
+            childDone: stats.childDone,
+            childTotal: stats.childTotal,
+            childPointsDone: stats.childPointsDone,
+            childPointsTotal: stats.childPointsTotal,
+            parentBreadcrumb: breadcrumb,
+            treeGuides: [],
+          });
+        }
+      } else {
+        // Nested mode (all tabs): real issues in their own status group,
+        // ghost parents for orphaned children, ghost children for context.
+        const topLevel = groupIssues.filter((i) => !i.parent_id);
+        const orphanedChildren = groupIssues.filter(
+          (i) => i.parent_id && !groupIssueIds.has(i.parent_id),
+        );
+        const ghostParentIds = new Set(
+          orphanedChildren.map((i) => i.parent_id!),
+        );
+
+        const ghostParents = [...ghostParentIds]
+          .map((id) => issues.find((i) => i.id === id))
+          .filter(Boolean) as Issue[];
+        const merged = sortGroup(
+          [...topLevel, ...ghostParents],
+          effectiveSortKey,
+        );
+
+        const addTree = (
+          issue: Issue,
+          depth: number,
+          isGhost?: boolean,
+          treeGuides?: TreeGuide[],
+        ) => {
+          const stats = issueChildStats(issue);
+          result.push({
+            kind: "issue",
+            issue,
+            depth,
+            hasChildren: stats.hasChildren,
+            childDone: stats.childDone,
+            childTotal: stats.childTotal,
+            childPointsDone: stats.childPointsDone,
+            childPointsTotal: stats.childPointsTotal,
+            isGhostParent: isGhost,
+            treeGuides: treeGuides || [],
+          });
+
+          // Ghost parents only show their real children (the ones in this
+          // group). Real parents show all children — real + ghost for context.
+          const allVisual = isGhost
+            ? sortGroup(
+                stats.allChildren.filter((c) => groupIssueIds.has(c.id)),
+                effectiveSortKey,
+              ).map((c) => ({ child: c, ghost: false }))
+            : sortGroup(stats.allChildren, effectiveSortKey).map((c) => ({
+                child: c,
+                ghost: !groupIssueIds.has(c.id),
+              }));
+
+          if (
+            allVisual.length > 0 &&
+            (isGhost || expandedNodes.has(issue.id))
+          ) {
+            const inherited: TreeGuide[] = (treeGuides || []).map((g) =>
+              g === "tee" || g === "pipe" ? "pipe" : "blank",
+            );
+            allVisual.forEach(({ child, ghost: isGhostChild }, idx) => {
+              const isLast = idx === allVisual.length - 1;
+              const guides: TreeGuide[] = [
+                ...inherited,
+                isLast ? "corner" : "tee",
+              ];
+              if (isGhostChild) {
+                const cs = issueChildStats(child);
+                result.push({
+                  kind: "issue",
+                  issue: child,
+                  depth: depth + 1,
+                  hasChildren: cs.hasChildren,
+                  childDone: cs.childDone,
+                  childTotal: cs.childTotal,
+                  childPointsDone: cs.childPointsDone,
+                  childPointsTotal: cs.childPointsTotal,
+                  isGhostChild: true,
+                  treeGuides: guides,
+                });
+              } else {
+                addTree(child, depth + 1, false, guides);
+              }
+            });
+          }
+        };
+
+        for (const issue of merged) {
+          addTree(issue, 0, ghostParentIds.has(issue.id));
         }
       }
     }
+
     return result;
-  }, [visibleStatuses, filteredIssues, activeTab, expandedGroups, expandedNodes, issues, childrenByParent, sortKey]);
+  }, [
+    visibleStatuses,
+    filteredIssues,
+    activeTab,
+    expandedGroups,
+    expandedNodes,
+    issues,
+    childrenByParent,
+    sortKey,
+    hierarchyMode,
+  ]);
 }

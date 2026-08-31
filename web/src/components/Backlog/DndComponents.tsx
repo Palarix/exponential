@@ -1,5 +1,4 @@
 import { useDraggable, useDroppable, pointerWithin, closestCenter, type CollisionDetection } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import type { Issue } from "../../api/client";
 import { CopyableId, LabelBadge, StatusIcon } from "../ui";
 
@@ -60,7 +59,6 @@ export function IssueRowDnd({
 export function DragOverlayCard({ issue, batchCount }: { issue: Issue; batchCount: number }) {
   return (
     <div
-      style={{ transform: CSS.Translate.toString({ x: 0, y: 0, scaleX: 1, scaleY: 1 }) }}
       className="flex items-center gap-3 px-5 h-10 border border-[var(--color-border-default)] bg-[var(--color-surface-elevated)] rounded-[var(--radius-sm)] shadow-lg pointer-events-none"
     >
       <CopyableId id={issue.id} className="text-xs w-28 shrink-0 truncate tabular-nums" />
