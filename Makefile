@@ -35,6 +35,7 @@ lint:
 	# staticcheck ./...
 
 install: cli
+	sudo rm -f /usr/local/bin/xpo
 	sudo cp ./xpo /usr/local/bin/xpo
 
 stressgen:
