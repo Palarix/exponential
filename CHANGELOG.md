@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-31
+
 ### Added
 
 - **Terminal statuses: CANCELED and DUPLICATE** (xpo-a18d46) — two new terminal statuses alongside DONE, with `IsTerminal()` / `IsCompleted()` helpers replacing hardcoded DONE checks across the entire codebase. CANCELED uses Lucide `CircleMinus`, DUPLICATE uses `CirclePercent`, both in medium gray. All terminal statuses unblock dependents, trigger parent auto-close, and are rejected by `xpo start`. Only DONE counts toward velocity and burndown. Includes "Show empty groups" toggle in backlog View Options and a column visibility dropdown in the Board view.
