@@ -6,8 +6,9 @@ import type { Tab } from "./Backlog";
 
 const TAB_CONFIGS: Record<Tab, { statuses: string[] }> = {
   all: { statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"] },
-  active: { statuses: ["PLANNED", "DOING", "BLOCKED"] },
   backlog: { statuses: ["BACKLOG"] },
+  active: { statuses: ["PLANNED", "DOING", "BLOCKED"] },
+  done: { statuses: ["DONE"] },
 };
 
 export type HierarchyMode = "nested" | "flat";

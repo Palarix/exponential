@@ -71,15 +71,16 @@ import {
   type HierarchyMode,
 } from "./useBacklogRows";
 
-export type Tab = "all" | "active" | "backlog";
+export type Tab = "all" | "active" | "backlog" | "done";
 
 const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
   all: {
     label: "All Issues",
     statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE"],
   },
-  active: { label: "Active", statuses: ["PLANNED", "DOING", "BLOCKED"] },
   backlog: { label: "Backlog", statuses: ["BACKLOG"] },
+  active: { label: "Active", statuses: ["PLANNED", "DOING", "BLOCKED"] },
+  done: { label: "Done", statuses: ["DONE"] },
 };
 
 const GROUP_VISIBLE_COUNT = 100;
@@ -398,7 +399,8 @@ export default function Backlog({
       next = new Set<string>();
       for (const status of visibleStatuses) {
         const count = issues.filter((i) => i.status === status).length;
-        if (count > 0 && status !== "DONE") next.add(status);
+        if (count > 0 && (status !== "DONE" || activeTab === "done"))
+          next.add(status);
       }
     }
     setExpandedGroups(next);
