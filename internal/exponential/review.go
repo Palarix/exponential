@@ -152,7 +152,7 @@ func ListBranchCommitsDetailed(branch, base string) []DetailedCommit {
 
 // GetCommitDiffText returns the unified diff for a single commit.
 func GetCommitDiffText(sha string) string {
-	out, err := exec.Command("git", "diff-tree", "-p", sha).Output()
+	out, err := exec.Command("git", "diff-tree", "-p", "--src-prefix=a/", "--dst-prefix=b/", sha).Output()
 	if err != nil {
 		return ""
 	}
@@ -161,7 +161,7 @@ func GetCommitDiffText(sha string) string {
 
 // GetDiffText returns the unified diff as a string.
 func GetDiffText(branch, base string) string {
-	out, err := exec.Command("git", "diff", base+"..."+branch).Output()
+	out, err := exec.Command("git", "diff", "--src-prefix=a/", "--dst-prefix=b/", base+"..."+branch).Output()
 	if err != nil {
 		return ""
 	}
@@ -169,9 +169,15 @@ func GetDiffText(branch, base string) string {
 }
 
 // GetWorkingTreeDiffText returns the combined staged + unstaged diff
-// relative to HEAD for the currently checked-out branch.
-func GetWorkingTreeDiffText() string {
-	out, err := exec.Command("git", "diff", "HEAD").Output()
+// relative to HEAD. When dir is non-empty, targets that directory
+// via git -C (for worktree support).
+func GetWorkingTreeDiffText(dir string) string {
+	args := []string{}
+	if dir != "" {
+		args = append(args, "-C", dir)
+	}
+	args = append(args, "diff", "--src-prefix=a/", "--dst-prefix=b/", "HEAD")
+	out, err := exec.Command("git", args...).Output()
 	if err != nil {
 		return ""
 	}
@@ -201,22 +207,27 @@ func ListBranchCommits(branch, base string) []CommitEntry {
 }
 
 // ListWorkingTreeFilesChanged returns per-file stats for uncommitted
-// changes (staged + unstaged) relative to HEAD.
-func ListWorkingTreeFilesChanged() []FileStat {
-	return listFilesChangedFromDiff("HEAD")
+// changes (staged + unstaged) relative to HEAD. When dir is non-empty,
+// targets that directory via git -C (for worktree support).
+func ListWorkingTreeFilesChanged(dir string) []FileStat {
+	return listFilesChangedFromDiff("HEAD", dir)
 }
 
 // ListFilesChanged returns per-file stats for the branch relative to base.
 func ListFilesChanged(branch, base string) []FileStat {
-	return listFilesChangedFromDiff(base + "..." + branch)
+	return listFilesChangedFromDiff(base+"..."+branch, "")
 }
 
-func listFilesChangedFromDiff(diffRef string) []FileStat {
-	numOut, err := exec.Command("git", "diff", "--numstat", diffRef).Output()
+func listFilesChangedFromDiff(diffRef string, dir string) []FileStat {
+	args := []string{}
+	if dir != "" {
+		args = append(args, "-C", dir)
+	}
+	numOut, err := exec.Command("git", append(args, "diff", "--numstat", diffRef)...).Output()
 	if err != nil {
 		return nil
 	}
-	nameOut, _ := exec.Command("git", "diff", "--name-status", diffRef).Output()
+	nameOut, _ := exec.Command("git", append(args, "diff", "--name-status", diffRef)...).Output()
 
 	statusMap := make(map[string]string)
 	for _, line := range strings.Split(strings.TrimSpace(string(nameOut)), "\n") {

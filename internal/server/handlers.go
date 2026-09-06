@@ -954,7 +954,8 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 
 	var files []exponential.FileStat
 	if issue.BranchStats.Commits == 0 && issue.BranchStats.HasUncommitted {
-		files = exponential.ListWorkingTreeFilesChanged()
+		dir, _ := exponential.FindWorktreeForBranch(issue.BranchStats.Branch)
+		files = exponential.ListWorkingTreeFilesChanged(dir)
 	} else {
 		files = exponential.ListFilesChanged(issue.BranchStats.Branch, base)
 	}
@@ -979,7 +980,8 @@ func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
 
 	var diff string
 	if issue.BranchStats.Commits == 0 && issue.BranchStats.HasUncommitted {
-		diff = exponential.GetWorkingTreeDiffText()
+		dir, _ := exponential.FindWorktreeForBranch(issue.BranchStats.Branch)
+		diff = exponential.GetWorkingTreeDiffText(dir)
 	} else {
 		diff = exponential.GetDiffText(issue.BranchStats.Branch, base)
 	}
