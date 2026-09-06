@@ -4,10 +4,10 @@ import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import {
   fetchIssueCommits, fetchIssueFiles, fetchIssueDiff, fetchCommitDiff,
-  fetchMergeability, mergeIssue, addDraft, ApiError,
+  fetchMergeability, mergeIssue, addDraft, fetchArtifactContent, ApiError,
 } from "../../api/client";
 import type { Issue, CommitInfo, FileInfo, Mergeability } from "../../api/client";
-import { GitCommitVertical, GitMerge, X, Check, AlertTriangle, FileDiff, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitBranch, Search } from "lucide-react";
+import { GitCommitVertical, GitMerge, X, Check, AlertTriangle, FileDiff, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, GitBranch, Search, BookOpen } from "lucide-react";
 import { StatusIcon, Avatar } from "../ui";
 import { formatRelativeTime } from "../../utils/format";
 
@@ -17,16 +17,19 @@ interface MergeViewProps {
   onMerged: () => void;
 }
 
-type Tab = "files" | "commits" | "conversation";
+type Tab = "files" | "commits" | "conversation" | "walkthrough";
 
 export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) {
+  const hasWalkthrough = issue.artifacts?.some((a) => a.artifact_type === "walkthrough");
+
   const [commits, setCommits] = useState<CommitInfo[]>([]);
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [diff, setDiff] = useState("");
   const [mergeability, setMergeability] = useState<Mergeability | null>(null);
+  const [walkthroughContent, setWalkthroughContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("files");
+  const [activeTab, setActiveTab] = useState<Tab>(hasWalkthrough ? "walkthrough" : "files");
 
   // Files tab
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -60,12 +63,14 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
       fetchIssueFiles(issue.id),
       fetchIssueDiff(issue.id),
       fetchMergeability(issue.id),
+      hasWalkthrough ? fetchArtifactContent(issue.id, "walkthrough.md") : Promise.resolve(""),
     ])
-      .then(([c, f, d, m]) => {
+      .then(([c, f, d, m, w]) => {
         setCommits(c || []);
         setFiles(f || []);
         setDiff(d || "");
         setMergeability(m);
+        setWalkthroughContent(w || "");
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
@@ -236,6 +241,13 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
 
       {/* ── Tabs ── */}
       <div className="shrink-0 flex items-center gap-1 px-5 border-b border-[var(--color-border-subtle)]">
+        {hasWalkthrough && (
+          <button onClick={() => setActiveTab("walkthrough")}
+            className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === "walkthrough" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}>
+            <span className="inline-flex items-center gap-1.5"><BookOpen size={14} />Walkthrough</span>
+            {activeTab === "walkthrough" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />}
+          </button>
+        )}
         {([
           { key: "commits" as Tab, label: "Commits", count: commits.length },
           { key: "files" as Tab, label: "Files changed", count: files.length },
@@ -252,6 +264,13 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
 
       {/* ── Content ── */}
       <div className="flex-1 overflow-hidden">
+        {activeTab === "walkthrough" && (
+          <div className="h-full overflow-y-auto px-8 py-6">
+            <div className="prose-exponential text-sm max-w-3xl">
+              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{walkthroughContent}</Markdown>
+            </div>
+          </div>
+        )}
         {activeTab === "commits" && (
           <CommitsTab commits={commits} selectedCommit={selectedCommit} commitDiffs={commitFileDiffs}
             commitDiffLoading={commitDiffLoading} onSelectCommit={loadCommitDiff} />
