@@ -989,14 +989,14 @@ func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
-	_, _, ok := s.resolveIssueBranch(w, r)
+	issue, _, ok := s.resolveIssueBranch(w, r)
 	if !ok {
 		return
 	}
 
 	blockers := make([]string, 0)
-	if !exponential.IsWorkingTreeClean() {
-		blockers = append(blockers, "Working tree has uncommitted changes")
+	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
+		blockers = append(blockers, err.Error())
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
@@ -1035,14 +1035,25 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !exponential.IsWorkingTreeClean() {
-		respondError(w, http.StatusConflict, "working tree is not clean — commit or stash changes first")
+	client := exponential.NewClient(s.Config)
+	client.Collapse = true
+
+	issue, err := client.ResolveReviewIssue(id)
+	if err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("issue %s not found or has no branch", id))
+		return
+	}
+	if issue.BranchStats == nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("no branch found for %s", id))
 		return
 	}
 
-	client := exponential.NewClient(s.Config)
-	client.Collapse = true
-	result, err := client.MergeIssue(id, exponential.MergeOptions{
+	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
+		respondError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	result, err := client.MergeIssue(issue.ID, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: body.CommitMessage,
 		DeleteBranch:  !body.KeepBranch,

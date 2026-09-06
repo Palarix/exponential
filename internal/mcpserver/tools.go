@@ -499,15 +499,6 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 	}
 
 	c := t.clientFor(req)
-	if c.Config.Worktrees {
-		if !exponential.IsWorkingTreeCleanIgnoringXpo() {
-			return nil, mergeOut{}, fmt.Errorf("working tree has non-xpo changes — commit or stash them first")
-		}
-	} else {
-		if !exponential.IsWorkingTreeClean() {
-			return nil, mergeOut{}, fmt.Errorf("working tree is not clean — commit or stash your changes first")
-		}
-	}
 
 	strategy := exponential.MergeStrategySquash
 	switch in.Strategy {
@@ -521,10 +512,18 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in mergeI
 		return nil, mergeOut{}, fmt.Errorf("invalid merge strategy %q: must be one of squash, merge, ff", in.Strategy)
 	}
 
-	issue, err := c.GetIssue(in.ID)
+	issue, err := c.ResolveReviewIssue(in.ID)
 	if err != nil {
 		return nil, mergeOut{}, err
 	}
+	if issue.BranchStats == nil {
+		return nil, mergeOut{}, fmt.Errorf("no branch found for %s", issue.ID)
+	}
+
+	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
+		return nil, mergeOut{}, err
+	}
+
 	result, err := c.MergeIssue(issue.ID, exponential.MergeOptions{
 		Strategy:      strategy,
 		CommitMessage: in.CommitMessage,

@@ -157,7 +157,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 
 		if mergeErr != nil {
 			exec.Command("git", "merge", "--abort").Run()
-			return fmt.Errorf("merge failed: %w\nResolve conflicts manually and re-run, or use a different strategy", mergeErr)
+			return fmt.Errorf("merge failed: %w\nDo NOT stash or reset. Resolve the conflict in the listed files, then re-run xpo merge.", mergeErr)
 		}
 
 		mergeSHA := resolveRef("HEAD")
@@ -197,29 +197,69 @@ func IsWorkingTreeClean() bool {
 	return strings.TrimSpace(string(out)) == ""
 }
 
-// IsWorkingTreeCleanIgnoringXpo returns true if the working tree has no
-// uncommitted changes outside of .xpo/. Under the hub model, .xpo/issues.db
-// accumulates uncommitted events until merge — those are expected.
-func IsWorkingTreeCleanIgnoringXpo() bool {
-	out, err := exec.Command("git", "status", "--porcelain").Output()
+// HubCleanForMerge checks whether the hub working tree is safe to merge the
+// given branch. Untracked files and .xpo/ changes are ignored — only modified
+// tracked files that overlap with the incoming branch's changes block the merge.
+func HubCleanForMerge(branch string) error {
+	hub := storage.HubRoot()
+	out, err := exec.Command("git", "-C", hub, "status", "--porcelain").Output()
 	if err != nil {
-		return false
+		return fmt.Errorf("failed to check working tree status: %w", err)
 	}
+
+	var modifiedTracked []string
 	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+		if len(line) < 3 {
 			continue
 		}
-		// porcelain format: "XY path" — path starts at position 3
-		if len(line) < 4 {
+		statusCode := line[:2]
+		path := strings.TrimSpace(line[3:])
+
+		if strings.HasPrefix(path, ".xpo/") {
 			continue
 		}
-		path := strings.TrimSpace(line[2:])
-		if !strings.HasPrefix(path, ".xpo/") {
-			return false
+		if statusCode == "??" {
+			continue
+		}
+		modifiedTracked = append(modifiedTracked, path)
+	}
+
+	if len(modifiedTracked) == 0 {
+		return nil
+	}
+
+	base := DefaultBranch()
+	branchOut, err := exec.Command("git", "-C", hub, "diff", "--name-only", base+"..."+branch).Output()
+	if err != nil {
+		return fmt.Errorf("failed to diff branch %s against %s: %w", branch, base, err)
+	}
+
+	branchFiles := make(map[string]struct{})
+	for _, f := range strings.Split(strings.TrimSpace(string(branchOut)), "\n") {
+		f = strings.TrimSpace(f)
+		if f != "" {
+			branchFiles[f] = struct{}{}
 		}
 	}
-	return true
+
+	var conflicting []string
+	for _, path := range modifiedTracked {
+		if _, overlap := branchFiles[path]; overlap {
+			conflicting = append(conflicting, path)
+		}
+	}
+
+	if len(conflicting) == 0 {
+		return nil
+	}
+
+	msg := "these tracked files have local changes that conflict with the incoming branch:\n"
+	for _, f := range conflicting {
+		msg += fmt.Sprintf("  - %s (modified locally, also changed on %s)\n", f, branch)
+	}
+	msg += "Commit or remove these changes before merging.\n"
+	msg += "Do NOT stash — .xpo/issues.db must not be stashed."
+	return fmt.Errorf("%s", msg)
 }
 
 // HubBranch returns the current branch of the hub (primary checkout),

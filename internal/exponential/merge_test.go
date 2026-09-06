@@ -3,6 +3,7 @@ package exponential
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/palarix/exponential/internal/config"
@@ -331,5 +332,95 @@ func TestIsWorkingTreeClean(t *testing.T) {
 
 	if IsWorkingTreeClean() {
 		t.Error("expected dirty tree after adding untracked file")
+	}
+}
+
+func setupHubCleanForMergeRepo(t *testing.T) (dir string, cleanup func()) {
+	t.Helper()
+	dir = t.TempDir()
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	runGit(t, dir, "checkout", "-b", "feature-branch")
+	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "add feature")
+	runGit(t, dir, "checkout", "main")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	storage.ResetHubRoot()
+	return dir, func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}
+}
+
+func TestHubCleanForMerge_CleanTree(t *testing.T) {
+	_, cleanup := setupHubCleanForMergeRepo(t)
+	defer cleanup()
+
+	if err := HubCleanForMerge("feature-branch"); err != nil {
+		t.Errorf("expected clean merge, got: %v", err)
+	}
+}
+
+func TestHubCleanForMerge_UntrackedFilesAllowed(t *testing.T) {
+	dir, cleanup := setupHubCleanForMergeRepo(t)
+	defer cleanup()
+
+	os.WriteFile(filepath.Join(dir, "idea.md"), []byte("some ideas\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "thoughts.md"), []byte("some thoughts\n"), 0644)
+
+	if err := HubCleanForMerge("feature-branch"); err != nil {
+		t.Errorf("untracked files should not block merge, got: %v", err)
+	}
+}
+
+func TestHubCleanForMerge_XpoChangesAllowed(t *testing.T) {
+	dir, cleanup := setupHubCleanForMergeRepo(t)
+	defer cleanup()
+
+	os.WriteFile(filepath.Join(dir, ".xpo", "issues.db"), []byte("event data\n"), 0644)
+
+	if err := HubCleanForMerge("feature-branch"); err != nil {
+		t.Errorf(".xpo/ changes should not block merge, got: %v", err)
+	}
+}
+
+func TestHubCleanForMerge_ModifiedNonConflicting(t *testing.T) {
+	dir, cleanup := setupHubCleanForMergeRepo(t)
+	defer cleanup()
+
+	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("modified base\n"), 0644)
+
+	if err := HubCleanForMerge("feature-branch"); err != nil {
+		t.Errorf("modified file not touched by branch should not block merge, got: %v", err)
+	}
+}
+
+func TestHubCleanForMerge_ModifiedConflicting(t *testing.T) {
+	dir, cleanup := setupHubCleanForMergeRepo(t)
+	defer cleanup()
+
+	// feature-branch adds feature.txt — modify it locally on main to create a conflict
+	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("local conflict\n"), 0644)
+	runGit(t, dir, "add", "feature.txt")
+
+	err := HubCleanForMerge("feature-branch")
+	if err == nil {
+		t.Fatal("expected error for conflicting modified file")
+	}
+	if !strings.Contains(err.Error(), "feature.txt") {
+		t.Errorf("error should list the conflicting file, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Do NOT stash") {
+		t.Errorf("error should warn against stashing, got: %v", err)
 	}
 }

@@ -57,18 +57,9 @@ func runMerge(id string) {
 		os.Exit(0)
 	}
 
-	// Fail early if working tree is dirty (ignore .xpo/ when using worktrees
-	// since events accumulate uncommitted on the hub until merge).
-	if cfg.Worktrees {
-		if !exponential.IsWorkingTreeCleanIgnoringXpo() {
-			fmt.Println("Error: working tree has non-xpo changes — commit or stash them first.")
-			os.Exit(1)
-		}
-	} else {
-		if !exponential.IsWorkingTreeClean() {
-			fmt.Println("Error: working tree is not clean — commit or stash your changes first.")
-			os.Exit(1)
-		}
+	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Show compact summary

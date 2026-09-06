@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `xpo merge` no longer blocks on untracked files (e.g. `idea.md`) on the hub checkout — only modified tracked files that actually conflict with the incoming branch are rejected (xpo-cb6b49)
+- Merge error messages now explicitly warn against stashing to prevent agent stash-thrash loops that corrupt `.xpo/issues.db` (xpo-cb6b49)
+- Web merge view mergeability check updated to use the same relaxed logic (xpo-cb6b49)
+
 ## [1.1.0] - 2026-08-31
 
 ### Added
