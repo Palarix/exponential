@@ -140,7 +140,9 @@ func computeBranchStats(branch, base string) *model.BranchStats {
 			parseShortstat(strings.TrimSpace(string(out)), stats)
 		}
 	} else if branch == CurrentBranch() {
-		fillUncommittedStats(stats)
+		fillUncommittedStats(stats, "")
+	} else if wtPath, ok := FindWorktreeForBranch(branch); ok {
+		fillUncommittedStats(stats, wtPath)
 	}
 
 	return stats
@@ -148,14 +150,22 @@ func computeBranchStats(branch, base string) *model.BranchStats {
 
 // fillUncommittedStats detects staged and unstaged working-tree changes
 // and populates the stats when the branch has no commits ahead of base.
-func fillUncommittedStats(stats *model.BranchStats) {
-	out, err := exec.Command("git", "diff", "--shortstat", "HEAD").Output()
+// When dir is non-empty, git commands target that directory via -C.
+func fillUncommittedStats(stats *model.BranchStats, dir string) {
+	gitCmd := func(args ...string) *exec.Cmd {
+		if dir != "" {
+			return exec.Command("git", append([]string{"-C", dir}, args...)...)
+		}
+		return exec.Command("git", args...)
+	}
+
+	out, err := gitCmd("diff", "--shortstat", "HEAD").Output()
 	if err != nil {
 		return
 	}
 	line := strings.TrimSpace(string(out))
 
-	cachedOut, err := exec.Command("git", "diff", "--shortstat", "--cached").Output()
+	cachedOut, err := gitCmd("diff", "--shortstat", "--cached").Output()
 	if err == nil {
 		cachedLine := strings.TrimSpace(string(cachedOut))
 		if cachedLine != "" {
