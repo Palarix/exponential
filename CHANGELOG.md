@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Empty state messaging for Backlog, Active, and Done filtered views — shows tab-specific or filter-aware hints instead of a blank screen (xpo-5a17a7)
 - Walkthrough tab in the merge view — renders the issue's walkthrough as Markdown and becomes the default tab when present (xpo-3bfbc8)
 
 ### Changed

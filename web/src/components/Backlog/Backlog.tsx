@@ -1581,6 +1581,41 @@ export default function Backlog({
         </div>
       </div>
 
+      {filteredIssues.length === 0 ? (
+        <EmptyState
+          title={
+            hasActiveFilters(filters) || search
+              ? "No matching issues"
+              : activeTab === "backlog"
+                ? "No issues in the backlog"
+                : activeTab === "active"
+                  ? "No active issues"
+                  : activeTab === "done"
+                    ? "No completed issues"
+                    : "No issues"
+          }
+          description={
+            hasActiveFilters(filters) || search
+              ? "Try adjusting your filters or search."
+              : activeTab === "backlog"
+                ? "Issues with Backlog status will appear here."
+                : activeTab === "active"
+                  ? "Issues that are Planned, In Progress, or Blocked will appear here."
+                  : activeTab === "done"
+                    ? "Completed, canceled, and duplicate issues will appear here."
+                    : "No issues to display."
+          }
+          icon={
+            <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
+              <rect x="30" y="20" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+              <rect x="30" y="42" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+              <rect x="30" y="64" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+              <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
+            </svg>
+          }
+        />
+      ) : (
+      <>
       {/* Rows */}
       <DndContext
         sensors={sensors}
@@ -2357,6 +2392,8 @@ export default function Backlog({
             );
           })()}
       </Modal>
+      </>
+      )}
     </div>
   );
 }
