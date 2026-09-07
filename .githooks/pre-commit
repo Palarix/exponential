@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# Run go vet and frontend lint on staged changes.
+# Skips each check if no relevant files are staged.
+#
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+# --- Go ---
+
+if echo "$STAGED" | grep -qE '\.go$'; then
+  echo "pre-commit: running go vet..."
+  if ! go vet ./...; then
+    echo "error: go vet failed"
+    exit 1
+  fi
+fi
+
+# --- Frontend ---
+
+if echo "$STAGED" | grep -qE '^web/.*\.(ts|tsx|js|jsx)$'; then
+  echo "pre-commit: running eslint..."
+  if ! (cd web && bun run lint); then
+    echo "error: eslint failed"
+    exit 1
+  fi
+fi

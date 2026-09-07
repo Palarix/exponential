@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#
+# 1. Strip AI-agent trailers from commit messages.
+# 2. Enforce commit message prefix convention.
+#
+
+MSG_FILE="$1"
+
+# --- Strip AI trailers ---
+
+sed -i.bak \
+  -e '/^Co-Authored-By:.*anthropic\.com/d' \
+  -e '/^Co-Authored-By:.*openai\.com/d' \
+  -e '/^Co-Authored-By:.*Claude/d' \
+  -e '/^Co-Authored-By:.*ChatGPT/d' \
+  -e '/^Claude-Session:/d' \
+  -e '/^OpenAI-Session:/d' \
+  "$MSG_FILE"
+
+rm -f "${MSG_FILE}.bak"
+
+# --- Enforce prefix convention ---
+
+FIRST_LINE=$(head -1 "$MSG_FILE")
+
+if [[ "$FIRST_LINE" =~ ^(xpo-[a-f0-9]+:|release:|bugfix:|improvement:|feature:|chore:|fixup!|squash!|Merge\ ) ]]; then
+  exit 0
+fi
+
+echo "error: commit message must start with one of:"
+echo "  xpo-<id>:    (issue reference)"
+echo "  release:     (release commits)"
+echo "  bugfix:      (quick fixes)"
+echo "  improvement: (small improvements)"
+echo "  feature:     (standalone features)"
+echo "  chore:       (maintenance tasks)"
+echo ""
+echo "got: $FIRST_LINE"
+exit 1

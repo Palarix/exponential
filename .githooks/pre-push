@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+#
+# Run the test suite before pushing.
+#
+
+echo "pre-push: running tests..."
+if ! make test; then
+  echo "error: tests failed — push aborted"
+  exit 1
+fi

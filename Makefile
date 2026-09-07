@@ -1,8 +1,8 @@
 BINARY_NAME=xpo
 
-.PHONY: all build clean test lint frontend install docker release stressgen
+.PHONY: all build clean test lint frontend install docker release stressgen setup
 
-all: build
+all: setup build
 
 # Build the frontend with Vite and copy to Go static folder
 frontend:
@@ -37,6 +37,9 @@ lint:
 install: cli
 	sudo rm -f /usr/local/bin/xpo
 	sudo cp ./xpo /usr/local/bin/xpo
+
+setup:
+	git config core.hooksPath .githooks
 
 stressgen:
 	go run ./tools/stressgen $(or $(OUTPUT),stresstest)
