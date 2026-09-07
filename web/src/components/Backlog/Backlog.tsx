@@ -1801,13 +1801,22 @@ export default function Backlog({
                   {isInlineActive && (
                     <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
                       <span className="w-4 shrink-0" />
-                      <PriorityIcon priority={0} size={16} />
-                      <span className="w-28 shrink-0" />
-                      <StatusIcon
-                        status={groupRow.status}
-                        size={14}
-                        className="shrink-0"
-                      />
+                      <div className="shrink-0">
+                        <div className="w-6 h-6 -m-1 flex items-center justify-center">
+                          <PriorityIcon priority={0} size={16} />
+                        </div>
+                      </div>
+                      <span className="font-mono text-xs text-left shrink-0 tabular-nums text-[var(--color-text-muted)] opacity-40">
+                        xpo-······
+                      </span>
+                      <div className="shrink-0">
+                        <div className="w-6 h-6 -m-1 flex items-center justify-center">
+                          <StatusIcon
+                            status={groupRow.status}
+                            size={14}
+                          />
+                        </div>
+                      </div>
                       <input
                         ref={inlineRef}
                         value={inlineTitle}
