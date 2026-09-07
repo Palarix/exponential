@@ -6,17 +6,19 @@ all: setup build
 
 # Build the frontend with Vite and copy to Go static folder
 frontend:
-	cd web && bun install && bun run build
-	rm -rf internal/server/static
-	cp -r web/dist internal/server/static
-	touch internal/server/static/.gitkeep
+	@echo "Building web UI..."
+	@cd web && bun install --silent && bun run build 2>&1 | tail -1
+	@rm -rf internal/server/static
+	@cp -r web/dist internal/server/static
+	@touch internal/server/static/.gitkeep
 
 # Build the Go binary (depends on frontend)
-build: frontend cli
+build: test frontend cli
 
 # Build Go binary only (skip frontend rebuild)
 cli:
-	go build -o $(BINARY_NAME) ./cmd/exponential
+	@echo "Building CLI..."
+	@go build -o $(BINARY_NAME) ./cmd/exponential
 
 clean:
 	go clean
@@ -27,18 +29,20 @@ clean:
 	touch internal/server/static/.gitkeep
 
 test: lint
-	go test -v ./...
+	@echo "Running test suite..."
+	@go test ./... > /dev/null 2>&1 || go test -v ./...
 
 lint:
-	go vet ./...
-	cd web && bun run lint
+	@echo "Running lint..."
+	@go vet ./... 2>&1 || { echo "go vet failed"; exit 1; }
+	@cd web && bun run --silent lint 2>&1 || { echo "eslint failed"; exit 1; }
 
 install: cli
 	sudo rm -f /usr/local/bin/xpo
 	sudo cp ./xpo /usr/local/bin/xpo
 
 setup:
-	git config core.hooksPath .githooks
+	@git config core.hooksPath .githooks
 
 stressgen:
 	go run ./tools/stressgen $(or $(OUTPUT),stresstest)
