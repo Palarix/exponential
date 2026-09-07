@@ -90,7 +90,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     try {
       const stored = localStorage.getItem("exponential-board-collapsed");
       if (stored) return new Set(JSON.parse(stored));
-    } catch {}
+    } catch { /* corrupt stored data — use default */ }
     return new Set(["BACKLOG"]);
   });
   const toggleCollapse = useCallback((colId: string) => {
@@ -105,7 +105,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     try {
       const stored = localStorage.getItem("exponential-board-hidden-cols");
       if (stored) return new Set(JSON.parse(stored));
-    } catch {}
+    } catch { /* corrupt stored data — use default */ }
     return new Set<string>();
   });
   const toggleColumnVisible = useCallback((colId: string) => {
@@ -326,6 +326,12 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     el?.scrollIntoView({ block: "nearest" });
   }, [focusedIssueId, keyboardNav]);
 
+  const handleQuickUpdate = useCallback((issueId: string, payload: Record<string, unknown>) => {
+    if (patchIssue) patchIssue(issueId, payload as Partial<Issue>);
+    setOpenPopover(null);
+    addDraft(issueId, "UPDATE", payload).then(() => onRefresh());
+  }, [onRefresh, patchIssue]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (openPopoverRef.current) return;
@@ -417,13 +423,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols]);
-
-  const handleQuickUpdate = useCallback((issueId: string, payload: Record<string, unknown>) => {
-    if (patchIssue) patchIssue(issueId, payload as Partial<Issue>);
-    setOpenPopover(null);
-    addDraft(issueId, "UPDATE", payload).then(() => onRefresh());
-  }, [onRefresh, patchIssue]);
+  }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols, handleQuickUpdate]);
 
   if (issues.length === 0) {
     return (

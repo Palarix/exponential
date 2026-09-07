@@ -134,13 +134,11 @@ export function DailyVelocityChart({ buckets }: { buckets: { date: string; point
 }
 
 export function CumulativeChart({ weekly }: { weekly: { week_start: string; created: number; completed: number }[] }) {
-  let cumCreated = 0;
-  let cumCompleted = 0;
-  const data = weekly.map((w) => {
-    cumCreated += w.created;
-    cumCompleted += w.completed;
-    return { week: w.week_start.slice(5), created: cumCreated, completed: cumCompleted };
-  });
+  const data = weekly.reduce<{ week: string; created: number; completed: number }[]>((acc, w) => {
+    const prev = acc.length > 0 ? acc[acc.length - 1] : { created: 0, completed: 0 };
+    acc.push({ week: w.week_start.slice(5), created: prev.created + w.created, completed: prev.completed + w.completed });
+    return acc;
+  }, []);
 
   return (
     <ResponsiveContainer width="100%" height="100%">

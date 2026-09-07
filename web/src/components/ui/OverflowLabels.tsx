@@ -1,5 +1,6 @@
 import { useRef, useState, useLayoutEffect, useContext, useMemo } from "react";
-import { LabelBadge, DefaultLabelsContext } from "./Badge";
+import { LabelBadge } from "./Badge";
+import { DefaultLabelsContext } from "./BadgeContexts";
 import { splitLabels } from "../../utils/labels";
 
 export default function OverflowLabels({ labels }: { labels: string[] }) {
@@ -9,7 +10,7 @@ export default function OverflowLabels({ labels }: { labels: string[] }) {
   const [maxVisible, setMaxVisible] = useState(labels.length);
 
   const { primary, metadata } = splitLabels(labels, defaultLabels);
-  const all = useMemo(() => [...metadata, ...primary], [labels, defaultLabels]);
+  const all = useMemo(() => [...metadata, ...primary], [metadata, primary]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -17,10 +18,7 @@ export default function OverflowLabels({ labels }: { labels: string[] }) {
     if (!container || !measure || all.length === 0) return;
 
     const row = container.closest("[data-backlog-row]") as HTMLElement | null;
-    if (!row) {
-      setMaxVisible(all.length);
-      return;
-    }
+    if (!row) return;
 
     const compute = () => {
       const budget = Math.max(100, row.clientWidth * 0.35);
@@ -47,7 +45,6 @@ export default function OverflowLabels({ labels }: { labels: string[] }) {
       setMaxVisible(Math.max(count, 1));
     };
 
-    compute();
     const observer = new ResizeObserver(compute);
     observer.observe(row);
     return () => observer.disconnect();

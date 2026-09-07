@@ -72,7 +72,9 @@ export default function MyIssues({
   const [user, setUser] = useState<User | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const showFilterMenuRef = useRef(showFilterMenu);
-  showFilterMenuRef.current = showFilterMenu;
+  useEffect(() => {
+    showFilterMenuRef.current = showFilterMenu;
+  }, [showFilterMenu]);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {

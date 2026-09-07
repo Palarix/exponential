@@ -1,4 +1,5 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { LabelColorsContext } from "./BadgeContexts";
 import { labelColor as resolveLabelColor } from "../../utils/labels";
 
 type BadgeVariant =
@@ -62,10 +63,6 @@ export default function Badge({
     </span>
   );
 }
-
-export const LabelColorsContext = createContext<Record<string, string>>({});
-export const HideDefaultLabelsContext = createContext<boolean>(false);
-export const DefaultLabelsContext = createContext<{ name: string; color: string }[]>([]);
 
 export function LabelBadge({ label, borderless }: { label: string; borderless?: boolean }) {
   const configColors = useContext(LabelColorsContext);

@@ -521,7 +521,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
 
 // --- Root ---
 
-export default function Cycles({ issues, onIssueClick, onRefresh: _onRefresh, selectedCycleId, onCycleSelect }: CyclesProps) {
+export default function Cycles({ issues, onIssueClick, selectedCycleId, onCycleSelect }: CyclesProps) {
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [loading, setLoading] = useState(true);
 

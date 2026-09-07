@@ -11,10 +11,18 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
-import { useRef, useCallback, useEffect, useMemo } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import FormattingBar from "./FormattingBar";
 
 type BlurEvent = React.FocusEvent<HTMLDivElement>;
+
+interface MarkdownStorage {
+  markdown: {
+    serializer: { serialize: (fragment: unknown) => string };
+    parser: { parse: (text: string) => string };
+    getMarkdown: () => string;
+  };
+}
 
 interface MarkdownEditorProps {
   value: string;
@@ -38,11 +46,13 @@ export default function MarkdownEditor({
   className = "",
 }: MarkdownEditorProps) {
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
   const onSaveRef = useRef(onSave);
-  onSaveRef.current = onSave;
   const onCancelRef = useRef(onCancel);
-  onCancelRef.current = onCancel;
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onSaveRef.current = onSave;
+    onCancelRef.current = onCancel;
+  }, [onChange, onSave, onCancel]);
   const suppressBlurSave = useRef(false);
   const dirty = useRef(false);
 
@@ -53,7 +63,7 @@ export default function MarkdownEditor({
 
   const editorRef = useRef<ReturnType<typeof useEditor>>(null);
   const bubbleMenuRef = useRef<HTMLDivElement>(null);
-  const initialValue = useRef(value);
+  const [initialContent] = useState(value);
 
   const extensions = useMemo(() => [
     StarterKit.configure({
@@ -78,7 +88,7 @@ export default function MarkdownEditor({
 
   const editor = useEditor({
     extensions,
-    content: initialValue.current,
+    content: initialContent,
     autofocus: autoFocus && !clickEvent ? "end" : false,
     editorProps: {
       attributes: {
@@ -113,11 +123,11 @@ export default function MarkdownEditor({
           wrapper.innerHTML = clipHtml;
           const { state } = ed.view;
           const fragment = PMDOMParser.fromSchema(state.schema).parse(wrapper);
-          const storage = ed.storage as Record<string, any>;
+          const storage = ed.storage as unknown as MarkdownStorage;
           const md = storage.markdown.serializer.serialize(fragment) as string;
           insertHtml = storage.markdown.parser.parse(md) as string;
         } else if (clipText) {
-          const storage = ed.storage as Record<string, any>;
+          const storage = ed.storage as unknown as MarkdownStorage;
           insertHtml = storage.markdown.parser.parse(clipText) as string;
         } else {
           return false;
@@ -136,12 +146,14 @@ export default function MarkdownEditor({
     },
     onUpdate: ({ editor: ed }) => {
       if (!dirty.current) return;
-      const md = (ed.storage as Record<string, any>).markdown.getMarkdown() as string;
+      const md = (ed.storage as unknown as MarkdownStorage).markdown.getMarkdown() as string;
       onChangeRef.current?.(md);
     },
   });
 
-  editorRef.current = editor;
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   useEffect(() => {
     if (!editor || !clickEvent) return;

@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { ToastContext } from "./ToastContext";
 
 type ToastVariant = "success" | "error" | "info";
 
@@ -12,18 +13,6 @@ interface ToastState {
   message: string;
   variant: ToastVariant;
   persistent: boolean;
-}
-
-interface ToastContextValue {
-  showToast: (message: string, opts?: ToastOptions) => void;
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null);
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used within ToastProvider");
-  return ctx.showToast;
 }
 
 const VARIANT_STYLES: Record<ToastVariant, string> = {

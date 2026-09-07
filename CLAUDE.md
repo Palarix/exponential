@@ -28,5 +28,10 @@ Set the `assignee` field to yourself when transitioning an issue to DOING. Use t
 - `make cli` — compile the `xpo` binary.
 - `make frontend` — build the web application assets.
 - `make build` — build the CLI with the web assets embedded.
-- `make test` — run the test suite.
+- `make test` — run the test suite (includes lint).
+- `make lint` — run `go vet` and frontend eslint.
 - always use `bun` and `bunx` over `npm` and `npmx` when available
+
+## Before declaring implementation done
+
+`make test` must pass. It runs lint (`go vet` + `bun run lint`) then Go tests.

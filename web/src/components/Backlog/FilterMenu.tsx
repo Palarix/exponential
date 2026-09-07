@@ -242,8 +242,6 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
   const [subFocusIndex, setSubFocusIndex] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const subMenuRef = useRef<HTMLDivElement>(null);
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({ position: "fixed", visibility: "hidden" });
-  const [subStyle, setSubStyle] = useState<React.CSSProperties>({ position: "fixed", visibility: "hidden" });
   const dimRowRefs = useRef<Map<Dimension, HTMLButtonElement>>(new Map());
 
   // Position the main menu below the anchor
@@ -257,26 +255,26 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     let left = aRect.right - mRect.width;
     if (top + mRect.height > window.innerHeight - 8) top = aRect.top - mRect.height - 4;
     if (left < 8) left = 8;
-    setMenuStyle({ position: "fixed", top, left, visibility: "visible" });
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    menu.style.visibility = "visible";
   }, [anchorRef]);
 
   // Position sub-menu next to the hovered row, preferring right when space allows
   useEffect(() => {
-    if (!openDim) { setSubStyle({ position: "fixed", visibility: "hidden" }); return; }
+    const sub = subMenuRef.current;
+    if (!openDim) { if (sub) sub.style.visibility = "hidden"; return; }
     const row = dimRowRefs.current.get(openDim);
     const menu = menuRef.current;
-    if (!row || !menu) return;
+    if (!row || !menu || !sub) return;
     const rRect = row.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
     const subWidth = 212;
     const spaceRight = window.innerWidth - mRect.right;
     const left = spaceRight >= subWidth ? mRect.right + 4 : mRect.left - subWidth - 4;
-    setSubStyle({
-      position: "fixed",
-      top: rRect.top,
-      left,
-      visibility: "visible",
-    });
+    sub.style.top = `${rRect.top}px`;
+    sub.style.left = `${left}px`;
+    sub.style.visibility = "visible";
   }, [openDim]);
 
   // Close on outside click
@@ -378,7 +376,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
   return createPortal(
     <>
       {/* Main menu */}
-      <div ref={menuRef} style={menuStyle} className="z-50 w-52 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
+      <div ref={menuRef} style={{ position: "fixed", visibility: "hidden" }} className="z-50 w-52 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
         <div className="px-3 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
           Add Filter...
         </div>
@@ -406,7 +404,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
 
       {/* Sub-menu */}
       {openDim && (
-        <SubMenuPortal ref={subMenuRef} dim={openDim} issues={issues} filters={filters} style={subStyle} onToggle={handleToggle} focusIndex={subFocusIndex} hasFocus={inSubMenu} />
+        <SubMenuPortal ref={subMenuRef} dim={openDim} issues={issues} filters={filters} onToggle={handleToggle} focusIndex={subFocusIndex} hasFocus={inSubMenu} />
       )}
     </>,
     document.body,
@@ -417,16 +415,15 @@ const SubMenuPortal = forwardRef<HTMLDivElement, {
   dim: Dimension;
   issues: Issue[];
   filters: BacklogFilters;
-  style: React.CSSProperties;
   onToggle: (dim: Dimension, value: string) => void;
   focusIndex: number;
   hasFocus: boolean;
-}>(function SubMenuPortal({ dim, issues, filters, style, onToggle, focusIndex, hasFocus }, ref) {
+}>(function SubMenuPortal({ dim, issues, filters, onToggle, focusIndex, hasFocus }, ref) {
   const options = useSubMenuOptions(dim, issues);
   const selected = getSelected(dim, filters);
 
   return (
-    <div ref={ref} style={style} className="z-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)]">
+    <div ref={ref} style={{ position: "fixed", visibility: "hidden" }} className="z-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)]">
       <SubMenu
         options={options}
         selected={selected}

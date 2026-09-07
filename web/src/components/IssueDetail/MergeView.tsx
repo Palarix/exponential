@@ -74,7 +74,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [issue.id]);
+  }, [issue.id, hasWalkthrough]);
 
   const loadCommitDiff = useCallback(async (sha: string) => {
     if (selectedCommit === sha) { setSelectedCommit(null); return; }
@@ -639,15 +639,15 @@ function DiffViewer({ diffs, collapsed, setCollapsed }: {
       if (next.has(file)) next.delete(file); else next.add(file);
       return next;
     });
-  }, []);
+  }, [setCollapsed]);
 
   const setDiffMode = useCallback((m: DiffMode) => {
     setMode(m);
     localStorage.setItem("exponential-diff-mode", m);
   }, []);
 
-  const expandAll = useCallback(() => setCollapsed(new Set()), []);
-  const collapseAll = useCallback(() => setCollapsed(new Set(diffs.keys())), [diffs]);
+  const expandAll = useCallback(() => setCollapsed(new Set()), [setCollapsed]);
+  const collapseAll = useCallback(() => setCollapsed(new Set(diffs.keys())), [diffs, setCollapsed]);
 
   if (diffs.size === 0) {
     return <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">No changes to display</div>;

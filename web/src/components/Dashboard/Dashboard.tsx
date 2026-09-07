@@ -4,8 +4,9 @@ import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, PriorityIcon,
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
-import { isTerminal, isCompleted } from "../../constants";
-import { Section, SectionIcon, PulseCard, SECTION_ICONS } from "./Section";
+import { isTerminal } from "../../constants";
+import { Section, SectionIcon, PulseCard } from "./Section";
+import { SECTION_ICONS } from "./sectionIcons";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
@@ -42,6 +43,18 @@ const PRIORITY_LABELS: { value: number; label: string }[] = [
   { value: 0, label: "No priority" },
 ];
 
+const STATUS_ORDER_MAP: Record<string, { label: string; idx: number }> = {
+  BACKLOG: { label: "Backlog", idx: 0 },
+  PLANNED: { label: "Planned", idx: 1 },
+  DOING: { label: "In Progress", idx: 2 },
+  BLOCKED: { label: "Blocked", idx: 3 },
+  DONE: { label: "Done", idx: 4 },
+  CANCELED: { label: "Canceled", idx: 5 },
+  DUPLICATE: { label: "Duplicate", idx: 6 },
+};
+
+const ALL_STATUSES = ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"];
+
 interface DashboardProps {
   issues: Issue[];
   onIssueClick?: (issue: Issue) => void;
@@ -69,33 +82,14 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
     return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
   }, [issues]);
 
-  const stats = {
-    total: issues.length,
-    backlog: issues.filter((i) => i.status === "BACKLOG").length,
-    planned: issues.filter((i) => i.status === "PLANNED").length,
-    doing: issues.filter((i) => i.status === "DOING").length,
-    blocked: issues.filter((i) => i.status === "BLOCKED").length,
-    done: issues.filter((i) => isCompleted(i.status)).length,
-  };
 
-  const STATUS_ORDER_MAP: Record<string, { label: string; idx: number }> = {
-    BACKLOG: { label: "Backlog", idx: 0 },
-    PLANNED: { label: "Planned", idx: 1 },
-    DOING: { label: "In Progress", idx: 2 },
-    BLOCKED: { label: "Blocked", idx: 3 },
-    DONE: { label: "Done", idx: 4 },
-    CANCELED: { label: "Canceled", idx: 5 },
-    DUPLICATE: { label: "Duplicate", idx: 6 },
-  };
-
-  const allStatuses = ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"];
 
   const statusDistribution = useMemo(() => {
     const filtered = statusFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;
     const counts = new Map<string, number>();
     for (const i of filtered) counts.set(i.status, (counts.get(i.status) || 0) + 1);
     const total = filtered.length;
-    const visibleStatuses = statusFilter === "active" ? allStatuses.filter(s => !isTerminal(s)) : allStatuses;
+    const visibleStatuses = statusFilter === "active" ? ALL_STATUSES.filter(s => !isTerminal(s)) : ALL_STATUSES;
     const rows: DistRow[] = visibleStatuses.map((status) => {
       const count = counts.get(status) || 0;
       return {
@@ -135,7 +129,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
         barWidth: total > 0 ? (count / total) * 100 : 0,
       }));
     return { total, rows };
-  }, [issues, labelFilter]);
+  }, [issues, labelFilter, labelColors]);
 
   const assigneeDistribution = useMemo(() => {
     const filtered = assigneeFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;
@@ -191,15 +185,6 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
       });
     return { total, rows };
   }, [issues, priorityFilter]);
-
-  // @ts-expect-error kept for future dashboard personalization
-  const statusCards = [
-    { label: "Backlog", status: "BACKLOG", value: stats.backlog, color: "var(--color-status-backlog)" },
-    { label: "Planned", status: "PLANNED", value: stats.planned, color: "var(--color-status-planned)" },
-    { label: "In Progress", status: "DOING", value: stats.doing, color: "var(--color-status-doing)" },
-    { label: "Blocked", status: "BLOCKED", value: stats.blocked, color: "var(--color-status-blocked)" },
-    { label: "Done", status: "DONE", value: stats.done, color: "var(--color-status-done)" },
-  ];
 
   if (issues.length === 0) {
     return (

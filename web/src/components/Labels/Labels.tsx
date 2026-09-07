@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useContext, useRef, useEffect } from "react";
 import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
-import { LabelColorsContext, LabelBadge } from "../ui/Badge";
+import { LabelBadge } from "../ui/Badge";
+import { LabelColorsContext } from "../ui/BadgeContexts";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel } from "../../utils/labels";

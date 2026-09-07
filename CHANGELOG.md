@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed all 63 frontend eslint errors across 21 files with no suppression comments — ref writes moved out of render, setState positioning replaced with direct DOM, non-component exports extracted to separate modules, missing hook deps added, unused vars removed, `any` types replaced (xpo-c08d52)
+- `make test` now depends on `make lint` (`go vet` + `bun run lint`), ensuring lint errors are caught before declaring implementation done (xpo-c08d52)
 - Completed ghost children (DONE/CANCELED/DUPLICATE) no longer appear in non-terminal views by default; "Show done ghosts" toggle in view options to opt back in (xpo-b109e5)
 - Merge view diff/files endpoints now target the correct worktree directory instead of the hub checkout, and normalize diff output prefixes for compatibility with `diff.mnemonicPrefix` git config (xpo-2d6b57)
 - `computeBranchStats` now detects uncommitted changes in worktree directories, making the merge view button appear for worktree branches with pending changes (xpo-67a1c4)

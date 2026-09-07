@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useLayoutEffect } from "react";
+import { useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
 export default function Popover({
@@ -10,12 +10,8 @@ export default function Popover({
 }) {
   const markerRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({
-    position: "fixed",
-    visibility: "hidden",
-  });
 
-  useLayoutEffect(() => {
+  const positionPopover = () => {
     const marker = markerRef.current;
     const pop = popRef.current;
     if (!marker || !pop) return;
@@ -36,7 +32,13 @@ export default function Popover({
       left = window.innerWidth - popRect.width - pad;
     }
 
-    setStyle({ position: "fixed", top, left, visibility: "visible" });
+    pop.style.top = `${top}px`;
+    pop.style.left = `${left}px`;
+    pop.style.visibility = "visible";
+  };
+
+  useLayoutEffect(() => {
+    positionPopover();
   }, []);
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function Popover({
       {createPortal(
         <div
           ref={popRef}
-          style={style}
+          style={{ position: "fixed", visibility: "hidden" }}
           className="z-50 min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
         >
           {children}

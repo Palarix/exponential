@@ -6,7 +6,9 @@ interface SSEOptions {
 
 export function useSSE({ onEvent }: SSEOptions) {
   const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     let es: EventSource | null = null;

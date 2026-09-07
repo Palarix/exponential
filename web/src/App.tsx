@@ -91,6 +91,18 @@ function setHash(view: View, issueId: string | null, cycleId?: string | null) {
   }
 }
 
+const GO_TARGETS: Record<string, View> = {
+  o: 'dashboard',
+  i: 'backlog',
+  b: 'board',
+  n: 'inbox',
+  d: 'dependencies',
+  l: 'labels',
+  c: 'cycles',
+  m: 'my-issues',
+  t: 'timeline',
+};
+
 function App() {
   const initial = parseHash();
   const [view, setView] = useState<View>(initial.view);
@@ -121,7 +133,7 @@ function App() {
   const [backlogTab, setBacklogTab] = useState<Tab>('all');
   const [backlogFilters, setBacklogFilters] = useState<BacklogFilters>(() => {
     const stored = localStorage.getItem(`exponential-backlog-filters-${backlogTab}`);
-    if (stored) { try { return JSON.parse(stored); } catch {} }
+    if (stored) { try { return JSON.parse(stored); } catch { /* corrupt stored filter — use default */ } }
     return EMPTY_FILTERS;
   });
   const [myIssuesTab, setMyIssuesTab] = useState<MyIssuesTab>(() =>
@@ -129,7 +141,7 @@ function App() {
   );
   const [myIssuesFilters, setMyIssuesFilters] = useState<BacklogFilters>(() => {
     const stored = localStorage.getItem(`exponential-my-issues-filters-${myIssuesTab}`);
-    if (stored) { try { return JSON.parse(stored); } catch {} }
+    if (stored) { try { return JSON.parse(stored); } catch { /* corrupt stored filter — use default */ } }
     return EMPTY_FILTERS;
   });
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
@@ -137,7 +149,7 @@ function App() {
   const [inboxUnread, setInboxUnread] = useState(0);
   const [inboxFilters, setInboxFilters] = useState<BacklogFilters>(() => {
     const stored = localStorage.getItem('exponential-inbox-filters');
-    if (stored) { try { return JSON.parse(stored); } catch {} }
+    if (stored) { try { return JSON.parse(stored); } catch { /* corrupt stored filter — use default */ } }
     return EMPTY_FILTERS;
   });
   const showToast = useToast();
@@ -156,7 +168,7 @@ function App() {
     setMyIssuesTab(t);
     localStorage.setItem('exponential-my-issues-tab', t);
     const stored = localStorage.getItem(`exponential-my-issues-filters-${t}`);
-    if (stored) { try { setMyIssuesFilters(JSON.parse(stored)); } catch {} }
+    if (stored) { try { setMyIssuesFilters(JSON.parse(stored)); } catch { /* corrupt stored filter — use default */ } }
     else setMyIssuesFilters(EMPTY_FILTERS);
   }, []);
 
@@ -195,18 +207,6 @@ function App() {
 
   const gPendingRef = useRef(false);
   const gTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const GO_TARGETS: Record<string, View> = {
-    o: 'dashboard',
-    i: 'backlog',
-    b: 'board',
-    n: 'inbox',
-    d: 'dependencies',
-    l: 'labels',
-    c: 'cycles',
-    m: 'my-issues',
-    t: 'timeline',
-  };
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -278,7 +278,7 @@ function App() {
       setInboxItems(items ?? []);
       setInboxLastRead(status.last_read ?? '');
       setInboxUnread(status.unread ?? 0);
-    } catch {}
+    } catch { /* inbox fetch is best-effort */ }
   }, []);
 
   const handleMarkAllRead = useCallback(async () => {
@@ -307,8 +307,8 @@ function App() {
         setDefaultLabels(c.default_labels.map(name => ({ name, color: colors[name] || colors[name.toLowerCase()] || '' })));
       }
       setProjectName(c.name || '');
-    }).catch(() => {});
-  }, [fetchData]);
+    }).catch(() => { /* config fetch is best-effort */ });
+  }, [fetchData, fetchInboxData]);
 
   const handleSSEEvent = useCallback(() => {
     fetchData();

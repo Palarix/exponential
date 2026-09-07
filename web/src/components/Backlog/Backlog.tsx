@@ -61,11 +61,11 @@ import Tooltip from "../ui/Tooltip";
 import FilterMenu from "./FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "./filters";
 import {
-  backlogCollision,
   GroupHeaderDnd,
   IssueRowDnd,
   DragOverlayCard,
 } from "./DndComponents";
+import { backlogCollision } from "./backlogCollision";
 import {
   useBacklogRows,
   type RowItem,
@@ -167,7 +167,7 @@ export default function Backlog({
       const next = !prev;
       try {
         localStorage.setItem("exponential-backlog-show-done-ghosts", String(next));
-      } catch {}
+      } catch { /* localStorage unavailable */ }
       return next;
     });
   }, []);
@@ -191,7 +191,7 @@ export default function Backlog({
           `exponential-backlog-hierarchy-${activeTab}`,
           next,
         );
-      } catch {}
+      } catch { /* localStorage unavailable */ }
       return next;
     });
   }, [activeTab]);
@@ -214,7 +214,7 @@ export default function Backlog({
           `exponential-backlog-empty-groups-${activeTab}`,
           String(next),
         );
-      } catch {}
+      } catch { /* localStorage unavailable */ }
       return next;
     });
   }, [activeTab]);
@@ -239,7 +239,7 @@ export default function Backlog({
   const handleInlineCreate = useCallback(
     async (status: string, title: string) => {
       if (!title.trim()) return;
-      const sortOrder = computeAppendKey(issues, status);
+      const sortOrder = computeAppendKey(issues);
       const issueId = await createIssue({
         title: title.trim(),
         labels: ["feature"],
@@ -250,7 +250,7 @@ export default function Backlog({
       onRefresh();
       showToast("Issue created");
     },
-    [onRefresh, issues],
+    [onRefresh, issues, showToast],
   );
 
   const STATUS_LABELS: Record<string, string> = {
@@ -454,7 +454,7 @@ export default function Backlog({
           `exponential-backlog-hierarchy-${activeTab}`,
         ) as HierarchyMode) || "nested",
       );
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     try {
       const emptyStored = localStorage.getItem(
         `exponential-backlog-empty-groups-${activeTab}`,
@@ -464,7 +464,7 @@ export default function Backlog({
           ? emptyStored === "true"
           : activeTab === "all" || activeTab === "done",
       );
-    } catch {}
+    } catch { /* localStorage unavailable */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -1257,7 +1257,7 @@ export default function Backlog({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [onSearchFocus, showToast]);
 
   const issuesRef = useRef(issues);
   issuesRef.current = issues;
@@ -2399,7 +2399,7 @@ export default function Backlog({
                       const { issueId, status, pendingUpdate } =
                         moveChildrenPrompt;
                       setMoveChildrenPrompt(null);
-                      const { status: _s, ...extra } = pendingUpdate || {};
+                      const extra = Object.fromEntries(Object.entries(pendingUpdate || {}).filter(([k]) => k !== "status"));
                       await applyStatusChange(
                         issueId,
                         status,
@@ -2418,7 +2418,7 @@ export default function Backlog({
                       const { issueId, status, children, pendingUpdate } =
                         moveChildrenPrompt;
                       setMoveChildrenPrompt(null);
-                      const { status: _s, ...extra } = pendingUpdate || {};
+                      const extra = Object.fromEntries(Object.entries(pendingUpdate || {}).filter(([k]) => k !== "status"));
                       await applyStatusChange(
                         issueId,
                         status,

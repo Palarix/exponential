@@ -29,7 +29,7 @@ function compareKeys(a: string, b: string): number {
 }
 
 /** Compute a sort_order key that appends after all existing issues in a group. */
-export function computeAppendKey(issues: Issue[], _status?: string, _parentId?: string): string {
+export function computeAppendKey(issues: Issue[]): string {
   // Find the max sort_order across ALL issues to guarantee the new key
   // sorts last, regardless of backfill instability across projections.
   let maxKey: string | null = null;

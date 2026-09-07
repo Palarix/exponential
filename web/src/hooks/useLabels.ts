@@ -1,5 +1,5 @@
 import { useMemo, useContext } from "react";
-import { LabelColorsContext } from "../components/ui/Badge";
+import { LabelColorsContext } from "../components/ui/BadgeContexts";
 import { mergeAndSort } from "../utils/labels";
 import type { Issue } from "../api/client";
 

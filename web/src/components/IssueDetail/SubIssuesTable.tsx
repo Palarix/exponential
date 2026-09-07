@@ -17,7 +17,7 @@ export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Is
 
   const handleInlineCreate = useCallback(async (title: string) => {
     if (!title.trim()) return;
-    const sortOrder = computeAppendKey(issues, "BACKLOG", issue.id);
+    const sortOrder = computeAppendKey(issues);
     await createIssue({ title: title.trim(), labels: ['feature'], parent_id: issue.id, sort_order: sortOrder });
     setInlineTitle("");
     setShowInline(false);

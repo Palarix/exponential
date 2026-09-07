@@ -26,13 +26,12 @@ clean:
 	mkdir -p internal/server/static
 	touch internal/server/static/.gitkeep
 
-test:
+test: lint
 	go test -v ./...
 
 lint:
 	go vet ./...
-	# Assuming staticcheck is installed, if not, user might need to install it
-	# staticcheck ./...
+	cd web && bun run lint
 
 install: cli
 	sudo rm -f /usr/local/bin/xpo

@@ -1,5 +1,6 @@
 import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "react";
-import { LabelBadge, LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./Badge";
+import { LabelBadge } from "./Badge";
+import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./BadgeContexts";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { addConfigLabel } from "../../api/client";
 import { labelColor } from "../../utils/labels";

@@ -95,7 +95,7 @@ export default function IssueDetail({
     fetchArtifactContent(issue.id, filename)
       .then((content) => setArtifactContent((prev) => ({ ...prev, [filename]: content })))
       .catch(() => setArtifactContent((prev) => ({ ...prev, [filename]: "" })));
-  }, [activeTab, issue.id, issue.updated_at]);
+  }, [activeTab, issue.id, issue.updated_at, artifactContent]);
 
   const saveDraft = useCallback(
     async (type: string, payload: unknown) => {
@@ -236,7 +236,7 @@ export default function IssueDetail({
     onClose, onNavigate, openPopover, editingField,
     issue.status, issue.estimate, issue.priority, issue.id,
     saveDraft, handleStatusChange, handleEstimateChange, handlePriorityChange,
-    popoverIndex,
+    popoverIndex, showToast,
   ]);
 
   const startEditing = (field: string) => {

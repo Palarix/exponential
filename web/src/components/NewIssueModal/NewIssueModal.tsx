@@ -129,7 +129,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
     setSaving(true);
     try {
       const combinedLabels = [...labels, ...additionalLabels.filter((l) => !labels.includes(l))];
-      const sortOrder = computeAppendKey(issues, status, parentId || undefined);
+      const sortOrder = computeAppendKey(issues);
       const issueId = await createIssue({ title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, sort_order: sortOrder });
       const update: Record<string, unknown> = {};
       if (status !== "BACKLOG") update.status = status;

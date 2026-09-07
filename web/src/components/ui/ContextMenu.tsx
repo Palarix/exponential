@@ -107,7 +107,9 @@ export default function ContextMenu({
   const [subMenuOffset, setSubMenuOffset] = useState(0);
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     fetchCycles().then(data => {
@@ -123,7 +125,6 @@ export default function ContextMenu({
     onCloseRef.current();
   }, []);
 
-  const [pos, setPos] = useState({ top: y, left: x });
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (!el) return;
@@ -135,7 +136,8 @@ export default function ContextMenu({
     if (left + rect.width > window.innerWidth - pad) left = window.innerWidth - rect.width - pad;
     if (top < pad) top = pad;
     if (left < pad) left = pad;
-    setPos({ top, left });
+    el.style.top = `${top}px`;
+    el.style.left = `${left}px`;
   }, [x, y]);
 
   // Click-outside: armed after first frame to avoid closing on the triggering right-click
@@ -235,7 +237,7 @@ export default function ContextMenu({
     };
     document.addEventListener("keydown", handler, true);
     return () => document.removeEventListener("keydown", handler, true);
-  }, [subMenu, closeAll, focusIndex, openSubMenu]);
+  }, [subMenu, closeAll, focusIndex, openSubMenu, hasChildren]);
 
   const q = filterText.toLowerCase();
 
@@ -334,7 +336,7 @@ export default function ContextMenu({
 
   if (confirmDelete === "choose") {
     return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
+      <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
         <div className="flex flex-col gap-2">
           <button onClick={() => handleAction("DELETE", { cascade: false })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">
@@ -354,7 +356,7 @@ export default function ContextMenu({
 
   if (confirmDelete === "confirm") {
     return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
+      <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
         <div className="flex items-center gap-2">
           <button onClick={() => handleAction("DELETE", {})} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
@@ -370,7 +372,7 @@ export default function ContextMenu({
   }
 
   return createPortal(
-    <div ref={menuRef} style={{ position: "fixed", top: pos.top, left: pos.left }} className="z-[100] flex items-start">
+    <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] flex items-start">
       {/* Main menu */}
       <div className="min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
         {MENU_ITEMS.map((item, i) => (

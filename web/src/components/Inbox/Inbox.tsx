@@ -191,11 +191,14 @@ export default function Inbox({
   const visibleGroups = filteredGroups.slice(0, visibleCount);
   const hasMore = visibleCount < filteredGroups.length;
 
-  const selectedIssue = selectedId ? issues.find(i => i.id === selectedId) ?? null : null;
-  const selectedGroup = selectedId ? groups.find(g => g.issueId === selectedId) ?? null : null;
+  const effectiveSelectedId = selectedId ?? (visibleGroups.length > 0 ? visibleGroups[0].issueId : null);
+  const effectiveFocusedIndex = selectedId ? focusedIndex : (visibleGroups.length > 0 ? 0 : focusedIndex);
+
+  const selectedIssue = effectiveSelectedId ? issues.find(i => i.id === effectiveSelectedId) ?? null : null;
+  const selectedGroup = effectiveSelectedId ? groups.find(g => g.issueId === effectiveSelectedId) ?? null : null;
 
   const issueIds = useMemo(() => visibleGroups.map(g => g.issueId), [visibleGroups]);
-  const selectedNavIndex = selectedId ? issueIds.indexOf(selectedId) : -1;
+  const selectedNavIndex = effectiveSelectedId ? issueIds.indexOf(effectiveSelectedId) : -1;
 
   const selectGroup = useCallback((issueId: string) => {
     setSelectedId(issueId);
@@ -207,21 +210,13 @@ export default function Inbox({
     onMarkAllRead();
   }, [onMarkAllRead]);
 
-  const navigateIssue = useCallback((direction: "prev" | "next") => {
+  const navigateIssue = (direction: "prev" | "next") => {
     const idx = selectedNavIndex + (direction === "prev" ? -1 : 1);
     if (idx >= 0 && idx < issueIds.length) {
       setSelectedId(issueIds[idx]);
       setFocusedIndex(idx);
     }
-  }, [selectedNavIndex, issueIds]);
-
-  // Auto-select first group if nothing is selected
-  useEffect(() => {
-    if (!selectedId && visibleGroups.length > 0) {
-      setSelectedId(visibleGroups[0].issueId);
-      setFocusedIndex(0);
-    }
-  }, [visibleGroups, selectedId]);
+  };
 
   // Scroll focused card into view
   useEffect(() => {
@@ -355,8 +350,8 @@ export default function Inbox({
             <>
               {visibleGroups.map((group, gi) => {
                 const issue = issues.find(it => it.id === group.issueId);
-                const isSelected = group.issueId === selectedId;
-                const isFocused = keyboardNav && gi === focusedIndex;
+                const isSelected = group.issueId === effectiveSelectedId;
+                const isFocused = keyboardNav && gi === effectiveFocusedIndex;
 
                 return (
                   <div

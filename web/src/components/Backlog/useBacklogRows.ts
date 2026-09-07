@@ -291,7 +291,6 @@ export function useBacklogRows(
   }, [
     visibleStatuses,
     filteredIssues,
-    activeTab,
     expandedGroups,
     expandedNodes,
     issues,
