@@ -153,6 +153,24 @@ export default function Backlog({
   const [showStoryPoints, setShowStoryPoints] = useState(
     () => localStorage.getItem("exponential-backlog-show-points") === "true",
   );
+  const [showGhosts, setShowGhosts] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem("exponential-backlog-show-done-ghosts");
+      if (stored !== null) return stored === "true";
+      return false;
+    } catch {
+      return false;
+    }
+  });
+  const toggleGhosts = useCallback(() => {
+    setShowGhosts((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("exponential-backlog-show-done-ghosts", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [hierarchyMode, setHierarchyMode] = useState<HierarchyMode>(() => {
     try {
@@ -500,6 +518,7 @@ export default function Backlog({
     sortKey,
     hierarchyMode,
     showEmptyGroups,
+    showGhosts,
   );
 
   // Report navigation order to parent
@@ -1540,6 +1559,32 @@ export default function Backlog({
                     </svg>
                   )}
                 </button>
+                {hierarchyMode === "nested" && (
+                  <button
+                    onClick={() => {
+                      toggleGhosts();
+                      setShowViewMenu(false);
+                    }}
+                    className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                  >
+                    Show done ghosts
+                    {showGhosts && (
+                      <svg
+                        className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                )}
                 <div className="my-1 border-t border-[var(--color-border-subtle)]" />
                 <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
                   Sort by

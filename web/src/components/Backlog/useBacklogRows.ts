@@ -58,6 +58,7 @@ export function useBacklogRows(
   sortKey: SortKey,
   hierarchyMode: HierarchyMode = "nested",
   showEmptyGroups: boolean = false,
+  showGhosts: boolean = true,
 ): RowItem[] {
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Issue[]>();
@@ -239,10 +240,12 @@ export function useBacklogRows(
                 stats.allChildren.filter((c) => groupIssueIds.has(c.id)),
                 effectiveSortKey,
               ).map((c) => ({ child: c, ghost: false }))
-            : sortGroup(stats.allChildren, effectiveSortKey).map((c) => ({
-                child: c,
-                ghost: !groupIssueIds.has(c.id),
-              }));
+            : sortGroup(stats.allChildren, effectiveSortKey)
+                .filter((c) => groupIssueIds.has(c.id) || showGhosts || !isTerminal(c.status))
+                .map((c) => ({
+                  child: c,
+                  ghost: !groupIssueIds.has(c.id),
+                }));
 
           if (
             allVisual.length > 0 &&
@@ -296,5 +299,6 @@ export function useBacklogRows(
     sortKey,
     hierarchyMode,
     showEmptyGroups,
+    showGhosts,
   ]);
 }
