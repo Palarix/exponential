@@ -144,6 +144,7 @@ type commentOut struct {
 type startIn struct {
 	ID    string `json:"id" jsonschema:"Issue ID to start working on"`
 	Force bool   `json:"force,omitempty" jsonschema:"Force take-over if already in progress or branch exists"`
+	Mode  string `json:"mode,omitempty" jsonschema:"Create a worktree or a branch, overriding the global config"`
 }
 
 type startOut struct {
@@ -509,6 +510,16 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in startI
 		return nil, startOut{}, fmt.Errorf("'id' is required")
 	}
 	c := t.clientFor(req)
+	switch in.Mode {
+	case "":
+		// no override — use global config
+	case "worktree", "branch":
+		cfgCopy := *c.Config
+		cfgCopy.Worktrees = in.Mode == "worktree"
+		c.Config = &cfgCopy
+	default:
+		return nil, startOut{}, fmt.Errorf("invalid mode %q: must be \"worktree\" or \"branch\"", in.Mode)
+	}
 	issue, err := c.GetIssue(in.ID)
 	if err != nil {
 		return nil, startOut{}, err
