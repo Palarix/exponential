@@ -2016,8 +2016,8 @@ export default function Backlog({
                                     )}
                                     {issue.artifacts &&
                                       issue.artifacts.length > 0 && (
-                                        <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)] shrink-0">
-                                          <Paperclip className="w-3 h-3" />
+                                        <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums shrink-0">
+                                          <Paperclip size={12} strokeWidth={1.5} />
                                           {issue.artifacts.length}
                                         </span>
                                       )}

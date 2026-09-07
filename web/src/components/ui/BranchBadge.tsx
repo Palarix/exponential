@@ -15,20 +15,16 @@ export default function BranchBadge({ stats }: BranchBadgeProps) {
     : `${stats.branch} — no commits yet`;
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 h-6 px-2 rounded-2xl border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] shrink-0 tabular-nums"
-      title={title}
-    >
-      <GitBranch size={12} strokeWidth={1.5} />
-      {stats.head_sha?.slice(0, 6)}
-      {hasCommits && (
-        <>
-          <span className="text-[var(--color-border-label)]">|</span>
-          {stats.commits}
-        </>
-      )}
+    <span className="relative inline-flex shrink-0">
+      <span
+        className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums"
+        title={title}
+      >
+        <GitBranch size={12} strokeWidth={1.5} />
+        {stats.commits}
+      </span>
       {hasUncommitted && (
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="uncommitted changes" />
+        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500" title="uncommitted changes" />
       )}
     </span>
   );

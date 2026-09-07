@@ -1,26 +1,38 @@
+import { CircleCheck } from "lucide-react";
+
+const R = 10;
+const CIRCUMFERENCE = 2 * Math.PI * R;
+
 export default function SubProgress({ done, total }: { done: number; total: number }) {
-  const pct = total > 0 ? (done / total) * 100 : 0;
+  if (total > 0 && done >= total) {
+    return <CircleCheck size={14} strokeWidth={1.5} className="shrink-0 text-[var(--color-success)]" />;
+  }
+
+  const pct = total > 0 ? done / total : 0;
+
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" className="shrink-0">
+    <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0" fill="none">
       <circle
-        cx="8"
-        cy="8"
-        r="6"
-        fill="none"
-        stroke="var(--color-surface-1)"
-        strokeWidth="2"
+        cx="12"
+        cy="12"
+        r={R}
+        stroke="var(--color-text-muted)"
+        strokeWidth="2.5"
+        strokeDasharray="3 3"
+        opacity={0.4}
       />
-      <circle
-        cx="8"
-        cy="8"
-        r="6"
-        fill="none"
-        stroke={pct === 100 ? "var(--color-success)" : "var(--color-accent-primary)"}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray={`${pct * 0.377} 100`}
-        transform="rotate(-90 8 8)"
-      />
+      {pct > 0 && (
+        <circle
+          cx="12"
+          cy="12"
+          r={R}
+          stroke="var(--color-accent-primary)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={`${pct * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+          transform="rotate(-90 12 12)"
+        />
+      )}
     </svg>
   );
 }

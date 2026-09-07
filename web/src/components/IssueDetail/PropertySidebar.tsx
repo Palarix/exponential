@@ -637,10 +637,14 @@ export default function PropertySidebar({
           <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-[var(--color-text-muted)]">Branch</span>
-              {issue.branch_stats.head_sha && (
+              {issue.branch_stats.commits > 0 && issue.branch_stats.head_sha ? (
                 <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-2xl border border-[var(--color-border-label)] text-xs font-mono text-[var(--color-text-secondary)]">
                   <GitBranch size={12} strokeWidth={1.5} />
-                  {issue.branch_stats.head_sha}
+                  {issue.branch_stats.head_sha.slice(0, 7)}
+                </span>
+              ) : (
+                <span className="text-xs text-[var(--color-text-muted)] italic">
+                  No commits
                 </span>
               )}
             </div>
@@ -659,6 +663,21 @@ export default function PropertySidebar({
                 <span className="text-[var(--color-text-muted)]">·</span>
                 <span className="text-green-500">+{issue.branch_stats.insertions}</span>
                 <span className="text-red-500">-{issue.branch_stats.deletions}</span>
+              </div>
+            )}
+            {issue.branch_stats.has_uncommitted && (
+              <div className="flex items-center justify-between text-sm mt-1">
+                <span className="text-[var(--color-text-muted)]">
+                  {issue.branch_stats.commits === 0
+                    ? `${issue.branch_stats.files_changed} uncommitted ${issue.branch_stats.files_changed === 1 ? "change" : "changes"}`
+                    : "Uncommitted changes"}
+                </span>
+                {issue.branch_stats.commits === 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-green-500">+{issue.branch_stats.insertions}</span>
+                    <span className="text-red-500">-{issue.branch_stats.deletions}</span>
+                  </span>
+                )}
               </div>
             )}
           </div>

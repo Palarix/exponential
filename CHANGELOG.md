@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Walkthrough tab in the merge view — renders the issue's walkthrough as Markdown and becomes the default tab when present (xpo-3bfbc8)
 
+### Changed
+
+- Branch badges on board/backlog cards now show commit count instead of SHA, with a blue indicator dot for uncommitted changes (xpo-ebb248)
+- Detail sidebar shows "No commits" and uncommitted change details instead of the base branch SHA when a branch has no commits (xpo-ebb248)
+- SubProgress ring uses Lucide-compatible viewBox for proper text alignment, with a dashed track and brand-color progress arc (xpo-ebb248)
+- Artifact count badges unified with branch badge style (rounded-square, bordered) across board and backlog views (xpo-ebb248)
+
 ### Fixed
 
 - Merge view diff/files endpoints now target the correct worktree directory instead of the hub checkout, and normalize diff output prefixes for compatibility with `diff.mnemonicPrefix` git config (xpo-2d6b57)

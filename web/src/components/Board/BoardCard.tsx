@@ -132,8 +132,8 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
             )}
             {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
             {artifactCount > 0 && (
-              <span className="flex items-center gap-0.5 text-xs text-[var(--color-text-muted)]">
-                <Paperclip className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums">
+                <Paperclip size={12} strokeWidth={1.5} />
                 {artifactCount}
               </span>
             )}
