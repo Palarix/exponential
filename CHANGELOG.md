@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xpo history` now renders a visual activity timeline with typed dot markers (`●` events, `○` commits, `◆` merges, `☰` artifacts) connected by a vertical rail; interleaves git commits with issue events; supports `--json`, `--reverse`, `--since <duration>`, `--limit N`, and auto-paging through `$PAGER` (xpo-d82dc7)
+- `xpo history` without arguments shows a project-wide timeline across all issues and recent commits (xpo-d82dc7)
 - Git hooks (`.githooks/`) — commit-msg strips AI-agent trailers and enforces prefix convention; pre-commit runs `go vet` and `eslint` on staged files; pre-push runs the test suite. Activated automatically via `make setup`
 - `xpo pulse` CLI command — compact terminal dashboard of project health metrics (velocity, cycle time, lead time, WIP, blockers, throughput) with color-coded values; supports `--json` for machine-readable output (xpo-9ba68b)
 - `xpo init` now writes a `name:` field to `config.yaml` derived from the folder name, used as the project heading in `xpo pulse` and `xpo board` (xpo-9ba68b)
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CLI accent color (issue IDs, labels) lightened from `#6f42c1` to `#b392f0` for dark terminal readability (xpo-d82dc7)
 - Branch badges on board/backlog cards now show commit count instead of SHA, with a blue indicator dot for uncommitted changes (xpo-ebb248)
 - Detail sidebar shows "No commits" and uncommitted change details instead of the base branch SHA when a branch has no commits (xpo-ebb248)
 - SubProgress ring uses Lucide-compatible viewBox for proper text alignment, with a dashed track and brand-color progress arc (xpo-ebb248)

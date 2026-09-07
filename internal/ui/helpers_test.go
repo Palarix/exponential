@@ -1,10 +1,24 @@
 package ui
 
 import (
+	"io"
+	"os"
 	"testing"
 
 	"github.com/palarix/exponential/internal/model"
 )
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	fn()
+	w.Close()
+	os.Stdout = old
+	out, _ := io.ReadAll(r)
+	return string(out)
+}
 
 func TestTruncate(t *testing.T) {
 	cases := []struct {

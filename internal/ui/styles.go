@@ -21,7 +21,7 @@ var (
 	CanceledColor  = lipgloss.Color("#8b8b8b") // Medium Gray
 	DuplicateColor = lipgloss.Color("#8b8b8b") // Medium Gray
 
-	AccentColor = lipgloss.Color("#6f42c1") // Purple
+	AccentColor = lipgloss.Color("#b392f0") // Purple
 	MutedColor  = lipgloss.Color("#6c757d") // Gray
 	WhiteColor  = lipgloss.Color("#ffffff")
 )

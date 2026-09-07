@@ -10,22 +10,6 @@ import (
 	"github.com/palarix/exponential/internal/model"
 )
 
-type TimelineEntry struct {
-	Kind       string      `json:"kind"`
-	Timestamp  time.Time   `json:"timestamp"`
-	IssueID    string      `json:"issue_id,omitempty"`
-	IssueTitle string      `json:"issue_title,omitempty"`
-	EventType  string      `json:"event_type,omitempty"`
-	Payload    interface{} `json:"payload,omitempty"`
-	CreatedBy  string      `json:"created_by,omitempty"`
-	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
-	Source     string      `json:"source,omitempty"`
-	SHA        string      `json:"sha,omitempty"`
-	Message    string      `json:"message,omitempty"`
-	Author     string      `json:"author,omitempty"`
-	Branch     string      `json:"branch,omitempty"`
-}
-
 func IsMeaningfulActivityEvent(evt model.Event) bool {
 	switch evt.Type {
 	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge, model.EventTypeArtifact:
@@ -130,13 +114,13 @@ func GetCommitDetail(sha string) *CommitDetail {
 	return detail
 }
 
-func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit int, kindFilter string) []TimelineEntry {
+func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit int, kindFilter string) []model.TimelineEntry {
 	titles := make(map[string]string, len(issues))
 	for id, issue := range issues {
 		titles[id] = issue.Title
 	}
 
-	var entries []TimelineEntry
+	var entries []model.TimelineEntry
 
 	if kindFilter == "" || kindFilter == "issue_event" {
 		for i := len(events) - 1; i >= 0; i-- {
@@ -144,7 +128,7 @@ func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit i
 			if !IsMeaningfulActivityEvent(evt) {
 				continue
 			}
-			entries = append(entries, TimelineEntry{
+			entries = append(entries, model.TimelineEntry{
 				Kind:       "issue_event",
 				Timestamp:  evt.CreatedAt,
 				IssueID:    evt.ID,
@@ -163,7 +147,7 @@ func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit i
 		commits := listRecentCommits(base, 500)
 		for _, c := range commits {
 			ts, _ := time.Parse(time.RFC3339, c.Date)
-			entry := TimelineEntry{
+			entry := model.TimelineEntry{
 				Kind:      "commit",
 				Timestamp: ts,
 				SHA:       c.SHA,

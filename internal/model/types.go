@@ -216,3 +216,19 @@ func NormalizeDependencyKind(kind string) string {
 	}
 	return ""
 }
+
+type TimelineEntry struct {
+	Kind       string      `json:"kind"`
+	Timestamp  time.Time   `json:"timestamp"`
+	IssueID    string      `json:"issue_id,omitempty"`
+	IssueTitle string      `json:"issue_title,omitempty"`
+	EventType  string      `json:"event_type,omitempty"`
+	Payload    interface{} `json:"payload,omitempty"`
+	CreatedBy  string      `json:"created_by,omitempty"`
+	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
+	Source     string      `json:"source,omitempty"`
+	SHA        string      `json:"sha,omitempty"`
+	Message    string      `json:"message,omitempty"`
+	Author     string      `json:"author,omitempty"`
+	Branch     string      `json:"branch,omitempty"`
+}
