@@ -310,7 +310,7 @@ export default function IssueDetail({
 
       {banner}
       {/* Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="flex min-h-full max-w-[76rem] mx-auto">
         {/* Main content */}
         <div className="flex-1 min-w-0">
