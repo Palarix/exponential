@@ -252,9 +252,10 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     const aRect = anchor.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
     let top = aRect.bottom + 4;
-    let left = aRect.right - mRect.width;
+    let left = aRect.left + aRect.width / 2 - mRect.width / 2;
     if (top + mRect.height > window.innerHeight - 8) top = aRect.top - mRect.height - 4;
     if (left < 8) left = 8;
+    if (left + mRect.width > window.innerWidth - 8) left = window.innerWidth - mRect.width - 8;
     menu.style.top = `${top}px`;
     menu.style.left = `${left}px`;
     menu.style.visibility = "visible";

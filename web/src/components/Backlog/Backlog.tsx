@@ -6,6 +6,7 @@ import {
   useMemo,
   useContext,
 } from "react";
+import { createPortal } from "react-dom";
 import { generateKeyBetween } from "fractional-indexing";
 import {
   DndContext,
@@ -1137,6 +1138,23 @@ export default function Backlog({
     return () => document.removeEventListener("mousedown", handler);
   }, [showViewMenu]);
 
+  useEffect(() => {
+    if (!showViewMenu) return;
+    const btn = viewBtnRef.current;
+    const menu = viewMenuRef.current;
+    if (!btn || !menu) return;
+    const aRect = btn.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    let top = aRect.bottom + 4;
+    let left = aRect.left + aRect.width / 2 - mRect.width / 2;
+    if (top + mRect.height > window.innerHeight - 8) top = aRect.top - mRect.height - 4;
+    if (left < 8) left = 8;
+    if (left + mRect.width > window.innerWidth - 8) left = window.innerWidth - mRect.width - 8;
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    menu.style.visibility = "visible";
+  }, [showViewMenu]);
+
   // Stable refs for keyboard handler
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -1413,7 +1431,7 @@ export default function Backlog({
               />
             )}
           </div>
-          <div className="relative">
+          <div>
             <Tooltip content="View options">
               <button
                 ref={viewBtnRef}
@@ -1423,10 +1441,11 @@ export default function Backlog({
                 <Settings2 size={14} />
               </button>
             </Tooltip>
-            {showViewMenu && (
+            {showViewMenu && createPortal(
               <div
                 ref={viewMenuRef}
-                className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
+                style={{ position: "fixed", visibility: "hidden" }}
+                className="z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
               >
                 {childrenByParent.size > 0 && (
                   <>
@@ -1616,7 +1635,8 @@ export default function Backlog({
                     )}
                   </button>
                 ))}
-              </div>
+              </div>,
+              document.body,
             )}
           </div>
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
