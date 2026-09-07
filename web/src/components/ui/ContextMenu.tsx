@@ -99,6 +99,7 @@ export default function ContextMenu({
   patchIssue,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const subMenuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [subMenu, setSubMenu] = useState<SubMenu>(null);
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -140,13 +141,39 @@ export default function ContextMenu({
     el.style.left = `${left}px`;
   }, [x, y]);
 
+  useLayoutEffect(() => {
+    const sub = subMenuRef.current;
+    const menu = menuRef.current;
+    if (!sub || !menu) return;
+    const pad = 8;
+    const menuRect = menu.getBoundingClientRect();
+    const subRect = sub.getBoundingClientRect();
+    const gap = 4;
+    let top = menuRect.top + Math.max(0, subMenuOffset - 30);
+    let left = menuRect.right + gap;
+    if (left + subRect.width > window.innerWidth - pad) {
+      left = menuRect.left - subRect.width - gap;
+    }
+    if (left < pad) left = pad;
+    if (top + subRect.height > window.innerHeight - pad) {
+      top = window.innerHeight - subRect.height - pad;
+    }
+    if (top < pad) top = pad;
+    sub.style.top = `${top}px`;
+    sub.style.left = `${left}px`;
+    sub.style.visibility = "visible";
+  }, [subMenu, subMenuOffset]);
+
   // Click-outside: armed after first frame to avoid closing on the triggering right-click
   useEffect(() => {
     let armed = false;
     const armTimer = requestAnimationFrame(() => { armed = true; });
     const handleClick = (e: MouseEvent) => {
       if (!armed) return;
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeAll();
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        (!subMenuRef.current || !subMenuRef.current.contains(e.target as Node))
+      ) closeAll();
     };
     document.addEventListener("mousedown", handleClick);
     return () => {
@@ -372,7 +399,8 @@ export default function ContextMenu({
   }
 
   return createPortal(
-    <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] flex items-start">
+    <>
+    <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100]">
       {/* Main menu */}
       <div className="min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden">
         {MENU_ITEMS.map((item, i) => (
@@ -420,16 +448,18 @@ export default function ContextMenu({
         </button>
       </div>
 
-      {/* Flyout sub-menu */}
-      {subMenu && (
-        <div
-          className="min-w-50 max-w-70 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden ml-1"
-          style={{ marginTop: Math.max(0, subMenuOffset - 30) }}
-        >
-          {renderSubMenuPanel()}
-        </div>
-      )}
-    </div>,
+    </div>
+    {/* Flyout sub-menu */}
+    {subMenu && (
+      <div
+        ref={subMenuRef}
+        style={{ position: "fixed", visibility: "hidden" }}
+        className="z-[100] min-w-50 max-w-70 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] overflow-hidden"
+      >
+        {renderSubMenuPanel()}
+      </div>
+    )}
+    </>,
     document.body,
   );
 }
