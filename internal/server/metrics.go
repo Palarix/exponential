@@ -11,24 +11,24 @@ import (
 	"github.com/palarix/exponential/internal/model"
 )
 
-// attentionKind classifies why an issue is surfaced in the Attention card.
-type attentionKind string
+// AttentionKind classifies why an issue is surfaced in the Attention card.
+type AttentionKind string
 
 const (
-	attentionBlocker      attentionKind = "blocker"
-	attentionStaleWIP     attentionKind = "stale_wip"
-	attentionHighPriority attentionKind = "high_priority"
+	AttentionBlocker      AttentionKind = "blocker"
+	AttentionStaleWIP     AttentionKind = "stale_wip"
+	AttentionHighPriority AttentionKind = "high_priority"
 )
 
-type attentionItem struct {
+type AttentionItem struct {
 	IssueID  string        `json:"issue_id"`
 	Title    string        `json:"title"`
-	Kind     attentionKind `json:"kind"`
+	Kind     AttentionKind `json:"kind"`
 	AgeDays  int           `json:"age_days,omitempty"`
 	Priority int           `json:"priority,omitempty"`
 }
 
-type workloadEntry struct {
+type WorkloadEntry struct {
 	Assignee      string `json:"assignee"`
 	InProgress    int    `json:"in_progress"`
 	OpenPoints    int    `json:"open_points"`
@@ -36,13 +36,13 @@ type workloadEntry struct {
 	LastCompleted string `json:"last_completed,omitempty"` // YYYY-MM-DD
 }
 
-type weeklyTrend struct {
+type WeeklyTrend struct {
 	WeekStart string `json:"week_start"`
 	Created   int    `json:"created"`
 	Completed int    `json:"completed"`
 }
 
-type ageBuckets struct {
+type AgeBuckets struct {
 	Under1d  int `json:"under_1d"`
 	Under3d  int `json:"under_3d"`
 	Under7d  int `json:"under_7d"`
@@ -51,7 +51,7 @@ type ageBuckets struct {
 	Over30d  int `json:"over_30d"`
 }
 
-type bugAgeBuckets struct {
+type BugAgeBuckets struct {
 	Under24h int `json:"under_24h"`
 	Under48h int `json:"under_48h"`
 	Under5d  int `json:"under_5d"`
@@ -60,14 +60,14 @@ type bugAgeBuckets struct {
 	Over1mo  int `json:"over_1mo"`
 }
 
-type trendsBlock struct {
-	Weekly             []weeklyTrend `json:"weekly"`
+type TrendsBlock struct {
+	Weekly             []WeeklyTrend `json:"weekly"`
 	MedianTriageMins   int           `json:"median_triage_mins"`
 	TriagedCount       int           `json:"triaged_count"`
-	BugAge             bugAgeBuckets `json:"bug_age"`
+	BugAge             BugAgeBuckets `json:"bug_age"`
 }
 
-type epicProgress struct {
+type EpicProgress struct {
 	IssueID         string `json:"issue_id"`
 	Title           string `json:"title"`
 	ChildrenDone    int    `json:"children_done"`
@@ -81,24 +81,24 @@ type epicProgress struct {
 // staleWipDays is the threshold beyond which an issue in DOING is considered stale.
 const staleWipDays = 5
 
-type velocityBucket struct {
+type VelocityBucket struct {
 	WeekStart string `json:"week_start"` // YYYY-MM-DD (Monday)
 	Points    int    `json:"points"`
 }
 
-type dailyBucket struct {
+type DailyBucket struct {
 	Date   string `json:"date"` // YYYY-MM-DD
 	Points int    `json:"points"`
 }
 
-type pulseMetrics struct {
+type PulseMetrics struct {
 	Velocity struct {
 		CurrentWeekPoints int              `json:"current_week_points"`
 		Last7dPoints      int              `json:"last_7d_points"`
 		Prior7dPoints     int              `json:"prior_7d_points"`
 		Delta             int              `json:"delta"`
-		WeeklyBuckets     []velocityBucket `json:"weekly_buckets"`
-		DailyBuckets      []dailyBucket    `json:"daily_buckets"`
+		WeeklyBuckets     []VelocityBucket `json:"weekly_buckets"`
+		DailyBuckets      []DailyBucket    `json:"daily_buckets"`
 	} `json:"velocity"`
 	Throughput struct {
 		Last7d  int `json:"last_7d"`
@@ -127,13 +127,13 @@ type pulseMetrics struct {
 		LeadTimeMinHrs  float64    `json:"lead_time_min_hrs"`
 		LeadTimeMaxHrs  float64    `json:"lead_time_max_hrs"`
 		LeadCount       int        `json:"lead_count"`
-		Staleness        ageBuckets `json:"staleness"`
+		Staleness        AgeBuckets `json:"staleness"`
 		StalenessTotal   int        `json:"staleness_total"`
 	} `json:"flow"`
-	Attention []attentionItem `json:"attention"`
-	Workload  []workloadEntry `json:"workload"`
-	Epics     []epicProgress  `json:"epics"`
-	Trends    trendsBlock     `json:"trends"`
+	Attention []AttentionItem `json:"attention"`
+	Workload  []WorkloadEntry `json:"workload"`
+	Epics     []EpicProgress  `json:"epics"`
+	Trends    TrendsBlock     `json:"trends"`
 }
 
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
@@ -142,11 +142,11 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusInternalServerError, "failed to load issues")
 		return
 	}
-	respondJSON(w, http.StatusOK, computePulseMetrics(issues, time.Now()))
+	respondJSON(w, http.StatusOK, ComputePulseMetrics(issues, time.Now()))
 }
 
-func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMetrics {
-	var m pulseMetrics
+func ComputePulseMetrics(issues map[string]*model.Issue, now time.Time) PulseMetrics {
+	var m PulseMetrics
 	m.WIP.StaleThresholdDays = staleWipDays
 
 	// Calendar-week boundaries for velocity/throughput comparison.
@@ -176,21 +176,21 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	}
 
 	// Trend buckets (created/completed issue counts per week, same 8-week window).
-	trendByKey := make(map[string]*weeklyTrend, len(bucketOrder))
+	trendByKey := make(map[string]*WeeklyTrend, len(bucketOrder))
 	for _, k := range bucketOrder {
-		trendByKey[k] = &weeklyTrend{WeekStart: k}
+		trendByKey[k] = &WeeklyTrend{WeekStart: k}
 	}
 
 	var triageDurations []time.Duration
 	var cycleTimes []time.Duration
 	var leadTimes []time.Duration
-	var staleness ageBuckets
+	var staleness AgeBuckets
 	var stalenessTotal int
-	var bugAge bugAgeBuckets
+	var bugAge BugAgeBuckets
 
-	var blockerCandidates, staleCandidates, highPriorityCandidates []attentionItem
+	var blockerCandidates, staleCandidates, highPriorityCandidates []AttentionItem
 	type workAccum struct {
-		entry            workloadEntry
+		entry            WorkloadEntry
 		lastCompletedAt  *time.Time
 	}
 	workload := make(map[string]*workAccum)
@@ -321,10 +321,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 			if doingAt != nil && int(now.Sub(*doingAt).Hours()/24) > staleWipDays {
 				age := int(now.Sub(*doingAt).Hours() / 24)
 				m.WIP.Stale++
-				staleCandidates = append(staleCandidates, attentionItem{
+				staleCandidates = append(staleCandidates, AttentionItem{
 					IssueID: issue.ID,
 					Title:   issue.Title,
-					Kind:    attentionStaleWIP,
+					Kind:    AttentionStaleWIP,
 					AgeDays: age,
 				})
 			}
@@ -339,10 +339,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 					m.Blockers.OldestDays = age
 				}
 			}
-			blockerCandidates = append(blockerCandidates, attentionItem{
+			blockerCandidates = append(blockerCandidates, AttentionItem{
 				IssueID: issue.ID,
 				Title:   issue.Title,
-				Kind:    attentionBlocker,
+				Kind:    AttentionBlocker,
 				AgeDays: age,
 			})
 		}
@@ -350,10 +350,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		// Urgent priority not started: priority Urgent (1), status BACKLOG or PLANNED.
 		if issue.Priority == 1 &&
 			(issue.Status == model.StatusBacklog || issue.Status == model.StatusPlanned) {
-			highPriorityCandidates = append(highPriorityCandidates, attentionItem{
+			highPriorityCandidates = append(highPriorityCandidates, AttentionItem{
 				IssueID:  issue.ID,
 				Title:    issue.Title,
-				Kind:     attentionHighPriority,
+				Kind:     AttentionHighPriority,
 				Priority: issue.Priority,
 			})
 		}
@@ -362,7 +362,7 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		if issue.Assignee != "" {
 			wa := workload[issue.Assignee]
 			if wa == nil {
-				wa = &workAccum{entry: workloadEntry{Assignee: issue.Assignee}}
+				wa = &workAccum{entry: WorkloadEntry{Assignee: issue.Assignee}}
 				workload[issue.Assignee] = wa
 			}
 			if model.IsCompleted(issue.Status) {
@@ -386,15 +386,15 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	m.Velocity.Delta = m.Velocity.Last7dPoints - m.Velocity.Prior7dPoints
 
 	for _, key := range bucketOrder {
-		m.Velocity.WeeklyBuckets = append(m.Velocity.WeeklyBuckets, velocityBucket{
+		m.Velocity.WeeklyBuckets = append(m.Velocity.WeeklyBuckets, VelocityBucket{
 			WeekStart: key,
 			Points:    bucketsByKey[key],
 		})
 	}
 
-	m.Velocity.DailyBuckets = make([]dailyBucket, 0, len(dailyOrder))
+	m.Velocity.DailyBuckets = make([]DailyBucket, 0, len(dailyOrder))
 	for _, key := range dailyOrder {
-		m.Velocity.DailyBuckets = append(m.Velocity.DailyBuckets, dailyBucket{
+		m.Velocity.DailyBuckets = append(m.Velocity.DailyBuckets, DailyBucket{
 			Date:   key,
 			Points: dailyByKey[key],
 		})
@@ -410,8 +410,8 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	sort.Slice(highPriorityCandidates, func(i, j int) bool {
 		return highPriorityCandidates[i].Priority < highPriorityCandidates[j].Priority
 	})
-	m.Attention = make([]attentionItem, 0, 5)
-	for _, group := range [][]attentionItem{blockerCandidates, staleCandidates, highPriorityCandidates} {
+	m.Attention = make([]AttentionItem, 0, 5)
+	for _, group := range [][]AttentionItem{blockerCandidates, staleCandidates, highPriorityCandidates} {
 		for _, item := range group {
 			if len(m.Attention) == 5 {
 				break
@@ -424,7 +424,7 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 	}
 
 	// Workload: stable sort by in-progress desc, then open points desc.
-	m.Workload = make([]workloadEntry, 0, len(workload))
+	m.Workload = make([]WorkloadEntry, 0, len(workload))
 	for _, wa := range workload {
 		if wa.lastCompletedAt != nil {
 			wa.entry.LastCompleted = wa.lastCompletedAt.Format("2006-01-02")
@@ -438,10 +438,10 @@ func computePulseMetrics(issues map[string]*model.Issue, now time.Time) pulseMet
 		return m.Workload[i].OpenPoints > m.Workload[j].OpenPoints
 	})
 
-	m.Epics = computeEpicProgress(issues, now)
+	m.Epics = ComputeEpicProgress(issues, now)
 
 	// Trends block.
-	m.Trends.Weekly = make([]weeklyTrend, 0, len(bucketOrder))
+	m.Trends.Weekly = make([]WeeklyTrend, 0, len(bucketOrder))
 	for _, k := range bucketOrder {
 		m.Trends.Weekly = append(m.Trends.Weekly, *trendByKey[k])
 	}
@@ -493,12 +493,12 @@ func hasBugLabel(labels []string) bool {
 	return false
 }
 
-// computeEpicProgress returns one row per active epic. An "epic" is an issue
+// ComputeEpicProgress returns one row per active epic. An "epic" is an issue
 // labeled "epic" (case-insensitive), with at least one child, in an active
 // status (PLANNED / DOING / BLOCKED). BACKLOG epics are queued, not active,
 // and DONE epics are completed — both excluded.
 // Sorted by remaining points desc — biggest active initiative first.
-func computeEpicProgress(issues map[string]*model.Issue, now time.Time) []epicProgress {
+func ComputeEpicProgress(issues map[string]*model.Issue, now time.Time) []EpicProgress {
 	// Index immediate children by parent id.
 	childrenByParent := make(map[string][]*model.Issue)
 	for _, issue := range issues {
@@ -509,7 +509,7 @@ func computeEpicProgress(issues map[string]*model.Issue, now time.Time) []epicPr
 	}
 
 	staleThreshold := now.Add(-staleWipDays * 24 * time.Hour)
-	out := make([]epicProgress, 0)
+	out := make([]EpicProgress, 0)
 	for _, issue := range issues {
 		if issue.Deleted || !hasEpicLabel(issue.Labels) {
 			continue
@@ -522,7 +522,7 @@ func computeEpicProgress(issues map[string]*model.Issue, now time.Time) []epicPr
 			continue
 		}
 
-		ep := epicProgress{
+		ep := EpicProgress{
 			IssueID:       issue.ID,
 			Title:         issue.Title,
 			ChildrenTotal: len(children),

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xpo pulse` CLI command — compact terminal dashboard of project health metrics (velocity, cycle time, lead time, WIP, blockers, throughput) with color-coded values; supports `--json` for machine-readable output (xpo-9ba68b)
+- `xpo init` now writes a `name:` field to `config.yaml` derived from the folder name, used as the project heading in `xpo pulse` and `xpo board` (xpo-9ba68b)
 - Empty state messaging for Backlog, Active, and Done filtered views — shows tab-specific or filter-aware hints instead of a blank screen (xpo-5a17a7)
 - Walkthrough tab in the merge view — renders the issue's walkthrough as Markdown and becomes the default tab when present (xpo-3bfbc8)
 
