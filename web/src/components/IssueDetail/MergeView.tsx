@@ -266,7 +266,7 @@ export default function MergeView({ issue, onClose, onMerged }: MergeViewProps) 
       <div className="flex-1 overflow-hidden">
         {activeTab === "walkthrough" && (
           <div className="h-full overflow-y-auto px-8 py-6">
-            <div className="prose-exponential text-sm max-w-3xl">
+            <div className="prose-exponential text-sm max-w-[52rem] mx-auto">
               <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{walkthroughContent}</Markdown>
             </div>
           </div>
@@ -584,37 +584,39 @@ function ConversationTab({ issue, newComment, onNewCommentChange, onAddComment, 
   const comments = issue.comments || [];
   return (
     <div className="h-full overflow-y-auto">
-      {comments.length === 0 && !newComment && (
-        <div className="px-5 py-12 text-center text-sm text-[var(--color-text-muted)]">No comments yet.</div>
-      )}
-      <div className="divide-y divide-[var(--color-border-subtle)]">
-        {comments.map((c) => (
-          <div key={c.id} className="px-5 py-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Avatar name={c.created_by} size="sm" />
-              <span className="text-sm font-medium text-[var(--color-text-primary)]">{c.created_by.split(" <")[0]}</span>
-              <span className="text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.created_at)}</span>
+      <div className="max-w-[52rem] mx-auto">
+        {comments.length === 0 && !newComment && (
+          <div className="px-5 py-12 text-center text-sm text-[var(--color-text-muted)]">No comments yet.</div>
+        )}
+        <div className="divide-y divide-[var(--color-border-subtle)]">
+          {comments.map((c) => (
+            <div key={c.id} className="px-5 py-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Avatar name={c.created_by} size="sm" />
+                <span className="text-sm font-medium text-[var(--color-text-primary)]">{c.created_by.split(" <")[0]}</span>
+                <span className="text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.created_at)}</span>
+              </div>
+              <div className="prose-exponential text-sm pl-8">
+                <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{c.text}</Markdown>
+              </div>
             </div>
-            <div className="prose-exponential text-sm pl-8">
-              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{c.text}</Markdown>
-            </div>
+          ))}
+        </div>
+        {/* Comment input */}
+        <div className="px-5 py-4 border-t border-[var(--color-border-subtle)]">
+          <textarea
+            value={newComment}
+            onChange={(e) => onNewCommentChange(e.target.value)}
+            placeholder="Leave a comment..."
+            rows={3}
+            className="w-full text-sm bg-[var(--color-surface-1)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
+          />
+          <div className="flex justify-end mt-2">
+            <button onClick={onAddComment} disabled={saving || !newComment.trim()}
+              className="px-4 py-1.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40">
+              {saving ? "Saving..." : "Comment"}
+            </button>
           </div>
-        ))}
-      </div>
-      {/* Comment input */}
-      <div className="px-5 py-4 border-t border-[var(--color-border-subtle)]">
-        <textarea
-          value={newComment}
-          onChange={(e) => onNewCommentChange(e.target.value)}
-          placeholder="Leave a comment..."
-          rows={3}
-          className="w-full text-sm bg-[var(--color-surface-1)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
-        />
-        <div className="flex justify-end mt-2">
-          <button onClick={onAddComment} disabled={saving || !newComment.trim()}
-            className="px-4 py-1.5 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40">
-            {saving ? "Saving..." : "Comment"}
-          </button>
         </div>
       </div>
     </div>
