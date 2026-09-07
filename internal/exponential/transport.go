@@ -37,4 +37,7 @@ type Transport interface {
 	WriteWalkthrough(issueID, content string) error
 	ReadWalkthrough(issueID string) (string, error)
 	DeleteWalkthrough(issueID string) error
+
+	// Search
+	SearchRationale(query string, limit int) (*RationaleSearchResult, error)
 }

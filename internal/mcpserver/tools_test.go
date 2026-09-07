@@ -590,3 +590,157 @@ func TestShowArtifactsEmptyByDefault(t *testing.T) {
 		t.Errorf("expected empty artifacts, got %d", len(showRes.Artifacts))
 	}
 }
+
+// --- Rationale search tests ---
+
+func TestRationaleBasicSearch(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
+		Title:  "Branch badge display",
+		Status: "PLANNED",
+		Labels: []string{"feature"},
+	})
+
+	ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: a.ID,
+		Content: "# Spec\n\nThe branch badge should display the short git ref name.\n\n## Details\n\nTruncate to 8 characters for readability.",
+	})
+
+	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "branch badge"})
+	if err != nil {
+		t.Fatalf("rationale failed: %v", err)
+	}
+	if len(res.Results) == 0 {
+		t.Fatal("expected at least one result")
+	}
+	if res.Results[0].IssueID != a.ID {
+		t.Errorf("expected issue %s, got %s", a.ID, res.Results[0].IssueID)
+	}
+	if res.Results[0].Document != "spec" {
+		t.Errorf("expected document 'spec', got %q", res.Results[0].Document)
+	}
+	if res.Results[0].Fragment == "" {
+		t.Error("expected non-empty fragment")
+	}
+}
+
+func TestRationaleNoMatches(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Something"})
+	ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: a.ID,
+		Content: "This spec is about widgets.",
+	})
+
+	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "nonexistent term zzzzz"})
+	if err != nil {
+		t.Fatalf("rationale failed: %v", err)
+	}
+	if len(res.Results) != 0 {
+		t.Errorf("expected 0 results, got %d", len(res.Results))
+	}
+}
+
+func TestRationaleEmptyQuery(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, _, err := ts.rationale(context.Background(), nil, rationaleIn{Query: ""})
+	if err == nil {
+		t.Fatal("expected error for empty query")
+	}
+}
+
+func TestRationaleLimit(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	for i := 0; i < 5; i++ {
+		_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
+			Title: "Feature with widget",
+		})
+		ts.spec(context.Background(), nil, specIn{
+			Operation: "write", IssueID: a.ID,
+			Content: "This spec describes a widget implementation approach.",
+		})
+	}
+
+	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "widget", Limit: 2})
+	if err != nil {
+		t.Fatalf("rationale failed: %v", err)
+	}
+	if len(res.Results) != 2 {
+		t.Errorf("expected 2 results with limit=2, got %d", len(res.Results))
+	}
+	if res.TotalMatches != 5 {
+		t.Errorf("expected 5 total matches, got %d", res.TotalMatches)
+	}
+}
+
+func TestRationaleTitleBoost(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	// Issue A: "widget" in title and spec content.
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
+		Title: "Widget design rationale",
+	})
+	ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: a.ID,
+		Content: "The widget should render as a card.",
+	})
+
+	// Issue B: "widget" only in spec content, different title.
+	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{
+		Title: "Card layout system",
+	})
+	ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: b.ID,
+		Content: "The widget should render as a card.",
+	})
+
+	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "widget"})
+	if err != nil {
+		t.Fatalf("rationale failed: %v", err)
+	}
+	if len(res.Results) < 2 {
+		t.Fatalf("expected at least 2 results, got %d", len(res.Results))
+	}
+	if res.Results[0].IssueID != a.ID {
+		t.Errorf("expected title-boosted issue %s first, got %s", a.ID, res.Results[0].IssueID)
+	}
+}
+
+func TestRationaleSearchesBothSpecAndWalkthrough(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Feature X"})
+	ts.spec(context.Background(), nil, specIn{
+		Operation: "write", IssueID: a.ID,
+		Content: "The sorting algorithm uses quicksort.",
+	})
+	ts.walkthrough(context.Background(), nil, walkthroughIn{
+		Operation: "write", IssueID: a.ID,
+		Content: "Implemented quicksort with a median-of-three pivot.",
+	})
+
+	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "quicksort"})
+	if err != nil {
+		t.Fatalf("rationale failed: %v", err)
+	}
+	if len(res.Results) != 2 {
+		t.Fatalf("expected 2 results (spec + walkthrough), got %d", len(res.Results))
+	}
+	docs := map[string]bool{}
+	for _, r := range res.Results {
+		docs[r.Document] = true
+	}
+	if !docs["spec"] || !docs["walkthrough"] {
+		t.Errorf("expected both spec and walkthrough, got %v", docs)
+	}
+}

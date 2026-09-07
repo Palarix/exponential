@@ -231,6 +231,30 @@ type artifactOut struct {
 	Error     string             `json:"error,omitempty"`
 }
 
+// --- Rationale search types ---
+
+type rationaleIn struct {
+	Query string `json:"query" jsonschema:"Free-text search query"`
+	Limit int    `json:"limit,omitempty" jsonschema:"Max results to return (default 5, max 20)"`
+}
+
+type rationaleOut struct {
+	Results      []rationaleHit `json:"results"`
+	Query        string         `json:"query"`
+	TotalMatches int            `json:"total_matches"`
+}
+
+type rationaleHit struct {
+	IssueID   string   `json:"issue_id"`
+	Title     string   `json:"title"`
+	Status    string   `json:"status"`
+	Labels    []string `json:"labels,omitempty"`
+	Document  string   `json:"document"`
+	Fragment  string   `json:"fragment"`
+	Score     float64  `json:"score"`
+	UpdatedAt string   `json:"updated_at"`
+}
+
 // --- Registration ---
 
 func (t *toolset) register(s *mcp.Server) {
@@ -293,6 +317,11 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "artifact",
 		Description: "Manage generic file artifacts on an issue. Use `add` to attach a file, `read` to retrieve it, `delete` to remove it, `list` to see all artifacts. Cannot write to spec.md or walkthrough.md — use the dedicated spec/walkthrough tools for those.",
 	}, t.artifact)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "rationale",
+		Description: "Search across specs and walkthroughs for design rationale. Returns matching fragments ranked by relevance (BM25 scoring with title/label boost and proximity bonus). Use this to find prior design decisions before modifying code or writing a new spec.",
+	}, t.rationale)
 }
 
 // --- Handlers ---
@@ -696,6 +725,35 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in art
 		return nil, artifactOut{OK: false, Error: "invalid operation: must be add, read, delete, or list"},
 			fmt.Errorf("invalid operation %q: must be add, read, delete, or list", in.Operation)
 	}
+}
+
+func (t *toolset) rationale(ctx context.Context, req *mcp.CallToolRequest, in rationaleIn) (*mcp.CallToolResult, rationaleOut, error) {
+	if in.Query == "" {
+		return nil, rationaleOut{}, fmt.Errorf("'query' is required")
+	}
+	c := t.clientFor(req)
+	result, err := c.SearchRationale(in.Query, in.Limit)
+	if err != nil {
+		return nil, rationaleOut{}, err
+	}
+	out := rationaleOut{
+		Query:        result.Query,
+		TotalMatches: result.TotalMatches,
+		Results:      make([]rationaleHit, len(result.Results)),
+	}
+	for i, r := range result.Results {
+		out.Results[i] = rationaleHit{
+			IssueID:   r.IssueID,
+			Title:     r.Title,
+			Status:    r.Status,
+			Labels:    r.Labels,
+			Document:  r.Document,
+			Fragment:  r.Fragment,
+			Score:     r.Score,
+			UpdatedAt: r.UpdatedAt,
+		}
+	}
+	return textResult(fmt.Sprintf("%d result(s) for %q", len(out.Results), in.Query)), out, nil
 }
 
 // --- Helpers ---

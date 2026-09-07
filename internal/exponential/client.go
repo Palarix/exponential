@@ -331,6 +331,11 @@ func (c *Client) DeleteWalkthrough(issueID string) error {
 	return c.Transport.DeleteWalkthrough(issueID)
 }
 
+func (c *Client) SearchRationale(query string, limit int) (*RationaleSearchResult, error) {
+	c.syncLocal()
+	return c.Transport.SearchRationale(query, limit)
+}
+
 // resolveIssue is a convenience for git-only methods that need to resolve
 // an issue ID from a projected issue map.
 func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {

@@ -138,7 +138,7 @@ func TestEndToEndListsAllTools(t *testing.T) {
 	want := map[string]bool{
 		"list": false, "show": false, "history": false,
 		"add": false, "update": false, "comment": false, "link": false,
-		"start": false, "merge": false,
+		"start": false, "merge": false, "rationale": false,
 	}
 	for _, tool := range res.Tools {
 		if _, ok := want[tool.Name]; ok {

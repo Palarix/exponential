@@ -391,6 +391,10 @@ func (t *RemoteTransport) DeleteWalkthrough(issueID string) error {
 	return ErrLocalOnly
 }
 
+func (t *RemoteTransport) SearchRationale(query string, limit int) (*RationaleSearchResult, error) {
+	return nil, ErrLocalOnly
+}
+
 func (r *RemoteTransport) GetUser() string {
 	if r.User != "" {
 		return r.User

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xpo rationale` CLI command and MCP tool — BM25-ranked full-text search across specs and walkthroughs for design rationale; supports `--top N` / `-n N` and `--json`; rich terminal output with colored scores, document types, labels, and clickable artifact paths (xpo-d6b4de)
 - `xpo history` now renders a visual activity timeline with typed dot markers (`●` events, `○` commits, `◆` merges, `☰` artifacts) connected by a vertical rail; interleaves git commits with issue events; supports `--json`, `--reverse`, `--since <duration>`, `--limit N`, and auto-paging through `$PAGER` (xpo-d82dc7)
 - `xpo history` without arguments shows a project-wide timeline across all issues and recent commits (xpo-d82dc7)
 - Git hooks (`.githooks/`) — commit-msg strips AI-agent trailers and enforces prefix convention; pre-commit runs `go vet` and `eslint` on staged files; pre-push runs the test suite. Activated automatically via `make setup`
