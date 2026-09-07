@@ -697,19 +697,24 @@ export default function PropertySidebar({
               {issue.dependencies.map((dep, i) => {
                 const target = issues.find(t => t.id === dep.target_id) ?? issues.find(t => t.id.endsWith(dep.target_id));
                 return (
-                  <div key={i} className="group flex items-center gap-2 text-sm">
+                  <div
+                    key={i}
+                    className="group flex items-center gap-2 text-sm rounded-[var(--radius-sm)] -mx-1 px-1 py-0.5 hover:bg-[var(--color-hover-surface)] cursor-pointer transition-colors"
+                    onClick={() => { window.location.hash = `#/dependencies/${issue.id}`; }}
+                  >
                     <span className="text-[var(--color-text-muted)] shrink-0">{dep.kind.replace(/_/g, " ")}</span>
                     {target ? (
                       <>
                         <StatusIcon status={target.status} size={12} isInferred={target.is_inferred} />
-                        <a href={`#/issues/${target.id}`} className="text-[var(--color-text-primary)] hover:text-[var(--color-accent-primary)] truncate" onClick={(e) => e.stopPropagation()}>
-                          {target.title}
-                        </a>
+                        <span className="text-[var(--color-text-primary)] truncate">{target.title}</span>
                       </>
                     ) : (
                       <span className="text-[var(--color-text-muted)] italic truncate">{dep.target_id} (deleted)</span>
                     )}
-                    <button onClick={() => handleRemoveRelation(i)} className="ml-auto shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRemoveRelation(i); }}
+                      className="ml-auto shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>

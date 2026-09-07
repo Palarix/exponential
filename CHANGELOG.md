@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Dependencies view: interactive dependency graph — filterable table as default with kind/search/completed filters, click-to-drill-down graph powered by dagre for exploring dependency chains; relationship-aware resolved logic; entry from issue detail property sidebar (xpo-a49ec2)
 - `xpo rationale` CLI command and MCP tool — BM25-ranked full-text search across specs and walkthroughs for design rationale; supports `--top N` / `-n N` and `--json`; rich terminal output with colored scores, document types, labels, and clickable artifact paths (xpo-d6b4de)
 - `xpo history` now renders a visual activity timeline with typed dot markers (`●` events, `○` commits, `◆` merges, `☰` artifacts) connected by a vertical rail; interleaves git commits with issue events; supports `--json`, `--reverse`, `--since <duration>`, `--limit N`, and auto-paging through `$PAGER` (xpo-d82dc7)
 - `xpo history` without arguments shows a project-wide timeline across all issues and recent commits (xpo-d82dc7)

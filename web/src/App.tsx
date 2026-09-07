@@ -63,25 +63,30 @@ const ROUTE_VIEWS: Record<View, string> = {
   timeline: 'timeline',
 };
 
-function parseHash(): { view: View; issueId: string | null; cycleId: string | null } {
+function parseHash(): { view: View; issueId: string | null; cycleId: string | null; depFocusId: string | null } {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const parts = hash.split('/');
   if (parts[0] === 'issues' && parts[1]) {
-    return { view: 'backlog', issueId: parts[1], cycleId: null };
+    return { view: 'backlog', issueId: parts[1], cycleId: null, depFocusId: null };
   }
   if (parts[0] === 'cycles' && parts[1]) {
-    return { view: 'cycles', issueId: null, cycleId: parts[1] };
+    return { view: 'cycles', issueId: null, cycleId: parts[1], depFocusId: null };
+  }
+  if (parts[0] === 'dependencies' && parts[1]) {
+    return { view: 'dependencies', issueId: null, cycleId: null, depFocusId: parts[1] };
   }
   const view = VIEW_ROUTES[parts[0]];
-  return { view: view || 'dashboard', issueId: null, cycleId: null };
+  return { view: view || 'dashboard', issueId: null, cycleId: null, depFocusId: null };
 }
 
-function setHash(view: View, issueId: string | null, cycleId?: string | null) {
+function setHash(view: View, issueId: string | null, cycleId?: string | null, depFocusId?: string | null) {
   let route: string;
   if (issueId) {
     route = `issues/${issueId}`;
   } else if (view === 'cycles' && cycleId) {
     route = `cycles/${cycleId}`;
+  } else if (view === 'dependencies' && depFocusId) {
+    route = `dependencies/${depFocusId}`;
   } else {
     route = ROUTE_VIEWS[view];
   }
@@ -114,6 +119,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(initial.issueId);
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(initial.cycleId);
+  const [depFocusId, setDepFocusId] = useState<string | null>(initial.depFocusId);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -186,8 +192,8 @@ function App() {
   const navigationOrder = backlogNavOrder.length > 0 ? backlogNavOrder : defaultNavOrder;
 
   useEffect(() => {
-    setHash(view, selectedIssueId, selectedCycleId);
-  }, [view, selectedIssueId, selectedCycleId]);
+    setHash(view, selectedIssueId, selectedCycleId, depFocusId);
+  }, [view, selectedIssueId, selectedCycleId, depFocusId]);
 
   useEffect(() => {
     const label = selectedIssueId || VIEW_LABELS[view];
@@ -196,10 +202,11 @@ function App() {
 
   useEffect(() => {
     const onHashChange = () => {
-      const { view: v, issueId, cycleId } = parseHash();
+      const { view: v, issueId, cycleId, depFocusId: dfId } = parseHash();
       setView(v);
       setSelectedIssueId(issueId);
       setSelectedCycleId(cycleId);
+      setDepFocusId(dfId);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -324,6 +331,7 @@ function App() {
   const handleViewChange = (v: View) => {
     setSelectedIssueId(null);
     setSelectedCycleId(null);
+    setDepFocusId(null);
     setView(v);
   };
 
@@ -463,7 +471,7 @@ function App() {
       case 'board':
         return <Board issues={issues} onRefresh={fetchData} onIssueClick={handleIssueClick} onNewIssue={() => setShowNewIssue(true)} contributors={contributors} onConfigLabelsChange={setConfigLabels} patchIssue={patchIssue} />;
       case 'dependencies':
-        return <Dependencies issues={issues} onIssueClick={handleIssueClick} />;
+        return <Dependencies issues={issues} onIssueClick={handleIssueClick} focusIssueId={depFocusId} onFocusChange={setDepFocusId} />;
       case 'cycles':
         return (
           <Cycles
