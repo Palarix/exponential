@@ -20,7 +20,11 @@ func TestMergeIssue_Squash(t *testing.T) {
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
-	defer os.Chdir(origDir)
+	storage.ResetHubRoot()
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}()
 
 	// Initialize xpo
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
@@ -694,17 +698,36 @@ func TestMergeIssue_Conflict(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for conflicting merge")
 	}
-	if !strings.Contains(err.Error(), "merge failed") {
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "merge failed") {
 		t.Errorf("expected 'merge failed' error, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Do NOT stash") {
+	if !strings.Contains(errMsg, "Do NOT stash") {
 		t.Errorf("expected stash warning in error, got: %v", err)
 	}
+	if !strings.Contains(errMsg, "shared.txt") {
+		t.Errorf("expected conflicting filename 'shared.txt' in error, got: %v", err)
+	}
 
-	// Verify we're on main (checkout succeeded before the merge failed)
+	// Verify we're on main
 	branch := CurrentBranch()
 	if branch != "main" {
 		t.Errorf("expected to be on main after failed merge, got %s", branch)
+	}
+
+	// Verify merge conflict is resolved (reset --merge cleans up squash index)
+	statusOut, _ := exec.Command("git", "status", "--porcelain").Output()
+	for _, line := range strings.Split(string(statusOut), "\n") {
+		if len(line) >= 3 {
+			code := line[:2]
+			file := strings.TrimSpace(line[3:])
+			if code == "UU" || code == "AA" || code == "DD" {
+				t.Errorf("expected no merge conflicts after abort, found %s %s", code, file)
+			}
+			if file == "shared.txt" && (code[0] == 'M' || code[1] == 'M') {
+				t.Errorf("expected shared.txt to be clean after abort, got status %s", code)
+			}
+		}
 	}
 }
 

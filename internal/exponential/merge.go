@@ -161,8 +161,16 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		}
 
 		if mergeErr != nil {
-			exec.Command("git", "merge", "--abort").Run()
-			return fmt.Errorf("merge failed: %w\nDo NOT stash or reset. Resolve the conflict in the listed files, then re-run xpo merge.", mergeErr)
+			// --no-ff sets MERGE_HEAD so --abort works; squash does not,
+			// so fall back to reset --merge to clean up the index.
+			if err := exec.Command("git", "merge", "--abort").Run(); err != nil {
+				exec.Command("git", "reset", "--merge").Run()
+			}
+			detail := ""
+			if me, ok := mergeErr.(*mergeError); ok && me.output != "" {
+				detail = "\n" + me.output
+			}
+			return fmt.Errorf("merge failed: %w%s\nDo NOT stash or reset. Resolve the conflict in the listed files, then re-run xpo merge.", mergeErr, detail)
 		}
 
 		mergeSHA := resolveRef("HEAD")
@@ -324,11 +332,21 @@ func unionLines(base, theirs []byte) []byte {
 	return []byte(strings.Join(result, "\n") + "\n")
 }
 
+type mergeError struct {
+	err    error
+	output string
+}
+
+func (e *mergeError) Error() string { return e.err.Error() }
+func (e *mergeError) Unwrap() error { return e.err }
+
 func runGitMerge(args ...string) error {
 	cmd := exec.Command("git", append([]string{"merge"}, args...)...)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return &mergeError{err: err, output: strings.TrimSpace(string(out))}
+	}
+	return nil
 }
 
 func deleteBranch(branch string) {

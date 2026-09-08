@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/palarix/exponential/internal/storage"
 )
 
 func initTestRepo(t *testing.T, defaultBranch string) string {
@@ -21,7 +23,11 @@ func initTestRepo(t *testing.T, defaultBranch string) string {
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
-	t.Cleanup(func() { os.Chdir(origDir) })
+	storage.ResetHubRoot()
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	})
 	return dir
 }
 
@@ -34,9 +40,21 @@ func TestDefaultBranch_Main(t *testing.T) {
 	}
 }
 
-func TestDefaultBranch_FallbackWithoutRemote(t *testing.T) {
-	initTestRepo(t, "trunk")
-	// No remote, so DefaultBranch can't detect "trunk" — falls back to "main"
+func TestDefaultBranch_LocalBranchWithoutRemote(t *testing.T) {
+	dir := initTestRepo(t, "trunk")
+	runGit(t, dir, "config", "init.defaultBranch", "trunk")
+	got := DefaultBranch()
+	if got != "trunk" {
+		t.Errorf("expected trunk, got %s", got)
+	}
+}
+
+func TestDefaultBranch_NoGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() { os.Chdir(origDir) })
+
 	got := DefaultBranch()
 	if got != "main" {
 		t.Errorf("expected fallback to main, got %s", got)
@@ -62,7 +80,11 @@ func TestDefaultBranch_WithRemote(t *testing.T) {
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
-	t.Cleanup(func() { os.Chdir(origDir) })
+	storage.ResetHubRoot()
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	})
 
 	got := DefaultBranch()
 	if got != "develop" {

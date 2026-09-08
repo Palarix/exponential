@@ -12,11 +12,26 @@ import (
 // DefaultBranch returns the name of the default branch by inspecting
 // the remote HEAD ref. Falls back to "main" if detection fails.
 func DefaultBranch() string {
-	out, err := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD").Output()
+	hub := storage.HubRoot()
+	out, err := exec.Command("git", "-C", hub, "symbolic-ref", "refs/remotes/origin/HEAD").Output()
 	if err == nil {
 		ref := strings.TrimSpace(string(out))
 		if parts := strings.SplitN(ref, "/", 4); len(parts) == 4 {
 			return parts[3]
+		}
+	}
+	// No remote — check init.defaultBranch config, then probe well-known
+	// names. HEAD is unreliable here because the hub may be checked out
+	// to a feature branch.
+	out, err = exec.Command("git", "-C", hub, "config", "init.defaultBranch").Output()
+	if err == nil {
+		if name := strings.TrimSpace(string(out)); name != "" {
+			return name
+		}
+	}
+	for _, candidate := range []string{"main", "master"} {
+		if err := exec.Command("git", "-C", hub, "rev-parse", "--verify", candidate).Run(); err == nil {
+			return candidate
 		}
 	}
 	return "main"
