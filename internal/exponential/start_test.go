@@ -454,6 +454,11 @@ func TestStartWork_Worktree_ForceRemovesExisting(t *testing.T) {
 	if wtPath2 == "" {
 		t.Fatal("expected non-empty worktree path after force")
 	}
+
+	// Verify the recreated worktree exists on disk
+	if _, err := os.Stat(wtPath2); os.IsNotExist(err) {
+		t.Errorf("recreated worktree should exist at %s", wtPath2)
+	}
 }
 
 func TestStartWork_Worktree_SetupHook(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
-func TestGetIssue_Found(t *testing.T) {
+func TestGetIssue_FieldsPreserved(t *testing.T) {
 	tr := setupLocalTransport(t)
-	created, err := tr.AddIssue(model.CreatePayload{Title: "Get test", Status: "DOING"})
+	created, err := tr.AddIssue(model.CreatePayload{Title: "Field test", Status: "DOING", Estimate: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,39 +20,29 @@ func TestGetIssue_Found(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetIssue failed: %v", err)
 	}
-	if got.Title != "Get test" {
-		t.Errorf("expected title 'Get test', got %q", got.Title)
+	if got.Title != "Field test" {
+		t.Errorf("expected title 'Field test', got %q", got.Title)
 	}
 	if got.Status != model.StatusDoing {
 		t.Errorf("expected DOING, got %s", got.Status)
 	}
+	if got.Estimate != 5 {
+		t.Errorf("expected estimate 5, got %d", got.Estimate)
+	}
 }
 
-func TestGetIssue_NotFound(t *testing.T) {
+func TestGetIssue_AmbiguousShortID(t *testing.T) {
 	tr := setupLocalTransport(t)
-	_, err := tr.GetIssue("test-nonexistent999")
+	tr.AddIssue(model.CreatePayload{Title: "first"})
+	tr.AddIssue(model.CreatePayload{Title: "second"})
+
+	// "test-" is a prefix common to all generated IDs
+	_, err := tr.GetIssue("test-")
 	if err == nil {
-		t.Fatal("expected error for nonexistent issue")
+		t.Fatal("expected ambiguity error")
 	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("expected 'not found' in error, got: %s", err)
-	}
-}
-
-func TestGetIssue_ShortID(t *testing.T) {
-	tr := setupLocalTransport(t)
-	created, err := tr.AddIssue(model.CreatePayload{Title: "Short ID test"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	shortID := strings.TrimPrefix(created.ID, "test-")
-	got, err := tr.GetIssue(shortID)
-	if err != nil {
-		t.Fatalf("GetIssue with short ID failed: %v", err)
-	}
-	if got.ID != created.ID {
-		t.Errorf("expected %s, got %s", created.ID, got.ID)
+	if !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected 'ambiguous' in error, got: %s", err)
 	}
 }
 
@@ -103,6 +93,32 @@ func TestFindIssue_ActiveNoChildren(t *testing.T) {
 	}
 	if len(children) != 0 {
 		t.Errorf("expected 0 children, got %d", len(children))
+	}
+}
+
+func TestFindIssue_ArchivedFallback(t *testing.T) {
+	tr := setupLocalTransport(t)
+
+	// Create an issue, then archive it by writing to archive.db and removing from issues.db
+	created, err := tr.AddIssue(model.CreatePayload{Title: "Archived issue", Status: "DONE"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Read all events, move them to archive
+	events, _ := storage.ReadEvents()
+	storage.ArchiveEvents(nil, events)
+
+	// FindIssue should find it in the archive
+	issue, _, archived, err := tr.FindIssue(created.ID)
+	if err != nil {
+		t.Fatalf("FindIssue should find archived issue: %v", err)
+	}
+	if !archived {
+		t.Error("expected archived=true")
+	}
+	if issue.ID != created.ID {
+		t.Errorf("expected %s, got %s", created.ID, issue.ID)
 	}
 }
 

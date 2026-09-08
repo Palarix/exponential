@@ -89,6 +89,9 @@ func TestFilterIssues_NoFilters_DoneCountLimited(t *testing.T) {
 			doneCount++
 		}
 	}
+	if doneCount == 0 {
+		t.Error("expected some DONE issues to be included (most recent)")
+	}
 	if doneCount > 3 {
 		t.Errorf("without All flag, at most 3 recent DONE should show, got %d", doneCount)
 	}
