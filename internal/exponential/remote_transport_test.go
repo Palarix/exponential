@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,21 +48,78 @@ func newTestServer(t *testing.T) (*httptest.Server, *RemoteTransport) {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 	})
 
+	issueIDs := map[string]bool{}
+	for _, i := range issues {
+		issueIDs[i.ID] = true
+	}
+
 	mux.HandleFunc("POST /api/draft", func(w http.ResponseWriter, r *http.Request) {
 		var req draftRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+			return
+		}
 
-		issueID := req.IssueID
-		if req.Type == string(model.EventTypeCreate) {
-			issueID = "test-new123"
+		switch req.Type {
+		case string(model.EventTypeCreate):
+			// Creates don't require an existing issue ID
+			issueID := "test-new123"
+			issueIDs[issueID] = true
 			issues = append(issues, apiIssue{
 				ID: issueID, Title: "New issue", Status: "BACKLOG",
 				CreatedAt: now, CreatedBy: "Test <test@test.com>", UpdatedAt: now,
 			})
-		}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(draftResponse{Status: "ok", IssueID: issueID})
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(draftResponse{Status: "ok", IssueID: issueID})
+		case string(model.EventTypeUpdate):
+			if req.IssueID == "" || !issueIDs[req.IssueID] {
+				http.Error(w, `{"error":"issue not found"}`, http.StatusNotFound)
+				return
+			}
+			b, _ := json.Marshal(req.Payload)
+			var p model.UpdatePayload
+			json.Unmarshal(b, &p)
+			if p.Status == nil && p.Title == nil && p.Description == nil && p.Priority == nil && p.Estimate == nil {
+				http.Error(w, `{"error":"update payload has no fields"}`, http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(draftResponse{Status: "ok", IssueID: req.IssueID})
+
+		case string(model.EventTypeComment):
+			if req.IssueID == "" || !issueIDs[req.IssueID] {
+				http.Error(w, `{"error":"issue not found"}`, http.StatusNotFound)
+				return
+			}
+			b, _ := json.Marshal(req.Payload)
+			var p model.CommentPayload
+			json.Unmarshal(b, &p)
+			if p.Text == "" {
+				http.Error(w, `{"error":"comment text required"}`, http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(draftResponse{Status: "ok", IssueID: req.IssueID})
+
+		case string(model.EventTypeDelete):
+			if req.IssueID == "" || !issueIDs[req.IssueID] {
+				http.Error(w, `{"error":"issue not found"}`, http.StatusNotFound)
+				return
+			}
+			b, _ := json.Marshal(req.Payload)
+			var p model.DeletePayload
+			json.Unmarshal(b, &p)
+			if p.Reason == "" {
+				http.Error(w, `{"error":"delete reason required"}`, http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(draftResponse{Status: "ok", IssueID: req.IssueID})
+
+		default:
+			http.Error(w, `{"error":"unknown event type"}`, http.StatusBadRequest)
+		}
 	})
 
 	mux.HandleFunc("GET /api/user", func(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +241,27 @@ func TestRemoteTransport_UpdateIssue(t *testing.T) {
 		t.Fatalf("UpdateIssue: %v", err)
 	}
 	if len(msgs) == 0 {
-		t.Error("expected at least one message")
+		t.Fatal("expected at least one message")
+	}
+	found := false
+	for _, m := range msgs {
+		if strings.Contains(m, "test-aaa111") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected message to reference issue ID, got: %v", msgs)
+	}
+}
+
+func TestRemoteTransport_UpdateIssue_NotFound(t *testing.T) {
+	srv, rt := newTestServer(t)
+	defer srv.Close()
+
+	status := "DONE"
+	_, err := rt.UpdateIssue("test-zzz999", model.UpdatePayload{Status: &status}, "update")
+	if err == nil {
+		t.Fatal("expected error for nonexistent issue")
 	}
 }
 
@@ -197,6 +275,26 @@ func TestRemoteTransport_AddComment(t *testing.T) {
 	}
 }
 
+func TestRemoteTransport_AddComment_EmptyText(t *testing.T) {
+	srv, rt := newTestServer(t)
+	defer srv.Close()
+
+	err := rt.AddComment("test-aaa111", "")
+	if err == nil {
+		t.Fatal("expected error for empty comment text")
+	}
+}
+
+func TestRemoteTransport_AddComment_NotFound(t *testing.T) {
+	srv, rt := newTestServer(t)
+	defer srv.Close()
+
+	err := rt.AddComment("test-zzz999", "hello")
+	if err == nil {
+		t.Fatal("expected error for nonexistent issue")
+	}
+}
+
 func TestRemoteTransport_DeleteIssue(t *testing.T) {
 	srv, rt := newTestServer(t)
 	defer srv.Close()
@@ -204,6 +302,26 @@ func TestRemoteTransport_DeleteIssue(t *testing.T) {
 	err := rt.DeleteIssue("test-aaa111", "no longer needed", false)
 	if err != nil {
 		t.Fatalf("DeleteIssue: %v", err)
+	}
+}
+
+func TestRemoteTransport_DeleteIssue_EmptyReason(t *testing.T) {
+	srv, rt := newTestServer(t)
+	defer srv.Close()
+
+	err := rt.DeleteIssue("test-aaa111", "", false)
+	if err == nil {
+		t.Fatal("expected error for empty delete reason")
+	}
+}
+
+func TestRemoteTransport_DeleteIssue_NotFound(t *testing.T) {
+	srv, rt := newTestServer(t)
+	defer srv.Close()
+
+	err := rt.DeleteIssue("test-zzz999", "reason", false)
+	if err == nil {
+		t.Fatal("expected error for nonexistent issue")
 	}
 }
 
