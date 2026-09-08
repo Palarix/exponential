@@ -1160,6 +1160,10 @@ export default function Backlog({
   openPopoverRef.current = openPopover;
   const onIssueClickRef = useRef(onIssueClick);
   onIssueClickRef.current = onIssueClick;
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const onTabChangeRef = useRef(onTabChange);
+  onTabChangeRef.current = onTabChange;
   const toggleGroupRef = useRef(toggleGroup);
   toggleGroupRef.current = toggleGroup;
   const toggleNodeRef = useRef(toggleNode);
@@ -1170,6 +1174,16 @@ export default function Backlog({
       if (openPopoverRef.current) return;
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
+      if (e.key === "[" || e.key === "]") {
+        e.preventDefault();
+        const tabs = Object.keys(TAB_CONFIGS) as Tab[];
+        const idx = tabs.indexOf(activeTabRef.current);
+        const next = e.key === "]"
+          ? (idx + 1) % tabs.length
+          : (idx - 1 + tabs.length) % tabs.length;
+        onTabChangeRef.current(tabs[next]);
+        return;
+      }
       if (e.key === "f") {
         e.preventDefault();
         setShowFilterMenu((v) => !v);

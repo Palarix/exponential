@@ -45,6 +45,8 @@ const BACKLOG: ShortcutGroup = {
     { keys: ["/"], label: "Focus search" },
     { keys: ["F"], label: "Toggle filters" },
     { keys: ["."], label: "Copy issue ID" },
+    { keys: ["["], label: "Previous tab" },
+    { keys: ["]"], label: "Next tab" },
   ],
 };
 
