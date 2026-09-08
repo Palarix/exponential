@@ -55,6 +55,11 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	branch := issue.BranchStats.Branch
 	base := DefaultBranch()
 	useWorktrees := c.Config.Worktrees && CheckGitRepo()
+	if useWorktrees {
+		if _, ok := FindWorktreeForBranch(branch); !ok {
+			useWorktrees = false
+		}
+	}
 	result := &MergeResult{}
 
 	gitErr := WithGitLock(func() error {

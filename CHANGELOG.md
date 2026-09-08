@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xpo merge` no longer blocks on untracked files (e.g. `idea.md`) on the hub checkout — only modified tracked files that actually conflict with the incoming branch are rejected (xpo-cb6b49)
 - Merge error messages now explicitly warn against stashing to prevent agent stash-thrash loops that corrupt `.xpo/issues.db` (xpo-cb6b49)
 - Nested hierarchy mode no longer duplicates children across status groups — ghost children under a real parent are skipped when the child's status group is visible on the same tab (xpo-93e234)
+- `xpo merge` now auto-checkouts the default branch in branch mode instead of erroring — detects branch vs worktree mode at runtime by checking whether a worktree exists for the issue's branch (xpo-d5c047)
 - Web merge view mergeability check updated to use the same relaxed logic (xpo-cb6b49)
 
 ## [1.1.0] - 2026-08-31
