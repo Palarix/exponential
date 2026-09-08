@@ -57,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Merge view auto-refreshes when new commits are pushed, with a manual refresh button in the tab bar; `.xpo/` files hidden from files/diff tabs (xpo-af0b09)
 - Merge view walkthrough and conversation tabs now constrain to 832px and center, matching the issue detail content width (xpo-2c6297)
 - ContextMenu sub-menus now flip left and clamp vertically when near viewport edges instead of clipping (xpo-911a91)
+- MergeView no longer crashes when `branch_stats` becomes `undefined` after a merge completes — replaced non-null assertions with optional chaining and an early-return "branch merged" state (xpo-db1b0a)
 - FilterMenu and ViewOptionsMenu popovers now center on their trigger button with viewport clamping, instead of right-aligning (xpo-374512)
 - Scrollbar appearance no longer shifts layout left — scroll containers use `overflow-y: scroll` with a thin 6px transparent-track scrollbar (xpo-0b2c6c)
 - Inline create row in backlog status groups now aligns with normal issue rows — icons wrapped in matching containers, blank spacer replaced with dimmed `xpo-······` placeholder ID (xpo-5d3fb0)

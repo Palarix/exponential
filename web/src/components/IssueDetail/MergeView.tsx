@@ -88,7 +88,7 @@ export default function MergeView({
   const [commitMessage, setCommitMessage] = useState("");
   const [deleteBranch, setDeleteBranch] = useState(false);
 
-  const bs = issue.branch_stats!;
+  const bs = issue.branch_stats;
 
   const refreshData = useCallback(() => {
     setLoading(true);
@@ -121,7 +121,7 @@ export default function MergeView({
 
   useEffect(() => {
     refreshData();
-  }, [refreshData, bs.head_sha]);
+  }, [refreshData, bs?.head_sha]);
 
   const loadCommitDiff = useCallback(
     async (sha: string) => {
@@ -166,7 +166,6 @@ export default function MergeView({
 
   const defaultCommitMessage = useCallback(
     (strategy: string) => {
-      const bs = issue.branch_stats!;
       const commitList =
         commits.length > 0
           ? "\n\n" + commits.map((c) => `* ${c.message}`).join("\n")
@@ -177,7 +176,7 @@ export default function MergeView({
         case "ff":
           return `xpo: merge ${issue.id}`;
         default:
-          return `Merge branch '${bs.branch}'${commitList}`;
+          return `Merge branch '${issue.branch_stats?.branch ?? issue.id}'${commitList}`;
       }
     },
     [issue, commits],
@@ -229,6 +228,25 @@ export default function MergeView({
           className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
         >
           Go back
+        </button>
+      </div>
+    );
+
+  if (!bs)
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4">
+        <div className="flex items-center gap-2 text-green-500">
+          <GitMerge size={24} />
+          <span className="text-sm font-medium">Branch merged</span>
+        </div>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          This branch has been merged and is no longer available.
+        </p>
+        <button
+          onClick={onClose}
+          className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+        >
+          Close
         </button>
       </div>
     );
