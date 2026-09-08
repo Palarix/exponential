@@ -1153,7 +1153,7 @@ export default function Backlog({
 
       if (
         position === "below" &&
-        overRow.hasChildren &&
+        overRow.hasVisibleChildren &&
         (expandedNodes.has(overRow.issue.id) || overRow.isGhostParent)
       ) {
         const firstChildIdx = rows.findIndex(
@@ -1388,7 +1388,7 @@ export default function Backlog({
           toggleGroupRef.current(row.status);
         else if (
           row.kind === "issue" &&
-          row.hasChildren &&
+          row.hasVisibleChildren &&
           !expandedNodesRef.current.has(row.issue.id)
         )
           toggleNodeRef.current(row.issue.id);
@@ -1400,7 +1400,7 @@ export default function Backlog({
           toggleGroupRef.current(row.status);
         else if (
           row.kind === "issue" &&
-          row.hasChildren &&
+          row.hasVisibleChildren &&
           expandedNodesRef.current.has(row.issue.id)
         )
           toggleNodeRef.current(row.issue.id);
@@ -1955,7 +1955,7 @@ export default function Backlog({
                     return (
                       <>
                         {visibleRows.map(({ row, index: i }) => {
-                          const { issue, depth, hasChildren, childDone, childTotal, childPointsDone, childPointsTotal, parentBreadcrumb, isGhostParent, treeGuides } = row;
+                          const { issue, depth, hasChildren, hasVisibleChildren, childDone, childTotal, childPointsDone, childPointsTotal, parentBreadcrumb, isGhostParent, treeGuides } = row;
                           const isGhostRow = !!isGhostParent || !!row.isGhostChild;
                           return (
                             <BacklogIssueRow
@@ -1963,6 +1963,7 @@ export default function Backlog({
                               issue={issue}
                               depth={depth}
                               hasChildren={hasChildren}
+                              hasVisibleChildren={hasVisibleChildren}
                               childDone={childDone}
                               childTotal={childTotal}
                               childPointsDone={childPointsDone}

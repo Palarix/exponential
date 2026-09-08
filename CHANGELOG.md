@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Parents with no visible children in nested backlog mode show a static right-pointing chevron instead of a clickable expand toggle; ghost parents show a static down-pointing chevron — clicking neither triggers cross-group side effects (xpo-2dd9a8)
+- Ghost row opacity increased from 50% to 65% for better readability (xpo-2dd9a8)
 - All top bars standardized to `h-12` height with `pl-5 pr-3` asymmetric padding (xpo-09ebcc)
 - Backlog search is now always visible in the center of the top bar instead of appearing on `/` keypress (xpo-09ebcc)
 - Labels view top bar normalized from `h-13 px-6` to standard TopBar defaults (xpo-09ebcc)

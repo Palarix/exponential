@@ -29,6 +29,7 @@ export type RowItem =
       issue: Issue;
       depth: number;
       hasChildren: boolean;
+      hasVisibleChildren: boolean;
       childDone: number;
       childTotal: number;
       childPointsDone: number;
@@ -186,6 +187,7 @@ export function useBacklogRows(
             issue,
             depth: 0,
             hasChildren: stats.hasChildren,
+            hasVisibleChildren: stats.hasChildren,
             childDone: stats.childDone,
             childTotal: stats.childTotal,
             childPointsDone: stats.childPointsDone,
@@ -220,18 +222,6 @@ export function useBacklogRows(
           treeGuides?: TreeGuide[],
         ) => {
           const stats = issueChildStats(issue);
-          result.push({
-            kind: "issue",
-            issue,
-            depth,
-            hasChildren: stats.hasChildren,
-            childDone: stats.childDone,
-            childTotal: stats.childTotal,
-            childPointsDone: stats.childPointsDone,
-            childPointsTotal: stats.childPointsTotal,
-            isGhostParent: isGhost,
-            treeGuides: treeGuides || [],
-          });
 
           // Ghost parents only show their real children (the ones in this
           // group). Real parents show all children — real + ghost for context.
@@ -253,6 +243,20 @@ export function useBacklogRows(
                   ghost: !groupIssueIds.has(c.id),
                 }));
 
+          result.push({
+            kind: "issue",
+            issue,
+            depth,
+            hasChildren: stats.hasChildren,
+            hasVisibleChildren: allVisual.length > 0,
+            childDone: stats.childDone,
+            childTotal: stats.childTotal,
+            childPointsDone: stats.childPointsDone,
+            childPointsTotal: stats.childPointsTotal,
+            isGhostParent: isGhost,
+            treeGuides: treeGuides || [],
+          });
+
           if (
             allVisual.length > 0 &&
             (isGhost || expandedNodes.has(issue.id))
@@ -273,6 +277,7 @@ export function useBacklogRows(
                   issue: child,
                   depth: depth + 1,
                   hasChildren: cs.hasChildren,
+                  hasVisibleChildren: false,
                   childDone: cs.childDone,
                   childTotal: cs.childTotal,
                   childPointsDone: cs.childPointsDone,

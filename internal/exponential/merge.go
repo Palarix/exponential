@@ -56,7 +56,7 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	base := DefaultBranch()
 	useWorktrees := c.Config.Worktrees && CheckGitRepo()
 	if useWorktrees {
-		if _, ok := FindWorktreeForBranch(branch); !ok {
+		if wtPath, ok := FindWorktreeForBranch(branch); !ok || wtPath == storage.HubRoot() {
 			useWorktrees = false
 		}
 	}
