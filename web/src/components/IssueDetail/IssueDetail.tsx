@@ -9,7 +9,11 @@ import { ChevronRight } from "lucide-react";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
 import { linkifyIssueIds } from "../../utils/format";
-import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
+import {
+  STATUS_OPTIONS,
+  ESTIMATE_OPTIONS,
+  PRIORITY_OPTIONS,
+} from "../../constants";
 import SubIssuesTable from "./SubIssuesTable";
 import ArtifactList from "./ArtifactList";
 import ActivityTimeline from "./ActivityTimeline";
@@ -49,15 +53,22 @@ export default function IssueDetail({
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [optimisticTitle, setOptimisticTitle] = useState<string | null>(null);
-  const [optimisticDescription, setOptimisticDescription] = useState<string | null>(null);
-  const [descClickEvent, setDescClickEvent] = useState<{ clientX: number; clientY: number } | null>(null);
+  const [optimisticDescription, setOptimisticDescription] = useState<
+    string | null
+  >(null);
+  const [descClickEvent, setDescClickEvent] = useState<{
+    clientX: number;
+    clientY: number;
+  } | null>(null);
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [mergeViewOpen, setMergeViewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("details");
-  const [artifactContent, setArtifactContent] = useState<Record<string, string>>({});
+  const [artifactContent, setArtifactContent] = useState<
+    Record<string, string>
+  >({});
   const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -83,7 +94,10 @@ export default function IssueDetail({
   }, [issue.title, optimisticTitle]);
 
   useEffect(() => {
-    if (optimisticDescription !== null && issue.description === optimisticDescription) {
+    if (
+      optimisticDescription !== null &&
+      issue.description === optimisticDescription
+    ) {
       setOptimisticDescription(null);
     }
   }, [issue.description, optimisticDescription]);
@@ -93,7 +107,9 @@ export default function IssueDetail({
     const filename = activeTab === "spec" ? "spec.md" : "walkthrough.md";
     if (artifactContent[filename] !== undefined) return;
     fetchArtifactContent(issue.id, filename)
-      .then((content) => setArtifactContent((prev) => ({ ...prev, [filename]: content })))
+      .then((content) =>
+        setArtifactContent((prev) => ({ ...prev, [filename]: content })),
+      )
       .catch(() => setArtifactContent((prev) => ({ ...prev, [filename]: "" })));
   }, [activeTab, issue.id, issue.updated_at, artifactContent]);
 
@@ -108,11 +124,18 @@ export default function IssueDetail({
         } else if (type === "UPDATE") {
           const p = payload as Record<string, unknown>;
           if (p.status) showToast(`Status changed to ${String(p.status)}`);
-          else if (p.assignee !== undefined) showToast(p.assignee ? `Assigned to ${String(p.assignee).split(" <")[0]}` : "Assignee removed");
+          else if (p.assignee !== undefined)
+            showToast(
+              p.assignee
+                ? `Assigned to ${String(p.assignee).split(" <")[0]}`
+                : "Assignee removed",
+            );
           else if (p.priority !== undefined) showToast("Priority updated");
-          else if (p.estimate !== undefined) showToast(`Estimate set to ${p.estimate || "none"}`);
+          else if (p.estimate !== undefined)
+            showToast(`Estimate set to ${p.estimate || "none"}`);
           else if (p.title) showToast("Title updated");
-          else if (p.description !== undefined) showToast("Description updated");
+          else if (p.description !== undefined)
+            showToast("Description updated");
           else if (p.labels) showToast("Labels updated");
           else showToast("Updated");
         }
@@ -130,7 +153,8 @@ export default function IssueDetail({
 
   const handleStatusChange = useCallback(
     (newStatus: string) => {
-      if (newStatus !== issue.status) saveDraft("UPDATE", { status: newStatus });
+      if (newStatus !== issue.status)
+        saveDraft("UPDATE", { status: newStatus });
       else setOpenPopover(null);
     },
     [issue.status, saveDraft],
@@ -184,9 +208,12 @@ export default function IssueDetail({
         }
         if (e.key === "Enter") {
           e.preventDefault();
-          if (openPopover === "status") handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
-          else if (openPopover === "estimate") handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
-          else if (openPopover === "priority") handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
+          if (openPopover === "status")
+            handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
+          else if (openPopover === "estimate")
+            handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
+          else if (openPopover === "priority")
+            handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
           return;
         }
         if (openPopover === "status") {
@@ -202,22 +229,34 @@ export default function IssueDetail({
       if (e.key === "ArrowRight" || e.key === "j") onNavigate("next");
       if (e.key === "s") {
         setOpenPopover("status");
-        setPopoverIndex(STATUS_OPTIONS.findIndex((o) => o.value === issue.status));
+        setPopoverIndex(
+          STATUS_OPTIONS.findIndex((o) => o.value === issue.status),
+        );
       }
-      if (e.key === "l") { setOpenPopover("labels"); setPopoverIndex(0); }
+      if (e.key === "l") {
+        setOpenPopover("labels");
+        setPopoverIndex(0);
+      }
       if (e.key === "e") {
         setOpenPopover("estimate");
         setPopoverIndex(ESTIMATE_OPTIONS.indexOf(issue.estimate || 0));
       }
       if (e.key === "p") {
         setOpenPopover("priority");
-        setPopoverIndex(PRIORITY_OPTIONS.findIndex((o) => o.value === (issue.priority || 0)));
+        setPopoverIndex(
+          PRIORITY_OPTIONS.findIndex((o) => o.value === (issue.priority || 0)),
+        );
       }
-      if (e.key === "a") { setOpenPopover("assignee"); }
+      if (e.key === "a") {
+        setOpenPopover("assignee");
+      }
       if (e.key === "m") {
         e.preventDefault();
         commentRef.current?.focus();
-        commentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        commentRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
       if (e.key === ".") {
         navigator.clipboard.writeText(issue.id);
@@ -233,10 +272,20 @@ export default function IssueDetail({
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [
-    onClose, onNavigate, openPopover, editingField,
-    issue.status, issue.estimate, issue.priority, issue.id,
-    saveDraft, handleStatusChange, handleEstimateChange, handlePriorityChange,
-    popoverIndex, showToast,
+    onClose,
+    onNavigate,
+    openPopover,
+    editingField,
+    issue.status,
+    issue.estimate,
+    issue.priority,
+    issue.id,
+    saveDraft,
+    handleStatusChange,
+    handleEstimateChange,
+    handlePriorityChange,
+    popoverIndex,
+    showToast,
   ]);
 
   const startEditing = (field: string) => {
@@ -265,7 +314,10 @@ export default function IssueDetail({
 
   const handleAddComment = () => {
     if (newComment.trim()) {
-      saveDraft("COMMENT", { id: `c-${Date.now().toString(36)}`, text: newComment.trim() });
+      saveDraft("COMMENT", {
+        id: `c-${Date.now().toString(36)}`,
+        text: newComment.trim(),
+      });
       setNewComment("");
     }
   };
@@ -278,7 +330,11 @@ export default function IssueDetail({
       <MergeView
         issue={issue}
         onClose={() => setMergeViewOpen(false)}
-        onMerged={() => { setMergeViewOpen(false); onRefresh(); showToast("Branch merged"); }}
+        onMerged={() => {
+          setMergeViewOpen(false);
+          onRefresh();
+          showToast("Branch merged");
+        }}
       />
     );
   }
@@ -286,23 +342,48 @@ export default function IssueDetail({
   return (
     <div className="h-full flex flex-col relative">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
+      <div className="flex items-center justify-between pl-5 pr-3 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
         <div className="flex items-center gap-2 text-sm min-w-0">
-          <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0">
+          <button
+            onClick={onClose}
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
+          >
             Issues
           </button>
           <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
           <CopyableId id={issue.id} className="text-xs shrink-0" />
-          <span className="text-[var(--color-text-primary)] truncate">{optimisticTitle ?? issue.title}</span>
+          <span className="text-[var(--color-text-primary)] truncate">
+            {optimisticTitle ?? issue.title}
+          </span>
         </div>
         <div className="flex items-center gap-1 shrink-0 ml-4">
-          <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">{currentIndex + 1} / {totalCount}</span>
-          <button onClick={() => onNavigate("prev")} disabled={!hasPrev} className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
+            {currentIndex + 1} / {totalCount}
+          </span>
+          <button
+            onClick={() => onNavigate("prev")}
+            disabled={!hasPrev}
+            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
-          <button onClick={() => onNavigate("next")} disabled={!hasNext} className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none">
+          <button
+            onClick={() => onNavigate("next")}
+            disabled={!hasNext}
+            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+          >
             <ChevronRight size={16} />
           </button>
         </div>
@@ -312,167 +393,239 @@ export default function IssueDetail({
       {/* Body */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="flex min-h-full max-w-[76rem] mx-auto">
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
-          <div className="px-8 py-12">
-            {/* Title */}
-            {editingField === "title" ? (
-              <input
-                autoFocus
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSaveTitle(); if (e.key === "Escape") setEditingField(null); }}
-                onBlur={handleSaveTitle}
-                className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none m-0 p-0 leading-tight block"
-                style={{ caretColor: "var(--color-accent-primary)", height: "auto" }}
-              />
-            ) : (
-              <h1 onClick={() => startEditing("title")} className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text">
-                {optimisticTitle ?? issue.title}
-              </h1>
-            )}
+          {/* Main content */}
+          <div className="flex-1 min-w-0">
+            <div className="px-8 py-12">
+              {/* Title */}
+              {editingField === "title" ? (
+                <input
+                  autoFocus
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveTitle();
+                    if (e.key === "Escape") setEditingField(null);
+                  }}
+                  onBlur={handleSaveTitle}
+                  className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none m-0 p-0 leading-tight block"
+                  style={{
+                    caretColor: "var(--color-accent-primary)",
+                    height: "auto",
+                  }}
+                />
+              ) : (
+                <h1
+                  onClick={() => startEditing("title")}
+                  className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text"
+                >
+                  {optimisticTitle ?? issue.title}
+                </h1>
+              )}
 
-            {/* Parent reference */}
-            {issue.parent_id && (() => {
-              const parent = issues.find(i => i.id === issue.parent_id);
-              const siblings = parent ? issues.filter(i => i.parent_id === parent.id) : [];
-              const siblingsDone = siblings.filter(i => i.status === 'DONE').length;
-              return (
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
-                  <span>Sub-issue of</span>
-                  {parent && <StatusIcon status={parent.status} size={14} isInferred={parent.is_inferred} />}
-                  <a href={`#/issues/${issue.parent_id}`} className="font-mono text-[var(--color-accent-primary)] hover:underline" onClick={(e) => e.stopPropagation()}>
-                    {issue.parent_id}
-                  </a>
-                  {parent && <span className="text-[var(--color-text-secondary)]">{parent.title}</span>}
-                  {siblings.length > 0 && (
-                    <span className="text-[var(--color-text-muted)]">({siblingsDone}/{siblings.length})</span>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Tabs */}
-            {(() => {
-              const hasSpec = issue.artifacts?.some((a) => a.artifact_type === "spec");
-              const hasWalkthrough = issue.artifacts?.some((a) => a.artifact_type === "walkthrough");
-              const hasTabs = hasSpec || hasWalkthrough;
-
-              const tabs: { key: DetailTab; label: string }[] = [
-                { key: "details", label: "Details" },
-                ...(hasSpec ? [{ key: "spec" as DetailTab, label: "Spec" }] : []),
-                ...(hasWalkthrough ? [{ key: "walkthrough" as DetailTab, label: "Walkthrough" }] : []),
-              ];
-
-              return (
-                <>
-                  {hasTabs && (
-                    <div className="flex items-center gap-1 mt-4 border-b border-[var(--color-border-subtle)]">
-                      {tabs.map((tab) => (
-                        <button
-                          key={tab.key}
-                          onClick={() => setActiveTab(tab.key)}
-                          className={`px-3 py-2 text-sm font-medium transition-colors relative ${
-                            activeTab === tab.key
-                              ? "text-[var(--color-text-primary)]"
-                              : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                          }`}
-                        >
-                          {tab.label}
-                          {activeTab === tab.key && (
-                            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
-                          )}
-                        </button>
-                      ))}
+              {/* Parent reference */}
+              {issue.parent_id &&
+                (() => {
+                  const parent = issues.find((i) => i.id === issue.parent_id);
+                  const siblings = parent
+                    ? issues.filter((i) => i.parent_id === parent.id)
+                    : [];
+                  const siblingsDone = siblings.filter(
+                    (i) => i.status === "DONE",
+                  ).length;
+                  return (
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
+                      <span>Sub-issue of</span>
+                      {parent && (
+                        <StatusIcon
+                          status={parent.status}
+                          size={14}
+                          isInferred={parent.is_inferred}
+                        />
+                      )}
+                      <a
+                        href={`#/issues/${issue.parent_id}`}
+                        className="font-mono text-[var(--color-accent-primary)] hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {issue.parent_id}
+                      </a>
+                      {parent && (
+                        <span className="text-[var(--color-text-secondary)]">
+                          {parent.title}
+                        </span>
+                      )}
+                      {siblings.length > 0 && (
+                        <span className="text-[var(--color-text-muted)]">
+                          ({siblingsDone}/{siblings.length})
+                        </span>
+                      )}
                     </div>
-                  )}
+                  );
+                })()}
 
-                  {activeTab === "details" && (
-                    <>
-                      {/* Description */}
-                      <div className={hasTabs ? "mt-6" : "mt-4"}>
-                        {editingField === "description" ? (
-                          <MarkdownEditor
-                            value={editDescription}
-                            onChange={setEditDescription}
-                            onSave={handleSaveDescription}
-                            onCancel={() => setEditingField(null)}
-                            autoFocus
-                            clickEvent={descClickEvent}
-                            className="prose-exponential"
-                          />
-                        ) : (
-                          <div
-                            onClick={(e) => {
-                              if ((e.target as HTMLElement).closest('a')) return;
-                              setDescClickEvent({ clientX: e.clientX, clientY: e.clientY }); startEditing("description");
-                            }}
-                            className="cursor-text min-h-10 prose-exponential"
+              {/* Tabs */}
+              {(() => {
+                const hasSpec = issue.artifacts?.some(
+                  (a) => a.artifact_type === "spec",
+                );
+                const hasWalkthrough = issue.artifacts?.some(
+                  (a) => a.artifact_type === "walkthrough",
+                );
+                const hasTabs = hasSpec || hasWalkthrough;
+
+                const tabs: { key: DetailTab; label: string }[] = [
+                  { key: "details", label: "Details" },
+                  ...(hasSpec
+                    ? [{ key: "spec" as DetailTab, label: "Spec" }]
+                    : []),
+                  ...(hasWalkthrough
+                    ? [
+                        {
+                          key: "walkthrough" as DetailTab,
+                          label: "Walkthrough",
+                        },
+                      ]
+                    : []),
+                ];
+
+                return (
+                  <>
+                    {hasTabs && (
+                      <div className="flex items-center gap-1 mt-4 border-b border-[var(--color-border-subtle)]">
+                        {tabs.map((tab) => (
+                          <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`px-3 py-2 text-sm font-medium transition-colors relative ${
+                              activeTab === tab.key
+                                ? "text-[var(--color-text-primary)]"
+                                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                            }`}
                           >
-                            {(optimisticDescription ?? issue.description) ? (
-                              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                                {linkifyIssueIds(optimisticDescription ?? issue.description ?? "", prefix)}
+                            {tab.label}
+                            {activeTab === tab.key && (
+                              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeTab === "details" && (
+                      <>
+                        {/* Description */}
+                        <div className={hasTabs ? "mt-6" : "mt-4"}>
+                          {editingField === "description" ? (
+                            <MarkdownEditor
+                              value={editDescription}
+                              onChange={setEditDescription}
+                              onSave={handleSaveDescription}
+                              onCancel={() => setEditingField(null)}
+                              autoFocus
+                              clickEvent={descClickEvent}
+                              className="prose-exponential"
+                            />
+                          ) : (
+                            <div
+                              onClick={(e) => {
+                                if ((e.target as HTMLElement).closest("a"))
+                                  return;
+                                setDescClickEvent({
+                                  clientX: e.clientX,
+                                  clientY: e.clientY,
+                                });
+                                startEditing("description");
+                              }}
+                              className="cursor-text min-h-10 prose-exponential"
+                            >
+                              {(optimisticDescription ?? issue.description) ? (
+                                <Markdown
+                                  remarkPlugins={[remarkGfm, remarkBreaks]}
+                                >
+                                  {linkifyIssueIds(
+                                    optimisticDescription ??
+                                      issue.description ??
+                                      "",
+                                    prefix,
+                                  )}
+                                </Markdown>
+                              ) : (
+                                <p className="text-base text-[var(--color-text-muted)]">
+                                  Add a description...
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <SubIssuesTable
+                          issue={issue}
+                          issues={issues}
+                          onRefresh={onRefresh}
+                        />
+
+                        <ArtifactList
+                          artifacts={issue.artifacts ?? []}
+                          issue={issue}
+                        />
+
+                        <ActivityTimeline
+                          issue={issue}
+                          newComment={newComment}
+                          onNewCommentChange={setNewComment}
+                          onAddComment={handleAddComment}
+                          saving={saving}
+                          commentRef={commentRef}
+                          prefix={prefix}
+                        />
+                      </>
+                    )}
+
+                    {(activeTab === "spec" || activeTab === "walkthrough") &&
+                      (() => {
+                        const filename =
+                          activeTab === "spec" ? "spec.md" : "walkthrough.md";
+                        const content = artifactContent[filename];
+                        return (
+                          <div className="mt-6 prose-exponential">
+                            {content === undefined ? (
+                              <p className="text-sm text-[var(--color-text-muted)]">
+                                Loading...
+                              </p>
+                            ) : content ? (
+                              <Markdown
+                                remarkPlugins={[remarkGfm, remarkBreaks]}
+                              >
+                                {linkifyIssueIds(content, prefix)}
                               </Markdown>
                             ) : (
-                              <p className="text-base text-[var(--color-text-muted)]">Add a description...</p>
+                              <p className="text-sm text-[var(--color-text-muted)]">
+                                No content.
+                              </p>
                             )}
                           </div>
-                        )}
-                      </div>
-
-                      <SubIssuesTable issue={issue} issues={issues} onRefresh={onRefresh} />
-
-                      <ArtifactList artifacts={issue.artifacts ?? []} issue={issue} />
-
-                      <ActivityTimeline
-                        issue={issue}
-                        newComment={newComment}
-                        onNewCommentChange={setNewComment}
-                        onAddComment={handleAddComment}
-                        saving={saving}
-                        commentRef={commentRef}
-                        prefix={prefix}
-                      />
-                    </>
-                  )}
-
-                  {(activeTab === "spec" || activeTab === "walkthrough") && (() => {
-                    const filename = activeTab === "spec" ? "spec.md" : "walkthrough.md";
-                    const content = artifactContent[filename];
-                    return (
-                      <div className="mt-6 prose-exponential">
-                        {content === undefined ? (
-                          <p className="text-sm text-[var(--color-text-muted)]">Loading...</p>
-                        ) : content ? (
-                          <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                            {linkifyIssueIds(content, prefix)}
-                          </Markdown>
-                        ) : (
-                          <p className="text-sm text-[var(--color-text-muted)]">No content.</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </>
-              );
-            })()}
+                        );
+                      })()}
+                  </>
+                );
+              })()}
+            </div>
           </div>
-        </div>
 
-        <PropertySidebar
-          issue={issue}
-          issues={issues}
-          openPopover={openPopover}
-          setOpenPopover={setOpenPopover}
-          popoverIndex={popoverIndex}
-          setPopoverIndex={setPopoverIndex}
-          saveDraft={saveDraft}
-          onClose={onClose}
-          onRefresh={onRefresh}
-          contributors={contributors}
-          onConfigLabelsChange={onConfigLabelsChange}
-          onOpenMerge={() => setMergeViewOpen(true)}
-        />
+          <PropertySidebar
+            issue={issue}
+            issues={issues}
+            openPopover={openPopover}
+            setOpenPopover={setOpenPopover}
+            popoverIndex={popoverIndex}
+            setPopoverIndex={setPopoverIndex}
+            saveDraft={saveDraft}
+            onClose={onClose}
+            onRefresh={onRefresh}
+            contributors={contributors}
+            onConfigLabelsChange={onConfigLabelsChange}
+            onOpenMerge={() => setMergeViewOpen(true)}
+          />
         </div>
       </div>
     </div>

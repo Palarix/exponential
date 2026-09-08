@@ -30,10 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Merge view auto-refreshes when new commits are pushed, with a manual refresh button in the tab bar; `.xpo/` files hidden from files/diff tabs (xpo-af0b09)
 - Merge view walkthrough and conversation tabs now constrain to 832px and center, matching the issue detail content width (xpo-2c6297)
 - ContextMenu sub-menus now flip left and clamp vertically when near viewport edges instead of clipping (xpo-911a91)
 - FilterMenu and ViewOptionsMenu popovers now center on their trigger button with viewport clamping, instead of right-aligning (xpo-374512)
-- Scrollbar appearance no longer shifts layout left — `scrollbar-gutter: stable` applied to all scroll containers via Tailwind overflow class targeting (xpo-0b2c6c)
+- Scrollbar appearance no longer shifts layout left — scroll containers use `overflow-y: scroll` with a thin 6px transparent-track scrollbar (xpo-0b2c6c)
 - Inline create row in backlog status groups now aligns with normal issue rows — icons wrapped in matching containers, blank spacer replaced with dimmed `xpo-······` placeholder ID (xpo-5d3fb0)
 - Fixed all 63 frontend eslint errors across 21 files with no suppression comments — ref writes moved out of render, setState positioning replaced with direct DOM, non-component exports extracted to separate modules, missing hook deps added, unused vars removed, `any` types replaced (xpo-c08d52)
 - `make test` now depends on `make lint` (`go vet` + `bun run lint`), ensuring lint errors are caught before declaring implementation done (xpo-c08d52)
