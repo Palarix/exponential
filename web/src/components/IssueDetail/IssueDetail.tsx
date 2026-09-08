@@ -103,6 +103,10 @@ export default function IssueDetail({
   }, [issue.description, optimisticDescription]);
 
   useEffect(() => {
+    setArtifactContent({});
+  }, [issue.updated_at]);
+
+  useEffect(() => {
     if (activeTab === "details") return;
     const filename = activeTab === "spec" ? "spec.md" : "walkthrough.md";
     if (artifactContent[filename] !== undefined) return;
