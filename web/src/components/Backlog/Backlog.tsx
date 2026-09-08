@@ -502,6 +502,7 @@ export default function Backlog({
     setNodeToggleCount((c) => c + 1);
   }, [childrenByParent]);
 
+
   const rows = useBacklogRows(
     issues,
     filteredIssues,
@@ -1168,12 +1169,26 @@ export default function Backlog({
   toggleGroupRef.current = toggleGroup;
   const toggleNodeRef = useRef(toggleNode);
   toggleNodeRef.current = toggleNode;
+  const expandAllNodesRef = useRef(expandAllNodes);
+  expandAllNodesRef.current = expandAllNodes;
+  const collapseAllNodesRef = useRef(collapseAllNodes);
+  collapseAllNodesRef.current = collapseAllNodes;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (openPopoverRef.current) return;
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
+      if (e.key === "}") {
+        e.preventDefault();
+        expandAllNodesRef.current();
+        return;
+      }
+      if (e.key === "{") {
+        e.preventDefault();
+        collapseAllNodesRef.current();
+        return;
+      }
       if (e.key === "[" || e.key === "]") {
         e.preventDefault();
         const tabs = Object.keys(TAB_CONFIGS) as Tab[];

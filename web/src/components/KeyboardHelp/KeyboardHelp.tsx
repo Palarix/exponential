@@ -47,6 +47,8 @@ const BACKLOG: ShortcutGroup = {
     { keys: ["."], label: "Copy issue ID" },
     { keys: ["["], label: "Previous tab" },
     { keys: ["]"], label: "Next tab" },
+    { keys: ["}"], label: "Expand all parents" },
+    { keys: ["{"], label: "Collapse all parents" },
   ],
 };
 
