@@ -332,3 +332,161 @@ func TestStartWork_Worktree_CreatesWorktree(t *testing.T) {
 		t.Errorf("worktree path mismatch: got %q, want %q", path, wtPath)
 	}
 }
+
+func setupWorktreeTestRepo(t *testing.T) (string, *Client) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	os.MkdirAll(xpoDir, 0755)
+	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	storage.ResetHubRoot()
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	})
+
+	runGit(t, tmpDir, "init", "-b", "main")
+	runGit(t, tmpDir, "config", "user.email", "test@test.com")
+	runGit(t, tmpDir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(tmpDir, "dummy.txt"), []byte("init"), 0644)
+	runGit(t, tmpDir, "add", ".")
+	runGit(t, tmpDir, "commit", "-m", "init")
+
+	cfg := &config.Config{
+		Prefix:           "test-",
+		User:             "Test User <test@test.com>",
+		EstimationSystem: "fibonacci",
+		CountUnestimated: true,
+		Version:          2,
+		Worktrees:        true,
+	}
+	return tmpDir, NewClient(cfg)
+}
+
+func TestStartWork_Worktree_ExistingBranch(t *testing.T) {
+	tmpDir, client := setupWorktreeTestRepo(t)
+
+	// Create a branch manually (simulates a previous start that was cleaned up
+	// but the branch survived)
+	runGit(t, tmpDir, "branch", "test-exist01-existing-branch")
+
+	createTestIssue(t, "test-exist01", "Existing Branch", "PLANNED")
+
+	branch, wtPath, msgs, err := client.StartWork("test-exist01", false)
+	if err != nil {
+		t.Fatalf("StartWork() unexpected error: %v", err)
+	}
+	if branch != "test-exist01-existing-branch" {
+		t.Errorf("expected branch 'test-exist01-existing-branch', got %q", branch)
+	}
+	if wtPath == "" {
+		t.Fatal("expected non-empty worktree path")
+	}
+
+	foundMsg := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "existing branch") {
+			foundMsg = true
+		}
+	}
+	if !foundMsg {
+		t.Errorf("expected 'existing branch' message in %v", msgs)
+	}
+
+	// Verify worktree uses the pre-existing branch
+	_, found := FindWorktreeForBranch("test-exist01-existing-branch")
+	if !found {
+		t.Fatal("expected worktree for existing branch")
+	}
+}
+
+func TestStartWork_Worktree_ForceRemovesExisting(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+	createTestIssue(t, "test-force01", "Force Takeover", "PLANNED")
+
+	// First start creates the worktree
+	_, wtPath1, _, err := client.StartWork("test-force01", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+	if _, err := os.Stat(wtPath1); os.IsNotExist(err) {
+		t.Fatal("first worktree should exist")
+	}
+
+	// Force start should remove and recreate
+	_, wtPath2, msgs, err := client.StartWork("test-force01", true)
+	if err != nil {
+		t.Fatalf("force StartWork() failed: %v", err)
+	}
+
+	foundRemoveMsg := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Removed existing worktree") {
+			foundRemoveMsg = true
+		}
+	}
+	if !foundRemoveMsg {
+		t.Errorf("expected 'Removed existing worktree' message in %v", msgs)
+	}
+
+	if wtPath2 == "" {
+		t.Fatal("expected non-empty worktree path after force")
+	}
+}
+
+func TestStartWork_Worktree_SetupHook(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+	client.Config.WorktreeSetup = "touch .setup-ran"
+
+	createTestIssue(t, "test-hook01", "Setup Hook", "PLANNED")
+
+	_, wtPath, msgs, err := client.StartWork("test-hook01", false)
+	if err != nil {
+		t.Fatalf("StartWork() unexpected error: %v", err)
+	}
+
+	// Verify the marker file was created in the worktree
+	markerPath := filepath.Join(wtPath, ".setup-ran")
+	if _, err := os.Stat(markerPath); os.IsNotExist(err) {
+		t.Error("expected setup hook to create .setup-ran in worktree")
+	}
+
+	foundHookMsg := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "worktree_setup hook") {
+			foundHookMsg = true
+		}
+	}
+	if !foundHookMsg {
+		t.Errorf("expected setup hook message in %v", msgs)
+	}
+}
+
+func TestStartWork_Worktree_SetupHookFails(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+	client.Config.WorktreeSetup = "exit 1"
+
+	createTestIssue(t, "test-hookfail01", "Setup Hook Fail", "PLANNED")
+
+	_, wtPath, msgs, err := client.StartWork("test-hookfail01", false)
+	if err != nil {
+		t.Fatalf("StartWork() should succeed even if hook fails: %v", err)
+	}
+	if wtPath == "" {
+		t.Fatal("expected non-empty worktree path despite hook failure")
+	}
+
+	foundWarning := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Warning: worktree_setup hook failed") {
+			foundWarning = true
+		}
+	}
+	if !foundWarning {
+		t.Errorf("expected hook failure warning in %v", msgs)
+	}
+}
