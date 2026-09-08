@@ -67,9 +67,9 @@ const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
     label: "All Issues",
     statuses: ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"],
   },
-  backlog: { label: "Backlog", statuses: ["BACKLOG"] },
   active: { label: "Active", statuses: ["PLANNED", "DOING", "BLOCKED"] },
-  done: { label: "Done", statuses: ["DONE", "CANCELED", "DUPLICATE"] },
+  backlog: { label: "Backlog", statuses: ["BACKLOG"] },
+  done: { label: "Completed", statuses: ["DONE", "CANCELED", "DUPLICATE"] },
 };
 
 const GROUP_VISIBLE_COUNT = 100;
