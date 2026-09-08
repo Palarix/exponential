@@ -1,6 +1,6 @@
 BINARY_NAME=xpo
 
-.PHONY: all build clean test lint frontend install docker release stressgen setup
+.PHONY: all build clean test lint frontend frontend-test install docker release stressgen setup
 
 all: setup build
 
@@ -28,9 +28,13 @@ clean:
 	mkdir -p internal/server/static
 	touch internal/server/static/.gitkeep
 
-test: lint
+test: lint frontend-test
 	@echo "Running test suite..."
 	@go test ./... > /dev/null 2>&1 || go test -v ./...
+
+frontend-test:
+	@echo "Running frontend tests..."
+	@cd web && bun run --silent test 2>&1 || { echo "vitest failed"; exit 1; }
 
 lint:
 	@echo "Running lint..."

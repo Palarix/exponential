@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Frontend test infrastructure with vitest — 72 tests covering diff utilities (`parseDiffByFile`, `addLineNumbers`, `buildFileTree`, `flattenSingleChildDirs`, `buildSplitLines`) and format utilities; `make test` now runs vitest alongside Go tests (xpo-46c418)
 - Keyboard help overlay: added Board section documenting all Board shortcuts; disambiguated key separators (`/` = or, `→` = then, `+` = together); expanded status number shortcuts to show actual status names; widened to 4-column layout (xpo-87503f)
 - Optional `default_branch` field in `.xpo/config.yaml` — explicitly sets the base branch for branching, merging, and diff operations, bypassing git-based detection; `xpo init` auto-detects and writes it (xpo-961910)
 - Global config accessor (`config.Get()` / `config.Set()`) — package-level functions can now read config without parameter threading (xpo-961910)
