@@ -43,17 +43,6 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 		return nil, nil, nil
 	}
 
-	// Prepare Primary Update
-	primaryEvent := model.Event{
-		ID:        id,
-		Type:      model.EventTypeUpdate,
-		Payload:   payload,
-		CreatedAt: timestamp,
-		CreatedBy: user,
-	}
-	eventsToAppend = append(eventsToAppend, primaryEvent)
-	messages = append(messages, fmt.Sprintf("Updated %s", id))
-
 	// Auto-assign sort_order when status changes and no explicit sort_order is set
 	if payload.Status != nil && payload.SortOrder == nil {
 		newStatus := model.IssueStatus(*payload.Status)
@@ -71,10 +60,20 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 			}
 			if key, err := sortorder.GenerateKeyBetween(lastKey, ""); err == nil {
 				payload.SortOrder = &key
-				primaryEvent.Payload = payload
 			}
 		}
 	}
+
+	// Prepare Primary Update
+	primaryEvent := model.Event{
+		ID:        id,
+		Type:      model.EventTypeUpdate,
+		Payload:   payload,
+		CreatedAt: timestamp,
+		CreatedBy: user,
+	}
+	eventsToAppend = append(eventsToAppend, primaryEvent)
+	messages = append(messages, fmt.Sprintf("Updated %s", id))
 
 	// Cascading side effects based on status change
 	if payload.Status != nil {

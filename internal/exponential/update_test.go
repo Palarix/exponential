@@ -434,6 +434,32 @@ func TestUpdateIssue_TerminalToActive(t *testing.T) {
 	}
 }
 
+func TestUpdateIssue_StatusChange_AssignsSortOrder(t *testing.T) {
+	tr := setupLocalTransport(t)
+
+	// Create two issues already in PLANNED with known sort orders
+	i1, _ := tr.AddIssue(model.CreatePayload{Title: "first", Status: "PLANNED"})
+	tr.UpdateIssue(i1.ID, model.UpdatePayload{SortOrder: sp("a0")}, "sort")
+	i2, _ := tr.AddIssue(model.CreatePayload{Title: "second", Status: "PLANNED"})
+	tr.UpdateIssue(i2.ID, model.UpdatePayload{SortOrder: sp("a1")}, "sort")
+
+	// Create a third issue in BACKLOG, then move it to PLANNED
+	i3, _ := tr.AddIssue(model.CreatePayload{Title: "newcomer", Status: "BACKLOG"})
+	_, err := tr.UpdateIssue(i3.ID, model.UpdatePayload{Status: sp("PLANNED")}, "start")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issues := readAllIssues(t)
+	got := issues[i3.ID].SortOrder
+	if got == "" {
+		t.Fatal("expected non-empty SortOrder after status transition")
+	}
+	if got <= "a1" {
+		t.Errorf("expected SortOrder > 'a1' (after existing keys), got %q", got)
+	}
+}
+
 func countEvents(t *testing.T, id string) int {
 	t.Helper()
 	issues := readAllIssues(t)
