@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 
 interface ShortcutEntry {
   keys: string[];
+  join?: "or" | "seq" | "combo";
   label: string;
 }
 
@@ -17,17 +18,17 @@ const GLOBAL: ShortcutGroup = {
   title: "Global",
   shortcuts: [
     { keys: ["?"], label: "Show keyboard shortcuts" },
-    { keys: [mod, "K"], label: "Open command palette" },
+    { keys: [mod, "K"], join: "combo", label: "Open command palette" },
     { keys: ["C"], label: "Create new issue" },
-    { keys: ["G", "O"], label: "Go to Overview" },
-    { keys: ["G", "M"], label: "Go to My Issues" },
-    { keys: ["G", "N"], label: "Go to Notifications" },
-    { keys: ["G", "I"], label: "Go to Issues" },
-    { keys: ["G", "B"], label: "Go to Board" },
-    { keys: ["G", "C"], label: "Go to Cycles" },
-    { keys: ["G", "L"], label: "Go to Labels" },
-    { keys: ["G", "D"], label: "Go to Dependencies" },
-    { keys: ["G", "T"], label: "Go to Timeline" },
+    { keys: ["G", "O"], join: "seq", label: "Go to Overview" },
+    { keys: ["G", "M"], join: "seq", label: "Go to My Issues" },
+    { keys: ["G", "N"], join: "seq", label: "Go to Notifications" },
+    { keys: ["G", "I"], join: "seq", label: "Go to Issues" },
+    { keys: ["G", "B"], join: "seq", label: "Go to Board" },
+    { keys: ["G", "C"], join: "seq", label: "Go to Cycles" },
+    { keys: ["G", "L"], join: "seq", label: "Go to Labels" },
+    { keys: ["G", "D"], join: "seq", label: "Go to Dependencies" },
+    { keys: ["G", "T"], join: "seq", label: "Go to Timeline" },
   ],
 };
 
@@ -52,6 +53,28 @@ const BACKLOG: ShortcutGroup = {
   ],
 };
 
+const BOARD: ShortcutGroup = {
+  title: "Board",
+  shortcuts: [
+    { keys: ["J", "↓"], label: "Next card" },
+    { keys: ["K", "↑"], label: "Previous card" },
+    { keys: ["→"], label: "Next column" },
+    { keys: ["←"], label: "Previous column" },
+    { keys: ["Enter"], label: "Open issue" },
+    { keys: ["S"], label: "Set status" },
+    { keys: ["L"], label: "Set labels" },
+    { keys: ["E"], label: "Set estimate" },
+    { keys: ["1"], label: "→ Backlog" },
+    { keys: ["2"], label: "→ Planned" },
+    { keys: ["3"], label: "→ In Progress" },
+    { keys: ["4"], label: "→ Blocked" },
+    { keys: ["5"], label: "→ Done" },
+    { keys: ["6"], label: "→ Canceled" },
+    { keys: ["7"], label: "→ Duplicate" },
+    { keys: ["."], label: "Copy issue ID" },
+  ],
+};
+
 const ISSUE_DETAIL: ShortcutGroup = {
   title: "Issue Detail",
   shortcuts: [
@@ -63,7 +86,11 @@ const ISSUE_DETAIL: ShortcutGroup = {
     { keys: ["P"], label: "Set priority" },
     { keys: ["A"], label: "Set assignee" },
     { keys: ["M"], label: "Add comment" },
-    { keys: ["1–5"], label: "Quick set status" },
+    { keys: ["1"], label: "→ Backlog" },
+    { keys: ["2"], label: "→ Planned" },
+    { keys: ["3"], label: "→ In Progress" },
+    { keys: ["4"], label: "→ Blocked" },
+    { keys: ["5"], label: "→ Done" },
     { keys: ["."], label: "Copy issue ID" },
     { keys: ["Esc"], label: "Close issue" },
   ],
@@ -90,13 +117,23 @@ const INBOX: ShortcutGroup = {
   ],
 };
 
-const ALL_GROUPS = [GLOBAL, BACKLOG, ISSUE_DETAIL, INBOX, PICKERS];
+const ALL_GROUPS = [GLOBAL, BACKLOG, BOARD, ISSUE_DETAIL, INBOX, PICKERS];
 
 function Kbd({ children }: { children: string }) {
   return (
     <kbd className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
       {children}
     </kbd>
+  );
+}
+
+const JOIN_GLYPHS = { or: "/", seq: "→", combo: "+" } as const;
+
+function KeySeparator({ join = "or" }: { join?: "or" | "seq" | "combo" }) {
+  return (
+    <span className="text-xs text-[var(--color-text-muted)]">
+      {JOIN_GLYPHS[join]}
+    </span>
   );
 }
 
@@ -127,7 +164,7 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         ref={overlayRef}
-        className="relative w-full max-w-2xl bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
+        className="relative w-full max-w-5xl bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)] overflow-hidden animate-fade-in"
       >
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--color-border-subtle)]">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Keyboard Shortcuts</h2>
@@ -141,7 +178,7 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
           </button>
         </div>
 
-        <div className="max-h-[65vh] overflow-y-auto px-5 py-4 grid grid-cols-2 gap-x-12 gap-y-6">
+        <div className="max-h-[65vh] overflow-y-auto px-5 py-4 grid grid-cols-4 gap-x-12 gap-y-6">
           {ALL_GROUPS.map(group => (
             <div key={group.title}>
               <h3 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">{group.title}</h3>
@@ -152,7 +189,7 @@ export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
                     <span className="flex items-center gap-1 shrink-0">
                       {sc.keys.map((k, i) => (
                         <span key={i} className="flex items-center gap-1">
-                          {i > 0 && <span className="text-xs text-[var(--color-text-muted)]">/</span>}
+                          {i > 0 && <KeySeparator join={sc.join} />}
                           <Kbd>{k}</Kbd>
                         </span>
                       ))}
