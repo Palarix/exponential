@@ -22,6 +22,8 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 	switch {
 	case model.IsTerminal(issue.Status):
 		return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
+	case issue.Status == model.StatusBacklog:
+		return "", "", nil, fmt.Errorf("issue %s is in BACKLOG — move it to PLANNED before starting", id)
 	case issue.Status == model.StatusBlocked:
 		return "", "", nil, fmt.Errorf("issue %s is BLOCKED", id)
 	case issue.Status == model.StatusDoing:

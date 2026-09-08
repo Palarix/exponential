@@ -123,6 +123,24 @@ func TestStartWork_DuplicateIssue(t *testing.T) {
 	}
 }
 
+func TestStartWork_BacklogIssue_Rejected(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	createTestIssue(t, "test-abc123", "Fix login", "BACKLOG")
+
+	_, _, _, err := client.StartWork("test-abc123", false)
+	if err == nil {
+		t.Fatal("expected error for BACKLOG issue")
+	}
+	if !strings.Contains(err.Error(), "BACKLOG") {
+		t.Errorf("expected error to mention BACKLOG, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "PLANNED") {
+		t.Errorf("expected error to mention PLANNED, got: %v", err)
+	}
+}
+
 func TestStartWork_BlockedIssue(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
