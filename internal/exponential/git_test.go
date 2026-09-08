@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/storage"
 )
 
@@ -29,6 +30,38 @@ func initTestRepo(t *testing.T, defaultBranch string) string {
 		storage.ResetHubRoot()
 	})
 	return dir
+}
+
+func TestDefaultBranch_ConfigOverride(t *testing.T) {
+	initTestRepo(t, "main")
+	config.Set(&config.Config{DefaultBranch: "custom"})
+	t.Cleanup(config.Reset)
+
+	got := DefaultBranch()
+	if got != "custom" {
+		t.Errorf("expected custom, got %s", got)
+	}
+}
+
+func TestDefaultBranch_EmptyConfigFallsThrough(t *testing.T) {
+	initTestRepo(t, "main")
+	config.Set(&config.Config{DefaultBranch: ""})
+	t.Cleanup(config.Reset)
+
+	got := DefaultBranch()
+	if got != "main" {
+		t.Errorf("expected main (git fallback), got %s", got)
+	}
+}
+
+func TestDefaultBranch_NilConfigFallsThrough(t *testing.T) {
+	initTestRepo(t, "main")
+	config.Reset()
+
+	got := DefaultBranch()
+	if got != "main" {
+		t.Errorf("expected main (git fallback), got %s", got)
+	}
 }
 
 func TestDefaultBranch_Main(t *testing.T) {

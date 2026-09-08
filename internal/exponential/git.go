@@ -6,12 +6,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/storage"
 )
 
-// DefaultBranch returns the name of the default branch by inspecting
-// the remote HEAD ref. Falls back to "main" if detection fails.
+// DefaultBranch returns the name of the default branch. It checks the
+// global config first, then falls back to git detection.
 func DefaultBranch() string {
+	if cfg := config.Get(); cfg != nil && cfg.DefaultBranch != "" {
+		return cfg.DefaultBranch
+	}
 	hub := storage.HubRoot()
 	out, err := exec.Command("git", "-C", hub, "symbolic-ref", "refs/remotes/origin/HEAD").Output()
 	if err == nil {

@@ -6,10 +6,37 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
+
+var (
+	global   *Config
+	globalMu sync.RWMutex
+)
+
+// Set stores the loaded config for global access by package-level functions.
+func Set(cfg *Config) {
+	globalMu.Lock()
+	global = cfg
+	globalMu.Unlock()
+}
+
+// Get returns the globally stored config, or nil if not yet loaded.
+func Get() *Config {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
+	return global
+}
+
+// Reset clears the global config. Used by tests.
+func Reset() {
+	globalMu.Lock()
+	global = nil
+	globalMu.Unlock()
+}
 
 type Config struct {
 	Name              string            `mapstructure:"name" yaml:"name"`
@@ -32,6 +59,7 @@ type Config struct {
 	Drive             DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
 	Worktrees         bool              `mapstructure:"worktrees" yaml:"worktrees"`
 	WorktreeSetup     string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
+	DefaultBranch     string            `mapstructure:"default_branch" yaml:"default_branch,omitempty"`
 }
 
 type DriveConfig struct {

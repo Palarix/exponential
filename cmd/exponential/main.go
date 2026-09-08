@@ -29,6 +29,7 @@ var rootCmd = &cobra.Command{
 			}
 			return err
 		}
+		config.Set(cfg)
 
 		if cfg.Labels != nil {
 			ui.SetLabelColors(cfg.Labels)
