@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Shared `TopBar` component (`components/ui/TopBar.tsx`) with left/center/right slots — replaces 13 duplicated top-bar implementations with a single composable primitive; includes `cn()` utility (`clsx` + `tailwind-merge`) for safe Tailwind class overrides (xpo-09ebcc)
+- Backlog and Dependencies search inputs show `/` keyboard hint when empty and `Esc` when populated (xpo-09ebcc)
+- Cycles view now has a proper fixed top bar matching all other views (xpo-09ebcc)
 - `xpo start --mode worktree|branch` CLI flag and MCP `mode` parameter — override the global worktree config per-invocation; replaces the old `--no-wt` flag (xpo-00198b)
 - Dependencies view: interactive dependency graph — filterable table as default with kind/search/completed filters, click-to-drill-down graph powered by dagre for exploring dependency chains; relationship-aware resolved logic; entry from issue detail property sidebar (xpo-a49ec2)
 - `xpo rationale` CLI command and MCP tool — BM25-ranked full-text search across specs and walkthroughs for design rationale; supports `--top N` / `-n N` and `--json`; rich terminal output with colored scores, document types, labels, and clickable artifact paths (xpo-d6b4de)
@@ -22,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- All top bars standardized to `h-12` height with `pl-5 pr-3` asymmetric padding (xpo-09ebcc)
+- Backlog search is now always visible in the center of the top bar instead of appearing on `/` keypress (xpo-09ebcc)
+- Labels view top bar normalized from `h-13 px-6` to standard TopBar defaults (xpo-09ebcc)
+- Timeline kind filter converted from segmented control to underlined tabs on the left (xpo-09ebcc)
+- Filter buttons in MyIssues and Notifications changed from text+icon to icon-only with tooltip, matching Backlog/Board style (xpo-09ebcc)
+- Backlog filter and view-options icon buttons normalized to `w-7 h-7` bordered style, matching Board (xpo-09ebcc)
+- Dependencies search Escape key now clears the search and blurs the input (xpo-09ebcc)
 - CLI accent color (issue IDs, labels) lightened from `#6f42c1` to `#b392f0` for dark terminal readability (xpo-d82dc7)
 - Branch badges on board/backlog cards now show commit count instead of SHA, with a blue indicator dot for uncommitted changes (xpo-ebb248)
 - Detail sidebar shows "No commits" and uncommitted change details instead of the base branch SHA when a branch has no commits (xpo-ebb248)

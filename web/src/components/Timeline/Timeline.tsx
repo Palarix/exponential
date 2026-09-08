@@ -4,6 +4,7 @@ import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, formatShortDate, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
+import { TopBar } from "../ui";
 import {
   Plus,
   MessageSquareMore,
@@ -350,30 +351,30 @@ function HeaderBar({
   contributors: string[];
 }) {
   return (
-    <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-      <span className="text-sm font-medium text-[var(--color-text-primary)]">Timeline</span>
-
-      <div className="ml-auto flex items-center gap-2">
-        {contributors.length > 1 && (
-          <PersonFilter person={person} onPersonChange={onPersonChange} contributors={contributors} />
-        )}
-        <div className="flex items-center gap-1 bg-[var(--color-bg-secondary)] rounded-[var(--radius-md)] p-0.5">
+    <TopBar
+      left={
+        <div className="flex items-center gap-4 h-full">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => onFilterChange(opt.value)}
-              className={`px-2.5 py-1 text-xs font-medium rounded-[var(--radius-sm)] transition-colors ${
+              className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${
                 filter === opt.value
-                  ? "bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] shadow-sm"
-                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                  ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]"
+                  : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"
               }`}
             >
               {opt.label}
             </button>
           ))}
         </div>
-      </div>
-    </div>
+      }
+      right={
+        contributors.length > 1 ? (
+          <PersonFilter person={person} onPersonChange={onPersonChange} contributors={contributors} />
+        ) : undefined
+      }
+    />
   );
 }
 

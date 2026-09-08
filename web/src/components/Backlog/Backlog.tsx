@@ -42,6 +42,7 @@ import {
   useToast,
   Modal,
   OverflowLabels,
+  TopBar,
 } from "../ui";
 import {
   ChevronRight,
@@ -91,9 +92,6 @@ interface BacklogProps {
   issues: Issue[];
   onRefresh: () => void;
   onIssueClick?: (issue: Issue) => void;
-  searchFocused?: boolean;
-  onSearchFocus?: () => void;
-  onSearchBlur?: () => void;
   sortKey: SortKey;
   onSortChange: (key: SortKey) => void;
   onNavigationOrderChange?: (ids: string[]) => void;
@@ -111,9 +109,6 @@ export default function Backlog({
   issues,
   onRefresh,
   onIssueClick,
-  searchFocused,
-  onSearchFocus,
-  onSearchBlur,
   sortKey,
   onSortChange,
   onNavigationOrderChange,
@@ -372,9 +367,6 @@ export default function Backlog({
     [expandedGroups],
   );
 
-  useEffect(() => {
-    if (searchFocused && searchRef.current) searchRef.current.focus();
-  }, [searchFocused]);
 
   const visibleStatuses = TAB_CONFIGS[activeTab].statuses;
   const query = search.toLowerCase();
@@ -1185,7 +1177,7 @@ export default function Backlog({
       }
       if (e.key === "/") {
         e.preventDefault();
-        onSearchFocus?.();
+        searchRef.current?.focus();
         return;
       }
       if (showFilterMenuRef.current) {
@@ -1275,7 +1267,7 @@ export default function Backlog({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onSearchFocus, showToast]);
+  }, [showToast]);
 
   const issuesRef = useRef(issues);
   issuesRef.current = issues;
@@ -1350,244 +1342,215 @@ export default function Backlog({
   return (
     <div className="h-full flex flex-col relative">
       {/* Tab bar */}
-      <div className="flex items-center gap-4 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        {(Object.entries(TAB_CONFIGS) as [Tab, { label: string }][]).map(
-          ([id, config]) => (
-            <button
-              key={id}
-              onClick={() => onTabChange(id)}
-              className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${activeTab === id ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
-            >
-              {config.label}
-            </button>
-          ),
-        )}
-        <div className="ml-auto flex items-center gap-3">
-          {(search || searchFocused) && (
-            <div className="flex items-center gap-2 bg-[var(--color-surface-1)] rounded-[var(--radius-md)] px-2 py-1">
-              <svg
-                className="w-4 h-4 text-[var(--color-text-muted)] shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-                />
-              </svg>
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onBlur={() => {
-                  if (!search) onSearchBlur?.();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setSearch("");
-                    onSearchBlur?.();
-                  }
-                }}
-                placeholder="Filter issues..."
-                className="bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none w-36"
-              />
-            </div>
-          )}
-          <div className="relative">
-            <Tooltip content="Filter">
-              <button
-                ref={filterBtnRef}
-                onClick={() => setShowFilterMenu((v) => !v)}
-                className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] bg-[var(--color-surface-1)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+      <TopBar
+        left={
+          <div className="flex items-center gap-4 h-full">
+            {(Object.entries(TAB_CONFIGS) as [Tab, { label: string }][]).map(
+              ([id, config]) => (
+                <button
+                  key={id}
+                  onClick={() => onTabChange(id)}
+                  className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${activeTab === id ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
-                  />
-                </svg>
-                {hasActiveFilters(filters) && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
-                )}
-              </button>
-            </Tooltip>
-            {showFilterMenu && (
-              <FilterMenu
-                issues={filteredIssues}
-                filters={filters}
-                onChange={onFiltersChange}
-                anchorRef={filterBtnRef}
-                onClose={() => setShowFilterMenu(false)}
-              />
+                  {config.label}
+                </button>
+              ),
             )}
           </div>
-          <div>
-            <Tooltip content="View options">
-              <button
-                ref={viewBtnRef}
-                onClick={() => setShowViewMenu((v) => !v)}
-                className="flex items-center justify-center h-6 w-6 rounded-[var(--radius-sm)] bg-[var(--color-surface-1)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-              >
-                <Settings2 size={14} />
-              </button>
-            </Tooltip>
-            {showViewMenu && createPortal(
-              <div
-                ref={viewMenuRef}
-                style={{ position: "fixed", visibility: "hidden" }}
-                className="z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
-              >
-                {childrenByParent.size > 0 && (
-                  <>
+        }
+        center={
+          <div className="relative w-full max-w-md">
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearch("");
+                  searchRef.current?.blur();
+                }
+              }}
+              placeholder="Filter issues..."
+              className="text-sm h-8 pl-8 pr-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]"
+            />
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded px-1 py-0.5 leading-none pointer-events-none">
+              {search ? 'Esc' : '/'}
+            </kbd>
+          </div>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Tooltip content="Filter">
+                <button
+                  ref={filterBtnRef}
+                  onClick={() => setShowFilterMenu((v) => !v)}
+                  className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors relative"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                    />
+                  </svg>
+                  {hasActiveFilters(filters) && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+                  )}
+                </button>
+              </Tooltip>
+              {showFilterMenu && (
+                <FilterMenu
+                  issues={filteredIssues}
+                  filters={filters}
+                  onChange={onFiltersChange}
+                  anchorRef={filterBtnRef}
+                  onClose={() => setShowFilterMenu(false)}
+                />
+              )}
+            </div>
+            <div>
+              <Tooltip content="View options">
+                <button
+                  ref={viewBtnRef}
+                  onClick={() => setShowViewMenu((v) => !v)}
+                  className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+                >
+                  <Settings2 size={14} />
+                </button>
+              </Tooltip>
+              {showViewMenu && createPortal(
+                <div
+                  ref={viewMenuRef}
+                  style={{ position: "fixed", visibility: "hidden" }}
+                  className="z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
+                >
+                  {childrenByParent.size > 0 && (
+                    <>
+                      <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                        Layout
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (hierarchyMode !== "flat") toggleHierarchy();
+                          setShowViewMenu(false);
+                        }}
+                        className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "flat" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+                      >
+                        <svg
+                          className="w-3.5 h-3.5 shrink-0"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5"
+                          />
+                        </svg>
+                        Flat
+                        {hierarchyMode === "flat" && (
+                          <svg
+                            className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (hierarchyMode !== "nested") toggleHierarchy();
+                          setShowViewMenu(false);
+                        }}
+                        className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "nested" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+                      >
+                        <ListTree size={14} className="w-3.5 shrink-0" />
+                        Nested
+                        {hierarchyMode === "nested" && (
+                          <svg
+                            className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                      {hierarchyMode === "nested" && (
+                        <>
+                          <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+                          <button
+                            onClick={() => {
+                              expandAllNodes();
+                              setShowViewMenu(false);
+                            }}
+                            className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                          >
+                            <ChevronsUpDown
+                              size={14}
+                              className="w-3.5 shrink-0"
+                            />
+                            Expand all
+                          </button>
+                          <button
+                            onClick={() => {
+                              collapseAllNodes();
+                              setShowViewMenu(false);
+                            }}
+                            className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                          >
+                            <ChevronsDownUp
+                              size={14}
+                              className="w-3.5 shrink-0"
+                            />
+                            Collapse all
+                          </button>
+                        </>
+                      )}
+                      <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+                    </>
+                  )}
+                  {!childrenByParent.size && (
                     <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
                       Layout
                     </div>
-
-                    <button
-                      onClick={() => {
-                        if (hierarchyMode !== "flat") toggleHierarchy();
-                        setShowViewMenu(false);
-                      }}
-                      className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "flat" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
-                    >
-                      <svg
-                        className="w-3.5 h-3.5 shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5"
-                        />
-                      </svg>
-                      Flat
-                      {hierarchyMode === "flat" && (
-                        <svg
-                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (hierarchyMode !== "nested") toggleHierarchy();
-                        setShowViewMenu(false);
-                      }}
-                      className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "nested" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
-                    >
-                      <ListTree size={14} className="w-3.5 shrink-0" />
-                      Nested
-                      {hierarchyMode === "nested" && (
-                        <svg
-                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                    {hierarchyMode === "nested" && (
-                      <>
-                        <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-                        <button
-                          onClick={() => {
-                            expandAllNodes();
-                            setShowViewMenu(false);
-                          }}
-                          className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                        >
-                          <ChevronsUpDown
-                            size={14}
-                            className="w-3.5 shrink-0"
-                          />
-                          Expand all
-                        </button>
-                        <button
-                          onClick={() => {
-                            collapseAllNodes();
-                            setShowViewMenu(false);
-                          }}
-                          className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                        >
-                          <ChevronsDownUp
-                            size={14}
-                            className="w-3.5 shrink-0"
-                          />
-                          Collapse all
-                        </button>
-                      </>
-                    )}
-                    <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-                  </>
-                )}
-                {!childrenByParent.size && (
-                  <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                    Layout
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    toggleEmptyGroups();
-                    setShowViewMenu(false);
-                  }}
-                  className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                >
-                  Show empty groups
-                  {showEmptyGroups && (
-                    <svg
-                      className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
                   )}
-                </button>
-                {hierarchyMode === "nested" && (
                   <button
                     onClick={() => {
-                      toggleGhosts();
+                      toggleEmptyGroups();
                       setShowViewMenu(false);
                     }}
                     className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
                   >
-                    Show done ghosts
-                    {showGhosts && (
+                    Show empty groups
+                    {showEmptyGroups && (
                       <svg
                         className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
                         fill="none"
@@ -1603,48 +1566,74 @@ export default function Backlog({
                       </svg>
                     )}
                   </button>
-                )}
-                <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-                <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                  Sort by
-                </div>
-                {SORT_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => {
-                      onSortChange(opt.value);
-                      setShowViewMenu(false);
-                    }}
-                    className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
-                  >
-                    {opt.label}
-                    {opt.value === sortKey && (
-                      <svg
-                        className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>,
-              document.body,
-            )}
+                  {hierarchyMode === "nested" && (
+                    <button
+                      onClick={() => {
+                        toggleGhosts();
+                        setShowViewMenu(false);
+                      }}
+                      className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                    >
+                      Show done ghosts
+                      {showGhosts && (
+                        <svg
+                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-[var(--color-border-subtle)]" />
+                  <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                    Sort by
+                  </div>
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        onSortChange(opt.value);
+                        setShowViewMenu(false);
+                      }}
+                      className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
+                    >
+                      {opt.label}
+                      {opt.value === sortKey && (
+                        <svg
+                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>,
+                document.body,
+              )}
+            </div>
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+              {filteredIssues.length} issue
+              {filteredIssues.length !== 1 ? "s" : ""}
+            </span>
           </div>
-          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-            {filteredIssues.length} issue
-            {filteredIssues.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
+        }
+      />
 
       {filteredIssues.length === 0 ? (
         <EmptyState

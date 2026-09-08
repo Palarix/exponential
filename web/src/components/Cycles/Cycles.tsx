@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCycles, fetchCycleProgress } from '../../api/client';
 import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
-import { StatusIcon } from '../ui';
+import { StatusIcon, TopBar } from '../ui';
 import { UserRound } from "lucide-react";
 
 interface CyclesProps {
@@ -189,25 +189,27 @@ function CyclesTimeline({ cycles, issues, onSelect }: { cycles: Cycle[]; issues:
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto">
-      <div className="px-6 pt-5 pb-3 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Cycles</h1>
-      </div>
-      <div className="pb-4">
-        {sorted.length > 0 && (
-          <TimelineSeparator date={formatShortDate(topBoundary)} dotColor={sorted[0].status === 'current' ? 'border-[var(--color-accent-primary)]' : 'border-[var(--color-text-muted)]'} hollow={true} />
-        )}
-        {sorted.map((c, i) => {
-          const dp = dotProps(i);
-          return (
-            <div key={c.id}>
-              <TimelineRow cycle={c} issues={issues} lineColor={lineColor(i)} onClick={() => onSelect(c.id)} />
-              <TimelineSeparator date={formatShortDate(c.start)} dotColor={dp.dotColor} hollow={dp.hollow} />
-            </div>
-          );
-        })}
-      </div>
+    <div className="h-full flex flex-col">
+      <TopBar
+        left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Cycles</span>}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          <div className="pb-4">
+            {sorted.length > 0 && (
+              <TimelineSeparator date={formatShortDate(topBoundary)} dotColor={sorted[0].status === 'current' ? 'border-[var(--color-accent-primary)]' : 'border-[var(--color-text-muted)]'} hollow={true} />
+            )}
+            {sorted.map((c, i) => {
+              const dp = dotProps(i);
+              return (
+                <div key={c.id}>
+                  <TimelineRow cycle={c} issues={issues} lineColor={lineColor(i)} onClick={() => onSelect(c.id)} />
+                  <TimelineSeparator date={formatShortDate(c.start)} dotColor={dp.dotColor} hollow={dp.hollow} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

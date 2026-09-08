@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress } from "../ui";
+import { Avatar, Card, CopyableId, EmptyState, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, TopBar } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
@@ -211,12 +211,14 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">Overview</span>
-        <span className="ml-auto text-xs text-[var(--color-text-muted)] tabular-nums">
-          {issues.length} issue{issues.length === 1 ? "" : "s"}
-        </span>
-      </div>
+      <TopBar
+        left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Overview</span>}
+        right={
+          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+            {issues.length} issue{issues.length === 1 ? "" : "s"}
+          </span>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto space-y-3 py-3">

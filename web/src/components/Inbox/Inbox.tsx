@@ -5,8 +5,10 @@ import type { InboxItem, Issue } from "../../api/client";
 import {
   StatusIcon,
   LabelBadge,
+  TopBar,
 } from "../ui";
 import { Bell, CheckCircle } from "lucide-react";
+import Tooltip from "../ui/Tooltip";
 import { shortName, formatRelativeTime } from "../../utils/format";
 import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "../Backlog/filters";
@@ -281,56 +283,63 @@ export default function Inbox({
       {/* Left panel — notification cards */}
       <div className="w-80 xl:w-96 shrink-0 flex flex-col border-r border-[var(--color-border-subtle)]">
         {/* Header */}
-        <div className="flex items-center gap-3 pl-4 pr-3 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">
-            Notifications
-          </span>
-          <div className="flex-1" />
-          <div className="relative">
-            <button
-              ref={filterBtnRef}
-              onClick={() => setShowFilterMenu(v => !v)}
-              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
-                />
-              </svg>
-              Filter
-              {hasActiveFilters(filters) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+        <TopBar
+          className="pl-4"
+          left={
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">
+              Notifications
+            </span>
+          }
+          right={
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Tooltip content="Filter">
+                  <button
+                    ref={filterBtnRef}
+                    onClick={() => setShowFilterMenu(v => !v)}
+                    className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors relative"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                      />
+                    </svg>
+                    {hasActiveFilters(filters) && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+                    )}
+                  </button>
+                </Tooltip>
+                {showFilterMenu && (
+                  <FilterMenu
+                    issues={notificationIssues}
+                    filters={filters}
+                    onChange={onFiltersChange}
+                    anchorRef={filterBtnRef}
+                    onClose={() => setShowFilterMenu(false)}
+                  />
+                )}
+              </div>
+              {unreadGroups.length > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] hover:bg-[var(--color-hover-surface)] hover:text-[var(--color-text-primary)] transition-colors"
+                  title="Mark all as read (r)"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Mark all read
+                </button>
               )}
-            </button>
-            {showFilterMenu && (
-              <FilterMenu
-                issues={notificationIssues}
-                filters={filters}
-                onChange={onFiltersChange}
-                anchorRef={filterBtnRef}
-                onClose={() => setShowFilterMenu(false)}
-              />
-            )}
-          </div>
-          {unreadGroups.length > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] hover:bg-[var(--color-hover-surface)] hover:text-[var(--color-text-primary)] transition-colors"
-              title="Mark all as read (r)"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Mark all read
-            </button>
-          )}
-        </div>
+            </div>
+          }
+        />
 
         {/* Card list */}
         <div className="flex-1 overflow-y-auto">

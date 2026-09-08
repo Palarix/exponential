@@ -120,7 +120,7 @@ function App() {
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(initial.issueId);
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(initial.cycleId);
   const [depFocusId, setDepFocusId] = useState<string | null>(initial.depFocusId);
-  const [searchFocused, setSearchFocused] = useState(false);
+
   const [showNewIssue, setShowNewIssue] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
@@ -452,9 +452,6 @@ function App() {
             issues={issues}
             onRefresh={fetchData}
             onIssueClick={handleIssueClick}
-            searchFocused={searchFocused}
-            onSearchFocus={() => setSearchFocused(true)}
-            onSearchBlur={() => setSearchFocused(false)}
             sortKey={sortKey}
             onSortChange={handleSortChange}
             onNavigationOrderChange={setBacklogNavOrder}

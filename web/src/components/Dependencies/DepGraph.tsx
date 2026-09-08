@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, type WheelEvent as ReactWheel
 import type { Issue } from '../../api/types';
 import type { DepGraph, GraphEdge } from './useDepGraph';
 import StatusIcon from '../ui/StatusIcon';
-import { Toggle } from '../ui';
+import { Toggle, TopBar } from '../ui';
 
 const NODE_WIDTH = 240;
 const NODE_HEIGHT = 56;
@@ -132,39 +132,43 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <button
-          onClick={onBack}
-          className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-          title="Back to table"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-          Dependencies for {truncate(focusIssue.title, 50)}
-        </span>
-        <span className="text-xs font-mono text-[var(--color-text-muted)]">{focusIssue.id}</span>
-
-        <div className="flex-1" />
-
-        <Toggle
-          checked={showCompleted}
-          onChange={onShowCompletedChange}
-          label="Completed"
-        />
-
-        <button
-          className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-          onClick={fitToScreen}
-          title="Fit to screen"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
-          </svg>
-        </button>
-      </div>
+      <TopBar
+        left={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+              title="Back to table"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+              Dependencies for {truncate(focusIssue.title, 50)}
+            </span>
+            <span className="text-xs font-mono text-[var(--color-text-muted)]">{focusIssue.id}</span>
+          </div>
+        }
+        right={
+          <div className="flex items-center gap-3">
+            <Toggle
+              checked={showCompleted}
+              onChange={onShowCompletedChange}
+              label="Completed"
+            />
+            <button
+              className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+              onClick={fitToScreen}
+              title="Fit to screen"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+              </svg>
+            </button>
+          </div>
+        }
+      />
 
       {graph.nodes.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">

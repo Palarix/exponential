@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import type { Issue } from '../../api/client';
-import { LabelBadge, Toggle } from '../ui';
+import { LabelBadge, Toggle, TopBar } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
@@ -159,12 +159,13 @@ function TableView({
     return filtered;
   }, [issues, issueMap, showCompleted, kindFilter, search]);
 
-  const searchRef = useCallback((el: HTMLInputElement | null) => {
-    if (!el) return;
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === '/' && !e.metaKey && !e.ctrlKey && document.activeElement !== el) {
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && document.activeElement !== searchRef.current) {
         e.preventDefault();
-        el.focus();
+        searchRef.current?.focus();
       }
     };
     document.addEventListener('keydown', handler);
@@ -174,17 +175,18 @@ function TableView({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <span className="text-sm font-medium text-[var(--color-text-primary)] shrink-0">Dependencies</span>
-
-        {stats.total > 0 && (
-          <span className="text-xs tabular-nums shrink-0" style={{ color: stats.resolved === stats.total ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-            {stats.resolved} of {stats.total} blocker{stats.total !== 1 ? 's' : ''} resolved
-          </span>
-        )}
-
-        {/* Search — centered, flexible width */}
-        <div className="flex-1 flex justify-center px-4">
+      <TopBar
+        left={
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-[var(--color-text-primary)] shrink-0">Dependencies</span>
+            {stats.total > 0 && (
+              <span className="text-xs tabular-nums shrink-0" style={{ color: stats.resolved === stats.total ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                {stats.resolved} of {stats.total} blocker{stats.total !== 1 ? 's' : ''} resolved
+              </span>
+            )}
+          </div>
+        }
+        center={
           <div className="relative w-full max-w-md">
             <input
               ref={searchRef}
@@ -192,31 +194,41 @@ function TableView({
               placeholder="Search dependencies..."
               value={search}
               onChange={e => onSearchChange(e.target.value)}
-              className="text-sm h-8 pl-8 pr-3 w-full rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]"
+              onKeyDown={e => {
+                if (e.key === 'Escape') {
+                  onSearchChange('');
+                  searchRef.current?.blur();
+                }
+              }}
+              className="text-sm h-8 pl-8 pr-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]"
             />
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded px-1 py-0.5 leading-none pointer-events-none">
+              {search ? 'Esc' : '/'}
+            </kbd>
           </div>
-        </div>
-
-        {/* Kind filter */}
-        <select
-          className="text-xs h-7 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-secondary)] outline-none shrink-0"
-          value={kindFilter}
-          onChange={e => onKindFilterChange(e.target.value)}
-        >
-          {KIND_FILTER_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-
-        <Toggle
-          checked={showCompleted}
-          onChange={onShowCompletedChange}
-          label="Completed"
-        />
-      </div>
+        }
+        right={
+          <div className="flex items-center gap-3">
+            <select
+              className="text-xs h-7 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-secondary)] outline-none shrink-0"
+              value={kindFilter}
+              onChange={e => onKindFilterChange(e.target.value)}
+            >
+              {KIND_FILTER_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <Toggle
+              checked={showCompleted}
+              onChange={onShowCompletedChange}
+              label="Completed"
+            />
+          </div>
+        }
+      />
 
       {/* Table */}
       {rows.length === 0 ? (

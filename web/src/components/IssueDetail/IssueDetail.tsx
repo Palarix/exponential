@@ -4,7 +4,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { addDraft, fetchArtifactContent, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
-import { StatusIcon, CopyableId, useToast } from "../ui";
+import { StatusIcon, CopyableId, useToast, TopBar } from "../ui";
 import { ChevronRight } from "lucide-react";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
@@ -342,52 +342,56 @@ export default function IssueDetail({
   return (
     <div className="h-full flex flex-col relative">
       {/* Top bar */}
-      <div className="flex items-center justify-between pl-5 pr-3 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <div className="flex items-center gap-2 text-sm min-w-0">
-          <button
-            onClick={onClose}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
-          >
-            Issues
-          </button>
-          <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
-          <CopyableId id={issue.id} className="text-xs shrink-0" />
-          <span className="text-[var(--color-text-primary)] truncate">
-            {optimisticTitle ?? issue.title}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0 ml-4">
-          <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
-            {currentIndex + 1} / {totalCount}
-          </span>
-          <button
-            onClick={() => onNavigate("prev")}
-            disabled={!hasPrev}
-            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+      <TopBar
+        left={
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <button
+              onClick={onClose}
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <button
-            onClick={() => onNavigate("next")}
-            disabled={!hasNext}
-            className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
+              Issues
+            </button>
+            <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
+            <CopyableId id={issue.id} className="text-xs shrink-0" />
+            <span className="text-[var(--color-text-primary)] truncate">
+              {optimisticTitle ?? issue.title}
+            </span>
+          </div>
+        }
+        right={
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
+              {currentIndex + 1} / {totalCount}
+            </span>
+            <button
+              onClick={() => onNavigate("prev")}
+              disabled={!hasPrev}
+              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={() => onNavigate("next")}
+              disabled={!hasNext}
+              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        }
+      />
 
       {banner}
       {/* Body */}

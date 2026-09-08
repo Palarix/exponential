@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
+import { TopBar } from '../ui';
 import {
   DndContext,
   DragOverlay,
@@ -450,50 +451,52 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">Board</span>
-        <span className="ml-auto flex items-center gap-2">
-          <div className="relative" ref={viewMenuRef}>
-            <button
-              onClick={() => setShowViewMenu(v => !v)}
-              className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-            >
-              <Settings2 size={14} />
-            </button>
-            {showViewMenu && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
-                <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                  Columns
+      <TopBar
+        left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Board</span>}
+        right={
+          <span className="flex items-center gap-2">
+            <div className="relative" ref={viewMenuRef}>
+              <button
+                onClick={() => setShowViewMenu(v => !v)}
+                className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                <Settings2 size={14} />
+              </button>
+              {showViewMenu && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
+                  <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
+                    Columns
+                  </div>
+                  {COLUMNS.map((col) => (
+                    <button
+                      key={col.id}
+                      onClick={() => toggleColumnVisible(col.id)}
+                      className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                    >
+                      <StatusIcon status={col.id} size={14} />
+                      {col.label}
+                      {!hiddenColumns.has(col.id) && (
+                        <svg
+                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
                 </div>
-                {COLUMNS.map((col) => (
-                  <button
-                    key={col.id}
-                    onClick={() => toggleColumnVisible(col.id)}
-                    className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                  >
-                    <StatusIcon status={col.id} size={14} />
-                    {col.label}
-                    {!hiddenColumns.has(col.id) && (
-                      <svg
-                        className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-            {(() => { const n = issues.filter(i => !hiddenColumns.has(i.status)).length; return `${n} issue${n !== 1 ? 's' : ''}`; })()}
+              )}
+            </div>
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+              {(() => { const n = issues.filter(i => !hiddenColumns.has(i.status)).length; return `${n} issue${n !== 1 ? 's' : ''}`; })()}
+            </span>
           </span>
-        </span>
-      </div>
+        }
+      />
 
       <DndContext
         sensors={sensors}

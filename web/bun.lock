@@ -22,6 +22,7 @@
         "@tiptap/pm": "^3.23.5",
         "@tiptap/react": "^3.23.5",
         "@tiptap/starter-kit": "^3.23.5",
+        "clsx": "^2.1.1",
         "fractional-indexing": "^3.2.0",
         "lucide-react": "^1.17.0",
         "react": "^19.2.0",
@@ -30,6 +31,7 @@
         "recharts": "^3.8.1",
         "remark-breaks": "^4.0.0",
         "remark-gfm": "^4.0.1",
+        "tailwind-merge": "^3.6.0",
         "tiptap-markdown": "^0.9.0",
       },
       "devDependencies": {
@@ -955,6 +957,8 @@
     "style-to-object": ["style-to-object@1.0.14", "", { "dependencies": { "inline-style-parser": "0.2.7" } }, "sha512-LIN7rULI0jBscWQYaSswptyderlarFkjQ+t79nzty8tcIAceVomEVlLzH5VP4Cmsv6MtKhs7qaAiwlcp+Mgaxw=="],
 
     "supports-color": ["supports-color@7.2.0", "", { "dependencies": { "has-flag": "^4.0.0" } }, "sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw=="],
+
+    "tailwind-merge": ["tailwind-merge@3.6.0", "", {}, "sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w=="],
 
     "tailwindcss": ["tailwindcss@4.1.18", "", {}, "sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw=="],
 

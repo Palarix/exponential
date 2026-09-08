@@ -9,8 +9,10 @@ import {
   CopyableId,
   LabelBadge,
   EmptyState,
+  TopBar,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
+import Tooltip from "../ui/Tooltip";
 import { formatShortDate } from "../../utils/format";
 import { isEditableTarget } from "../../utils/keyboard";
 import FilterMenu from "../Backlog/FilterMenu";
@@ -127,62 +129,69 @@ export default function MyIssues({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-4 px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        {(Object.entries(TAB_CONFIGS) as [MyIssuesTab, { label: string }][]).map(
-          ([id, config]) => (
-            <button
-              key={id}
-              onClick={() => onTabChange(id)}
-              className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${
-                activeTab === id
-                  ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]"
-                  : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"
-              }`}
-            >
-              {config.label}
-            </button>
-          ),
-        )}
-        <div className="ml-auto flex items-center gap-3">
-          <div className="relative">
-            <button
-              ref={filterBtnRef}
-              onClick={() => setShowFilterMenu((v) => !v)}
-              className="flex items-center gap-1 h-6 px-2 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors relative"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
-                />
-              </svg>
-              Filter
-              {hasActiveFilters(filters) && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
-              )}
-            </button>
-            {showFilterMenu && (
-              <FilterMenu
-                issues={tabIssues}
-                filters={filters}
-                onChange={onFiltersChange}
-                anchorRef={filterBtnRef}
-                onClose={() => setShowFilterMenu(false)}
-              />
+      <TopBar
+        left={
+          <div className="flex items-center gap-4 h-full">
+            {(Object.entries(TAB_CONFIGS) as [MyIssuesTab, { label: string }][]).map(
+              ([id, config]) => (
+                <button
+                  key={id}
+                  onClick={() => onTabChange(id)}
+                  className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${
+                    activeTab === id
+                      ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]"
+                      : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"
+                  }`}
+                >
+                  {config.label}
+                </button>
+              ),
             )}
           </div>
-          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-            {filtered.length} issue{filtered.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Tooltip content="Filter">
+                <button
+                  ref={filterBtnRef}
+                  onClick={() => setShowFilterMenu((v) => !v)}
+                  className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors relative"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                    />
+                  </svg>
+                  {hasActiveFilters(filters) && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+                  )}
+                </button>
+              </Tooltip>
+              {showFilterMenu && (
+                <FilterMenu
+                  issues={tabIssues}
+                  filters={filters}
+                  onChange={onFiltersChange}
+                  anchorRef={filterBtnRef}
+                  onClose={() => setShowFilterMenu(false)}
+                />
+              )}
+            </div>
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
+              {filtered.length} issue{filtered.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        }
+      />
 
       {/* List */}
       {filtered.length === 0 ? (

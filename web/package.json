@@ -27,6 +27,7 @@
     "@tiptap/pm": "^3.23.5",
     "@tiptap/react": "^3.23.5",
     "@tiptap/starter-kit": "^3.23.5",
+    "clsx": "^2.1.1",
     "fractional-indexing": "^3.2.0",
     "lucide-react": "^1.17.0",
     "react": "^19.2.0",
@@ -35,6 +36,7 @@
     "recharts": "^3.8.1",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3.6.0",
     "tiptap-markdown": "^0.9.0"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import type { PendingState, Issue } from '../../api/client';
-import { StatusIcon, LabelBadge } from '../ui';
+import { StatusIcon, LabelBadge, TopBar } from '../ui';
 import { ChevronRight } from "lucide-react";
 
 interface PendingChangesProps {
@@ -19,33 +19,37 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 h-11 border-b border-[var(--color-border-subtle)] shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onClose}
-            className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            Issues
-          </button>
-          <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)]" />
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">Pending Changes</span>
-          <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{events.length}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onDiscard}
-            className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] rounded-[var(--radius-md)] transition-colors"
-          >
-            Discard All
-          </button>
-          <button
-            onClick={onSave}
-            className="px-3 py-1 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
-          >
-            {autoCommit ? 'Save & Commit' : 'Save'}
-          </button>
-        </div>
-      </div>
+      <TopBar
+        left={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              Issues
+            </button>
+            <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)]" />
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">Pending Changes</span>
+            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{events.length}</span>
+          </div>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onDiscard}
+              className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] rounded-[var(--radius-md)] transition-colors"
+            >
+              Discard All
+            </button>
+            <button
+              onClick={onSave}
+              className="px-3 py-1 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
+            >
+              {autoCommit ? 'Save & Commit' : 'Save'}
+            </button>
+          </div>
+        }
+      />
 
       {/* Changes list */}
       <div className="flex-1 overflow-y-auto">

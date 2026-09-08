@@ -35,7 +35,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { StatusIcon, Avatar } from "../ui";
+import { StatusIcon, Avatar, TopBar } from "../ui";
 import { formatRelativeTime } from "../../utils/format";
 
 interface MergeViewProps {
@@ -236,29 +236,32 @@ export default function MergeView({
   return (
     <div className="h-full flex flex-col bg-[var(--color-surface)]">
       {/* ── Top bar ── */}
-      <div className="shrink-0 flex items-center pl-5 pr-3 h-12 border-b border-[var(--color-border-default)] bg-[var(--color-surface-1)]">
-        <div className="flex items-center gap-2">
-          <StatusIcon
-            status={issue.status}
-            size={16}
-            isInferred={issue.is_inferred}
-          />
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-            {issue.title}
-          </span>
-          <span className="text-sm font-mono text-[var(--color-text-muted)]">
-            {issue.id}
-          </span>
-        </div>
-        <div className="flex-1 flex justify-end">
+      <TopBar
+        className="bg-[var(--color-surface-1)] border-[var(--color-border-default)]"
+        left={
+          <div className="flex items-center gap-2">
+            <StatusIcon
+              status={issue.status}
+              size={16}
+              isInferred={issue.is_inferred}
+            />
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+              {issue.title}
+            </span>
+            <span className="text-sm font-mono text-[var(--color-text-muted)]">
+              {issue.id}
+            </span>
+          </div>
+        }
+        right={
           <button
             onClick={onClose}
             className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
           >
             <X size={20} />
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Merge bar (3-column) ── */}
       <div className="shrink-0 border-b border-[var(--color-border-default)] bg-[var(--color-surface-1)] px-5 py-3">
