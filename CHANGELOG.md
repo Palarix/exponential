@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Backlog drag-and-drop performance — eliminated per-pointermove re-renders by moving DnD visual state (drop indicator, group highlight, nest target) from React state to refs with direct DOM manipulation; extracted `BacklogIssueRow` and `BacklogGroupHeader` as `React.memo` components (xpo-d049dc)
+- Cross-group drag over ghost parent rows no longer shows a spurious indicator in the originating group — ghost rows now participate in collision detection, and `findIndex` lookups skip ghost instances (xpo-d049dc)
+- Cancelling a drag with Escape no longer triggers a click-through to the issue detail view on mouseup (xpo-d049dc)
 - Merge view auto-refreshes when new commits are pushed, with a manual refresh button in the tab bar; `.xpo/` files hidden from files/diff tabs (xpo-af0b09)
 - Merge view walkthrough and conversation tabs now constrain to 832px and center, matching the issue detail content width (xpo-2c6297)
 - ContextMenu sub-menus now flip left and clamp vertically when near viewport edges instead of clipping (xpo-911a91)

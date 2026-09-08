@@ -23,36 +23,23 @@ import {
 import { createIssue, addDraft, fetchCycles } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
-  Avatar,
-  BranchBadge,
   EmptyState,
   EstimateBadge,
   LabelBadge,
   DefaultLabelsContext,
   StatusIcon,
   PriorityIcon,
-  CopyableId,
-  Popover,
-  LabelPicker,
-  StatusPicker,
-  PriorityPicker,
-  EstimatePicker,
-  SubProgress,
   ContextMenu,
   useToast,
   Modal,
-  OverflowLabels,
   TopBar,
 } from "../ui";
 import {
-  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   ListTree,
-  Paperclip,
   Settings2,
 } from "lucide-react";
-import { formatShortDate } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
@@ -62,17 +49,16 @@ import { isEditableTarget } from "../../utils/keyboard";
 import Tooltip from "../ui/Tooltip";
 import FilterMenu from "./FilterMenu";
 import { type BacklogFilters, hasActiveFilters } from "./filters";
-import {
-  GroupHeaderDnd,
-  IssueRowDnd,
-  DragOverlayCard,
-} from "./DndComponents";
+import { DragOverlayCard } from "./DndComponents";
 import { backlogCollision } from "./backlogCollision";
 import {
   useBacklogRows,
   type RowItem,
   type HierarchyMode,
 } from "./useBacklogRows";
+import { BacklogGroupHeader } from "./BacklogGroupHeader";
+import { BacklogIssueRow } from "./BacklogIssueRow";
+import "./backlog-dnd.css";
 
 export type Tab = "all" | "active" | "backlog" | "done";
 
@@ -87,6 +73,87 @@ const TAB_CONFIGS: Record<Tab, { label: string; statuses: string[] }> = {
 };
 
 const GROUP_VISIBLE_COUNT = 100;
+
+type DropIndicatorValue = { rowIndex: number; position: "above" | "below" } | null;
+
+function applyIndicatorDOM(
+  listEl: HTMLElement | null,
+  prev: DropIndicatorValue,
+  next: DropIndicatorValue,
+) {
+  if (!listEl) return;
+  if (prev) {
+    const el = listEl.querySelector<HTMLElement>(`[data-row="${prev.rowIndex}"]`);
+    const w = el?.closest<HTMLElement>("[data-context-issue]");
+    if (w) {
+      delete w.dataset.drop;
+      w.style.removeProperty("--indicator-left");
+    }
+  }
+  if (next) {
+    const el = listEl.querySelector<HTMLElement>(`[data-row="${next.rowIndex}"]`);
+    const w = el?.closest<HTMLElement>("[data-context-issue]");
+    if (w) {
+      const depth = parseInt(w.dataset.depth || "0", 10);
+      w.style.setProperty("--indicator-left", `${20 + depth * 24}px`);
+      w.dataset.drop = next.position;
+    }
+  }
+}
+
+function applyGroupDOM(
+  listEl: HTMLElement | null,
+  prev: string | null,
+  next: string | null,
+) {
+  if (!listEl || prev === next) return;
+  if (prev) {
+    const w = listEl.querySelector<HTMLElement>(`[data-group-status="${prev}"]`);
+    if (w) {
+      w.style.boxShadow = "";
+      w.style.background = "";
+      const h = w.querySelector<HTMLElement>("[data-group-header]");
+      if (h) h.style.backgroundColor = "";
+    }
+  }
+  if (next) {
+    const w = listEl.querySelector<HTMLElement>(`[data-group-status="${next}"]`);
+    if (w) {
+      w.style.boxShadow = "inset 0 0 0 2px var(--color-accent-primary)";
+      w.style.background =
+        "color-mix(in srgb, var(--color-accent-primary) 5%, transparent)";
+      const h = w.querySelector<HTMLElement>("[data-group-header]");
+      if (h) h.style.backgroundColor = "transparent";
+    }
+  }
+}
+
+function applyNestDOM(
+  listEl: HTMLElement | null,
+  prev: string | null,
+  next: string | null,
+) {
+  if (!listEl || prev === next) return;
+  if (prev) {
+    const el = listEl.querySelector<HTMLElement>(
+      `[data-context-issue="${prev}"] [data-backlog-row]`,
+    );
+    if (el) {
+      el.style.boxShadow = "";
+      el.style.background = "";
+    }
+  }
+  if (next) {
+    const el = listEl.querySelector<HTMLElement>(
+      `[data-context-issue="${next}"] [data-backlog-row]`,
+    );
+    if (el) {
+      el.style.boxShadow = "inset 0 0 0 2px var(--color-accent-primary)";
+      el.style.background =
+        "color-mix(in srgb, var(--color-accent-primary) 10%, transparent)";
+    }
+  }
+}
 
 interface BacklogProps {
   issues: Issue[];
@@ -531,15 +598,32 @@ export default function Backlog({
   // DnD state
   const isDndEnabled = sortKey === "manual";
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [dropIndicator, setDropIndicator] = useState<{
-    rowIndex: number;
-    position: "above" | "below";
-  } | null>(null);
-  const [dropGroupStatus, setDropGroupStatus] = useState<string | null>(null);
-  const [dropNestTargetId, setDropNestTargetId] = useState<string | null>(null);
+  const dropIndicatorRef = useRef<DropIndicatorValue>(null);
+  const dropGroupStatusRef = useRef<string | null>(null);
+  const dropNestTargetIdRef = useRef<string | null>(null);
   const dragBatchRef = useRef<string[]>([]);
   const modifiersRef = useRef({ alt: false, meta: false, ctrl: false });
   const pointerYRef = useRef<number>(0);
+
+  const setIndicator = useCallback((value: DropIndicatorValue) => {
+    const prev = dropIndicatorRef.current;
+    dropIndicatorRef.current = value;
+    applyIndicatorDOM(listRef.current, prev, value);
+  }, []);
+
+  const setGroup = useCallback((value: string | null) => {
+    const prev = dropGroupStatusRef.current;
+    dropGroupStatusRef.current = value;
+    applyGroupDOM(listRef.current, prev, value);
+  }, []);
+
+  const setNest = useCallback((value: string | null) => {
+    const prev = dropNestTargetIdRef.current;
+    dropNestTargetIdRef.current = value;
+    applyNestDOM(listRef.current, prev, value);
+  }, []);
+
+  const wasDraggingRef = useRef(false);
 
   useEffect(() => {
     if (!activeId) return;
@@ -816,11 +900,14 @@ export default function Backlog({
 
   const resetDropState = useCallback(() => {
     setActiveId(null);
-    setDropIndicator(null);
-    setDropGroupStatus(null);
-    setDropNestTargetId(null);
+    setIndicator(null);
+    setGroup(null);
+    setNest(null);
     modifiersRef.current = { alt: false, meta: false, ctrl: false };
-  }, []);
+    setTimeout(() => {
+      wasDraggingRef.current = false;
+    }, 0);
+  }, [setIndicator, setGroup, setNest]);
 
   const handleDndStart = useCallback(
     (event: DragStartEvent) => {
@@ -834,12 +921,13 @@ export default function Backlog({
       if (typeof (orig as PointerEvent).clientY === "number")
         pointerYRef.current = (orig as PointerEvent).clientY;
       dragBatchRef.current = getDragGroup(id);
+      wasDraggingRef.current = true;
       setActiveId(id);
-      setDropIndicator(null);
-      setDropGroupStatus(null);
-      setDropNestTargetId(null);
+      setIndicator(null);
+      setGroup(null);
+      setNest(null);
     },
-    [getDragGroup],
+    [getDragGroup, setIndicator, setGroup, setNest],
   );
 
   const isDescendant = useCallback(
@@ -860,9 +948,9 @@ export default function Backlog({
       const draggedId = String(event.active.id);
       const overRaw = event.over?.id ? String(event.over.id) : null;
       if (!overRaw) {
-        setDropIndicator(null);
-        setDropGroupStatus(null);
-        setDropNestTargetId(null);
+        setIndicator(null);
+        setGroup(null);
+        setNest(null);
         return;
       }
       if (overRaw.startsWith("group-")) {
@@ -872,29 +960,51 @@ export default function Backlog({
           (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
         );
         if (groupIsEmpty || draggedStatus !== status) {
-          setDropIndicator(null);
-          setDropGroupStatus(status);
-          setDropNestTargetId(null);
+          setIndicator(null);
+          setGroup(status);
+          setNest(null);
         } else {
           const firstIssueIdx = rows.findIndex(
             (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
           );
-          setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
-          setDropGroupStatus(null);
-          setDropNestTargetId(null);
+          setIndicator({ rowIndex: firstIssueIdx, position: "above" });
+          setGroup(null);
+          setNest(null);
+        }
+        return;
+      }
+      if (overRaw.startsWith("ghost:")) {
+        const ghostIssueId = overRaw.slice("ghost:".length);
+        const ghostRowIndex = rows.findIndex(
+          (r) =>
+            r.kind === "issue" &&
+            r.issue.id === ghostIssueId &&
+            (!!r.isGhostParent || !!r.isGhostChild),
+        );
+        if (ghostRowIndex >= 0) {
+          const status = getRowStatusGroup(ghostRowIndex);
+          if (status) {
+            setIndicator(null);
+            setGroup(status);
+            setNest(null);
+          }
         }
         return;
       }
       const overRowIndex = rows.findIndex(
-        (r) => r.kind === "issue" && r.issue.id === overRaw,
+        (r) =>
+          r.kind === "issue" &&
+          r.issue.id === overRaw &&
+          !r.isGhostParent &&
+          !r.isGhostChild,
       );
       if (overRowIndex < 0) return;
       const overRow = rows[overRowIndex];
       if (overRow.kind !== "issue") return;
       if (overRow.issue.id === draggedId) {
-        setDropIndicator(null);
-        setDropGroupStatus(null);
-        setDropNestTargetId(null);
+        setIndicator(null);
+        setGroup(null);
+        setNest(null);
         return;
       }
       const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
@@ -908,13 +1018,13 @@ export default function Backlog({
           modifiersRef.current.alt
         )
       ) {
-        setDropIndicator(null);
-        setDropGroupStatus(targetStatus);
+        setIndicator(null);
+        setGroup(targetStatus);
         return;
       }
-      setDropGroupStatus(null);
+      setGroup(null);
     },
-    [rows, issues, getRowStatusGroup],
+    [rows, issues, getRowStatusGroup, setIndicator, setGroup, setNest],
   );
 
   const findAfterTree = useCallback(
@@ -961,6 +1071,8 @@ export default function Backlog({
       const overRaw = event.over?.id ? String(event.over.id) : null;
       if (!overRaw) return;
 
+      if (overRaw.startsWith("ghost:")) return;
+
       if (overRaw.startsWith("group-")) {
         const status = overRaw.slice("group-".length);
         const draggedStatus = issues.find((i) => i.id === draggedId)?.status;
@@ -968,13 +1080,17 @@ export default function Backlog({
           (r, j) => r.kind === "issue" && getRowStatusGroup(j) === status,
         );
         if (draggedStatus === status && firstIssueIdx !== -1) {
-          setDropIndicator({ rowIndex: firstIssueIdx, position: "above" });
+          setIndicator({ rowIndex: firstIssueIdx, position: "above" });
         }
         return;
       }
 
       const overRowIndex = rows.findIndex(
-        (r) => r.kind === "issue" && r.issue.id === overRaw,
+        (r) =>
+          r.kind === "issue" &&
+          r.issue.id === overRaw &&
+          !r.isGhostParent &&
+          !r.isGhostChild,
       );
       if (overRowIndex < 0) return;
       const overRow = rows[overRowIndex];
@@ -986,7 +1102,6 @@ export default function Backlog({
       const draggedStatus = dragged?.status;
       const targetStatus = getRowStatusGroup(overRowIndex);
 
-      // Evaluate nest target based on current Alt state (responsive to mid-drag Alt press)
       if (
         modifiersRef.current.alt &&
         overRow.depth === 0 &&
@@ -994,13 +1109,13 @@ export default function Backlog({
       ) {
         const alreadyChild = draggedParentId === overRaw;
         if (!alreadyChild && !isDescendant(draggedId, overRaw)) {
-          setDropNestTargetId(overRaw);
-          setDropIndicator(null);
-          setDropGroupStatus(null);
+          setNest(overRaw);
+          setIndicator(null);
+          setGroup(null);
           return;
         }
       }
-      setDropNestTargetId(null);
+      setNest(null);
 
       if (
         draggedStatus !== targetStatus &&
@@ -1010,7 +1125,7 @@ export default function Backlog({
           modifiersRef.current.alt
         )
       ) {
-        setDropIndicator(null);
+        setIndicator(null);
         return;
       }
 
@@ -1022,9 +1137,12 @@ export default function Backlog({
           ? "above"
           : "below";
 
-      // No-op: suppress indicators adjacent to the drag ghost
       const draggedRowIndex = rows.findIndex(
-        (r) => r.kind === "issue" && r.issue.id === draggedId,
+        (r) =>
+          r.kind === "issue" &&
+          r.issue.id === draggedId &&
+          !r.isGhostParent &&
+          !r.isGhostChild,
       );
       if (draggedRowIndex >= 0) {
         if (position === "below" && overRowIndex === draggedRowIndex - 1)
@@ -1033,7 +1151,6 @@ export default function Backlog({
           return;
       }
 
-      // Expanded parent: redirect "below parent" into or past its children
       if (
         position === "below" &&
         overRow.hasChildren &&
@@ -1048,31 +1165,29 @@ export default function Backlog({
             modifiersRef.current.alt ||
             draggedParentId === overRow.issue.id
           ) {
-            setDropIndicator({ rowIndex: firstChildIdx, position: "above" });
+            setIndicator({ rowIndex: firstChildIdx, position: "above" });
           } else {
-            setDropIndicator(findAfterTree(overRowIndex));
+            setIndicator(findAfterTree(overRowIndex));
           }
           return;
         }
       }
 
-      // With Alt held, any position is valid (parent changes allowed)
       if (modifiersRef.current.alt) {
-        setDropGroupStatus(null);
-        setDropIndicator({ rowIndex: overRowIndex, position });
+        setGroup(null);
+        setIndicator({ rowIndex: overRowIndex, position });
         return;
       }
 
-      // Without Alt: constrain to sibling positions, redirect otherwise
       if (isSiblingPosition(draggedParentId, overRow, position)) {
-        setDropIndicator({ rowIndex: overRowIndex, position });
+        setIndicator({ rowIndex: overRowIndex, position });
       } else if (overRow.depth > 0 && overRow.issue.parent_id) {
         const parentIdx = rows.findIndex(
           (r) => r.kind === "issue" && r.issue.id === overRow.issue.parent_id,
         );
-        setDropIndicator(parentIdx !== -1 ? findAfterTree(parentIdx) : null);
+        setIndicator(parentIdx !== -1 ? findAfterTree(parentIdx) : null);
       } else {
-        setDropIndicator(null);
+        setIndicator(null);
       }
     },
     [
@@ -1083,15 +1198,18 @@ export default function Backlog({
       findAfterTree,
       isSiblingPosition,
       isDescendant,
+      setIndicator,
+      setGroup,
+      setNest,
     ],
   );
 
   const handleDndEnd = useCallback(
     async (event: DragEndEvent) => {
       const droppedId = String(event.active.id);
-      const groupTarget = dropGroupStatus;
-      const indicatorTarget = dropIndicator;
-      const nestTarget = dropNestTargetId;
+      const groupTarget = dropGroupStatusRef.current;
+      const indicatorTarget = dropIndicatorRef.current;
+      const nestTarget = dropNestTargetIdRef.current;
       const altHeld = modifiersRef.current.alt;
       resetDropState();
       if (!groupTarget && !indicatorTarget && !nestTarget) return;
@@ -1103,13 +1221,36 @@ export default function Backlog({
         altHeld,
       );
     },
-    [
-      dropGroupStatus,
-      dropIndicator,
-      dropNestTargetId,
-      performDrop,
-      resetDropState,
-    ],
+    [performDrop, resetDropState],
+  );
+
+  const handleRowMouseEnter = useCallback((index: number) => {
+    setKeyboardNav(false);
+    setFocusedIndex(index);
+  }, []);
+
+  const handleOpenPopover = useCallback(
+    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority") => {
+      setOpenPopover({ rowIndex, type });
+    },
+    [],
+  );
+
+  const handleClosePopover = useCallback(() => {
+    setOpenPopover(null);
+  }, []);
+
+  const handleToggleStoryPoints = useCallback(() => {
+    setShowStoryPoints((v) => {
+      const next = !v;
+      localStorage.setItem("exponential-backlog-show-points", String(next));
+      return next;
+    });
+  }, []);
+
+  const draggedIssue = useMemo(
+    () => (activeId ? issues.find((i) => i.id === activeId) : undefined),
+    [activeId, issues],
   );
 
   const [showViewMenu, setShowViewMenu] = useState(false);
@@ -1711,7 +1852,13 @@ export default function Backlog({
       >
         <div
           ref={listRef}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto relative"
+          onClickCapture={(e) => {
+            if (wasDraggingRef.current) {
+              e.stopPropagation();
+              e.preventDefault();
+            }
+          }}
           onMouseLeave={() => {
             if (!keyboardNav) setFocusedIndex(-1);
           }}
@@ -1730,112 +1877,31 @@ export default function Backlog({
                 sections[sections.length - 1].issueRows.push({ row, index: i });
             }
             return sections.map(({ groupRow, groupIndex, issueRows }) => {
-              const isFocused = groupIndex === focusedIndex;
               const isExpanded = expandedGroups.has(groupRow.status);
               const isInlineActive = inlineCreateStatus === groupRow.status;
-              const isDropGroup = dropGroupStatus === groupRow.status;
               return (
                 <div
                   key={`g-${groupRow.status}`}
-                  className={`${isDropGroup ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/5" : ""}`}
+                  data-group-status={groupRow.status}
                 >
-                  <GroupHeaderDnd
+                  <BacklogGroupHeader
                     status={groupRow.status}
-                    enabled={isDndEnabled && !!activeId}
-                  >
-                    {(setHeaderRef) => (
-                      <div
-                        ref={setHeaderRef}
-                        data-row={groupIndex}
-                        onClick={() =>
-                          !groupRow.isEmpty && toggleGroup(groupRow.status)
-                        }
-                        onMouseEnter={() => {
-                          setKeyboardNav(false);
-                          setFocusedIndex(groupIndex);
-                        }}
-                        className={`flex items-center gap-3 w-full px-5 py-2 border-b border-[var(--color-border-subtle)] transition-colors duration-[var(--duration-fast)] select-none ${groupRow.isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${!isDropGroup && isFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : !isDropGroup && isFocused ? "bg-[var(--color-hover-surface)]" : !isDropGroup ? "bg-[var(--color-surface-1)]" : ""}`}
-                      >
-                        <span className="w-4 shrink-0 flex items-center justify-center">
-                          <svg
-                            className={`w-3 h-3 text-[var(--color-text-muted)] transition-transform duration-100 ${isExpanded && !groupRow.isEmpty ? "rotate-90" : ""}`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
-                        </span>
-                        <StatusIcon status={groupRow.status} size={14} />
-                        <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                          {groupRow.label}
-                        </span>
-                        <span
-                          className="text-sm text-[var(--color-text-muted)] tabular-nums cursor-pointer hover:text-[var(--color-text-secondary)] transition-colors inline-flex items-center gap-1 h-5"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowStoryPoints((v) => {
-                              const next = !v;
-                              localStorage.setItem(
-                                "exponential-backlog-show-points",
-                                String(next),
-                              );
-                              return next;
-                            });
-                          }}
-                          title={
-                            showStoryPoints
-                              ? "Story points — click for issue count"
-                              : "Issue count — click for story points"
-                          }
-                        >
-                          <span className="w-3.5 shrink-0 inline-flex items-center justify-center">
-                            {showStoryPoints ? (
-                              <svg
-                                className="w-3 h-3"
-                                viewBox="0 0 12 12"
-                                fill="currentColor"
-                              >
-                                <path d="M6 1L11 11H1z" />
-                              </svg>
-                            ) : (
-                              <span className="font-medium">#</span>
-                            )}
-                          </span>
-                          {showStoryPoints
-                            ? groupRow.storyPoints
-                            : groupRow.count}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startInlineCreate(groupRow.status);
-                          }}
-                          className="ml-auto p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                          title={`New ${groupRow.label} issue`}
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 4.5v15m7.5-7.5h-15"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                  </GroupHeaderDnd>
+                    label={groupRow.label}
+                    isEmpty={groupRow.isEmpty}
+                    isExpanded={isExpanded}
+                    count={groupRow.count}
+                    storyPoints={groupRow.storyPoints}
+                    groupIndex={groupIndex}
+                    isFocused={groupIndex === focusedIndex}
+                    keyboardNav={keyboardNav}
+                    isDndEnabled={isDndEnabled}
+                    hasActiveId={activeId !== null}
+                    showStoryPoints={showStoryPoints}
+                    onToggle={toggleGroup}
+                    onToggleStoryPoints={handleToggleStoryPoints}
+                    onStartInlineCreate={startInlineCreate}
+                    onMouseEnter={handleRowMouseEnter}
+                  />
                   {isInlineActive && (
                     <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
                       <span className="w-4 shrink-0" />
@@ -1889,406 +1955,46 @@ export default function Backlog({
                     return (
                       <>
                         {visibleRows.map(({ row, index: i }) => {
-                          const {
-                            issue,
-                            depth,
-                            hasChildren,
-                            childDone,
-                            childTotal,
-                            childPointsDone,
-                            childPointsTotal,
-                            parentBreadcrumb,
-                            isGhostParent,
-                            treeGuides,
-                          } = row;
-                          const isContextTarget =
-                            contextMenu?.issueId === issue.id;
-                          const isRowFocused =
-                            i === focusedIndex || isContextTarget;
-                          const isNodeExpanded = expandedNodes.has(issue.id);
-                          const indent = depth * 24;
-                          const isGhostRow =
-                            !!isGhostParent || !!row.isGhostChild;
-                          const canDrag = isDndEnabled && !isGhostRow;
-                          const isDropTarget =
-                            isDndEnabled && !!activeId && !isGhostRow;
-                          const dndId = isGhostRow
-                            ? `ghost:${issue.id}`
-                            : issue.id;
-                          const showDropAbove =
-                            dropIndicator?.rowIndex === i &&
-                            dropIndicator.position === "above";
-                          const showDropBelow =
-                            dropIndicator?.rowIndex === i &&
-                            dropIndicator.position === "below";
-                          const isNestTarget = dropNestTargetId === issue.id;
-                          const isDraggedOrBatch =
-                            activeId !== null &&
-                            dragBatchRef.current.includes(issue.id);
-                          const dragBatchCount =
-                            activeId === issue.id
-                              ? dragBatchRef.current.length
-                              : 0;
+                          const { issue, depth, hasChildren, childDone, childTotal, childPointsDone, childPointsTotal, parentBreadcrumb, isGhostParent, treeGuides } = row;
+                          const isGhostRow = !!isGhostParent || !!row.isGhostChild;
                           return (
-                            <div
+                            <BacklogIssueRow
                               key={issue.id}
-                              className="relative"
-                              data-context-issue={issue.id}
-                            >
-                              {showDropAbove && (
-                                <div
-                                  className="absolute top-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
-                                  style={{ left: `${20 + depth * 24}px` }}
-                                />
-                              )}
-                              <IssueRowDnd
-                                id={dndId}
-                                canDrag={canDrag}
-                                enabled={isDropTarget}
-                              >
-                                {(setRowRef, dragProps) => (
-                                  <div
-                                    ref={setRowRef}
-                                    data-row={i}
-                                    data-backlog-row
-                                    {...dragProps.attributes}
-                                    {...dragProps.listeners}
-                                    onClick={() => onIssueClick?.(issue)}
-                                    onMouseEnter={() => {
-                                      setKeyboardNav(false);
-                                      setFocusedIndex(i);
-                                    }}
-                                    className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] select-none group ${isGhostParent || row.isGhostChild ? "opacity-50" : ""} ${isNestTarget ? "ring-2 ring-inset ring-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : isRowFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isRowFocused ? "bg-[var(--color-hover-surface)]" : keyboardNav ? "" : "hover:bg-[var(--color-hover-surface)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
-                                    style={{ paddingLeft: `${20 + indent}px` }}
-                                  >
-                                    {treeGuides.map((guide, k) =>
-                                      guide !== "blank" ? (
-                                        <svg
-                                          key={k}
-                                          className="absolute top-0 h-10 pointer-events-none text-[var(--color-border-default)]"
-                                          style={{
-                                            left: `${20 + k * 24}px`,
-                                            width: "24px",
-                                          }}
-                                          viewBox="0 0 24 40"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="1.5"
-                                        >
-                                          {(guide === "pipe" ||
-                                            guide === "tee") && (
-                                            <line
-                                              x1="8"
-                                              y1="0"
-                                              x2="8"
-                                              y2="40"
-                                            />
-                                          )}
-                                          {guide === "corner" && (
-                                            <line
-                                              x1="8"
-                                              y1="0"
-                                              x2="8"
-                                              y2="20"
-                                            />
-                                          )}
-                                          {(guide === "tee" ||
-                                            guide === "corner") && (
-                                            <line
-                                              x1="8"
-                                              y1="20"
-                                              x2="24"
-                                              y2="20"
-                                            />
-                                          )}
-                                        </svg>
-                                      ) : null,
-                                    )}
-                                    {hasChildren && hierarchyMode === "nested" ? (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          toggleNode(issue.id);
-                                        }}
-                                        className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10"
-                                      >
-                                        <svg
-                                          className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`}
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          stroke="currentColor"
-                                          strokeWidth={2.5}
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M9 5l7 7-7 7"
-                                          />
-                                        </svg>
-                                      </button>
-                                    ) : (
-                                      <span className="w-4 shrink-0" />
-                                    )}
-                                    <div
-                                      className="relative shrink-0"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <button
-                                        onClick={() =>
-                                          setOpenPopover(
-                                            openPopover?.rowIndex === i &&
-                                              openPopover?.type === "priority"
-                                              ? null
-                                              : {
-                                                  rowIndex: i,
-                                                  type: "priority",
-                                                },
-                                          )
-                                        }
-                                        className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
-                                      >
-                                        <PriorityIcon
-                                          priority={issue.priority || 0}
-                                          size={16}
-                                        />
-                                      </button>
-                                      {openPopover?.rowIndex === i &&
-                                        openPopover?.type === "priority" && (
-                                          <Popover
-                                            onClose={() => setOpenPopover(null)}
-                                          >
-                                            <PriorityPicker
-                                              current={issue.priority || 0}
-                                              onSelect={(v) =>
-                                                handleQuickPriority(issue.id, v)
-                                              }
-                                              onClose={() =>
-                                                setOpenPopover(null)
-                                              }
-                                            />
-                                          </Popover>
-                                        )}
-                                    </div>
-                                    <CopyableId
-                                      id={issue.id}
-                                      className="text-xs text-left shrink-0 tabular-nums"
-                                    />
-                                    <div
-                                      className="relative shrink-0"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <button
-                                        onClick={() =>
-                                          setOpenPopover(
-                                            openPopover?.rowIndex === i &&
-                                              openPopover?.type === "status"
-                                              ? null
-                                              : { rowIndex: i, type: "status" },
-                                          )
-                                        }
-                                        className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
-                                      >
-                                        <StatusIcon
-                                          status={issue.status}
-                                          size={14}
-                                          isInferred={issue.is_inferred}
-                                        />
-                                      </button>
-                                      {openPopover?.rowIndex === i &&
-                                        openPopover?.type === "status" && (
-                                          <Popover
-                                            onClose={() => setOpenPopover(null)}
-                                          >
-                                            <StatusPicker
-                                              current={issue.status}
-                                              onSelect={(v) =>
-                                                handleQuickStatus(issue.id, v)
-                                              }
-                                              onClose={() =>
-                                                setOpenPopover(null)
-                                              }
-                                            />
-                                          </Popover>
-                                        )}
-                                    </div>
-                                    {parentBreadcrumb && (
-                                      <span className="text-sm text-[var(--color-text-muted)] truncate shrink-0 max-w-38">
-                                        {parentBreadcrumb}
-                                      </span>
-                                    )}
-                                    {parentBreadcrumb && (
-                                      <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
-                                    )}
-                                    <span
-                                      className={`text-sm truncate min-w-0 ${isGhostParent || row.isGhostChild ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-primary)]"}`}
-                                    >
-                                      {issue.title}
-                                    </span>
-                                    {dragBatchCount > 1 && (
-                                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-accent-primary)] text-white text-xs font-medium shrink-0">
-                                        {dragBatchCount}
-                                      </span>
-                                    )}
-                                    {hasChildren && (
-                                      <span className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
-                                        <SubProgress
-                                          done={childDone}
-                                          total={childTotal}
-                                        />
-                                        {childDone}/{childTotal}
-                                      </span>
-                                    )}
-                                    {issue.branch_stats && (
-                                      <BranchBadge stats={issue.branch_stats} />
-                                    )}
-                                    {issue.artifacts &&
-                                      issue.artifacts.length > 0 && (
-                                        <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums shrink-0">
-                                          <Paperclip size={12} strokeWidth={1.5} />
-                                          {issue.artifacts.length}
-                                        </span>
-                                      )}
-                                    <div className="flex-1" />
-                                    {issue.is_pending && (
-                                      <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />
-                                    )}
-                                    <div
-                                      className="relative flex items-center gap-3 shrink-0"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <button
-                                        onClick={() =>
-                                          setOpenPopover(
-                                            openPopover?.rowIndex === i &&
-                                              openPopover?.type === "labels"
-                                              ? null
-                                              : { rowIndex: i, type: "labels" },
-                                          )
-                                        }
-                                        className="flex items-center gap-3 hover:opacity-70 transition-opacity"
-                                      >
-                                        {issue.labels &&
-                                        issue.labels.length > 0 ? (
-                                          <OverflowLabels
-                                            labels={issue.labels}
-                                          />
-                                        ) : (
-                                          <span className="text-xs text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
-                                            + label
-                                          </span>
-                                        )}
-                                      </button>
-                                      {openPopover?.rowIndex === i &&
-                                        openPopover?.type === "labels" && (
-                                          <Popover
-                                            onClose={() => setOpenPopover(null)}
-                                          >
-                                            <LabelPicker
-                                              allLabels={allKnownLabels}
-                                              selected={issue.labels || []}
-                                              onToggle={(label) =>
-                                                handleQuickLabelToggle(
-                                                  issue,
-                                                  label,
-                                                )
-                                              }
-                                              onConfigLabelsChange={
-                                                onConfigLabelsChange
-                                              }
-                                              onClose={() =>
-                                                setOpenPopover(null)
-                                              }
-                                            />
-                                          </Popover>
-                                        )}
-                                    </div>
-                                    {issue.cycle_id && (
-                                      <span
-                                        className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0"
-                                        title={`Cycle ${cycleMap.get(issue.cycle_id) ?? issue.cycle_id}`}
-                                      >
-                                        <svg
-                                          className="w-3.5 h-3.5"
-                                          viewBox="0 0 20 20"
-                                          fill="none"
-                                        >
-                                          <circle
-                                            cx="10"
-                                            cy="10"
-                                            r="9"
-                                            stroke="currentColor"
-                                            strokeWidth="1.5"
-                                          />
-                                          <path
-                                            d="M7.5 5.5v9l7-4.5z"
-                                            fill="currentColor"
-                                          />
-                                        </svg>
-                                        {cycleMap.get(issue.cycle_id) ?? ""}
-                                      </span>
-                                    )}
-                                    <div
-                                      className="relative shrink-0"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <button
-                                        onClick={() =>
-                                          setOpenPopover(
-                                            openPopover?.rowIndex === i &&
-                                              openPopover?.type === "estimate"
-                                              ? null
-                                              : {
-                                                  rowIndex: i,
-                                                  type: "estimate",
-                                                },
-                                          )
-                                        }
-                                        className="flex items-center w-10 justify-end hover:opacity-70 transition-opacity"
-                                      >
-                                        <EstimateBadge
-                                          value={
-                                            hasChildren
-                                              ? isTerminal(issue.status)
-                                                ? childPointsDone
-                                                : childPointsTotal -
-                                                  childPointsDone
-                                              : issue.estimate
-                                          }
-                                        />
-                                      </button>
-                                      {openPopover?.rowIndex === i &&
-                                        openPopover?.type === "estimate" && (
-                                          <Popover
-                                            onClose={() => setOpenPopover(null)}
-                                          >
-                                            <EstimatePicker
-                                              current={issue.estimate || 0}
-                                              onSelect={(v) =>
-                                                handleQuickEstimate(issue.id, v)
-                                              }
-                                              onClose={() =>
-                                                setOpenPopover(null)
-                                              }
-                                            />
-                                          </Popover>
-                                        )}
-                                    </div>
-                                    {issue.assignee && (
-                                      <Avatar name={issue.assignee} size="sm" />
-                                    )}
-                                    <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
-                                      {formatShortDate(issue.created_at)}
-                                    </span>
-                                  </div>
-                                )}
-                              </IssueRowDnd>
-                              {showDropBelow && (
-                                <div
-                                  className="absolute bottom-0 right-5 h-[2px] bg-[var(--color-accent-primary)] z-10 rounded-full"
-                                  style={{ left: `${20 + depth * 24}px` }}
-                                />
-                              )}
-                            </div>
+                              issue={issue}
+                              depth={depth}
+                              hasChildren={hasChildren}
+                              childDone={childDone}
+                              childTotal={childTotal}
+                              childPointsDone={childPointsDone}
+                              childPointsTotal={childPointsTotal}
+                              parentBreadcrumb={parentBreadcrumb}
+                              isGhostParent={isGhostParent}
+                              isGhostChild={row.isGhostChild}
+                              treeGuides={treeGuides}
+                              rowIndex={i}
+                              hierarchyMode={hierarchyMode}
+                              isFocused={i === focusedIndex || contextMenu?.issueId === issue.id}
+                              keyboardNav={keyboardNav}
+                              isNodeExpanded={expandedNodes.has(issue.id)}
+                              canDrag={isDndEnabled && !isGhostRow}
+                              isDropTarget={isDndEnabled && activeId !== null}
+                              dndId={isGhostRow ? `ghost:${issue.id}` : issue.id}
+                              isDraggedOrBatch={activeId !== null && dragBatchRef.current.includes(issue.id)}
+                              dragBatchCount={activeId === issue.id ? dragBatchRef.current.length : 0}
+                              popoverType={openPopover?.rowIndex === i ? openPopover.type : null}
+                              allKnownLabels={allKnownLabels}
+                              cycleNumber={cycleMap.get(issue.cycle_id || "")}
+                              onIssueClick={onIssueClick}
+                              onToggleNode={toggleNode}
+                              onMouseEnter={handleRowMouseEnter}
+                              onOpenPopover={handleOpenPopover}
+                              onClosePopover={handleClosePopover}
+                              onQuickStatus={handleQuickStatus}
+                              onQuickPriority={handleQuickPriority}
+                              onQuickEstimate={handleQuickEstimate}
+                              onQuickLabelToggle={handleQuickLabelToggle}
+                              onConfigLabelsChange={onConfigLabelsChange}
+                            />
                           );
                         })}
                         {shouldCap && (
@@ -2312,18 +2018,12 @@ export default function Backlog({
           })()}
         </div>
         <DragOverlay dropAnimation={null}>
-          {activeId
-            ? (() => {
-                const dragged = issues.find((i) => i.id === activeId);
-                if (!dragged) return null;
-                return (
-                  <DragOverlayCard
-                    issue={dragged}
-                    batchCount={dragBatchRef.current.length}
-                  />
-                );
-              })()
-            : null}
+          {draggedIssue ? (
+            <DragOverlayCard
+              issue={draggedIssue}
+              batchCount={dragBatchRef.current.length}
+            />
+          ) : null}
         </DragOverlay>
       </DndContext>
       {contextMenu &&
