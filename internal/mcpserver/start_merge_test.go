@@ -180,6 +180,46 @@ func TestMCPMerge_Squash(t *testing.T) {
 	}
 }
 
+func TestMCPMerge_DefaultStrategy(t *testing.T) {
+	ts, dir := setupGitToolset(t, nil)
+	seedMCPIssue(t, "test-def01", "Default Strategy", "PLANNED")
+
+	_, _, err := ts.start(context.Background(), nil, startIn{
+		ID:   "test-def01",
+		Mode: "branch",
+	})
+	if err != nil {
+		t.Fatalf("start failed: %v", err)
+	}
+
+	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
+	mcpRunGit(t, dir, "add", ".")
+	mcpRunGit(t, dir, "commit", "-m", "add feature")
+
+	// Empty strategy should default to squash
+	_, out, err := ts.merge(context.Background(), nil, mergeIn{
+		ID:         "test-def01",
+		Strategy:   "",
+		KeepBranch: true,
+	})
+	if err != nil {
+		t.Fatalf("merge failed: %v", err)
+	}
+	if out.MergeSHA == "" {
+		t.Fatal("expected non-empty merge SHA")
+	}
+
+	// Verify squash semantics: HEAD should be a single-parent commit
+	headOut, err := exec.Command("git", "cat-file", "-p", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("git cat-file failed: %v", err)
+	}
+	parentCount := strings.Count(string(headOut), "\nparent ")
+	if parentCount != 1 {
+		t.Errorf("expected single-parent commit (squash default), got %d parents", parentCount)
+	}
+}
+
 func TestMCPMerge_InvalidStrategy(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-invstr01", "Invalid Strategy", "DOING")
