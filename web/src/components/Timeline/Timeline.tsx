@@ -25,11 +25,41 @@ import {
   Tag,
   TriangleAlert,
   Calendar,
+  Paperclip,
+  Copy,
 } from "lucide-react";
 import EmptyState from "../ui/EmptyState";
 import StatusIcon from "../ui/StatusIcon";
 
-type KindFilter = "all" | "issue_event" | "commit";
+type EventCategory = "issues" | "closed" | "comments" | "merges" | "artifacts" | "commits";
+
+const TERMINAL_STATUSES = new Set(["DONE", "CANCELED", "DUPLICATE"]);
+
+const EVENT_CATEGORIES: { key: EventCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: "issues", label: "Issues", icon: Plus },
+  { key: "closed", label: "Closed", icon: Check },
+  { key: "comments", label: "Comments", icon: MessageSquareMore },
+  { key: "merges", label: "Merges", icon: GitMerge },
+  { key: "artifacts", label: "Artifacts", icon: Paperclip },
+  { key: "commits", label: "Commits", icon: GitCommitVertical },
+];
+
+const ALL_CATEGORIES = new Set<EventCategory>(EVENT_CATEGORIES.map((c) => c.key));
+
+function categorizeEntry(entry: TimelineEntry): EventCategory {
+  if (entry.kind === "commit") return "commits";
+  switch (entry.event_type) {
+    case "COMMENT": return "comments";
+    case "MERGE": return "merges";
+    case "ARTIFACT": return "artifacts";
+    case "UPDATE": {
+      const status = entry.payload?.status;
+      if (status && TERMINAL_STATUSES.has(String(status))) return "closed";
+      return "issues";
+    }
+    default: return "issues";
+  }
+}
 
 type ActIconKey =
   | "create"
@@ -48,7 +78,10 @@ type ActIconKey =
   | "assign"
   | "priority"
   | "parent"
-  | "relations";
+  | "relations"
+  | "artifact"
+  | "status-canceled"
+  | "status-duplicate";
 
 const MUTED = "bg-[var(--color-hover-surface-2)] text-[var(--color-text-muted)]";
 
@@ -70,6 +103,9 @@ const CIRCLE_STYLE: Record<ActIconKey, string> = {
   priority: MUTED,
   parent: MUTED,
   relations: MUTED,
+  artifact: MUTED,
+  "status-canceled": "bg-[var(--color-error-bg)] text-[var(--color-error)]",
+  "status-duplicate": MUTED,
 };
 
 const SHARED_ICONS: Partial<
@@ -92,6 +128,9 @@ const SHARED_ICONS: Partial<
   description: SquareDashedBottomCode,
   labels: Tag,
   priority: TriangleAlert,
+  artifact: Paperclip,
+  "status-canceled": Ban,
+  "status-duplicate": Copy,
 };
 
 function ActIcon({ k }: { k: ActIconKey }) {
@@ -107,11 +146,13 @@ function resolveIconKey(entry: TimelineEntry): ActIconKey | null {
     case "CREATE": return "create";
     case "COMMENT": return "comment";
     case "MERGE": return "merge";
+    case "ARTIFACT": return "artifact";
     case "UPDATE": {
       if (p.status) {
         const icons: Record<string, ActIconKey> = {
           BACKLOG: "status-backlog", PLANNED: "status-planned",
           DOING: "status-doing", BLOCKED: "status-blocked", DONE: "status-done",
+          CANCELED: "status-canceled", DUPLICATE: "status-duplicate",
         };
         return icons[String(p.status)] ?? "status-backlog";
       }
@@ -152,6 +193,13 @@ function describeIssueEvent(
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return { before: <>{name} merged</>, after: strategy || undefined };
     }
+    case "ARTIFACT": {
+      const action = String(p.action || "updated");
+      const filename = String(p.filename || "artifact");
+      return {
+        before: <>{name} {action} <span className="font-mono text-xs font-medium text-[var(--color-text-primary)]">{filename}</span> on</>,
+      };
+    }
     case "UPDATE": {
       if (p.status) {
         const verbs: Record<string, [string, string]> = {
@@ -160,6 +208,8 @@ function describeIssueEvent(
           DOING: ["started working on", ""],
           BLOCKED: ["marked", "as Blocked"],
           DONE: ["completed", ""],
+          CANCELED: ["canceled", ""],
+          DUPLICATE: ["marked", "as Duplicate"],
         };
         const status = String(p.status);
         const [verb, suffix] = verbs[status] ?? ["moved", `to ${status}`];
@@ -233,12 +283,6 @@ function extractContributors(entries: TimelineEntry[]): string[] {
   return Array.from(seen).sort((a, b) => a.localeCompare(b));
 }
 
-const FILTER_OPTIONS: { value: KindFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "issue_event", label: "Issues" },
-  { value: "commit", label: "Commits" },
-];
-
 export default function Timeline({
   issues,
   onIssueClick,
@@ -247,30 +291,31 @@ export default function Timeline({
   onIssueClick?: (issue: Issue) => void;
 }) {
   const [rawEntries, setRawEntries] = useState<TimelineEntry[]>([]);
-  const [filter, setFilter] = useState<KindFilter>("all");
+  const [enabledTypes, setEnabledTypes] = useState<Set<EventCategory>>(() => new Set(ALL_CATEGORIES));
   const [person, setPerson] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(100);
 
   const load = useCallback(async () => {
     try {
-      const kind = filter === "all" ? undefined : filter;
-      const data = await fetchTimeline(limit, kind);
+      const data = await fetchTimeline(limit);
       setRawEntries(data ?? []);
     } finally {
       setLoading(false);
     }
-  }, [filter, limit]);
+  }, [limit]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const allEnabled = enabledTypes.size === ALL_CATEGORIES.size;
   const contributors = useMemo(() => extractContributors(rawEntries), [rawEntries]);
-  const entries = useMemo(
-    () => person ? rawEntries.filter((e) => entryActor(e) === person) : rawEntries,
-    [rawEntries, person],
-  );
+  const entries = useMemo(() => {
+    let filtered = allEnabled ? rawEntries : rawEntries.filter((e) => enabledTypes.has(categorizeEntry(e)));
+    if (person) filtered = filtered.filter((e) => entryActor(e) === person);
+    return filtered;
+  }, [rawEntries, enabledTypes, allEnabled, person]);
 
   const handleLoadMore = () => setLimit((prev) => prev + 100);
 
@@ -285,7 +330,7 @@ export default function Timeline({
   if (rawEntries.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <HeaderBar filter={filter} onFilterChange={setFilter} person={person} onPersonChange={setPerson} contributors={contributors} />
+        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} />
         <EmptyState
           icon={<Clock className="w-12 h-12" />}
           title="No activity yet"
@@ -295,11 +340,24 @@ export default function Timeline({
     );
   }
 
+  if (entries.length === 0) {
+    return (
+      <div className="h-full flex flex-col">
+        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} />
+        <EmptyState
+          icon={<Clock className="w-12 h-12" />}
+          title="No matching activity"
+          description="Try adjusting your filters to see more events."
+        />
+      </div>
+    );
+  }
+
   const days = groupByDay(entries);
 
   return (
     <div className="h-full flex flex-col">
-      <HeaderBar filter={filter} onFilterChange={setFilter} person={person} onPersonChange={setPerson} contributors={contributors} />
+      <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} />
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto py-2">
           {Array.from(days.entries()).map(([day, dayEntries], dayIdx) => (
@@ -338,43 +396,152 @@ export default function Timeline({
 }
 
 function HeaderBar({
-  filter,
-  onFilterChange,
+  enabledTypes,
+  onEnabledTypesChange,
+  allEnabled,
   person,
   onPersonChange,
   contributors,
 }: {
-  filter: KindFilter;
-  onFilterChange: (f: KindFilter) => void;
+  enabledTypes: Set<EventCategory>;
+  onEnabledTypesChange: (s: Set<EventCategory>) => void;
+  allEnabled: boolean;
   person: string;
   onPersonChange: (p: string) => void;
   contributors: string[];
 }) {
+  const [showFilter, setShowFilter] = useState(false);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+
   return (
     <TopBar
-      left={
-        <div className="flex items-center gap-4 h-full">
-          {FILTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onFilterChange(opt.value)}
-              className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${
-                filter === opt.value
-                  ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]"
-                  : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Timeline</span>}
+      right={
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Tooltip content="Filter">
+              <button
+                ref={filterBtnRef}
+                onClick={() => setShowFilter((v) => !v)}
+                className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors relative"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+                </svg>
+                {!allEnabled && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
+                )}
+              </button>
+            </Tooltip>
+            {showFilter && (
+              <EventTypeFilter
+                enabledTypes={enabledTypes}
+                onChange={onEnabledTypesChange}
+                anchorRef={filterBtnRef}
+                onClose={() => setShowFilter(false)}
+              />
+            )}
+          </div>
+          {contributors.length > 1 && (
+            <PersonFilter person={person} onPersonChange={onPersonChange} contributors={contributors} />
+          )}
         </div>
       }
-      right={
-        contributors.length > 1 ? (
-          <PersonFilter person={person} onPersonChange={onPersonChange} contributors={contributors} />
-        ) : undefined
-      }
     />
+  );
+}
+
+function EventTypeFilter({
+  enabledTypes,
+  onChange,
+  anchorRef,
+  onClose,
+}: {
+  enabledTypes: Set<EventCategory>;
+  onChange: (s: Set<EventCategory>) => void;
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    const menu = menuRef.current;
+    if (!anchor || !menu) return;
+    const aRect = anchor.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    let top = aRect.bottom + 4;
+    let left = aRect.right - mRect.width;
+    if (top + mRect.height > window.innerHeight - 8) top = aRect.top - mRect.height - 4;
+    if (left < 8) left = 8;
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    menu.style.visibility = "visible";
+  }, [anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      onClose();
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose, anchorRef]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const toggle = (key: EventCategory) => {
+    const next = new Set(enabledTypes);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onChange(next);
+  };
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      style={{ position: "fixed", visibility: "hidden" }}
+      className="z-50 w-48 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
+    >
+      <div className="flex items-center justify-between px-3 py-1.5">
+        <span className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Event types</span>
+        <span className="flex items-center gap-1.5">
+          <button onClick={() => onChange(new Set(ALL_CATEGORIES))} className="text-[11px] text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)] transition-colors">All</button>
+          <span className="text-[var(--color-text-muted)]">/</span>
+          <button onClick={() => onChange(new Set())} className="text-[11px] text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)] transition-colors">None</button>
+        </span>
+      </div>
+      <div className="h-px bg-[var(--color-border-subtle)] mx-2 my-0.5" />
+      {EVENT_CATEGORIES.map(({ key, label, icon: Icon }) => {
+        const checked = enabledTypes.has(key);
+        return (
+          <button
+            key={key}
+            onClick={() => toggle(key)}
+            className="flex items-center gap-2.5 w-full px-3 py-1.5 text-xs text-left transition-colors hover:bg-[var(--color-hover-surface-3)]"
+          >
+            <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0 ${checked ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-control)]"}`}>
+              {checked && (
+                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </span>
+            <Icon className="w-3.5 h-3.5 text-[var(--color-text-muted)] shrink-0" />
+            <span className="text-[var(--color-text-secondary)]">{label}</span>
+          </button>
+        );
+      })}
+    </div>,
+    document.body,
   );
 }
 
