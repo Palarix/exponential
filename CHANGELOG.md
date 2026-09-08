@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Markdown checklist checkboxes now visible and flush-left in both rendered markdown and tiptap editor — border uses `--color-border-control` for proper contrast, padding zeroed to align with surrounding list content (xpo-958474)
 - Spec and walkthrough content in issue detail panel now live-updates when the file changes on disk — artifact content cache is invalidated on `updated_at` change instead of only on issue navigation (xpo-0b193b)
 - `xpo merge` auto-checkout failed in branch mode when `Worktrees` config defaulted to true — `FindWorktreeForBranch` matched the hub checkout itself; now compares against `HubRoot()` (xpo-1fccf2)
 - Added 11 merge test cases covering all three strategies, error paths, branch deletion, worktree cleanup, hub-wrong-branch, and issues.db preservation for FF (xpo-7a5bba)

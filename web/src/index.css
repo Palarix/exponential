@@ -257,23 +257,24 @@ body {
 
 .prose-exponential ul.contains-task-list {
   list-style: none;
-  padding-left: 0.25em;
+  padding-left: 0;
 }
 
 .prose-exponential li.task-list-item {
   list-style: none;
+  padding-left: 0;
 }
 
 .prose-exponential li.task-list-item input[type="checkbox"] {
   appearance: none;
   width: 14px;
   height: 14px;
-  border: 1.5px solid var(--color-border-default);
+  border: 1.5px solid var(--color-border-control);
   border-radius: 3px;
   background: var(--color-surface);
   position: relative;
   top: 2px;
-  margin-right: 0.25em;
+  margin-right: 0.5em;
   cursor: default;
   display: inline-block;
   vertical-align: baseline;
@@ -360,13 +361,14 @@ body {
 
 .prose-exponential .tiptap ul[data-type="taskList"] {
   list-style: none;
-  padding-left: 0.25em;
+  padding-left: 0;
 }
 
 .prose-exponential .tiptap ul[data-type="taskList"] li {
   display: flex;
   align-items: baseline;
   list-style: none;
+  padding-left: 0;
 }
 
 .prose-exponential .tiptap ul[data-type="taskList"] li > label {
@@ -379,11 +381,12 @@ body {
   appearance: none;
   width: 14px;
   height: 14px;
-  border: 1.5px solid var(--color-border-default);
+  border: 1.5px solid var(--color-border-control);
   border-radius: 3px;
   background: var(--color-surface);
   position: relative;
   top: 2px;
+  margin-right: 0.5em;
   cursor: pointer;
 }
 
