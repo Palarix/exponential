@@ -248,6 +248,67 @@ func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 	}
 }
 
+func TestMergeIssue_BranchModeWithWorktreesEnabled(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	})
+
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
+
+	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
+	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "add feature")
+
+	storage.ResetHubRoot()
+	evt := model.Event{
+		ID:   "test-abc123",
+		Type: model.EventTypeCreate,
+		Payload: model.CreatePayload{
+			Title:  "Test issue",
+			Status: "DOING",
+		},
+		CreatedBy: "Test <test@test.com>",
+	}
+	storage.AppendEvent(evt)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "add issue")
+
+	// Worktrees enabled but no worktree exists — this is branch mode.
+	// The hub is on the feature branch; merge must auto-checkout main.
+	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: true}
+	client := NewClient(cfg)
+
+	result, err := client.MergeIssue("test-abc123", MergeOptions{
+		Strategy:   MergeStrategySquash,
+		KeepBranch: true,
+	})
+	if err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+	if result.MergeSHA == "" {
+		t.Error("expected MergeSHA to be set")
+	}
+
+	branch := CurrentBranch()
+	if branch != "main" {
+		t.Errorf("expected to be on main, got %s", branch)
+	}
+}
+
 func TestUnionLines(t *testing.T) {
 	tests := []struct {
 		name     string
