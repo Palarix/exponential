@@ -241,7 +241,13 @@ export function useBacklogRows(
                 effectiveSortKey,
               ).map((c) => ({ child: c, ghost: false }))
             : sortGroup(stats.allChildren, effectiveSortKey)
-                .filter((c) => groupIssueIds.has(c.id) || showGhosts || !isTerminal(c.status))
+                .filter((c) => {
+                  if (groupIssueIds.has(c.id)) return true;
+                  // Skip ghost children whose status group is visible on this
+                  // tab — they already appear there (under a ghost parent).
+                  if (visibleStatuses.includes(c.status)) return false;
+                  return showGhosts || !isTerminal(c.status);
+                })
                 .map((c) => ({
                   child: c,
                   ghost: !groupIssueIds.has(c.id),
