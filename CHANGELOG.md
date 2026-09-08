@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xpo merge` auto-checkout failed in branch mode when `Worktrees` config defaulted to true — `FindWorktreeForBranch` matched the hub checkout itself; now compares against `HubRoot()` (xpo-1fccf2)
+- Added 11 merge test cases covering all three strategies, error paths, branch deletion, worktree cleanup, hub-wrong-branch, and issues.db preservation for FF (xpo-7a5bba)
 - Backlog drag-and-drop performance — eliminated per-pointermove re-renders by moving DnD visual state (drop indicator, group highlight, nest target) from React state to refs with direct DOM manipulation; extracted `BacklogIssueRow` and `BacklogGroupHeader` as `React.memo` components (xpo-d049dc)
 - Cross-group drag over ghost parent rows no longer shows a spurious indicator in the originating group — ghost rows now participate in collision detection, and `findIndex` lookups skip ghost instances (xpo-d049dc)
 - Cancelling a drag with Escape no longer triggers a click-through to the issue detail view on mouseup (xpo-d049dc)
