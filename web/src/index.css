@@ -127,7 +127,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: var(--color-border-default);
+  background: var(--color-border-overlay);
   border-radius: 3px;
 }
 
@@ -138,7 +138,7 @@ body {
 @supports (scrollbar-color: auto) {
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-border-default) transparent;
+    scrollbar-color: var(--color-border-overlay) transparent;
   }
 }
 
