@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Mergeability check no longer falsely blocks on uncommitted working directory changes — now uses `git merge-tree` to compare committed refs only (xpo-fad57f)
+- Merge view disables the merge button and shows "No commits to merge" when there are zero commits ahead
+
 ### Added
 
 - Multi-harness init: `xpo init` is now config-only; new `xpo init mcp` writes per-harness MCP server config, `xpo init skill` installs workflow skills and agent instruction files — each concern is independently runnable (xpo-ceb434)

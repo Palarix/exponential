@@ -316,9 +316,15 @@ export async function fetchIssueDiff(issueId: string): Promise<string> {
   return res.text();
 }
 
+export interface MergeBlocker {
+  message: string;
+  files?: string[];
+}
+
 export interface Mergeability {
   can_merge: boolean;
-  blockers: string[];
+  blockers: MergeBlocker[];
+  warnings: string[];
 }
 
 export async function fetchMergeability(issueId: string): Promise<Mergeability> {

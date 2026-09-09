@@ -210,17 +210,63 @@ func IsWorkingTreeClean() bool {
 	return strings.TrimSpace(string(out)) == ""
 }
 
-// HubCleanForMerge checks whether the hub working tree is safe to merge the
-// given branch. Untracked files and .xpo/ changes are ignored — only modified
-// tracked files that overlap with the incoming branch's changes block the merge.
-func HubCleanForMerge(branch string) error {
+// CheckMergeConflicts tests whether the committed branch tip can merge cleanly
+// into the default branch using git merge-tree. It compares only committed refs
+// and is unaffected by working-directory state. Returns the list of conflicting
+// files (empty if the merge is clean).
+func CheckMergeConflicts(branch string) ([]string, error) {
+	hub := storage.HubRoot()
+	base := DefaultBranch()
+
+	cmd := exec.Command("git", "-C", hub, "merge-tree", "--write-tree", base, branch)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil, nil
+	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok || exitErr.ExitCode() > 1 {
+		return nil, fmt.Errorf("git merge-tree failed: %w\n%s", err, out)
+	}
+
+	// Exit code 1 means conflicts. Parse CONFLICT lines for file names.
+	var conflicts []string
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "CONFLICT") {
+			continue
+		}
+		// Format: "CONFLICT (content): Merge conflict in <file>"
+		if idx := strings.Index(line, "Merge conflict in "); idx >= 0 {
+			conflicts = append(conflicts, strings.TrimSpace(line[idx+len("Merge conflict in "):]))
+			continue
+		}
+		// Format: "CONFLICT (modify/delete): <file> deleted in ... and modified in ..."
+		if idx := strings.Index(line, "): "); idx >= 0 {
+			rest := line[idx+3:]
+			if sp := strings.IndexByte(rest, ' '); sp >= 0 {
+				conflicts = append(conflicts, rest[:sp])
+			}
+		}
+	}
+
+	if len(conflicts) == 0 {
+		conflicts = append(conflicts, "unknown conflict (could not parse merge-tree output)")
+	}
+	return conflicts, nil
+}
+
+// HubRequireCleanTree checks that the hub working tree has no uncommitted
+// tracked changes (excluding .xpo/ paths and untracked files). Use this as
+// a precondition before performing an actual merge operation.
+func HubRequireCleanTree() error {
 	hub := storage.HubRoot()
 	out, err := exec.Command("git", "-C", hub, "status", "--porcelain").Output()
 	if err != nil {
 		return fmt.Errorf("failed to check working tree status: %w", err)
 	}
 
-	var modifiedTracked []string
+	var dirty []string
 	for _, line := range strings.Split(string(out), "\n") {
 		if len(line) < 3 {
 			continue
@@ -234,45 +280,112 @@ func HubCleanForMerge(branch string) error {
 		if statusCode == "??" {
 			continue
 		}
-		modifiedTracked = append(modifiedTracked, path)
+		dirty = append(dirty, path)
 	}
 
-	if len(modifiedTracked) == 0 {
+	if len(dirty) == 0 {
 		return nil
 	}
 
-	base := DefaultBranch()
-	branchOut, err := exec.Command("git", "-C", hub, "diff", "--name-only", base+"..."+branch).Output()
-	if err != nil {
-		return fmt.Errorf("failed to diff branch %s against %s: %w", branch, base, err)
+	msg := "uncommitted changes — commit or discard before merging:\n"
+	for _, f := range dirty {
+		msg += fmt.Sprintf("  - %s\n", f)
 	}
-
-	branchFiles := make(map[string]struct{})
-	for _, f := range strings.Split(strings.TrimSpace(string(branchOut)), "\n") {
-		f = strings.TrimSpace(f)
-		if f != "" {
-			branchFiles[f] = struct{}{}
-		}
-	}
-
-	var conflicting []string
-	for _, path := range modifiedTracked {
-		if _, overlap := branchFiles[path]; overlap {
-			conflicting = append(conflicting, path)
-		}
-	}
-
-	if len(conflicting) == 0 {
-		return nil
-	}
-
-	msg := "these tracked files have local changes that conflict with the incoming branch:\n"
-	for _, f := range conflicting {
-		msg += fmt.Sprintf("  - %s (modified locally, also changed on %s)\n", f, branch)
-	}
-	msg += "Commit or remove these changes before merging.\n"
 	msg += "Do NOT stash — .xpo/issues.db must not be stashed."
 	return fmt.Errorf("%s", msg)
+}
+
+// HubDirtyTrackedFiles returns the list of modified tracked files in the hub
+// working tree, excluding .xpo/ paths and untracked files.
+func HubDirtyTrackedFiles() []string {
+	hub := storage.HubRoot()
+	out, err := exec.Command("git", "-C", hub, "status", "--porcelain").Output()
+	if err != nil {
+		return nil
+	}
+
+	var dirty []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if len(line) < 3 {
+			continue
+		}
+		statusCode := line[:2]
+		path := strings.TrimSpace(line[3:])
+
+		if strings.HasPrefix(path, ".xpo/") {
+			continue
+		}
+		if statusCode == "??" {
+			continue
+		}
+		dirty = append(dirty, path)
+	}
+	return dirty
+}
+
+// WorktreeDirtyFiles returns uncommitted and untracked files in the worktree
+// for the given branch (excluding .xpo/). Returns nil if no worktree exists.
+func WorktreeDirtyFiles(branch string) []string {
+	wtPath, ok := FindWorktreeForBranch(branch)
+	if !ok {
+		return nil
+	}
+
+	out, err := exec.Command("git", "-C", wtPath, "status", "--porcelain").Output()
+	if err != nil {
+		return nil
+	}
+
+	var dirty []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if len(line) < 3 {
+			continue
+		}
+		path := strings.TrimSpace(line[3:])
+		if strings.HasPrefix(path, ".xpo/") {
+			continue
+		}
+		dirty = append(dirty, path)
+	}
+	return dirty
+}
+
+// WorktreeRequireClean checks that the worktree for the given branch has no
+// uncommitted or untracked files (excluding .xpo/). This prevents silent data
+// loss when the worktree is removed after merge. Returns nil if no worktree
+// exists for the branch (branch-only mode).
+func WorktreeRequireClean(branch string) error {
+	dirty := WorktreeDirtyFiles(branch)
+	if len(dirty) == 0 {
+		return nil
+	}
+
+	msg := "worktree has uncommitted or untracked files that would be lost on merge:\n"
+	for _, f := range dirty {
+		msg += fmt.Sprintf("  - %s\n", f)
+	}
+	msg += "Commit, move, or remove these files before merging."
+	return fmt.Errorf("%s", msg)
+}
+
+// HubCleanForMerge checks whether the hub is ready to merge the given branch.
+// It checks committed-ref mergeability, hub working-tree, and worktree cleanliness.
+func HubCleanForMerge(branch string) error {
+	conflicts, err := CheckMergeConflicts(branch)
+	if err != nil {
+		return err
+	}
+	if len(conflicts) > 0 {
+		msg := "merge conflicts between committed refs:\n"
+		for _, f := range conflicts {
+			msg += fmt.Sprintf("  - %s\n", f)
+		}
+		return fmt.Errorf("%s", msg)
+	}
+	if err := HubRequireCleanTree(); err != nil {
+		return err
+	}
+	return WorktreeRequireClean(branch)
 }
 
 // HubBranch returns the current branch of the hub (primary checkout),

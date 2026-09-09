@@ -44,6 +44,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { StatusIcon, Avatar, TopBar } from "../ui";
+import Modal from "../ui/Modal";
 import { formatRelativeTime } from "../../utils/format";
 
 interface MergeViewProps {
@@ -95,6 +96,7 @@ export default function MergeView({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [commitMessage, setCommitMessage] = useState("");
   const [deleteBranch, setDeleteBranch] = useState(false);
+  const [blockerDetailOpen, setBlockerDetailOpen] = useState(false);
 
   const bs = issue.branch_stats;
 
@@ -219,7 +221,8 @@ export default function MergeView({
       : mergeStrategy === "merge"
         ? "Create merge commit"
         : "Fast-forward";
-  const canMerge = mergeability?.can_merge ?? true;
+  const hasCommits = (bs?.commits ?? 0) > 0;
+  const canMerge = hasCommits && (mergeability?.can_merge ?? true);
 
   if (loading)
     return (
@@ -306,12 +309,23 @@ export default function MergeView({
           </div>
 
           {/* Center: mergeability */}
-          <div className="flex flex-col items-center">
+          <div className="relative flex flex-col items-center">
             {!canMerge ? (
-              <div className="flex items-center gap-2 text-sm text-amber-500">
-                <AlertTriangle size={16} />
-                <span>{mergeability?.blockers?.[0] || "Cannot merge"}</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (mergeability?.blockers?.some((b) => b.files?.length))
+                    setBlockerDetailOpen(!blockerDetailOpen);
+                }}
+                className="flex items-center gap-2 text-sm text-amber-500 hover:text-amber-400 transition-colors"
+              >
+                <AlertTriangle size={16} className="shrink-0" />
+                <span>
+                  {!hasCommits
+                    ? "No commits to merge"
+                    : mergeability?.blockers?.[0]?.message || "Cannot merge"}
+                </span>
+              </button>
             ) : mergeError ? (
               <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
                 <AlertTriangle size={16} />
@@ -323,11 +337,55 @@ export default function MergeView({
                 Ready to merge
               </div>
             )}
-            <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
-              {bs.commits === 0 && bs.has_uncommitted
-                ? "Commit your changes to enable merging"
-                : "Merging will close this issue"}
-            </span>
+            {mergeability?.warnings?.length ? (
+              <span className="text-xs text-amber-500 mt-0.5">
+                {mergeability.warnings[0]}
+              </span>
+            ) : (
+              <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                {!canMerge && !hasCommits && bs.has_uncommitted
+                  ? "Commit your changes to enable merging"
+                  : !canMerge && hasCommits
+                    ? "Resolve blockers to enable merging"
+                    : hasCommits
+                      ? "Merging will close this issue"
+                      : "Nothing to merge yet"}
+              </span>
+            )}
+            <Modal
+              isOpen={blockerDetailOpen}
+              onClose={() => setBlockerDetailOpen(false)}
+              title="Unable to merge"
+              size="xl"
+            >
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                This branch cannot be merged because the worktree contains
+                uncommitted or untracked files that would be lost.
+              </p>
+              {mergeability?.blockers?.map((b, i) => (
+                <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
+                  <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    {b.message}
+                  </div>
+                  {b.files?.length ? (
+                    <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
+                      {b.files.map((f) => (
+                        <li
+                          key={f}
+                          className="text-sm font-mono text-[var(--color-text-muted)]"
+                        >
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ))}
+              <p className="mt-5 text-sm text-[var(--color-text-muted)]">
+                Commit, move, or remove these files before merging.
+              </p>
+            </Modal>
           </div>
 
           {/* Right: merge button + strategy */}
@@ -1225,4 +1283,3 @@ function SplitDiff({ lines }: { lines: string[] }) {
     </table>
   );
 }
-

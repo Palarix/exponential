@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/auth"
@@ -996,14 +997,39 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	blockers := make([]string, 0)
-	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
-		blockers = append(blockers, err.Error())
+	type blocker struct {
+		Message string   `json:"message"`
+		Files   []string `json:"files,omitempty"`
+	}
+
+	blockers := make([]blocker, 0)
+	warnings := make([]string, 0)
+
+	conflicts, err := exponential.CheckMergeConflicts(issue.BranchStats.Branch)
+	if err != nil {
+		blockers = append(blockers, blocker{Message: "Failed to check merge conflicts"})
+	} else if len(conflicts) > 0 {
+		blockers = append(blockers, blocker{
+			Message: fmt.Sprintf("%d merge %s with %s", len(conflicts), pluralize(len(conflicts), "conflict", "conflicts"), exponential.DefaultBranch()),
+			Files:   conflicts,
+		})
+	}
+
+	if wtDirty := exponential.WorktreeDirtyFiles(issue.BranchStats.Branch); len(wtDirty) > 0 {
+		blockers = append(blockers, blocker{
+			Message: fmt.Sprintf("%d uncommitted %s in worktree", len(wtDirty), pluralize(len(wtDirty), "file", "files")),
+			Files:   wtDirty,
+		})
+	}
+
+	if dirty := exponential.HubDirtyTrackedFiles(); len(dirty) > 0 {
+		warnings = append(warnings, fmt.Sprintf("uncommitted changes: %s — commit before merging", strings.Join(dirty, ", ")))
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"can_merge": len(blockers) == 0,
 		"blockers":  blockers,
+		"warnings":  warnings,
 	})
 }
 
@@ -1050,8 +1076,25 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
-		respondError(w, http.StatusConflict, err.Error())
+	conflicts, mergeErr := exponential.CheckMergeConflicts(issue.BranchStats.Branch)
+	if mergeErr != nil {
+		respondError(w, http.StatusInternalServerError, mergeErr.Error())
+		return
+	}
+	if len(conflicts) > 0 {
+		msgs := make([]string, len(conflicts))
+		for i, f := range conflicts {
+			msgs[i] = fmt.Sprintf("merge conflict in %s", f)
+		}
+		respondError(w, http.StatusConflict, strings.Join(msgs, "; "))
+		return
+	}
+	if mergeErr = exponential.HubRequireCleanTree(); mergeErr != nil {
+		respondError(w, http.StatusConflict, mergeErr.Error())
+		return
+	}
+	if mergeErr = exponential.WorktreeRequireClean(issue.BranchStats.Branch); mergeErr != nil {
+		respondError(w, http.StatusConflict, mergeErr.Error())
 		return
 	}
 

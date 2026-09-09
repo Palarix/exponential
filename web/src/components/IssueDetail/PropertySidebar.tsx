@@ -273,7 +273,7 @@ export default function PropertySidebar({
             className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity"
           >
             <GitMerge size={16} />
-            {issue.branch_stats.commits > 0 ? "Merge Branch" : "Review Changes"}
+            Review Changes
           </button>
         )}
 
