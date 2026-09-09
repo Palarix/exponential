@@ -223,6 +223,17 @@ export function addLineNumbers(lines: string[]): NumberedLine[] {
   return result;
 }
 
+export function hasDirtyDescendant(
+  dirPath: string,
+  dirtyFiles: Set<string>,
+): boolean {
+  const prefix = dirPath + "/";
+  for (const f of dirtyFiles) {
+    if (f.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
 export function parseDiffByFile(diff: string): Map<string, string[]> {
   const result = new Map<string, string[]>();
   if (!diff) return result;

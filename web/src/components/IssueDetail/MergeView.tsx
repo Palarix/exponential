@@ -169,6 +169,10 @@ export default function MergeView({
   }, [issue.id, newComment]);
 
   const fileDiffs = useMemo(() => parseDiffByFile(diff), [diff]);
+  const dirtyFilesSet = useMemo(
+    () => new Set(mergeability?.dirty_files ?? []),
+    [mergeability],
+  );
   const commitFileDiffs = useMemo(
     () => parseDiffByFile(commitDiffText),
     [commitDiffText],
@@ -337,21 +341,15 @@ export default function MergeView({
                 Ready to merge
               </div>
             )}
-            {mergeability?.warnings?.length ? (
-              <span className="text-xs text-amber-500 mt-0.5">
-                {mergeability.warnings[0]}
-              </span>
-            ) : (
-              <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                {!canMerge && !hasCommits && bs.has_uncommitted
-                  ? "Commit your changes to enable merging"
-                  : !canMerge && hasCommits
-                    ? "Resolve blockers to enable merging"
-                    : hasCommits
-                      ? "Merging will close this issue"
-                      : "Nothing to merge yet"}
-              </span>
-            )}
+            <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
+              {!canMerge && !hasCommits && bs.has_uncommitted
+                ? "Commit your changes to enable merging"
+                : !canMerge && hasCommits
+                  ? "Resolve blockers to enable merging"
+                  : hasCommits
+                    ? "Merging will close this issue"
+                    : "Nothing to merge yet"}
+            </span>
             <Modal
               isOpen={blockerDetailOpen}
               onClose={() => setBlockerDetailOpen(false)}
@@ -530,6 +528,7 @@ export default function MergeView({
             onSelectFile={setSelectedFile}
             fileFilter={fileFilter}
             onFilterChange={setFileFilter}
+            dirtyFiles={dirtyFilesSet}
           />
         )}
         {activeTab === "conversation" && (
@@ -724,6 +723,7 @@ function FileTreeView({
   collapsedDirs,
   onToggleDir,
   fileDiffs,
+  dirtyFiles,
 }: {
   nodes: FileTreeNode[];
   depth: number;
@@ -732,6 +732,7 @@ function FileTreeView({
   collapsedDirs: Set<string>;
   onToggleDir: (path: string) => void;
   fileDiffs: Map<string, string[]>;
+  dirtyFiles: Set<string>;
 }) {
   return (
     <>
@@ -761,22 +762,23 @@ function FileTreeView({
                   collapsedDirs={collapsedDirs}
                   onToggleDir={onToggleDir}
                   fileDiffs={fileDiffs}
+                  dirtyFiles={dirtyFiles}
                 />
               )}
             </div>
           );
         }
+        const isDirty = dirtyFiles.has(node.path);
         const diffLines = fileDiffs.get(node.path);
-        const hasAdd = diffLines?.some(
-          (l) => l.startsWith("+") && !l.startsWith("+++"),
+        const isNewFile = diffLines?.some((l) => l.startsWith("new file"));
+        const isDeleted = diffLines?.some((l) =>
+          l.startsWith("deleted file"),
         );
-        const hasDel = diffLines?.some(
-          (l) => l.startsWith("-") && !l.startsWith("---"),
-        );
-        const statusColor =
-          hasAdd && !hasDel
+        const statusColor = isDirty
+          ? "text-amber-500"
+          : isNewFile
             ? "text-green-500"
-            : hasDel && !hasAdd
+            : isDeleted
               ? "text-red-500"
               : "text-[var(--color-text-muted)]";
         return (
@@ -787,6 +789,7 @@ function FileTreeView({
             }
             className={`flex items-center gap-1.5 w-full py-1.5 pr-3 text-xs text-left transition-colors ${selectedFile === node.path ? "bg-[var(--color-accent-primary)]/5 text-[var(--color-accent-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
             style={{ paddingLeft: `${12 + depth * 12}px` }}
+            title={isDirty ? "Uncommitted changes" : undefined}
           >
             <FileDiff size={12} className={`shrink-0 ${statusColor}`} />
             <span className="font-mono truncate">{node.name}</span>
@@ -804,12 +807,14 @@ function FilesTab({
   onSelectFile,
   fileFilter,
   onFilterChange,
+  dirtyFiles,
 }: {
   fileDiffs: Map<string, string[]>;
   selectedFile: string | null;
   onSelectFile: (f: string | null) => void;
   fileFilter: string;
   onFilterChange: (v: string) => void;
+  dirtyFiles: Set<string>;
 }) {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
@@ -885,6 +890,7 @@ function FilesTab({
             collapsedDirs={collapsedDirs}
             onToggleDir={toggleDir}
             fileDiffs={fileDiffs}
+            dirtyFiles={dirtyFiles}
           />
         </div>
       </div>

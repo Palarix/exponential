@@ -5,6 +5,7 @@ import {
   buildFileTree,
   flattenSingleChildDirs,
   buildSplitLines,
+  hasDirtyDescendant,
 } from "./diff-utils";
 
 /* ─── parseDiffByFile ─── */
@@ -338,5 +339,33 @@ describe("buildSplitLines", () => {
     ];
     const chunks = buildSplitLines(lines);
     expect(chunks.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+/* ─── hasDirtyDescendant ─── */
+
+describe("hasDirtyDescendant", () => {
+  it("returns true when a dirty file is a direct child of the directory", () => {
+    const dirty = new Set(["src/app.ts"]);
+    expect(hasDirtyDescendant("src", dirty)).toBe(true);
+  });
+
+  it("returns true when a dirty file is a nested descendant", () => {
+    const dirty = new Set(["src/components/Button.tsx"]);
+    expect(hasDirtyDescendant("src", dirty)).toBe(true);
+  });
+
+  it("returns false when no dirty files are under the directory", () => {
+    const dirty = new Set(["lib/utils.ts"]);
+    expect(hasDirtyDescendant("src", dirty)).toBe(false);
+  });
+
+  it("returns false for empty dirty set", () => {
+    expect(hasDirtyDescendant("src", new Set())).toBe(false);
+  });
+
+  it("does not match a directory that is a prefix of another directory name", () => {
+    const dirty = new Set(["src-old/file.ts"]);
+    expect(hasDirtyDescendant("src", dirty)).toBe(false);
   });
 });

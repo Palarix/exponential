@@ -1015,7 +1015,8 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if wtDirty := exponential.WorktreeDirtyFiles(issue.BranchStats.Branch); len(wtDirty) > 0 {
+	wtDirty := exponential.WorktreeDirtyFiles(issue.BranchStats.Branch)
+	if len(wtDirty) > 0 {
 		blockers = append(blockers, blocker{
 			Message: fmt.Sprintf("%d uncommitted %s in worktree", len(wtDirty), pluralize(len(wtDirty), "file", "files")),
 			Files:   wtDirty,
@@ -1026,10 +1027,16 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 		warnings = append(warnings, fmt.Sprintf("uncommitted changes: %s — commit before merging", strings.Join(dirty, ", ")))
 	}
 
+	dirtyFiles := wtDirty
+	if dirtyFiles == nil {
+		dirtyFiles = []string{}
+	}
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"can_merge": len(blockers) == 0,
-		"blockers":  blockers,
-		"warnings":  warnings,
+		"can_merge":   len(blockers) == 0,
+		"blockers":    blockers,
+		"warnings":    warnings,
+		"dirty_files": dirtyFiles,
 	})
 }
 

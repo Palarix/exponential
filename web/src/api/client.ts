@@ -325,6 +325,7 @@ export interface Mergeability {
   can_merge: boolean;
   blockers: MergeBlocker[];
   warnings: string[];
+  dirty_files: string[];
 }
 
 export async function fetchMergeability(issueId: string): Promise<Mergeability> {

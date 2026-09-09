@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Amber file icon highlighting in MergeView file tree for uncommitted/untracked worktree files; mergeability API now returns `dirty_files` array (xpo-110b09)
 - Multi-harness init: `xpo init` is now config-only; new `xpo init mcp` writes per-harness MCP server config, `xpo init skill` installs workflow skills and agent instruction files — each concern is independently runnable (xpo-ceb434)
 - Agent harness support for Claude Code, GitHub Copilot, Cursor, OpenAI Codex, and OpenCode — per-harness MCP config formats (JSON with `mcpServers`/`mcp` keys, TOML, and OpenCode's `local-array` style) and skill directories (xpo-ceb434)
 - Global skill installation (`xpo init skill --global`): canonical location at `~/.config/xpo/skills/` with symlinks into each harness's skill directory; macOS/Linux only (xpo-ceb434)
