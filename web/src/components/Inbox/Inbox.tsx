@@ -9,131 +9,18 @@ import {
 } from "../ui";
 import { Bell, CheckCircle } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
-import { shortName, formatRelativeTime } from "../../utils/format";
+import { formatRelativeTime } from "../../utils/format";
 import FilterMenu from "../Backlog/FilterMenu";
-import { type BacklogFilters, hasActiveFilters } from "../Backlog/filters";
+import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
+import { groupByIssue, buildChangeSummary, type IssueGroup } from "./inbox-utils";
 
 const IssueDetail = lazy(() => import("../IssueDetail/IssueDetail"));
-
-const STATUS_LABEL: Record<string, string> = {
-  BACKLOG: "moved to Backlog",
-  PLANNED: "marked as Planned",
-  DOING: "started working",
-  BLOCKED: "marked as Blocked",
-  DONE: "completed",
-};
-
-interface IssueGroup {
-  issueId: string;
-  issueTitle: string;
-  latestAt: number;
-  hasUnread: boolean;
-  events: InboxItem[];
-}
-
-function groupByIssue(items: InboxItem[], lastReadTime: number): IssueGroup[] {
-  const map = new Map<string, IssueGroup>();
-  for (const item of items) {
-    let group = map.get(item.issue_id);
-    if (!group) {
-      group = {
-        issueId: item.issue_id,
-        issueTitle: item.issue_title || item.issue_id,
-        latestAt: 0,
-        hasUnread: false,
-        events: [],
-      };
-      map.set(item.issue_id, group);
-    }
-    const t = new Date(item.created_at).getTime();
-    if (t > group.latestAt) group.latestAt = t;
-    if (t > lastReadTime) group.hasUnread = true;
-    group.events.push(item);
-  }
-  return Array.from(map.values()).sort((a, b) => b.latestAt - a.latestAt);
-}
-
-function extractEmail(identity: string): string {
-  return identity.match(/<([^>]+)>/)?.[1]?.toLowerCase().trim() || "";
-}
-
-function agentLabel(evt: InboxItem, userEmail: string): string | null {
-  if (!evt.on_behalf_of) return null;
-  const principalEmail = extractEmail(evt.on_behalf_of);
-  if (principalEmail && principalEmail === userEmail) {
-    return `${shortName(evt.created_by)} (You)`;
-  }
-  return shortName(evt.created_by);
-}
-
-function buildChangeSummary(events: InboxItem[], userEmail: string): string[] {
-  const parts: string[] = [];
-  let commentCount = 0;
-  const statusChanges: string[] = [];
-  let assigneeChange: string | null = null;
-  let wasMerged = false;
-  let wasCreated = false;
-  let otherUpdates = 0;
-  let actor: string | null = null;
-
-  for (const evt of events) {
-    if (!actor) actor = agentLabel(evt, userEmail);
-    const p = evt.payload || {};
-    switch (evt.type) {
-      case "COMMENT":
-        commentCount++;
-        break;
-      case "CREATE":
-        wasCreated = true;
-        break;
-      case "MERGE":
-        wasMerged = true;
-        break;
-      case "UPDATE":
-        if (p.status) {
-          const label = STATUS_LABEL[String(p.status)] ?? `moved to ${String(p.status)}`;
-          if (!statusChanges.includes(label)) statusChanges.push(label);
-        } else if (p.assignee !== undefined) {
-          const a = String(p.assignee);
-          assigneeChange = a ? `reassigned to ${shortName(a)}` : "assignee removed";
-        } else {
-          otherUpdates++;
-        }
-        break;
-      case "ARTIFACT": {
-        const action = String(p.action || "updated");
-        const filename = String(p.filename || "artifact");
-        parts.push(`${filename} ${action}`);
-        break;
-      }
-    }
-  }
-
-  if (actor) parts.push(actor);
-  if (wasCreated) parts.push("Issue created");
-  for (const s of statusChanges) parts.push(`Status ${s}`);
-  if (wasMerged) parts.push("Merged");
-  if (assigneeChange) parts.push(assigneeChange.charAt(0).toUpperCase() + assigneeChange.slice(1));
-  if (commentCount > 0) parts.push(`${commentCount} new comment${commentCount !== 1 ? "s" : ""}`);
-  if (otherUpdates > 0) parts.push(`${otherUpdates} other update${otherUpdates !== 1 ? "s" : ""}`);
-  return parts;
-}
 
 function applyFilters(groups: IssueGroup[], issues: Issue[], filters: BacklogFilters): IssueGroup[] {
   return groups.filter(group => {
     const issue = issues.find(i => i.id === group.issueId);
     if (!issue) return true;
-    if (filters.statuses.length > 0 && !filters.statuses.includes(issue.status)) return false;
-    if (filters.labels.length > 0 && !filters.labels.some(l => issue.labels?.includes(l))) return false;
-    if (filters.assignees.length > 0) {
-      const match = issue.assignee
-        ? filters.assignees.includes(issue.assignee)
-        : filters.assignees.includes("__unassigned__");
-      if (!match) return false;
-    }
-    if (filters.priorities.length > 0 && !filters.priorities.includes(issue.priority || 0)) return false;
-    if (filters.epicId && issue.parent_id !== filters.epicId) return false;
-    return true;
+    return matchesFilters(issue, filters);
   });
 }
 

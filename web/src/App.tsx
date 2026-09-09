@@ -480,7 +480,7 @@ function App() {
           />
         );
       case 'labels':
-        return <Labels issues={issues} onConfigLabelsChange={setConfigLabels} onRefresh={fetchData} />;
+        return <Labels issues={issues} onConfigLabelsChange={setConfigLabels} onRefresh={fetchData} onLabelClick={(label) => { setBacklogFilters({ ...backlogFilters, labels: [label] }); setView('backlog'); window.location.hash = '#/backlog'; }} />;
       case 'my-issues':
         return (
           <MyIssues
@@ -490,6 +490,10 @@ function App() {
             onTabChange={handleMyIssuesTabChange}
             filters={myIssuesFilters}
             onFiltersChange={handleMyIssuesFiltersChange}
+            onRefresh={fetchData}
+            contributors={contributors}
+            onConfigLabelsChange={setConfigLabels}
+            patchIssue={patchIssue}
           />
         );
       case 'timeline':

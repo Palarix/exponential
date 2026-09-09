@@ -49,7 +49,7 @@ func InitProject(force bool) (*InitResult, error) {
 			labelLines.WriteString(fmt.Sprintf("  %s: \"%s\"\n", name, color))
 		}
 		detectedBranch := DefaultBranch()
-		configContent := fmt.Sprintf("name: %s\nprefix: %s\ndefault_branch: %s\nversion: 3\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  first_start: true\n  last_completed: true\ndefault_labels:\n%slabels:\n%sdrive:\n  supervisor:\n    agent: claude\n    model: sonnet\n  coder:\n    agent: claude\n  max_retries: 3\n  timeout: 30m\n  # test_cmd: make test\n", folderName, prefix, detectedBranch, defaultLabelLines.String(), labelLines.String())
+		configContent := fmt.Sprintf("name: %s\nprefix: %s\ndefault_branch: %s\nversion: 3\nworktrees: true\nestimation_system: fibonacci\ncount_unestimated: true\nautomations:\n  first_start: true\n  last_completed: true\ndefault_labels:\n%slabels:\n%sdrive:\n  supervisor:\n    agent: claude\n    model: sonnet\n  coder:\n    agent: claude\n  max_retries: 3\n  timeout: 30m\n  # test_cmd: make test\n", folderName, prefix, detectedBranch, defaultLabelLines.String(), labelLines.String())
 		if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 			result.Notes = append(result.Notes, fmt.Sprintf("Could not write config.yaml: %v", err))
 		} else {

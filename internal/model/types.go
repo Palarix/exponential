@@ -86,8 +86,8 @@ type UpdatePayload struct {
 	SortOrder    *string      `json:"sort_order,omitempty"`
 	Assignee     *string      `json:"assignee,omitempty"`
 	CycleID      *string      `json:"cycle_id,omitempty"`
-	Dependencies []Dependency `json:"dependencies,omitempty"`
-	Labels       []string     `json:"labels,omitempty"`
+	Dependencies []Dependency `json:"dependencies"`
+	Labels       []string     `json:"labels"`
 }
 
 type IssueStatus string

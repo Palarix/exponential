@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Issue } from '../../api/client';
 import { StatusIcon, LabelBadge } from '../ui';
 import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard } from "lucide-react";
+import { fuzzyMatch, fuzzyScore } from '../../utils/format';
 
 type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline';
 
@@ -33,16 +34,6 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   inbox: <Bell size={16} />,
   timeline: <Clock size={16} />,
 };
-
-function fuzzyMatch(text: string, query: string): boolean {
-  let qi = 0;
-  const tl = text.toLowerCase();
-  const ql = query.toLowerCase();
-  for (let ti = 0; ti < tl.length && qi < ql.length; ti++) {
-    if (tl[ti] === ql[qi]) qi++;
-  }
-  return qi === ql.length;
-}
 
 export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
@@ -96,7 +87,18 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
 
     // Issues (only when there's a query, or show recent)
     const matchedIssues = query
-      ? issues.filter(i => { const q = query.toLowerCase(); return i.title.toLowerCase().includes(q) || i.id.includes(q) || i.labels?.some(l => l.toLowerCase().includes(q)); })
+      ? issues
+          .map(i => {
+            const q = query.toLowerCase();
+            const titleScore = fuzzyScore(i.title, query);
+            const idMatch = i.id.includes(q);
+            const labelMatch = i.labels?.some(l => l.toLowerCase().includes(q));
+            const score = idMatch ? 6000 : labelMatch ? 5500 : titleScore;
+            return { issue: i, score };
+          })
+          .filter(r => r.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .map(r => r.issue)
       : issues.slice(0, 8);
 
     for (const issue of matchedIssues.slice(0, 12)) {

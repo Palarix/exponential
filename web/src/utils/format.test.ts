@@ -2,11 +2,14 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   formatRelativeTime,
   shortName,
+  extractEmail,
   displayActor,
   formatShortDate,
   formatTriage,
   stripMarkdown,
   linkifyIssueIds,
+  fuzzyMatch,
+  fuzzyScore,
   formatDuration,
 } from "./format";
 
@@ -25,6 +28,24 @@ describe("shortName", () => {
 
   it("handles name with multiple angle brackets", () => {
     expect(shortName("A <B> <C>")).toBe("A");
+  });
+});
+
+describe("extractEmail", () => {
+  it("extracts email from identity string", () => {
+    expect(extractEmail("John Doe <john@example.com>")).toBe("john@example.com");
+  });
+
+  it("lowercases and trims the email", () => {
+    expect(extractEmail("Jane < JANE@EXAMPLE.COM >")).toBe("jane@example.com");
+  });
+
+  it("returns empty string for plain name without angle brackets", () => {
+    expect(extractEmail("Alice")).toBe("");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(extractEmail("")).toBe("");
   });
 });
 
@@ -249,5 +270,73 @@ describe("formatDuration", () => {
 
   it("rounds to 1 decimal", () => {
     expect(formatDuration(1.23)).toBe("1.2h");
+  });
+});
+
+describe("fuzzyMatch", () => {
+  it("matches exact strings", () => {
+    expect(fuzzyMatch("hello", "hello")).toBe(true);
+  });
+
+  it("matches subsequences", () => {
+    expect(fuzzyMatch("hello world", "hlo")).toBe(true);
+    expect(fuzzyMatch("backlog collision", "bgc")).toBe(true);
+  });
+
+  it("is case-insensitive", () => {
+    expect(fuzzyMatch("Hello World", "hw")).toBe(true);
+    expect(fuzzyMatch("hello", "HELLO")).toBe(true);
+  });
+
+  it("rejects non-matching queries", () => {
+    expect(fuzzyMatch("hello", "xyz")).toBe(false);
+    expect(fuzzyMatch("abc", "abdc")).toBe(false);
+  });
+
+  it("matches empty query against anything", () => {
+    expect(fuzzyMatch("anything", "")).toBe(true);
+    expect(fuzzyMatch("", "")).toBe(true);
+  });
+
+  it("rejects non-empty query against empty text", () => {
+    expect(fuzzyMatch("", "a")).toBe(false);
+  });
+});
+
+describe("fuzzyScore", () => {
+  it("scores exact match highest", () => {
+    expect(fuzzyScore("hello", "hello")).toBe(10000);
+  });
+
+  it("scores substring match above fuzzy", () => {
+    const substr = fuzzyScore("UI Polish", "poli");
+    const fuzzy = fuzzyScore("Ghost parent row duplicates popover", "poli");
+    expect(substr).toBeGreaterThan(fuzzy);
+  });
+
+  it("scores early substring higher", () => {
+    const early = fuzzyScore("Polish things", "poli");
+    const late = fuzzyScore("UI Polish", "poli");
+    expect(early).toBeGreaterThan(late);
+  });
+
+  it("scores consecutive chars higher than scattered", () => {
+    const consecutive = fuzzyScore("parent issue", "par");
+    const scattered = fuzzyScore("play around right", "par");
+    expect(consecutive).toBeGreaterThan(scattered);
+  });
+
+  it("scores word-boundary matches higher", () => {
+    const boundary = fuzzyScore("hello world", "hw");
+    const mid = fuzzyScore("showtime", "hw");
+    expect(boundary).toBeGreaterThan(mid);
+  });
+
+  it("returns 0 for non-matches", () => {
+    expect(fuzzyScore("hello", "xyz")).toBe(0);
+  });
+
+  it("returns positive for empty query", () => {
+    expect(fuzzyScore("anything", "")).toBeGreaterThan(0);
   });
 });

@@ -4,21 +4,27 @@ import { LabelBadge, Toggle, TopBar } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
+import { kindColor } from './dep-graph-utils';
 
 const KIND_LABELS: Record<string, string> = {
   blocks: 'Blocks',
+  blocked_by: 'Blocked by',
   depends_on: 'Depends on',
+  dependency_of: 'Dependency of',
   relates_to: 'Relates to',
   related: 'Relates to',
   duplicates: 'Duplicates',
+  duplicated_by: 'Duplicated by',
 };
+
+
 
 const KIND_FILTER_OPTIONS = [
   { value: '', label: 'All types' },
-  { value: 'blocks', label: 'Blocks' },
+  { value: 'blocked_by', label: 'Blocked by' },
   { value: 'depends_on', label: 'Depends on' },
   { value: 'relates_to', label: 'Relates to' },
-  { value: 'duplicates', label: 'Duplicates' },
+  { value: 'duplicated_by', label: 'Duplicated by' },
 ];
 
 interface DependenciesProps {
@@ -301,17 +307,6 @@ function DepRow({ source, target, kind, onClick }: { source: Issue; target: Issu
       <IssueCell issue={target} />
     </div>
   );
-}
-
-function kindColor(kind: string): string {
-  const colors: Record<string, string> = {
-    blocks: 'var(--color-error)',
-    depends_on: 'var(--color-error)',
-    relates_to: 'var(--color-info)',
-    related: 'var(--color-info)',
-    duplicates: 'var(--color-text-muted)',
-  };
-  return colors[kind] ?? 'var(--color-text-muted)';
 }
 
 function EmptyState({ hasAnyDeps }: { hasAnyDeps: boolean }) {

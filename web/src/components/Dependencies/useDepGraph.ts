@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import dagre from '@dagrejs/dagre';
+import { useState, useEffect } from 'react';
+import ELK, { type ElkNode, type ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js';
 import type { Issue } from '../../api/types';
 
 export interface GraphNode {
@@ -13,6 +13,7 @@ export interface GraphEdge {
   targetId: string;
   kind: string;
   points: { x: number; y: number }[];
+  labelPos?: { x: number; y: number; width: number; height: number };
   isCycle: boolean;
   isCritical: boolean;
 }
@@ -35,15 +36,26 @@ export interface RawEdge {
   sourceId: string;
   targetId: string;
   kind: string;
+  originalKind: string;
 }
 
 const NODE_WIDTH = 240;
 const NODE_HEIGHT = 56;
 
 const INVERSE_KINDS: Record<string, string> = {
-  blocked_by: 'blocks',
+  blocks: 'blocked_by',
   dependency_of: 'depends_on',
-  duplicated_by: 'duplicates',
+  duplicates: 'duplicated_by',
+};
+
+const elk = new ELK();
+
+const KIND_DISPLAY: Record<string, string> = {
+  blocked_by: 'blocked by',
+  depends_on: 'depends on',
+  relates_to: 'relates to',
+  related: 'relates to',
+  duplicated_by: 'duplicated by',
 };
 
 export function resolveIssue(issues: Issue[], targetId: string): Issue | undefined {
@@ -70,7 +82,7 @@ export function collectEdges(issues: Issue[]): RawEdge[] {
       if (seen.has(key)) continue;
       seen.add(key);
 
-      edges.push({ sourceId, targetId, kind: canonKind });
+      edges.push({ sourceId, targetId, kind: canonKind, originalKind: dep.kind });
     }
   }
 
@@ -78,21 +90,21 @@ export function collectEdges(issues: Issue[]): RawEdge[] {
 }
 
 export function isResolved(e: RawEdge, issueMap: Map<string, Issue>): boolean {
-  const s = issueMap.get(e.sourceId);
   const t = issueMap.get(e.targetId);
   switch (e.kind) {
-    case 'blocks':
-      return s?.status === 'DONE';
+    case 'blocked_by':
     case 'depends_on':
       return t?.status === 'DONE';
-    default:
-      return (s?.status === 'DONE' && t?.status === 'DONE') ?? false;
+    default: {
+      const s = issueMap.get(e.sourceId);
+      return s?.status === 'DONE' && t?.status === 'DONE';
+    }
   }
 }
 
 export function computeStats(issues: Issue[]): DepStats {
   const edges = collectEdges(issues);
-  const blockerKinds = new Set(['blocks', 'depends_on']);
+  const blockerKinds = new Set(['blocked_by', 'depends_on']);
   let resolved = 0;
   let total = 0;
   const issueMap = new Map(issues.map(i => [i.id, i]));
@@ -167,7 +179,7 @@ function edgeKey(sourceId: string, targetId: string): string {
 }
 
 function computeCriticalPath(edges: RawEdge[], issueMap: Map<string, Issue>): Set<string> {
-  const blockerKinds = new Set(['blocks', 'depends_on']);
+  const blockerKinds = new Set(['blocked_by', 'depends_on']);
   const blockerEdges = edges.filter(e => blockerKinds.has(e.kind));
 
   const adj = new Map<string, { targetId: string; key: string }[]>();
@@ -231,21 +243,31 @@ function computeCriticalPath(edges: RawEdge[], issueMap: Map<string, Issue>): Se
   return criticalEdges;
 }
 
+const EMPTY_GRAPH: DepGraph = { nodes: [], edges: [], cycles: new Set(), criticalPath: new Set(), width: 0, height: 0 };
+
 export function useDepGraph(issues: Issue[], focusIssueId: string, showCompleted: boolean): DepGraph {
-  return useMemo(() => {
+  const [graph, setGraph] = useState<DepGraph>(EMPTY_GRAPH);
+
+  useEffect(() => {
     const allEdges = collectEdges(issues);
     const issueMap = new Map(issues.map(i => [i.id, i]));
 
     if (!issueMap.has(focusIssueId)) {
-      return { nodes: [], edges: [], cycles: new Set(), criticalPath: new Set(), width: 0, height: 0 };
+      Promise.resolve().then(() => setGraph(EMPTY_GRAPH));
+      return;
     }
 
     const componentIds = findConnectedComponent(focusIssueId, allEdges);
     const componentEdges = allEdges.filter(e => componentIds.has(e.sourceId) && componentIds.has(e.targetId));
 
+    const TERMINAL = new Set(['DONE', 'CANCELED', 'DUPLICATE']);
     const filteredEdges = showCompleted
       ? componentEdges
-      : componentEdges.filter(e => !isResolved(e, issueMap));
+      : componentEdges.filter(e => {
+          const s = issueMap.get(e.sourceId);
+          const t = issueMap.get(e.targetId);
+          return !(s && TERMINAL.has(s.status)) && !(t && TERMINAL.has(t.status));
+        });
 
     const nodeIds = new Set<string>();
     for (const e of filteredEdges) {
@@ -258,55 +280,102 @@ export function useDepGraph(issues: Issue[], focusIssueId: string, showCompleted
     }
 
     if (nodeIds.size === 0) {
-      return { nodes: [], edges: [], cycles: new Set(), criticalPath: new Set(), width: 0, height: 0 };
+      Promise.resolve().then(() => setGraph(EMPTY_GRAPH));
+      return;
     }
 
     const cycleNodes = detectCycles(filteredEdges, nodeIds);
     const criticalEdges = computeCriticalPath(filteredEdges, issueMap);
 
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 80, edgesep: 20, marginx: 40, marginy: 40 });
-    g.setDefaultEdgeLabel(() => ({}));
+    const elkGraph: ElkNode = {
+      id: 'root',
+      layoutOptions: {
+        'elk.algorithm': 'layered',
+        'elk.direction': 'RIGHT',
+        'elk.spacing.nodeNode': '40',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+        'elk.spacing.edgeNode': '20',
+        'elk.spacing.edgeEdge': '15',
+        'elk.edgeRouting': 'ORTHOGONAL',
+        'elk.layered.mergeEdges': 'false',
+        'elk.padding': '[top=40,left=40,bottom=40,right=40]',
+      },
+      children: [...nodeIds].map(id => ({
+        id,
+        width: NODE_WIDTH,
+        height: NODE_HEIGHT,
+      })),
+      edges: filteredEdges
+        .filter(e => !(cycleNodes.has(e.sourceId) && cycleNodes.has(e.targetId)))
+        .map((e, i) => ({
+          id: `e${i}`,
+          sources: [e.sourceId],
+          targets: [e.targetId],
+          labels: [{
+            text: KIND_DISPLAY[e.kind] ?? e.kind.replace(/_/g, ' '),
+            width: (KIND_DISPLAY[e.kind] ?? e.kind).length * 6,
+            height: 12,
+            layoutOptions: { 'elk.edgeLabels.placement': 'CENTER' },
+          }],
+        } as ElkExtendedEdge)),
+    };
 
-    for (const id of nodeIds) {
-      g.setNode(id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-    }
+    let cancelled = false;
+    elk.layout(elkGraph).then(result => {
+      if (cancelled) return;
 
-    for (const e of filteredEdges) {
-      if (cycleNodes.has(e.sourceId) && cycleNodes.has(e.targetId)) continue;
-      g.setEdge(e.sourceId, e.targetId);
-    }
+      const nodeMap = new Map<string, { x: number; y: number }>();
+      for (const child of result.children ?? []) {
+        nodeMap.set(child.id, { x: (child.x ?? 0) + NODE_WIDTH / 2, y: (child.y ?? 0) + NODE_HEIGHT / 2 });
+      }
 
-    dagre.layout(g);
+      const nodes: GraphNode[] = [];
+      for (const [id, pos] of nodeMap) {
+        const issue = issueMap.get(id);
+        if (issue) nodes.push({ issue, x: pos.x, y: pos.y });
+      }
 
-    const nodes: GraphNode[] = [];
-    for (const id of nodeIds) {
-      const nodeData = g.node(id);
-      const issue = issueMap.get(id);
-      if (!nodeData || !issue) continue;
-      nodes.push({ issue, x: nodeData.x, y: nodeData.y });
-    }
+      const edgeById = new Map<string, ElkExtendedEdge>();
+      for (const e of result.edges ?? []) {
+        edgeById.set(`${(e as ElkExtendedEdge).sources[0]}->${(e as ElkExtendedEdge).targets[0]}`, e as ElkExtendedEdge);
+      }
 
-    const edges: GraphEdge[] = filteredEdges.map(e => {
-      const edgeData = g.edge(e.sourceId, e.targetId);
-      const points = edgeData?.points ?? [
-        { x: g.node(e.sourceId)?.x ?? 0, y: g.node(e.sourceId)?.y ?? 0 },
-        { x: g.node(e.targetId)?.x ?? 0, y: g.node(e.targetId)?.y ?? 0 },
-      ];
-      const isCycle = cycleNodes.has(e.sourceId) && cycleNodes.has(e.targetId);
-      const isCritical = criticalEdges.has(edgeKey(e.sourceId, e.targetId));
-      return { sourceId: e.sourceId, targetId: e.targetId, kind: e.kind, points, isCycle, isCritical };
+      const edges: GraphEdge[] = filteredEdges.map(e => {
+        const elkEdge = edgeById.get(`${e.sourceId}->${e.targetId}`);
+        const section = elkEdge?.sections?.[0];
+        const points: { x: number; y: number }[] = [];
+        if (section) {
+          points.push(section.startPoint);
+          if (section.bendPoints) points.push(...section.bendPoints);
+          points.push(section.endPoint);
+        } else {
+          const sp = nodeMap.get(e.sourceId) ?? { x: 0, y: 0 };
+          const tp = nodeMap.get(e.targetId) ?? { x: 0, y: 0 };
+          points.push({ x: sp.x + NODE_WIDTH / 2, y: sp.y }, { x: tp.x - NODE_WIDTH / 2, y: tp.y });
+        }
+
+        const elkLabel = elkEdge?.labels?.[0];
+        const labelPos = elkLabel && elkLabel.x != null && elkLabel.y != null
+          ? { x: elkLabel.x, y: elkLabel.y, width: elkLabel.width ?? 0, height: elkLabel.height ?? 0 }
+          : undefined;
+
+        const isCycle = cycleNodes.has(e.sourceId) && cycleNodes.has(e.targetId);
+        const isCritical = criticalEdges.has(edgeKey(e.sourceId, e.targetId));
+        return { sourceId: e.sourceId, targetId: e.targetId, kind: e.kind, points, labelPos, isCycle, isCritical };
+      });
+
+      setGraph({
+        nodes,
+        edges,
+        cycles: cycleNodes,
+        criticalPath: criticalEdges,
+        width: result.width ?? 800,
+        height: result.height ?? 400,
+      });
     });
 
-    const graphInfo = g.graph();
-
-    return {
-      nodes,
-      edges,
-      cycles: cycleNodes,
-      criticalPath: criticalEdges,
-      width: (graphInfo as Record<string, number>)?.width ?? 800,
-      height: (graphInfo as Record<string, number>)?.height ?? 400,
-    };
+    return () => { cancelled = true; };
   }, [issues, focusIssueId, showCompleted]);
+
+  return graph;
 }

@@ -133,6 +133,23 @@ func TestUpdateIssue_FirstStartSkipsDoingParent(t *testing.T) {
 	}
 }
 
+func TestUpdateIssue_FirstStartSkipsBlocked(t *testing.T) {
+	tr := setupLocalTransport(t)
+	tr.Config.Automations.FirstStart = true
+	parent, _ := tr.AddIssue(model.CreatePayload{Title: "epic", Status: "PLANNED"})
+	child, _ := tr.AddIssue(model.CreatePayload{Title: "story", ParentID: parent.ID, Status: "PLANNED"})
+
+	_, err := tr.UpdateIssue(child.ID, model.UpdatePayload{Status: sp("BLOCKED")}, "block")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	issues := readAllIssues(t)
+	if issues[parent.ID].Status != model.StatusPlanned {
+		t.Errorf("parent status = %s, want PLANNED (blocked child should not auto-start parent)", issues[parent.ID].Status)
+	}
+}
+
 func TestUpdateIssue_LastCompletedTrigger(t *testing.T) {
 	tr := setupLocalTransport(t)
 	tr.Config.Automations.LastCompleted = true

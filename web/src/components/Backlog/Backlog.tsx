@@ -45,10 +45,11 @@ import { toggleLabel, splitLabels } from "../../utils/labels";
 import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
 import type { SortKey } from "../../utils/sort";
 import { isTerminal } from "../../constants";
+import { buildChildrenByParent } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
 import Tooltip from "../ui/Tooltip";
 import FilterMenu from "./FilterMenu";
-import { type BacklogFilters, hasActiveFilters } from "./filters";
+import { type BacklogFilters, hasActiveFilters, matchesFilters } from "./filters";
 import { DragOverlayCard } from "./DndComponents";
 import { backlogCollision } from "./backlogCollision";
 import {
@@ -448,39 +449,10 @@ export default function Backlog({
       )
     )
       return false;
-    if (filters.statuses.length > 0 && !filters.statuses.includes(i.status))
-      return false;
-    if (
-      filters.labels.length > 0 &&
-      !filters.labels.some((l) => i.labels?.includes(l))
-    )
-      return false;
-    if (filters.assignees.length > 0) {
-      const match = i.assignee
-        ? filters.assignees.includes(i.assignee)
-        : filters.assignees.includes("__unassigned__");
-      if (!match) return false;
-    }
-    if (
-      filters.priorities.length > 0 &&
-      !filters.priorities.includes(i.priority || 0)
-    )
-      return false;
-    if (filters.epicId && i.parent_id !== filters.epicId) return false;
-    return true;
+    return matchesFilters(i, filters);
   });
 
-  const childrenByParent = useMemo(() => {
-    const map = new Map<string, Issue[]>();
-    for (const issue of issues) {
-      if (issue.parent_id) {
-        const siblings = map.get(issue.parent_id) || [];
-        siblings.push(issue);
-        map.set(issue.parent_id, siblings);
-      }
-    }
-    return map;
-  }, [issues]);
+  const childrenByParent = useMemo(() => buildChildrenByParent(issues), [issues]);
 
   const expandedNodes = useMemo(() => {
     void nodeToggleCount;

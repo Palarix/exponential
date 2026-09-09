@@ -8,7 +8,6 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
-  closestCorners,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
@@ -23,6 +22,8 @@ import { sortGroup } from '../../utils/sort';
 import { useAllLabels } from '../../hooks/useLabels';
 import { toggleLabel } from '../../utils/labels';
 import { isTerminal, isCompleted } from '../../constants';
+import { boardCollision } from './boardCollision';
+import { buildChildrenByParent } from '../../utils/issues';
 import { isEditableTarget } from '../../utils/keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
@@ -107,7 +108,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
       const stored = localStorage.getItem("exponential-board-hidden-cols");
       if (stored) return new Set(JSON.parse(stored));
     } catch { /* corrupt stored data — use default */ }
-    return new Set<string>();
+    return new Set(["BACKLOG", "CANCELED", "DUPLICATE"]);
   });
   const toggleColumnVisible = useCallback((colId: string) => {
     setHiddenColumns(prev => {
@@ -145,17 +146,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
 
   const issuesById = useMemo(() => new Map(issues.map((i) => [i.id, i])), [issues]);
 
-  const childrenByParent = useMemo(() => {
-    const map = new Map<string, Issue[]>();
-    for (const issue of issues) {
-      if (issue.parent_id) {
-        const siblings = map.get(issue.parent_id) || [];
-        siblings.push(issue);
-        map.set(issue.parent_id, siblings);
-      }
-    }
-    return map;
-  }, [issues]);
+  const childrenByParent = useMemo(() => buildChildrenByParent(issues), [issues]);
 
   const getCardMeta = useCallback(
     (issue: Issue): CardMeta => {
@@ -500,7 +491,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={boardCollision}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}

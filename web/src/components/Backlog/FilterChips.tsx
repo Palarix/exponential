@@ -1,16 +1,9 @@
-import type { BacklogFilters } from "./filters";
-import { EMPTY_FILTERS } from "./filters";
+import { EMPTY_FILTERS, chipLabel, type BacklogFilters } from "./filters";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 
 interface FilterChipsProps {
   filters: BacklogFilters;
   onChange: (filters: BacklogFilters) => void;
-}
-
-function chipLabel(dimension: string, values: string[], lookup?: Map<string, string>): string {
-  const names = lookup ? values.map((v) => lookup.get(v) || v) : values;
-  if (names.length <= 2) return `${dimension}: ${names.join(", ")}`;
-  return `${dimension} (${names.length})`;
 }
 
 const STATUS_LABELS = new Map(STATUS_OPTIONS.map((s) => [s.value, s.label]));

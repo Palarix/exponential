@@ -7,6 +7,7 @@ import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, In
 import { ChevronDown, Folder, UserRound, Tag } from "lucide-react";
 import type { DropdownOption } from "../ui";
 import { isTerminal } from "../../constants";
+import { collectKnownPeople } from "../../utils/issues";
 import MarkdownEditor from "../MarkdownEditor";
 import { useAllLabels } from "../../hooks/useLabels";
 
@@ -58,19 +59,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   const allKnownLabels = useAllLabels(issues);
 
   const knownPeople = useMemo(() => {
-    const byEmail = new Map<string, string>();
-    for (const val of contributors) {
-      const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
-      if (!byEmail.has(email)) byEmail.set(email, val);
-    }
-    for (const i of issues) {
-      for (const val of [i.created_by, i.assignee]) {
-        if (!val) continue;
-        const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
-        if (!byEmail.has(email)) byEmail.set(email, val);
-      }
-    }
-    const all = Array.from(byEmail.values()).sort((a, b) => a.split(" <")[0].localeCompare(b.split(" <")[0]));
+    const all = collectKnownPeople(issues, contributors);
     const q = assigneeSearch.toLowerCase();
     if (!q) return all;
     return all.filter((p) => p.toLowerCase().includes(q));

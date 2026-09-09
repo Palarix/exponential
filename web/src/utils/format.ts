@@ -2,6 +2,10 @@ export function shortName(fullName: string): string {
   return fullName.split(" <")[0];
 }
 
+export function extractEmail(identity: string): string {
+  return identity.match(/<([^>]+)>/)?.[1]?.toLowerCase().trim() || "";
+}
+
 export interface ActorDisplay {
   principal: string;
   via?: string;
@@ -81,6 +85,36 @@ export function linkifyIssueIds(text: string, prefix: string): string {
     new RegExp(`\\b(${escaped}[a-f0-9]{6})\\b`, "g"),
     "[$1](#/issues/$1)",
   );
+}
+
+export function fuzzyMatch(text: string, query: string): boolean {
+  return fuzzyScore(text, query) > 0;
+}
+
+export function fuzzyScore(text: string, query: string): number {
+  if (!query) return 1;
+  const tl = text.toLowerCase();
+  const ql = query.toLowerCase();
+
+  if (tl === ql) return 10000;
+  if (tl.includes(ql)) return 5000 + (1000 - tl.indexOf(ql));
+
+  let qi = 0;
+  let score = 0;
+  let consecutive = 0;
+  let prevMatch = -2;
+  for (let ti = 0; ti < tl.length && qi < ql.length; ti++) {
+    if (tl[ti] === ql[qi]) {
+      consecutive = ti === prevMatch + 1 ? consecutive + 1 : 1;
+      score += consecutive * 10;
+      if (ti === 0 || tl[ti - 1] === " " || tl[ti - 1] === "-" || tl[ti - 1] === "_") score += 20;
+      prevMatch = ti;
+      qi++;
+    }
+  }
+  if (qi < ql.length) return 0;
+  score -= (tl.length - ql.length);
+  return Math.max(score, 1);
 }
 
 export function formatDuration(hours: number): string {

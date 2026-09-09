@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Expanded vitest coverage to 255 tests across 12 test files — covers labels, sort, constants, filters, dependency graph, timeline, inbox, command palette, and md5 utilities; extracted and deduplicated business logic from 10+ component files into shared utility modules (xpo-653324)
+- My Issues view: right-click context menu with full issue actions (status, priority, assignee, labels, estimate) (xpo-653324)
+- Labels view: click a label to navigate to filtered Backlog (xpo-653324)
+- Command palette: fzf-style scored fuzzy search — substring and exact matches rank highest, scattered character matches rank lowest (xpo-653324)
+
+### Changed
+
+- Dependency graph: replaced dagre with elkjs — proper orthogonal edge routing, native edge label placement, edges connect at node borders; canonical direction is now upstream (arrows point toward prerequisites); dim non-focus nodes/edges; completed toggle properly hides terminal issues; default zoom 125% (xpo-653324)
+- Board view: custom pointer-aware collision detector for reliable cross-column drag-and-drop; Backlog/Canceled/Duplicate columns hidden by default (xpo-653324)
+- Assignee pickers: filter out identities without valid email addresses (xpo-653324)
+
+### Fixed
+
+- Backend: moving a child issue to BLOCKED no longer auto-starts the parent (first-start trigger only fires on DOING) (xpo-653324)
+- Backend: removing all dependencies/labels from an issue now persists correctly (omitempty fix on UpdatePayload slices) (xpo-653324)
+- `xpo init`: `worktrees: true` now written to config.yaml by default (xpo-653324)
+- Dependency add-relation modal: stable height when switching between kind selection and issue search (xpo-653324)
+- Board: empty columns now have a tall enough drop target for drag-and-drop (xpo-653324)
+
 - Frontend test infrastructure with vitest — 72 tests covering diff utilities (`parseDiffByFile`, `addLineNumbers`, `buildFileTree`, `flattenSingleChildDirs`, `buildSplitLines`) and format utilities; `make test` now runs vitest alongside Go tests (xpo-46c418)
 - Keyboard help overlay: added Board section documenting all Board shortcuts; disambiguated key separators (`/` = or, `→` = then, `+` = together); expanded status number shortcuts to show actual status names; widened to 4-column layout (xpo-87503f)
 - Optional `default_branch` field in `.xpo/config.yaml` — explicitly sets the base branch for branching, merging, and diff operations, bypassing git-based detection; `xpo init` auto-detects and writes it (xpo-961910)

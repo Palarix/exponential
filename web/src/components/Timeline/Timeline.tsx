@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } fro
 import { createPortal } from "react-dom";
 import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
-import { shortName, formatRelativeTime, formatShortDate, displayActor } from "../../utils/format";
+import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 import { TopBar } from "../ui";
 import {
@@ -30,10 +30,15 @@ import {
 } from "lucide-react";
 import EmptyState from "../ui/EmptyState";
 import StatusIcon from "../ui/StatusIcon";
-
-type EventCategory = "issues" | "closed" | "comments" | "merges" | "artifacts" | "commits";
-
-const TERMINAL_STATUSES = new Set(["DONE", "CANCELED", "DUPLICATE"]);
+import {
+  categorizeEntry,
+  groupByDay,
+  dayLabel,
+  daySummary,
+  entryActor,
+  extractContributors,
+  type EventCategory,
+} from "./timeline-utils";
 
 const EVENT_CATEGORIES: { key: EventCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "issues", label: "Issues", icon: Plus },
@@ -46,20 +51,6 @@ const EVENT_CATEGORIES: { key: EventCategory; label: string; icon: React.Compone
 
 const ALL_CATEGORIES = new Set<EventCategory>(EVENT_CATEGORIES.map((c) => c.key));
 
-function categorizeEntry(entry: TimelineEntry): EventCategory {
-  if (entry.kind === "commit") return "commits";
-  switch (entry.event_type) {
-    case "COMMENT": return "comments";
-    case "MERGE": return "merges";
-    case "ARTIFACT": return "artifacts";
-    case "UPDATE": {
-      const status = entry.payload?.status;
-      if (status && TERMINAL_STATUSES.has(String(status))) return "closed";
-      return "issues";
-    }
-    default: return "issues";
-  }
-}
 
 type ActIconKey =
   | "create"
@@ -231,56 +222,6 @@ function describeIssueEvent(
     }
     default: return null;
   }
-}
-
-function groupByDay(entries: TimelineEntry[]): Map<string, TimelineEntry[]> {
-  const groups = new Map<string, TimelineEntry[]>();
-  for (const entry of entries) {
-    const day = entry.timestamp.slice(0, 10);
-    const existing = groups.get(day);
-    if (existing) {
-      existing.push(entry);
-    } else {
-      groups.set(day, [entry]);
-    }
-  }
-  return groups;
-}
-
-function dayLabel(dateStr: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  if (dateStr === today) return "Today";
-  if (dateStr === yesterday) return "Yesterday";
-  return formatShortDate(dateStr);
-}
-
-function daySummary(entries: TimelineEntry[]): string {
-  let commits = 0;
-  let events = 0;
-  for (const e of entries) {
-    if (e.kind === "commit") commits++;
-    else events++;
-  }
-  const parts: string[] = [];
-  if (events > 0) parts.push(`${events} event${events === 1 ? "" : "s"}`);
-  if (commits > 0) parts.push(`${commits} commit${commits === 1 ? "" : "s"}`);
-  return parts.join(", ");
-}
-
-function entryActor(entry: TimelineEntry): string {
-  if (entry.kind === "commit") return shortName(entry.author ?? "");
-  const actor = displayActor(entry.created_by ?? "", entry.on_behalf_of);
-  return actor.principal;
-}
-
-function extractContributors(entries: TimelineEntry[]): string[] {
-  const seen = new Set<string>();
-  for (const e of entries) {
-    const name = entryActor(e);
-    if (name) seen.add(name);
-  }
-  return Array.from(seen).sort((a, b) => a.localeCompare(b));
 }
 
 export default function Timeline({

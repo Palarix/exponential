@@ -93,7 +93,7 @@ export default function BoardColumn({
       </div>
 
       <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
-        <div ref={setNodeRef} className="flex-1 p-2 space-y-2 overflow-y-auto">
+        <div ref={setNodeRef} className="flex-1 min-h-0 p-2 space-y-2 overflow-y-auto">
           {visibleIds.map((id) => {
             const issue = getIssue(id);
             if (!issue) return null;
@@ -117,7 +117,7 @@ export default function BoardColumn({
             </button>
           )}
           {itemIds.length === 0 && (
-            <div className="flex items-center justify-center h-16 text-[var(--color-text-muted)] text-xs">
+            <div className="flex items-center justify-center flex-1 min-h-[4rem] text-[var(--color-text-muted)] text-xs">
               No issues
             </div>
           )}

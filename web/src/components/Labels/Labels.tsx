@@ -12,6 +12,7 @@ interface LabelsProps {
   issues: Issue[];
   onConfigLabelsChange: (labels: Record<string, string>) => void;
   onRefresh: () => void;
+  onLabelClick?: (label: string) => void;
 }
 
 interface LabelInfo {
@@ -20,7 +21,7 @@ interface LabelInfo {
   count: number;
 }
 
-export default function Labels({ issues, onConfigLabelsChange, onRefresh }: LabelsProps) {
+export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabelClick }: LabelsProps) {
   const configLabels = useContext(LabelColorsContext);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -253,7 +254,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh }: Labe
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors">
+                    <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer" onClick={() => onLabelClick?.(label.name)}>
                       <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
                       <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
                         {label.name.charAt(0).toUpperCase() + label.name.slice(1)}

@@ -9,6 +9,7 @@ import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
 import { UserRound, Triangle, RefreshCw, ChevronRight, Trash2, Check, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
+import { collectKnownPeople } from "../../utils/issues";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
 
@@ -195,19 +196,7 @@ export default function ContextMenu({
   }, [issue.id, issue.labels, onRefresh, patchIssue]);
 
   const knownPeople = useMemo(() => {
-    const byEmail = new Map<string, string>();
-    for (const val of contributors) {
-      const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
-      if (!byEmail.has(email)) byEmail.set(email, val);
-    }
-    for (const i of issues) {
-      for (const val of [i.created_by, i.assignee]) {
-        if (!val) continue;
-        const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
-        if (!byEmail.has(email)) byEmail.set(email, val);
-      }
-    }
-    const all = Array.from(byEmail.values()).sort((a, b) => a.split(" <")[0].localeCompare(b.split(" <")[0]));
+    const all = collectKnownPeople(issues, contributors);
     const q = filterText.toLowerCase();
     if (!q) return all;
     return all.filter(p => p.toLowerCase().includes(q));

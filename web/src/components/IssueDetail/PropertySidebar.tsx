@@ -8,6 +8,7 @@ import { formatRelativeTime } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { isTerminal } from "../../constants";
+import { collectKnownPeople } from "../../utils/issues";
 import { PriorityIcon } from "./icons";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -216,21 +217,7 @@ export default function PropertySidebar({
   }, [issues, issue.id, issue.dependencies, addRelSearch]);
 
   const knownPeople = useMemo(() => {
-    const byEmail = new Map<string, string>();
-    for (const val of contributors) {
-      const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
-      if (!byEmail.has(email)) byEmail.set(email, val);
-    }
-    for (const i of issues) {
-      for (const val of [i.created_by, i.assignee]) {
-        if (!val) continue;
-        const email = val.match(/<([^>]+)>/)?.[1]?.toLowerCase() || val;
-        if (!byEmail.has(email)) byEmail.set(email, val);
-      }
-    }
-    const all = Array.from(byEmail.values()).sort((a, b) =>
-      a.split(" <")[0].localeCompare(b.split(" <")[0])
-    );
+    const all = collectKnownPeople(issues, contributors);
     const q = assigneeSearch.toLowerCase();
     if (!q) return all;
     return all.filter(p => p.toLowerCase().includes(q));
@@ -739,7 +726,7 @@ export default function PropertySidebar({
             title="Add relation"
             size="2xl"
           >
-            <div className="space-y-4">
+            <div className="space-y-4 min-h-[40vh]">
               <div className="flex items-center gap-2 flex-wrap">
                 {RELATION_TYPES.map((rt) => (
                   <button

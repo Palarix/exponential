@@ -4,7 +4,7 @@ import type { Issue } from "../../api/client";
 import { StatusIcon, LabelBadge, Avatar, PriorityIcon } from "../ui";
 import { ChevronRight } from "lucide-react";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
-import type { BacklogFilters } from "./filters";
+import { getSelected, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
 
 interface FilterMenuProps {
   issues: Issue[];
@@ -14,7 +14,7 @@ interface FilterMenuProps {
   onClose: () => void;
 }
 
-type Dimension = "status" | "assignee" | "priority" | "labels" | "epic";
+type Dimension = FilterDimension;
 
 const DIMENSIONS: { key: Dimension; label: string; icon: React.ReactNode }[] = [
   {
@@ -141,26 +141,6 @@ function useSubMenuOptions(
           }));
     }
   }, [dim, issues]);
-}
-
-function getSelected(dim: Dimension, filters: BacklogFilters): string[] {
-  switch (dim) {
-    case "status": return filters.statuses;
-    case "assignee": return filters.assignees;
-    case "priority": return filters.priorities.map(String);
-    case "labels": return filters.labels;
-    case "epic": return filters.epicId ? [filters.epicId] : [];
-  }
-}
-
-function setSelected(dim: Dimension, filters: BacklogFilters, values: string[]): BacklogFilters {
-  switch (dim) {
-    case "status": return { ...filters, statuses: values };
-    case "assignee": return { ...filters, assignees: values };
-    case "priority": return { ...filters, priorities: values.map(Number) };
-    case "labels": return { ...filters, labels: values };
-    case "epic": return { ...filters, epicId: values[0] || null };
-  }
 }
 
 function SubMenu({

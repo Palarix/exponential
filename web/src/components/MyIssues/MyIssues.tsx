@@ -10,13 +10,15 @@ import {
   LabelBadge,
   EmptyState,
   TopBar,
+  ContextMenu,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
-import { formatShortDate } from "../../utils/format";
+import { extractEmail, formatShortDate } from "../../utils/format";
 import { isEditableTarget } from "../../utils/keyboard";
+import { useAllLabels } from "../../hooks/useLabels";
 import FilterMenu from "../Backlog/FilterMenu";
-import { type BacklogFilters, hasActiveFilters } from "../Backlog/filters";
+import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
 
 export type MyIssuesTab = "assigned" | "created";
 
@@ -25,33 +27,8 @@ const TAB_CONFIGS: Record<MyIssuesTab, { label: string }> = {
   created: { label: "Created by Me" },
 };
 
-function extractEmail(identity: string): string {
-  return identity.match(/<([^>]+)>/)?.[1]?.toLowerCase().trim() || "";
-}
-
 function applyFilters(issues: Issue[], filters: BacklogFilters): Issue[] {
-  return issues.filter((i) => {
-    if (filters.statuses.length > 0 && !filters.statuses.includes(i.status))
-      return false;
-    if (
-      filters.labels.length > 0 &&
-      !filters.labels.some((l) => i.labels?.includes(l))
-    )
-      return false;
-    if (filters.assignees.length > 0) {
-      const match = i.assignee
-        ? filters.assignees.includes(i.assignee)
-        : filters.assignees.includes("__unassigned__");
-      if (!match) return false;
-    }
-    if (
-      filters.priorities.length > 0 &&
-      !filters.priorities.includes(i.priority || 0)
-    )
-      return false;
-    if (filters.epicId && i.parent_id !== filters.epicId) return false;
-    return true;
-  });
+  return issues.filter((i) => matchesFilters(i, filters));
 }
 
 interface MyIssuesProps {
@@ -61,6 +38,10 @@ interface MyIssuesProps {
   onTabChange: (tab: MyIssuesTab) => void;
   filters: BacklogFilters;
   onFiltersChange: (filters: BacklogFilters) => void;
+  onRefresh?: () => void;
+  contributors?: string[];
+  onConfigLabelsChange?: (labels: Record<string, string>) => void;
+  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
 }
 
 export default function MyIssues({
@@ -70,8 +51,13 @@ export default function MyIssues({
   onTabChange,
   filters,
   onFiltersChange,
+  onRefresh,
+  contributors = [],
+  onConfigLabelsChange,
+  patchIssue,
 }: MyIssuesProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const showFilterMenuRef = useRef(showFilterMenu);
   useEffect(() => {
@@ -104,6 +90,7 @@ export default function MyIssues({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  const allKnownLabels = useAllLabels(issues);
   const userEmail = user?.email?.toLowerCase().trim() || "";
 
   const { assigned, created } = useMemo(() => {
@@ -216,6 +203,7 @@ export default function MyIssues({
             <div
               key={issue.id}
               onClick={() => onIssueClick(issue)}
+              onContextMenu={(e) => { e.preventDefault(); setContextMenu({ issueId: issue.id, x: e.clientX, y: e.clientY }); }}
               className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-hover-surface)] group"
             >
               <PriorityIcon priority={issue.priority || 0} size={16} />
@@ -246,6 +234,25 @@ export default function MyIssues({
           ))}
         </div>
       )}
+
+      {contextMenu && onRefresh && (() => {
+        const ctxIssue = issues.find((i) => i.id === contextMenu.issueId);
+        if (!ctxIssue) return null;
+        return (
+          <ContextMenu
+            issue={ctxIssue}
+            issues={issues}
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            onRefresh={onRefresh}
+            allLabels={allKnownLabels}
+            contributors={contributors}
+            onConfigLabelsChange={onConfigLabelsChange}
+            patchIssue={patchIssue}
+          />
+        );
+      })()}
     </div>
   );
 }

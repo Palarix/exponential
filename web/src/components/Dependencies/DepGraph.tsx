@@ -1,48 +1,34 @@
-import { useState, useRef, useCallback, useEffect, type WheelEvent as ReactWheelEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect, type WheelEvent as ReactWheelEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import type { Issue } from '../../api/types';
 import type { DepGraph, GraphEdge } from './useDepGraph';
 import StatusIcon from '../ui/StatusIcon';
 import { Toggle, TopBar } from '../ui';
+import { truncate, edgePath } from './dep-graph-utils';
 
 const NODE_WIDTH = 240;
 const NODE_HEIGHT = 56;
 
 const KIND_COLORS: Record<string, string> = {
   blocks: 'var(--color-error)',
+  blocked_by: 'var(--color-error)',
   depends_on: 'var(--color-error)',
+  dependency_of: 'var(--color-error)',
   relates_to: 'var(--color-info)',
   related: 'var(--color-info)',
   duplicates: 'var(--color-text-muted)',
+  duplicated_by: 'var(--color-text-muted)',
 };
 
-function truncate(s: string, max: number): string {
-  return s.length > max ? s.slice(0, max) + '…' : s;
-}
-
-function edgePath(points: { x: number; y: number }[]): string {
-  if (points.length === 0) return '';
-  if (points.length === 1) return `M${points[0].x},${points[0].y}`;
-
-  let d = `M${points[0].x},${points[0].y}`;
-  if (points.length === 2) {
-    d += `L${points[1].x},${points[1].y}`;
-    return d;
-  }
-
-  for (let i = 1; i < points.length - 1; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const next = points[i + 1];
-    const cpx1 = (prev.x + curr.x) / 2;
-    const cpy1 = (prev.y + curr.y) / 2;
-    const cpx2 = (curr.x + next.x) / 2;
-    const cpy2 = (curr.y + next.y) / 2;
-    if (i === 1) d = `M${cpx1},${cpy1}`;
-    d += `Q${curr.x},${curr.y} ${cpx2},${cpy2}`;
-  }
-
-  return d;
-}
+const KIND_LABELS: Record<string, string> = {
+  blocks: 'blocks',
+  blocked_by: 'blocked by',
+  depends_on: 'depends on',
+  dependency_of: 'dependency of',
+  relates_to: 'relates to',
+  related: 'relates to',
+  duplicates: 'duplicates',
+  duplicated_by: 'duplicated by',
+};
 
 interface DepGraphViewProps {
   graph: DepGraph;
@@ -69,7 +55,7 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
     const pad = 60;
     const scaleX = (rect.width - pad * 2) / graph.width;
     const scaleY = (rect.height - pad * 2) / graph.height;
-    const scale = Math.min(Math.max(Math.min(scaleX, scaleY), MIN_SCALE), MAX_SCALE);
+    const scale = Math.min(Math.min(scaleX, scaleY), 1.25);
     const x = (rect.width - graph.width * scale) / 2;
     const y = (rect.height - graph.height * scale) / 2;
     setTransform({ x, y, scale });
@@ -124,6 +110,15 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
   const handleMouseUp = useCallback(() => {
     dragRef.current = null;
   }, []);
+
+  const focusNeighbors = useMemo(() => {
+    const nodes = new Set<string>([focusIssue.id]);
+    for (const e of graph.edges) {
+      if (e.sourceId === focusIssue.id) nodes.add(e.targetId);
+      if (e.targetId === focusIssue.id) nodes.add(e.sourceId);
+    }
+    return nodes;
+  }, [graph.edges, focusIssue.id]);
 
   const connectedEdges = hoveredNode
     ? new Set(graph.edges.filter(e => e.sourceId === hoveredNode || e.targetId === hoveredNode).map(e => `${e.sourceId}->${e.targetId}`))
@@ -229,7 +224,9 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
                 <EdgePath
                   key={i}
                   edge={edge}
-                  dimmed={connectedEdges !== null && !connectedEdges.has(`${edge.sourceId}->${edge.targetId}`)}
+                  dimmed={connectedEdges !== null
+                    ? !connectedEdges.has(`${edge.sourceId}->${edge.targetId}`)
+                    : edge.sourceId !== focusIssue.id && edge.targetId !== focusIssue.id}
                   highlighted={connectedEdges !== null && connectedEdges.has(`${edge.sourceId}->${edge.targetId}`)}
                 />
               ))}
@@ -247,11 +244,13 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
                     isFocus={node.issue.id === focusIssue.id}
                     isCycle={graph.cycles.has(node.issue.id)}
                     isHovered={hoveredNode === node.issue.id}
-                    isDimmed={hoveredNode !== null && hoveredNode !== node.issue.id &&
-                      !graph.edges.some(e =>
-                        (e.sourceId === hoveredNode && e.targetId === node.issue.id) ||
-                        (e.targetId === hoveredNode && e.sourceId === node.issue.id)
-                      )}
+                    isDimmed={hoveredNode !== null
+                      ? hoveredNode !== node.issue.id &&
+                        !graph.edges.some(e =>
+                          (e.sourceId === hoveredNode && e.targetId === node.issue.id) ||
+                          (e.targetId === hoveredNode && e.sourceId === node.issue.id)
+                        )
+                      : !focusNeighbors.has(node.issue.id)}
                     onMouseEnter={() => setHoveredNode(node.issue.id)}
                     onMouseLeave={() => setHoveredNode(null)}
                     onClick={() => onIssueClick?.(node.issue)}
@@ -267,26 +266,37 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
 }
 
 function EdgePath({ edge, dimmed, highlighted }: { edge: GraphEdge; dimmed: boolean; highlighted: boolean }) {
-  const color = edge.isCycle
-    ? 'var(--color-warning)'
-    : edge.isCritical
-      ? 'var(--color-accent-primary)'
-      : KIND_COLORS[edge.kind] ?? 'var(--color-text-muted)';
+  const kindColor = KIND_COLORS[edge.kind] ?? 'var(--color-text-muted)';
+  const color = edge.isCycle ? 'var(--color-warning)' : kindColor;
 
-  const markerId = edge.isCycle ? 'arrow-cycle' : edge.isCritical ? 'arrow-critical' : `arrow-${edge.kind}`;
+  const markerId = edge.isCycle ? 'arrow-cycle' : `arrow-${edge.kind}`;
   const strokeWidth = edge.isCritical ? 2.5 : highlighted ? 2 : 1.5;
+  const label = KIND_LABELS[edge.kind] ?? edge.kind.replace(/_/g, ' ');
 
   return (
-    <path
-      d={edgePath(edge.points)}
-      fill="none"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeDasharray={edge.isCycle ? '6 4' : undefined}
-      markerEnd={`url(#${markerId})`}
-      opacity={dimmed ? 0.15 : 1}
-      style={{ transition: 'opacity 150ms' }}
-    />
+    <g opacity={dimmed ? 0.15 : 1} style={{ transition: 'opacity 150ms' }}>
+      <path
+        d={edgePath(edge.points)}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeDasharray={edge.isCycle ? '6 4' : undefined}
+        markerEnd={`url(#${markerId})`}
+      />
+      {edge.labelPos && (
+        <text
+          x={edge.labelPos.x + edge.labelPos.width / 2}
+          y={edge.labelPos.y + edge.labelPos.height / 2 + 3}
+          textAnchor="middle"
+          fill={color}
+          fontSize="9"
+          fontWeight="500"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {label}
+        </text>
+      )}
+    </g>
   );
 }
 
@@ -316,7 +326,7 @@ function GraphNodeCard({
       data-graph-node
       className="h-full flex items-center gap-2.5 px-3 rounded-lg cursor-pointer select-none border transition-all duration-150"
       style={{
-        background: 'var(--color-surface-1)',
+        background: 'var(--color-surface-2)',
         borderColor: isHovered
           ? 'var(--color-accent-primary)'
           : isFocus
