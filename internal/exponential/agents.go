@@ -9,28 +9,40 @@ import (
 	"strings"
 )
 
+// MCPConfigSpec defines how a harness expects its MCP server configuration.
+type MCPConfigSpec struct {
+	File       string // config file path relative to project root (e.g. ".mcp.json")
+	ServerKey  string // key for the server map (e.g. "mcpServers", "mcp", "mcp_servers")
+	Format     string // "json" or "toml"
+	EntryStyle string // "standard" (default): {command, args}; "local-array": {type: "local", command: [binary, args...]}
+	NeedsDir   bool   // create parent directory if missing
+}
+
+// HasMCPConfig returns true if the spec defines an MCP config location.
+func (s MCPConfigSpec) HasMCPConfig() bool {
+	return s.File != ""
+}
+
 // AgentConfig defines an AI agent and its instruction file location
 type AgentConfig struct {
-	Name     string // Agent name (e.g., "Cursor", "GitHub Copilot")
-	File     string // Primary file path (e.g., ".cursorrules")
-	Binary   string // CLI binary name for PATH detection (empty = not detectable via PATH)
-	SkillDir string // Skill directory for this harness (empty = no skill support)
-	Format   string // "markdown" or "plain"
-	NeedsDir bool   // If true, parent directory must be created
+	Name           string        // Agent name (e.g., "Cursor", "GitHub Copilot")
+	File           string        // Primary file path (e.g., ".cursorrules")
+	Binary         string        // CLI binary name for PATH detection (empty = not detectable via PATH)
+	SkillDir       string        // Project-local skill directory (empty = no skill support)
+	GlobalSkillDir string        // User-level skill directory relative to $HOME (empty = no global support)
+	Format         string        // "markdown" or "plain"
+	NeedsDir       bool          // If true, parent directory must be created
+	MCPConfig      MCPConfigSpec // How this harness expects MCP config (zero value = no MCP support)
 }
 
 // AgentRegistry contains all supported AI agent configurations
 var AgentRegistry = []AgentConfig{
 	{Name: "Generic Agent", File: "AGENTS.md", Format: "markdown"},
-	{Name: "Claude Code", File: "CLAUDE.md", Binary: "claude", SkillDir: ".claude/skills", Format: "markdown"},
-	{Name: "Gemini", File: "GEMINI.md", Binary: "gemini", SkillDir: ".gemini/skills", Format: "markdown"},
-	{Name: "Cursor", File: ".cursorrules", Binary: "cursor", SkillDir: ".cursor/skills", Format: "plain"},
-	{Name: "Windsurf", File: ".windsurfrules", Binary: "windsurf", Format: "plain"},
+	{Name: "Claude Code", File: "CLAUDE.md", Binary: "claude", SkillDir: ".claude/skills", GlobalSkillDir: ".claude/skills", Format: "markdown", MCPConfig: MCPConfigSpec{File: ".mcp.json", ServerKey: "mcpServers", Format: "json"}},
 	{Name: "GitHub Copilot", File: ".github/copilot-instructions.md", Format: "markdown", NeedsDir: true},
-	{Name: "Cline", File: ".clinerules", Format: "markdown"},
-	{Name: "Roo Code", File: ".roorules", Format: "markdown"},
-	{Name: "Aider", File: "CONVENTIONS.md", Binary: "aider", Format: "markdown"},
-	{Name: "Continue", File: ".continue/rule./xpo.md", Format: "markdown", NeedsDir: true},
+	{Name: "Cursor", File: ".cursorrules", Binary: "cursor", SkillDir: ".cursor/skills", GlobalSkillDir: ".cursor/skills", Format: "plain", MCPConfig: MCPConfigSpec{File: ".cursor/mcp.json", ServerKey: "mcpServers", Format: "json", NeedsDir: true}},
+	{Name: "Codex", File: "AGENTS.md", Binary: "codex", SkillDir: ".codex/skills", GlobalSkillDir: ".codex/skills", Format: "markdown", MCPConfig: MCPConfigSpec{File: ".codex/config.toml", ServerKey: "mcp_servers", Format: "toml", NeedsDir: true}},
+	{Name: "OpenCode", File: "AGENTS.md", Binary: "opencode", SkillDir: ".opencode/skills", GlobalSkillDir: ".config/opencode/skills", Format: "markdown", MCPConfig: MCPConfigSpec{File: "opencode.json", ServerKey: "mcp", Format: "json", EntryStyle: "local-array"}},
 }
 
 // AgentDetectionResult contains information about a detected agent file
@@ -382,23 +394,34 @@ may use different naming conventions). The table uses the base tool names.
 `
 }
 
+// GlobalSkillCanonicalDir is the canonical location for globally installed skills.
+const GlobalSkillCanonicalDir = ".config/xpo/skills"
+
 // WriteAgentSkill writes the xpo-workflow skill to the agent's skill directory.
+// When globalBaseDir is non-empty, files are written to that canonical location
+// and a symlink is created from the agent's global skill directory.
 // Returns the skill directory path, or empty string if the agent has no skill support.
-func WriteAgentSkill(agent AgentConfig) (string, error) {
+func WriteAgentSkill(agent AgentConfig, globalBaseDir string) (string, error) {
 	if agent.SkillDir == "" {
 		return "", nil
 	}
 
-	skillDir := filepath.Join(agent.SkillDir, "xpo-workflow")
+	var skillDir string
+	if globalBaseDir != "" {
+		skillDir = filepath.Join(globalBaseDir, "xpo-workflow")
+	} else {
+		skillDir = filepath.Join(agent.SkillDir, "xpo-workflow")
+	}
+
 	refsDir := filepath.Join(skillDir, "references")
 	if err := os.MkdirAll(refsDir, 0755); err != nil {
 		return "", fmt.Errorf("could not create skill directory %s: %w", refsDir, err)
 	}
 
 	files := map[string]string{
-		filepath.Join(skillDir, "SKILL.md"):              GenerateSkillMD(),
-		filepath.Join(refsDir, "spec-guide.md"):          GenerateSpecGuide(),
-		filepath.Join(refsDir, "mcp-tools.md"):           GenerateMCPToolsRef(),
+		filepath.Join(skillDir, "SKILL.md"):     GenerateSkillMD(),
+		filepath.Join(refsDir, "spec-guide.md"): GenerateSpecGuide(),
+		filepath.Join(refsDir, "mcp-tools.md"):  GenerateMCPToolsRef(),
 	}
 
 	for path, content := range files {
@@ -407,28 +430,118 @@ func WriteAgentSkill(agent AgentConfig) (string, error) {
 		}
 	}
 
+	if globalBaseDir != "" && agent.GlobalSkillDir != "" {
+		if err := createSkillSymlink(agent, skillDir); err != nil {
+			return skillDir, fmt.Errorf("skill files written but symlink failed: %w", err)
+		}
+	}
+
 	return skillDir, nil
 }
 
-// MCPConfigStatus describes the state of .mcp.json in the project root.
+// createSkillSymlink creates a symlink from the agent's global skill directory to the canonical location.
+func createSkillSymlink(agent AgentConfig, canonicalDir string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not determine home directory: %w", err)
+	}
+
+	symlinkParent := filepath.Join(home, agent.GlobalSkillDir)
+	if err := os.MkdirAll(symlinkParent, 0755); err != nil {
+		return fmt.Errorf("could not create directory %s: %w", symlinkParent, err)
+	}
+
+	symlinkPath := filepath.Join(symlinkParent, "xpo-workflow")
+
+	if info, err := os.Lstat(symlinkPath); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			os.Remove(symlinkPath)
+		} else {
+			return fmt.Errorf("%s exists and is not a symlink", symlinkPath)
+		}
+	}
+
+	return os.Symlink(canonicalDir, symlinkPath)
+}
+
+// SkillInstallStatus describes how a skill is installed for a harness.
+type SkillInstallStatus struct {
+	Local         bool
+	Global        bool
+	BrokenSymlink bool
+}
+
+// DetectSkillInstall checks whether the xpo-workflow skill is installed for an agent.
+func DetectSkillInstall(agent AgentConfig) SkillInstallStatus {
+	var status SkillInstallStatus
+
+	if agent.SkillDir != "" {
+		skillPath := filepath.Join(agent.SkillDir, "xpo-workflow", "SKILL.md")
+		if _, err := os.Stat(skillPath); err == nil {
+			status.Local = true
+		}
+	}
+
+	if agent.GlobalSkillDir != "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			symlinkPath := filepath.Join(home, agent.GlobalSkillDir, "xpo-workflow")
+			info, err := os.Lstat(symlinkPath)
+			if err == nil && info.Mode()&os.ModeSymlink != 0 {
+				if _, statErr := os.Stat(symlinkPath); statErr != nil {
+					status.BrokenSymlink = true
+				} else {
+					status.Global = true
+				}
+			} else if err == nil {
+				canonicalSkill := filepath.Join(symlinkPath, "SKILL.md")
+				if _, statErr := os.Stat(canonicalSkill); statErr == nil {
+					status.Global = true
+				}
+			}
+		}
+	}
+
+	return status
+}
+
+// MCPConfigStatus describes the state of an MCP config file.
 type MCPConfigStatus struct {
 	Exists         bool
 	HasExponential bool
 }
 
-const mcpConfigFile = ".mcp.json"
+// DefaultMCPSpec is the MCPConfigSpec for Claude Code (.mcp.json with mcpServers key).
+var DefaultMCPSpec = MCPConfigSpec{File: ".mcp.json", ServerKey: "mcpServers", Format: "json"}
 
-// DetectMCPConfig checks whether .mcp.json exists and contains a xpo entry.
+// DetectMCPConfig checks whether .mcp.json exists and contains a xpo entry (Claude Code default).
 func DetectMCPConfig() MCPConfigStatus {
-	data, err := os.ReadFile(mcpConfigFile)
+	return DetectMCPConfigFor(DefaultMCPSpec)
+}
+
+// DetectMCPConfigFor checks whether the MCP config file for the given spec exists and contains a xpo entry.
+func DetectMCPConfigFor(spec MCPConfigSpec) MCPConfigStatus {
+	if spec.File == "" {
+		return MCPConfigStatus{}
+	}
+
+	data, err := os.ReadFile(spec.File)
 	if err != nil {
 		return MCPConfigStatus{}
 	}
+
+	if spec.Format == "toml" {
+		return detectMCPConfigTOML(data, spec.ServerKey)
+	}
+	return detectMCPConfigJSON(data, spec.ServerKey)
+}
+
+func detectMCPConfigJSON(data []byte, serverKey string) MCPConfigStatus {
 	var doc map[string]json.RawMessage
 	if json.Unmarshal(data, &doc) != nil {
 		return MCPConfigStatus{Exists: true}
 	}
-	servers, ok := doc["mcpServers"]
+	servers, ok := doc[serverKey]
 	if !ok {
 		return MCPConfigStatus{Exists: true}
 	}
@@ -436,41 +549,127 @@ func DetectMCPConfig() MCPConfigStatus {
 	if json.Unmarshal(servers, &serversMap) != nil {
 		return MCPConfigStatus{Exists: true}
 	}
-	_, hasExponential := serversMap["xpo"]
-	return MCPConfigStatus{Exists: true, HasExponential: hasExponential}
+	_, hasXpo := serversMap["xpo"]
+	return MCPConfigStatus{Exists: true, HasExponential: hasXpo}
 }
 
-// EnsureMCPConfig creates or updates .mcp.json to include a xpo MCP server entry.
+func detectMCPConfigTOML(data []byte, serverKey string) MCPConfigStatus {
+	content := string(data)
+	sectionHeader := fmt.Sprintf("[%s.xpo]", serverKey)
+	return MCPConfigStatus{
+		Exists:         true,
+		HasExponential: strings.Contains(content, sectionHeader),
+	}
+}
+
+// EnsureMCPConfig creates or updates .mcp.json to include a xpo MCP server entry (Claude Code default).
 func EnsureMCPConfig() error {
+	return EnsureMCPConfigFor(DefaultMCPSpec)
+}
+
+// EnsureMCPConfigFor creates or updates the MCP config file for the given spec.
+func EnsureMCPConfigFor(spec MCPConfigSpec) error {
+	if spec.File == "" {
+		return nil
+	}
+
+	if spec.NeedsDir {
+		dir := filepath.Dir(spec.File)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("could not create directory %s: %w", dir, err)
+		}
+	}
+
+	if spec.Format == "toml" {
+		return ensureMCPConfigTOML(spec)
+	}
+	return ensureMCPConfigJSON(spec)
+}
+
+func ensureMCPConfigJSON(spec MCPConfigSpec) error {
 	var doc map[string]interface{}
 
-	data, err := os.ReadFile(mcpConfigFile)
+	data, err := os.ReadFile(spec.File)
 	if err == nil {
 		if json.Unmarshal(data, &doc) != nil {
-			return fmt.Errorf("could not parse %s: invalid JSON", mcpConfigFile)
+			return fmt.Errorf("could not parse %s: invalid JSON", spec.File)
 		}
 	} else if os.IsNotExist(err) {
 		doc = make(map[string]interface{})
 	} else {
-		return fmt.Errorf("could not read %s: %w", mcpConfigFile, err)
+		return fmt.Errorf("could not read %s: %w", spec.File, err)
 	}
 
-	servers, _ := doc["mcpServers"].(map[string]interface{})
+	servers, _ := doc[spec.ServerKey].(map[string]interface{})
 	if servers == nil {
 		servers = make(map[string]interface{})
 	}
-	servers["xpo"] = map[string]interface{}{
-		"command": "xpo",
-		"args":    []string{"mcp"},
-	}
-	doc["mcpServers"] = servers
+	servers["xpo"] = mcpServerEntry(spec.EntryStyle)
+	doc[spec.ServerKey] = servers
 
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
-		return fmt.Errorf("could not marshal %s: %w", mcpConfigFile, err)
+		return fmt.Errorf("could not marshal %s: %w", spec.File, err)
 	}
 	out = append(out, '\n')
-	return os.WriteFile(mcpConfigFile, out, 0644)
+	return os.WriteFile(spec.File, out, 0644)
+}
+
+func mcpServerEntry(entryStyle string) map[string]interface{} {
+	if entryStyle == "local-array" {
+		return map[string]interface{}{
+			"type":    "local",
+			"command": []string{"xpo", "mcp"},
+		}
+	}
+	return map[string]interface{}{
+		"command": "xpo",
+		"args":    []string{"mcp"},
+	}
+}
+
+func ensureMCPConfigTOML(spec MCPConfigSpec) error {
+	sectionHeader := fmt.Sprintf("[%s.xpo]", spec.ServerKey)
+	entry := fmt.Sprintf("%s\ncommand = \"xpo\"\nargs = [\"mcp\"]\n", sectionHeader)
+
+	data, err := os.ReadFile(spec.File)
+	if os.IsNotExist(err) {
+		return os.WriteFile(spec.File, []byte(entry), 0644)
+	}
+	if err != nil {
+		return fmt.Errorf("could not read %s: %w", spec.File, err)
+	}
+
+	content := string(data)
+	if strings.Contains(content, sectionHeader) {
+		return nil
+	}
+
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	content += "\n" + entry
+	return os.WriteFile(spec.File, []byte(content), 0644)
+}
+
+// LookupAgent finds an agent in the registry by name or binary (case-insensitive).
+func LookupAgent(query string) (AgentConfig, bool) {
+	q := strings.ToLower(query)
+	for _, agent := range AgentRegistry {
+		if strings.ToLower(agent.Name) == q || (agent.Binary != "" && strings.ToLower(agent.Binary) == q) {
+			return agent, true
+		}
+	}
+	return AgentConfig{}, false
+}
+
+// AgentRegistryNames returns the names of all agents in the registry.
+func AgentRegistryNames() []string {
+	names := make([]string, len(AgentRegistry))
+	for i, a := range AgentRegistry {
+		names[i] = a.Name
+	}
+	return names
 }
 
 // AppendAgentInstructions writes xpo instructions to an agent file.

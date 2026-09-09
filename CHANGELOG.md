@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Multi-harness init: `xpo init` is now config-only; new `xpo init mcp` writes per-harness MCP server config, `xpo init skill` installs workflow skills and agent instruction files — each concern is independently runnable (xpo-ceb434)
+- Agent harness support for Claude Code, GitHub Copilot, Cursor, OpenAI Codex, and OpenCode — per-harness MCP config formats (JSON with `mcpServers`/`mcp` keys, TOML, and OpenCode's `local-array` style) and skill directories (xpo-ceb434)
+- Global skill installation (`xpo init skill --global`): canonical location at `~/.config/xpo/skills/` with symlinks into each harness's skill directory; macOS/Linux only (xpo-ceb434)
+- `xpo init skill` interactive flow: detects installed agents, prompts for global/local scope, respects existing agent instruction files (append without `--force`, replace xpo section with `--force`) (xpo-ceb434)
+- `xpo doctor` reorganized into three sections — Project Configuration, MCP Configuration, Agent Integration — each with its fix command (xpo-ceb434)
+- `xpo init` prints actionable next-step hints when MCP or skills are not yet configured (xpo-ceb434)
+- 20 new scenario tests covering init/mcp/skill clean, idempotent, force, and cross-format workflows (xpo-ceb434)
+
+### Changed
+
+- Agent registry trimmed from 10 to 6 harnesses: Generic Agent, Claude Code, GitHub Copilot, Cursor, Codex, OpenCode — removed Windsurf, Gemini, Cline, Roo Code, Aider, Continue (xpo-ceb434)
+- `PersistentPreRunE` allowlist uses parent-chain check so `init` subcommands work without config (xpo-ceb434)
+
 ## [1.2.0] — 2026-09-09
 
 ### Added

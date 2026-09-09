@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
@@ -15,10 +14,16 @@ var initForce bool
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the .xpo directory",
+	Long: `Initialize the .xpo directory with project configuration.
+
+This creates the .xpo directory, config.yaml, issues database, and git configuration.
+It does NOT install agent skills or MCP configuration — use the subcommands for that:
+
+  xpo init mcp     Configure MCP server for your agent harness
+  xpo init skill   Install workflow skill and agent instructions`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var notes []string
 
-		// --- PHASE 1: Initialization ---
 		res, err := exponential.InitProject(initForce)
 		if err != nil {
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s %v\n", ui.ErrorPrefix, err)))
@@ -31,38 +36,10 @@ var initCmd = &cobra.Command{
 		if res.Created {
 			fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `.xpo` directory\n", ui.OKPrefix)))
 		} else if !initForce {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.xpo` directory already exists, refreshing agent configuration\n", ui.OKPrefix)))
+			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.xpo` directory already exists, configuration verified\n", ui.OKPrefix)))
 		}
 
-		// --- PHASE 2: Create .mcp.json and agent instructions ---
-
-		prefix := "issue-"
-		if freshCfg, err := config.LoadConfig(); err == nil && freshCfg.Prefix != "" {
-			prefix = freshCfg.Prefix
-		}
-
-		if err := exponential.EnsureMCPConfig(); err != nil {
-			notes = append(notes, fmt.Sprintf("Could not configure `.mcp.json`: %v", err))
-		} else {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s Configured `.mcp.json` with xpo MCP server\n", ui.OKPrefix)))
-		}
-
-		agents := exponential.DetectInstalledAgents()
-		for _, agent := range agents {
-			if err := exponential.AppendAgentInstructions(agent, prefix); err != nil {
-				notes = append(notes, fmt.Sprintf("Could not configure `%s`: %v", agent.File, err))
-			} else {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Configured `%s` with agent instructions (%s)\n", ui.OKPrefix, agent.File, agent.Name)))
-			}
-
-			if skillDir, err := exponential.WriteAgentSkill(agent); err != nil {
-				notes = append(notes, fmt.Sprintf("Could not write skill to `%s`: %v", agent.SkillDir, err))
-			} else if skillDir != "" {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `%s/` workflow skill (%s)\n", ui.OKPrefix, skillDir, agent.Name)))
-			}
-		}
-
-		// --- PHASE 3: Checks & Warnings ---
+		// --- Checks & Warnings ---
 
 		if !exponential.CheckGitRepo() {
 			notes = append(notes, "Not a git repository")
@@ -89,9 +66,31 @@ var initCmd = &cobra.Command{
 			fmt.Print(ui.Stylize("\nRun `xpo doctor` to see details and fix these issues.\n"))
 		}
 
-		// --- PHASE 4: Summary ---
+		// --- Summary ---
 		fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Initialized `.xpo` successfully!\n", ui.OKPrefix)))
 		fmt.Print(ui.Stylize("Customize your project configuration in `.xpo/config.yaml`\n"))
+
+		// --- Hints for next steps ---
+		mcpStatus := exponential.DetectMCPConfig()
+		agents := exponential.DetectInstalledAgents()
+		hasSkills := false
+		for _, a := range agents {
+			if s := exponential.DetectSkillInstall(a); s.Local || s.Global {
+				hasSkills = true
+				break
+			}
+		}
+
+		if !mcpStatus.HasExponential || !hasSkills {
+			fmt.Println()
+			fmt.Print(ui.Stylize("Next steps:\n"))
+			if !mcpStatus.HasExponential {
+				fmt.Print(ui.Stylize(fmt.Sprintf("  %s Run `xpo init mcp` to configure the MCP server for your agent harness\n", ui.NotePrefix)))
+			}
+			if !hasSkills {
+				fmt.Print(ui.Stylize(fmt.Sprintf("  %s Run `xpo init skill` to install the workflow skill and agent instructions\n", ui.NotePrefix)))
+			}
+		}
 	},
 }
 

@@ -242,3 +242,389 @@ func TestEnsureMCPConfig_PreservesExisting(t *testing.T) {
 		t.Fatal("xpo entry not added")
 	}
 }
+
+// --- New tests for MCPConfigSpec-based functions ---
+
+func TestDetectMCPConfigFor_JSON_CustomKey(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	os.WriteFile("opencode.json", []byte(`{"mcp":{"xpo":{"command":"xpo","args":["mcp"]}}}`), 0644)
+
+	spec := MCPConfigSpec{File: "opencode.json", ServerKey: "mcp", Format: "json"}
+	status := DetectMCPConfigFor(spec)
+	if !status.Exists || !status.HasExponential {
+		t.Fatalf("expected Exists=true HasExponential=true, got %v %v", status.Exists, status.HasExponential)
+	}
+}
+
+func TestDetectMCPConfigFor_JSON_NoXpo(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	os.WriteFile("opencode.json", []byte(`{"mcp":{"other":{"command":"other"}}}`), 0644)
+
+	spec := MCPConfigSpec{File: "opencode.json", ServerKey: "mcp", Format: "json"}
+	status := DetectMCPConfigFor(spec)
+	if !status.Exists {
+		t.Fatal("expected Exists=true")
+	}
+	if status.HasExponential {
+		t.Fatal("expected HasExponential=false")
+	}
+}
+
+func TestDetectMCPConfigFor_TOML_WithXpo(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	os.MkdirAll(".codex", 0755)
+	os.WriteFile(".codex/config.toml", []byte("[mcp_servers.xpo]\ncommand = \"xpo\"\nargs = [\"mcp\"]\n"), 0644)
+
+	spec := MCPConfigSpec{File: ".codex/config.toml", ServerKey: "mcp_servers", Format: "toml", NeedsDir: true}
+	status := DetectMCPConfigFor(spec)
+	if !status.Exists || !status.HasExponential {
+		t.Fatalf("expected Exists=true HasExponential=true, got %v %v", status.Exists, status.HasExponential)
+	}
+}
+
+func TestDetectMCPConfigFor_TOML_WithoutXpo(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	os.MkdirAll(".codex", 0755)
+	os.WriteFile(".codex/config.toml", []byte("[mcp_servers.other]\ncommand = \"other\"\n"), 0644)
+
+	spec := MCPConfigSpec{File: ".codex/config.toml", ServerKey: "mcp_servers", Format: "toml", NeedsDir: true}
+	status := DetectMCPConfigFor(spec)
+	if !status.Exists {
+		t.Fatal("expected Exists=true")
+	}
+	if status.HasExponential {
+		t.Fatal("expected HasExponential=false")
+	}
+}
+
+func TestDetectMCPConfigFor_EmptySpec(t *testing.T) {
+	status := DetectMCPConfigFor(MCPConfigSpec{})
+	if status.Exists || status.HasExponential {
+		t.Fatal("empty spec should return empty status")
+	}
+}
+
+func TestEnsureMCPConfigFor_JSON_CustomKey(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	spec := MCPConfigSpec{File: "test.json", ServerKey: "mcp", Format: "json"}
+	if err := EnsureMCPConfigFor(spec); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile("test.json")
+	var doc map[string]map[string]interface{}
+	json.Unmarshal(data, &doc)
+
+	xpo, ok := doc["mcp"]["xpo"].(map[string]interface{})
+	if !ok {
+		t.Fatal("xpo entry not found under 'mcp' key")
+	}
+	if xpo["command"] != "xpo" {
+		t.Fatalf("expected command=xpo, got %v", xpo["command"])
+	}
+}
+
+func TestEnsureMCPConfigFor_JSON_LocalArrayStyle(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	spec := MCPConfigSpec{File: "opencode.json", ServerKey: "mcp", Format: "json", EntryStyle: "local-array"}
+	if err := EnsureMCPConfigFor(spec); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile("opencode.json")
+	var doc map[string]map[string]interface{}
+	json.Unmarshal(data, &doc)
+
+	xpo, ok := doc["mcp"]["xpo"].(map[string]interface{})
+	if !ok {
+		t.Fatal("xpo entry not found under 'mcp' key")
+	}
+	if xpo["type"] != "local" {
+		t.Fatalf("expected type=local, got %v", xpo["type"])
+	}
+	cmdArr, ok := xpo["command"].([]interface{})
+	if !ok {
+		t.Fatal("expected command to be an array")
+	}
+	if len(cmdArr) != 2 || cmdArr[0] != "xpo" || cmdArr[1] != "mcp" {
+		t.Fatalf("expected command=[xpo, mcp], got %v", cmdArr)
+	}
+	if _, hasArgs := xpo["args"]; hasArgs {
+		t.Fatal("local-array style should not have separate 'args' field")
+	}
+}
+
+func TestEnsureMCPConfigFor_TOML_CreatesNew(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	spec := MCPConfigSpec{File: ".codex/config.toml", ServerKey: "mcp_servers", Format: "toml", NeedsDir: true}
+	if err := EnsureMCPConfigFor(spec); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile(".codex/config.toml")
+	content := string(data)
+	if !strings.Contains(content, "[mcp_servers.xpo]") {
+		t.Fatal("expected [mcp_servers.xpo] section")
+	}
+	if !strings.Contains(content, `command = "xpo"`) {
+		t.Fatal("expected command = xpo")
+	}
+}
+
+func TestEnsureMCPConfigFor_TOML_AppendsToExisting(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	os.MkdirAll(".codex", 0755)
+	os.WriteFile(".codex/config.toml", []byte("[mcp_servers.other]\ncommand = \"other\"\n"), 0644)
+
+	spec := MCPConfigSpec{File: ".codex/config.toml", ServerKey: "mcp_servers", Format: "toml", NeedsDir: true}
+	if err := EnsureMCPConfigFor(spec); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile(".codex/config.toml")
+	content := string(data)
+	if !strings.Contains(content, "[mcp_servers.other]") {
+		t.Fatal("existing section was lost")
+	}
+	if !strings.Contains(content, "[mcp_servers.xpo]") {
+		t.Fatal("xpo section not appended")
+	}
+}
+
+func TestEnsureMCPConfigFor_TOML_NoopIfExists(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	original := "[mcp_servers.xpo]\ncommand = \"xpo\"\nargs = [\"mcp\"]\n"
+	os.MkdirAll(".codex", 0755)
+	os.WriteFile(".codex/config.toml", []byte(original), 0644)
+
+	spec := MCPConfigSpec{File: ".codex/config.toml", ServerKey: "mcp_servers", Format: "toml", NeedsDir: true}
+	if err := EnsureMCPConfigFor(spec); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile(".codex/config.toml")
+	if string(data) != original {
+		t.Fatal("file was modified when xpo section already exists")
+	}
+}
+
+func TestEnsureMCPConfigFor_JSON_NeedsDir(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	spec := MCPConfigSpec{File: ".cursor/mcp.json", ServerKey: "mcpServers", Format: "json", NeedsDir: true}
+	if err := EnsureMCPConfigFor(spec); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile(".cursor/mcp.json")
+	var doc map[string]map[string]interface{}
+	json.Unmarshal(data, &doc)
+
+	if _, ok := doc["mcpServers"]["xpo"]; !ok {
+		t.Fatal("xpo entry not found")
+	}
+}
+
+func TestLookupAgent_ByName(t *testing.T) {
+	agent, ok := LookupAgent("Claude Code")
+	if !ok {
+		t.Fatal("expected to find Claude Code")
+	}
+	if agent.Binary != "claude" {
+		t.Fatalf("expected binary=claude, got %s", agent.Binary)
+	}
+}
+
+func TestLookupAgent_ByBinary(t *testing.T) {
+	agent, ok := LookupAgent("codex")
+	if !ok {
+		t.Fatal("expected to find Codex by binary")
+	}
+	if agent.Name != "Codex" {
+		t.Fatalf("expected name=Codex, got %s", agent.Name)
+	}
+}
+
+func TestLookupAgent_CaseInsensitive(t *testing.T) {
+	agent, ok := LookupAgent("CURSOR")
+	if !ok {
+		t.Fatal("expected to find Cursor case-insensitively")
+	}
+	if agent.Name != "Cursor" {
+		t.Fatalf("expected name=Cursor, got %s", agent.Name)
+	}
+}
+
+func TestLookupAgent_NotFound(t *testing.T) {
+	_, ok := LookupAgent("nonexistent")
+	if ok {
+		t.Fatal("expected not found")
+	}
+}
+
+func TestMCPConfigSpec_HasMCPConfig(t *testing.T) {
+	empty := MCPConfigSpec{}
+	if empty.HasMCPConfig() {
+		t.Fatal("empty spec should not have MCP config")
+	}
+
+	spec := MCPConfigSpec{File: ".mcp.json", ServerKey: "mcpServers", Format: "json"}
+	if !spec.HasMCPConfig() {
+		t.Fatal("spec with file should have MCP config")
+	}
+}
+
+func TestWriteAgentSkill_LocalInstall(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
+	skillDir, err := WriteAgentSkill(agent, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if skillDir != ".test/skills/xpo-workflow" {
+		t.Fatalf("unexpected skill dir: %s", skillDir)
+	}
+
+	if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
+		t.Fatal("SKILL.md not created")
+	}
+	if _, err := os.Stat(filepath.Join(skillDir, "references", "spec-guide.md")); err != nil {
+		t.Fatal("spec-guide.md not created")
+	}
+}
+
+func TestWriteAgentSkill_NoSkillDir(t *testing.T) {
+	agent := AgentConfig{Name: "Test"}
+	skillDir, err := WriteAgentSkill(agent, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if skillDir != "" {
+		t.Fatalf("expected empty skill dir for agent without SkillDir, got %s", skillDir)
+	}
+}
+
+func TestWriteAgentSkill_GlobalInstall(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	globalBase := filepath.Join(dir, "global-skills")
+	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills", GlobalSkillDir: ""}
+	skillDir, err := WriteAgentSkill(agent, globalBase)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if skillDir != filepath.Join(globalBase, "xpo-workflow") {
+		t.Fatalf("unexpected skill dir: %s", skillDir)
+	}
+
+	if _, err := os.Stat(filepath.Join(skillDir, "SKILL.md")); err != nil {
+		t.Fatal("SKILL.md not created in global location")
+	}
+}
+
+func TestDetectSkillInstall_Local(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
+	WriteAgentSkill(agent, "")
+
+	status := DetectSkillInstall(agent)
+	if !status.Local {
+		t.Fatal("expected Local=true")
+	}
+	if status.Global {
+		t.Fatal("expected Global=false")
+	}
+}
+
+func TestDetectSkillInstall_NotInstalled(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
+	status := DetectSkillInstall(agent)
+	if status.Local || status.Global || status.BrokenSymlink {
+		t.Fatal("expected all false for uninstalled skill")
+	}
+}
+
+func TestAgentRegistryNames(t *testing.T) {
+	names := AgentRegistryNames()
+	if len(names) != len(AgentRegistry) {
+		t.Fatalf("expected %d names, got %d", len(AgentRegistry), len(names))
+	}
+	if names[0] != "Generic Agent" {
+		t.Fatalf("expected first name to be Generic Agent, got %s", names[0])
+	}
+}
+
+func TestAgentRegistry_TrimmedToSixHarnesses(t *testing.T) {
+	if len(AgentRegistry) != 6 {
+		t.Fatalf("expected 6 harnesses in registry, got %d", len(AgentRegistry))
+	}
+
+	expected := map[string]bool{
+		"Generic Agent":  true,
+		"Claude Code":    true,
+		"GitHub Copilot": true,
+		"Cursor":         true,
+		"Codex":          true,
+		"OpenCode":       true,
+	}
+	for _, a := range AgentRegistry {
+		if !expected[a.Name] {
+			t.Fatalf("unexpected agent in registry: %s", a.Name)
+		}
+	}
+}
