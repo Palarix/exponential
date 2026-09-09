@@ -19,7 +19,7 @@ func setupTestRepo(t *testing.T) string {
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(oldWd) })
 
-	exec.Command("git", "init").Run()
+	exec.Command("git", "init", "-b", "main").Run()
 	exec.Command("git", "config", "user.email", "test@test.com").Run()
 	exec.Command("git", "config", "user.name", "Test").Run()
 	return dir

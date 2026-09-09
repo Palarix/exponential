@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Tests no longer depend on the host machine's `init.defaultBranch` git config — test packages isolate from global/system git config via `TestMain` (xpo-3b2ec1)
 - Mergeability check no longer falsely blocks on uncommitted working directory changes — now uses `git merge-tree` to compare committed refs only (xpo-fad57f)
 - Merge view disables the merge button and shows "No commits to merge" when there are zero commits ahead
 
