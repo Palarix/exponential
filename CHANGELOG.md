@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Skill upgraded to v3.1: restructured workflow steps (rationale tool, explicit gates, handoff self-review, issue labels with primary/secondary system, backlog review section, CANCELED/DUPLICATE statuses) (xpo-dd97a5)
+- Skill directory renamed from `xpo-workflow` to `xpo` to match reference skill (xpo-dd97a5)
+- Colored CLI output: green ✓ success, yellow ! warnings, red ✗ errors via lipgloss (xpo-dd97a5)
+- `xpo init` prompts for issue ID prefix interactively, shows quick health check with MCP/skill status, single call-to-action for `xpo doctor` (xpo-dd97a5)
+- `xpo doctor` summary line ("7 passed, 4 warnings"), one fix hint per section, tighter formatting (xpo-dd97a5)
+- Root command description: "The git-native engineering system for human-AI teams" (xpo-dd97a5)
 - Agent registry trimmed from 10 to 6 harnesses: Generic Agent, Claude Code, GitHub Copilot, Cursor, Codex, OpenCode — removed Windsurf, Gemini, Cline, Roo Code, Aider, Continue (xpo-ceb434)
 - `PersistentPreRunE` allowlist uses parent-chain check so `init` subcommands work without config (xpo-ceb434)
 

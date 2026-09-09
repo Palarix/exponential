@@ -16,7 +16,7 @@ func TestScenario_Init_CleanProject(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	res, err := InitProject(false)
+	res, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 	defer os.Chdir(orig)
 
 	// First init
-	res1, err := InitProject(false)
+	res1, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("first init failed: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 	configBefore, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 
 	// Second init (no --force)
-	res2, err := InitProject(false)
+	res2, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("second init failed: %v", err)
 	}
@@ -95,13 +95,13 @@ func TestScenario_Init_Force_RewritesConfig(t *testing.T) {
 	defer os.Chdir(orig)
 
 	// First init
-	InitProject(false)
+	InitProject(false, "test-")
 
 	// Modify config
 	os.WriteFile(filepath.Join(".xpo", "config.yaml"), []byte("corrupted"), 0644)
 
 	// Force re-init
-	res, err := InitProject(true)
+	res, err := InitProject(true, "test-")
 	if err != nil {
 		t.Fatalf("force init failed: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestScenario_InitSkill_ExistingXpoSection_Replaced(t *testing.T) {
 	if !strings.Contains(s, "`new-prefix-`") {
 		t.Fatal("new prefix not in replaced section")
 	}
-	if !strings.Contains(s, "xpo-workflow") {
+	if !strings.Contains(s, "xpo") {
 		t.Fatal("skill reference not in replaced section")
 	}
 }
@@ -498,7 +498,7 @@ func TestScenario_InitSkill_SkillAlreadyInstalled(t *testing.T) {
 
 	// Skill files should still be valid
 	skillContent, _ := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
-	if !strings.Contains(string(skillContent), "xpo-workflow") {
+	if !strings.Contains(string(skillContent), "xpo Development Workflow") {
 		t.Fatal("SKILL.md content invalid after re-install")
 	}
 }
@@ -518,7 +518,7 @@ func TestScenario_InitSkill_GlobalInstall(t *testing.T) {
 	}
 
 	// Files should be in global canonical location
-	expectedDir := filepath.Join(globalBase, "xpo-workflow")
+	expectedDir := filepath.Join(globalBase, "xpo")
 	if skillDir != expectedDir {
 		t.Fatalf("expected skill dir %s, got %s", expectedDir, skillDir)
 	}
@@ -528,7 +528,7 @@ func TestScenario_InitSkill_GlobalInstall(t *testing.T) {
 	}
 
 	// No local copy should exist
-	if _, err := os.Stat(filepath.Join(".test", "skills", "xpo-workflow", "SKILL.md")); err == nil {
+	if _, err := os.Stat(filepath.Join(".test", "skills", "xpo", "SKILL.md")); err == nil {
 		t.Fatal("local skill should NOT be created during global install")
 	}
 }
@@ -578,7 +578,7 @@ func TestScenario_FullWorkflow(t *testing.T) {
 	defer os.Chdir(orig)
 
 	// Step 1: xpo init
-	res, err := InitProject(false)
+	res, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -621,12 +621,12 @@ func TestScenario_FullWorkflow(t *testing.T) {
 	if _, err := os.Stat("CLAUDE.md"); err != nil {
 		t.Fatal("CLAUDE.md missing")
 	}
-	if _, err := os.Stat(".claude/skills/xpo-workflow/SKILL.md"); err != nil {
+	if _, err := os.Stat(".claude/skills/xpo/SKILL.md"); err != nil {
 		t.Fatal("skill SKILL.md missing")
 	}
 
 	// Verify re-running init doesn't break anything
-	res2, err := InitProject(false)
+	res2, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("re-init failed: %v", err)
 	}

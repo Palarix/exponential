@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var initForce bool
@@ -22,76 +25,100 @@ It does NOT install agent skills or MCP configuration — use the subcommands fo
   xpo init mcp     Configure MCP server for your agent harness
   xpo init skill   Install workflow skill and agent instructions`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var notes []string
+		prefix := choosePrefix()
 
-		res, err := exponential.InitProject(initForce)
+		res, err := exponential.InitProject(initForce, prefix)
 		if err != nil {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s %v\n", ui.ErrorPrefix, err)))
+			fmt.Printf("%s %v\n", ui.ErrorPrefix, err)
 			os.Exit(1)
 		}
 
 		for _, note := range res.Notes {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s %s\n", ui.OKPrefix, note)))
+			fmt.Printf("%s %s\n", ui.OKPrefix, note)
 		}
 		if res.Created {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s Created `.xpo` directory\n", ui.OKPrefix)))
+			fmt.Printf("%s Created .xpo directory\n", ui.OKPrefix)
 		} else if !initForce {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.xpo` directory already exists, configuration verified\n", ui.OKPrefix)))
+			fmt.Printf("%s .xpo directory verified\n", ui.OKPrefix)
 		}
 
-		// --- Checks & Warnings ---
+		// --- Quick health check ---
+		var warnings int
 
 		if !exponential.CheckGitRepo() {
-			notes = append(notes, "Not a git repository")
+			fmt.Printf("%s Not a git repository\n", ui.NotePrefix)
+			warnings++
 		}
 
-		if exponential.CheckGithubWorkflows() {
-			notes = append(notes, "Github workflows detected")
-		}
-
-		activeHooks := exponential.CheckGitHooks()
-		if len(activeHooks) > 0 {
-			notes = append(notes, "Existing git hooks found")
-		}
-
-		compRes := exponential.CheckCompletionConfig()
-		if !compRes.Configured && compRes.Shell != "unknown" {
-			notes = append(notes, ui.Stylize(fmt.Sprintf("Shell completion for `%s` is not configured", compRes.Shell)))
-		}
-
-		if len(notes) > 0 {
-			for _, note := range notes {
-				fmt.Printf("%s %s\n", ui.NotePrefix, note)
-			}
-			fmt.Print(ui.Stylize("\nRun `xpo doctor` to see details and fix these issues.\n"))
-		}
-
-		// --- Summary ---
-		fmt.Print(ui.Stylize(fmt.Sprintf("\n%s Initialized `.xpo` successfully!\n", ui.OKPrefix)))
-		fmt.Print(ui.Stylize("Customize your project configuration in `.xpo/config.yaml`\n"))
-
-		// --- Hints for next steps ---
-		mcpStatus := exponential.DetectMCPConfig()
+		hasMCP := false
 		agents := exponential.DetectInstalledAgents()
+		for _, agent := range agents {
+			if agent.MCPConfig.HasMCPConfig() {
+				if status := exponential.DetectMCPConfigFor(agent.MCPConfig); status.HasExponential {
+					hasMCP = true
+					break
+				}
+			}
+		}
+		if !hasMCP {
+			fmt.Printf("%s MCP server not configured\n", ui.NotePrefix)
+			warnings++
+		}
+
 		hasSkills := false
-		for _, a := range agents {
-			if s := exponential.DetectSkillInstall(a); s.Local || s.Global {
+		for _, agent := range agents {
+			if agent.SkillDir == "" {
+				continue
+			}
+			if status := exponential.DetectSkillInstall(agent); status.Local || status.Global {
 				hasSkills = true
 				break
 			}
 		}
+		if !hasSkills {
+			fmt.Printf("%s Agent skill not installed\n", ui.NotePrefix)
+			warnings++
+		}
 
-		if !mcpStatus.HasExponential || !hasSkills {
-			fmt.Println()
-			fmt.Print(ui.Stylize("Next steps:\n"))
-			if !mcpStatus.HasExponential {
-				fmt.Print(ui.Stylize(fmt.Sprintf("  %s Run `xpo init mcp` to configure the MCP server for your agent harness\n", ui.NotePrefix)))
-			}
-			if !hasSkills {
-				fmt.Print(ui.Stylize(fmt.Sprintf("  %s Run `xpo init skill` to install the workflow skill and agent instructions\n", ui.NotePrefix)))
-			}
+		if compRes := exponential.CheckCompletionConfig(); !compRes.Configured && compRes.Shell != "unknown" {
+			fmt.Printf("%s Shell completion not configured\n", ui.NotePrefix)
+			warnings++
+		}
+
+		fmt.Printf("\nInitialized successfully. Edit .xpo/config.yaml to customize.\n")
+
+		if warnings > 0 {
+			fmt.Println("\nRun xpo doctor to address any warnings.")
 		}
 	},
+}
+
+func choosePrefix() string {
+	suggested := exponential.DefaultPrefix()
+
+	// Non-interactive or re-init: use the default
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return suggested
+	}
+
+	// If .xpo already exists and not forcing, don't prompt — config already has a prefix
+	if _, err := os.Stat(".xpo"); err == nil && !initForce {
+		return suggested
+	}
+
+	fmt.Printf("Issue ID prefix [%s]: ", suggested)
+	reader := bufio.NewReader(os.Stdin)
+	response, _ := reader.ReadString('\n')
+	response = strings.TrimSpace(response)
+
+	if response == "" {
+		return suggested
+	}
+
+	if !strings.HasSuffix(response, "-") {
+		response += "-"
+	}
+	return response
 }
 
 func init() {

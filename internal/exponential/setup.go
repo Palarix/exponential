@@ -15,8 +15,15 @@ type InitResult struct {
 	Notes   []string
 }
 
+// DefaultPrefix derives an issue ID prefix from the current directory name.
+func DefaultPrefix() string {
+	cwd, _ := os.Getwd()
+	return sanitizePrefix(filepath.Base(cwd)) + "-"
+}
+
 // InitProject initializes the .xpo directory structure.
-func InitProject(force bool) (*InitResult, error) {
+// The prefix parameter sets the issue ID prefix (e.g. "myproject-").
+func InitProject(force bool, prefix string) (*InitResult, error) {
 	result := &InitResult{}
 	xpoDir := ".xpo"
 
@@ -32,11 +39,10 @@ func InitProject(force bool) (*InitResult, error) {
 		result.Created = true
 	}
 
-	// 2. Derive prefix and write config.yaml (only on fresh init or --force)
+	// 2. Write config.yaml (only on fresh init or --force)
 	if result.Created || force {
 		cwd, _ := os.Getwd()
 		folderName := filepath.Base(cwd)
-		prefix := sanitizePrefix(folderName) + "-"
 
 		configPath := filepath.Join(xpoDir, "config.yaml")
 		var defaultLabelLines strings.Builder

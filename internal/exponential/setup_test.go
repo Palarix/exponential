@@ -50,7 +50,7 @@ func readConfigField(t *testing.T, dir, field string) string {
 
 func TestInitProject_DefaultBranch_Main(t *testing.T) {
 	dir := setupFreshRepo(t, "main")
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestInitProject_DefaultBranch_Main(t *testing.T) {
 func TestInitProject_DefaultBranch_Master(t *testing.T) {
 	dir := setupFreshRepo(t, "master")
 	runGit(t, dir, "config", "init.defaultBranch", "master")
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestInitProject_DefaultBranch_Master(t *testing.T) {
 func TestInitProject_DefaultBranch_Develop(t *testing.T) {
 	dir := setupFreshRepo(t, "develop")
 	runGit(t, dir, "config", "init.defaultBranch", "develop")
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestInitProject_DefaultBranch_Develop(t *testing.T) {
 func TestInitProject_DefaultBranch_Trunk(t *testing.T) {
 	dir := setupFreshRepo(t, "trunk")
 	runGit(t, dir, "config", "init.defaultBranch", "trunk")
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestInitProject_DefaultBranch_WithRemote(t *testing.T) {
 	runGit(t, dir, "push", "-u", "origin", "release")
 	runGit(t, dir, "remote", "set-head", "origin", "release")
 
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestInitProject_DefaultBranch_ConfigOverridePreserved(t *testing.T) {
 	dir := setupFreshRepo(t, "main")
 
 	// First init writes default_branch=main
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("first InitProject failed: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestInitProject_DefaultBranch_NoGitRepo(t *testing.T) {
 		config.Reset()
 	})
 
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestInitProject_DefaultBranch_Force(t *testing.T) {
 	dir := setupFreshRepo(t, "main")
 
 	// First init
-	_, err := InitProject(false)
+	_, err := InitProject(false, "test-")
 	if err != nil {
 		t.Fatalf("first InitProject failed: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestInitProject_DefaultBranch_Force(t *testing.T) {
 	storage.ResetHubRoot()
 
 	// Force re-init should detect the new default
-	_, err = InitProject(true)
+	_, err = InitProject(true, "test-")
 	if err != nil {
 		t.Fatalf("force InitProject failed: %v", err)
 	}

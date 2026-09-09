@@ -240,12 +240,11 @@ func RenderHeader(title string) string {
 // --- Doctor UI Helpers ---
 
 var (
-	ErrorPrefix = "✗"
-	OKPrefix    = "✓"
-	NotePrefix  = "ℹ"
-)
+	okStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#22c55e"))
+	warnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#eab308"))
+	errStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#ef4444"))
 
-// Stylize applies basic styling to a string for terminal output.
-func Stylize(s string) string {
-	return s
-}
+	ErrorPrefix = errStyle.Render("✗")
+	OKPrefix    = okStyle.Render("✓")
+	NotePrefix  = warnStyle.Render("!")
+)

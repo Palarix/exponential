@@ -27,7 +27,7 @@ Each harness has its own MCP config format and location:
   OpenCode      opencode.json       (JSON, mcp key)`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if _, err := os.Stat(".xpo"); os.IsNotExist(err) {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.xpo` directory not found. Run `xpo init` first.\n", ui.ErrorPrefix)))
+			fmt.Printf("%s .xpo directory not found — run xpo init first\n", ui.ErrorPrefix)
 			os.Exit(1)
 		}
 
@@ -44,12 +44,12 @@ Each harness has its own MCP config format and location:
 
 			status := exponential.DetectMCPConfigFor(agent.MCPConfig)
 			if status.HasExponential && !initMCPForce {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s `%s` already has xpo entry (%s) — use --force to overwrite\n", ui.OKPrefix, agent.MCPConfig.File, agent.Name)))
+				fmt.Printf("%s %s already configured (%s) — use --force to overwrite\n", ui.OKPrefix, agent.MCPConfig.File, agent.Name)
 				continue
 			}
 
 			if err := exponential.EnsureMCPConfigFor(agent.MCPConfig); err != nil {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Could not configure `%s` (%s): %v\n", ui.ErrorPrefix, agent.MCPConfig.File, agent.Name, err)))
+				fmt.Printf("%s %s (%s): %v\n", ui.ErrorPrefix, agent.MCPConfig.File, agent.Name, err)
 				continue
 			}
 
@@ -57,12 +57,12 @@ Each harness has its own MCP config format and location:
 			if status.HasExponential {
 				action = "Updated"
 			}
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s %s `%s` with xpo MCP server (%s)\n", ui.OKPrefix, action, agent.MCPConfig.File, agent.Name)))
+			fmt.Printf("%s %s %s (%s)\n", ui.OKPrefix, action, agent.MCPConfig.File, agent.Name)
 			configured++
 		}
 
 		if configured == 0 {
-			fmt.Print(ui.Stylize(fmt.Sprintf("\n%s No MCP configuration was written. Use --force to overwrite existing entries.\n", ui.NotePrefix)))
+			fmt.Printf("\n  %s No changes made. Use --force to overwrite existing entries.\n", ui.NotePrefix)
 		}
 	},
 }
@@ -71,8 +71,8 @@ func resolveAgents(harness string) []exponential.AgentConfig {
 	if harness != "" {
 		agent, ok := exponential.LookupAgent(harness)
 		if !ok {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s Unknown harness: %s\n", ui.ErrorPrefix, harness)))
-			fmt.Print(ui.Stylize(fmt.Sprintf("    Available: %s\n", strings.Join(exponential.AgentRegistryNames(), ", "))))
+			fmt.Printf("%s Unknown harness: %s\n", ui.ErrorPrefix, harness)
+			fmt.Printf("  Available: %s\n", strings.Join(exponential.AgentRegistryNames(), ", "))
 			os.Exit(1)
 		}
 		return []exponential.AgentConfig{agent}

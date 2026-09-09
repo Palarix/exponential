@@ -14,8 +14,7 @@ var cfg *config.Config
 
 var rootCmd = &cobra.Command{
 	Use:   "xpo",
-	Short: "A JSONL-based issue tracker",
-	Long:  `Exponential is a JSONL-based issue tracker that is committed to Git together with your project.`,
+	Short: "The git-native engineering system for human-AI teams",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		cfg, err = config.LoadConfig()

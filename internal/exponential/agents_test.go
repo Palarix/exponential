@@ -150,8 +150,8 @@ func TestAppendAgentInstructions_ReplacesLegacy(t *testing.T) {
 	if !strings.Contains(s, "# Agent Instructions") {
 		t.Fatal("expected new heading after replacement")
 	}
-	if !strings.Contains(s, "xpo-workflow") {
-		t.Fatal("expected xpo-workflow skill rule in updated instructions")
+	if !strings.Contains(s, "xpo") {
+		t.Fatal("expected xpo skill rule in updated instructions")
 	}
 	if strings.Contains(s, "Old stale instructions") {
 		t.Fatal("expected old instructions to be removed")
@@ -524,7 +524,7 @@ func TestWriteAgentSkill_LocalInstall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if skillDir != ".test/skills/xpo-workflow" {
+	if skillDir != ".test/skills/xpo" {
 		t.Fatalf("unexpected skill dir: %s", skillDir)
 	}
 
@@ -559,7 +559,7 @@ func TestWriteAgentSkill_GlobalInstall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if skillDir != filepath.Join(globalBase, "xpo-workflow") {
+	if skillDir != filepath.Join(globalBase, "xpo") {
 		t.Fatalf("unexpected skill dir: %s", skillDir)
 	}
 

@@ -25,7 +25,7 @@ var (
 var initSkillCmd = &cobra.Command{
 	Use:   "skill",
 	Short: "Install workflow skill and agent instructions",
-	Long: `Install the xpo-workflow skill and agent instruction files for detected
+	Long: `Install the xpo skill and agent instruction files for detected
 (or specified) agent harnesses.
 
 Skills can be installed locally (project-level) or globally (user-level).
@@ -37,7 +37,7 @@ Agent instruction files (CLAUDE.md, AGENTS.md, .cursorrules, etc.) are always
 written to the project root since they contain project-specific configuration.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if _, err := os.Stat(".xpo"); os.IsNotExist(err) {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s `.xpo` directory not found. Run `xpo init` first.\n", ui.ErrorPrefix)))
+			fmt.Printf("%s .xpo directory not found — run xpo init first\n", ui.ErrorPrefix)
 			os.Exit(1)
 		}
 
@@ -57,7 +57,7 @@ written to the project root since they contain project-specific configuration.`,
 		if global {
 			home, err := os.UserHomeDir()
 			if err != nil {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Could not determine home directory: %v\n", ui.ErrorPrefix, err)))
+				fmt.Printf("%s Could not determine home directory: %v\n", ui.ErrorPrefix, err)
 				os.Exit(1)
 			}
 			globalBaseDir = filepath.Join(home, exponential.GlobalSkillCanonicalDir)
@@ -73,7 +73,7 @@ written to the project root since they contain project-specific configuration.`,
 func resolveScope() bool {
 	if initSkillGlobal {
 		if runtime.GOOS == "windows" {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s Global skill installation is not supported on Windows. Use --local instead.\n", ui.ErrorPrefix)))
+			fmt.Printf("%s Global skill installation is not supported on Windows. Use --local instead.\n", ui.ErrorPrefix)
 			os.Exit(1)
 		}
 		return true
@@ -83,18 +83,14 @@ func resolveScope() bool {
 	}
 
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
-	if !interactive {
+	if !interactive || runtime.GOOS == "windows" {
 		return false
 	}
 
-	if runtime.GOOS == "windows" {
-		return false
-	}
-
-	fmt.Print(ui.Stylize("\nInstall skills globally (shared across projects) or locally (this project only)?\n"))
-	fmt.Print(ui.Stylize("  [g] Global (~/.config/xpo/skills/ with symlinks into harness dirs)\n"))
-	fmt.Print(ui.Stylize("  [l] Local (project-level, default)\n"))
-	fmt.Print(ui.Stylize("Choice [l]: "))
+	fmt.Println("\nInstall skills globally (shared across projects) or locally (this project only)?")
+	fmt.Println("  [g] Global (~/.config/xpo/skills/ with symlinks into harness dirs)")
+	fmt.Println("  [l] Local (project-level, default)")
+	fmt.Print("Choice [l]: ")
 
 	reader := bufio.NewReader(os.Stdin)
 	response, _ := reader.ReadString('\n')
@@ -111,16 +107,16 @@ func installAgentInstructions(agent exponential.AgentConfig, prefix string) {
 	if hasXpoSection && !initSkillForce {
 		interactive := term.IsTerminal(int(os.Stdin.Fd()))
 		if interactive {
-			fmt.Print(ui.Stylize(fmt.Sprintf("\n`%s` already has an xpo section. Overwrite? [y/N]: ", agent.File)))
+			fmt.Printf("\n%s already has an xpo section. Overwrite? [y/N]: ", agent.File)
 			reader := bufio.NewReader(os.Stdin)
 			response, _ := reader.ReadString('\n')
 			response = strings.TrimSpace(strings.ToLower(response))
 			if response != "y" && response != "yes" {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Skipped `%s` (%s)\n", ui.NotePrefix, agent.File, agent.Name)))
+				fmt.Printf("%s Skipped %s (%s)\n", ui.NotePrefix, agent.File, agent.Name)
 				return
 			}
 		} else {
-			fmt.Print(ui.Stylize(fmt.Sprintf("%s `%s` already has xpo section (%s) — use --force to overwrite\n", ui.OKPrefix, agent.File, agent.Name)))
+			fmt.Printf("%s %s already configured (%s) — use --force to overwrite\n", ui.OKPrefix, agent.File, agent.Name)
 			return
 		}
 	}
@@ -128,19 +124,19 @@ func installAgentInstructions(agent exponential.AgentConfig, prefix string) {
 	if fileExists && !hasXpoSection {
 		interactive := term.IsTerminal(int(os.Stdin.Fd()))
 		if interactive {
-			fmt.Print(ui.Stylize(fmt.Sprintf("\n`%s` exists but has no xpo section. Append xpo instructions? [Y/n]: ", agent.File)))
+			fmt.Printf("\n%s exists but has no xpo section. Append xpo instructions? [Y/n]: ", agent.File)
 			reader := bufio.NewReader(os.Stdin)
 			response, _ := reader.ReadString('\n')
 			response = strings.TrimSpace(strings.ToLower(response))
 			if response == "n" || response == "no" {
-				fmt.Print(ui.Stylize(fmt.Sprintf("%s Skipped `%s` (%s)\n", ui.NotePrefix, agent.File, agent.Name)))
+				fmt.Printf("%s Skipped %s (%s)\n", ui.NotePrefix, agent.File, agent.Name)
 				return
 			}
 		}
 	}
 
 	if err := exponential.AppendAgentInstructions(agent, prefix); err != nil {
-		fmt.Print(ui.Stylize(fmt.Sprintf("%s Could not configure `%s` (%s): %v\n", ui.ErrorPrefix, agent.File, agent.Name, err)))
+		fmt.Printf("%s %s (%s): %v\n", ui.ErrorPrefix, agent.File, agent.Name, err)
 		return
 	}
 
@@ -148,11 +144,11 @@ func installAgentInstructions(agent exponential.AgentConfig, prefix string) {
 	if hasXpoSection {
 		action = "Updated"
 	} else if fileExists {
-		action = "Added xpo section to"
+		action = "Appended to"
 	} else {
 		action = "Created"
 	}
-	fmt.Print(ui.Stylize(fmt.Sprintf("%s %s `%s` (%s)\n", ui.OKPrefix, action, agent.File, agent.Name)))
+	fmt.Printf("%s %s %s (%s)\n", ui.OKPrefix, action, agent.File, agent.Name)
 }
 
 func installSkillFiles(agent exponential.AgentConfig, globalBaseDir string) {
@@ -166,13 +162,13 @@ func installSkillFiles(agent exponential.AgentConfig, globalBaseDir string) {
 		if existingStatus.Global {
 			where = "globally"
 		}
-		fmt.Print(ui.Stylize(fmt.Sprintf("%s Skill already installed %s for %s — use --force to overwrite\n", ui.OKPrefix, where, agent.Name)))
+		fmt.Printf("%s %s skill already installed %s — use --force to overwrite\n", ui.OKPrefix, agent.Name, where)
 		return
 	}
 
 	skillDir, err := exponential.WriteAgentSkill(agent, globalBaseDir)
 	if err != nil {
-		fmt.Print(ui.Stylize(fmt.Sprintf("%s Could not write skill for %s: %v\n", ui.ErrorPrefix, agent.Name, err)))
+		fmt.Printf("%s %s skill: %v\n", ui.ErrorPrefix, agent.Name, err)
 		return
 	}
 
@@ -180,7 +176,7 @@ func installSkillFiles(agent exponential.AgentConfig, globalBaseDir string) {
 	if globalBaseDir != "" {
 		where = "globally"
 	}
-	fmt.Print(ui.Stylize(fmt.Sprintf("%s Installed `%s/` workflow skill %s (%s)\n", ui.OKPrefix, skillDir, where, agent.Name)))
+	fmt.Printf("%s Installed %s skill %s (%s)\n", ui.OKPrefix, agent.Name, where, skillDir)
 }
 
 func init() {
