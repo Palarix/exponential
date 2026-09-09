@@ -303,12 +303,14 @@ export async function fetchIssueCommits(issueId: string): Promise<CommitInfo[]> 
   return request(`${API_BASE}/issues/${issueId}/commits`);
 }
 
-export async function fetchIssueFiles(issueId: string): Promise<FileInfo[]> {
-  return request(`${API_BASE}/issues/${issueId}/files`);
+export async function fetchIssueFiles(issueId: string, scope?: "uncommitted"): Promise<FileInfo[]> {
+  const qs = scope ? `?scope=${scope}` : '';
+  return request(`${API_BASE}/issues/${issueId}/files${qs}`);
 }
 
-export async function fetchIssueDiff(issueId: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/issues/${issueId}/diff`);
+export async function fetchIssueDiff(issueId: string, scope?: "uncommitted"): Promise<string> {
+  const qs = scope ? `?scope=${scope}` : '';
+  const res = await fetch(`${API_BASE}/issues/${issueId}/diff${qs}`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new ApiError(res, body);

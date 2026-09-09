@@ -3,6 +3,7 @@ package exponential
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -106,6 +107,137 @@ func TestFindLocalBranch(t *testing.T) {
 	got = findLocalBranch("issue-zzz999")
 	if got != "" {
 		t.Errorf("findLocalBranch for missing = %q, want empty", got)
+	}
+}
+
+func TestGetWorkingTreeFullDiffText(t *testing.T) {
+	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(dir, "committed.txt"), []byte("line1\nline2\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	// Modify a tracked file (uncommitted)
+	os.WriteFile(filepath.Join(dir, "committed.txt"), []byte("line1\nline2\nline3\n"), 0644)
+	// Create an untracked file
+	os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("hello\nworld\n"), 0644)
+	// Create an .xpo/ file that should be filtered
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "issues.db"), []byte("data"), 0644)
+
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(origDir)
+
+	result := GetWorkingTreeFullDiffText(dir)
+
+	if !strings.Contains(result, "committed.txt") {
+		t.Error("diff should contain tracked modified file committed.txt")
+	}
+	if !strings.Contains(result, "+line3") {
+		t.Error("diff should contain the added line")
+	}
+	if !strings.Contains(result, "untracked.txt") {
+		t.Error("diff should contain untracked file untracked.txt")
+	}
+	if !strings.Contains(result, "+hello") {
+		t.Error("diff should contain untracked file content as additions")
+	}
+	if !strings.Contains(result, "+world") {
+		t.Error("diff should contain all lines of untracked file")
+	}
+	if !strings.Contains(result, "new file mode") {
+		t.Error("untracked file diff should have new file mode header")
+	}
+	if !strings.Contains(result, "--- /dev/null") {
+		t.Error("untracked file diff should have /dev/null as old file")
+	}
+	if strings.Contains(result, ".xpo/") {
+		t.Error("diff should not contain .xpo/ paths")
+	}
+}
+
+func TestGetWorkingTreeFullDiffText_BinarySkipped(t *testing.T) {
+	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("x"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	// Create a binary untracked file (contains null bytes)
+	binaryContent := []byte("hello\x00world")
+	os.WriteFile(filepath.Join(dir, "image.bin"), binaryContent, 0644)
+
+	result := GetWorkingTreeFullDiffText(dir)
+	if strings.Contains(result, "+hello") {
+		t.Error("binary file content should not appear in diff")
+	}
+}
+
+func TestGetWorkingTreeFullDiffText_EmptyWorktree(t *testing.T) {
+	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("x"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	result := GetWorkingTreeFullDiffText(dir)
+	if result != "" {
+		t.Errorf("expected empty diff for clean worktree, got %q", result)
+	}
+}
+
+func TestListWorkingTreeAllFilesChanged(t *testing.T) {
+	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(dir, "tracked.txt"), []byte("line1\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	// Modify tracked file
+	os.WriteFile(filepath.Join(dir, "tracked.txt"), []byte("line1\nline2\n"), 0644)
+	// Add untracked file
+	os.WriteFile(filepath.Join(dir, "newfile.txt"), []byte("a\nb\nc\n"), 0644)
+	// Add .xpo/ file that should be filtered
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "data.db"), []byte("x"), 0644)
+
+	files := ListWorkingTreeAllFilesChanged(dir)
+
+	fileMap := make(map[string]FileStat)
+	for _, f := range files {
+		fileMap[f.Path] = f
+	}
+
+	if _, ok := fileMap["tracked.txt"]; !ok {
+		t.Error("missing tracked modified file")
+	}
+
+	if f, ok := fileMap["newfile.txt"]; !ok {
+		t.Error("missing untracked file newfile.txt")
+	} else {
+		if f.Status != "A" {
+			t.Errorf("newfile.txt status = %q, want %q", f.Status, "A")
+		}
+		if f.Insertions != 3 {
+			t.Errorf("newfile.txt insertions = %d, want 3", f.Insertions)
+		}
+	}
+
+	if _, ok := fileMap[".xpo/data.db"]; ok {
+		t.Error("should not include .xpo/ files")
 	}
 }
 

@@ -1,8 +1,11 @@
 package exponential
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/palarix/exponential/internal/model"
@@ -265,6 +268,133 @@ func listFilesChangedFromDiff(diffRef string, dir string) []FileStat {
 			Deletions:  del,
 		})
 	}
+	return files
+}
+
+const maxUntrackedFileSize = 1 << 20 // 1 MB
+
+func listUntrackedFiles(dir string) []string {
+	args := []string{}
+	if dir != "" {
+		args = append(args, "-C", dir)
+	}
+	args = append(args, "ls-files", "--others", "--exclude-standard")
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" || strings.HasPrefix(line, ".xpo/") {
+			continue
+		}
+		files = append(files, line)
+	}
+	return files
+}
+
+func isBinary(data []byte) bool {
+	check := data
+	if len(check) > 512 {
+		check = check[:512]
+	}
+	return bytes.ContainsRune(check, 0)
+}
+
+func buildSyntheticDiff(path string, content []byte) string {
+	lines := strings.Split(string(content), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "diff --git a/%s b/%s\n", path, path)
+	b.WriteString("new file mode 100644\n")
+	b.WriteString("--- /dev/null\n")
+	fmt.Fprintf(&b, "+++ b/%s\n", path)
+	fmt.Fprintf(&b, "@@ -0,0 +1,%d @@\n", len(lines))
+	for _, line := range lines {
+		b.WriteByte('+')
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// GetWorkingTreeFullDiffText returns the combined staged + unstaged diff
+// relative to HEAD, augmented with synthetic diff entries for untracked files.
+// Binary files and files over 1 MB are skipped. Paths under .xpo/ are filtered.
+func GetWorkingTreeFullDiffText(dir string) string {
+	tracked := GetWorkingTreeDiffText(dir)
+	untracked := listUntrackedFiles(dir)
+
+	var parts []string
+	if tracked != "" {
+		parts = append(parts, tracked)
+	}
+
+	for _, path := range untracked {
+		fullPath := path
+		if dir != "" {
+			fullPath = filepath.Join(dir, path)
+		}
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			continue
+		}
+		if int64(len(data)) > maxUntrackedFileSize {
+			continue
+		}
+		if isBinary(data) {
+			continue
+		}
+		if synth := buildSyntheticDiff(path, data); synth != "" {
+			parts = append(parts, synth)
+		}
+	}
+
+	return strings.Join(parts, "")
+}
+
+// ListWorkingTreeAllFilesChanged returns per-file stats for all uncommitted
+// changes (staged + unstaged) plus untracked files. Paths under .xpo/ are filtered.
+func ListWorkingTreeAllFilesChanged(dir string) []FileStat {
+	files := ListWorkingTreeFilesChanged(dir)
+
+	seen := make(map[string]bool, len(files))
+	for _, f := range files {
+		seen[f.Path] = true
+	}
+
+	for _, path := range listUntrackedFiles(dir) {
+		if seen[path] {
+			continue
+		}
+		fullPath := path
+		if dir != "" {
+			fullPath = filepath.Join(dir, path)
+		}
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			continue
+		}
+		lineCount := 0
+		if len(data) > 0 {
+			lineCount = strings.Count(string(data), "\n")
+			if data[len(data)-1] != '\n' {
+				lineCount++
+			}
+		}
+		files = append(files, FileStat{
+			Status:     "A",
+			Path:       path,
+			Insertions: lineCount,
+			Deletions:  0,
+		})
+	}
+
 	return files
 }
 

@@ -54,6 +54,7 @@ interface MergeViewProps {
 }
 
 type Tab = "files" | "commits" | "conversation" | "walkthrough";
+type DiffScope = "all" | "uncommitted";
 
 export default function MergeView({
   issue,
@@ -78,6 +79,9 @@ export default function MergeView({
   // Files tab
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFilter, setFileFilter] = useState("");
+  const [diffScope, setDiffScope] = useState<DiffScope>("all");
+  const [uncommittedDiff, setUncommittedDiff] = useState("");
+  const [uncommittedLoading, setUncommittedLoading] = useState(false);
 
   // Commits tab
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
@@ -169,6 +173,12 @@ export default function MergeView({
   }, [issue.id, newComment]);
 
   const fileDiffs = useMemo(() => parseDiffByFile(diff), [diff]);
+  const uncommittedFileDiffs = useMemo(
+    () => parseDiffByFile(uncommittedDiff),
+    [uncommittedDiff],
+  );
+  const activeFileDiffs =
+    diffScope === "uncommitted" ? uncommittedFileDiffs : fileDiffs;
   const dirtyFilesSet = useMemo(
     () => new Set(mergeability?.dirty_files ?? []),
     [mergeability],
@@ -177,6 +187,34 @@ export default function MergeView({
     () => parseDiffByFile(commitDiffText),
     [commitDiffText],
   );
+
+  const refreshingRef = useRef(false);
+  const refreshUncommitted = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setUncommittedLoading(true);
+    try {
+      const d = await fetchIssueDiff(issue.id, "uncommitted");
+      setUncommittedDiff(d || "");
+    } catch {
+      // silently ignore polling errors
+    } finally {
+      setUncommittedLoading(false);
+      refreshingRef.current = false;
+    }
+  }, [issue.id]);
+
+  useEffect(() => {
+    if (diffScope !== "uncommitted" || activeTab !== "files") return;
+    refreshUncommitted();
+    const id = setInterval(refreshUncommitted, 3000);
+    return () => clearInterval(id);
+  }, [diffScope, activeTab, refreshUncommitted]);
+
+  const handleScopeChange = useCallback((scope: DiffScope) => {
+    setDiffScope(scope);
+    setSelectedFile(null);
+  }, []);
 
   const defaultCommitMessage = useCallback(
     (strategy: string) => {
@@ -523,12 +561,15 @@ export default function MergeView({
         )}
         {activeTab === "files" && (
           <FilesTab
-            fileDiffs={fileDiffs}
+            fileDiffs={activeFileDiffs}
             selectedFile={selectedFile}
             onSelectFile={setSelectedFile}
             fileFilter={fileFilter}
             onFilterChange={setFileFilter}
             dirtyFiles={dirtyFilesSet}
+            diffScope={diffScope}
+            onScopeChange={handleScopeChange}
+            uncommittedLoading={uncommittedLoading}
           />
         )}
         {activeTab === "conversation" && (
@@ -808,6 +849,9 @@ function FilesTab({
   fileFilter,
   onFilterChange,
   dirtyFiles,
+  diffScope,
+  onScopeChange,
+  uncommittedLoading,
 }: {
   fileDiffs: Map<string, string[]>;
   selectedFile: string | null;
@@ -815,6 +859,9 @@ function FilesTab({
   fileFilter: string;
   onFilterChange: (v: string) => void;
   dirtyFiles: Set<string>;
+  diffScope: DiffScope;
+  onScopeChange: (scope: DiffScope) => void;
+  uncommittedLoading: boolean;
 }) {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
@@ -867,10 +914,35 @@ function FilesTab({
     [onSelectFile],
   );
 
+  const isEmpty =
+    diffScope === "uncommitted" && fileDiffs.size === 0 && !uncommittedLoading;
+
   return (
     <div className="h-full flex">
       <div className="w-72 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
-        <div className="p-3 border-b border-[var(--color-border-subtle)]">
+        <div className="p-3 space-y-2 border-b border-[var(--color-border-subtle)]">
+          <div className="inline-flex w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+            <button
+              onClick={() => onScopeChange("all")}
+              className={`flex-1 px-2.5 py-1 text-xs transition-colors ${
+                diffScope === "all"
+                  ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+              }`}
+            >
+              All changes
+            </button>
+            <button
+              onClick={() => onScopeChange("uncommitted")}
+              className={`flex-1 px-2.5 py-1 text-xs border-l border-[var(--color-border-default)] transition-colors ${
+                diffScope === "uncommitted"
+                  ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+              }`}
+            >
+              Uncommitted
+            </button>
+          </div>
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)]">
             <Search size={13} className="text-[var(--color-text-muted)]" />
             <input
@@ -881,26 +953,36 @@ function FilesTab({
             />
           </div>
         </div>
-        <div className="py-1">
-          <FileTreeView
-            nodes={tree}
-            depth={0}
-            selectedFile={selectedFile}
-            onSelectFile={handleSelectFile}
-            collapsedDirs={collapsedDirs}
-            onToggleDir={toggleDir}
-            fileDiffs={fileDiffs}
-            dirtyFiles={dirtyFiles}
+        {!isEmpty && (
+          <div className="py-1">
+            <FileTreeView
+              nodes={tree}
+              depth={0}
+              selectedFile={selectedFile}
+              onSelectFile={handleSelectFile}
+              collapsedDirs={collapsedDirs}
+              onToggleDir={toggleDir}
+              fileDiffs={fileDiffs}
+              dirtyFiles={dirtyFiles}
+            />
+          </div>
+        )}
+      </div>
+      {isEmpty ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            No uncommitted changes
+          </p>
+        </div>
+      ) : (
+        <div ref={diffRef} className="flex-1 overflow-auto">
+          <DiffViewer
+            diffs={fileDiffs}
+            collapsed={collapsedCards}
+            setCollapsed={setCollapsedCards}
           />
         </div>
-      </div>
-      <div ref={diffRef} className="flex-1 overflow-auto">
-        <DiffViewer
-          diffs={fileDiffs}
-          collapsed={collapsedCards}
-          setCollapsed={setCollapsedCards}
-        />
-      </div>
+      )}
     </div>
   );
 }

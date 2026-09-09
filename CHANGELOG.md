@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- MergeView Files tab scope toggle: switch between "All changes" (branch vs main) and "Uncommitted" (working tree vs HEAD) with 3-second auto-refresh polling; includes synthetic diffs for untracked files (xpo-6211f5)
 - Amber file icon highlighting in MergeView file tree for uncommitted/untracked worktree files; mergeability API now returns `dirty_files` array (xpo-110b09)
 - Multi-harness init: `xpo init` is now config-only; new `xpo init mcp` writes per-harness MCP server config, `xpo init skill` installs workflow skills and agent instruction files — each concern is independently runnable (xpo-ceb434)
 - Agent harness support for Claude Code, GitHub Copilot, Cursor, OpenAI Codex, and OpenCode — per-harness MCP config formats (JSON with `mcpServers`/`mcp` keys, TOML, and OpenCode's `local-array` style) and skill directories (xpo-ceb434)

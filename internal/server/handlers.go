@@ -954,9 +954,13 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var files []exponential.FileStat
-	if issue.BranchStats.Commits == 0 && issue.BranchStats.HasUncommitted {
-		dir, _ := exponential.FindWorktreeForBranch(issue.BranchStats.Branch)
-		files = exponential.ListWorkingTreeFilesChanged(dir)
+	if r.URL.Query().Get("scope") == "uncommitted" {
+		dir, found := resolveWorkingDir(issue.BranchStats.Branch)
+		if !found {
+			respondError(w, http.StatusNotFound, "no working directory for branch")
+			return
+		}
+		files = exponential.ListWorkingTreeAllFilesChanged(dir)
 	} else {
 		files = exponential.ListFilesChanged(issue.BranchStats.Branch, base)
 	}
@@ -973,6 +977,16 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, out)
 }
 
+func resolveWorkingDir(branch string) (string, bool) {
+	if dir, ok := exponential.FindWorktreeForBranch(branch); ok {
+		return dir, true
+	}
+	if branch == exponential.CurrentBranch() {
+		return "", true
+	}
+	return "", false
+}
+
 func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
 	issue, base, ok := s.resolveIssueBranch(w, r)
 	if !ok {
@@ -980,9 +994,13 @@ func (s *Server) handleGetIssueDiff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var diff string
-	if issue.BranchStats.Commits == 0 && issue.BranchStats.HasUncommitted {
-		dir, _ := exponential.FindWorktreeForBranch(issue.BranchStats.Branch)
-		diff = exponential.GetWorkingTreeDiffText(dir)
+	if r.URL.Query().Get("scope") == "uncommitted" {
+		dir, found := resolveWorkingDir(issue.BranchStats.Branch)
+		if !found {
+			respondError(w, http.StatusNotFound, "no working directory for branch")
+			return
+		}
+		diff = exponential.GetWorkingTreeFullDiffText(dir)
 	} else {
 		diff = exponential.GetDiffText(issue.BranchStats.Branch, base)
 	}

@@ -369,3 +369,72 @@ describe("hasDirtyDescendant", () => {
     expect(hasDirtyDescendant("src", dirty)).toBe(false);
   });
 });
+
+/* ─── parseDiffByFile with synthetic untracked file diffs ─── */
+
+describe("parseDiffByFile with synthetic diffs", () => {
+  it("parses a synthetic new file diff (untracked file format)", () => {
+    const diff = [
+      "diff --git a/newfile.txt b/newfile.txt",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/newfile.txt",
+      "@@ -0,0 +1,3 @@",
+      "+line1",
+      "+line2",
+      "+line3",
+    ].join("\n");
+
+    const result = parseDiffByFile(diff);
+    expect(result.size).toBe(1);
+    expect(result.has("newfile.txt")).toBe(true);
+    const lines = result.get("newfile.txt")!;
+    expect(lines).toContain("+line1");
+    expect(lines).toContain("+line2");
+    expect(lines).toContain("+line3");
+  });
+
+  it("parses mixed tracked changes and synthetic untracked diffs", () => {
+    const diff = [
+      "diff --git a/existing.ts b/existing.ts",
+      "--- a/existing.ts",
+      "+++ b/existing.ts",
+      "@@ -1,2 +1,3 @@",
+      " line1",
+      " line2",
+      "+line3",
+      "diff --git a/brand-new.ts b/brand-new.ts",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/brand-new.ts",
+      "@@ -0,0 +1,2 @@",
+      "+export const x = 1;",
+      "+export const y = 2;",
+    ].join("\n");
+
+    const result = parseDiffByFile(diff);
+    expect(result.size).toBe(2);
+    expect(result.has("existing.ts")).toBe(true);
+    expect(result.has("brand-new.ts")).toBe(true);
+  });
+
+  it("correctly line-numbers a new file diff starting at 0,0", () => {
+    const diff = [
+      "diff --git a/new.ts b/new.ts",
+      "new file mode 100644",
+      "--- /dev/null",
+      "+++ b/new.ts",
+      "@@ -0,0 +1,2 @@",
+      "+hello",
+      "+world",
+    ].join("\n");
+
+    const result = parseDiffByFile(diff);
+    const lines = result.get("new.ts")!;
+    const numbered = addLineNumbers(lines);
+    const adds = numbered.filter((l) => l.type === "add");
+    expect(adds).toHaveLength(2);
+    expect(adds[0]).toMatchObject({ newNum: "1" });
+    expect(adds[1]).toMatchObject({ newNum: "2" });
+  });
+});
