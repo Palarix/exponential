@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-09-10
+
 ### Fixed
 
 - Tests no longer depend on the host machine's `init.defaultBranch` git config — test packages isolate from global/system git config via `TestMain` (xpo-3b2ec1)
