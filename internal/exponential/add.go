@@ -54,11 +54,11 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate issue ID: %w", err)
 	}
-	prefix := "issue-"
+	prefix := "issue"
 	if t.Config.Prefix != "" {
 		prefix = t.Config.Prefix
 	}
-	id = prefix + id
+	id = prefix + "-" + id
 
 	payload.Labels = normalizeLabels(payload.Labels, t.Config)
 

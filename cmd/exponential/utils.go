@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 // getUser returns the configured user or falls back to git config.
@@ -29,4 +32,8 @@ func getUser() string {
 	}
 
 	return fmt.Sprintf("%s <%s>", name, email)
+}
+
+func isInteractive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }

@@ -30,7 +30,7 @@ var listMagnitudes = []humanize.RelTimeMagnitude{
 }
 
 // RenderIssueList renders a formatted issue list for the terminal.
-// The prefix parameter is the configured issue ID prefix (e.g. "xpo-");
+// The prefix parameter is the configured issue ID prefix (e.g. "xpo");
 // it determines the width of the ID column.
 func RenderIssueList(issues []*model.Issue, termWidth int, prefix string) string {
 	if len(issues) == 0 {
@@ -39,8 +39,8 @@ func RenderIssueList(issues []*model.Issue, termWidth int, prefix string) string
 
 	var sb strings.Builder
 
-	// Column Widths
-	idWidth := len(prefix) + 8
+	// Column Widths: prefix + "-" + 6 hex chars + padding
+	idWidth := len(prefix) + 1 + 8
 	statusWidth := 10
 	labelWidth := 12
 	tagsWidth := 5

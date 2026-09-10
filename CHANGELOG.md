@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `xpo init` is now a unified wizard: prefix prompt → agent multi-select → terraform-style change plan → confirm → apply. Replaces the separate `init mcp` and `init skill` subcommands (xpo-76e2a1)
+- Agent instruction files use managed blocks (`<!-- xpo:begin VERSION sha256:HASH -->`) for safe refresh — only the xpo-owned section is replaced, user content is never touched (xpo-76e2a1)
+- Prefix stored without trailing dash (`pay` not `pay-`); separator added at point of use. Existing configs normalized on load (xpo-76e2a1)
+- `xpo doctor` reorganized into four sections: xpo, Project, Integrations, This machine (xpo-76e2a1)
+- Branded welcome message when running `xpo` or any command outside a project directory (xpo-76e2a1)
+- Tagline defined once (`ui.Tagline`) and used consistently across all CLI output (xpo-76e2a1)
+
+### Added
+
+- `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
+- `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
+- Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
+- `xpo init` flags: `--yes`, `--prefix`, `--agents`, `--force` for non-interactive/CI use (xpo-76e2a1)
+- Version stamping: `integration_version` in config, version + hash in managed block markers (xpo-76e2a1)
+- Re-init intelligence: up-to-date one-liner, stale version diffs, downgrade protection, edited-block detection (xpo-76e2a1)
+- `charmbracelet/huh` dependency for multi-select and select prompts (xpo-76e2a1)
+- 53 new tests: managed blocks, health checks, doctor scenarios, version comparison (xpo-76e2a1)
+
+### Removed
+
+- `xpo init mcp` and `xpo init skill` subcommands — absorbed into unified `xpo init` (xpo-76e2a1)
+
 ## [1.2.1] — 2026-09-10
 
 ### Fixed

@@ -16,7 +16,7 @@ func TestScenario_Init_CleanProject(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	res, err := InitProject(false, "test-")
+	res, err := InitProject(false, "test")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -45,6 +45,15 @@ func TestScenario_Init_CleanProject(t *testing.T) {
 	if !strings.Contains(string(gitattrs), ".xpo/issues.db merge=union") {
 		t.Fatal(".gitattributes missing merge=union rule")
 	}
+
+	// Config should store the bare prefix and integration_version
+	configContent, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
+	if !strings.Contains(string(configContent), "prefix: test") {
+		t.Fatal("config should contain bare prefix")
+	}
+	if !strings.Contains(string(configContent), "integration_version:") {
+		t.Fatal("config should contain integration_version")
+	}
 }
 
 func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
@@ -53,8 +62,7 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// First init
-	res1, err := InitProject(false, "test-")
+	res1, err := InitProject(false, "test")
 	if err != nil {
 		t.Fatalf("first init failed: %v", err)
 	}
@@ -62,12 +70,10 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 		t.Fatal("expected Created=true on first init")
 	}
 
-	// Write some data to issues.db to verify it's preserved
 	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte("test-data\n"), 0644)
 	configBefore, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 
-	// Second init (no --force)
-	res2, err := InitProject(false, "test-")
+	res2, err := InitProject(false, "test")
 	if err != nil {
 		t.Fatalf("second init failed: %v", err)
 	}
@@ -75,13 +81,11 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 		t.Fatal("expected Created=false on re-init")
 	}
 
-	// Verify issues.db was not destroyed
 	issuesData, _ := os.ReadFile(filepath.Join(".xpo", "issues.db"))
 	if !strings.Contains(string(issuesData), "test-data") {
 		t.Fatal("issues.db was destroyed on re-init")
 	}
 
-	// Verify config was not rewritten
 	configAfter, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if string(configBefore) != string(configAfter) {
 		t.Fatal("config.yaml was rewritten on re-init without --force")
@@ -94,14 +98,11 @@ func TestScenario_Init_Force_RewritesConfig(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// First init
-	InitProject(false, "test-")
+	InitProject(false, "test")
 
-	// Modify config
 	os.WriteFile(filepath.Join(".xpo", "config.yaml"), []byte("corrupted"), 0644)
 
-	// Force re-init
-	res, err := InitProject(true, "test-")
+	res, err := InitProject(true, "test")
 	if err != nil {
 		t.Fatalf("force init failed: %v", err)
 	}
@@ -109,7 +110,6 @@ func TestScenario_Init_Force_RewritesConfig(t *testing.T) {
 		t.Fatal("expected Created=false since .xpo already exists")
 	}
 
-	// Config should be freshly generated
 	config, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if string(config) == "corrupted" {
 		t.Fatal("config was not rewritten with --force")
@@ -153,17 +153,14 @@ func TestScenario_InitMCP_AlreadyConfigured_NoForce(t *testing.T) {
 
 	spec := MCPConfigSpec{File: ".mcp.json", ServerKey: "mcpServers", Format: "json"}
 
-	// Install once
 	EnsureMCPConfigFor(spec)
 	dataBefore, _ := os.ReadFile(".mcp.json")
 
-	// Detect — should show already configured
 	status := DetectMCPConfigFor(spec)
 	if !status.HasExponential {
 		t.Fatal("should detect existing xpo entry")
 	}
 
-	// Install again — should be idempotent
 	EnsureMCPConfigFor(spec)
 	dataAfter, _ := os.ReadFile(".mcp.json")
 
@@ -178,7 +175,6 @@ func TestScenario_InitMCP_PreservesOtherEntries(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// Pre-existing config with another server
 	os.WriteFile(".mcp.json", []byte(`{"mcpServers":{"other-tool":{"command":"other","args":["serve"]}}}`), 0644)
 
 	spec := MCPConfigSpec{File: ".mcp.json", ServerKey: "mcpServers", Format: "json"}
@@ -233,7 +229,6 @@ func TestScenario_InitMCP_TOML_AlreadyConfigured(t *testing.T) {
 	EnsureMCPConfigFor(spec)
 	dataBefore, _ := os.ReadFile(".codex/config.toml")
 
-	// Re-run — should be no-op
 	EnsureMCPConfigFor(spec)
 	dataAfter, _ := os.ReadFile(".codex/config.toml")
 
@@ -288,7 +283,6 @@ func TestScenario_InitMCP_MultipleFormats(t *testing.T) {
 		}
 	}
 
-	// Verify OpenCode uses local-array format
 	data, _ := os.ReadFile("opencode.json")
 	var doc map[string]map[string]interface{}
 	json.Unmarshal(data, &doc)
@@ -317,21 +311,30 @@ func TestScenario_InitSkill_Clean(t *testing.T) {
 		Format:   "markdown",
 	}
 
-	// Install agent instructions
-	err := AppendAgentInstructions(agent, "test-")
+	err := AppendAgentInstructions(agent, "test")
 	if err != nil {
 		t.Fatalf("AppendAgentInstructions failed: %v", err)
 	}
 
 	content, _ := os.ReadFile("CLAUDE.md")
-	if !strings.Contains(string(content), "# Agent Instructions") {
+	s := string(content)
+	if !strings.Contains(s, "# Agent Instructions") {
 		t.Fatal("CLAUDE.md missing agent instructions")
 	}
-	if !strings.Contains(string(content), "`test-`") {
+	if !strings.Contains(s, "`test`") {
 		t.Fatal("CLAUDE.md missing prefix")
 	}
+	if !strings.Contains(s, "`test-a1b2c3`") {
+		t.Fatal("CLAUDE.md missing example ID with separator")
+	}
+	// Should have managed block markers
+	if !strings.Contains(s, "<!-- xpo:begin") {
+		t.Fatal("CLAUDE.md should have managed block begin marker")
+	}
+	if !strings.Contains(s, "<!-- xpo:end -->") {
+		t.Fatal("CLAUDE.md should have managed block end marker")
+	}
 
-	// Install skill files
 	skillDir, err := WriteAgentSkill(agent, "")
 	if err != nil {
 		t.Fatalf("WriteAgentSkill failed: %v", err)
@@ -347,7 +350,6 @@ func TestScenario_InitSkill_Clean(t *testing.T) {
 		}
 	}
 
-	// Verify detection
 	status := DetectSkillInstall(agent)
 	if !status.Local {
 		t.Fatal("skill should be detected as locally installed")
@@ -360,19 +362,16 @@ func TestScenario_InitSkill_ExistingFile_NoXpoSection(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// User has an existing CLAUDE.md with their own content
 	existingContent := "# My Project\n\nThis is my custom documentation.\n\n## Build Instructions\n\nRun `make build`.\n"
 	os.WriteFile("CLAUDE.md", []byte(existingContent), 0644)
 
 	agent := AgentConfig{Name: "Claude Code", File: "CLAUDE.md", SkillDir: ".claude/skills", Format: "markdown"}
 
-	// Verify no xpo section detected
 	if HasAgentInstructions(existingContent) {
 		t.Fatal("should not detect xpo section in vanilla CLAUDE.md")
 	}
 
-	// Append xpo instructions
-	err := AppendAgentInstructions(agent, "myproject-")
+	err := AppendAgentInstructions(agent, "myproject")
 	if err != nil {
 		t.Fatalf("AppendAgentInstructions failed: %v", err)
 	}
@@ -380,7 +379,6 @@ func TestScenario_InitSkill_ExistingFile_NoXpoSection(t *testing.T) {
 	content, _ := os.ReadFile("CLAUDE.md")
 	s := string(content)
 
-	// User's content must be preserved
 	if !strings.Contains(s, "# My Project") {
 		t.Fatal("user's heading was lost")
 	}
@@ -390,13 +388,14 @@ func TestScenario_InitSkill_ExistingFile_NoXpoSection(t *testing.T) {
 	if !strings.Contains(s, "## Build Instructions") {
 		t.Fatal("user's build section was lost")
 	}
-
-	// xpo section must be present
 	if !strings.Contains(s, "# Agent Instructions") {
 		t.Fatal("agent instructions not appended")
 	}
-	if !strings.Contains(s, "`myproject-`") {
+	if !strings.Contains(s, "`myproject`") {
 		t.Fatal("prefix not in appended section")
+	}
+	if !strings.Contains(s, "<!-- xpo:begin") {
+		t.Fatal("managed block markers not present")
 	}
 }
 
@@ -406,19 +405,17 @@ func TestScenario_InitSkill_ExistingXpoSection_Replaced(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// User has CLAUDE.md with existing xpo section and custom content before it
+	// Legacy format: heading-based section without managed block markers
 	existingContent := "# My Project\n\nCustom docs.\n\n# Agent Instructions\n\nOld xpo instructions with old-prefix.\n"
 	os.WriteFile("CLAUDE.md", []byte(existingContent), 0644)
 
 	agent := AgentConfig{Name: "Claude Code", File: "CLAUDE.md", SkillDir: ".claude/skills", Format: "markdown"}
 
-	// Verify xpo section is detected
 	if !HasAgentInstructions(existingContent) {
 		t.Fatal("should detect existing xpo section")
 	}
 
-	// Replace with new instructions (simulates --force)
-	err := AppendAgentInstructions(agent, "new-prefix-")
+	err := AppendAgentInstructions(agent, "newprefix")
 	if err != nil {
 		t.Fatalf("AppendAgentInstructions failed: %v", err)
 	}
@@ -426,28 +423,102 @@ func TestScenario_InitSkill_ExistingXpoSection_Replaced(t *testing.T) {
 	content, _ := os.ReadFile("CLAUDE.md")
 	s := string(content)
 
-	// User's content before xpo section preserved
 	if !strings.Contains(s, "# My Project") {
 		t.Fatal("user's heading was lost")
 	}
 	if !strings.Contains(s, "Custom docs.") {
 		t.Fatal("user's content was lost")
 	}
-
-	// Old xpo content replaced
 	if strings.Contains(s, "Old xpo instructions") {
 		t.Fatal("old xpo content was not replaced")
 	}
 	if strings.Contains(s, "old-prefix") {
 		t.Fatal("old prefix still present")
 	}
-
-	// New xpo content present
-	if !strings.Contains(s, "`new-prefix-`") {
+	if !strings.Contains(s, "`newprefix`") {
 		t.Fatal("new prefix not in replaced section")
 	}
-	if !strings.Contains(s, "xpo") {
-		t.Fatal("skill reference not in replaced section")
+	// Should now have managed block markers (migration)
+	if !strings.Contains(s, "<!-- xpo:begin") {
+		t.Fatal("legacy section should be migrated to managed block")
+	}
+}
+
+func TestScenario_InitSkill_ManagedBlock_Updated(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	agent := AgentConfig{Name: "Claude Code", File: "CLAUDE.md", SkillDir: ".claude/skills", Format: "markdown"}
+
+	// First write creates managed block
+	AppendAgentInstructions(agent, "test")
+	content1, _ := os.ReadFile("CLAUDE.md")
+	block1 := FindManagedBlock(string(content1), "markdown")
+	if block1 == nil {
+		t.Fatal("expected managed block after first write")
+	}
+
+	// Second write updates managed block
+	AppendAgentInstructions(agent, "test")
+	content2, _ := os.ReadFile("CLAUDE.md")
+	block2 := FindManagedBlock(string(content2), "markdown")
+	if block2 == nil {
+		t.Fatal("expected managed block after second write")
+	}
+
+	// Content should be the same (idempotent)
+	if block1.Content != block2.Content {
+		t.Fatal("managed block content should be identical on idempotent write")
+	}
+}
+
+func TestScenario_InitSkill_ManagedBlock_EditedByHand(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(orig)
+
+	agent := AgentConfig{Name: "Claude Code", File: "CLAUDE.md", SkillDir: ".claude/skills", Format: "markdown"}
+
+	// First write
+	AppendAgentInstructions(agent, "test")
+
+	// Simulate hand-edit: modify the managed block content
+	content, _ := os.ReadFile("CLAUDE.md")
+	modified := strings.Replace(string(content), "# Agent Instructions", "# My Custom Instructions", 1)
+	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
+
+	// Verify the block is detected as edited
+	modContent, _ := os.ReadFile("CLAUDE.md")
+	block := FindManagedBlock(string(modContent), "markdown")
+	if block == nil {
+		t.Fatal("expected to find managed block")
+	}
+	if !BlockWasEdited(block) {
+		t.Fatal("block should be detected as edited")
+	}
+
+	// WriteAgentInstructions without force should skip
+	result, err := WriteAgentInstructions(agent, "test", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Action != "skipped" {
+		t.Fatalf("expected skipped, got %s", result.Action)
+	}
+	if !result.WasEdited {
+		t.Fatal("expected WasEdited=true")
+	}
+
+	// With force should overwrite
+	result2, err := WriteAgentInstructions(agent, "test", true)
+	if err != nil {
+		t.Fatalf("force write failed: %v", err)
+	}
+	if result2.Action != "updated" {
+		t.Fatalf("expected updated, got %s", result2.Action)
 	}
 }
 
@@ -457,19 +528,16 @@ func TestScenario_InitSkill_SharedAGENTSmd(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// Codex and OpenCode both use AGENTS.md
 	codex := AgentConfig{Name: "Codex", File: "AGENTS.md", SkillDir: ".codex/skills", Format: "markdown"}
 	opencode := AgentConfig{Name: "OpenCode", File: "AGENTS.md", SkillDir: ".opencode/skills", Format: "markdown"}
 
-	// First agent writes
-	AppendAgentInstructions(codex, "test-")
+	AppendAgentInstructions(codex, "test")
 	content1, _ := os.ReadFile("AGENTS.md")
 
-	// Second agent writes (idempotent — replaces same section)
-	AppendAgentInstructions(opencode, "test-")
+	AppendAgentInstructions(opencode, "test")
 	content2, _ := os.ReadFile("AGENTS.md")
 
-	// Content should be identical (same section, same prefix)
+	// Content should be identical (same managed block, same prefix)
 	if string(content1) != string(content2) {
 		t.Fatal("second write to shared AGENTS.md changed content")
 	}
@@ -483,20 +551,17 @@ func TestScenario_InitSkill_SkillAlreadyInstalled(t *testing.T) {
 
 	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
 
-	// Install once
 	WriteAgentSkill(agent, "")
 	status := DetectSkillInstall(agent)
 	if !status.Local {
 		t.Fatal("skill should be detected after first install")
 	}
 
-	// Overwrite with force (write again — always overwrites)
 	skillDir, err := WriteAgentSkill(agent, "")
 	if err != nil {
 		t.Fatalf("force re-install failed: %v", err)
 	}
 
-	// Skill files should still be valid
 	skillContent, _ := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
 	if !strings.Contains(string(skillContent), "xpo Development Workflow") {
 		t.Fatal("SKILL.md content invalid after re-install")
@@ -517,7 +582,6 @@ func TestScenario_InitSkill_GlobalInstall(t *testing.T) {
 		t.Fatalf("global install failed: %v", err)
 	}
 
-	// Files should be in global canonical location
 	expectedDir := filepath.Join(globalBase, "xpo")
 	if skillDir != expectedDir {
 		t.Fatalf("expected skill dir %s, got %s", expectedDir, skillDir)
@@ -527,7 +591,6 @@ func TestScenario_InitSkill_GlobalInstall(t *testing.T) {
 		t.Fatal("SKILL.md not created in global location")
 	}
 
-	// No local copy should exist
 	if _, err := os.Stat(filepath.Join(".test", "skills", "xpo", "SKILL.md")); err == nil {
 		t.Fatal("local skill should NOT be created during global install")
 	}
@@ -539,11 +602,9 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(orig)
 
-	// GitHub Copilot has no SkillDir
 	agent := AgentConfig{Name: "GitHub Copilot", File: ".github/copilot-instructions.md", Format: "markdown", NeedsDir: true}
 
-	// Install instructions — should write full docs (not stub)
-	err := AppendAgentInstructions(agent, "test-")
+	err := AppendAgentInstructions(agent, "test")
 	if err != nil {
 		t.Fatalf("AppendAgentInstructions failed: %v", err)
 	}
@@ -551,7 +612,6 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 	content, _ := os.ReadFile(".github/copilot-instructions.md")
 	s := string(content)
 
-	// Should have full docs since no skill support
 	if !strings.Contains(s, "## Workflow") {
 		t.Fatal("agent without skill support should get full docs with Workflow section")
 	}
@@ -559,7 +619,6 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 		t.Fatal("agent without skill support should get MCP tools reference inline")
 	}
 
-	// WriteAgentSkill should be a no-op
 	skillDir, err := WriteAgentSkill(agent, "")
 	if err != nil {
 		t.Fatalf("WriteAgentSkill failed: %v", err)
@@ -569,7 +628,7 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 	}
 }
 
-// --- Full workflow: init → init mcp → init skill ---
+// --- Full workflow: init → MCP → skill ---
 
 func TestScenario_FullWorkflow(t *testing.T) {
 	dir := t.TempDir()
@@ -578,7 +637,7 @@ func TestScenario_FullWorkflow(t *testing.T) {
 	defer os.Chdir(orig)
 
 	// Step 1: xpo init
-	res, err := InitProject(false, "test-")
+	res, err := InitProject(false, "test")
 	if err != nil {
 		t.Fatalf("InitProject failed: %v", err)
 	}
@@ -586,17 +645,17 @@ func TestScenario_FullWorkflow(t *testing.T) {
 		t.Fatal("expected .xpo created")
 	}
 
-	// Step 2: xpo init mcp (for Claude Code)
+	// Step 2: MCP config
 	mcpSpec := MCPConfigSpec{File: ".mcp.json", ServerKey: "mcpServers", Format: "json"}
 	if err := EnsureMCPConfigFor(mcpSpec); err != nil {
 		t.Fatalf("EnsureMCPConfigFor failed: %v", err)
 	}
 	status := DetectMCPConfigFor(mcpSpec)
 	if !status.HasExponential {
-		t.Fatal("MCP config missing xpo entry after init mcp")
+		t.Fatal("MCP config missing xpo entry")
 	}
 
-	// Step 3: xpo init skill (for Claude Code)
+	// Step 3: Agent instructions + skill
 	agent := AgentConfig{
 		Name:     "Claude Code",
 		File:     "CLAUDE.md",
@@ -604,7 +663,7 @@ func TestScenario_FullWorkflow(t *testing.T) {
 		Format:   "markdown",
 	}
 
-	if err := AppendAgentInstructions(agent, "test-"); err != nil {
+	if err := AppendAgentInstructions(agent, "test"); err != nil {
 		t.Fatalf("AppendAgentInstructions failed: %v", err)
 	}
 	if _, err := WriteAgentSkill(agent, ""); err != nil {
@@ -625,8 +684,14 @@ func TestScenario_FullWorkflow(t *testing.T) {
 		t.Fatal("skill SKILL.md missing")
 	}
 
+	// Verify CLAUDE.md has managed block
+	claudeContent, _ := os.ReadFile("CLAUDE.md")
+	if !strings.Contains(string(claudeContent), "<!-- xpo:begin") {
+		t.Fatal("CLAUDE.md should have managed block markers")
+	}
+
 	// Verify re-running init doesn't break anything
-	res2, err := InitProject(false, "test-")
+	res2, err := InitProject(false, "test")
 	if err != nil {
 		t.Fatalf("re-init failed: %v", err)
 	}
@@ -644,5 +709,14 @@ func TestScenario_FullWorkflow(t *testing.T) {
 	skillStatus := DetectSkillInstall(agent)
 	if !skillStatus.Local {
 		t.Fatal("skill lost after re-init")
+	}
+}
+
+// --- Prefix handling ---
+
+func TestDefaultPrefix_NoDash(t *testing.T) {
+	prefix := DefaultPrefix()
+	if strings.HasSuffix(prefix, "-") {
+		t.Fatalf("DefaultPrefix should not end with dash, got %q", prefix)
 	}
 }
