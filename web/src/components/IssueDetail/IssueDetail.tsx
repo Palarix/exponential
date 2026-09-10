@@ -293,12 +293,16 @@ export default function IssueDetail({
     scope: "issue-detail",
     priority: openPopover ? "control" : "view",
     handler: handleKeyboard,
-    shortcuts: ["Escape", "ArrowDown", "ArrowUp", "Enter", "ArrowLeft", "k", "ArrowRight", "j", "s", "l", "e", "p", "a", "m", ".", "1", "2", "3", "4", "5"].map((key) => ({
-      id: `issue-detail.${key}`,
-      key,
-      label: key,
+    shortcuts: [
+      ["Escape", "Close issue"], ["ArrowDown", "Next option"], ["ArrowUp", "Previous option"], ["Enter", "Confirm option"],
+      ["ArrowLeft", "Previous issue"], ["k", "Previous issue"], ["ArrowRight", "Next issue"], ["j", "Next issue"],
+      ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"],
+      ["m", "Add comment"], [".", "Copy issue ID"], ["1", "Move to Backlog"], ["2", "Move to Planned"],
+      ["3", "Move to In Progress"], ["4", "Move to Blocked"], ["5", "Move to Done"],
+    ].map(([key, label]) => ({
+      id: `issue-detail.${key}`, key, label,
       group: "Issue Detail",
-      showInHelp: key !== "Escape" && !key.startsWith("Arrow"),
+      showInHelp: key !== "Escape" && !["ArrowDown", "ArrowUp", "Enter"].includes(key),
       preventDefault: false,
     })),
   });

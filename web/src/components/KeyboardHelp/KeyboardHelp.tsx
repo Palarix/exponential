@@ -1,124 +1,7 @@
 import { useRef } from "react";
 import { createPortal } from "react-dom";
-import { useKeyboardShortcuts } from "../../keyboard";
-
-interface ShortcutEntry {
-  keys: string[];
-  join?: "or" | "seq" | "combo";
-  label: string;
-}
-
-interface ShortcutGroup {
-  title: string;
-  shortcuts: ShortcutEntry[];
-}
-
-const mod = navigator.platform.includes("Mac") ? "⌘" : "Ctrl";
-
-const GLOBAL: ShortcutGroup = {
-  title: "Global",
-  shortcuts: [
-    { keys: ["?"], label: "Show keyboard shortcuts" },
-    { keys: [mod, "K"], join: "combo", label: "Open command palette" },
-    { keys: ["C"], label: "Create new issue" },
-    { keys: ["G", "O"], join: "seq", label: "Go to Overview" },
-    { keys: ["G", "M"], join: "seq", label: "Go to My Issues" },
-    { keys: ["G", "N"], join: "seq", label: "Go to Notifications" },
-    { keys: ["G", "I"], join: "seq", label: "Go to Issues" },
-    { keys: ["G", "B"], join: "seq", label: "Go to Board" },
-    { keys: ["G", "C"], join: "seq", label: "Go to Cycles" },
-    { keys: ["G", "L"], join: "seq", label: "Go to Labels" },
-    { keys: ["G", "D"], join: "seq", label: "Go to Dependencies" },
-    { keys: ["G", "T"], join: "seq", label: "Go to Timeline" },
-  ],
-};
-
-const BACKLOG: ShortcutGroup = {
-  title: "Backlog",
-  shortcuts: [
-    { keys: ["J", "↓"], label: "Next issue" },
-    { keys: ["K", "↑"], label: "Previous issue" },
-    { keys: ["Enter"], label: "Open issue" },
-    { keys: ["→"], label: "Expand group / sub-issues" },
-    { keys: ["←"], label: "Collapse group / sub-issues" },
-    { keys: ["S"], label: "Set status" },
-    { keys: ["L"], label: "Set labels" },
-    { keys: ["E"], label: "Set estimate" },
-    { keys: ["/"], label: "Focus search" },
-    { keys: ["F"], label: "Toggle filters" },
-    { keys: ["."], label: "Copy issue ID" },
-    { keys: ["["], label: "Previous tab" },
-    { keys: ["]"], label: "Next tab" },
-    { keys: ["}"], label: "Expand all parents" },
-    { keys: ["{"], label: "Collapse all parents" },
-  ],
-};
-
-const BOARD: ShortcutGroup = {
-  title: "Board",
-  shortcuts: [
-    { keys: ["J", "↓"], label: "Next card" },
-    { keys: ["K", "↑"], label: "Previous card" },
-    { keys: ["→"], label: "Next column" },
-    { keys: ["←"], label: "Previous column" },
-    { keys: ["Enter"], label: "Open issue" },
-    { keys: ["S"], label: "Set status" },
-    { keys: ["L"], label: "Set labels" },
-    { keys: ["E"], label: "Set estimate" },
-    { keys: ["1"], label: "→ Backlog" },
-    { keys: ["2"], label: "→ Planned" },
-    { keys: ["3"], label: "→ In Progress" },
-    { keys: ["4"], label: "→ Blocked" },
-    { keys: ["5"], label: "→ Done" },
-    { keys: ["6"], label: "→ Canceled" },
-    { keys: ["7"], label: "→ Duplicate" },
-    { keys: ["."], label: "Copy issue ID" },
-  ],
-};
-
-const ISSUE_DETAIL: ShortcutGroup = {
-  title: "Issue Detail",
-  shortcuts: [
-    { keys: ["J", "→"], label: "Next issue" },
-    { keys: ["K", "←"], label: "Previous issue" },
-    { keys: ["S"], label: "Set status" },
-    { keys: ["L"], label: "Set labels" },
-    { keys: ["E"], label: "Set estimate" },
-    { keys: ["P"], label: "Set priority" },
-    { keys: ["A"], label: "Set assignee" },
-    { keys: ["M"], label: "Add comment" },
-    { keys: ["1"], label: "→ Backlog" },
-    { keys: ["2"], label: "→ Planned" },
-    { keys: ["3"], label: "→ In Progress" },
-    { keys: ["4"], label: "→ Blocked" },
-    { keys: ["5"], label: "→ Done" },
-    { keys: ["."], label: "Copy issue ID" },
-    { keys: ["Esc"], label: "Close issue" },
-  ],
-};
-
-const PICKERS: ShortcutGroup = {
-  title: "Pickers & Menus",
-  shortcuts: [
-    { keys: ["↑", "↓"], label: "Navigate options" },
-    { keys: ["1–5"], label: "Quick select by number" },
-    { keys: ["Enter"], label: "Confirm selection" },
-    { keys: ["Esc"], label: "Close picker" },
-    { keys: ["Type"], label: "Filter options" },
-  ],
-};
-
-const INBOX: ShortcutGroup = {
-  title: "Notifications",
-  shortcuts: [
-    { keys: ["J", "↓"], label: "Next notification" },
-    { keys: ["K", "↑"], label: "Previous notification" },
-    { keys: ["F"], label: "Toggle filters" },
-    { keys: ["R"], label: "Mark all as read" },
-  ],
-};
-
-const ALL_GROUPS = [GLOBAL, BACKLOG, BOARD, ISSUE_DETAIL, INBOX, PICKERS];
+import { useActiveShortcuts, useKeyboardShortcuts } from "../../keyboard";
+import { displayKeys, groupShortcuts, keyJoin } from "./keyboard-help-utils";
 
 function Kbd({ children }: { children: string }) {
   return (
@@ -146,6 +29,8 @@ interface KeyboardHelpProps {
 
 export default function KeyboardHelp({ isOpen, onToggle, onClose }: KeyboardHelpProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const groups = groupShortcuts(useActiveShortcuts());
+  const isMac = navigator.platform.includes("Mac");
 
   useKeyboardShortcuts({
     scope: "keyboard-help.toggle",
@@ -194,24 +79,35 @@ export default function KeyboardHelp({ isOpen, onToggle, onClose }: KeyboardHelp
           </button>
         </div>
 
-        <div className="max-h-[65vh] overflow-y-auto px-5 py-4 grid grid-cols-4 gap-x-12 gap-y-6">
-          {ALL_GROUPS.map(group => (
+        <div className="max-h-[65vh] overflow-y-auto px-5 py-4 space-y-6">
+          {groups.map(group => (
             <div key={group.title}>
               <h3 className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider mb-3">{group.title}</h3>
-              <div className="space-y-2">
-                {group.shortcuts.map(sc => (
-                  <div key={sc.label} className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-[var(--color-text-secondary)]">{sc.label}</span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      {sc.keys.map((k, i) => (
-                        <span key={i} className="flex items-center gap-1">
-                          {i > 0 && <KeySeparator join={sc.join} />}
-                          <Kbd>{k}</Kbd>
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                ))}
+              <div className="columns-1 gap-8 md:columns-2 lg:columns-3">
+                {group.shortcuts.map(shortcut => {
+                  return (
+                    <div key={shortcut.id} className="mb-2 flex break-inside-avoid items-center justify-between gap-3">
+                      <span className="text-sm text-[var(--color-text-secondary)]">{shortcut.label}</span>
+                      <span className="flex items-center gap-1 shrink-0">
+                        {shortcut.bindings.map((binding, bindingIndex) => {
+                          const keys = displayKeys(binding, isMac);
+                          const join = keyJoin(binding);
+                          return (
+                            <span key={binding.id} className="flex items-center gap-1">
+                              {bindingIndex > 0 && <KeySeparator />}
+                              {keys.map((key, keyIndex) => (
+                                <span key={keyIndex} className="flex items-center gap-1">
+                                  {keyIndex > 0 && <KeySeparator join={join} />}
+                                  <Kbd>{key}</Kbd>
+                                </span>
+                              ))}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
