@@ -12,7 +12,6 @@ import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import {
   fetchIssueCommits,
-  fetchIssueFiles,
   fetchIssueDiff,
   fetchCommitDiff,
   fetchMergeability,
@@ -24,7 +23,6 @@ import {
 import type {
   Issue,
   CommitInfo,
-  FileInfo,
   Mergeability,
 } from "../../api/client";
 import {
@@ -66,7 +64,6 @@ export default function MergeView({
   );
 
   const [commits, setCommits] = useState<CommitInfo[]>([]);
-  const [files, setFiles] = useState<FileInfo[]>([]);
   const [diff, setDiff] = useState("");
   const [mergeability, setMergeability] = useState<Mergeability | null>(null);
   const [walkthroughContent, setWalkthroughContent] = useState("");
@@ -109,23 +106,19 @@ export default function MergeView({
     setError(null);
     Promise.all([
       fetchIssueCommits(issue.id),
-      fetchIssueFiles(issue.id),
       fetchIssueDiff(issue.id),
       fetchMergeability(issue.id),
       hasWalkthrough
         ? fetchArtifactContent(issue.id, "walkthrough.md")
         : Promise.resolve(""),
+      fetchIssueDiff(issue.id, "uncommitted"),
     ])
-      .then(([c, f, d, m, w]) => {
+      .then(([c, d, m, w, ud]) => {
         setCommits(c || []);
-        setFiles(
-          (f || []).filter(
-            (fi: { path: string }) => !fi.path.startsWith(".xpo/"),
-          ),
-        );
         setDiff(d || "");
         setMergeability(m);
         setWalkthroughContent(w || "");
+        setUncommittedDiff(ud || "");
       })
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : "Failed to load"),
@@ -178,7 +171,11 @@ export default function MergeView({
     [uncommittedDiff],
   );
   const activeFileDiffs =
-    diffScope === "uncommitted" ? uncommittedFileDiffs : fileDiffs;
+    diffScope === "uncommitted"
+      ? uncommittedFileDiffs
+      : fileDiffs.size > 0
+        ? fileDiffs
+        : uncommittedFileDiffs;
   const dirtyFilesSet = useMemo(
     () => new Set(mergeability?.dirty_files ?? []),
     [mergeability],
@@ -491,7 +488,7 @@ export default function MergeView({
       </div>
 
       {/* ── Tabs ── */}
-      <div className="shrink-0 flex items-center gap-1 px-5 border-b border-[var(--color-border-subtle)]">
+      <div className="shrink-0 flex items-center gap-1 px-5 border-b border-[var(--color-border-subtle)] relative">
         {hasWalkthrough && (
           <button
             onClick={() => setActiveTab("walkthrough")}
@@ -508,7 +505,7 @@ export default function MergeView({
         )}
         {[
           { key: "commits" as Tab, label: "Commits", count: commits.length },
-          { key: "files" as Tab, label: "Files changed", count: files.length },
+          { key: "files" as Tab, label: "Files changed", count: activeFileDiffs.size },
           {
             key: "conversation" as Tab,
             label: "Conversation",
@@ -530,6 +527,32 @@ export default function MergeView({
           </button>
         ))}
         <div className="flex-1" />
+        {activeTab === "files" && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+              <button
+                onClick={() => handleScopeChange("all")}
+                className={`px-3 py-1 text-sm transition-colors ${
+                  diffScope === "all"
+                    ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                }`}
+              >
+                All changes
+              </button>
+              <button
+                onClick={() => handleScopeChange("uncommitted")}
+                className={`px-3 py-1 text-sm border-l border-[var(--color-border-default)] transition-colors ${
+                  diffScope === "uncommitted"
+                    ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                }`}
+              >
+                Uncommitted
+              </button>
+            </div>
+          </div>
+        )}
         <button
           onClick={refreshData}
           title="Refresh"
@@ -567,9 +590,7 @@ export default function MergeView({
             fileFilter={fileFilter}
             onFilterChange={setFileFilter}
             dirtyFiles={dirtyFilesSet}
-            diffScope={diffScope}
-            onScopeChange={handleScopeChange}
-            uncommittedLoading={uncommittedLoading}
+            isEmpty={diffScope === "uncommitted" && activeFileDiffs.size === 0 && !uncommittedLoading}
           />
         )}
         {activeTab === "conversation" && (
@@ -849,9 +870,7 @@ function FilesTab({
   fileFilter,
   onFilterChange,
   dirtyFiles,
-  diffScope,
-  onScopeChange,
-  uncommittedLoading,
+  isEmpty,
 }: {
   fileDiffs: Map<string, string[]>;
   selectedFile: string | null;
@@ -859,9 +878,7 @@ function FilesTab({
   fileFilter: string;
   onFilterChange: (v: string) => void;
   dirtyFiles: Set<string>;
-  diffScope: DiffScope;
-  onScopeChange: (scope: DiffScope) => void;
-  uncommittedLoading: boolean;
+  isEmpty: boolean;
 }) {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
   const [collapsedCards, setCollapsedCards] = useState<Set<string>>(new Set());
@@ -914,35 +931,10 @@ function FilesTab({
     [onSelectFile],
   );
 
-  const isEmpty =
-    diffScope === "uncommitted" && fileDiffs.size === 0 && !uncommittedLoading;
-
   return (
     <div className="h-full flex">
       <div className="w-72 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
-        <div className="p-3 space-y-2 border-b border-[var(--color-border-subtle)]">
-          <div className="inline-flex w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
-            <button
-              onClick={() => onScopeChange("all")}
-              className={`flex-1 px-2.5 py-1 text-xs transition-colors ${
-                diffScope === "all"
-                  ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
-                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-              }`}
-            >
-              All changes
-            </button>
-            <button
-              onClick={() => onScopeChange("uncommitted")}
-              className={`flex-1 px-2.5 py-1 text-xs border-l border-[var(--color-border-default)] transition-colors ${
-                diffScope === "uncommitted"
-                  ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
-                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-              }`}
-            >
-              Uncommitted
-            </button>
-          </div>
+        <div className="p-3 border-b border-[var(--color-border-subtle)]">
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)]">
             <Search size={13} className="text-[var(--color-text-muted)]" />
             <input

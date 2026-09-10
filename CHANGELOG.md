@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `charmbracelet/huh` dependency for multi-select and select prompts (xpo-76e2a1)
 - 53 new tests: managed blocks, health checks, doctor scenarios, version comparison (xpo-76e2a1)
 
+### Fixed
+
+- MergeView "Files changed" badge now reflects the active scope — shows uncommitted file count when viewing uncommitted changes instead of always showing 0 (xpo-54a423)
+- "All Changes" view falls back to uncommitted diffs when there are no commits yet, instead of showing an empty pane (xpo-54a423)
+- Scope selector ("All changes" / "Uncommitted") promoted from file-tree sidebar to the tab bar for better visibility (xpo-54a423)
+
 ### Removed
 
 - `xpo init mcp` and `xpo init skill` subcommands — absorbed into unified `xpo init` (xpo-76e2a1)
