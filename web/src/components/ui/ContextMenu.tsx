@@ -10,6 +10,7 @@ import Avatar from "./Avatar";
 import { UserRound, Triangle, RefreshCw, ChevronRight, Trash2, Check, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
 import { collectKnownPeople } from "../../utils/issues";
+import { useKeyboardHandler } from "../../keyboard";
 
 type SubMenu = "status" | "priority" | "assignee" | "labels" | "estimate" | "cycle" | null;
 
@@ -215,8 +216,7 @@ export default function ContextMenu({
   }, []);
 
   // Keyboard handler — capture phase + stopImmediatePropagation to prevent Backlog shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+  const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -250,10 +250,25 @@ export default function ContextMenu({
         setConfirmDelete(hasChildren ? "choose" : "confirm");
         return;
       }
-    };
-    document.addEventListener("keydown", handler, true);
-    return () => document.removeEventListener("keydown", handler, true);
-  }, [subMenu, closeAll, focusIndex, openSubMenu, hasChildren]);
+    }, [subMenu, closeAll, focusIndex, openSubMenu, hasChildren]);
+
+  useKeyboardHandler({
+    scope: "context-menu",
+    priority: "overlay",
+    handler: handleKeyboard,
+    shortcuts: [
+      ...["Escape", "s", "p", "a", "l", "e", "c", "ArrowDown", "ArrowUp", "ArrowRight", "Enter"].map((key) => ({
+        id: `context-menu.${key}`,
+        key,
+        label: key,
+        showInHelp: false,
+        allowInEditable: true,
+        preventDefault: false,
+      })),
+      { id: "context-menu.delete.meta", key: "Backspace", label: "Delete", showInHelp: false, modifiers: { meta: true }, allowInEditable: true, preventDefault: false },
+      { id: "context-menu.delete.ctrl", key: "Backspace", label: "Delete", showInHelp: false, modifiers: { ctrl: true }, allowInEditable: true, preventDefault: false },
+    ],
+  });
 
   const q = filterText.toLowerCase();
 

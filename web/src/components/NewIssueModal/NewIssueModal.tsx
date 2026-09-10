@@ -10,6 +10,7 @@ import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
 import MarkdownEditor from "../MarkdownEditor";
 import { useAllLabels } from "../../hooks/useLabels";
+import { useKeyboardShortcuts } from "../../keyboard";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "BACKLOG", label: "Backlog", icon: <StatusIcon status="BACKLOG" size={14} /> },
@@ -102,14 +103,19 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   const handleDiscard = () => { resetForm(); onClose(); };
   const handleCancelDiscard = useCallback(() => setConfirmDiscard(false), []);
 
-  useEffect(() => {
-    if (!confirmDiscard) return;
-    const trap = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopImmediatePropagation(); e.preventDefault(); setConfirmDiscard(false); }
-    };
-    document.addEventListener("keydown", trap, true);
-    return () => document.removeEventListener("keydown", trap, true);
-  }, [confirmDiscard]);
+  useKeyboardShortcuts({
+    scope: "new-issue.confirm-discard",
+    priority: "overlay",
+    enabled: confirmDiscard,
+    shortcuts: [{
+      id: "new-issue.confirm-discard.cancel",
+      key: "Escape",
+      label: "Cancel discard",
+      showInHelp: false,
+      allowInEditable: true,
+      run: () => setConfirmDiscard(false),
+    }],
+  });
 
   const canCreate = title.trim() && labels.length > 0;
 
@@ -237,4 +243,3 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
     </Modal>
   );
 }
-

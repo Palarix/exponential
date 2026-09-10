@@ -22,6 +22,7 @@ import {
   Clock,
   User as UserIcon,
 } from "lucide-react";
+import { useKeyboardShortcuts } from "../../keyboard";
 
 type View = "dashboard" | "inbox" | "backlog" | "board" | "cycles" | "dependencies" | "labels" | "my-issues" | "timeline";
 
@@ -50,20 +51,22 @@ function ProjectSelector({
   const ref = useRef<HTMLDivElement>(null);
   const current = instances.find((i) => i.is_current);
 
+  useKeyboardShortcuts({
+    scope: "project-selector",
+    priority: "overlay",
+    enabled: open,
+    shortcuts: [{ id: "project-selector.close", key: "Escape", label: "Close project selector", showInHelp: false, allowInEditable: true, run: () => setOpen(false) }],
+  });
+
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
     };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
     };
   }, [open]);
 

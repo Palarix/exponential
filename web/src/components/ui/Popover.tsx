@@ -1,5 +1,6 @@
 import { useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
+import { useKeyboardShortcuts } from "../../keyboard";
 
 export default function Popover({
   children,
@@ -41,18 +42,19 @@ export default function Popover({
     positionPopover();
   }, []);
 
+  useKeyboardShortcuts({
+    scope: "popover",
+    priority: "overlay",
+    shortcuts: [{ id: "popover.close", key: "Escape", label: "Close popover", showInHelp: false, allowInEditable: true, run: onClose }],
+  });
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (popRef.current && !popRef.current.contains(e.target as Node)) onClose();
     };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
     document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleKey);
     };
   }, [onClose]);
 

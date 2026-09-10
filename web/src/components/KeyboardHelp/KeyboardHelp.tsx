@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { createPortal } from "react-dom";
+import { useKeyboardShortcuts } from "../../keyboard";
 
 interface ShortcutEntry {
   keys: string[];
@@ -139,23 +140,38 @@ function KeySeparator({ join = "or" }: { join?: "or" | "seq" | "combo" }) {
 
 interface KeyboardHelpProps {
   isOpen: boolean;
+  onToggle: () => void;
   onClose: () => void;
 }
 
-export default function KeyboardHelp({ isOpen, onClose }: KeyboardHelpProps) {
+export default function KeyboardHelp({ isOpen, onToggle, onClose }: KeyboardHelpProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "?") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  useKeyboardShortcuts({
+    scope: "keyboard-help.toggle",
+    priority: "global",
+    shortcuts: [{
+      id: "keyboard-help.toggle",
+      key: "?",
+      label: "Show keyboard shortcuts",
+      group: "Global",
+      run: onToggle,
+    }],
+  });
+
+  useKeyboardShortcuts({
+    scope: "keyboard-help.overlay",
+    priority: "overlay",
+    enabled: isOpen,
+    shortcuts: ["Escape", "?"].map((key) => ({
+      id: `keyboard-help.close.${key}`,
+      key,
+      label: "Close keyboard shortcuts",
+      showInHelp: false,
+      allowInEditable: true,
+      run: onClose,
+    })),
+  });
 
   if (!isOpen) return null;
 

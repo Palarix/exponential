@@ -13,6 +13,7 @@ import { formatRelativeTime } from "../../utils/format";
 import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
 import { groupByIssue, buildChangeSummary, type IssueGroup } from "./inbox-utils";
+import { useKeyboardHandler } from "../../keyboard";
 
 const IssueDetail = lazy(() => import("../IssueDetail/IssueDetail"));
 
@@ -115,8 +116,7 @@ export default function Inbox({
   }, [focusedIndex, keyboardNav, issueIds]);
 
   // Keyboard navigation
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+  const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
 
@@ -150,10 +150,21 @@ export default function Inbox({
         handleMarkAllRead();
         return;
       }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [visibleGroups, handleMarkAllRead]);
+    }, [visibleGroups, handleMarkAllRead]);
+
+  useKeyboardHandler({
+    scope: "inbox",
+    priority: "view",
+    handler: handleKeyboard,
+    shortcuts: [
+      { id: "inbox.filters", key: "f", label: "Toggle filters", group: "Notifications", preventDefault: false },
+      { id: "inbox.next", key: "j", label: "Next notification", group: "Notifications", preventDefault: false },
+      { id: "inbox.next.arrow", key: "ArrowDown", label: "Next notification", group: "Notifications", showInHelp: false, preventDefault: false },
+      { id: "inbox.previous", key: "k", label: "Previous notification", group: "Notifications", preventDefault: false },
+      { id: "inbox.previous.arrow", key: "ArrowUp", label: "Previous notification", group: "Notifications", showInHelp: false, preventDefault: false },
+      { id: "inbox.mark-all-read", key: "r", label: "Mark all as read", group: "Notifications", preventDefault: false },
+    ],
+  });
 
   const userEmail = user?.email?.toLowerCase().trim() || "";
 

@@ -19,6 +19,7 @@ import { isEditableTarget } from "../../utils/keyboard";
 import { useAllLabels } from "../../hooks/useLabels";
 import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
+import { useKeyboardHandler } from "../../keyboard";
 
 export type MyIssuesTab = "assigned" | "created";
 
@@ -85,10 +86,15 @@ export default function MyIssues({
     }
   }, []);
 
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+  useKeyboardHandler({
+    scope: "my-issues",
+    priority: "view",
+    handler: handleKeyDown,
+    shortcuts: [
+      { id: "my-issues.filters", key: "f", label: "Toggle filters", group: "My Issues", preventDefault: false },
+      { id: "my-issues.filters.close", key: "Escape", label: "Close filters", group: "My Issues", showInHelp: false, preventDefault: false },
+    ],
+  });
 
   const allKnownLabels = useAllLabels(issues);
   const userEmail = user?.email?.toLowerCase().trim() || "";

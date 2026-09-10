@@ -22,9 +22,9 @@ import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, Err
 import { useSSE } from './hooks/useSSE';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
-import { isEditableTarget } from './utils/keyboard';
 import { type BacklogFilters, EMPTY_FILTERS, hasActiveFilters } from './components/Backlog/filters';
 import FilterChips from './components/Backlog/FilterChips';
+import { useKeyboardShortcuts } from './keyboard';
 
 type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'cycles' | 'dependencies' | 'labels' | 'my-issues' | 'timeline';
 
@@ -212,55 +212,30 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const gPendingRef = useRef(false);
-  const gTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useKeyboardShortcuts({
+    scope: 'global.palette',
+    priority: 'global',
+    shortcuts: [
+      { id: 'palette.meta', key: 'k', label: 'Open command palette', group: 'Global', modifiers: { meta: true }, run: () => setShowPalette(true) },
+      { id: 'palette.ctrl', key: 'k', label: 'Open command palette', group: 'Global', modifiers: { ctrl: true }, showInHelp: false, run: () => setShowPalette(true) },
+    ],
+  });
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.key === '?' || (e.key === '/' && e.shiftKey)) && !showPalette && !showNewIssue && !isEditableTarget(e)) {
-        e.preventDefault();
-        setShowKeyboardHelp(v => !v);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowPalette(true);
-        return;
-      }
-
-      if (isEditableTarget(e)) return;
-      if (e.metaKey || e.ctrlKey) return;
-
-      if (gPendingRef.current) {
-        gPendingRef.current = false;
-        clearTimeout(gTimerRef.current);
-        const target = GO_TARGETS[e.key.toLowerCase()];
-        if (target) {
-          e.preventDefault();
-          handleViewChange(target);
-        }
-        return;
-      }
-
-      if (e.key === 'g' && !showPalette && !showNewIssue && !showKeyboardHelp) {
-        e.preventDefault();
-        gPendingRef.current = true;
-        clearTimeout(gTimerRef.current);
-        gTimerRef.current = setTimeout(() => { gPendingRef.current = false; }, 1000);
-        return;
-      }
-
-      if (e.key === 'c' && !showNewIssue && !showPalette && !showKeyboardHelp) {
-        e.preventDefault();
-        setShowNewIssue(true);
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => {
-      document.removeEventListener('keydown', handler);
-      clearTimeout(gTimerRef.current);
-    };
-  }, [showNewIssue, showPalette, showKeyboardHelp]);
+  useKeyboardShortcuts({
+    scope: 'global.navigation',
+    priority: 'global',
+    enabled: !showPalette && !showNewIssue && !showKeyboardHelp,
+    shortcuts: [
+      { id: 'issue.create', key: 'c', label: 'Create new issue', group: 'Global', run: () => setShowNewIssue(true) },
+      ...Object.entries(GO_TARGETS).map(([key, target]) => ({
+        id: `navigate.${target}`,
+        key: ['g', key] as const,
+        label: `Go to ${VIEW_LABELS[target]}`,
+        group: 'Global',
+        run: () => handleViewChange(target),
+      })),
+    ],
+  });
 
   const lastJsonRef = useRef('');
   const fetchData = useCallback(async () => {
@@ -558,7 +533,11 @@ function App() {
         onViewChange={handleViewChange}
         onNewIssue={() => setShowNewIssue(true)}
       />
-      <KeyboardHelp isOpen={showKeyboardHelp} onClose={() => setShowKeyboardHelp(false)} />
+      <KeyboardHelp
+        isOpen={showKeyboardHelp}
+        onToggle={() => setShowKeyboardHelp((visible) => !visible)}
+        onClose={() => setShowKeyboardHelp(false)}
+      />
     </LabelColorsContext.Provider>
     </HideDefaultLabelsContext.Provider>
     </DefaultLabelsContext.Provider>

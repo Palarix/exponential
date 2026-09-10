@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import type { Issue } from '../../api/client';
 import { LabelBadge, Toggle, TopBar } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
 import { kindColor } from './dep-graph-utils';
+import { useKeyboardShortcuts } from '../../keyboard';
 
 const KIND_LABELS: Record<string, string> = {
   blocks: 'Blocks',
@@ -167,16 +168,11 @@ function TableView({
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === '/' && !e.metaKey && !e.ctrlKey && document.activeElement !== searchRef.current) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, []);
+  useKeyboardShortcuts({
+    scope: 'dependencies',
+    priority: 'view',
+    shortcuts: [{ id: 'dependencies.search', key: '/', label: 'Focus search', group: 'Dependencies', run: () => searchRef.current?.focus() }],
+  });
 
   return (
     <div className="h-full flex flex-col">
