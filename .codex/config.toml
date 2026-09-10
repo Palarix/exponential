@@ -25,3 +25,9 @@ approval_mode = "approve"
 
 [mcp_servers.xpo.tools.link]
 approval_mode = "approve"
+
+[mcp_servers.xpo.tools.walkthrough]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.merge]
+approval_mode = "approve"
