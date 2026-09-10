@@ -3,18 +3,36 @@ package exponential
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // --- xpo init scenarios ---
 
 func TestScenario_Init_CleanProject(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
 	orig, _ := os.Getwd()
 	os.Chdir(dir)
-	defer os.Chdir(orig)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	defer func() {
+		os.Chdir(orig)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}()
 
 	res, err := InitProject(false, "test")
 	if err != nil {
@@ -30,20 +48,25 @@ func TestScenario_Init_CleanProject(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(".xpo", "config.yaml")); err != nil {
 		t.Fatal("config.yaml not created")
 	}
-	if _, err := os.Stat(filepath.Join(".xpo", "issues.db")); err != nil {
-		t.Fatal("issues.db not created")
+
+	// Ref store should be initialized
+	if !storage.RefStoreReady() {
+		t.Fatal("refs/xpo/data should be initialized")
 	}
 
 	gitignore, _ := os.ReadFile(".gitignore")
-	for _, entry := range []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"} {
+	for _, entry := range []string{".xpo/git.lock", ".xpo/worktrees/"} {
 		if !strings.Contains(string(gitignore), entry) {
 			t.Fatalf(".gitignore missing entry: %s", entry)
 		}
 	}
 
-	gitattrs, _ := os.ReadFile(".gitattributes")
-	if !strings.Contains(string(gitattrs), ".xpo/issues.db merge=union") {
-		t.Fatal(".gitattributes missing merge=union rule")
+	// No .gitattributes with ref storage
+	if _, err := os.Stat(".gitattributes"); err == nil {
+		gitattrs, _ := os.ReadFile(".gitattributes")
+		if strings.Contains(string(gitattrs), "merge=union") {
+			t.Fatal(".gitattributes should NOT have merge=union with ref storage")
+		}
 	}
 
 	// Config should store the bare prefix
@@ -55,9 +78,24 @@ func TestScenario_Init_CleanProject(t *testing.T) {
 
 func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
 	orig, _ := os.Getwd()
 	os.Chdir(dir)
-	defer os.Chdir(orig)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	defer func() {
+		os.Chdir(orig)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}()
 
 	res1, err := InitProject(false, "test")
 	if err != nil {
@@ -67,7 +105,6 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 		t.Fatal("expected Created=true on first init")
 	}
 
-	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte("test-data\n"), 0644)
 	configBefore, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 
 	res2, err := InitProject(false, "test")
@@ -78,11 +115,6 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 		t.Fatal("expected Created=false on re-init")
 	}
 
-	issuesData, _ := os.ReadFile(filepath.Join(".xpo", "issues.db"))
-	if !strings.Contains(string(issuesData), "test-data") {
-		t.Fatal("issues.db was destroyed on re-init")
-	}
-
 	configAfter, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if string(configBefore) != string(configAfter) {
 		t.Fatal("config.yaml was rewritten on re-init without --force")
@@ -91,9 +123,24 @@ func TestScenario_Init_ExistingProject_Idempotent(t *testing.T) {
 
 func TestScenario_Init_Force_RewritesConfig(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
 	orig, _ := os.Getwd()
 	os.Chdir(dir)
-	defer os.Chdir(orig)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	defer func() {
+		os.Chdir(orig)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}()
 
 	InitProject(false, "test")
 
@@ -629,9 +676,24 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 
 func TestScenario_FullWorkflow(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
 	orig, _ := os.Getwd()
 	os.Chdir(dir)
-	defer os.Chdir(orig)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	defer func() {
+		os.Chdir(orig)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}()
 
 	// Step 1: xpo init
 	res, err := InitProject(false, "test")

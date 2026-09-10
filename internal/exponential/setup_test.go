@@ -25,10 +25,15 @@ func setupFreshRepo(t *testing.T, branchName string) string {
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
 	storage.ResetHubRoot()
+	storage.ResetRefStore()
 	config.Reset()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
 	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 		config.Reset()
 	})
 	return dir

@@ -3,8 +3,6 @@ package storage
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,14 +11,32 @@ import (
 
 func setupXpoDir(t *testing.T) {
 	t.Helper()
-	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	oldWd, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() { os.Chdir(oldWd) })
+	setupRefStore(t)
 }
 
-func TestAppendEvent_CreatesFile(t *testing.T) {
+func setupRefStore(t *testing.T) {
+	t.Helper()
+	dir := initGitRepo(t)
+	chdir(t, dir)
+	ResetHubRoot()
+	ResetRefStore()
+	t.Cleanup(func() {
+		ResetHubRoot()
+		ResetRefStore()
+	})
+	if err := InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+}
+
+func chdir(t *testing.T, dir string) {
+	t.Helper()
+	prev, _ := os.Getwd()
+	os.Chdir(dir)
+	t.Cleanup(func() { os.Chdir(prev) })
+}
+
+func TestAppendEvent_WritesToRef(t *testing.T) {
 	setupXpoDir(t)
 
 	evt := model.Event{
@@ -32,12 +48,12 @@ func TestAppendEvent_CreatesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(".xpo", "issues.db"))
+	events, err := ReadEvents()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"id":"x"`) {
-		t.Error("event not found in file")
+	if len(events) != 1 || events[0].ID != "x" {
+		t.Errorf("expected 1 event with ID 'x', got %d events", len(events))
 	}
 }
 
@@ -53,28 +69,6 @@ func TestAppendEvent_AppendsToExisting(t *testing.T) {
 	}
 	if len(events) != 2 {
 		t.Errorf("expected 2 events, got %d", len(events))
-	}
-}
-
-func TestAppendEvent_NewlineSeparated(t *testing.T) {
-	setupXpoDir(t)
-
-	AppendEvent(model.Event{ID: "a", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "A"}, CreatedAt: time.Now().UTC(), CreatedBy: "test"})
-	AppendEvent(model.Event{ID: "b", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "B"}, CreatedAt: time.Now().UTC(), CreatedBy: "test"})
-
-	data, err := os.ReadFile(filepath.Join(".xpo", "issues.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) != 2 {
-		t.Errorf("expected 2 lines, got %d", len(lines))
-	}
-	for i, line := range lines {
-		var evt model.Event
-		if err := json.Unmarshal([]byte(line), &evt); err != nil {
-			t.Errorf("line %d is not valid JSON: %v", i, err)
-		}
 	}
 }
 

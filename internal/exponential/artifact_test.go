@@ -1,8 +1,6 @@
 package exponential
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/palarix/exponential/internal/model"
@@ -17,17 +15,14 @@ func TestAddArtifact_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Verify file on disk
-	path := filepath.Join(".xpo", "artifacts", issue.ID, "notes.md")
-	data, err := os.ReadFile(path)
+	content, err := tr.ReadArtifact(issue.ID, "notes.md")
 	if err != nil {
-		t.Fatalf("artifact file not found: %v", err)
+		t.Fatalf("artifact not found: %v", err)
 	}
-	if string(data) != "# Notes\n\nSome content." {
-		t.Errorf("content = %q", string(data))
+	if content != "# Notes\n\nSome content." {
+		t.Errorf("content = %q", content)
 	}
 
-	// Verify event was emitted and projected
 	issues := readAllIssues(t)
 	if len(issues[issue.ID].Artifacts) != 1 {
 		t.Fatalf("expected 1 artifact, got %d", len(issues[issue.ID].Artifacts))
@@ -45,10 +40,9 @@ func TestAddArtifact_Upsert(t *testing.T) {
 	tr.AddArtifact(issue.ID, "generic", "notes.md", "version 1")
 	tr.AddArtifact(issue.ID, "generic", "notes.md", "version 2")
 
-	path := filepath.Join(".xpo", "artifacts", issue.ID, "notes.md")
-	data, _ := os.ReadFile(path)
-	if string(data) != "version 2" {
-		t.Errorf("expected upsert, got %q", string(data))
+	content, _ := tr.ReadArtifact(issue.ID, "notes.md")
+	if content != "version 2" {
+		t.Errorf("expected upsert, got %q", content)
 	}
 
 	issues := readAllIssues(t)
@@ -123,13 +117,11 @@ func TestDeleteArtifact_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// File should be removed
-	path := filepath.Join(".xpo", "artifacts", issue.ID, "notes.md")
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Error("artifact file still exists after delete")
+	_, err = tr.ReadArtifact(issue.ID, "notes.md")
+	if err == nil {
+		t.Error("expected error reading deleted artifact")
 	}
 
-	// Projection should show no artifacts
 	issues := readAllIssues(t)
 	if len(issues[issue.ID].Artifacts) != 0 {
 		t.Fatalf("expected 0 artifacts, got %d", len(issues[issue.ID].Artifacts))

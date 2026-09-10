@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -108,10 +107,7 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 	}
 
 	if t.Config.AutoCommit {
-		hub := storage.HubRoot()
-		commitMsg := fmt.Sprintf("xpo: create %s - %s", id, payload.Title)
-		_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
-		_ = exec.Command("git", "-C", hub, "commit", "-m", commitMsg).Run()
+		GitCommit(fmt.Sprintf("xpo: create %s - %s", id, payload.Title))
 	}
 
 	status := model.IssueStatus(payload.Status)

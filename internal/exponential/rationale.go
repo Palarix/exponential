@@ -3,8 +3,6 @@ package exponential
 import (
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -55,15 +53,6 @@ func (t *LocalTransport) SearchRationale(query string, limit int) (*RationaleSea
 		issueMap[iss.ID] = iss
 	}
 
-	artifactsRoot := filepath.Join(storage.XpoDir(), "artifacts")
-	entries, err := os.ReadDir(artifactsRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &RationaleSearchResult{Query: query}, nil
-		}
-		return nil, err
-	}
-
 	type doc struct {
 		issueID string
 		docType string
@@ -73,23 +62,13 @@ func (t *LocalTransport) SearchRationale(query string, limit int) (*RationaleSea
 	}
 
 	var docs []doc
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		issueID := entry.Name()
-		issue, ok := issueMap[issueID]
-		if !ok {
-			continue
-		}
 
-		dir := filepath.Join(artifactsRoot, issueID)
+	for issueID, issue := range issueMap {
 		for _, fname := range []string{"spec.md", "walkthrough.md"} {
-			data, err := os.ReadFile(filepath.Join(dir, fname))
-			if err != nil {
+			content, err := storage.ReadArtifact(issueID, fname)
+			if err != nil || content == "" {
 				continue
 			}
-			content := string(data)
 			if len(content) > MaxArtifactContentLen {
 				content = content[:MaxArtifactContentLen]
 			}

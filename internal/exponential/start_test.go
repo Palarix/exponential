@@ -15,13 +15,24 @@ import (
 func setupStartTestEnv(t *testing.T) (*Client, func()) {
 	t.Helper()
 	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
 	xpoDir := filepath.Join(tmpDir, ".xpo")
 	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
+
+	runGit(t, tmpDir, "init", "-b", "main")
+	runGit(t, tmpDir, "config", "user.email", "test@test.com")
+	runGit(t, tmpDir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(tmpDir, "init.txt"), []byte("init"), 0644)
+	runGit(t, tmpDir, "add", ".")
+	runGit(t, tmpDir, "commit", "-m", "init")
 
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
 
 	cfg := &config.Config{
 		Prefix:           "test-",
@@ -36,6 +47,7 @@ func setupStartTestEnv(t *testing.T) (*Client, func()) {
 	cleanup := func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	}
 	return client, cleanup
 }
@@ -55,18 +67,15 @@ func createTestIssue(t *testing.T, id, title, status string) {
 	}
 }
 
-func TestStartWork_NonGitRepo(t *testing.T) {
+func TestStartWork_TransitionsToDoing(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
 
 	createTestIssue(t, "test-abc123", "Fix login", "PLANNED")
 
-	branch, _, msgs, err := client.StartWork("test-abc123", false)
+	_, _, msgs, err := client.StartWork("test-abc123", false)
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
-	}
-	if branch != "" {
-		t.Errorf("expected empty branch in non-git repo, got %q", branch)
 	}
 	if len(msgs) == 0 {
 		t.Error("expected update messages")
@@ -157,14 +166,6 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
 
-	cwd, _ := os.Getwd()
-	runGit(t, cwd, "init", "-b", "main")
-	runGit(t, cwd, "config", "user.email", "test@test.com")
-	runGit(t, cwd, "config", "user.name", "Test")
-	os.WriteFile("dummy.txt", []byte("init"), 0644)
-	runGit(t, cwd, "add", ".")
-	runGit(t, cwd, "commit", "-m", "init")
-
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
 	branch, _, msgs, err := client.StartWork("test-abc123", false)
@@ -197,13 +198,6 @@ func TestStartWork_GitRepo_ExistingBranch_Rejected(t *testing.T) {
 	defer cleanup()
 
 	cwd, _ := os.Getwd()
-	runGit(t, cwd, "init", "-b", "main")
-	runGit(t, cwd, "config", "user.email", "test@test.com")
-	runGit(t, cwd, "config", "user.name", "Test")
-	os.WriteFile("dummy.txt", []byte("init"), 0644)
-	runGit(t, cwd, "add", ".")
-	runGit(t, cwd, "commit", "-m", "init")
-
 	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
@@ -221,13 +215,6 @@ func TestStartWork_GitRepo_ExistingBranch_Force(t *testing.T) {
 	defer cleanup()
 
 	cwd, _ := os.Getwd()
-	runGit(t, cwd, "init", "-b", "main")
-	runGit(t, cwd, "config", "user.email", "test@test.com")
-	runGit(t, cwd, "config", "user.name", "Test")
-	os.WriteFile("dummy.txt", []byte("init"), 0644)
-	runGit(t, cwd, "add", ".")
-	runGit(t, cwd, "commit", "-m", "init")
-
 	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
@@ -278,17 +265,9 @@ func TestStartWork_AlreadyDoing_Force(t *testing.T) {
 
 func TestStartWork_Worktree_CreatesWorktree(t *testing.T) {
 	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
 	xpoDir := filepath.Join(tmpDir, ".xpo")
 	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
-
-	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	storage.ResetHubRoot()
-	defer func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	}()
 
 	runGit(t, tmpDir, "init", "-b", "main")
 	runGit(t, tmpDir, "config", "user.email", "test@test.com")
@@ -296,6 +275,19 @@ func TestStartWork_Worktree_CreatesWorktree(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "dummy.txt"), []byte("init"), 0644)
 	runGit(t, tmpDir, "add", ".")
 	runGit(t, tmpDir, "commit", "-m", "init")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}()
 
 	cfg := &config.Config{
 		Prefix:           "test-",
@@ -357,15 +349,6 @@ func setupWorktreeTestRepo(t *testing.T) (string, *Client) {
 	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
 	xpoDir := filepath.Join(tmpDir, ".xpo")
 	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
-
-	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	storage.ResetHubRoot()
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
 
 	runGit(t, tmpDir, "init", "-b", "main")
 	runGit(t, tmpDir, "config", "user.email", "test@test.com")
@@ -373,6 +356,19 @@ func setupWorktreeTestRepo(t *testing.T) (string, *Client) {
 	os.WriteFile(filepath.Join(tmpDir, "dummy.txt"), []byte("init"), 0644)
 	runGit(t, tmpDir, "add", ".")
 	runGit(t, tmpDir, "commit", "-m", "init")
+
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	})
 
 	cfg := &config.Config{
 		Prefix:           "test-",

@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // --- handleGetArtifact ---
@@ -33,10 +32,10 @@ func TestHandleGetArtifact_Found(t *testing.T) {
 	id := seedIssue(t, "Artifact found")
 	mux := srv.SetupRoutes()
 
-	// Write an artifact file directly
-	artDir := filepath.Join(".xpo", "artifacts", id)
-	os.MkdirAll(artDir, 0755)
-	os.WriteFile(filepath.Join(artDir, "notes.md"), []byte("hello"), 0644)
+	// Write an artifact to the ref store
+	if err := storage.WriteArtifact(id, "notes.md", "hello"); err != nil {
+		t.Fatalf("WriteArtifact: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/api/issues/"+id+"/artifacts/notes.md", nil)
 	w := httptest.NewRecorder()

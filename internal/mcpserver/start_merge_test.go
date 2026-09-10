@@ -30,7 +30,6 @@ func setupGitToolset(t *testing.T, cfgOverride *config.Config) (*toolset, string
 	dir, _ = filepath.EvalSymlinks(dir)
 	xpoDir := filepath.Join(dir, ".xpo")
 	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
 
 	mcpRunGit(t, dir, "init", "-b", "main")
 	mcpRunGit(t, dir, "config", "user.email", "test@test.com")
@@ -42,9 +41,14 @@ func setupGitToolset(t *testing.T, cfgOverride *config.Config) (*toolset, string
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
 	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
 	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	})
 
 	cfg := &config.Config{

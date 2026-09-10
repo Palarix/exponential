@@ -1,8 +1,6 @@
 package server
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -164,26 +162,25 @@ func TestGetAllEvents_IncludesPending(t *testing.T) {
 	}
 }
 
-func TestEventCache_DetectsDeletedDB(t *testing.T) {
+func TestEventCache_DetectsRefChange(t *testing.T) {
 	srv := setupTestServer(t)
-	seedIssue(t, "Will Be Deleted")
 
 	issues1, err := srv.GetProjectedIssues()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(issues1) != 1 {
-		t.Fatalf("expected 1 issue, got %d", len(issues1))
+	if len(issues1) != 0 {
+		t.Fatalf("expected 0 issues, got %d", len(issues1))
 	}
 
-	os.Remove(filepath.Join(".xpo", "issues.db"))
+	seedIssue(t, "Added After Cache")
 
 	issues2, err := srv.GetProjectedIssues()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(issues2) != 0 {
-		t.Fatalf("expected 0 issues after DB deletion, got %d", len(issues2))
+	if len(issues2) != 1 {
+		t.Fatalf("expected 1 issue after ref change, got %d", len(issues2))
 	}
 }
 

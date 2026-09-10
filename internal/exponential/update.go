@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"fmt"
-	"os/exec"
 	"reflect"
 	"sort"
 	"strconv"
@@ -176,13 +175,11 @@ func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, act
 	}
 
 	if t.Config.AutoCommit {
-		hub := storage.HubRoot()
 		commitMsg := fmt.Sprintf("xpo: %s %s", action, id)
 		if len(messages) > 1 {
 			commitMsg += " (with cascading updates)"
 		}
-		_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
-		_ = exec.Command("git", "-C", hub, "commit", "-m", commitMsg).Run()
+		GitCommit(commitMsg)
 	}
 
 	return messages, nil

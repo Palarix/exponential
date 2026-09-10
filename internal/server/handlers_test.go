@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -29,14 +30,32 @@ var testIDCounter atomic.Int64
 func setupTestServer(t *testing.T) *Server {
 	t.Helper()
 	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+
+	// Initialize a git repo so ref-based storage works.
+	exec.Command("git", "init", "-b", "main", tmpDir).Run()
+	exec.Command("git", "-C", tmpDir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", tmpDir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(tmpDir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", tmpDir, "add", ".").Run()
+	exec.Command("git", "-C", tmpDir, "commit", "-m", "init").Run()
+
 	xpoDir := filepath.Join(tmpDir, ".xpo")
 	os.MkdirAll(xpoDir, 0755)
-	os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644)
-	os.WriteFile(filepath.Join(xpoDir, "config.toml"), []byte{}, 0644)
 
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	t.Cleanup(func() { os.Chdir(origDir) })
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	t.Cleanup(func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	})
+
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
 
 	cfg := &config.Config{
 		Prefix:           "test-",

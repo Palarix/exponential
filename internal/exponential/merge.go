@@ -2,9 +2,7 @@ package exponential
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -105,14 +103,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			}
 		}
 
-		// Squash and ff-only merges do not invoke the merge=union driver,
-		// so the branch's issues.db would overwrite main's. Save main's
-		// version before the merge so we can union them afterward.
-		var mainIssuesDB []byte
-		if !useWorktrees && opts.Strategy != MergeStrategyMerge {
-			mainIssuesDB, _ = os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
-		}
-
 		var mergeErr error
 		switch opts.Strategy {
 		case MergeStrategySquash:
@@ -124,12 +114,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		}
 
 		if mergeErr == nil {
-			if mainIssuesDB != nil {
-				branchIssuesDB, _ := os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
-				merged := unionLines(mainIssuesDB, branchIssuesDB)
-				os.WriteFile(filepath.Join(storage.XpoDir(), "issues.db"), merged, 0644)
-			}
-
 			preEvents, _ := storage.ReadEvents()
 			preMergeState := ProjectIssues(preEvents)
 
@@ -150,13 +134,13 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			}
 			result.Messages = append(result.Messages, doneMessages...)
 
-			exec.Command("git", "-C", storage.HubRoot(), "add", ".xpo/issues.db").Run()
-			exec.Command("git", "-C", storage.HubRoot(), "add", filepath.Join(".xpo", "artifacts", issue.ID)).Run()
 			switch opts.Strategy {
-			case MergeStrategySquash, MergeStrategyFF:
+			case MergeStrategySquash:
 				mergeErr = exec.Command("git", "commit", "-m", commitMsg).Run()
+			case MergeStrategyFF:
+				// FF merge already advanced HEAD; no working-tree commit needed
 			default:
-				exec.Command("git", "commit", "--amend", "--no-edit").Run()
+				// no-ff amend is also unnecessary — events are in the ref
 			}
 		}
 
@@ -291,7 +275,7 @@ func HubRequireCleanTree() error {
 	for _, f := range dirty {
 		msg += fmt.Sprintf("  - %s\n", f)
 	}
-	msg += "Do NOT stash — .xpo/issues.db must not be stashed."
+	msg += "Commit, move, or remove these files before merging."
 	return fmt.Errorf("%s", msg)
 }
 

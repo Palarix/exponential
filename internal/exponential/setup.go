@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // InitResult contains the outcome of the initialization.
@@ -64,13 +65,13 @@ func InitProject(force bool, prefix string) (*InitResult, error) {
 		}
 	}
 
-	// 3. Create .xpo/issues.db
-	issuesFile := filepath.Join(xpoDir, "issues.db")
-	f, err := os.OpenFile(issuesFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create issues.db: %w", err)
+	// 3. Initialize ref-based storage (refs/xpo/data)
+	if CheckGitRepo() && !storage.RefStoreReady() {
+		if err := storage.InitRefStore(); err != nil {
+			return nil, fmt.Errorf("failed to initialize ref store: %w", err)
+		}
+		result.Notes = append(result.Notes, "Initialized refs/xpo/data for issue and artifact storage")
 	}
-	f.Close()
 
 	// 4. Update .gitignore
 	gitignorePath := ".gitignore"
@@ -80,7 +81,7 @@ func InitProject(force bool, prefix string) (*InitResult, error) {
 		contentStr = string(content)
 	}
 
-	ignoreEntries := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"}
+	ignoreEntries := []string{".xpo/git.lock", ".xpo/worktrees/"}
 	var toAdd []string
 	for _, entry := range ignoreEntries {
 		if !strings.Contains(contentStr, entry) {
@@ -101,9 +102,6 @@ func InitProject(force bool, prefix string) (*InitResult, error) {
 			result.Notes = append(result.Notes, fmt.Sprintf("Could not write to .gitignore: %v", err))
 		}
 	}
-
-	// 5. Update .gitattributes with merge=union for issues.db
-	EnsureGitattributesEntry(".xpo/issues.db merge=union")
 
 	return result, nil
 }

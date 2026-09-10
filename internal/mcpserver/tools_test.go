@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -11,25 +12,35 @@ import (
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/inputs"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// setup creates a temp .xpo workspace and returns a toolset bound to it.
+// setup creates a temp git repo + ref store workspace and returns a toolset bound to it.
 // The cleanup func restores the original working directory.
 func setup(t *testing.T) (*toolset, func()) {
 	t.Helper()
 	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+
+	exec.Command("git", "init", "-b", "main", tmpDir).Run()
+	exec.Command("git", "-C", tmpDir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", tmpDir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(tmpDir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", tmpDir, "add", ".").Run()
+	exec.Command("git", "-C", tmpDir, "commit", "-m", "init").Run()
+
 	xpoDir := filepath.Join(tmpDir, ".xpo")
-	if err := os.MkdirAll(xpoDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644); err != nil {
-		t.Fatal(err)
-	}
+	os.MkdirAll(xpoDir, 0755)
+
 	origDir, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
+	os.Chdir(tmpDir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
 	}
+
 	cfg := &config.Config{
 		Prefix:           "test-",
 		User:             "Test User <test@test.com>",
@@ -37,7 +48,11 @@ func setup(t *testing.T) (*toolset, func()) {
 		CountUnestimated: true,
 		Version:          2,
 	}
-	return newToolset(cfg), func() { os.Chdir(origDir) }
+	return newToolset(cfg), func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}
 }
 
 func TestRegisterTools_WithHTTPAuth(t *testing.T) {

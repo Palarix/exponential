@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/inputs"
 	"github.com/palarix/exponential/internal/model"
-	"github.com/palarix/exponential/internal/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -590,7 +588,7 @@ func (t *toolset) spec(ctx context.Context, req *mcp.CallToolRequest, in specIn)
 		return nil, specOut{OK: false, Error: err.Error()}, err
 	}
 	issueID := issue.ID
-	path := filepath.Join(storage.XpoDir(), "artifacts", issueID, "spec.md")
+	path := artifactPath(issueID, "spec.md")
 
 	switch in.Operation {
 	case "write":
@@ -636,7 +634,7 @@ func (t *toolset) walkthrough(ctx context.Context, req *mcp.CallToolRequest, in 
 		return nil, walkthroughOut{OK: false, Error: err.Error()}, err
 	}
 	issueID := issue.ID
-	path := filepath.Join(storage.XpoDir(), "artifacts", issueID, "walkthrough.md")
+	path := artifactPath(issueID, "walkthrough.md")
 
 	switch in.Operation {
 	case "write":
@@ -694,7 +692,7 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in art
 		if err := c.AddArtifact(issueID, "generic", in.Filename, in.Content); err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
-		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, in.Filename)
+		path := artifactPath(issueID, in.Filename)
 		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Artifact %s added to %s", in.Filename, issueID)),
 			artifactOut{OK: true, IssueID: issueID, Path: path}, nil
@@ -707,7 +705,7 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in art
 		if err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
-		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, in.Filename)
+		path := artifactPath(issueID, in.Filename)
 		return textResult(content),
 			artifactOut{OK: true, IssueID: issueID, Path: path, Content: content}, nil
 
@@ -718,7 +716,7 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in art
 		if err := c.DeleteArtifact(issueID, in.Filename); err != nil {
 			return nil, artifactOut{OK: false, Error: err.Error()}, err
 		}
-		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, in.Filename)
+		path := artifactPath(issueID, in.Filename)
 		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Artifact %s deleted from %s", in.Filename, issueID)),
 			artifactOut{OK: true, IssueID: issueID, Path: path}, nil
@@ -831,6 +829,10 @@ func toEventSummaries(es []model.Event) []eventSummary {
 		}
 	}
 	return out
+}
+
+func artifactPath(issueID, filename string) string {
+	return "refs/xpo/data:artifacts/" + issueID + "/" + filename
 }
 
 func textResult(s string) *mcp.CallToolResult {

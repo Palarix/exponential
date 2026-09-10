@@ -3,22 +3,16 @@ package exponential
 import (
 	"fmt"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
-	"github.com/palarix/exponential/internal/storage"
 )
 
-// GitCommit stages and commits the issues.db file.
-func GitCommit(msg string) {
-	hub := storage.HubRoot()
-	_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
-	_ = exec.Command("git", "-C", hub, "add", ".xpo/artifacts/").Run()
-	_ = exec.Command("git", "-C", hub, "commit", "-m", msg).Run()
-}
+// GitCommit is a no-op with ref-based storage — events are committed to
+// refs/xpo/data atomically on each write.
+func GitCommit(msg string) {}
 
 // Client manages the interaction with the xpo issue tracker.
 // It delegates data operations to a Transport (local or remote) and

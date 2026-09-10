@@ -1,14 +1,13 @@
 package exponential
 
 import (
-	"bufio"
-	"encoding/json"
-	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/version"
 )
 
@@ -17,9 +16,24 @@ import (
 func setupProject(t *testing.T, prefix string) string {
 	t.Helper()
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
 	orig, _ := os.Getwd()
 	os.Chdir(dir)
-	t.Cleanup(func() { os.Chdir(orig) })
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	t.Cleanup(func() {
+		os.Chdir(orig)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	})
 
 	InitProject(false, prefix)
 	return dir
@@ -640,8 +654,8 @@ func TestDoctor_IssuesDB_Valid(t *testing.T) {
 func TestDoctor_IssuesDB_Invalid(t *testing.T) {
 	setupProject(t, "test")
 
-	// Write garbage to issues.db
-	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte("not json\n"), 0644)
+	// Write garbage to issues.db in the ref store
+	storage.RefStore().WriteFile("issues.db", "not json\n", "xpo: inject garbage")
 
 	lineNum, err := validateIssuesDB(t)
 	if err == nil {
@@ -661,7 +675,7 @@ func TestDoctor_IssuesDB_InvalidAtLine3(t *testing.T) {
 		`this is not json`,
 		`{"type":"CREATE","issue_id":"test-ghi789","timestamp":"2024-01-01T00:00:02Z","actor":"test","payload":{}}`,
 	}
-	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	storage.RefStore().WriteFile("issues.db", strings.Join(lines, "\n")+"\n", "xpo: inject garbage at line 3")
 
 	lineNum, err := validateIssuesDB(t)
 	if err == nil {
@@ -675,20 +689,5 @@ func TestDoctor_IssuesDB_InvalidAtLine3(t *testing.T) {
 // validateIssuesDB mirrors storage.ValidateEvents without the import cycle.
 func validateIssuesDB(t *testing.T) (int, error) {
 	t.Helper()
-	f, err := os.Open(filepath.Join(".xpo", "issues.db"))
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	line := 0
-	for scanner.Scan() {
-		line++
-		var raw json.RawMessage
-		if err := json.Unmarshal(scanner.Bytes(), &raw); err != nil {
-			return line, fmt.Errorf("line %d: %w", line, err)
-		}
-	}
-	return line, scanner.Err()
+	return storage.ValidateEvents()
 }

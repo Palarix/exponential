@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -37,9 +36,6 @@ func artifactDir(issueID string) string {
 	return filepath.Join(storage.XpoDir(), "artifacts", issueID)
 }
 
-// AddArtifact writes a generic artifact for an issue. Reserved filenames
-// (spec.md, walkthrough.md) are rejected — use WriteSpec/WriteWalkthrough
-// instead.
 func (t *LocalTransport) AddArtifact(issueID, artifactType, filename, content string) error {
 	if reservedArtifactNames[filename] {
 		return fmt.Errorf("filename %q is reserved; use WriteSpec or WriteWalkthrough instead", filename)
@@ -47,9 +43,6 @@ func (t *LocalTransport) AddArtifact(issueID, artifactType, filename, content st
 	return t.writeArtifact(issueID, artifactType, filename, content)
 }
 
-// writeArtifact is the shared internal implementation used by AddArtifact
-// and the first-class WriteSpec/WriteWalkthrough convenience methods. It
-// does not enforce the reserved-filename check.
 const MaxArtifactContentLen = 1024 * 1024
 
 func (t *LocalTransport) writeArtifact(issueID, artifactType, filename, content string) error {
@@ -66,13 +59,7 @@ func (t *LocalTransport) writeArtifact(issueID, artifactType, filename, content 
 	}
 	issueID = issue.ID
 
-	dir := artifactDir(issueID)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create artifact directory: %w", err)
-	}
-
-	path := filepath.Join(dir, filename)
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := storage.WriteArtifact(issueID, filename, content); err != nil {
 		return fmt.Errorf("failed to write artifact: %w", err)
 	}
 
@@ -103,7 +90,6 @@ func (t *LocalTransport) writeArtifact(issueID, artifactType, filename, content 
 	return nil
 }
 
-// ReadArtifact returns the contents of an artifact for an issue.
 func (t *LocalTransport) ReadArtifact(issueID, filename string) (string, error) {
 	if err := validateArtifactFilename(filename); err != nil {
 		return "", err
@@ -115,19 +101,16 @@ func (t *LocalTransport) ReadArtifact(issueID, filename string) (string, error) 
 	}
 	issueID = issue.ID
 
-	path := filepath.Join(artifactDir(issueID), filename)
-	data, err := os.ReadFile(path)
+	content, err := storage.ReadArtifact(issueID, filename)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("artifact %q not found on issue %s", filename, issueID)
-		}
 		return "", fmt.Errorf("failed to read artifact: %w", err)
 	}
-	return string(data), nil
+	if content == "" {
+		return "", fmt.Errorf("artifact %q not found on issue %s", filename, issueID)
+	}
+	return content, nil
 }
 
-// DeleteArtifact removes an artifact from disk and records a "deleted"
-// ARTIFACT event so the projection drops it from Issue.Artifacts.
 func (t *LocalTransport) DeleteArtifact(issueID, filename string) error {
 	if err := validateArtifactFilename(filename); err != nil {
 		return err
@@ -139,17 +122,14 @@ func (t *LocalTransport) DeleteArtifact(issueID, filename string) error {
 	}
 	issueID = issue.ID
 
-	path := filepath.Join(artifactDir(issueID), filename)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	existing, _ := storage.ReadArtifact(issueID, filename)
+	if existing == "" {
 		return fmt.Errorf("artifact %q not found on issue %s", filename, issueID)
 	}
-
-	if err := os.Remove(path); err != nil {
+	if err := storage.DeleteArtifact(issueID, filename); err != nil {
 		return fmt.Errorf("failed to delete artifact: %w", err)
 	}
 
-	// Determine artifact type from projection so the deletion event carries
-	// the same type the artifact was created/updated with.
 	artifactType := "generic"
 	for _, a := range issue.Artifacts {
 		if a.Filename == filename {
@@ -177,8 +157,6 @@ func (t *LocalTransport) DeleteArtifact(issueID, filename string) error {
 	return nil
 }
 
-// ListArtifacts returns the current artifacts attached to an issue, as
-// derived from the projection.
 func (t *LocalTransport) ListArtifacts(issueID string) ([]model.ArtifactSummary, error) {
 	issue, err := t.GetIssue(issueID)
 	if err != nil {

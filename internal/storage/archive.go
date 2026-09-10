@@ -3,84 +3,50 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/palarix/exponential/internal/model"
 )
 
 // ArchiveEvents moves the specified events to archive.db and rewrites issues.db with the active events.
 func ArchiveEvents(active []model.Event, archived []model.Event) error {
-	issuesPath := filepath.Join(XpoDir(), "issues.db")
-	archivePath := filepath.Join(XpoDir(), "archive.db")
+	store := RefStore()
 
-	// 1. Backup existing issues.db
-	backupPath := fmt.Sprintf("%s.%s.bak", issuesPath, time.Now().Format("20060102150405"))
-	if err := copyFile(issuesPath, backupPath); err != nil {
-		return fmt.Errorf("failed to backup issues db: %w", err)
-	}
-
-	// 2. Append archived events to archive.db
-	archiveFile, err := os.OpenFile(archivePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// Append archived events to archive.db
+	existingArchive, err := store.ReadFile("archive.db")
 	if err != nil {
-		return fmt.Errorf("failed to open archive db: %w", err)
+		return fmt.Errorf("failed to read archive.db: %w", err)
 	}
-	defer archiveFile.Close()
 
+	var archiveLines strings.Builder
+	archiveLines.WriteString(existingArchive)
 	for _, evt := range archived {
-		bytes, err := json.Marshal(evt)
+		b, err := json.Marshal(evt)
 		if err != nil {
 			return fmt.Errorf("failed to marshal event %s: %w", evt.ID, err)
 		}
-		if _, err := archiveFile.Write(bytes); err != nil {
-			return fmt.Errorf("failed to write to archive db: %w", err)
-		}
-		if _, err := archiveFile.WriteString("\n"); err != nil {
-			return fmt.Errorf("failed to write newline to archive db: %w", err)
-		}
+		archiveLines.Write(b)
+		archiveLines.WriteString("\n")
 	}
 
-	// 3. Rewrite issues.db with active events
-	// Use O_TRUNC to clear the file
-	issuesFile, err := os.OpenFile(issuesPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to open issues db for rewrite: %w", err)
+	if err := store.WriteFile("archive.db", archiveLines.String(), "xpo: archive events"); err != nil {
+		return fmt.Errorf("failed to write archive.db: %w", err)
 	}
-	defer issuesFile.Close()
 
+	// Rewrite issues.db with active events
+	var activeLines strings.Builder
 	for _, evt := range active {
-		bytes, err := json.Marshal(evt)
+		b, err := json.Marshal(evt)
 		if err != nil {
 			return fmt.Errorf("failed to marshal event %s: %w", evt.ID, err)
 		}
-		if _, err := issuesFile.Write(bytes); err != nil {
-			return fmt.Errorf("failed to write to issues db: %w", err)
-		}
-		if _, err := issuesFile.WriteString("\n"); err != nil {
-			return fmt.Errorf("failed to write newline to issues db: %w", err)
-		}
+		activeLines.Write(b)
+		activeLines.WriteString("\n")
 	}
 
-	return nil
-}
-
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
+	if err := store.WriteFile("issues.db", activeLines.String(), "xpo: rewrite after archive"); err != nil {
+		return fmt.Errorf("failed to rewrite issues.db: %w", err)
 	}
-	defer in.Close()
 
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
 	return nil
 }

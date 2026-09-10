@@ -2,24 +2,44 @@ package exponential
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 func setupClient(t *testing.T) *Client {
 	t.Helper()
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
+
+	exec.Command("git", "init", "-b", "main", dir).Run()
+	exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", dir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(dir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", dir, "add", ".").Run()
+	exec.Command("git", "-C", dir, "commit", "-m", "init").Run()
+
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	oldWd, _ := os.Getwd()
 	os.Chdir(dir)
-	t.Cleanup(func() { os.Chdir(oldWd) })
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+	t.Cleanup(func() {
+		os.Chdir(oldWd)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	})
 
 	cfg := &config.Config{
-		Prefix: "test-",
+		Prefix:      "test-",
 		Automations: config.Automations{},
 	}
 	c := NewClient(cfg)

@@ -6,8 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -31,12 +29,10 @@ type Server struct {
 	pendingEvents []model.Event
 	mu            sync.RWMutex
 	pendingGen    uint64
-	cachedEvents  []model.Event
-	cachedIssues  map[string]*model.Issue
-	lastDBModTime time.Time
-	lastDBSize    int64
-	dbExists      bool
-	cacheGen      uint64
+	cachedEvents []model.Event
+	cachedIssues map[string]*model.Issue
+	lastRefSHA   string
+	cacheGen     uint64
 
 	// Auth fields — nil when auth is disabled (local board mode).
 	NonceStore     *auth.NonceStore
@@ -186,35 +182,24 @@ func (s *Server) BroadcastEvent(eventType, issueID string) {
 	s.broadcastEvent(eventType, issueID)
 }
 
-func (s *Server) statDB() (mtime time.Time, size int64, exists bool) {
-	info, err := os.Stat(filepath.Join(storage.XpoDir(), "issues.db"))
-	if err != nil {
-		return time.Time{}, 0, false
-	}
-	return info.ModTime(), info.Size(), true
-}
-
 func (s *Server) dbStale() bool {
-	mtime, size, exists := s.statDB()
-	return exists != s.dbExists || mtime != s.lastDBModTime || size != s.lastDBSize
+	sha, _ := storage.RefStore().CurrentSHA()
+	return sha != s.lastRefSHA
 }
 
-// refreshEventsLocked re-reads persisted events from disk if the database
-// file has changed. Must be called while holding s.mu for writing.
+// refreshEventsLocked re-reads persisted events if the ref has changed.
+// Must be called while holding s.mu for writing.
 func (s *Server) refreshEventsLocked() error {
-	mtime, size, exists := s.statDB()
-	if s.cachedEvents != nil && exists == s.dbExists && mtime == s.lastDBModTime && size == s.lastDBSize {
+	sha, _ := storage.RefStore().CurrentSHA()
+	if s.cachedEvents != nil && sha == s.lastRefSHA {
 		return nil
 	}
-
 	events, err := storage.ReadEvents()
 	if err != nil {
 		return err
 	}
 	s.cachedEvents = events
-	s.lastDBModTime = mtime
-	s.lastDBSize = size
-	s.dbExists = exists
+	s.lastRefSHA = sha
 	s.cachedIssues = nil
 	return nil
 }

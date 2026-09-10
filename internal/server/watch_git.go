@@ -50,6 +50,12 @@ func (s *Server) WatchGitRefs() {
 		return nil
 	})
 
+	// Watch refs/xpo/ for ref-based storage changes.
+	refsXpo := filepath.Join(gitDir, "refs", "xpo")
+	if err := os.MkdirAll(refsXpo, 0755); err == nil {
+		watcher.Add(refsXpo)
+	}
+
 	// Watch packed-refs if it exists, and the .git dir itself
 	// so we detect packed-refs creation (e.g. after git gc).
 	packedRefs := filepath.Join(gitDir, "packed-refs")
@@ -73,8 +79,9 @@ func (s *Server) WatchGitRefs() {
 				}
 
 				isUnderRefsHeads := strings.HasPrefix(event.Name, refsHeads)
+				isUnderRefsXpo := strings.HasPrefix(event.Name, refsXpo)
 				isPackedRefs := event.Name == packedRefs
-				if !isUnderRefsHeads && !isPackedRefs {
+				if !isUnderRefsHeads && !isUnderRefsXpo && !isPackedRefs {
 					continue
 				}
 

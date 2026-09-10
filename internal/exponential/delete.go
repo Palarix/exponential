@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/palarix/exponential/internal/model"
@@ -74,10 +73,7 @@ func (t *LocalTransport) DeleteIssue(id string, reason string, cascade bool) err
 	}
 
 	if t.Config.AutoCommit {
-		hub := storage.HubRoot()
-		commitMsg := fmt.Sprintf("xpo: delete %s", id)
-		_ = exec.Command("git", "-C", hub, "add", ".xpo/issues.db").Run()
-		_ = exec.Command("git", "-C", hub, "commit", "-m", commitMsg).Run()
+		GitCommit(fmt.Sprintf("xpo: delete %s", id))
 	}
 
 	return nil

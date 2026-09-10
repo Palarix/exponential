@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -120,7 +119,7 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 		}
 
 		// .gitignore
-		requiredIgnores := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"}
+		requiredIgnores := []string{".xpo/git.lock", ".xpo/worktrees/"}
 		gitignoreContent, _ := os.ReadFile(".gitignore")
 		gitignoreStr := string(gitignoreContent)
 		var missingIgnores []string
@@ -152,32 +151,17 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 			counts.pass(".gitignore")
 		}
 
-		// .gitattributes
-		gitattrsEntry := ".xpo/issues.db merge=union"
-		gitattrsContent, _ := os.ReadFile(".gitattributes")
-		if !strings.Contains(string(gitattrsContent), gitattrsEntry) {
-			if doctorFix {
-				exponential.EnsureGitattributesEntry(gitattrsEntry)
-				localFixes = append(localFixes, "Added .gitattributes merge strategy")
-			} else {
-				counts.note(".gitattributes missing merge strategy")
-				fmt.Printf("    Run xpo doctor --fix to add it\n")
-			}
+		if !storage.RefStoreReady() {
+			counts.err("refs/xpo/data not found — run xpo init")
 		} else {
-			counts.pass(".gitattributes includes merge strategy")
-		}
+			counts.pass("Storage: refs/xpo/data")
 
-		// issues.db — existence and validity
-		issuesDB := filepath.Join(".xpo", "issues.db")
-		if _, err := os.Stat(issuesDB); os.IsNotExist(err) {
-			counts.err("Issues database not found")
-		} else {
 			lineNum, err := storage.ValidateEvents()
 			if err != nil {
 				counts.err("Issues database has an invalid entry at line %d", lineNum)
 				fmt.Printf("    %s\n", err)
 				counts.attention = append(counts.attention, attentionItem{
-					message: fmt.Sprintf("Issues database has an invalid entry at line %d\n    xpo never rewrites the issue log. To inspect:\n    sed -n '%dp' .xpo/issues.db", lineNum, lineNum),
+					message: fmt.Sprintf("Issues database has an invalid entry at line %d\n    Use 'xpo db edit' to inspect and fix", lineNum),
 					isError: true,
 				})
 			} else {

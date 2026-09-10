@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -18,16 +20,29 @@ import (
 // that the direct handler unit tests can't.
 func TestEndToEndAddViaMCP(t *testing.T) {
 	tmpDir := t.TempDir()
+	tmpDir, _ = filepath.EvalSymlinks(tmpDir)
+	exec.Command("git", "init", "-b", "main", tmpDir).Run()
+	exec.Command("git", "-C", tmpDir, "config", "user.email", "test@test.com").Run()
+	exec.Command("git", "-C", tmpDir, "config", "user.name", "Test").Run()
+	os.WriteFile(filepath.Join(tmpDir, "init.txt"), []byte("init"), 0644)
+	exec.Command("git", "-C", tmpDir, "add", ".").Run()
+	exec.Command("git", "-C", tmpDir, "commit", "-m", "init").Run()
+
 	xpoDir := filepath.Join(tmpDir, ".xpo")
-	if err := os.MkdirAll(xpoDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(xpoDir, "issues.db"), []byte{}, 0644); err != nil {
-		t.Fatal(err)
-	}
+	os.MkdirAll(xpoDir, 0755)
+
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+		storage.ResetRefStore()
+	}()
 
 	cfg := &config.Config{
 		Prefix:           "e2e-",

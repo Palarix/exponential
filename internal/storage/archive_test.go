@@ -1,9 +1,6 @@
 package storage
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -36,28 +33,6 @@ func TestArchiveEvents_MovesToArchive(t *testing.T) {
 	archivedEvts, _ := ReadArchivedEvents()
 	if len(archivedEvts) != 1 || archivedEvts[0].ID != "old" {
 		t.Errorf("archive.db should have archived event, got %d events", len(archivedEvts))
-	}
-}
-
-func TestArchiveEvents_CreatesBackup(t *testing.T) {
-	setupXpoDir(t)
-
-	AppendEvent(makeEvent("a", model.EventTypeCreate))
-
-	ArchiveEvents(
-		[]model.Event{makeEvent("a", model.EventTypeCreate)},
-		[]model.Event{},
-	)
-
-	entries, _ := os.ReadDir(".xpo")
-	backupFound := false
-	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".bak") {
-			backupFound = true
-		}
-	}
-	if !backupFound {
-		t.Error("backup file not created")
 	}
 }
 
@@ -97,13 +72,9 @@ func TestArchiveEvents_EmptyArchiveList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	archPath := filepath.Join(".xpo", "archive.db")
-	info, err := os.Stat(archPath)
-	if err != nil {
-		t.Fatal("archive.db should be created even if empty archive list")
-	}
-	if info.Size() != 0 {
-		t.Error("archive.db should be empty when no events archived")
+	archivedEvts, _ := ReadArchivedEvents()
+	if len(archivedEvts) != 0 {
+		t.Errorf("archive should be empty, got %d events", len(archivedEvts))
 	}
 }
 

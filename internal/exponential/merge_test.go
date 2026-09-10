@@ -12,8 +12,11 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
-func TestMergeIssue_Squash(t *testing.T) {
+// initMergeDir creates a temp git repo with .xpo/, commits, and inits ref store.
+func initMergeDir(t *testing.T) string {
+	t.Helper()
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
@@ -21,20 +24,42 @@ func TestMergeIssue_Squash(t *testing.T) {
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
 	storage.ResetHubRoot()
-	defer func() {
+	storage.ResetRefStore()
+	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
-	}()
+		storage.ResetRefStore()
+	})
 
-	// Initialize xpo
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
-
 	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "init")
 
-	// Create a feature branch with commits
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+	return dir
+}
+
+func seedMergeIssue(t *testing.T, id, title string) {
+	t.Helper()
+	evt := model.Event{
+		ID:   id,
+		Type: model.EventTypeCreate,
+		Payload: model.CreatePayload{
+			Title:  title,
+			Status: "DOING",
+		},
+		CreatedBy: "Test <test@test.com>",
+	}
+	storage.AppendEvent(evt)
+}
+
+func TestMergeIssue_Squash(t *testing.T) {
+	dir := initMergeDir(t)
+
 	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a\n"), 0644)
 	runGit(t, dir, "add", ".")
@@ -43,22 +68,9 @@ func TestMergeIssue_Squash(t *testing.T) {
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add b")
 
-	// Create a xpo issue
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	client := NewClient(cfg)
-
-	evt := model.Event{
-		ID:   "test-abc123",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Test issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
+	seedMergeIssue(t, "test-abc123", "Test issue")
 
 	result, err := client.MergeIssue("test-abc123", MergeOptions{
 		Strategy:   MergeStrategySquash,
@@ -129,26 +141,37 @@ func TestMergeIssue_Squash(t *testing.T) {
 
 func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
 	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: false\n"), 0644)
-	os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(".xpo/issues.db merge=union\n"), 0644)
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: false}
 	client := NewClient(cfg)
 
+	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	// Init ref store after first commit
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
 	// Seed an initial issue on main
-	storage.ResetHubRoot()
 	evt0 := model.Event{
 		ID:   "test-000000",
 		Type: model.EventTypeCreate,
@@ -159,10 +182,6 @@ func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 		CreatedBy: "Test <test@test.com>",
 	}
 	storage.AppendEvent(evt0)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
 
 	// Create a feature branch
 	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
@@ -177,7 +196,6 @@ func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 		},
 		CreatedBy: "Test <test@test.com>",
 	}
-	storage.ResetHubRoot()
 	storage.AppendEvent(evtBranch)
 	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
 	runGit(t, dir, "add", ".")
@@ -185,7 +203,6 @@ func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 
 	// Go back to main and add a main-only event
 	runGit(t, dir, "checkout", "main")
-	storage.ResetHubRoot()
 	evtMain := model.Event{
 		ID:   "test-000000",
 		Type: model.EventTypeComment,
@@ -195,12 +212,9 @@ func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 		CreatedBy: "Test <test@test.com>",
 	}
 	storage.AppendEvent(evtMain)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "main-only event")
 
 	// Switch to the feature branch for merge
 	runGit(t, dir, "checkout", "test-abc123/feature")
-	storage.ResetHubRoot()
 
 	result, err := client.MergeIssue("test-abc123", MergeOptions{
 		Strategy:   MergeStrategySquash,
@@ -254,43 +268,14 @@ func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
 }
 
 func TestMergeIssue_BranchModeWithWorktreesEnabled(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
+	dir := initMergeDir(t)
 
 	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
 	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add feature")
 
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-abc123",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Test issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
+	seedMergeIssue(t, "test-abc123", "Test issue")
 
 	// Worktrees enabled but no worktree exists — this is branch mode.
 	// The hub is on the feature branch; merge must auto-checkout main.
@@ -321,15 +306,19 @@ func TestMergeIssue_BranchModeWithWorktreesEnabled(t *testing.T) {
 func setupMergeRepo(t *testing.T, issueID string, cfgOverrides *config.Config) (string, *Client) {
 	t.Helper()
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
 	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
@@ -339,13 +328,16 @@ func setupMergeRepo(t *testing.T, issueID string, cfgOverrides *config.Config) (
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "init")
 
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
 	branchName := issueID + "/feature"
 	runGit(t, dir, "checkout", "-b", branchName)
 	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add feature")
 
-	storage.ResetHubRoot()
 	evt := model.Event{
 		ID:   issueID,
 		Type: model.EventTypeCreate,
@@ -356,8 +348,6 @@ func setupMergeRepo(t *testing.T, issueID string, cfgOverrides *config.Config) (
 		CreatedBy: "Test <test@test.com>",
 	}
 	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	if cfgOverrides != nil {
@@ -446,23 +436,31 @@ func TestMergeIssue_FFStrategy(t *testing.T) {
 
 func TestMergeIssue_FFStrategy_Diverged(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
 	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
 
-	// Create issue on main so it's visible from both branches
-	storage.ResetHubRoot()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
 	evt := model.Event{
 		ID:   "test-ffdiv01",
 		Type: model.EventTypeCreate,
@@ -473,8 +471,6 @@ func TestMergeIssue_FFStrategy_Diverged(t *testing.T) {
 		CreatedBy: "Test <test@test.com>",
 	}
 	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init with issue")
 
 	// Create feature branch with a commit
 	runGit(t, dir, "checkout", "-b", "test-ffdiv01/feature")
@@ -537,37 +533,9 @@ func TestMergeIssue_CustomCommitMessage(t *testing.T) {
 }
 
 func TestMergeIssue_NoBranch(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
+	initMergeDir(t)
 
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
-
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-nobranch",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "No branch issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
+	seedMergeIssue(t, "test-nobranch", "No branch issue")
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	client := NewClient(cfg)
@@ -585,47 +553,13 @@ func TestMergeIssue_NoBranch(t *testing.T) {
 }
 
 func TestMergeIssue_ZeroCommits(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
+	dir := initMergeDir(t)
 
 	// Create a branch with the issue ID but no additional commits
 	runGit(t, dir, "checkout", "-b", "test-zerocmt/feature")
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-zerocmt",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Zero commits issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
-
-	// The issue event commit is on the branch, but it only touches .xpo/ —
-	// BranchStats.Commits counts commits ahead of main, so this is 1.
-	// To get zero, we need to also commit it on main.
-	runGit(t, dir, "checkout", "main")
-	runGit(t, dir, "merge", "test-zerocmt/feature")
+	seedMergeIssue(t, "test-zerocmt", "Zero commits issue")
+	// Branch is at same commit as main — zero commits ahead
 	runGit(t, dir, "checkout", "test-zerocmt/feature")
-	storage.ResetHubRoot()
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	client := NewClient(cfg)
@@ -643,37 +577,12 @@ func TestMergeIssue_ZeroCommits(t *testing.T) {
 }
 
 func TestMergeIssue_Conflict(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	dir := initMergeDir(t)
 	os.WriteFile(filepath.Join(dir, "shared.txt"), []byte("original\n"), 0644)
+	runGit(t, dir, "add", "shared.txt")
+	runGit(t, dir, "commit", "-m", "add shared.txt")
 
-	// Create issue on main so it's visible after checkout
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-conflict01",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Conflict issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init with issue")
+	seedMergeIssue(t, "test-conflict01", "Conflict issue")
 
 	// Feature branch modifies shared.txt
 	runGit(t, dir, "checkout", "-b", "test-conflict01/feature")
@@ -757,24 +666,8 @@ func TestMergeIssue_DeleteBranch(t *testing.T) {
 }
 
 func TestMergeIssue_WorktreeCleanup(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	dir := initMergeDir(t)
 	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: true\n"), 0644)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
 
 	// Create a linked worktree for the feature branch
 	branchName := "test-wt01/feature"
@@ -786,20 +679,7 @@ func TestMergeIssue_WorktreeCleanup(t *testing.T) {
 	runGit(t, wtPath, "add", ".")
 	runGit(t, wtPath, "commit", "-m", "add feature")
 
-	// Create the issue
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-wt01",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Worktree issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
+	seedMergeIssue(t, "test-wt01", "Worktree issue")
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: true}
 	client := NewClient(cfg)
@@ -830,27 +710,8 @@ func TestMergeIssue_WorktreeCleanup(t *testing.T) {
 }
 
 func TestMergeIssue_WorktreeHubWrongBranch(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		// Clean up: go back to main before worktree prune
-		exec.Command("git", "-C", dir, "checkout", "main").Run()
-		exec.Command("git", "-C", dir, "worktree", "prune").Run()
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
+	dir := initMergeDir(t)
 	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: true\n"), 0644)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
 
 	// Create a linked worktree for the feature branch
 	branchName := "test-wthub01/feature"
@@ -862,20 +723,7 @@ func TestMergeIssue_WorktreeHubWrongBranch(t *testing.T) {
 	runGit(t, wtPath, "add", ".")
 	runGit(t, wtPath, "commit", "-m", "add feature")
 
-	// Create the issue
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-wthub01",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Worktree hub issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
+	seedMergeIssue(t, "test-wthub01", "Worktree hub issue")
 
 	// Move hub off main to simulate wrong branch
 	runGit(t, dir, "checkout", "-b", "some-other-branch")
@@ -897,26 +745,37 @@ func TestMergeIssue_WorktreeHubWrongBranch(t *testing.T) {
 
 func TestMergeIssue_FFPreservesMainIssuesDB(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
 
 	origDir, _ := os.Getwd()
 	os.Chdir(dir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
 	t.Cleanup(func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: false\n"), 0644)
-	os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(".xpo/issues.db merge=union\n"), 0644)
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: false}
 	client := NewClient(cfg)
 
+	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+
+	// Init ref store after first commit
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
 	// Seed an initial issue on main
-	storage.ResetHubRoot()
 	evt0 := model.Event{
 		ID:   "test-000000",
 		Type: model.EventTypeCreate,
@@ -927,10 +786,6 @@ func TestMergeIssue_FFPreservesMainIssuesDB(t *testing.T) {
 		CreatedBy: "Test <test@test.com>",
 	}
 	storage.AppendEvent(evt0)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
 
 	// Create a feature branch (no divergence so FF is possible)
 	runGit(t, dir, "checkout", "-b", "test-ffdb01/feature")
@@ -944,13 +799,10 @@ func TestMergeIssue_FFPreservesMainIssuesDB(t *testing.T) {
 		},
 		CreatedBy: "Test <test@test.com>",
 	}
-	storage.ResetHubRoot()
 	storage.AppendEvent(evtBranch)
 	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "feature work")
-
-	storage.ResetHubRoot()
 
 	result, err := client.MergeIssue("test-ffdb01", MergeOptions{
 		Strategy:   MergeStrategyFF,
@@ -1086,6 +938,7 @@ func TestIsWorkingTreeClean(t *testing.T) {
 func setupHubCleanForMergeRepo(t *testing.T) (dir string, cleanup func()) {
 	t.Helper()
 	dir = t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
@@ -1095,18 +948,24 @@ func setupHubCleanForMergeRepo(t *testing.T) (dir string, cleanup func()) {
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "init")
 
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
 	runGit(t, dir, "checkout", "-b", "feature-branch")
 	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add feature")
 	runGit(t, dir, "checkout", "main")
 
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	storage.ResetHubRoot()
 	return dir, func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	}
 }
 
@@ -1115,6 +974,7 @@ func setupHubCleanForMergeRepo(t *testing.T) (dir string, cleanup func()) {
 func setupMergeConflictRepo(t *testing.T) (dir string, cleanup func()) {
 	t.Helper()
 	dir = t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	runGit(t, dir, "init", "-b", "main")
 	runGit(t, dir, "config", "user.email", "test@test.com")
 	runGit(t, dir, "config", "user.name", "Test")
@@ -1125,6 +985,14 @@ func setupMergeConflictRepo(t *testing.T) (dir string, cleanup func()) {
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "init")
 
+	origDir, _ := os.Getwd()
+	os.Chdir(dir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
 	runGit(t, dir, "checkout", "-b", "feature-branch")
 	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "shared.txt"), []byte("feature change\n"), 0644)
@@ -1132,12 +1000,10 @@ func setupMergeConflictRepo(t *testing.T) (dir string, cleanup func()) {
 	runGit(t, dir, "commit", "-m", "feature work")
 	runGit(t, dir, "checkout", "main")
 
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	storage.ResetHubRoot()
 	return dir, func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	}
 }
 
@@ -1203,6 +1069,7 @@ func TestCheckMergeConflicts_DirtyTreeIgnored(t *testing.T) {
 func setupWorktreeCleanRepo(t *testing.T) (hubDir string, wtDir string, cleanup func()) {
 	t.Helper()
 	hubDir = t.TempDir()
+	hubDir, _ = filepath.EvalSymlinks(hubDir)
 	runGit(t, hubDir, "init", "-b", "main")
 	runGit(t, hubDir, "config", "user.email", "test@test.com")
 	runGit(t, hubDir, "config", "user.name", "Test")
@@ -1212,19 +1079,27 @@ func setupWorktreeCleanRepo(t *testing.T) (hubDir string, wtDir string, cleanup 
 	runGit(t, hubDir, "add", ".")
 	runGit(t, hubDir, "commit", "-m", "init")
 
-	wtDir = filepath.Join(t.TempDir(), "wt")
+	origDir, _ := os.Getwd()
+	os.Chdir(hubDir)
+	storage.ResetHubRoot()
+	storage.ResetRefStore()
+	if err := storage.InitRefStore(); err != nil {
+		t.Fatalf("InitRefStore: %v", err)
+	}
+
+	wtTmpDir := t.TempDir()
+	wtTmpDir, _ = filepath.EvalSymlinks(wtTmpDir)
+	wtDir = filepath.Join(wtTmpDir, "wt")
 	runGit(t, hubDir, "worktree", "add", "-b", "feature-branch", wtDir, "main")
 
 	os.WriteFile(filepath.Join(wtDir, "feature.txt"), []byte("feature\n"), 0644)
 	runGit(t, wtDir, "add", ".")
 	runGit(t, wtDir, "commit", "-m", "add feature")
 
-	origDir, _ := os.Getwd()
-	os.Chdir(hubDir)
-	storage.ResetHubRoot()
 	return hubDir, wtDir, func() {
 		os.Chdir(origDir)
 		storage.ResetHubRoot()
+		storage.ResetRefStore()
 	}
 }
 
@@ -1338,8 +1213,8 @@ func TestHubRequireCleanTree_ModifiedTrackedFile(t *testing.T) {
 	if !strings.Contains(err.Error(), "base.txt") {
 		t.Errorf("error should list the dirty file, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Do NOT stash") {
-		t.Errorf("error should warn against stashing, got: %v", err)
+	if !strings.Contains(err.Error(), "Commit, move, or remove") {
+		t.Errorf("error should include resolution guidance, got: %v", err)
 	}
 }
 
