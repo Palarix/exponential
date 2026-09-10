@@ -9,6 +9,7 @@ import { ChevronRight } from "lucide-react";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
 import { linkifyIssueIds } from "../../utils/format";
+import { useKeyboardHandler } from "../../keyboard";
 import {
   STATUS_OPTIONS,
   ESTIMATE_OPTIONS,
@@ -180,8 +181,7 @@ export default function IssueDetail({
     [issue.priority, saveDraft],
   );
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
+  const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (isEditableTarget(e)) return;
       if (e.key === "Escape") {
         if (openPopover) setOpenPopover(null);
@@ -272,10 +272,7 @@ export default function IssueDetail({
         if (status && status.value !== issue.status)
           saveDraft("UPDATE", { status: status.value });
       }
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [
+    }, [
     onClose,
     onNavigate,
     openPopover,
@@ -291,6 +288,20 @@ export default function IssueDetail({
     popoverIndex,
     showToast,
   ]);
+
+  useKeyboardHandler({
+    scope: "issue-detail",
+    priority: openPopover ? "control" : "view",
+    handler: handleKeyboard,
+    shortcuts: ["Escape", "ArrowDown", "ArrowUp", "Enter", "ArrowLeft", "k", "ArrowRight", "j", "s", "l", "e", "p", "a", "m", ".", "1", "2", "3", "4", "5"].map((key) => ({
+      id: `issue-detail.${key}`,
+      key,
+      label: key,
+      group: "Issue Detail",
+      showInHelp: key !== "Escape" && !key.startsWith("Arrow"),
+      preventDefault: false,
+    })),
+  });
 
   const startEditing = (field: string) => {
     setEditingField(field);

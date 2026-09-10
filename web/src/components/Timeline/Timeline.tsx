@@ -5,6 +5,7 @@ import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 import { TopBar } from "../ui";
+import { useKeyboardShortcuts } from "../../keyboard";
 import {
   Plus,
   MessageSquareMore,
@@ -431,13 +432,11 @@ function EventTypeFilter({
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose, anchorRef]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  useKeyboardShortcuts({
+    scope: "timeline-filter",
+    priority: "overlay",
+    shortcuts: [{ id: "timeline-filter.close", key: "Escape", label: "Close timeline filter", showInHelp: false, allowInEditable: true, run: onClose }],
+  });
 
   const toggle = (key: EventCategory) => {
     const next = new Set(enabledTypes);
@@ -496,6 +495,12 @@ function PersonFilter({
   contributors: string[];
 }) {
   const [open, setOpen] = useState(false);
+  useKeyboardShortcuts({
+    scope: "commit-detail",
+    priority: "overlay",
+    enabled: open,
+    shortcuts: [{ id: "commit-detail.close", key: "Escape", label: "Close commit detail", showInHelp: false, allowInEditable: true, run: () => setOpen(false) }],
+  });
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -655,17 +660,14 @@ function CommitSHA({ sha }: { sha: string }) {
         setOpen(false);
       }
     };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     const dismiss = (e: Event) => {
       if (popRef.current && popRef.current.contains(e.target as Node)) return;
       setOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
     document.addEventListener("scroll", dismiss, true);
     return () => {
       document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", keyHandler);
       document.removeEventListener("scroll", dismiss, true);
     };
   }, [open]);

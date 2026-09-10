@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useKeyboardShortcuts } from '../../keyboard';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -64,11 +65,15 @@ export default function Modal({
     [onClose]
   );
 
-  useEffect(() => {
-    if (!isOpen) return;
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleKeyDown]);
+  useKeyboardShortcuts({
+    scope: 'modal',
+    priority: 'overlay',
+    enabled: isOpen,
+    shortcuts: [
+      { id: 'modal.escape', key: 'Escape', label: 'Close modal', showInHelp: false, allowInEditable: true, run: handleKeyDown },
+      { id: 'modal.focus-trap', key: 'Tab', label: 'Move focus', showInHelp: false, allowInEditable: true, preventDefault: false, run: handleKeyDown },
+    ],
+  });
 
   useEffect(() => {
     if (isOpen) {

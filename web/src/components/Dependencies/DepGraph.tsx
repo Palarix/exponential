@@ -4,6 +4,7 @@ import type { DepGraph, GraphEdge } from './useDepGraph';
 import StatusIcon from '../ui/StatusIcon';
 import { Toggle, TopBar } from '../ui';
 import { truncate, edgePath } from './dep-graph-utils';
+import { useKeyboardShortcuts } from '../../keyboard';
 
 const NODE_WIDTH = 240;
 const NODE_HEIGHT = 56;
@@ -65,13 +66,11 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
     fitToScreen();
   }, [fitToScreen]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); onBack(); }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [onBack]);
+  useKeyboardShortcuts({
+    scope: 'dependency-graph',
+    priority: 'view',
+    shortcuts: [{ id: 'dependency-graph.back', key: 'Escape', label: 'Return to dependencies', group: 'Dependencies', run: onBack }],
+  });
 
   const handleWheel = useCallback((e: ReactWheelEvent) => {
     e.preventDefault();

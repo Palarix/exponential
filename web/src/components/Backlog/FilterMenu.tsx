@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useMemo, forwardRef } from "react";
+import { useState, useRef, useEffect, useMemo, forwardRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Issue } from "../../api/client";
 import { StatusIcon, LabelBadge, Avatar, PriorityIcon } from "../ui";
 import { ChevronRight } from "lucide-react";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import { getSelected, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
+import { useKeyboardHandler } from "../../keyboard";
 
 interface FilterMenuProps {
   issues: Issue[];
@@ -272,8 +273,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
   }, [onClose, anchorRef]);
 
   // Keyboard: Escape, arrow keys for main menu + sub-menu navigation
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+  const handleKeyboard = useCallback((e: KeyboardEvent) => {
       // Let typing work in the sub-menu search input, but still handle navigation keys
       const inInput = (e.target as HTMLElement)?.tagName === "INPUT";
       const navKey = e.key === "Escape" || e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ";
@@ -337,10 +337,21 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
         setInSubMenu(true);
         setSubFocusIndex(0);
       }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [openDim, onClose, inSubMenu, subFocusIndex]);
+    }, [openDim, onClose, inSubMenu, subFocusIndex]);
+
+  useKeyboardHandler({
+    scope: "filter-menu",
+    priority: "overlay",
+    handler: handleKeyboard,
+    shortcuts: ["Escape", "ArrowRight", "ArrowDown", "ArrowUp", "Enter", " "].map((key) => ({
+      id: `filter-menu.${key}`,
+      key,
+      label: key,
+      showInHelp: false,
+      allowInEditable: true,
+      preventDefault: false,
+    })),
+  });
 
   const handleToggle = (dim: Dimension, value: string) => {
     const isMulti = dim !== "epic";

@@ -25,6 +25,7 @@ import { isTerminal, isCompleted } from '../../constants';
 import { boardCollision } from './boardCollision';
 import { buildChildrenByParent } from '../../utils/issues';
 import { isEditableTarget } from '../../utils/keyboard';
+import { useKeyboardHandler } from '../../keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
 
@@ -324,8 +325,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     addDraft(issueId, "UPDATE", payload).then(() => onRefresh());
   }, [onRefresh, patchIssue]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+  const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (openPopoverRef.current) return;
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
@@ -412,10 +412,23 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
           return;
         }
       }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols, handleQuickUpdate]);
+    }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols, handleQuickUpdate]);
+
+  useKeyboardHandler({
+    scope: "board",
+    priority: "view",
+    handler: handleKeyboard,
+    shortcuts: [
+      ...["j", "ArrowDown", "k", "ArrowUp", "ArrowRight", "ArrowLeft", "Enter", ".", "s", "l", "e", "1", "2", "3", "4", "5", "6", "7"].map((key) => ({
+        id: `board.${key}`,
+        key,
+        label: key,
+        group: "Board",
+        showInHelp: !key.startsWith("Arrow"),
+        preventDefault: false,
+      })),
+    ],
+  });
 
   if (issues.length === 0) {
     return (

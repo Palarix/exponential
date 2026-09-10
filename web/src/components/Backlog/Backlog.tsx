@@ -60,6 +60,7 @@ import {
 import { BacklogGroupHeader } from "./BacklogGroupHeader";
 import { BacklogIssueRow } from "./BacklogIssueRow";
 import "./backlog-dnd.css";
+import { useKeyboardHandler } from "../../keyboard";
 
 export type Tab = "all" | "active" | "backlog" | "done";
 
@@ -1287,8 +1288,7 @@ export default function Backlog({
   const collapseAllNodesRef = useRef(collapseAllNodes);
   collapseAllNodesRef.current = collapseAllNodes;
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+  const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (openPopoverRef.current) return;
       if (isEditableTarget(e)) return;
       if (e.metaKey || e.ctrlKey) return;
@@ -1406,10 +1406,23 @@ export default function Backlog({
           return;
         }
       }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [showToast]);
+    }, [showToast]);
+
+  useKeyboardHandler({
+    scope: "backlog",
+    priority: "view",
+    handler: handleKeyboard,
+    shortcuts: [
+      ...["}", "{", "[", "]", "f", "/", "Escape", "j", "ArrowDown", "k", "ArrowUp", "Enter", "ArrowRight", "ArrowLeft", ".", "s", "l", "e", "p"].map((key) => ({
+        id: `backlog.${key}`,
+        key,
+        label: key,
+        group: "Backlog",
+        showInHelp: key !== "Escape" && !key.startsWith("Arrow"),
+        preventDefault: false,
+      })),
+    ],
+  });
 
   const issuesRef = useRef(issues);
   issuesRef.current = issues;
