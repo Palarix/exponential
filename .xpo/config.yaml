@@ -1,10 +1,18 @@
-prefix: xpo-
+name: exponential
+prefix: xpo
+default_branch: main
 version: 3
+worktrees: true
 estimation_system: fibonacci
 count_unestimated: true
 automations:
     first_start: true
     last_completed: true
+default_labels:
+    - bug
+    - feature
+    - epic
+    - improvement
 labels:
     bug: "#eb5757"
     feature: "#b36cd9"
@@ -18,3 +26,11 @@ cycles:
     enabled: true
     duration: 2w
     start_day: monday
+drive:
+    supervisor:
+        agent: claude
+        model: sonnet
+    coder:
+        agent: claude
+    max_retries: 3
+    timeout: 30m

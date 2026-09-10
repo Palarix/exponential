@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
 - Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
 - `xpo init` flags: `--yes`, `--prefix`, `--agents`, `--force` for non-interactive/CI use (xpo-76e2a1)
-- Version stamping: `integration_version` in config, version + hash in managed block markers (xpo-76e2a1)
+- Version stamping in managed block markers — integration version derived from blocks, not stored in config (xpo-76e2a1)
 - Re-init intelligence: up-to-date one-liner, stale version diffs, downgrade protection, edited-block detection (xpo-76e2a1)
 - `charmbracelet/huh` dependency for multi-select and select prompts (xpo-76e2a1)
 - 53 new tests: managed blocks, health checks, doctor scenarios, version comparison (xpo-76e2a1)

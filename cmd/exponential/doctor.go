@@ -64,10 +64,7 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 		if cfg != nil && cfg.Prefix != "" {
 			prefix = cfg.Prefix
 		}
-		integrationVer := ""
-		if cfg != nil {
-			integrationVer = cfg.IntegrationVersion
-		}
+		integrationVer := exponential.DetectIntegrationVersion()
 
 		counts := &doctorCounts{}
 		var localFixes []string

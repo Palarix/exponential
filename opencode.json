@@ -1,0 +1,11 @@
+{
+  "mcp": {
+    "xpo": {
+      "command": [
+        "xpo",
+        "mcp"
+      ],
+      "type": "local"
+    }
+  }
+}

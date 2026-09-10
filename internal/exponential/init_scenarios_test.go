@@ -46,13 +46,10 @@ func TestScenario_Init_CleanProject(t *testing.T) {
 		t.Fatal(".gitattributes missing merge=union rule")
 	}
 
-	// Config should store the bare prefix and integration_version
+	// Config should store the bare prefix
 	configContent, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
 	if !strings.Contains(string(configContent), "prefix: test") {
 		t.Fatal("config should contain bare prefix")
-	}
-	if !strings.Contains(string(configContent), "integration_version:") {
-		t.Fatal("config should contain integration_version")
 	}
 }
 
@@ -318,7 +315,7 @@ func TestScenario_InitSkill_Clean(t *testing.T) {
 
 	content, _ := os.ReadFile("CLAUDE.md")
 	s := string(content)
-	if !strings.Contains(s, "# Agent Instructions") {
+	if !strings.Contains(s, "## Exponential (xpo)") {
 		t.Fatal("CLAUDE.md missing agent instructions")
 	}
 	if !strings.Contains(s, "`test`") {
@@ -388,7 +385,7 @@ func TestScenario_InitSkill_ExistingFile_NoXpoSection(t *testing.T) {
 	if !strings.Contains(s, "## Build Instructions") {
 		t.Fatal("user's build section was lost")
 	}
-	if !strings.Contains(s, "# Agent Instructions") {
+	if !strings.Contains(s, "## Exponential (xpo)") {
 		t.Fatal("agent instructions not appended")
 	}
 	if !strings.Contains(s, "`myproject`") {
@@ -487,7 +484,7 @@ func TestScenario_InitSkill_ManagedBlock_EditedByHand(t *testing.T) {
 
 	// Simulate hand-edit: modify the managed block content
 	content, _ := os.ReadFile("CLAUDE.md")
-	modified := strings.Replace(string(content), "# Agent Instructions", "# My Custom Instructions", 1)
+	modified := strings.Replace(string(content), "## Exponential (xpo)", "# My Custom Instructions", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
 	// Verify the block is detected as edited

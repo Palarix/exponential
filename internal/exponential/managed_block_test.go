@@ -11,7 +11,7 @@ func TestFindManagedBlock_Markdown(t *testing.T) {
 Custom docs here.
 
 <!-- xpo:begin 1.2.1 sha256:abc123def456 -->
-# Agent Instructions
+## Exponential (xpo)
 
 Some managed content.
 <!-- xpo:end -->
@@ -28,7 +28,7 @@ More user content below.
 	if block.Hash != "abc123def456" {
 		t.Fatalf("expected hash abc123def456, got %s", block.Hash)
 	}
-	if !strings.Contains(block.Content, "# Agent Instructions") {
+	if !strings.Contains(block.Content, "## Exponential (xpo)") {
 		t.Fatal("content should contain the heading")
 	}
 	if !strings.Contains(block.Content, "Some managed content.") {

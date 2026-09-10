@@ -114,7 +114,7 @@ func TestAppendAgentInstructions_CreatesNew(t *testing.T) {
 
 	content, _ := os.ReadFile("TEST.md")
 	s := string(content)
-	if !strings.Contains(s, "# Agent Instructions") {
+	if !strings.Contains(s, "## Exponential (xpo)") {
 		t.Fatal("expected new heading in created file")
 	}
 	if !strings.Contains(s, "`test-`") {
@@ -147,7 +147,7 @@ func TestAppendAgentInstructions_ReplacesLegacy(t *testing.T) {
 	if strings.Contains(s, "# Exponential Agent Instructions") {
 		t.Fatal("expected legacy heading to be replaced")
 	}
-	if !strings.Contains(s, "# Agent Instructions") {
+	if !strings.Contains(s, "## Exponential (xpo)") {
 		t.Fatal("expected new heading after replacement")
 	}
 	if !strings.Contains(s, "xpo") {
@@ -204,14 +204,14 @@ func TestAppendAgentInstructions_AppendsToFileWithoutSection(t *testing.T) {
 	if !strings.Contains(s, "# My Project") {
 		t.Fatal("expected existing content to be preserved")
 	}
-	if !strings.Contains(s, "# Agent Instructions") {
+	if !strings.Contains(s, "## Exponential (xpo)") {
 		t.Fatal("expected agent instructions to be appended")
 	}
 }
 
 func TestGenerateAgentStub_UsesNewHeading(t *testing.T) {
 	stub := GenerateAgentStub("test-")
-	if !strings.HasPrefix(stub, "# Agent Instructions") {
+	if !strings.HasPrefix(stub, "## Exponential (xpo)") {
 		t.Fatalf("expected stub to start with '# Agent Instructions', got: %s", stub[:50])
 	}
 	if strings.Contains(stub, "Exponential Agent Instructions") {

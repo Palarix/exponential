@@ -292,7 +292,6 @@ func applyInit(prefix string, agents []exponential.AgentConfig) {
 		}
 	}
 
-	updateIntegrationVersion()
 }
 
 func handleEditedBlock(agent exponential.AgentConfig, prefix string) {
@@ -366,7 +365,7 @@ func runReinit(interactive bool) {
 	}
 
 	prefix := freshCfg.Prefix
-	integrationVer := freshCfg.IntegrationVersion
+	integrationVer := exponential.DetectIntegrationVersion()
 
 	// Case C: Older binary — never downgrade
 	if integrationVer != "" && version.CompareVersions(integrationVer, version.CLIVersion) > 0 {
@@ -484,33 +483,6 @@ func runReinit(interactive bool) {
 	fmt.Printf("  Commit the update:  git commit -am \"Update xpo integrations to %s\"\n\n", version.CLIVersion)
 }
 
-func updateIntegrationVersion() {
-	path := ".xpo/config.yaml"
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
-
-	lines := strings.Split(string(content), "\n")
-	found := false
-	for i, line := range lines {
-		if strings.HasPrefix(line, "integration_version:") {
-			lines[i] = fmt.Sprintf("integration_version: \"%s\"", version.CLIVersion)
-			found = true
-			break
-		}
-	}
-	if !found {
-		for i, line := range lines {
-			if strings.HasPrefix(line, "version:") {
-				rest := append([]string{fmt.Sprintf("integration_version: \"%s\"", version.CLIVersion)}, lines[i+1:]...)
-				lines = append(lines[:i+1], rest...)
-				break
-			}
-		}
-	}
-	os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0644)
-}
 
 func contains(slice []string, val string) bool {
 	for _, s := range slice {
