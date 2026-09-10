@@ -60,7 +60,6 @@ type Config struct {
 	Worktrees          bool              `mapstructure:"worktrees" yaml:"worktrees"`
 	WorktreeSetup      string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
 	DefaultBranch      string            `mapstructure:"default_branch" yaml:"default_branch,omitempty"`
-	IntegrationVersion string            `mapstructure:"integration_version" yaml:"integration_version,omitempty"`
 }
 
 type DriveConfig struct {

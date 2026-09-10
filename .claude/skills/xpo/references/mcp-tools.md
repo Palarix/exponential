@@ -17,4 +17,5 @@ may use different naming conventions). The table uses the base tool names.
 | `history` | View the audit trail for an issue |
 | `spec` | Read, write, or delete the design spec for an issue |
 | `walkthrough` | Read, write, or delete the implementation walkthrough for an issue |
+| `rationale` | Search across specs and walkthroughs for prior design decisions related to a topic |
 | `artifact` | Manage generic artifacts attached to an issue |

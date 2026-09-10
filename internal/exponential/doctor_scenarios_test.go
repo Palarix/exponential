@@ -98,7 +98,7 @@ func TestDoctor_ManagedBlock_Edited(t *testing.T) {
 	AppendAgentInstructions(testClaudeCode, "test")
 
 	content, _ := os.ReadFile("CLAUDE.md")
-	modified := strings.Replace(string(content), "# Agent Instructions", "# My Custom Instructions", 1)
+	modified := strings.Replace(string(content), "## Exponential (xpo)", "# My Custom Instructions", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
 	modContent, _ := os.ReadFile("CLAUDE.md")
@@ -323,7 +323,7 @@ func TestDoctor_WriteInstructions_SkipsEditedBlock(t *testing.T) {
 
 	// Edit the managed block
 	content, _ := os.ReadFile("CLAUDE.md")
-	modified := strings.Replace(string(content), "# Agent Instructions", "# Custom Agent Instructions", 1)
+	modified := strings.Replace(string(content), "## Exponential (xpo)", "# Custom Agent Instructions", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
 	// Write without force should skip
@@ -351,7 +351,7 @@ func TestDoctor_WriteInstructions_ForceOverwritesEditedBlock(t *testing.T) {
 
 	// Edit the managed block
 	content, _ := os.ReadFile("CLAUDE.md")
-	modified := strings.Replace(string(content), "# Agent Instructions", "# Custom Agent Instructions", 1)
+	modified := strings.Replace(string(content), "## Exponential (xpo)", "# Custom Agent Instructions", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
 	// Write with force should overwrite
@@ -368,7 +368,7 @@ func TestDoctor_WriteInstructions_ForceOverwritesEditedBlock(t *testing.T) {
 	if strings.Contains(string(afterContent), "# Custom Agent Instructions") {
 		t.Fatal("edited content should be replaced on force")
 	}
-	if !strings.Contains(string(afterContent), "# Agent Instructions") {
+	if !strings.Contains(string(afterContent), "## Exponential (xpo)") {
 		t.Fatal("standard content should be present after force")
 	}
 }
@@ -403,15 +403,20 @@ func TestDoctor_Prefix_InstructionsUseCorrectFormat(t *testing.T) {
 
 // --- Version stamping ---
 
-func TestDoctor_VersionStamp_SetOnInit(t *testing.T) {
+func TestDoctor_VersionStamp_InManagedBlock(t *testing.T) {
 	setupProject(t, "test")
+	AppendAgentInstructions(testClaudeCode, "test")
 
-	configContent, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
-	if !strings.Contains(string(configContent), "integration_version:") {
-		t.Fatal("config should contain integration_version")
+	// Version should be readable from the managed block, not config
+	ver := DetectIntegrationVersion()
+	if ver != version.CLIVersion {
+		t.Fatalf("expected integration version %s from managed block, got %q", version.CLIVersion, ver)
 	}
-	if !strings.Contains(string(configContent), version.CLIVersion) {
-		t.Fatalf("config should contain current CLI version %s", version.CLIVersion)
+
+	// Config should NOT contain integration_version
+	configContent, _ := os.ReadFile(filepath.Join(".xpo", "config.yaml"))
+	if strings.Contains(string(configContent), "integration_version") {
+		t.Fatal("config should not contain integration_version — version lives in managed blocks")
 	}
 }
 

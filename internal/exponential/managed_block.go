@@ -3,6 +3,7 @@ package exponential
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -119,4 +120,21 @@ func WrapManagedBlock(content string, version string, format string) string {
 func ReplaceManagedBlock(fileContent string, block *ManagedBlock, newContent string, version string, format string) string {
 	wrapped := WrapManagedBlock(newContent, version, format)
 	return fileContent[:block.Start] + wrapped + fileContent[block.End:]
+}
+
+// DetectIntegrationVersion reads the version from the first managed block found
+// across the agent instruction files in the project. Returns empty string if
+// no managed block exists (fresh project or pre-managed-block era).
+func DetectIntegrationVersion() string {
+	for _, agent := range AgentRegistry {
+		content, err := os.ReadFile(agent.File)
+		if err != nil {
+			continue
+		}
+		block := FindManagedBlock(string(content), agent.Format)
+		if block != nil && block.Version != "" {
+			return block.Version
+		}
+	}
+	return ""
 }

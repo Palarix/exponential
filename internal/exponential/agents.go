@@ -54,23 +54,23 @@ type AgentDetectionResult struct {
 	HasExponentialConfig bool
 }
 
-const (
-	agentInstructionsHeading    = "# Agent Instructions"
-	oldAgentInstructionsHeading = "# Exponential Agent Instructions"
-)
+var legacyHeadings = []string{
+	"## Exponential (xpo)",
+	"# Agent Instructions",
+	"# Exponential Agent Instructions",
+}
 
-// HasAgentInstructions checks whether content contains an agent instructions section
-// (either the current or legacy heading).
+// HasAgentInstructions checks whether content contains an xpo instructions section
+// (current or any legacy heading).
 func HasAgentInstructions(content string) bool {
 	return findAgentInstructionsOffset(content) != -1
 }
 
 func findAgentInstructionsOffset(content string) int {
-	if idx := strings.Index(content, oldAgentInstructionsHeading); idx != -1 {
-		return idx
-	}
-	if idx := strings.Index(content, agentInstructionsHeading); idx != -1 {
-		return idx
+	for _, heading := range legacyHeadings {
+		if idx := strings.Index(content, heading); idx != -1 {
+			return idx
+		}
 	}
 	return -1
 }
@@ -115,14 +115,14 @@ func DetectAgentFiles() []AgentDetectionResult {
 // GenerateAgentStub generates the thin always-on stub for agent instruction files.
 // This contains only hard invariants and a directive to load the xpo skill.
 func GenerateAgentStub(prefix string) string {
-	return `# Agent Instructions
+	return `## Exponential (xpo)
 
 This project uses ` + "`xpo`" + ` (Exponential) via the MCP server registered in ` + "`.mcp.json`" + `.
 Always use the MCP tools — never shell out to the ` + "`xpo`" + ` CLI.
 
 Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`" + prefix + "-a1b2c3`" + `).
 
-## Hard Rules
+### Hard Rules
 
 1. Every code change must be backed by an xpo issue transitioned to DOING before any file is modified.
 2. Never start work on a BACKLOG issue without explicit user approval to transition it.
@@ -130,7 +130,7 @@ Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`
 4. Before beginning any implementation task, load the ` + "`xpo`" + ` skill and follow it.
 5. If an MCP tool call fails, report the error to the user. Never fall back to the CLI.
 
-## Agent Identity
+### Agent Identity
 
 Set the ` + "`assignee`" + ` field to yourself when transitioning an issue to DOING. Use the form
 ` + "`<Agent Name> <agent@<host>.local>`" + ` — e.g. ` + "`Claude Code <agent@macbook.local>`" + `.
@@ -141,7 +141,7 @@ Set the ` + "`assignee`" + ` field to yourself when transitioning an issue to DO
 // This is the complete document combining stub + workflow + references inline.
 func GenerateAgentDocs(prefix string) string {
 	return GenerateAgentStub(prefix) + `
-## Workflow
+### Workflow
 
 Use the ` + "`xpo`" + ` MCP tools and follow this workflow when working on ` + "`xpo`" + ` issues:
 
