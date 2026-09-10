@@ -1413,12 +1413,16 @@ export default function Backlog({
     priority: "view",
     handler: handleKeyboard,
     shortcuts: [
-      ...["}", "{", "[", "]", "f", "/", "Escape", "j", "ArrowDown", "k", "ArrowUp", "Enter", "ArrowRight", "ArrowLeft", ".", "s", "l", "e", "p"].map((key) => ({
-        id: `backlog.${key}`,
-        key,
-        label: key,
+      ...[
+        ["}", "Expand all parents"], ["{", "Collapse all parents"], ["[", "Previous tab"], ["]", "Next tab"],
+        ["f", "Toggle filters"], ["/", "Focus search"], ["Escape", "Close menu"], ["j", "Next issue"],
+        ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
+        ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"],
+      ].map(([key, label]) => ({
+        id: `backlog.${key}`, key, label,
         group: "Backlog",
-        showInHelp: key !== "Escape" && !key.startsWith("Arrow"),
+        showInHelp: key !== "Escape",
         preventDefault: false,
       })),
     ],

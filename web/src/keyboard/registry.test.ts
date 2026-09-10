@@ -61,6 +61,30 @@ describe("KeyboardRegistry", () => {
     expect(view).not.toHaveBeenCalled();
   });
 
+  it("keeps underlying shortcuts visible while an overlay blocks their execution", () => {
+    const registry = new KeyboardRegistry();
+    const navigate = vi.fn();
+    add(registry, {
+      scope: "global.navigation",
+      priority: "global",
+      shortcuts: [{ id: "nav.issues", key: ["g", "i"], label: "Go to Issues", run: navigate }],
+    });
+    add(registry, {
+      scope: "overlay.keyboard-help",
+      priority: "overlay",
+      shortcuts: [{ id: "help.close", key: "Escape", label: "Close help", run: vi.fn() }],
+    });
+
+    expect(registry.getSnapshot()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "nav.issues", key: ["g", "i"] }),
+    ]));
+
+    registry.dispatch(keyboardEvent("g"));
+    registry.dispatch(keyboardEvent("i"));
+
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it("honors enabled state, modifiers, editable guards, and cleanup", () => {
     const registry = new KeyboardRegistry();
     const run = vi.fn();

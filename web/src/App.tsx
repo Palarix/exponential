@@ -216,15 +216,15 @@ function App() {
     scope: 'global.palette',
     priority: 'global',
     shortcuts: [
-      { id: 'palette.meta', key: 'k', label: 'Open command palette', group: 'Global', modifiers: { meta: true }, run: () => setShowPalette(true) },
-      { id: 'palette.ctrl', key: 'k', label: 'Open command palette', group: 'Global', modifiers: { ctrl: true }, showInHelp: false, run: () => setShowPalette(true) },
+      { id: 'palette.meta', key: 'k', label: 'Open command palette', group: 'Global', modifiers: { meta: true }, showInHelp: navigator.platform.includes('Mac'), run: () => setShowPalette(true) },
+      { id: 'palette.ctrl', key: 'k', label: 'Open command palette', group: 'Global', modifiers: { ctrl: true }, showInHelp: !navigator.platform.includes('Mac'), run: () => setShowPalette(true) },
     ],
   });
 
   useKeyboardShortcuts({
     scope: 'global.navigation',
     priority: 'global',
-    enabled: !showPalette && !showNewIssue && !showKeyboardHelp,
+    enabled: !showPalette && !showNewIssue,
     shortcuts: [
       { id: 'issue.create', key: 'c', label: 'Create new issue', group: 'Global', run: () => setShowNewIssue(true) },
       ...Object.entries(GO_TARGETS).map(([key, target]) => ({

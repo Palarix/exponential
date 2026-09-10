@@ -419,12 +419,15 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     priority: "view",
     handler: handleKeyboard,
     shortcuts: [
-      ...["j", "ArrowDown", "k", "ArrowUp", "ArrowRight", "ArrowLeft", "Enter", ".", "s", "l", "e", "1", "2", "3", "4", "5", "6", "7"].map((key) => ({
-        id: `board.${key}`,
-        key,
-        label: key,
+      ...[
+        ["j", "Next card"], ["ArrowDown", "Next card"], ["k", "Previous card"], ["ArrowUp", "Previous card"],
+        ["ArrowRight", "Next column"], ["ArrowLeft", "Previous column"], ["Enter", "Open issue"], [".", "Copy issue ID"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["1", "Move to Backlog"],
+        ["2", "Move to Planned"], ["3", "Move to In Progress"], ["4", "Move to Blocked"], ["5", "Move to Done"],
+        ["6", "Move to Canceled"], ["7", "Move to Duplicate"],
+      ].map(([key, label]) => ({
+        id: `board.${key}`, key, label,
         group: "Board",
-        showInHelp: !key.startsWith("Arrow"),
         preventDefault: false,
       })),
     ],
