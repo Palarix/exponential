@@ -1,3 +1,27 @@
 [mcp_servers.xpo]
 command = "xpo"
 args = ["mcp"]
+
+[mcp_servers.xpo.tools.list]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.show]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.spec]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.rationale]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.update]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.start]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.comment]
+approval_mode = "approve"
+
+[mcp_servers.xpo.tools.link]
+approval_mode = "approve"
