@@ -308,7 +308,7 @@ func snapToWorkWeek(events []model.Event) []model.Event {
 
 func writeConfig(xpoDir string) error {
 	cfg := `name: Upurr Eats
-prefix: upe-
+prefix: upe
 version: 3
 estimation_system: fibonacci
 count_unestimated: true

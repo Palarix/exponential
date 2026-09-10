@@ -308,7 +308,7 @@ func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	prefix := "issue-"
+	prefix := "issue"
 	if s.Config.Prefix != "" {
 		prefix = s.Config.Prefix
 	}

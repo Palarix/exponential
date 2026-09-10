@@ -50,8 +50,8 @@ func (t *LocalTransport) resolveIssue(issues map[string]*model.Issue, id string)
 		return issue, nil
 	}
 
-	if t.Config.Prefix != "" && !strings.HasPrefix(id, t.Config.Prefix) {
-		prefixedID := t.Config.Prefix + id
+	if t.Config.Prefix != "" && !strings.HasPrefix(id, t.Config.Prefix+"-") {
+		prefixedID := t.Config.Prefix + "-" + id
 		if issue, exists := issues[prefixedID]; exists {
 			return issue, nil
 		}

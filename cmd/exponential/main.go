@@ -14,12 +14,18 @@ var cfg *config.Config
 
 var rootCmd = &cobra.Command{
 	Use:   "xpo",
-	Short: "The git-native engineering system for human-AI teams",
+	Short: ui.Tagline,
+	Run: func(cmd *cobra.Command, args []string) {
+		if _, err := os.Stat(".xpo"); os.IsNotExist(err) {
+			printNotAProject()
+			return
+		}
+		cmd.Help()
+	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
 		cfg, err = config.LoadConfig()
 		if err != nil {
-			// If config fails to load, we only allow certain commands (and their subcommands)
 			allowed := []string{"init", "help", "version", "doctor", "login", "logout", "whoami", "demo"}
 			if commandOrAncestorAllowed(cmd, allowed) {
 				return nil
@@ -32,11 +38,15 @@ var rootCmd = &cobra.Command{
 			ui.SetLabelColors(cfg.Labels)
 		}
 
-		// Check Data Model Version
-		// Exceptions: commands that don't need strict version match or are used to fix it
 		exceptions := []string{"init", "help", "version", "doctor", "migrate", "login", "logout", "whoami", "serve", "demo"}
 		if commandOrAncestorAllowed(cmd, exceptions) {
 			return nil
+		}
+
+		// No project — show the branded welcome and stop
+		if _, err := os.Stat(".xpo"); os.IsNotExist(err) {
+			printNotAProject()
+			os.Exit(0)
 		}
 
 		if cfg.Version < version.DataModelVersion {
@@ -57,9 +67,13 @@ func main() {
 	}
 }
 
-// commandOrAncestorAllowed checks whether the command or any of its ancestors
-// is in the allowed list. This ensures subcommands of allowed commands (e.g.
-// "xpo init mcp", "xpo init skill") are also allowed.
+func printNotAProject() {
+	fmt.Printf("\n%s\n", ui.Banner())
+	fmt.Printf("\nThis directory isn't an Exponential project yet.\n\n")
+	fmt.Printf("  xpo init    Set up Exponential here\n")
+	fmt.Printf("  xpo help    Show all commands\n\n")
+}
+
 func commandOrAncestorAllowed(cmd *cobra.Command, allowed []string) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		for _, a := range allowed {

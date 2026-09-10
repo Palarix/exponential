@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/palarix/exponential/internal/version"
 )
 
 // MCPConfigSpec defines how a harness expects its MCP server configuration.
@@ -118,7 +120,7 @@ func GenerateAgentStub(prefix string) string {
 This project uses ` + "`xpo`" + ` (Exponential) via the MCP server registered in ` + "`.mcp.json`" + `.
 Always use the MCP tools — never shell out to the ` + "`xpo`" + ` CLI.
 
-Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`" + prefix + "a1b2c3`" + `).
+Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`" + prefix + "-a1b2c3`" + `).
 
 ## Hard Rules
 
@@ -714,11 +716,30 @@ func AgentRegistryNames() []string {
 	return names
 }
 
-// AppendAgentInstructions writes xpo instructions to an agent file.
-// If the file already contains an agent instructions section (current or legacy heading),
-// that section is replaced in place. Otherwise the instructions are appended.
+// InstructionWriteResult describes what happened when writing agent instructions.
+type InstructionWriteResult struct {
+	Action      string // "created", "appended", "updated", "skipped"
+	WasEdited   bool   // true if the existing managed block had local edits (hash mismatch)
+	OldContent  string // previous managed block content (for diff display)
+	NewContent  string // new managed block content
+}
+
+// AppendAgentInstructions writes xpo instructions to an agent file using managed blocks.
+// If the file already contains a managed block, it is replaced. If a legacy heading-based
+// section exists (no markers), it is migrated to a managed block. Otherwise the block is appended.
 // For agents with skill support, writes the thin stub; otherwise writes the full docs.
 func AppendAgentInstructions(agent AgentConfig, prefix string) error {
+	res, _ := WriteAgentInstructions(agent, prefix, false)
+	if res.Action == "skipped" {
+		return fmt.Errorf("managed block has local edits (use force to overwrite)")
+	}
+	return nil
+}
+
+// WriteAgentInstructions writes xpo instructions and returns detailed result.
+// When force is false and the managed block has been edited, it returns a result
+// with Action="skipped" and WasEdited=true so the caller can prompt the user.
+func WriteAgentInstructions(agent AgentConfig, prefix string, force bool) (InstructionWriteResult, error) {
 	var xpoSection string
 	if agent.SkillDir != "" {
 		xpoSection = GenerateAgentStub(prefix)
@@ -726,39 +747,73 @@ func AppendAgentInstructions(agent AgentConfig, prefix string) error {
 		xpoSection = GenerateAgentDocs(prefix)
 	}
 
+	cliVersion := version.CLIVersion
+
 	if agent.NeedsDir {
 		dir := filepath.Dir(agent.File)
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("could not create directory %s: %w", dir, err)
+			return InstructionWriteResult{}, fmt.Errorf("could not create directory %s: %w", dir, err)
 		}
 	}
 
 	content, err := os.ReadFile(agent.File)
 	if os.IsNotExist(err) {
-		return os.WriteFile(agent.File, []byte(xpoSection), 0644)
+		wrapped := WrapManagedBlock(xpoSection, cliVersion, agent.Format)
+		if err := os.WriteFile(agent.File, []byte(wrapped+"\n"), 0644); err != nil {
+			return InstructionWriteResult{}, err
+		}
+		return InstructionWriteResult{Action: "created", NewContent: xpoSection}, nil
 	}
 	if err != nil {
-		return fmt.Errorf("could not read %s: %w", agent.File, err)
+		return InstructionWriteResult{}, fmt.Errorf("could not read %s: %w", agent.File, err)
 	}
 
 	s := string(content)
+
+	// Check for existing managed block
+	if block := FindManagedBlock(s, agent.Format); block != nil {
+		if BlockWasEdited(block) && !force {
+			return InstructionWriteResult{
+				Action:     "skipped",
+				WasEdited:  true,
+				OldContent: block.Content,
+				NewContent: xpoSection,
+			}, nil
+		}
+		result := ReplaceManagedBlock(s, block, xpoSection, cliVersion, agent.Format)
+		if err := os.WriteFile(agent.File, []byte(result), 0644); err != nil {
+			return InstructionWriteResult{}, err
+		}
+		return InstructionWriteResult{Action: "updated", NewContent: xpoSection}, nil
+	}
+
+	// Legacy migration: heading-based section without managed block markers
 	if idx := findAgentInstructionsOffset(s); idx != -1 {
 		before := strings.TrimRight(s[:idx], " \t\n")
 		if before != "" {
 			before += "\n\n"
 		}
-		return os.WriteFile(agent.File, []byte(before+xpoSection), 0644)
+		wrapped := WrapManagedBlock(xpoSection, cliVersion, agent.Format)
+		if err := os.WriteFile(agent.File, []byte(before+wrapped+"\n"), 0644); err != nil {
+			return InstructionWriteResult{}, err
+		}
+		return InstructionWriteResult{Action: "updated", NewContent: xpoSection}, nil
 	}
 
+	// No existing section — append
+	wrapped := WrapManagedBlock(xpoSection, cliVersion, agent.Format)
 	f, err := os.OpenFile(agent.File, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("could not open %s: %w", agent.File, err)
+		return InstructionWriteResult{}, fmt.Errorf("could not open %s: %w", agent.File, err)
 	}
 	defer f.Close()
 
 	if !strings.HasSuffix(s, "\n") {
 		f.WriteString("\n")
 	}
-	_, err = f.WriteString("\n" + xpoSection)
-	return err
+	_, err = f.WriteString("\n" + wrapped + "\n")
+	if err != nil {
+		return InstructionWriteResult{}, err
+	}
+	return InstructionWriteResult{Action: "appended", NewContent: xpoSection}, nil
 }

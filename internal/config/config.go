@@ -56,10 +56,11 @@ type Config struct {
 	Contributors      []string          `mapstructure:"contributors" yaml:"contributors"`
 	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
 	Permissions       PermissionsConfig `mapstructure:"permissions" yaml:"permissions,omitempty"`
-	Drive             DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
-	Worktrees         bool              `mapstructure:"worktrees" yaml:"worktrees"`
-	WorktreeSetup     string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
-	DefaultBranch     string            `mapstructure:"default_branch" yaml:"default_branch,omitempty"`
+	Drive              DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
+	Worktrees          bool              `mapstructure:"worktrees" yaml:"worktrees"`
+	WorktreeSetup      string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
+	DefaultBranch      string            `mapstructure:"default_branch" yaml:"default_branch,omitempty"`
+	IntegrationVersion string            `mapstructure:"integration_version" yaml:"integration_version,omitempty"`
 }
 
 type DriveConfig struct {
@@ -393,7 +394,7 @@ func LoadConfig() (*Config, error) {
 	v := viper.New()
 
 	// Default values
-	v.SetDefault("prefix", "issue-")
+	v.SetDefault("prefix", "issue")
 	v.SetDefault("user", "")
 	v.SetDefault("editor", os.Getenv("EDITOR"))
 	if v.GetString("editor") == "" {
@@ -480,6 +481,9 @@ func LoadConfig() (*Config, error) {
 			}
 		}
 	}
+
+	// Normalize prefix: strip trailing separator so it's stored bare
+	cfg.Prefix = strings.TrimSuffix(cfg.Prefix, "-")
 
 	if len(cfg.DefaultLabels) == 0 {
 		cfg.DefaultLabels = BuiltinLabelOrder

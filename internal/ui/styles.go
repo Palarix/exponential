@@ -244,7 +244,20 @@ var (
 	warnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#eab308"))
 	errStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#ef4444"))
 
+	infoStyle = lipgloss.NewStyle().Foreground(MutedColor)
+
 	ErrorPrefix = errStyle.Render("✗")
 	OKPrefix    = okStyle.Render("✓")
 	NotePrefix  = warnStyle.Render("!")
+	InfoPrefix  = infoStyle.Render("·")
 )
+
+// Tagline is the single canonical brand tagline used across all CLI output.
+const Tagline = "The software engineering system for human-agent teams"
+
+// Banner renders the branded header line: "Exponential · <tagline>"
+func Banner() string {
+	name := lipgloss.NewStyle().Foreground(AccentColor).Render("Exponential")
+	sep := MutedStyle.Render("·")
+	return name + " " + sep + " " + Tagline
+}
