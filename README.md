@@ -4,7 +4,7 @@
 
 Decompose problems into small, precise specs your agents can actually nail — then run the whole lifecycle, from planning to shipping, in your repo. One binary. Git-native. Bring your own agents.
 
-![Exponential dashboard showing velocity, cycle time, and agent activity](docs/screenshot.png)
+![Exponential screenshots showing user interface](docs/screenshot.webp)
 
 ## Get started
 
