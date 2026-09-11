@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
-import { TopBar } from '../ui';
+import { TopBar, IconButton } from '../ui';
 import {
   DndContext,
   DragOverlay,
@@ -463,12 +463,10 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
         right={
           <span className="flex items-center gap-2">
             <div className="relative" ref={viewMenuRef}>
-              <button
+              <IconButton
                 onClick={() => setShowViewMenu(v => !v)}
-                className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-              >
-                <Settings2 size={14} />
-              </button>
+                icon={<Settings2 size={14} />}
+              />
               {showViewMenu && (
                 <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
                   <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">

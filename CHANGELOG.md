@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Control-priority shortcuts fold into the active view's group in the keyboard help overlay instead of creating separate sections (xpo-d47781)
 - Keyboard system architecture design document (`design-docs/keyboard-system.md`) (xpo-d47781)
 - Shared `SearchInput` component with `/` focus and `Esc` clear via the shortcut registry; Backlog and Dependencies migrated (xpo-ef6602)
+- Shared `IconButton` component for toolbar actions with built-in tooltip and active-indicator dot; 6 instances across Backlog, Board, Inbox, MyIssues, and Timeline migrated (xpo-4235c6)
 - `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
 - Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
