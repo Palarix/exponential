@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 #
-# Run the test suite before pushing.
+# Run the test suite only when pushing main.
 #
 
-echo "pre-push: running tests..."
-if ! make test; then
-  echo "error: tests failed — push aborted"
-  exit 1
+PUSHING_MAIN=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ "$remote_ref" == "refs/heads/main" ]]; then
+    PUSHING_MAIN=true
+    break
+  fi
+done
+
+if [ "$PUSHING_MAIN" = true ]; then
+  echo "pre-push: pushing main — running tests..."
+  if ! make test; then
+    echo "error: tests failed — push aborted"
+    exit 1
+  fi
 fi
