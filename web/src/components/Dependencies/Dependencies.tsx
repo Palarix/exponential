@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Issue } from '../../api/client';
 import { LabelBadge, Toggle, TopBar } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
 import { kindColor } from './dep-graph-utils';
-import { useKeyboardShortcuts } from '../../keyboard';
+import { SearchInput } from '../ui/SearchInput';
 
 const KIND_LABELS: Record<string, string> = {
   blocks: 'Blocks',
@@ -166,14 +166,6 @@ function TableView({
     return filtered;
   }, [issues, issueMap, showCompleted, kindFilter, search]);
 
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  useKeyboardShortcuts({
-    scope: 'dependencies',
-    priority: 'view',
-    shortcuts: [{ id: 'dependencies.search', key: '/', label: 'Focus search', group: 'Dependencies', run: () => searchRef.current?.focus() }],
-  });
-
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -189,28 +181,11 @@ function TableView({
           </div>
         }
         center={
-          <div className="relative w-full max-w-md">
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search dependencies..."
-              value={search}
-              onChange={e => onSearchChange(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Escape') {
-                  onSearchChange('');
-                  searchRef.current?.blur();
-                }
-              }}
-              className="text-sm h-8 pl-8 pr-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]"
-            />
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded px-1 py-0.5 leading-none pointer-events-none">
-              {search ? 'Esc' : '/'}
-            </kbd>
-          </div>
+          <SearchInput
+            value={search}
+            onChange={onSearchChange}
+            placeholder="Search dependencies..."
+          />
         }
         right={
           <div className="flex items-center gap-3">

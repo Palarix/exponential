@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared `Tabs<T>` component with `[`/`]` keyboard cycling via the shortcut registry; Backlog and My Issues migrated, removing duplicated tab markup (xpo-d47781)
 - Control-priority shortcuts fold into the active view's group in the keyboard help overlay instead of creating separate sections (xpo-d47781)
 - Keyboard system architecture design document (`design-docs/keyboard-system.md`) (xpo-d47781)
+- Shared `SearchInput` component with `/` focus and `Esc` clear via the shortcut registry; Backlog and Dependencies migrated (xpo-ef6602)
 - `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
 - Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- TopBar center slot now stays truly centered regardless of left/right content width changes (xpo-c078b7)
 - MergeView "Files changed" badge now reflects the active scope — shows uncommitted file count when viewing uncommitted changes instead of always showing 0 (xpo-54a423)
 - "All Changes" view falls back to uncommitted diffs when there are no commits yet, instead of showing an empty pane (xpo-54a423)
 - Scope selector ("All changes" / "Uncommitted") promoted from file-tree sidebar to the tab bar for better visibility (xpo-54a423)

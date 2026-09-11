@@ -62,6 +62,7 @@ import { BacklogIssueRow } from "./BacklogIssueRow";
 import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
+import { SearchInput } from "../ui/SearchInput";
 
 export type Tab = "all" | "active" | "backlog" | "done";
 
@@ -287,7 +288,6 @@ export default function Backlog({
   const showFilterMenuRef = useRef(showFilterMenu);
   showFilterMenuRef.current = showFilterMenu;
   const filterBtnRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
   const defaultLabels = useContext(DefaultLabelsContext);
@@ -1304,11 +1304,6 @@ export default function Backlog({
         setShowFilterMenu((v) => !v);
         return;
       }
-      if (e.key === "/") {
-        e.preventDefault();
-        searchRef.current?.focus();
-        return;
-      }
       if (showFilterMenuRef.current) {
         if (e.key === "Escape") {
           e.preventDefault();
@@ -1402,7 +1397,7 @@ export default function Backlog({
     shortcuts: [
       ...[
         ["}", "Expand all parents"], ["{", "Collapse all parents"],
-        ["f", "Toggle filters"], ["/", "Focus search"], ["Escape", "Close menu"], ["j", "Next issue"],
+        ["f", "Toggle filters"], ["Escape", "Close menu"], ["j", "Next issue"],
         ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
         ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
         ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"],
@@ -1498,28 +1493,12 @@ export default function Backlog({
           />
         }
         center={
-          <div className="relative w-full max-w-md">
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setSearch("");
-                  searchRef.current?.blur();
-                }
-              }}
-              placeholder="Filter issues..."
-              className="text-sm h-8 pl-8 pr-10 w-full rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]"
-            />
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded px-1 py-0.5 leading-none pointer-events-none">
-              {search ? 'Esc' : '/'}
-            </kbd>
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Filter issues..."
+            keyboardNavigationEnabled={!openPopover && !showFilterMenu && !showViewMenu && !contextMenu}
+          />
         }
         right={
           <div className="flex items-center gap-2">

@@ -15,13 +15,11 @@ export function TopBar({ left, center, right, className }: TopBarProps) {
       "border-b border-[var(--color-border-subtle)]",
       className
     )}>
-      {left}
+      <div className="flex-1 flex items-center min-w-0">{left}</div>
       {center ? (
-        <div className="flex-1 flex justify-center min-w-0 px-4">{center}</div>
-      ) : (
-        <div className="flex-1" />
-      )}
-      {right}
+        <div className="flex items-center justify-center px-4 w-full max-w-md">{center}</div>
+      ) : null}
+      <div className="flex-1 flex items-center justify-end min-w-0">{right}</div>
     </div>
   );
 }

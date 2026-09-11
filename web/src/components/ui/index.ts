@@ -25,5 +25,6 @@ export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as Toggle } from './Toggle';
 export { default as ToastProvider } from './Toast';
 export { useToast } from './ToastContext';
+export { SearchInput } from './SearchInput';
 export { Tabs } from './Tabs';
 export { TopBar } from './TopBar';
