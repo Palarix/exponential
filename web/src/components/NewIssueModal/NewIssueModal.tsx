@@ -54,6 +54,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   const [assignee, setAssignee] = useState("");
   const [additionalLabels, setAdditionalLabels] = useState<string[]>([]);
   const [morePopover, setMorePopover] = useState<"parent" | "assignee" | "labels" | null>(null);
+  const morePopoverAnchorRef = useRef<HTMLDivElement>(null);
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
 
@@ -173,13 +174,13 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
           </button>
           {moreOpen && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <div className="relative" ref={morePopover === "parent" ? morePopoverAnchorRef : undefined}>
                 <button type="button" onClick={() => { setMorePopover(morePopover === "parent" ? null : "parent"); setParentSearch(""); }} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   <Folder className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   <span className={`truncate max-w-50 ${parentId ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{parentId ? (issues.find((i) => i.id === parentId)?.title || parentId) : "No parent"}</span>
                 </button>
                 {morePopover === "parent" && (
-                  <Popover onClose={() => setMorePopover(null)}>
+                  <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
                     <div className="px-3 py-2"><input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
                     <div className="border-t border-[var(--color-border-default)]" />
                     <div className="max-h-60 overflow-y-auto">
@@ -190,13 +191,13 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
                   </Popover>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative" ref={morePopover === "assignee" ? morePopoverAnchorRef : undefined}>
                 <button type="button" onClick={() => { setMorePopover(morePopover === "assignee" ? null : "assignee"); setAssigneeSearch(""); }} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   {assignee ? <Avatar name={assignee} size="xs" /> : <UserRound className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />}
                   <span className={`truncate max-w-40 ${assignee ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{assignee ? assignee.split(" <")[0] : "No assignee"}</span>
                 </button>
                 {morePopover === "assignee" && (
-                  <Popover onClose={() => setMorePopover(null)}>
+                  <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
                     <div className="px-3 py-2"><input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
                     <div className="border-t border-[var(--color-border-default)]" />
                     <div className="max-h-60 overflow-y-auto">
@@ -207,13 +208,13 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
                   </Popover>
                 )}
               </div>
-              <div className="relative">
+              <div className="relative" ref={morePopover === "labels" ? morePopoverAnchorRef : undefined}>
                 <button type="button" onClick={() => setMorePopover(morePopover === "labels" ? null : "labels")} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
                   <Tag className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   {additionalLabels.length > 0 ? <span className="flex items-center gap-2">{additionalLabels.map((l) => <LabelBadge key={l} label={l} borderless />)}</span> : <span className="text-[var(--color-text-muted)]">Additional labels</span>}
                 </button>
                 {morePopover === "labels" && (
-                  <Popover onClose={() => setMorePopover(null)}>
+                  <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
                     <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
                   </Popover>
                 )}

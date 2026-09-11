@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useContext } from "react";
+import { useState, useMemo, useCallback, useEffect, useContext, useRef } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
@@ -61,6 +61,7 @@ export default function PropertySidebar({
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const defaultLabels = useContext(DefaultLabelsContext);
+  const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
     status: string;
     doneCount: number;
@@ -283,7 +284,7 @@ export default function PropertySidebar({
           <div className="space-y-1">
             {/* Status */}
             <PropertyRow>
-              <div className="relative">
+              <div className="relative" ref={openPopover === "status" ? popoverAnchorRef : undefined}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -296,7 +297,7 @@ export default function PropertySidebar({
                   </span>
                 </Button>
                 {openPopover === "status" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
+                  <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverHeader>Change status...</PopoverHeader>
                     {STATUS_OPTIONS.map((opt, i) => {
                       const isCurrent = opt.value === issue.status;
@@ -327,7 +328,7 @@ export default function PropertySidebar({
 
             {/* Estimate */}
             <PropertyRow>
-              <div className="relative">
+              <div className="relative" ref={openPopover === "estimate" ? popoverAnchorRef : undefined}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -342,7 +343,7 @@ export default function PropertySidebar({
                   </span>
                 </Button>
                 {openPopover === "estimate" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
+                  <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverHeader>Change estimate to...</PopoverHeader>
                     {ESTIMATE_OPTIONS.map((est, i) => {
                       const isCurrent = est === (issue.estimate || 0);
@@ -370,7 +371,7 @@ export default function PropertySidebar({
 
             {/* Priority */}
             <PropertyRow>
-              <div className="relative">
+              <div className="relative" ref={openPopover === "priority" ? popoverAnchorRef : undefined}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -383,7 +384,7 @@ export default function PropertySidebar({
                   </span>
                 </Button>
                 {openPopover === "priority" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
+                  <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverHeader>Set priority...</PopoverHeader>
                     {PRIORITY_OPTIONS.map((opt, i) => {
                       const isCurrent = opt.value === (issue.priority || 0);
@@ -412,7 +413,7 @@ export default function PropertySidebar({
 
             {/* Parent */}
             <PropertyRow>
-              <div className="relative">
+              <div className="relative" ref={openPopover === "parent" ? popoverAnchorRef : undefined}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -430,7 +431,7 @@ export default function PropertySidebar({
                   </span>
                 </Button>
                 {openPopover === "parent" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
+                  <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <div className="px-3 py-2">
                       <input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                     </div>
@@ -466,7 +467,7 @@ export default function PropertySidebar({
 
             {/* Assignee */}
             <PropertyRow>
-              <div className="relative">
+              <div className="relative" ref={openPopover === "assignee" ? popoverAnchorRef : undefined}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -486,7 +487,7 @@ export default function PropertySidebar({
                   </span>
                 </Button>
                 {openPopover === "assignee" && (
-                  <Popover onClose={() => setOpenPopover(null)}>
+                  <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <div className="px-3 py-2">
                       <input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                     </div>
@@ -523,7 +524,7 @@ export default function PropertySidebar({
             {/* Cycle */}
             {cycles.length > 0 && (
               <PropertyRow>
-                <div className="relative">
+                <div className="relative" ref={openPopover === "cycle" ? popoverAnchorRef : undefined}>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -538,7 +539,7 @@ export default function PropertySidebar({
                     </span>
                   </Button>
                   {openPopover === "cycle" && (
-                    <Popover onClose={() => setOpenPopover(null)}>
+                    <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                       <PopoverHeader>Move to cycle...</PopoverHeader>
                       {issue.cycle_id && (
                         <button
@@ -591,7 +592,7 @@ export default function PropertySidebar({
             ) : (
               <span className="text-sm text-[var(--color-text-muted)]">None</span>
             )}
-            <div className="relative">
+            <div className="relative" ref={openPopover === "labels" ? popoverAnchorRef : undefined}>
               <button
                 onClick={() => {
                   const next = openPopover === "labels" ? null : "labels";
@@ -605,7 +606,7 @@ export default function PropertySidebar({
                 </svg>
               </button>
               {openPopover === "labels" && (
-                <Popover onClose={() => setOpenPopover(null)}>
+                <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                   <LabelPicker
                     allLabels={allKnownLabels}
                     selected={issue.labels || []}

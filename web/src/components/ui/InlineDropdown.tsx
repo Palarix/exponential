@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useState, useRef, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import Popover from "./Popover";
 
 export interface DropdownOption {
   value: string;
@@ -26,38 +26,14 @@ export default function InlineDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
   const selected = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        btnRef.current && !btnRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen(!open);
-  };
 
   return (
     <div>
       <button
         ref={btnRef}
         type="button"
-        onClick={handleOpen}
+        onClick={() => setOpen(!open)}
         className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors ${borderless ? "hover:bg-[var(--color-hover-surface-3)]" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
       >
         {selected ? (
@@ -70,12 +46,8 @@ export default function InlineDropdown({
         )}
         <ChevronDown className="w-3 h-3 text-[var(--color-text-muted)]" />
       </button>
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          className="fixed z-[100] min-w-40 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1"
-          style={{ top: pos.top, left: pos.left }}
-        >
+      {open && (
+        <Popover anchorRef={btnRef} onClose={() => setOpen(false)} className="min-w-40">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -91,8 +63,7 @@ export default function InlineDropdown({
               )}
             </button>
           ))}
-        </div>,
-        document.body,
+        </Popover>
       )}
     </div>
   );

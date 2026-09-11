@@ -305,6 +305,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   const allKnownLabels = useAllLabels(issues);
   const openPopoverRef = useRef(openPopover);
   openPopoverRef.current = openPopover;
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const focusedIssueId = useMemo(() => {
     if (!keyboardNav) return null;
@@ -457,7 +458,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div ref={boardRef} className="h-full flex flex-col">
       <TopBar
         left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Board</span>}
         right={
@@ -560,17 +561,17 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
         return (
           <>
             {openPopover.type === "status" && (
-              <Popover onClose={() => setOpenPopover(null)}>
+              <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
                 <StatusPicker current={issue.status} onSelect={v => handleQuickUpdate(issue.id, { status: v })} onClose={() => setOpenPopover(null)} />
               </Popover>
             )}
             {openPopover.type === "estimate" && (
-              <Popover onClose={() => setOpenPopover(null)}>
+              <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
                 <EstimatePicker current={issue.estimate || 0} onSelect={v => handleQuickUpdate(issue.id, { estimate: v })} onClose={() => setOpenPopover(null)} />
               </Popover>
             )}
             {openPopover.type === "labels" && (
-              <Popover onClose={() => setOpenPopover(null)}>
+              <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
                 <LabelPicker
                   allLabels={allKnownLabels}
                   selected={issue.labels || []}

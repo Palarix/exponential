@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useRef } from "react";
 import type { Issue } from "../../api/client";
 import {
   Avatar,
@@ -98,6 +98,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   onQuickLabelToggle,
   onConfigLabelsChange,
 }: Props) {
+  const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const indent = depth * 24;
   const isGhostRow = !!isGhostParent || !!isGhostChild;
 
@@ -184,6 +185,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
             )}
             <div
               className="relative shrink-0"
+              ref={popoverType === "priority" ? popoverAnchorRef : undefined}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -197,7 +199,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 <PriorityIcon priority={issue.priority || 0} size={16} />
               </button>
               {popoverType === "priority" && (
-                <Popover onClose={onClosePopover}>
+                <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
                   <PriorityPicker
                     current={issue.priority || 0}
                     onSelect={(v) => onQuickPriority(issue.id, v)}
@@ -212,6 +214,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
             />
             <div
               className="relative shrink-0"
+              ref={popoverType === "status" ? popoverAnchorRef : undefined}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -229,7 +232,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 />
               </button>
               {popoverType === "status" && (
-                <Popover onClose={onClosePopover}>
+                <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
                   <StatusPicker
                     current={issue.status}
                     onSelect={(v) => onQuickStatus(issue.id, v)}
@@ -277,6 +280,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
             )}
             <div
               className="relative flex items-center gap-3 shrink-0"
+              ref={popoverType === "labels" ? popoverAnchorRef : undefined}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -296,7 +300,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 )}
               </button>
               {popoverType === "labels" && (
-                <Popover onClose={onClosePopover}>
+                <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
                   <LabelPicker
                     allLabels={allKnownLabels}
                     selected={issue.labels || []}
@@ -334,6 +338,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
             )}
             <div
               className="relative shrink-0"
+              ref={popoverType === "estimate" ? popoverAnchorRef : undefined}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -355,7 +360,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 />
               </button>
               {popoverType === "estimate" && (
-                <Popover onClose={onClosePopover}>
+                <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
                   <EstimatePicker
                     current={issue.estimate || 0}
                     onSelect={(v) => onQuickEstimate(issue.id, v)}

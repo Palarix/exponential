@@ -1,4 +1,4 @@
-import type { ReactNode, ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ReactNode, type ButtonHTMLAttributes } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -24,41 +24,46 @@ const sizeStyles: Record<ButtonSize, string> = {
   lg: 'h-10 px-5 text-sm gap-2',
 };
 
-export default function Button({
-  variant = 'primary',
-  size = 'md',
-  children,
-  loading = false,
-  icon,
-  className = '',
-  disabled,
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      className={`
-        inline-flex items-center justify-center font-medium
-        rounded-[var(--radius-md)]
-        transition-colors duration-[var(--duration-fast)]
-        focus-visible:outline-none focus-visible:ring-2
-        focus-visible:ring-[var(--color-border-focus)]
-        disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
-        ${variantStyles[variant]}
-        ${sizeStyles[size]}
-        ${className}
-      `.trim().replace(/\s+/g, ' ')}
-      disabled={disabled || loading}
-      {...props}
-    >
-      {loading ? (
-        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-      ) : icon ? (
-        <span className="flex-shrink-0">{icon}</span>
-      ) : null}
-      {children}
-    </button>
-  );
-}
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button({
+    variant = 'primary',
+    size = 'md',
+    children,
+    loading = false,
+    icon,
+    className = '',
+    disabled,
+    ...props
+  }, ref) {
+    return (
+      <button
+        ref={ref}
+        className={`
+          inline-flex items-center justify-center font-medium
+          rounded-[var(--radius-md)]
+          transition-colors duration-[var(--duration-fast)]
+          focus-visible:outline-none focus-visible:ring-2
+          focus-visible:ring-[var(--color-border-focus)]
+          disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
+          ${variantStyles[variant]}
+          ${sizeStyles[size]}
+          ${className}
+        `.trim().replace(/\s+/g, ' ')}
+        disabled={disabled || loading}
+        {...props}
+      >
+        {loading ? (
+          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        ) : icon ? (
+          <span className="flex-shrink-0">{icon}</span>
+        ) : null}
+        {children}
+      </button>
+    );
+  },
+);
+
+export default Button;
