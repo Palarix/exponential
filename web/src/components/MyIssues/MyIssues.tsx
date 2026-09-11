@@ -20,6 +20,7 @@ import { useAllLabels } from "../../hooks/useLabels";
 import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
 import { useKeyboardHandler } from "../../keyboard";
+import { Tabs } from "../ui/Tabs";
 
 export type MyIssuesTab = "assigned" | "created";
 
@@ -124,23 +125,12 @@ export default function MyIssues({
       {/* Header */}
       <TopBar
         left={
-          <div className="flex items-center gap-4 h-full">
-            {(Object.entries(TAB_CONFIGS) as [MyIssuesTab, { label: string }][]).map(
-              ([id, config]) => (
-                <button
-                  key={id}
-                  onClick={() => onTabChange(id)}
-                  className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${
-                    activeTab === id
-                      ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]"
-                      : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"
-                  }`}
-                >
-                  {config.label}
-                </button>
-              ),
-            )}
-          </div>
+          <Tabs
+            items={TAB_CONFIGS}
+            activeId={activeTab}
+            onChange={onTabChange}
+            keyboardNavigationEnabled={!showFilterMenu && !contextMenu}
+          />
         }
         right={
           <div className="flex items-center gap-2">

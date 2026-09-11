@@ -12,9 +12,14 @@ export interface DisplayShortcut {
 }
 
 export function groupShortcuts(shortcuts: readonly ActiveShortcut[]): ShortcutGroup[] {
+  const viewGroup = shortcuts.find((s) => s.priority === "view")?.group;
+
   const groups = new Map<string, Map<string, DisplayShortcut>>();
   for (const shortcut of shortcuts) {
-    const title = shortcut.group || shortcut.scope;
+    let title = shortcut.group || shortcut.scope;
+    if (shortcut.priority === "control" && viewGroup && title !== "Global") {
+      title = viewGroup;
+    }
     const group = groups.get(title) || new Map<string, DisplayShortcut>();
     const display = group.get(shortcut.label) || {
       id: shortcut.id,

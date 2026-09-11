@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Shared `Tabs<T>` component with `[`/`]` keyboard cycling via the shortcut registry; Backlog and My Issues migrated, removing duplicated tab markup (xpo-d47781)
+- Control-priority shortcuts fold into the active view's group in the keyboard help overlay instead of creating separate sections (xpo-d47781)
+- Keyboard system architecture design document (`design-docs/keyboard-system.md`) (xpo-d47781)
 - `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
 - Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)

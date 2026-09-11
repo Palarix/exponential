@@ -48,7 +48,41 @@ describe("keyboard help utilities", () => {
     expect(displayKeys(arrow, false)).toEqual(["↓"]);
   });
 
-  it("falls back to the registration scope when no group is provided", () => {
-    expect(groupShortcuts([shortcut({ group: undefined, scope: "tabs" })])[0].title).toBe("tabs");
+  it("falls back to the registration scope when no group is provided and no view exists", () => {
+    expect(groupShortcuts([shortcut({ group: undefined, scope: "tabs", priority: "global" })])[0].title).toBe("tabs");
+  });
+
+  it("folds control-priority shortcuts into the active view group", () => {
+    const groups = groupShortcuts([
+      shortcut({ id: "backlog.next", key: "j", label: "Next issue", group: "Backlog", scope: "backlog", priority: "view" }),
+      shortcut({ id: "tabs.prev", key: "[", label: "Previous tab", group: "Tabs", scope: "tabs", priority: "control" }),
+      shortcut({ id: "tabs.next", key: "]", label: "Next tab", group: "Tabs", scope: "tabs", priority: "control" }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].title).toBe("Backlog");
+    expect(groups[0].shortcuts).toHaveLength(3);
+  });
+
+  it("folds control-priority shortcuts without a group into the view group", () => {
+    const groups = groupShortcuts([
+      shortcut({ id: "board.next", key: "j", label: "Next card", group: "Board", scope: "board", priority: "view" }),
+      shortcut({ id: "tabs.prev", key: "[", label: "Previous tab", group: undefined, scope: "tabs", priority: "control" }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].title).toBe("Board");
+    expect(groups[0].shortcuts).toHaveLength(2);
+  });
+
+  it("keeps control-priority shortcuts separate when no view is active", () => {
+    const groups = groupShortcuts([
+      shortcut({ id: "global.help", key: "?", label: "Help", group: "Global", scope: "global", priority: "global" }),
+      shortcut({ id: "tabs.prev", key: "[", label: "Previous tab", group: "Tabs", scope: "tabs", priority: "control" }),
+    ]);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0].title).toBe("Global");
+    expect(groups[1].title).toBe("Tabs");
   });
 });

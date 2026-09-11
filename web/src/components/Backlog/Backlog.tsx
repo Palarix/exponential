@@ -61,6 +61,7 @@ import { BacklogGroupHeader } from "./BacklogGroupHeader";
 import { BacklogIssueRow } from "./BacklogIssueRow";
 import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
+import { Tabs } from "../ui/Tabs";
 
 export type Tab = "all" | "active" | "backlog" | "done";
 
@@ -1275,10 +1276,6 @@ export default function Backlog({
   openPopoverRef.current = openPopover;
   const onIssueClickRef = useRef(onIssueClick);
   onIssueClickRef.current = onIssueClick;
-  const activeTabRef = useRef(activeTab);
-  activeTabRef.current = activeTab;
-  const onTabChangeRef = useRef(onTabChange);
-  onTabChangeRef.current = onTabChange;
   const toggleGroupRef = useRef(toggleGroup);
   toggleGroupRef.current = toggleGroup;
   const toggleNodeRef = useRef(toggleNode);
@@ -1300,16 +1297,6 @@ export default function Backlog({
       if (e.key === "{") {
         e.preventDefault();
         collapseAllNodesRef.current();
-        return;
-      }
-      if (e.key === "[" || e.key === "]") {
-        e.preventDefault();
-        const tabs = Object.keys(TAB_CONFIGS) as Tab[];
-        const idx = tabs.indexOf(activeTabRef.current);
-        const next = e.key === "]"
-          ? (idx + 1) % tabs.length
-          : (idx - 1 + tabs.length) % tabs.length;
-        onTabChangeRef.current(tabs[next]);
         return;
       }
       if (e.key === "f") {
@@ -1414,7 +1401,7 @@ export default function Backlog({
     handler: handleKeyboard,
     shortcuts: [
       ...[
-        ["}", "Expand all parents"], ["{", "Collapse all parents"], ["[", "Previous tab"], ["]", "Next tab"],
+        ["}", "Expand all parents"], ["{", "Collapse all parents"],
         ["f", "Toggle filters"], ["/", "Focus search"], ["Escape", "Close menu"], ["j", "Next issue"],
         ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
         ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
@@ -1503,19 +1490,12 @@ export default function Backlog({
       {/* Tab bar */}
       <TopBar
         left={
-          <div className="flex items-center gap-4 h-full">
-            {(Object.entries(TAB_CONFIGS) as [Tab, { label: string }][]).map(
-              ([id, config]) => (
-                <button
-                  key={id}
-                  onClick={() => onTabChange(id)}
-                  className={`text-sm font-medium h-full border-b-2 -mb-px transition-colors duration-[var(--duration-fast)] ${activeTab === id ? "text-[var(--color-text-primary)] border-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text-secondary)]"}`}
-                >
-                  {config.label}
-                </button>
-              ),
-            )}
-          </div>
+          <Tabs
+            items={TAB_CONFIGS}
+            activeId={activeTab}
+            onChange={onTabChange}
+            keyboardNavigationEnabled={!openPopover && !showFilterMenu && !showViewMenu && !contextMenu}
+          />
         }
         center={
           <div className="relative w-full max-w-md">
