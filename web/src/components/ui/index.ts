@@ -3,6 +3,7 @@ export { default as Avatar } from './Avatar';
 export { default as BranchBadge } from './BranchBadge';
 export { default as Button } from './Button';
 export { default as IconButton } from './IconButton';
+export { FilterButton } from './FilterButton';
 export { default as Card } from './Card';
 export { default as Badge, LabelBadge, LabelIndicator, StatusBadge } from './Badge';
 export { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from './BadgeContexts';

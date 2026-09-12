@@ -172,6 +172,17 @@ function SubMenu({
     : options;
 
   const effectiveIndex = hasFocus ? Math.min(focusIndex ?? 0, filtered.length - 1) : -1;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (effectiveIndex < 0) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const buttons = container.querySelectorAll("button[data-filter-option]");
+    if (buttons[effectiveIndex]) {
+      (buttons[effectiveIndex] as HTMLElement).scrollIntoView({ block: "nearest" });
+    }
+  }, [effectiveIndex]);
 
   return (
     <div className="py-1 w-52">
@@ -186,7 +197,7 @@ function SubMenu({
           />
         </div>
       )}
-      <div className="max-h-64 overflow-y-auto">
+      <div ref={scrollRef} className="max-h-64 overflow-y-auto">
         {filtered.map((opt, i) => {
           const isSelected = selected.includes(opt.value);
           const isFocused = i === effectiveIndex;
@@ -343,7 +354,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
     scope: "filter-menu",
     priority: "overlay",
     handler: handleKeyboard,
-    shortcuts: ["Escape", "ArrowRight", "ArrowDown", "ArrowUp", "Enter", " "].map((key) => ({
+    shortcuts: ["Escape", "ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "Enter", " "].map((key) => ({
       id: `filter-menu.${key}`,
       key,
       label: key,

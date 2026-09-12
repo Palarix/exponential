@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared `IconButton` component for toolbar actions with built-in tooltip and active-indicator dot; 6 instances across Backlog, Board, Inbox, MyIssues, and Timeline migrated (xpo-4235c6)
 - `Popover` refactored to anchor-ref positioning with placement options, 4-edge viewport clamping, and built-in click-outside/Escape dismissal; 17 consumer instances migrated, `InlineDropdown` rewritten on Popover (xpo-5d1c38)
 - `Button` component supports `forwardRef` for ref-based popover anchoring (xpo-5d1c38)
+- Shared `FilterButton` component bundling IconButton, FilterMenu, `f` shortcut, and active dot; Backlog, MyIssues, and Inbox migrated (xpo-e16962)
+
+### Fixed
+
+- FilterMenu arrow-left key not registered for submenu entry (xpo-e16962)
+- FilterMenu submenu options don't scroll into view on keyboard navigation (xpo-e16962)
 - `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
 - Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)

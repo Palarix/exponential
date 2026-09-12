@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchUser, type User } from "../../api/client";
 import type { Issue } from "../../api/types";
 import {
@@ -11,13 +11,12 @@ import {
   EmptyState,
   TopBar,
   ContextMenu,
-  IconButton,
+  FilterButton,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
 import { extractEmail, formatShortDate } from "../../utils/format";
 import { isEditableTarget } from "../../utils/keyboard";
 import { useAllLabels } from "../../hooks/useLabels";
-import FilterMenu from "../Backlog/FilterMenu";
 import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
@@ -60,12 +59,6 @@ export default function MyIssues({
 }: MyIssuesProps) {
   const [user, setUser] = useState<User | null>(null);
   const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const showFilterMenuRef = useRef(showFilterMenu);
-  useEffect(() => {
-    showFilterMenuRef.current = showFilterMenu;
-  }, [showFilterMenu]);
-  const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     fetchUser()
@@ -76,25 +69,13 @@ export default function MyIssues({
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isEditableTarget(e)) return;
     if (e.metaKey || e.ctrlKey) return;
-    if (e.key === "f") {
-      e.preventDefault();
-      setShowFilterMenu((v) => !v);
-      return;
-    }
-    if (showFilterMenuRef.current && e.key === "Escape") {
-      e.preventDefault();
-      setShowFilterMenu(false);
-    }
   }, []);
 
   useKeyboardHandler({
     scope: "my-issues",
     priority: "view",
     handler: handleKeyDown,
-    shortcuts: [
-      { id: "my-issues.filters", key: "f", label: "Toggle filters", group: "My Issues", preventDefault: false },
-      { id: "my-issues.filters.close", key: "Escape", label: "Close filters", group: "My Issues", showInHelp: false, preventDefault: false },
-    ],
+    shortcuts: [],
   });
 
   const allKnownLabels = useAllLabels(issues);
@@ -129,33 +110,12 @@ export default function MyIssues({
             items={TAB_CONFIGS}
             activeId={activeTab}
             onChange={onTabChange}
-            keyboardNavigationEnabled={!showFilterMenu && !contextMenu}
+            keyboardNavigationEnabled={!contextMenu}
           />
         }
         right={
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <IconButton
-                ref={filterBtnRef}
-                onClick={() => setShowFilterMenu((v) => !v)}
-                active={hasActiveFilters(filters)}
-                tooltip="Filter"
-                icon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-                  </svg>
-                }
-              />
-              {showFilterMenu && (
-                <FilterMenu
-                  issues={tabIssues}
-                  filters={filters}
-                  onChange={onFiltersChange}
-                  anchorRef={filterBtnRef}
-                  onClose={() => setShowFilterMenu(false)}
-                />
-              )}
-            </div>
+            <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} />
             <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
               {filtered.length} issue{filtered.length !== 1 ? "s" : ""}
             </span>

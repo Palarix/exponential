@@ -34,6 +34,7 @@ import {
   Modal,
   TopBar,
   IconButton,
+  FilterButton,
 } from "../ui";
 import {
   ChevronsDownUp,
@@ -48,7 +49,6 @@ import type { SortKey } from "../../utils/sort";
 import { isTerminal } from "../../constants";
 import { buildChildrenByParent } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
-import FilterMenu from "./FilterMenu";
 import { type BacklogFilters, hasActiveFilters, matchesFilters } from "./filters";
 import { DragOverlayCard } from "./DndComponents";
 import { backlogCollision } from "./backlogCollision";
@@ -238,7 +238,6 @@ export default function Backlog({
       return next;
     });
   }, []);
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [hierarchyMode, setHierarchyMode] = useState<HierarchyMode>(() => {
     try {
       return (
@@ -285,9 +284,6 @@ export default function Backlog({
       return next;
     });
   }, [activeTab]);
-  const showFilterMenuRef = useRef(showFilterMenu);
-  showFilterMenuRef.current = showFilterMenu;
-  const filterBtnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
   const defaultLabels = useContext(DefaultLabelsContext);
@@ -1299,18 +1295,6 @@ export default function Backlog({
         collapseAllNodesRef.current();
         return;
       }
-      if (e.key === "f") {
-        e.preventDefault();
-        setShowFilterMenu((v) => !v);
-        return;
-      }
-      if (showFilterMenuRef.current) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setShowFilterMenu(false);
-        }
-        return;
-      }
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);
@@ -1397,7 +1381,7 @@ export default function Backlog({
     shortcuts: [
       ...[
         ["}", "Expand all parents"], ["{", "Collapse all parents"],
-        ["f", "Toggle filters"], ["Escape", "Close menu"], ["j", "Next issue"],
+        ["Escape", "Close menu"], ["j", "Next issue"],
         ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
         ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
         ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"],
@@ -1489,7 +1473,7 @@ export default function Backlog({
             items={TAB_CONFIGS}
             activeId={activeTab}
             onChange={onTabChange}
-            keyboardNavigationEnabled={!openPopover && !showFilterMenu && !showViewMenu && !contextMenu}
+            keyboardNavigationEnabled={!openPopover && !showViewMenu && !contextMenu}
           />
         }
         center={
@@ -1497,33 +1481,12 @@ export default function Backlog({
             value={search}
             onChange={setSearch}
             placeholder="Filter issues..."
-            keyboardNavigationEnabled={!openPopover && !showFilterMenu && !showViewMenu && !contextMenu}
+            keyboardNavigationEnabled={!openPopover && !showViewMenu && !contextMenu}
           />
         }
         right={
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <IconButton
-                ref={filterBtnRef}
-                onClick={() => setShowFilterMenu((v) => !v)}
-                active={hasActiveFilters(filters)}
-                tooltip="Filter"
-                icon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-                  </svg>
-                }
-              />
-              {showFilterMenu && (
-                <FilterMenu
-                  issues={filteredIssues}
-                  filters={filters}
-                  onChange={onFiltersChange}
-                  anchorRef={filterBtnRef}
-                  onClose={() => setShowFilterMenu(false)}
-                />
-              )}
-            </div>
+            <FilterButton issues={filteredIssues} filters={filters} onFiltersChange={onFiltersChange} />
             <div>
               <IconButton
                 ref={viewBtnRef}
