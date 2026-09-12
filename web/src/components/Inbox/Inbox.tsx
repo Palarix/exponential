@@ -7,6 +7,7 @@ import {
   LabelBadge,
   TopBar,
   FilterButton,
+  Heading,
 } from "../ui";
 import { Bell, CheckCircle } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
@@ -174,9 +175,7 @@ export default function Inbox({
         <TopBar
           className="pl-4"
           left={
-            <span className="text-sm font-medium text-[var(--color-text-primary)]">
-              Notifications
-            </span>
+            <Heading title="Notifications" />
           }
           right={
             <div className="flex items-center gap-2">
@@ -201,9 +200,7 @@ export default function Inbox({
             <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
               <Bell className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />
               <div className="text-center">
-                <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                  {hasActiveFilters(filters) ? "No matching notifications" : "All caught up"}
-                </p>
+                <Heading as="p" title={hasActiveFilters(filters) ? "No matching notifications" : "All caught up"} />
                 <p className="text-xs text-[var(--color-text-muted)] mt-1">
                   {hasActiveFilters(filters) ? "Try adjusting your filters." : "No new notifications."}
                 </p>

@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useContext } from "react";
 import type { Issue } from "../../api/client";
-import { Avatar, BranchBadge, EstimateBadge, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress } from "../ui";
+import { Avatar, BranchBadge, EstimateBadge, Heading, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress } from "../ui";
 import { RefreshCw, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { splitLabels } from "../../utils/labels";
@@ -116,9 +116,7 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
       </div>
 
       {/* Title */}
-      <p className="text-sm font-medium text-[var(--color-text-primary)] leading-snug line-clamp-2">
-        {issue.title}
-      </p>
+      <Heading as="p" leading="snug" clamp={2} title={issue.title} />
 
       {/* SW: labels, sub-progress | SE: cycle, date */}
       {hasBottom && (

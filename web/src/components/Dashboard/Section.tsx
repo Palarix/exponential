@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Card } from "../ui";
+import { Card, Heading } from "../ui";
 
 export function Section({
   title,
@@ -53,7 +53,7 @@ export function Section({
           </svg>
         )}
         <span className="text-[var(--color-text-muted)] flex shrink-0">{icon}</span>
-        <span className="text-sm font-medium text-[var(--color-text-primary)]">{title}</span>
+        <Heading title={title} />
         {count !== undefined && (
           <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{count}</span>
         )}

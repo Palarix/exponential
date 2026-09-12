@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { StatusIcon } from "../ui";
+import { StatusIcon, Heading } from "../ui";
 import { GroupHeaderDnd } from "./DndComponents";
 
 interface Props {
@@ -66,9 +66,7 @@ export const BacklogGroupHeader = memo(function BacklogGroupHeader({
             </svg>
           </span>
           <StatusIcon status={status} size={14} />
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">
-            {label}
-          </span>
+          <Heading title={label} />
           <span
             className="text-sm text-[var(--color-text-muted)] tabular-nums cursor-pointer hover:text-[var(--color-text-secondary)] transition-colors inline-flex items-center gap-1 h-5"
             onClick={(e) => {

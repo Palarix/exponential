@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
-import { TopBar, IconButton, CountBadge } from '../ui';
+import { TopBar, IconButton, CountBadge, Heading } from '../ui';
 import {
   DndContext,
   DragOverlay,
@@ -460,7 +460,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   return (
     <div ref={boardRef} className="h-full flex flex-col">
       <TopBar
-        left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Board</span>}
+        left={<Heading title="Board" />}
         right={
           <span className="flex items-center gap-2">
             <div className="relative" ref={viewMenuRef}>

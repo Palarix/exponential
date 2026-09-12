@@ -3,7 +3,7 @@ import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
-import { TopBar, CountBadge } from "../ui";
+import { TopBar, CountBadge, Heading } from "../ui";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel } from "../../utils/labels";
@@ -120,7 +120,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
     <div className="h-full flex flex-col">
       {/* Header */}
       <TopBar
-        left={<h1 className="text-sm font-medium text-[var(--color-text-primary)]">Labels</h1>}
+        left={<Heading title="Labels" as="h1" />}
         right={
           <button
             onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCycles, fetchCycleProgress } from '../../api/client';
 import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
-import { StatusIcon, TopBar } from '../ui';
+import { StatusIcon, TopBar, Heading } from '../ui';
 import { UserRound } from "lucide-react";
 
 interface CyclesProps {
@@ -191,7 +191,7 @@ function CyclesTimeline({ cycles, issues, onSelect }: { cycles: Cycle[]; issues:
   return (
     <div className="h-full flex flex-col">
       <TopBar
-        left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Cycles</span>}
+        left={<Heading title="Cycles" />}
       />
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
@@ -561,7 +561,7 @@ export default function Cycles({ issues, onIssueClick, selectedCycleId, onCycleS
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M21.016 5.176v4.993" />
         </svg>
         <div>
-          <h3 className="text-sm font-medium text-[var(--color-text-primary)]">No cycles configured</h3>
+          <Heading as="h3" title="No cycles configured" />
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
             Run <code className="px-1.5 py-0.5 bg-[var(--color-surface-1)] rounded text-xs font-mono">xpo cycle init</code> to set up iterations.
           </p>

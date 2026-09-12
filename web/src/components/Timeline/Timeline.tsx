@@ -4,7 +4,7 @@ import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
-import { TopBar, IconButton } from "../ui";
+import { TopBar, IconButton, Heading } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
 import {
   Plus,
@@ -357,7 +357,7 @@ function HeaderBar({
 
   return (
     <TopBar
-      left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Timeline</span>}
+      left={<Heading title="Timeline" />}
       right={
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -692,7 +692,7 @@ function CommitSHA({ sha }: { sha: string }) {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-mono text-xs text-[var(--color-text-muted)]">{detail.sha}</span>
                 </div>
-                <p className="text-sm font-medium text-[var(--color-text-primary)] leading-snug">{detail.subject}</p>
+                <Heading as="p" leading="snug" title={detail.subject} />
                 {detail.body && (
                   <p className="text-xs text-[var(--color-text-secondary)] mt-1.5 leading-relaxed whitespace-pre-wrap">{detail.body}</p>
                 )}

@@ -1,5 +1,5 @@
 import type { PendingState } from '../api/client';
-import { TopBar } from './ui';
+import { TopBar, Heading } from './ui';
 
 interface PendingEventsPanelProps {
   pending: PendingState;
@@ -54,9 +54,7 @@ export default function PendingEventsPanel({
           left={
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[var(--color-warning)]" />
-              <h2 className="text-sm font-medium text-[var(--color-text-primary)]">
-                Pending Changes
-              </h2>
+              <Heading title="Pending Changes" as="h2" />
               <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
                 {eventCount}
               </span>

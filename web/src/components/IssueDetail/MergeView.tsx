@@ -41,7 +41,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { StatusIcon, Avatar, TopBar } from "../ui";
+import { StatusIcon, Avatar, Heading, TopBar } from "../ui";
 import Modal from "../ui/Modal";
 import { formatRelativeTime } from "../../utils/format";
 
@@ -1007,9 +1007,7 @@ function ConversationTab({
             <div key={c.id} className="px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
                 <Avatar name={c.created_by} size="sm" />
-                <span className="text-sm font-medium text-[var(--color-text-primary)]">
-                  {c.created_by.split(" <")[0]}
-                </span>
+                <Heading title={c.created_by.split(" <")[0]} />
                 <span className="text-xs text-[var(--color-text-muted)]">
                   {formatRelativeTime(c.created_at)}
                 </span>

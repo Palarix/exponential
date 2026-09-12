@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Issue } from '../../api/client';
-import { LabelBadge, Toggle, TopBar } from '../ui';
+import { Heading, LabelBadge, Toggle, TopBar } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
@@ -171,14 +171,14 @@ function TableView({
       {/* Header */}
       <TopBar
         left={
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-[var(--color-text-primary)] shrink-0">Dependencies</span>
-            {stats.total > 0 && (
+          <Heading
+            title="Dependencies"
+            subtitle={stats.total > 0 ? (
               <span className="text-xs tabular-nums shrink-0" style={{ color: stats.resolved === stats.total ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
                 {stats.resolved} of {stats.total} blocker{stats.total !== 1 ? 's' : ''} resolved
               </span>
-            )}
-          </div>
+            ) : undefined}
+          />
         }
         center={
           <SearchInput

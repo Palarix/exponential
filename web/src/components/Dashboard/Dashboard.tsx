@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, CountBadge, EmptyState, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, TopBar } from "../ui";
+import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, TopBar } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
@@ -212,7 +212,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
   return (
     <div className="h-full flex flex-col">
       <TopBar
-        left={<span className="text-sm font-medium text-[var(--color-text-primary)]">Overview</span>}
+        left={<Heading title="Overview" />}
         right={
           <CountBadge count={issues.length} />
         }

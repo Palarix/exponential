@@ -1,6 +1,7 @@
 import type { ArtifactSummary } from "../../api/types";
 import type { Issue } from "../../api/client";
 import { fetchArtifactContent } from "../../api/client";
+import { Heading } from "../ui";
 import { FileCodeCorner, FileBracesCorner, Paperclip, Download } from "lucide-react";
 import { formatRelativeTime, shortName } from "../../utils/format";
 
@@ -50,9 +51,7 @@ export default function ArtifactList({
               className="group flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--color-hover-surface)] transition-colors"
             >
               <Icon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
-              <span className="text-sm font-medium text-[var(--color-text-primary)] min-w-0 truncate">
-                {label}
-              </span>
+              <Heading truncate title={label} />
               {a.artifact_type !== "generic" && (
                 <span className="text-xs font-mono text-[var(--color-text-muted)]">
                   {a.filename}

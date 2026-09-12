@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Issue } from "../../api/client";
-import { StatusIcon } from "../ui";
+import { StatusIcon, Heading } from "../ui";
 import { SortableBoardCard, type CardMeta } from "./BoardCard";
 import { isTerminal } from "../../constants";
 
@@ -66,7 +66,7 @@ export default function BoardColumn({
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-subtle)]">
         <div className="flex items-center gap-2">
           <StatusIcon status={column.id} size={14} />
-          <span className="text-sm font-medium text-[var(--color-text-primary)]">{column.label}</span>
+          <Heading title={column.label} />
           {column.shortcut && (
             <kbd className="inline-flex items-center justify-center min-w-4 h-4 px-1 text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)]">
               {column.shortcut}
