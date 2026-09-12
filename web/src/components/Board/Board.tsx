@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
-import { TopBar, IconButton } from '../ui';
+import { TopBar, IconButton, CountBadge } from '../ui';
 import {
   DndContext,
   DragOverlay,
@@ -497,9 +497,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
                 </div>
               )}
             </div>
-            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-              {(() => { const n = issues.filter(i => !hiddenColumns.has(i.status)).length; return `${n} issue${n !== 1 ? 's' : ''}`; })()}
-            </span>
+            <CountBadge count={issues.filter(i => !hiddenColumns.has(i.status)).length} />
           </span>
         }
       />

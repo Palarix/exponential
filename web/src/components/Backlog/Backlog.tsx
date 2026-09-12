@@ -35,6 +35,7 @@ import {
   TopBar,
   IconButton,
   FilterButton,
+  CountBadge,
 } from "../ui";
 import {
   ChevronsDownUp,
@@ -1692,10 +1693,7 @@ export default function Backlog({
                 document.body,
               )}
             </div>
-            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-              {filteredIssues.length} issue
-              {filteredIssues.length !== 1 ? "s" : ""}
-            </span>
+            <CountBadge count={filteredIssues.length} />
           </div>
         }
       />

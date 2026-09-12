@@ -3,7 +3,7 @@ import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
-import { TopBar } from "../ui";
+import { TopBar, CountBadge } from "../ui";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel } from "../../utils/labels";
@@ -259,9 +259,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                       <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
                         {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
                       </span>
-                      <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                        {label.count} {label.count === 1 ? "issue" : "issues"}
-                      </span>
+                      <CountBadge count={label.count} />
                       {confirmDelete === label.name ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-[var(--color-text-muted)]">Delete?</span>

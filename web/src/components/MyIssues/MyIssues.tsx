@@ -12,6 +12,7 @@ import {
   TopBar,
   ContextMenu,
   FilterButton,
+  CountBadge,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
 import { extractEmail, formatShortDate } from "../../utils/format";
@@ -116,9 +117,7 @@ export default function MyIssues({
         right={
           <div className="flex items-center gap-2">
             <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} />
-            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-              {filtered.length} issue{filtered.length !== 1 ? "s" : ""}
-            </span>
+            <CountBadge count={filtered.length} />
           </div>
         }
       />
