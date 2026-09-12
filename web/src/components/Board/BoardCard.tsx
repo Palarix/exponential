@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useContext } from "react";
 import type { Issue } from "../../api/client";
-import { Avatar, BranchBadge, EstimateBadge, Heading, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress } from "../ui";
+import { Avatar, BranchBadge, EstimateBadge, Heading, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress, Text } from "../ui";
 import { RefreshCw, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { splitLabels } from "../../utils/labels";
@@ -101,9 +101,9 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
             <svg className="w-2.5 h-2.5 text-[var(--color-text-muted)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
-            <span className="text-xs text-[var(--color-text-muted)] truncate">
+            <Text size="xs" truncate>
               {meta.parentTitle}
-            </span>
+            </Text>
           </>
         )}
         <div className="flex-1" />

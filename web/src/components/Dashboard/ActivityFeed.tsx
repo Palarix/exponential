@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Text } from "../ui";
 import type { ActivityEvent, Issue } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
@@ -142,9 +143,9 @@ function describeActivity(
           sentence: (
             <>
               {name} assigned{" "}
-              <span className="text-[var(--color-text-primary)]">
+              <Text color="primary">
                 {shortName(assignee)}
-              </span>{" "}
+              </Text>{" "}
               to
             </>
           ),
@@ -179,9 +180,9 @@ function describeActivity(
         sentence: (
           <>
             {name} {action}{" "}
-            <span className="font-mono text-[var(--color-text-primary)]">
+            <Text mono color="primary">
               {filename}
-            </span>{" "}
+            </Text>{" "}
             on
           </>
         ),

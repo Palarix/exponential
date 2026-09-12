@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCycles, fetchCycleProgress } from '../../api/client';
 import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
-import { StatusIcon, TopBar, Heading } from '../ui';
+import { StatusIcon, TopBar, Heading, Text } from '../ui';
 import { UserRound } from "lucide-react";
 
 interface CyclesProps {
@@ -283,15 +283,15 @@ function ProgressChart({ cycleId }: { cycleId: string }) {
       <div className="flex items-center gap-3 mt-1">
         <div className="flex items-center gap-1">
           <div className="w-3 h-0.5 bg-[var(--color-accent-primary)]" />
-          <span className="text-xs text-[var(--color-text-muted)]">Remaining</span>
+          <Text size="xs">Remaining</Text>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-0.5 border-t border-dashed border-[var(--color-text-muted)] opacity-50" />
-          <span className="text-xs text-[var(--color-text-muted)]">Ideal</span>
+          <Text size="xs">Ideal</Text>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-0.5 border-t border-dotted border-[var(--color-text-muted)] opacity-40" />
-          <span className="text-xs text-[var(--color-text-muted)]">Scope</span>
+          <Text size="xs">Scope</Text>
         </div>
       </div>
     </div>
@@ -437,28 +437,28 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
             <div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)] opacity-40" />
-                <span className="text-xs text-[var(--color-text-muted)]">Scope</span>
+                <Text size="xs">Scope</Text>
               </div>
-              <span className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">{scopeCount}</span>
+              <Text weight="semibold" color="primary" tabular>{scopeCount}</Text>
             </div>
             <div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-[var(--color-status-doing)]" />
-                <span className="text-xs text-[var(--color-text-muted)]">Started</span>
+                <Text size="xs">Started</Text>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">{startedCount}</span>
-                {scopeCount > 0 && <span className="text-xs text-[var(--color-text-muted)]">{Math.round((startedCount / scopeCount) * 100)}%</span>}
+                <Text weight="semibold" color="primary" tabular>{startedCount}</Text>
+                {scopeCount > 0 && <Text size="xs">{Math.round((startedCount / scopeCount) * 100)}%</Text>}
               </div>
             </div>
             <div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 rounded-sm bg-[var(--color-success)]" />
-                <span className="text-xs text-[var(--color-text-muted)]">Done</span>
+                <Text size="xs">Done</Text>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-sm font-semibold text-[var(--color-text-primary)] tabular-nums">{completedCount}</span>
-                {scopeCount > 0 && <span className="text-xs text-[var(--color-text-muted)]">{pct}%</span>}
+                <Text weight="semibold" color="primary" tabular>{completedCount}</Text>
+                {scopeCount > 0 && <Text size="xs">{pct}%</Text>}
               </div>
             </div>
           </div>

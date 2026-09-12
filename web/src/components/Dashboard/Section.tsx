@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Card, Heading } from "../ui";
+import { Card, Heading, Text } from "../ui";
 
 export function Section({
   title,
@@ -55,7 +55,7 @@ export function Section({
         <span className="text-[var(--color-text-muted)] flex shrink-0">{icon}</span>
         <Heading title={title} />
         {count !== undefined && (
-          <span className="text-sm text-[var(--color-text-muted)] tabular-nums">{count}</span>
+          <Text tabular>{count}</Text>
         )}
       </div>
       {(!collapsible || open) && <div>{children}</div>}

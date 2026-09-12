@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useContext, useRef } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
-import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker } from "../ui";
+import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverHeader, LabelPicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
@@ -590,7 +590,7 @@ export default function PropertySidebar({
                 );
               })()
             ) : (
-              <span className="text-sm text-[var(--color-text-muted)]">None</span>
+              <Text>None</Text>
             )}
             <div className="relative" ref={openPopover === "labels" ? popoverAnchorRef : undefined}>
               <button
@@ -624,7 +624,7 @@ export default function PropertySidebar({
         {issue.branch_stats && (
           <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-[var(--color-text-muted)]">Branch</span>
+              <Text size="xs" weight="medium">Branch</Text>
               {issue.branch_stats.commits > 0 && issue.branch_stats.head_sha ? (
                 <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-2xl border border-[var(--color-border-label)] text-xs font-mono text-[var(--color-text-secondary)]">
                   <GitBranch size={12} strokeWidth={1.5} />

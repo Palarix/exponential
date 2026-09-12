@@ -41,7 +41,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { StatusIcon, Avatar, Heading, TopBar } from "../ui";
+import { StatusIcon, Avatar, Text, TopBar } from "../ui";
 import Modal from "../ui/Modal";
 import { formatRelativeTime } from "../../utils/format";
 
@@ -272,7 +272,7 @@ export default function MergeView({
   if (error)
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3">
-        <span className="text-sm text-[var(--color-error)]">{error}</span>
+        <Text color="error">{error}</Text>
         <button
           onClick={onClose}
           className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
@@ -289,9 +289,9 @@ export default function MergeView({
           <GitMerge size={24} />
           <span className="text-sm font-medium">Branch merged</span>
         </div>
-        <p className="text-sm text-[var(--color-text-muted)]">
+        <Text as="p">
           This branch has been merged and is no longer available.
-        </p>
+        </Text>
         <button
           onClick={onClose}
           className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
@@ -313,12 +313,12 @@ export default function MergeView({
               size={16}
               isInferred={issue.is_inferred}
             />
-            <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+            <Text weight="semibold" color="primary">
               {issue.title}
-            </span>
-            <span className="text-sm font-mono text-[var(--color-text-muted)]">
+            </Text>
+            <Text mono>
               {issue.id}
-            </span>
+            </Text>
           </div>
         }
         right={
@@ -630,9 +630,9 @@ export default function MergeView({
               </div>
               <div className="px-5 py-4 space-y-4">
                 <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                  <span className="text-xs text-[var(--color-text-muted)]">
+                  <Text size="xs">
                     Strategy:
-                  </span>
+                  </Text>
                   <span className="font-medium">{strategyLabel}</span>
                 </div>
                 <div className="text-xs text-[var(--color-text-muted)]">
@@ -1007,10 +1007,10 @@ function ConversationTab({
             <div key={c.id} className="px-5 py-4">
               <div className="flex items-center gap-2 mb-2">
                 <Avatar name={c.created_by} size="sm" />
-                <Heading title={c.created_by.split(" <")[0]} />
-                <span className="text-xs text-[var(--color-text-muted)]">
+                <Text weight="medium" color="primary">{c.created_by.split(" <")[0]}</Text>
+                <Text size="xs">
                   {formatRelativeTime(c.created_at)}
-                </span>
+                </Text>
               </div>
               <div className="prose-exponential text-sm pl-8">
                 <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>

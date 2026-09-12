@@ -4,7 +4,7 @@ import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
-import { TopBar, IconButton, Heading } from "../ui";
+import { TopBar, IconButton, Heading, Text } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
 import {
   Plus,
@@ -264,7 +264,7 @@ export default function Timeline({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-[var(--color-text-muted)]">Loading timeline...</p>
+        <Text as="p">Loading timeline...</Text>
       </div>
     );
   }
@@ -690,7 +690,7 @@ function CommitSHA({ sha }: { sha: string }) {
             <div>
               <div className="px-4 py-3 border-b border-[var(--color-border-subtle)]">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-xs text-[var(--color-text-muted)]">{detail.sha}</span>
+                  <Text size="xs" mono>{detail.sha}</Text>
                 </div>
                 <Heading as="p" leading="snug" title={detail.subject} />
                 {detail.body && (
@@ -709,9 +709,9 @@ function CommitSHA({ sha }: { sha: string }) {
                     <div key={f.path} className="flex items-center gap-2 py-0.5 text-xs">
                       <span className="truncate min-w-0 text-[var(--color-text-secondary)]">{f.path}</span>
                       <span className="ml-auto shrink-0 tabular-nums">
-                        {f.additions > 0 && <span className="text-[var(--color-success)]">+{f.additions}</span>}
+                        {f.additions > 0 && <Text color="success">+{f.additions}</Text>}
                         {f.additions > 0 && f.deletions > 0 && " "}
-                        {f.deletions > 0 && <span className="text-[var(--color-error)]">-{f.deletions}</span>}
+                        {f.deletions > 0 && <Text color="error">-{f.deletions}</Text>}
                       </span>
                     </div>
                   ))}
@@ -775,9 +775,9 @@ function TimelineRow({
         {entry.issue_id
           ? <>
               {" on "}
-              <span className="font-mono text-xs text-[var(--color-text-secondary)]">{entry.branch}</span>
+              <Text size="xs" mono color="secondary">{entry.branch}</Text>
             </>
-          : <> <span className="text-[var(--color-text-primary)]">{entry.message}</span></>
+          : <> <Text color="primary">{entry.message}</Text></>
         }
       </>
     : (() => {

@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect, type WheelEvent as R
 import type { Issue } from '../../api/types';
 import type { DepGraph, GraphEdge } from './useDepGraph';
 import StatusIcon from '../ui/StatusIcon';
-import { Heading, Toggle, TopBar } from '../ui';
+import { Heading, Text, Toggle, TopBar } from '../ui';
 import { truncate, edgePath } from './dep-graph-utils';
 import { useKeyboardShortcuts } from '../../keyboard';
 
@@ -139,7 +139,7 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
               </svg>
             </button>
             <Heading truncate title={`Dependencies for ${truncate(focusIssue.title, 50)}`} />
-            <span className="text-xs font-mono text-[var(--color-text-muted)]">{focusIssue.id}</span>
+            <Text size="xs" mono>{focusIssue.id}</Text>
           </div>
         }
         right={
@@ -164,7 +164,7 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
 
       {graph.nodes.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-[var(--color-text-muted)]">This issue has no dependencies</p>
+          <Text as="p">This issue has no dependencies</Text>
         </div>
       ) : (
         <div

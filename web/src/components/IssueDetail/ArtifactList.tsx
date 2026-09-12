@@ -1,7 +1,7 @@
 import type { ArtifactSummary } from "../../api/types";
 import type { Issue } from "../../api/client";
 import { fetchArtifactContent } from "../../api/client";
-import { Heading } from "../ui";
+import { Heading, Text } from "../ui";
 import { FileCodeCorner, FileBracesCorner, Paperclip, Download } from "lucide-react";
 import { formatRelativeTime, shortName } from "../../utils/format";
 
@@ -53,9 +53,9 @@ export default function ArtifactList({
               <Icon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
               <Heading truncate title={label} />
               {a.artifact_type !== "generic" && (
-                <span className="text-xs font-mono text-[var(--color-text-muted)]">
+                <Text size="xs" mono>
                   {a.filename}
-                </span>
+                </Text>
               )}
               <div className="flex-1" />
               <button

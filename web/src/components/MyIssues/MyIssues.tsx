@@ -13,6 +13,7 @@ import {
   ContextMenu,
   FilterButton,
   CountBadge,
+  Text,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
 import { extractEmail, formatShortDate } from "../../utils/format";
@@ -158,9 +159,9 @@ export default function MyIssues({
                 size={14}
                 isInferred={issue.is_inferred}
               />
-              <span className="text-sm truncate min-w-0 text-[var(--color-text-primary)]">
+              <Text color="primary" truncate>
                 {issue.title}
-              </span>
+              </Text>
               {issue.branch_stats && (
                 <BranchBadge stats={issue.branch_stats} />
               )}

@@ -32,3 +32,4 @@ export { SearchInput } from './SearchInput';
 export { Tabs } from './Tabs';
 export { TopBar } from './TopBar';
 export { default as Heading } from './Heading';
+export { default as Text } from './Text';

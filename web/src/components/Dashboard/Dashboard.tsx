@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, TopBar } from "../ui";
+import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration } from "../../utils/format";
@@ -147,7 +147,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
         label: (
           <div className="flex items-center gap-2 min-w-0">
             <Avatar name={assignee} size="xs" />
-            <span className="text-sm text-[var(--color-text-primary)] truncate">{assignee.split(" <")[0]}</span>
+            <Text color="primary" truncate>{assignee.split(" <")[0]}</Text>
           </div>
         ),
         count,
@@ -175,7 +175,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
           label: (
             <div className="flex items-center gap-2">
               <PriorityIcon priority={p.value} size={14} />
-              <span className="text-sm text-[var(--color-text-primary)]">{p.label}</span>
+              <Text color="primary">{p.label}</Text>
             </div>
           ),
           count,
@@ -227,7 +227,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
               <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
-                  <p className="text-xs text-[var(--color-text-muted)] tabular-nums">last 14 days</p>
+                  <Text as="p" size="xs" tabular>last 14 days</Text>
                 </div>
                 <div className="flex-1 min-h-0">
                   {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0
@@ -264,8 +264,8 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{metrics ? metrics.velocity.last_7d_points : "—"} <span className="text-xs font-normal text-[var(--color-text-muted)]">pts</span></td>
-                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)]">{metrics ? metrics.velocity.current_week_points : "—"} <span className="text-xs font-normal text-[var(--color-text-muted)]">pts</span></td>
+                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{metrics ? metrics.velocity.last_7d_points : "—"} <Text size="xs">pts</Text></td>
+                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)]">{metrics ? metrics.velocity.current_week_points : "—"} <Text size="xs">pts</Text></td>
                     </tr>
                   </tbody>
                 </table>
@@ -441,7 +441,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-hover-surface)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar name={w.assignee} size="xs" />
-                      <span className="text-sm text-[var(--color-text-primary)] truncate">{w.assignee.split(" <")[0]}</span>
+                      <Text color="primary" truncate>{w.assignee.split(" <")[0]}</Text>
                     </div>
                     <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-primary)]">{w.in_progress}</span>
                     <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-muted)]">{w.open_points}</span>

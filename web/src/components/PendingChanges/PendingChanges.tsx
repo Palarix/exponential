@@ -1,5 +1,5 @@
 import type { PendingState, Issue } from '../../api/client';
-import { StatusIcon, LabelBadge, TopBar } from '../ui';
+import { StatusIcon, LabelBadge, Text, TopBar } from '../ui';
 import { ChevronRight } from "lucide-react";
 
 interface PendingChangesProps {
@@ -30,7 +30,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
             </button>
             <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)]" />
             <span className="text-sm font-medium text-[var(--color-text-primary)]">Pending Changes</span>
-            <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{events.length}</span>
+            <Text size="xs" tabular>{events.length}</Text>
           </div>
         }
         right={
@@ -87,7 +87,7 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-mono text-[var(--color-text-muted)]">{event.issue_id}</span>
+                        <Text mono>{event.issue_id}</Text>
                       </div>
                     )}
 
@@ -96,9 +96,9 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
                       <PayloadDetail type={event.type} payload={event.payload} />
                     )}
 
-                    <span className="text-xs text-[var(--color-text-muted)]">
+                    <Text size="xs">
                       {formatTime(event.created_at)}
-                    </span>
+                    </Text>
                   </div>
                 </div>
               );
@@ -151,10 +151,10 @@ function PayloadDetail({ type, payload }: { type: string; payload: Record<string
       <div className="mb-2 space-y-1">
         {entries.map(([key, value]) => (
           <div key={key} className="text-sm">
-            <span className="text-[var(--color-text-muted)]">{key}:</span>{' '}
-            <span className="text-[var(--color-text-secondary)]">
+            <Text>{key}:</Text>{' '}
+            <Text color="secondary">
               {Array.isArray(value) ? value.join(', ') : String(value)}
-            </span>
+            </Text>
           </div>
         ))}
       </div>

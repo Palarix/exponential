@@ -4,7 +4,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { addDraft, fetchArtifactContent, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
-import { StatusIcon, CopyableId, useToast, TopBar } from "../ui";
+import { StatusIcon, CopyableId, useToast, TopBar, Text } from "../ui";
 import { ChevronRight } from "lucide-react";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
@@ -473,14 +473,14 @@ export default function IssueDetail({
                         {issue.parent_id}
                       </a>
                       {parent && (
-                        <span className="text-[var(--color-text-secondary)]">
+                        <Text color="secondary">
                           {parent.title}
-                        </span>
+                        </Text>
                       )}
                       {siblings.length > 0 && (
-                        <span className="text-[var(--color-text-muted)]">
+                        <Text>
                           ({siblingsDone}/{siblings.length})
-                        </span>
+                        </Text>
                       )}
                     </div>
                   );
@@ -573,9 +573,9 @@ export default function IssueDetail({
                                   )}
                                 </Markdown>
                               ) : (
-                                <p className="text-base text-[var(--color-text-muted)]">
+                                <Text as="p" size="base">
                                   Add a description...
-                                </p>
+                                </Text>
                               )}
                             </div>
                           )}
@@ -612,9 +612,9 @@ export default function IssueDetail({
                         return (
                           <div className="mt-6 prose-exponential">
                             {content === undefined ? (
-                              <p className="text-sm text-[var(--color-text-muted)]">
+                              <Text as="p">
                                 Loading...
-                              </p>
+                              </Text>
                             ) : content ? (
                               <Markdown
                                 remarkPlugins={[remarkGfm, remarkBreaks]}
@@ -622,9 +622,9 @@ export default function IssueDetail({
                                 {linkifyIssueIds(content, prefix)}
                               </Markdown>
                             ) : (
-                              <p className="text-sm text-[var(--color-text-muted)]">
+                              <Text as="p">
                                 No content.
-                              </p>
+                              </Text>
                             )}
                           </div>
                         );

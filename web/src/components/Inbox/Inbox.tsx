@@ -8,6 +8,7 @@ import {
   TopBar,
   FilterButton,
   Heading,
+  Text,
 } from "../ui";
 import { Bell, CheckCircle } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
@@ -294,9 +295,9 @@ export default function Inbox({
                     <svg className="w-4 h-4 text-[var(--color-accent-primary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                     </svg>
-                    <span className="text-xs text-[var(--color-text-secondary)]">
+                    <Text size="xs" color="secondary">
                       {changeSummary.join(" · ")}
-                    </span>
+                    </Text>
                   </div>
                 ) : undefined}
               />
@@ -305,9 +306,9 @@ export default function Inbox({
         ) : (
           <div className="flex flex-col items-center justify-center h-full gap-3">
             <Bell className="w-12 h-12 text-[var(--color-text-muted)] opacity-20" />
-            <p className="text-sm text-[var(--color-text-muted)]">
+            <Text as="p">
               Select a notification to view details
-            </p>
+            </Text>
           </div>
         )}
       </div>

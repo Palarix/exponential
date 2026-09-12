@@ -3,7 +3,7 @@ import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
-import { TopBar, CountBadge, Heading } from "../ui";
+import { TopBar, CountBadge, Heading, Text } from "../ui";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel } from "../../utils/labels";
@@ -154,7 +154,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                 />
               </div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs text-[var(--color-text-muted)]">Color</span>
+                <Text size="xs">Color</Text>
                 {LABEL_PRESET_COLORS.map((c) => (
                   <button
                     key={c}
@@ -192,7 +192,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
               </svg>
-              <p className="text-sm text-[var(--color-text-muted)]">No labels yet</p>
+              <Text as="p">No labels yet</Text>
               <button
                 onClick={() => setCreating(true)}
                 className="text-xs text-[var(--color-accent-primary)] hover:underline"
@@ -219,7 +219,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                         />
                       </div>
                       <div className="flex items-center gap-2 mb-3">
-                        <span className="text-xs text-[var(--color-text-muted)]">Color</span>
+                        <Text size="xs">Color</Text>
                         {LABEL_PRESET_COLORS.map((c) => (
                           <button
                             key={c}
@@ -262,7 +262,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                       <CountBadge count={label.count} />
                       {confirmDelete === label.name ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-[var(--color-text-muted)]">Delete?</span>
+                          <Text size="xs">Delete?</Text>
                           <button
                             onClick={() => handleDelete(label.name)}
                             className="h-6 px-2 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity"

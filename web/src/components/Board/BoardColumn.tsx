@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Issue } from "../../api/client";
-import { StatusIcon, Heading } from "../ui";
+import { StatusIcon, Heading, Text } from "../ui";
 import { SortableBoardCard, type CardMeta } from "./BoardCard";
 import { isTerminal } from "../../constants";
 
@@ -54,7 +54,7 @@ export default function BoardColumn({
         <span className="text-xs font-medium text-[var(--color-text-muted)] [writing-mode:vertical-lr] rotate-180">
           {column.label}
         </span>
-        <span className="text-xs text-[var(--color-text-muted)] tabular-nums">{itemIds.length}</span>
+        <Text size="xs" tabular>{itemIds.length}</Text>
       </button>
     );
   }
