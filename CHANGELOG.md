@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Composable `Menu`, `MenuItem`, `SubMenu`, `MenuDivider`, `MenuLabel` component system with keyboard navigation, safe-triangle diagonal movement, and submenu close delay (xpo-de8d06)
+- `PopoverPanel` component for visual chrome in raw-content Popovers (xpo-de8d06)
+- `pointInTriangle` utility for safe-triangle hover calculations (xpo-de8d06)
+
 ### Changed
+
+- `Popover` is now positioning-only; visual chrome moved to `PopoverPanel` or `Menu` (xpo-de8d06)
+- `ContextMenu` decomposed from monolithic 470-line component into Menu/MenuItem/SubMenu composition (xpo-de8d06)
+- `FilterMenu` rebuilt with Menu/SubMenu; positioning fixed with `useLayoutEffect` + `queueMicrotask` (xpo-de8d06, xpo-b5a70c)
+- Backlog and Board view option menus refactored from inline JSX to Menu compositions (xpo-de8d06)
+- Menu items use compact sizing (`py-1.5`) with three-tier visual hierarchy: secondary text, hover highlight, active highlight (xpo-de8d06)
+
+### Fixed
+
+- Popover visibility in production builds: anchor ref not attached when `useLayoutEffect` fires; deferred via `queueMicrotask` (xpo-b5a70c)
 
 - `xpo init` is now a unified wizard: prefix prompt → agent multi-select → terraform-style change plan → confirm → apply. Replaces the separate `init mcp` and `init skill` subcommands (xpo-76e2a1)
 - Agent instruction files use managed blocks (`<!-- xpo:begin VERSION sha256:HASH -->`) for safe refresh — only the xpo-owned section is replaced, user content is never touched (xpo-76e2a1)
@@ -18,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Composable `Menu`, `MenuItem`, `SubMenu`, `MenuDivider`, `MenuLabel` component system with ARIA roles, keyboard navigation via the shortcut registry, and sub-menu flyout positioning; ContextMenu and FilterMenu refactored to compose from these primitives (xpo-de8d06)
+- `popover-utils` extended with `right-start` placement for sub-menu flyouts with left-flip and viewport clamping (xpo-de8d06)
+- `menu-utils` pure functions for index navigation with wrapping/skip and shortcut matching (xpo-de8d06)
 - Shared `Tabs<T>` component with `[`/`]` keyboard cycling via the shortcut registry; Backlog and My Issues migrated, removing duplicated tab markup (xpo-d47781)
 - Control-priority shortcuts fold into the active view's group in the keyboard help overlay instead of creating separate sections (xpo-d47781)
 - Keyboard system architecture design document (`design-docs/keyboard-system.md`) (xpo-d47781)

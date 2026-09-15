@@ -1,4 +1,4 @@
-export type Placement = 'bottom-start' | 'bottom-center' | 'bottom-end';
+export type Placement = 'bottom-start' | 'bottom-center' | 'bottom-end' | 'right-start';
 
 interface Rect {
   top: number;
@@ -28,23 +28,31 @@ export function computePopoverPosition(
   offset: number,
   viewport: Viewport,
 ): { top: number; left: number } {
-  let top = anchor.bottom + offset;
+  let top: number;
   let left: number;
 
-  switch (placement) {
-    case 'bottom-start':
-      left = anchor.left;
-      break;
-    case 'bottom-center':
-      left = anchor.left + anchor.width / 2 - popover.width / 2;
-      break;
-    case 'bottom-end':
-      left = anchor.right - popover.width;
-      break;
-  }
-
-  if (top + popover.height > viewport.height - PAD) {
-    top = anchor.top - popover.height - offset;
+  if (placement === 'right-start') {
+    top = anchor.top;
+    left = anchor.right + offset;
+    if (left + popover.width > viewport.width - PAD) {
+      left = anchor.left - popover.width - offset;
+    }
+  } else {
+    top = anchor.bottom + offset;
+    switch (placement) {
+      case 'bottom-start':
+        left = anchor.left;
+        break;
+      case 'bottom-center':
+        left = anchor.left + anchor.width / 2 - popover.width / 2;
+        break;
+      case 'bottom-end':
+        left = anchor.right - popover.width;
+        break;
+    }
+    if (top + popover.height > viewport.height - PAD) {
+      top = anchor.top - popover.height - offset;
+    }
   }
 
   if (left < PAD) left = PAD;

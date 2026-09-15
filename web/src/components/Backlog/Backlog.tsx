@@ -6,7 +6,7 @@ import {
   useMemo,
   useContext,
 } from "react";
-import { createPortal } from "react-dom";
+
 import { generateKeyBetween } from "fractional-indexing";
 import {
   DndContext,
@@ -36,7 +36,9 @@ import {
   IconButton,
   FilterButton,
   CountBadge,
+  Popover,
 } from "../ui";
+import { Menu, MenuItem, MenuLabel, MenuDivider } from "../ui/Menu";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
@@ -1226,39 +1228,6 @@ export default function Backlog({
 
   const [showViewMenu, setShowViewMenu] = useState(false);
   const viewBtnRef = useRef<HTMLButtonElement>(null);
-  const viewMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showViewMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        viewMenuRef.current &&
-        !viewMenuRef.current.contains(e.target as Node) &&
-        viewBtnRef.current &&
-        !viewBtnRef.current.contains(e.target as Node)
-      )
-        setShowViewMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showViewMenu]);
-
-  useEffect(() => {
-    if (!showViewMenu) return;
-    const btn = viewBtnRef.current;
-    const menu = viewMenuRef.current;
-    if (!btn || !menu) return;
-    const aRect = btn.getBoundingClientRect();
-    const mRect = menu.getBoundingClientRect();
-    let top = aRect.bottom + 4;
-    let left = aRect.left + aRect.width / 2 - mRect.width / 2;
-    if (top + mRect.height > window.innerHeight - 8) top = aRect.top - mRect.height - 4;
-    if (left < 8) left = 8;
-    if (left + mRect.width > window.innerWidth - 8) left = window.innerWidth - mRect.width - 8;
-    menu.style.top = `${top}px`;
-    menu.style.left = `${left}px`;
-    menu.style.visibility = "visible";
-  }, [showViewMenu]);
 
   // Stable refs for keyboard handler
   const rowsRef = useRef(rows);
@@ -1495,202 +1464,50 @@ export default function Backlog({
                 tooltip="View options"
                 icon={<Settings2 size={14} />}
               />
-              {showViewMenu && createPortal(
-                <div
-                  ref={viewMenuRef}
-                  style={{ position: "fixed", visibility: "hidden" }}
-                  className="z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1"
-                >
-                  {childrenByParent.size > 0 && (
-                    <>
-                      <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                        Layout
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          if (hierarchyMode !== "flat") toggleHierarchy();
-                          setShowViewMenu(false);
-                        }}
-                        className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "flat" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
-                      >
-                        <svg
-                          className="w-3.5 h-3.5 shrink-0"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5"
-                          />
-                        </svg>
-                        Flat
-                        {hierarchyMode === "flat" && (
-                          <svg
-                            className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (hierarchyMode !== "nested") toggleHierarchy();
-                          setShowViewMenu(false);
-                        }}
-                        className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${hierarchyMode === "nested" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
-                      >
-                        <ListTree size={14} className="w-3.5 shrink-0" />
-                        Nested
-                        {hierarchyMode === "nested" && (
-                          <svg
-                            className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                      {hierarchyMode === "nested" && (
-                        <>
-                          <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-                          <button
-                            onClick={() => {
-                              expandAllNodes();
-                              setShowViewMenu(false);
-                            }}
-                            className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                          >
-                            <ChevronsUpDown
-                              size={14}
-                              className="w-3.5 shrink-0"
-                            />
-                            Expand all
-                          </button>
-                          <button
-                            onClick={() => {
-                              collapseAllNodes();
-                              setShowViewMenu(false);
-                            }}
-                            className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                          >
-                            <ChevronsDownUp
-                              size={14}
-                              className="w-3.5 shrink-0"
-                            />
-                            Collapse all
-                          </button>
-                        </>
-                      )}
-                      <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-                    </>
-                  )}
-                  {!childrenByParent.size && (
-                    <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                      Layout
-                    </div>
-                  )}
-                  <button
-                    onClick={() => {
-                      toggleEmptyGroups();
-                      setShowViewMenu(false);
-                    }}
-                    className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                  >
-                    Show empty groups
-                    {showEmptyGroups && (
-                      <svg
-                        className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
+              {showViewMenu && (
+                <Popover anchorRef={viewBtnRef} onClose={() => setShowViewMenu(false)}>
+                  <Menu onClose={() => setShowViewMenu(false)}>
+                    <MenuLabel>Layout</MenuLabel>
+                    {childrenByParent.size > 0 && (
+                      <>
+                        <MenuItem
+                          label="Flat"
+                          icon={<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5" /></svg>}
+                          active={hierarchyMode === "flat"}
+                          onClick={() => { if (hierarchyMode !== "flat") toggleHierarchy(); }}
                         />
-                      </svg>
+                        <MenuItem
+                          label="Nested"
+                          icon={<ListTree size={14} />}
+                          active={hierarchyMode === "nested"}
+                          onClick={() => { if (hierarchyMode !== "nested") toggleHierarchy(); }}
+                        />
+                        {hierarchyMode === "nested" && (
+                          <>
+                            <MenuDivider />
+                            <MenuItem label="Expand all" icon={<ChevronsUpDown size={14} />} onClick={expandAllNodes} />
+                            <MenuItem label="Collapse all" icon={<ChevronsDownUp size={14} />} onClick={collapseAllNodes} />
+                          </>
+                        )}
+                        <MenuDivider />
+                      </>
                     )}
-                  </button>
-                  {hierarchyMode === "nested" && (
-                    <button
-                      onClick={() => {
-                        toggleGhosts();
-                        setShowViewMenu(false);
-                      }}
-                      className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                    >
-                      Show done ghosts
-                      {showGhosts && (
-                        <svg
-                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  )}
-                  <div className="my-1 border-t border-[var(--color-border-subtle)]" />
-                  <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                    Sort by
-                  </div>
-                  {SORT_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        onSortChange(opt.value);
-                        setShowViewMenu(false);
-                      }}
-                      className={`flex items-center gap-2 w-full h-7 px-3 text-sm transition-colors ${opt.value === sortKey ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)]"}`}
-                    >
-                      {opt.label}
-                      {opt.value === sortKey && (
-                        <svg
-                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>,
-                document.body,
+                    <MenuItem label="Show empty groups" checked={showEmptyGroups} onClick={toggleEmptyGroups} />
+                    {hierarchyMode === "nested" && (
+                      <MenuItem label="Show done ghosts" checked={showGhosts} onClick={toggleGhosts} />
+                    )}
+                    <MenuDivider />
+                    <MenuLabel>Sort by</MenuLabel>
+                    {SORT_OPTIONS.map((opt) => (
+                      <MenuItem
+                        key={opt.value}
+                        label={opt.label}
+                        active={opt.value === sortKey}
+                        onClick={() => onSortChange(opt.value)}
+                      />
+                    ))}
+                  </Menu>
+                </Popover>
               )}
             </div>
             <CountBadge count={filteredIssues.length} />

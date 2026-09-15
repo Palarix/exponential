@@ -82,4 +82,44 @@ describe('computePopoverPosition', () => {
       expect(left).toBe(8); // 50 - 200 = -150, clamped to PAD
     });
   });
+
+  describe('right-start placement', () => {
+    it('positions to the right of the anchor, top-aligned', () => {
+      const { top, left } = pos('right-start');
+      expect(top).toBe(100); // anchor.top
+      expect(left).toBe(284); // anchor.right + offset
+    });
+
+    it('flips left when overflowing right edge', () => {
+      const rightAnchor = { top: 100, bottom: 130, left: 850, right: 930, width: 80, height: 30 };
+      const { left } = pos('right-start', rightAnchor);
+      expect(left).toBe(646); // 850 - 200 - 4
+    });
+
+    it('clamps left when flipped and still overflows', () => {
+      const narrowViewport = { width: 300, height: 768 };
+      const midAnchor = { top: 100, bottom: 130, left: 100, right: 180, width: 80, height: 30 };
+      const { left } = pos('right-start', midAnchor, popover, offset, narrowViewport);
+      expect(left).toBe(8); // PAD
+    });
+
+    it('clamps top when anchor near bottom of viewport', () => {
+      const lowAnchor = { top: 650, bottom: 680, left: 200, right: 280, width: 80, height: 30 };
+      const { top } = pos('right-start', lowAnchor);
+      expect(top).toBe(610); // 768 - 150 - 8
+    });
+
+    it('clamps top to PAD when anchor near top of viewport', () => {
+      const topAnchor = { top: 2, bottom: 32, left: 200, right: 280, width: 80, height: 30 };
+      const { top } = pos('right-start', topAnchor);
+      expect(top).toBe(8); // PAD (top < PAD → clamped)
+    });
+
+    it('flip-left + bottom clamp combined', () => {
+      const cornerAnchor = { top: 650, bottom: 680, left: 900, right: 980, width: 80, height: 30 };
+      const { top, left } = pos('right-start', cornerAnchor);
+      expect(left).toBe(696); // 900 - 200 - 4
+      expect(top).toBe(610); // 768 - 150 - 8
+    });
+  });
 });

@@ -7,6 +7,7 @@ import {
   EstimateBadge,
   OverflowLabels,
   Popover,
+  PopoverPanel,
   StatusIcon,
   PriorityIcon,
   StatusPicker,
@@ -200,11 +201,13 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
               </button>
               {popoverType === "priority" && (
                 <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
-                  <PriorityPicker
-                    current={issue.priority || 0}
-                    onSelect={(v) => onQuickPriority(issue.id, v)}
-                    onClose={onClosePopover}
-                  />
+                  <PopoverPanel>
+                    <PriorityPicker
+                      current={issue.priority || 0}
+                      onSelect={(v) => onQuickPriority(issue.id, v)}
+                      onClose={onClosePopover}
+                    />
+                  </PopoverPanel>
                 </Popover>
               )}
             </div>
@@ -233,11 +236,13 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
               </button>
               {popoverType === "status" && (
                 <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
-                  <StatusPicker
-                    current={issue.status}
-                    onSelect={(v) => onQuickStatus(issue.id, v)}
-                    onClose={onClosePopover}
-                  />
+                  <PopoverPanel>
+                    <StatusPicker
+                      current={issue.status}
+                      onSelect={(v) => onQuickStatus(issue.id, v)}
+                      onClose={onClosePopover}
+                    />
+                  </PopoverPanel>
                 </Popover>
               )}
             </div>
@@ -301,13 +306,15 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
               </button>
               {popoverType === "labels" && (
                 <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
-                  <LabelPicker
-                    allLabels={allKnownLabels}
-                    selected={issue.labels || []}
-                    onToggle={(label) => onQuickLabelToggle(issue, label)}
-                    onConfigLabelsChange={onConfigLabelsChange}
-                    onClose={onClosePopover}
-                  />
+                  <PopoverPanel>
+                    <LabelPicker
+                      allLabels={allKnownLabels}
+                      selected={issue.labels || []}
+                      onToggle={(label) => onQuickLabelToggle(issue, label)}
+                      onConfigLabelsChange={onConfigLabelsChange}
+                      onClose={onClosePopover}
+                    />
+                  </PopoverPanel>
                 </Popover>
               )}
             </div>
@@ -361,11 +368,13 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
               </button>
               {popoverType === "estimate" && (
                 <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
-                  <EstimatePicker
-                    current={issue.estimate || 0}
-                    onSelect={(v) => onQuickEstimate(issue.id, v)}
-                    onClose={onClosePopover}
-                  />
+                  <PopoverPanel>
+                    <EstimatePicker
+                      current={issue.estimate || 0}
+                      onSelect={(v) => onQuickEstimate(issue.id, v)}
+                      onClose={onClosePopover}
+                    />
+                  </PopoverPanel>
                 </Popover>
               )}
             </div>

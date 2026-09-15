@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { createIssue, addDraft, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { computeAppendKey } from "../../utils/sort";
-import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, StatusIcon, InlineDropdown } from "../ui";
+import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, PopoverPanel, StatusIcon, InlineDropdown } from "../ui";
 import { ChevronDown, Folder, UserRound, Tag } from "lucide-react";
 import type { DropdownOption } from "../ui";
 import { isTerminal } from "../../constants";
@@ -181,13 +181,15 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
                 </button>
                 {morePopover === "parent" && (
                   <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
-                    <div className="px-3 py-2"><input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
-                    <div className="border-t border-[var(--color-border-default)]" />
-                    <div className="max-h-60 overflow-y-auto">
-                      {parentId && <button onClick={() => { setParentId(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">Remove parent</button>}
-                      {parentCandidates.slice(0, 15).map((c) => (<button key={c.id} onClick={() => { setParentId(c.id); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${c.id === parentId ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><StatusIcon status={c.status} size={12} /><span className="truncate">{c.title}</span>{c.id === parentId && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
-                      {parentCandidates.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching issues</div>}
-                    </div>
+                    <PopoverPanel>
+                      <div className="px-3 py-2"><input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
+                      <div className="border-t border-[var(--color-border-default)]" />
+                      <div className="max-h-60 overflow-y-auto">
+                        {parentId && <button onClick={() => { setParentId(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">Remove parent</button>}
+                        {parentCandidates.slice(0, 15).map((c) => (<button key={c.id} onClick={() => { setParentId(c.id); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${c.id === parentId ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><StatusIcon status={c.status} size={12} /><span className="truncate">{c.title}</span>{c.id === parentId && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
+                        {parentCandidates.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching issues</div>}
+                      </div>
+                    </PopoverPanel>
                   </Popover>
                 )}
               </div>
@@ -198,13 +200,15 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
                 </button>
                 {morePopover === "assignee" && (
                   <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
-                    <div className="px-3 py-2"><input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
-                    <div className="border-t border-[var(--color-border-default)]" />
-                    <div className="max-h-60 overflow-y-auto">
-                      {assignee && <button onClick={() => { setAssignee(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">Remove assignee</button>}
-                      {knownPeople.map((p) => (<button key={p} onClick={() => { setAssignee(p); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${p === assignee ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><Avatar name={p} size="sm" /><span className="truncate">{p.split(" <")[0]}</span>{p === assignee && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
-                      {knownPeople.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>}
-                    </div>
+                    <PopoverPanel>
+                      <div className="px-3 py-2"><input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" /></div>
+                      <div className="border-t border-[var(--color-border-default)]" />
+                      <div className="max-h-60 overflow-y-auto">
+                        {assignee && <button onClick={() => { setAssignee(""); setMorePopover(null); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">Remove assignee</button>}
+                        {knownPeople.map((p) => (<button key={p} onClick={() => { setAssignee(p); setMorePopover(null); }} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${p === assignee ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}><Avatar name={p} size="sm" /><span className="truncate">{p.split(" <")[0]}</span>{p === assignee && <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}</button>))}
+                        {knownPeople.length === 0 && <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>}
+                      </div>
+                    </PopoverPanel>
                   </Popover>
                 )}
               </div>
@@ -215,7 +219,9 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
                 </button>
                 {morePopover === "labels" && (
                   <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
-                    <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
+                    <PopoverPanel>
+                      <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
+                    </PopoverPanel>
                   </Popover>
                 )}
               </div>

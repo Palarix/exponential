@@ -16,8 +16,9 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
-import { EmptyState, Popover, StatusPicker, EstimatePicker, ContextMenu, StatusIcon } from '../ui';
+import { EmptyState, Popover, PopoverPanel, StatusPicker, EstimatePicker, ContextMenu, StatusIcon } from '../ui';
 import { LabelPicker } from '../ui';
+import { Menu, MenuItem, MenuLabel } from '../ui/Menu';
 import { sortGroup } from '../../utils/sort';
 import { useAllLabels } from '../../hooks/useLabels';
 import { toggleLabel } from '../../utils/labels';
@@ -120,15 +121,7 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
     });
   }, []);
   const [showViewMenu, setShowViewMenu] = useState(false);
-  const viewMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showViewMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target as Node)) setShowViewMenu(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showViewMenu]);
+  const viewBtnRef = useRef<HTMLButtonElement>(null);
   const visibleColumns = useMemo(() => COLUMNS.filter(c => !hiddenColumns.has(c.id)), [hiddenColumns]);
   const isDraggingRef = useRef(false);
   const pointerYRef = useRef<number>(0);
@@ -463,38 +456,27 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
         left={<Heading title="Board" />}
         right={
           <span className="flex items-center gap-2">
-            <div className="relative" ref={viewMenuRef}>
+            <div>
               <IconButton
+                ref={viewBtnRef}
                 onClick={() => setShowViewMenu(v => !v)}
                 icon={<Settings2 size={14} />}
               />
               {showViewMenu && (
-                <div className="absolute right-0 top-full mt-1 z-50 min-w-44 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] shadow-[var(--shadow-popover)] py-1">
-                  <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium uppercase tracking-wider">
-                    Columns
-                  </div>
-                  {COLUMNS.map((col) => (
-                    <button
-                      key={col.id}
-                      onClick={() => toggleColumnVisible(col.id)}
-                      className="flex items-center gap-2 w-full h-7 px-3 text-sm text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                    >
-                      <StatusIcon status={col.id} size={14} />
-                      {col.label}
-                      {!hiddenColumns.has(col.id) && (
-                        <svg
-                          className="w-3 h-3 ml-auto text-[var(--color-accent-primary)]"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <Popover anchorRef={viewBtnRef} onClose={() => setShowViewMenu(false)}>
+                  <Menu onClose={() => setShowViewMenu(false)}>
+                    <MenuLabel>Columns</MenuLabel>
+                    {COLUMNS.map((col) => (
+                      <MenuItem
+                        key={col.id}
+                        label={col.label}
+                        icon={<StatusIcon status={col.id} size={14} />}
+                        checked={!hiddenColumns.has(col.id)}
+                        onClick={() => toggleColumnVisible(col.id)}
+                      />
+                    ))}
+                  </Menu>
+                </Popover>
               )}
             </div>
             <CountBadge count={issues.filter(i => !hiddenColumns.has(i.status)).length} />
@@ -560,26 +542,32 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
           <>
             {openPopover.type === "status" && (
               <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
-                <StatusPicker current={issue.status} onSelect={v => handleQuickUpdate(issue.id, { status: v })} onClose={() => setOpenPopover(null)} />
+                <PopoverPanel>
+                  <StatusPicker current={issue.status} onSelect={v => handleQuickUpdate(issue.id, { status: v })} onClose={() => setOpenPopover(null)} />
+                </PopoverPanel>
               </Popover>
             )}
             {openPopover.type === "estimate" && (
               <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
-                <EstimatePicker current={issue.estimate || 0} onSelect={v => handleQuickUpdate(issue.id, { estimate: v })} onClose={() => setOpenPopover(null)} />
+                <PopoverPanel>
+                  <EstimatePicker current={issue.estimate || 0} onSelect={v => handleQuickUpdate(issue.id, { estimate: v })} onClose={() => setOpenPopover(null)} />
+                </PopoverPanel>
               </Popover>
             )}
             {openPopover.type === "labels" && (
               <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
-                <LabelPicker
-                  allLabels={allKnownLabels}
-                  selected={issue.labels || []}
-                  onToggle={async (label) => {
-                    const labels = toggleLabel(issue.labels || [], label);
-                    await addDraft(issue.id, "UPDATE", { labels });
-                    onRefresh();
-                  }}
-                  onClose={() => setOpenPopover(null)}
-                />
+                <PopoverPanel>
+                  <LabelPicker
+                    allLabels={allKnownLabels}
+                    selected={issue.labels || []}
+                    onToggle={async (label) => {
+                      const labels = toggleLabel(issue.labels || [], label);
+                      await addDraft(issue.id, "UPDATE", { labels });
+                      onRefresh();
+                    }}
+                    onClose={() => setOpenPopover(null)}
+                  />
+                </PopoverPanel>
               </Popover>
             )}
           </>

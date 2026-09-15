@@ -27,6 +27,7 @@
   --color-hover-surface-1:  #1c1c1c; /* hover on surface-1  */
   --color-hover-surface-2:  #222222; /* hover on surface-2  */
   --color-hover-surface-3:  #2a2a2a; /* hover on surface-3  */
+  --color-hover-surface-4:  #323234; /* hover on surface-4 */
 
   /* Borders — sit between adjacent layers */
   --color-border-subtle:   #1e1e1e; /* dividers within content   */
@@ -506,5 +507,3 @@ body {
   background: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
-
-

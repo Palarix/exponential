@@ -24,24 +24,32 @@ export default function Popover({
   const popRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
-    const anchor = anchorRef.current;
     const pop = popRef.current;
-    if (!anchor || !pop) return;
+    if (!pop) return;
 
-    const aRect = anchor.getBoundingClientRect();
-    const popRect = pop.getBoundingClientRect();
-    const { top, left } = computePopoverPosition(
-      aRect,
-      { width: popRect.width, height: popRect.height },
-      placement,
-      offset,
-      { width: window.innerWidth, height: window.innerHeight },
-    );
+    const position = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const aRect = anchor.getBoundingClientRect();
+      const popRect = pop.getBoundingClientRect();
+      const { top, left } = computePopoverPosition(
+        aRect,
+        { width: popRect.width, height: popRect.height },
+        placement,
+        offset,
+        { width: window.innerWidth, height: window.innerHeight },
+      );
+      pop.style.top = `${top}px`;
+      pop.style.left = `${left}px`;
+      pop.style.visibility = "visible";
+    };
 
-    pop.style.top = `${top}px`;
-    pop.style.left = `${left}px`;
-    pop.style.visibility = "visible";
-  }, [anchorRef, placement, offset]);
+    if (anchorRef.current) {
+      position();
+    } else {
+      queueMicrotask(position);
+    }
+  });
 
   useKeyboardShortcuts({
     scope: "popover",
@@ -69,14 +77,22 @@ export default function Popover({
     <div
       ref={popRef}
       style={{ position: "fixed", visibility: "hidden" }}
-      className={cn(
-        "z-50 min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1",
-        className,
-      )}
+      className={cn("z-50", className)}
     >
       {children}
     </div>,
     document.body,
+  );
+}
+
+export function PopoverPanel({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn(
+      "min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1",
+      className,
+    )}>
+      {children}
+    </div>
   );
 }
 
