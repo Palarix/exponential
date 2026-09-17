@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `MenuFilter` component for filterable menus; `bare` prop on `Menu` for chrome-free mode inside existing containers (xpo-9a7907)
+- Digit keys (0-9) registered in Menu keyboard handler for number-key shortcuts (xpo-9a7907)
 - Composable `Menu`, `MenuItem`, `SubMenu`, `MenuDivider`, `MenuLabel` component system with keyboard navigation, safe-triangle diagonal movement, and submenu close delay (xpo-de8d06)
 - `PopoverPanel` component for visual chrome in raw-content Popovers (xpo-de8d06)
 - `pointInTriangle` utility for safe-triangle hover calculations (xpo-de8d06)
 
 ### Changed
 
+- `StatusPicker`, `PriorityPicker`, `EstimatePicker`, `LabelPicker` rewritten as Menu + MenuItem compositions, eliminating duplicated keyboard handling, focus management, and CheckIcon definitions (xpo-9a7907)
 - `Popover` is now positioning-only; visual chrome moved to `PopoverPanel` or `Menu` (xpo-de8d06)
 - `ContextMenu` decomposed from monolithic 470-line component into Menu/MenuItem/SubMenu composition (xpo-de8d06)
 - `FilterMenu` rebuilt with Menu/SubMenu; positioning fixed with `useLayoutEffect` + `queueMicrotask` (xpo-de8d06, xpo-b5a70c)

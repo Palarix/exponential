@@ -1,9 +1,10 @@
-import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useContext, useCallback, type ReactNode } from "react";
 import { LabelBadge } from "./Badge";
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./BadgeContexts";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { addConfigLabel } from "../../api/client";
 import { labelColor } from "../../utils/labels";
+import { Menu, MenuItem, MenuFilter, MenuDivider, MenuLabel } from "./Menu";
 
 interface LabelPickerProps {
   allLabels: string[];
@@ -16,13 +17,19 @@ interface LabelPickerProps {
   borderlessBadges?: boolean;
 }
 
+function displayLabel(label: string): string {
+  return label === label.toLowerCase()
+    ? label.charAt(0).toUpperCase() + label.slice(1)
+    : label;
+}
+
 export default function LabelPicker({
   allLabels,
   selected,
   onToggle,
   onConfigLabelsChange,
   onClose,
-  singleSelect = false,
+  // singleSelect — accepted for API compatibility, no longer affects rendering
   exclude,
   borderlessBadges,
 }: LabelPickerProps) {
@@ -30,20 +37,13 @@ export default function LabelPicker({
   const hideDefaultLabels = useContext(HideDefaultLabelsContext);
   const defaultLabels = useContext(DefaultLabelsContext);
   const [search, setSearch] = useState("");
-  const [focusIndex, setFocusIndex] = useState(0);
   const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
 
   const excludeSet = useMemo(
     () => new Set((exclude || []).map((l) => l.toLowerCase())),
     [exclude],
   );
 
-  // Defaults first (in canonical order), then the rest sorted alphabetically. Case-insensitive dedup.
   const orderedLabels = useMemo(() => {
     const keep = (l: string) => !excludeSet.has(l.toLowerCase());
     if (hideDefaultLabels) {
@@ -98,40 +98,6 @@ export default function LabelPicker({
     [configLabels, onConfigLabelsChange, onToggle],
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      const total = filtered.length + (canCreate ? 1 : 0);
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setFocusIndex((i) => Math.min(i + 1, total - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setFocusIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        e.stopPropagation();
-        if (canCreate && focusIndex === filtered.length) {
-          handleSelect(search.trim());
-        } else if (filtered[focusIndex]) {
-          onToggle(filtered[focusIndex]);
-        }
-      } else if (e.key === " ") {
-        const endsWithSpace = search.length > 0 && search[search.length - 1] === " ";
-        if (search.length === 0 || endsWithSpace) {
-          e.preventDefault();
-          if (canCreate && focusIndex === filtered.length) {
-            handleSelect(search.trim());
-          } else if (filtered[focusIndex]) {
-            onToggle(filtered[focusIndex]);
-          }
-        }
-      } else if (e.key === "Escape") {
-        onClose?.();
-      }
-    },
-    [filtered, canCreate, focusIndex, search, handleSelect, onToggle, onClose],
-  );
-
   if (creatingLabel) {
     return (
       <>
@@ -174,89 +140,50 @@ export default function LabelPicker({
     );
   }
 
+  const items: ReactNode[] = [];
+  for (let i = 0; i < filtered.length; i++) {
+    const label = filtered[i];
+    const isActive = selected.some(s => s.toLowerCase() === label.toLowerCase());
+    const isDefault = !hideDefaultLabels && defaultLabelSet.has(label.toLowerCase());
+    const prev = i > 0 ? filtered[i - 1] : null;
+    const prevIsDefault =
+      !hideDefaultLabels && prev !== null && defaultLabelSet.has(prev.toLowerCase());
+    if (!isDefault && prevIsDefault) {
+      items.push(<MenuDivider key={`div-${label}`} />);
+    }
+    items.push(
+      <MenuItem
+        key={label}
+        label={displayLabel(label)}
+        icon={
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ background: labelColor(label, configLabels) }}
+          />
+        }
+        checked={isActive}
+        onClick={() => onToggle(label)}
+      />,
+    );
+  }
+
   return (
-    <>
-      <div className="px-3 py-2">
-        <input
-          ref={inputRef}
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setFocusIndex(0);
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Filter or create label..."
-          className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
-        />
-      </div>
-      <div className="border-t border-[var(--color-border-subtle)]" />
-      {filtered.map((label, i) => {
-        const isActive = selected.some(s => s.toLowerCase() === label.toLowerCase());
-        const isFocused = i === focusIndex;
-        const isDefault = !hideDefaultLabels && defaultLabelSet.has(label.toLowerCase());
-        const prev = i > 0 ? filtered[i - 1] : null;
-        const prevIsDefault =
-          !hideDefaultLabels && prev !== null && defaultLabelSet.has(prev.toLowerCase());
-        const showDivider = !isDefault && prevIsDefault;
-        return (
-          <div key={label}>
-            {showDivider && (
-              <div className="my-1 border-t border-[var(--color-border-default)]" />
-            )}
-          <button
-            onClick={() => onToggle(label)}
-            onMouseEnter={() => setFocusIndex(i)}
-            className={`flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-hover-surface-3)] ${isFocused ? "bg-[var(--color-hover-surface-3)]" : ""}`}
-          >
-            {singleSelect ? (
-              <span
-                className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isActive ? "border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
-              >
-                {isActive && (
-                  <span className="w-2 h-2 rounded-full bg-[var(--color-accent-primary)]" />
-                )}
-              </span>
-            ) : (
-              <span
-                className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isActive ? "bg-[var(--color-accent-primary)] border-[var(--color-accent-primary)]" : "border-[var(--color-border-default)]"}`}
-              >
-                {isActive && (
-                  <svg
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                )}
-              </span>
-            )}
-            <LabelBadge borderless={borderlessBadges} label={label} />
-          </button>
-          </div>
-        );
-      })}
+    <Menu onClose={onClose} bare autoFocus={false}>
+      <MenuFilter
+        value={search}
+        onChange={setSearch}
+        placeholder="Filter or create label..."
+      />
+      {items}
       {canCreate && onConfigLabelsChange && (
-        <button
+        <MenuItem
+          label={`Create "${search.trim()}"`}
           onClick={() => handleSelect(search.trim())}
-          onMouseEnter={() => setFocusIndex(filtered.length)}
-          className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${focusIndex === filtered.length ? "bg-[var(--color-hover-surface-3)]" : ""}`}
-        >
-          <span className="text-[var(--color-text-muted)]">Create</span>
-          <LabelBadge borderless={borderlessBadges} label={search.trim()} />
-        </button>
+        />
       )}
       {filtered.length === 0 && !canCreate && (
-        <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">
-          No matching labels
-        </div>
+        <MenuLabel>No matching labels</MenuLabel>
       )}
-    </>
+    </Menu>
   );
 }

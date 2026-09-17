@@ -45,6 +45,7 @@ interface MenuProps {
   className?: string;
   maxHeight?: string;
   autoFocus?: boolean;
+  bare?: boolean;
   "aria-label"?: string;
 }
 
@@ -55,6 +56,7 @@ export function Menu({
   className,
   maxHeight,
   autoFocus = true,
+  bare,
   "aria-label": ariaLabel,
 }: MenuProps) {
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -68,12 +70,13 @@ export function Menu({
     const type = child.type;
     const isDivider = type === MenuDivider;
     const isLabel = type === MenuLabel;
+    const isFilter = type === MenuFilter;
     const isSubMenu = (type as { _isSubMenu?: boolean })._isSubMenu === true
       || props.renderPanel !== undefined;
     const isCheckbox = props.checked !== undefined;
     metas.push({
       index: childCount,
-      navigable: !isDivider && !isLabel && !props.disabled,
+      navigable: !isDivider && !isLabel && !isFilter && !props.disabled,
       shortcut: props.shortcut as string | undefined,
       isSubMenu,
       isCheckbox,
@@ -224,6 +227,21 @@ export function Menu({
     const count = itemCountRef.current;
     const skip = skipSetRef.current;
 
+    const activeEl = document.activeElement;
+    if (activeEl?.tagName === "INPUT" && menuContainerRef.current?.contains(activeEl as Node)) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        focusViaKeyboard.current = true;
+        setFocusIndex((i) => nextIndex(i, count, 1, skip));
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onClose?.();
+      }
+      return;
+    }
+
     switch (e.key) {
       case "ArrowDown": {
         e.preventDefault();
@@ -300,7 +318,7 @@ export function Menu({
     }
   }, [focusIndex, onClose, onParentArrowLeft, activateItem]);
 
-  const ALPHA = "abcdefghijklmnopqrstuvwxyz";
+  const ALPHA = "abcdefghijklmnopqrstuvwxyz0123456789";
 
   useKeyboardHandler({
     scope: "menu",
@@ -363,7 +381,8 @@ export function Menu({
       tabIndex={-1}
       style={maxHeight ? { maxHeight } : undefined}
       className={cn(
-        "min-w-64 p-2 bg-[var(--color-surface-2)] border border-[var(--color-border-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-popover)] outline-none",
+        "outline-none",
+        !bare && "min-w-64 p-2 bg-[var(--color-surface-2)] border border-[var(--color-border-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-popover)]",
         maxHeight && "overflow-y-auto scrollbar-gutter-both px-0 scrollbar-thin",
         className,
       )}
@@ -490,6 +509,38 @@ export function MenuLabel({ children, className }: MenuLabelProps) {
     >
       {children}
     </div>
+  );
+}
+
+// ─── MenuFilter ───────────────────────────────────────
+
+interface MenuFilterProps extends MenuItemInternalProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
+export function MenuFilter({ value, onChange, placeholder, _menuIndex }: MenuFilterProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <>
+      <div data-menu-index={_menuIndex} className="px-2 py-1.5">
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+        />
+      </div>
+      <div className="my-0.5 border-t border-[var(--color-border-subtle)]" />
+    </>
   );
 }
 
