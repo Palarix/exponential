@@ -344,7 +344,7 @@ Write the walkthrough **after** any user-requested corrections are applied, so i
 
 If any are missing, go back to the missing step.
 
-Use the xpo MCP server's ` + "`merge`" + ` tool to complete the issue. It merges the branch, records a MERGE event, closes the issue, and cleans up the worktree or branch. Do not use manual git commands to merge or commit — use ` + "`merge`" + `.
+Commit all changes on the worktree or branch, then use the xpo MCP server's ` + "`merge`" + ` tool to complete the issue. It merges the branch, records a MERGE event, closes the issue, and cleans up the worktree or branch. Do not use manual git commands to merge or commit — use ` + "`merge`" + `.
 
 ---
 
@@ -718,10 +718,10 @@ func AgentRegistryNames() []string {
 
 // InstructionWriteResult describes what happened when writing agent instructions.
 type InstructionWriteResult struct {
-	Action      string // "created", "appended", "updated", "skipped"
-	WasEdited   bool   // true if the existing managed block had local edits (hash mismatch)
-	OldContent  string // previous managed block content (for diff display)
-	NewContent  string // new managed block content
+	Action     string // "created", "appended", "updated", "skipped"
+	WasEdited  bool   // true if the existing managed block had local edits (hash mismatch)
+	OldContent string // previous managed block content (for diff display)
+	NewContent string // new managed block content
 }
 
 // AppendAgentInstructions writes xpo instructions to an agent file using managed blocks.

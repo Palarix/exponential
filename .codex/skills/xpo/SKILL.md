@@ -129,7 +129,7 @@ Write the walkthrough **after** any user-requested corrections are applied, so i
 
 If any are missing, go back to the missing step.
 
-Use the xpo MCP server's `merge` tool to complete the issue. It merges the branch, records a MERGE event, closes the issue, and cleans up the worktree or branch. Do not use manual git commands to merge or commit — use `merge`.
+Commit the changes on the worktree then use the xpo MCP server's `merge` tool to complete the issue. It merges the branch, records a MERGE event, closes the issue, and cleans up the worktree or branch. Do not use manual git commands to merge or commit — use `merge`.
 
 ---
 
