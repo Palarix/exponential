@@ -32,6 +32,9 @@ func init() {
 func runPulse(cmd *cobra.Command, args []string) error {
 	events, err := storage.ReadEvents()
 	if err != nil {
+		if pulseJSON {
+			exitJSONError(fmt.Errorf("failed to read events: %w", err))
+		}
 		return fmt.Errorf("failed to read events: %w", err)
 	}
 

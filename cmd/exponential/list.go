@@ -49,6 +49,9 @@ var listCmd = &cobra.Command{
 
 		issues, err := client.ListIssues(opts)
 		if err != nil {
+			if listJSONFlag {
+				exitJSONError(err)
+			}
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}

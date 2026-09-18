@@ -27,6 +27,9 @@ var blockedCmd = &cobra.Command{
 				Statuses: []string{"BLOCKED"},
 			})
 			if err != nil {
+				if blockedJSONFlag {
+					exitJSONError(err)
+				}
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -59,6 +62,9 @@ var blockedCmd = &cobra.Command{
 
 		msgs, err := client.UpdateIssue(args[0], payload, "block")
 		if err != nil {
+			if blockedJSONFlag {
+				exitJSONError(err)
+			}
 			fmt.Printf("Error marking blocked: %v\n", err)
 			os.Exit(1)
 		}

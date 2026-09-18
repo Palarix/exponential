@@ -40,10 +40,13 @@ var historyCmd = &cobra.Command{
 		if len(args) == 1 {
 			issue, _, archived, err := client.FindIssue(args[0])
 			if err != nil {
+				if historyJSON {
+					exitJSONError(err)
+				}
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			if archived {
+			if archived && !historyJSON {
 				fmt.Println("Note: This issue is archived.")
 			}
 
@@ -88,6 +91,9 @@ var historyCmd = &cobra.Command{
 		} else {
 			issues, err := client.ListIssues(exponential.FilterOptions{})
 			if err != nil {
+				if historyJSON {
+					exitJSONError(err)
+				}
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -105,6 +111,9 @@ var historyCmd = &cobra.Command{
 		if historySince != "" {
 			d, err := parseDuration(historySince)
 			if err != nil {
+				if historyJSON {
+					exitJSONError(fmt.Errorf("invalid --since value %q: %v", historySince, err))
+				}
 				fmt.Printf("Error: invalid --since value %q: %v\n", historySince, err)
 				os.Exit(1)
 			}

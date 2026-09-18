@@ -43,8 +43,10 @@ var rootCmd = &cobra.Command{
 			return nil
 		}
 
-		// No project — show the branded welcome and stop
 		if _, err := os.Stat(".xpo"); os.IsNotExist(err) {
+			if argsContainJSONFlag() {
+				return fmt.Errorf("not an exponential project (no .xpo directory)")
+			}
 			printNotAProject()
 			os.Exit(0)
 		}
@@ -61,10 +63,30 @@ var rootCmd = &cobra.Command{
 }
 
 func main() {
+	jsonMode := argsContainJSONFlag()
+	if jsonMode {
+		rootCmd.SilenceErrors = true
+		rootCmd.SilenceUsage = true
+	}
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		if jsonMode {
+			exitJSONError(err)
+		}
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
+}
+
+func argsContainJSONFlag() bool {
+	for _, a := range os.Args[1:] {
+		if a == "--json" || a == "--json=true" {
+			return true
+		}
+		if a == "--" {
+			return false
+		}
+	}
+	return false
 }
 
 func printNotAProject() {

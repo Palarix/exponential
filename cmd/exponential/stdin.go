@@ -42,9 +42,13 @@ func readStdinExplicit() (string, error) {
 	return readAllStdin()
 }
 
-func exitJSONError(err error) {
-	enc := json.NewEncoder(os.Stdout)
+func writeJSONError(w io.Writer, err error) {
+	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	enc.Encode(jsonio.ErrorOutput{Error: err.Error()})
+}
+
+func exitJSONError(err error) {
+	writeJSONError(os.Stdout, err)
 	os.Exit(1)
 }

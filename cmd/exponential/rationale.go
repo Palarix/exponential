@@ -35,6 +35,9 @@ Examples:
 		client := exponential.NewClient(cfg)
 		result, err := client.SearchRationale(args[0], rationaleTopFlag)
 		if err != nil {
+			if rationaleJSONFlag {
+				exitJSONError(err)
+			}
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}

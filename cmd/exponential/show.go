@@ -29,6 +29,9 @@ func showIssue(id string) {
 	client := exponential.NewClient(cfg)
 	issue, children, archived, err := client.FindIssue(id)
 	if err != nil {
+		if showJSONFlag {
+			exitJSONError(err)
+		}
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}

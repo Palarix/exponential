@@ -53,6 +53,9 @@ func runInbox(cmd *cobra.Command, args []string) error {
 
 	if inboxClear {
 		if err := config.SetInboxLastRead(remoteURL, time.Now()); err != nil {
+			if inboxJSONFlag {
+				exitJSONError(fmt.Errorf("failed to update read cursor: %w", err))
+			}
 			return fmt.Errorf("failed to update read cursor: %w", err)
 		}
 		fmt.Println("Inbox marked as read.")
@@ -65,6 +68,9 @@ func runInbox(cmd *cobra.Command, args []string) error {
 
 	items, err := client.GetInbox(since)
 	if err != nil {
+		if inboxJSONFlag {
+			exitJSONError(err)
+		}
 		return err
 	}
 

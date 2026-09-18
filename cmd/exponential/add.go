@@ -38,37 +38,31 @@ var addCmd = &cobra.Command{
 		if addJSONFlag {
 			content, err := readStdinExplicit()
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			var input jsonio.AddInput
 			if err := jsonio.DecodeStrict(content, &input); err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			payload, err := input.ToCreatePayload()
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			if err := client.ValidateCreatePayload(&payload); err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			if !addForceFlag {
 				if dupes, derr := client.CheckDuplicates(payload.Title); derr == nil && len(dupes) > 0 {
-					fmt.Println(ui.WarningStyle.Render("⚠ Possible duplicate(s) found:"))
-					for _, d := range dupes {
-						fmt.Printf("  %s  %s\n", d.ID, d.Title)
+					ids := make([]string, len(dupes))
+					for i, d := range dupes {
+						ids[i] = d.ID
 					}
-					fmt.Println("\nUse --force to create anyway, or choose a different title.")
-					os.Exit(0)
+					exitJSONError(fmt.Errorf("possible duplicate(s) found: %s; use --force to create anyway", strings.Join(ids, ", ")))
 				}
 			}
 			issue, err := client.AddIssue(payload)
 			if err != nil {
-				fmt.Printf("Error adding issue: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			out := jsonio.AddOutput{ID: issue.ID, Title: issue.Title, Status: string(issue.Status)}
 			enc := json.NewEncoder(os.Stdout)

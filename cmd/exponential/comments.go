@@ -25,6 +25,9 @@ var commentsCmd = &cobra.Command{
 		client := exponential.NewClient(cfg)
 		issue, err := client.GetIssue(args[0])
 		if err != nil {
+			if commentsJSONFlag {
+				exitJSONError(fmt.Errorf("issue %s not found: %w", args[0], err))
+			}
 			return fmt.Errorf("issue %s not found: %w", args[0], err)
 		}
 

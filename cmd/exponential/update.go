@@ -40,31 +40,25 @@ var updateCmd = &cobra.Command{
 		if updateJSONFlag {
 			content, err := readStdinExplicit()
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			var input jsonio.UpdateInput
 			if err := jsonio.DecodeStrict(content, &input); err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			payload, err := input.ToUpdatePayload()
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			if jsonio.UpdatePayloadEmpty(payload) {
-				fmt.Println("No changes in payload.")
-				return
+				exitJSONError(fmt.Errorf("no changes in payload"))
 			}
 			if err := client.ValidateUpdatePayload(&payload); err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			msgs, err := client.UpdateIssue(id, payload, "update")
 			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				exitJSONError(err)
 			}
 			out := jsonio.UpdateOutput{ID: id, Messages: msgs}
 			enc := json.NewEncoder(os.Stdout)
@@ -249,6 +243,9 @@ var doneCmd = &cobra.Command{
 		payload := model.UpdatePayload{Status: &status}
 		msgs, err := client.UpdateIssue(args[0], payload, "done")
 		if err != nil {
+			if doneJSONFlag {
+				exitJSONError(err)
+			}
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -278,6 +275,9 @@ var plannedCmd = &cobra.Command{
 		payload := model.UpdatePayload{Status: &status}
 		msgs, err := client.UpdateIssue(args[0], payload, "planned")
 		if err != nil {
+			if plannedJSONFlag {
+				exitJSONError(err)
+			}
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
