@@ -1,29 +1,63 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
 )
 
+var blockedJSONFlag bool
+
 var blockedCmd = &cobra.Command{
 	Use:               "blocked [id]",
-	Short:             "Mark an issue as BLOCKED",
-	Args:              cobra.ExactArgs(1),
+	Short:             "List blocked issues, or mark an issue as BLOCKED",
+	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
-		id := args[0]
 		client := exponential.NewClient(cfg)
+
+		if len(args) == 0 {
+			issues, err := client.ListIssues(exponential.FilterOptions{
+				Statuses: []string{"BLOCKED"},
+			})
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+
+			if blockedJSONFlag {
+				out := jsonio.ListOutput{Issues: make([]jsonio.IssueSummary, 0, len(issues))}
+				for _, i := range issues {
+					out.Issues = append(out.Issues, jsonio.ToIssueSummary(i))
+				}
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				enc.Encode(out)
+				return
+			}
+
+			if len(issues) == 0 {
+				fmt.Println("No blocked issues.")
+				return
+			}
+
+			width := ui.TerminalWidth()
+			fmt.Print(ui.RenderIssueList(issues, width, cfg.Prefix))
+			return
+		}
 
 		status := string(model.StatusBlocked)
 		payload := model.UpdatePayload{
 			Status: &status,
 		}
 
-		msgs, err := client.UpdateIssue(id, payload, "block")
+		msgs, err := client.UpdateIssue(args[0], payload, "block")
 		if err != nil {
 			fmt.Printf("Error marking blocked: %v\n", err)
 			os.Exit(1)
@@ -36,5 +70,6 @@ var blockedCmd = &cobra.Command{
 }
 
 func init() {
+	blockedCmd.Flags().BoolVar(&blockedJSONFlag, "json", false, "Output blocked issues as JSON")
 	rootCmd.AddCommand(blockedCmd)
 }
