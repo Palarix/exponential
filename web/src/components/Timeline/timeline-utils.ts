@@ -61,6 +61,15 @@ export function entryActor(entry: TimelineEntry): string {
   return actor.principal;
 }
 
+export function filterBySearch(entries: TimelineEntry[], query: string): TimelineEntry[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter((e) =>
+    (e.issue_id?.toLowerCase().includes(q) ?? false) ||
+    (e.issue_title?.toLowerCase().includes(q) ?? false)
+  );
+}
+
 export function extractContributors(entries: TimelineEntry[]): string[] {
   const seen = new Set<string>();
   for (const e of entries) {

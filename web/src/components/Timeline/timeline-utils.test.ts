@@ -7,6 +7,7 @@ import {
   daySummary,
   entryActor,
   extractContributors,
+  filterBySearch,
 } from "./timeline-utils";
 
 function makeEntry(overrides: Partial<TimelineEntry> = {}): TimelineEntry {
@@ -156,5 +157,58 @@ describe("extractContributors", () => {
 
   it("returns empty for no entries", () => {
     expect(extractContributors([])).toEqual([]);
+  });
+});
+
+describe("filterBySearch", () => {
+  const entries = [
+    makeEntry({ issue_id: "xpo-abc123", issue_title: "Add search to Timeline" }),
+    makeEntry({ issue_id: "xpo-def456", issue_title: "Fix broken styles" }),
+    makeEntry({ issue_id: "xpo-ghi789", issue_title: "Refactor components" }),
+  ];
+
+  it("returns all entries when query is empty", () => {
+    expect(filterBySearch(entries, "")).toEqual(entries);
+  });
+
+  it("returns all entries when query is whitespace-only", () => {
+    expect(filterBySearch(entries, "   ")).toEqual(entries);
+  });
+
+  it("filters by partial issue title", () => {
+    const result = filterBySearch(entries, "search");
+    expect(result).toHaveLength(1);
+    expect(result[0].issue_id).toBe("xpo-abc123");
+  });
+
+  it("filters by issue ID", () => {
+    const result = filterBySearch(entries, "def456");
+    expect(result).toHaveLength(1);
+    expect(result[0].issue_id).toBe("xpo-def456");
+  });
+
+  it("is case-insensitive", () => {
+    expect(filterBySearch(entries, "BROKEN")).toHaveLength(1);
+    expect(filterBySearch(entries, "FIX")).toHaveLength(1);
+  });
+
+  it("returns empty when nothing matches", () => {
+    expect(filterBySearch(entries, "zzz-no-match")).toEqual([]);
+  });
+
+  it("handles entries with missing issue_title", () => {
+    const sparse = [
+      makeEntry({ issue_id: "xpo-abc123" }),
+    ];
+    const result = filterBySearch(sparse, "abc123");
+    expect(result).toHaveLength(1);
+  });
+
+  it("handles entries with no issue_id or issue_title (unlinked commits)", () => {
+    const unlinked = [
+      makeEntry({ kind: "commit", issue_id: undefined as unknown as string, issue_title: undefined, message: "fix typo", sha: "abc1234" }),
+    ];
+    expect(filterBySearch(unlinked, "something")).toEqual([]);
+    expect(filterBySearch(unlinked, "")).toEqual(unlinked);
   });
 });

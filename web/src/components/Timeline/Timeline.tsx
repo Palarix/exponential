@@ -4,7 +4,7 @@ import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
-import { TopBar, IconButton, Heading, Text } from "../ui";
+import { TopBar, IconButton, Heading, Text, SearchInput } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
 import {
   Plus,
@@ -38,6 +38,7 @@ import {
   daySummary,
   entryActor,
   extractContributors,
+  filterBySearch,
   type EventCategory,
 } from "./timeline-utils";
 
@@ -235,6 +236,7 @@ export default function Timeline({
   const [rawEntries, setRawEntries] = useState<TimelineEntry[]>([]);
   const [enabledTypes, setEnabledTypes] = useState<Set<EventCategory>>(() => new Set(ALL_CATEGORIES));
   const [person, setPerson] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(100);
 
@@ -256,8 +258,9 @@ export default function Timeline({
   const entries = useMemo(() => {
     let filtered = allEnabled ? rawEntries : rawEntries.filter((e) => enabledTypes.has(categorizeEntry(e)));
     if (person) filtered = filtered.filter((e) => entryActor(e) === person);
+    filtered = filterBySearch(filtered, search);
     return filtered;
-  }, [rawEntries, enabledTypes, allEnabled, person]);
+  }, [rawEntries, enabledTypes, allEnabled, person, search]);
 
   const handleLoadMore = () => setLimit((prev) => prev + 100);
 
@@ -272,7 +275,7 @@ export default function Timeline({
   if (rawEntries.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} />
+        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
         <EmptyState
           icon={<Clock className="w-12 h-12" />}
           title="No activity yet"
@@ -285,11 +288,13 @@ export default function Timeline({
   if (entries.length === 0) {
     return (
       <div className="h-full flex flex-col">
-        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} />
+        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
         <EmptyState
           icon={<Clock className="w-12 h-12" />}
           title="No matching activity"
           description="Try adjusting your filters to see more events."
+          actionLabel={rawEntries.length >= limit ? "Load more" : undefined}
+          onAction={rawEntries.length >= limit ? handleLoadMore : undefined}
         />
       </div>
     );
@@ -299,7 +304,7 @@ export default function Timeline({
 
   return (
     <div className="h-full flex flex-col">
-      <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} />
+      <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto py-2">
           {Array.from(days.entries()).map(([day, dayEntries], dayIdx) => (
@@ -310,10 +315,10 @@ export default function Timeline({
               issues={issues}
               onIssueClick={onIssueClick}
               isFirst={dayIdx === 0}
-              isLast={dayIdx === days.size - 1 && entries.length < limit}
+              isLast={dayIdx === days.size - 1 && rawEntries.length < limit}
             />
           ))}
-          {entries.length >= limit && (
+          {rawEntries.length >= limit && (
             <div className="flex items-stretch px-5">
               <div className="w-24 shrink-0" />
               <div className="w-7 flex flex-col items-center shrink-0">
@@ -344,6 +349,8 @@ function HeaderBar({
   person,
   onPersonChange,
   contributors,
+  search,
+  onSearchChange,
 }: {
   enabledTypes: Set<EventCategory>;
   onEnabledTypesChange: (s: Set<EventCategory>) => void;
@@ -351,6 +358,8 @@ function HeaderBar({
   person: string;
   onPersonChange: (p: string) => void;
   contributors: string[];
+  search: string;
+  onSearchChange: (value: string) => void;
 }) {
   const [showFilter, setShowFilter] = useState(false);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
@@ -358,6 +367,13 @@ function HeaderBar({
   return (
     <TopBar
       left={<Heading title="Timeline" />}
+      center={
+        <SearchInput
+          value={search}
+          onChange={onSearchChange}
+          placeholder="Search timeline..."
+        />
+      }
       right={
         <div className="flex items-center gap-2">
           <div className="relative">
