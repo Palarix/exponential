@@ -177,6 +177,127 @@ type InboxOutput struct {
 	Items []InboxEntry `json:"items"`
 }
 
+type AttentionKind string
+
+const (
+	AttentionBlocker      AttentionKind = "blocker"
+	AttentionStaleWIP     AttentionKind = "stale_wip"
+	AttentionHighPriority AttentionKind = "high_priority"
+)
+
+type AttentionItem struct {
+	IssueID  string        `json:"issue_id"`
+	Title    string        `json:"title"`
+	Kind     AttentionKind `json:"kind"`
+	AgeDays  int           `json:"age_days,omitempty"`
+	Priority int           `json:"priority,omitempty"`
+}
+
+type WorkloadEntry struct {
+	Assignee      string `json:"assignee"`
+	InProgress    int    `json:"in_progress"`
+	OpenPoints    int    `json:"open_points"`
+	Blocked       int    `json:"blocked"`
+	LastCompleted string `json:"last_completed,omitempty"`
+}
+
+type WeeklyTrend struct {
+	WeekStart string `json:"week_start"`
+	Created   int    `json:"created"`
+	Completed int    `json:"completed"`
+}
+
+type AgeBuckets struct {
+	Under1d  int `json:"under_1d"`
+	Under3d  int `json:"under_3d"`
+	Under7d  int `json:"under_7d"`
+	Under14d int `json:"under_14d"`
+	Under30d int `json:"under_30d"`
+	Over30d  int `json:"over_30d"`
+}
+
+type BugAgeBuckets struct {
+	Under24h int `json:"under_24h"`
+	Under48h int `json:"under_48h"`
+	Under5d  int `json:"under_5d"`
+	Under14d int `json:"under_14d"`
+	Under1mo int `json:"under_1mo"`
+	Over1mo  int `json:"over_1mo"`
+}
+
+type TrendsBlock struct {
+	Weekly           []WeeklyTrend `json:"weekly"`
+	MedianTriageMins int           `json:"median_triage_mins"`
+	TriagedCount     int           `json:"triaged_count"`
+	BugAge           BugAgeBuckets `json:"bug_age"`
+}
+
+type EpicProgress struct {
+	IssueID         string `json:"issue_id"`
+	Title           string `json:"title"`
+	ChildrenDone    int    `json:"children_done"`
+	ChildrenTotal   int    `json:"children_total"`
+	PointsDone      int    `json:"points_done"`
+	PointsTotal     int    `json:"points_total"`
+	PointsRemaining int    `json:"points_remaining"`
+	Stale           bool   `json:"stale"`
+}
+
+type VelocityBucket struct {
+	WeekStart string `json:"week_start"`
+	Points    int    `json:"points"`
+}
+
+type DailyBucket struct {
+	Date   string `json:"date"`
+	Points int    `json:"points"`
+}
+
+type PulseOutput struct {
+	Velocity struct {
+		CurrentWeekPoints int              `json:"current_week_points"`
+		Last7dPoints      int              `json:"last_7d_points"`
+		Prior7dPoints     int              `json:"prior_7d_points"`
+		Delta             int              `json:"delta"`
+		WeeklyBuckets     []VelocityBucket `json:"weekly_buckets"`
+		DailyBuckets      []DailyBucket    `json:"daily_buckets"`
+	} `json:"velocity"`
+	Throughput struct {
+		Last7d  int `json:"last_7d"`
+		Prior7d int `json:"prior_7d"`
+		Delta   int `json:"delta"`
+	} `json:"throughput"`
+	WIP struct {
+		Total              int `json:"total"`
+		Stale              int `json:"stale"`
+		StaleThresholdDays int `json:"stale_threshold_days"`
+	} `json:"wip"`
+	Blockers struct {
+		Total      int `json:"total"`
+		OldestDays int `json:"oldest_days"`
+	} `json:"blockers"`
+	Flow struct {
+		CycleTimeHrs    float64    `json:"cycle_time_hrs"`
+		CycleTimeP75Hrs float64    `json:"cycle_time_p75_hrs"`
+		CycleTimeP90Hrs float64    `json:"cycle_time_p90_hrs"`
+		CycleTimeMinHrs float64    `json:"cycle_time_min_hrs"`
+		CycleTimeMaxHrs float64    `json:"cycle_time_max_hrs"`
+		CycleCount      int        `json:"cycle_count"`
+		LeadTimeHrs     float64    `json:"lead_time_hrs"`
+		LeadTimeP75Hrs  float64    `json:"lead_time_p75_hrs"`
+		LeadTimeP90Hrs  float64    `json:"lead_time_p90_hrs"`
+		LeadTimeMinHrs  float64    `json:"lead_time_min_hrs"`
+		LeadTimeMaxHrs  float64    `json:"lead_time_max_hrs"`
+		LeadCount       int        `json:"lead_count"`
+		Staleness       AgeBuckets `json:"staleness"`
+		StalenessTotal  int        `json:"staleness_total"`
+	} `json:"flow"`
+	Attention []AttentionItem `json:"attention"`
+	Workload  []WorkloadEntry `json:"workload"`
+	Epics     []EpicProgress  `json:"epics"`
+	Trends    TrendsBlock     `json:"trends"`
+}
+
 type InboxEntry struct {
 	IssueID    string      `json:"issue_id"`
 	IssueTitle string      `json:"issue_title"`

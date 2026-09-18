@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/server"
 	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/ui"
@@ -44,12 +45,12 @@ func runPulse(cmd *cobra.Command, args []string) error {
 	if pulseJSONFlag {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(m)
+		return enc.Encode(jsonio.PulseOutput(m))
 	}
 
 	data := ui.PulseData{
 		ProjectName:     cfg.Name,
-		VelocityPts:     m.Velocity.CurrentWeekPoints + m.Velocity.Last7dPoints,
+		VelocityPts:     m.Velocity.Last7dPoints,
 		VelocityDelta:   m.Velocity.Delta,
 		CycleTimeHrs:    m.Flow.CycleTimeHrs,
 		CycleCount:      m.Flow.CycleCount,

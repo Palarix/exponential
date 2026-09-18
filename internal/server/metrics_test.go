@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 )
 
@@ -144,7 +145,7 @@ func TestMetrics_Attention_Blockers(t *testing.T) {
 	m := ComputePulseMetrics(issues, now)
 	found := false
 	for _, item := range m.Attention {
-		if item.IssueID == "a" && item.Kind == AttentionBlocker {
+		if item.IssueID == "a" && item.Kind == jsonio.AttentionBlocker {
 			found = true
 		}
 	}
@@ -162,7 +163,7 @@ func TestMetrics_Attention_StaleWIP(t *testing.T) {
 	m := ComputePulseMetrics(issues, now)
 	found := false
 	for _, item := range m.Attention {
-		if item.IssueID == "a" && item.Kind == AttentionStaleWIP {
+		if item.IssueID == "a" && item.Kind == jsonio.AttentionStaleWIP {
 			found = true
 		}
 	}
@@ -180,7 +181,7 @@ func TestMetrics_Attention_HighPriority(t *testing.T) {
 	m := ComputePulseMetrics(issues, now)
 	found := false
 	for _, item := range m.Attention {
-		if item.IssueID == "a" && item.Kind == AttentionHighPriority {
+		if item.IssueID == "a" && item.Kind == jsonio.AttentionHighPriority {
 			found = true
 		}
 	}
