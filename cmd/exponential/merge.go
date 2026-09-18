@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -18,6 +20,7 @@ var (
 	mergeDeleteBranch bool
 	mergeKeepBranch   bool
 	mergeNoWorktree   bool
+	mergeJSONFlag     bool
 )
 
 var mergeCmd = &cobra.Command{
@@ -36,6 +39,11 @@ var mergeCmd = &cobra.Command{
 }
 
 func runMerge(id string) {
+	if mergeJSONFlag {
+		runMergeJSON()
+		return
+	}
+
 	if mergeNoWorktree {
 		cfg.Worktrees = false
 	}
@@ -140,11 +148,64 @@ func promptStrategy() exponential.MergeStrategy {
 	}
 }
 
+func runMergeJSON() {
+	content, err := readStdinExplicit()
+	if err != nil {
+		exitJSONError(err)
+	}
+	var input jsonio.MergeToolInput
+	if err := jsonio.DecodeStrict(content, &input); err != nil {
+		exitJSONError(err)
+	}
+	if input.ID == "" {
+		exitJSONError(fmt.Errorf("'id' is required"))
+	}
+
+	strategy := exponential.MergeStrategySquash
+	switch input.Strategy {
+	case "", "squash":
+		// default
+	case "merge":
+		strategy = exponential.MergeStrategyMerge
+	case "ff":
+		strategy = exponential.MergeStrategyFF
+	default:
+		exitJSONError(fmt.Errorf("invalid merge strategy %q: must be one of squash, merge, ff", input.Strategy))
+	}
+
+	client := exponential.NewClient(cfg)
+	issue, err := client.ResolveReviewIssue(input.ID)
+	if err != nil {
+		exitJSONError(err)
+	}
+	if issue.BranchStats == nil {
+		exitJSONError(fmt.Errorf("no branch found for %s", issue.ID))
+	}
+
+	if err := exponential.HubCleanForMerge(issue.BranchStats.Branch); err != nil {
+		exitJSONError(err)
+	}
+
+	result, err := client.MergeIssue(issue.ID, exponential.MergeOptions{
+		Strategy:      strategy,
+		CommitMessage: input.CommitMessage,
+		DeleteBranch:  !input.KeepBranch,
+	})
+	if err != nil {
+		exitJSONError(err)
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(jsonio.MergeOutput{ID: issue.ID, MergeSHA: result.MergeSHA, Messages: result.Messages})
+}
+
 func init() {
 	mergeCmd.Flags().BoolVar(&mergeSquash, "squash", false, "Squash merge into a single commit")
 	mergeCmd.Flags().BoolVar(&mergeFF, "ff", false, "Fast-forward only (fails if not possible)")
 	mergeCmd.Flags().BoolVarP(&mergeDeleteBranch, "delete-branch", "d", false, "Delete branch after merge")
 	mergeCmd.Flags().BoolVar(&mergeKeepBranch, "keep-branch", false, "Keep branch after merge (skip prompt)")
 	mergeCmd.Flags().BoolVar(&mergeNoWorktree, "no-wt", false, "Use checkout-based merge instead of worktree-aware merge")
+	mergeCmd.Flags().BoolVar(&mergeJSONFlag, "json", false, "Read a structured merge payload as JSON from stdin")
 	rootCmd.AddCommand(mergeCmd)
 }
