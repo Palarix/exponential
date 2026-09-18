@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
@@ -39,9 +40,26 @@ Examples:
 		}
 
 		if rationaleJSONFlag {
+			out := jsonio.RationaleOutput{
+				Query:        result.Query,
+				TotalMatches: result.TotalMatches,
+				Results:      make([]jsonio.RationaleHit, len(result.Results)),
+			}
+			for i, r := range result.Results {
+				out.Results[i] = jsonio.RationaleHit{
+					IssueID:   r.IssueID,
+					Title:     r.Title,
+					Status:    r.Status,
+					Labels:    r.Labels,
+					Document:  r.Document,
+					Fragment:  r.Fragment,
+					Score:     r.Score,
+					UpdatedAt: r.UpdatedAt,
+				}
+			}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			enc.Encode(result)
+			enc.Encode(out)
 			return
 		}
 
