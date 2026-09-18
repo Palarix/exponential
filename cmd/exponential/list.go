@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +23,7 @@ var (
 	listCycleFlag    string
 	listAllFlag      bool
 	listArchivedFlag bool
+	listJSONFlag     bool
 )
 
 var listCmd = &cobra.Command{
@@ -50,12 +53,22 @@ var listCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if listJSONFlag {
+			out := jsonio.ListOutput{Issues: make([]jsonio.IssueSummary, 0, len(issues))}
+			for _, i := range issues {
+				out.Issues = append(out.Issues, jsonio.ToIssueSummary(i))
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
+			return
+		}
+
 		if len(issues) == 0 {
 			fmt.Println("No issues found.")
 			return
 		}
 
-		// Detect terminal width
 		width := ui.TerminalWidth()
 		fmt.Print(ui.RenderIssueList(issues, width, cfg.Prefix))
 	},
@@ -73,5 +86,6 @@ func init() {
 	listCmd.Flags().StringVar(&listCycleFlag, "cycle", "", "Filter by cycle (current, next, or YYYY-MM-DD)")
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including old DONE)")
 	listCmd.Flags().BoolVar(&listArchivedFlag, "archived", false, "Include archived issues")
+	listCmd.Flags().BoolVar(&listJSONFlag, "json", false, "Output as JSON matching MCP list schema")
 	rootCmd.AddCommand(listCmd)
 }
