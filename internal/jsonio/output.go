@@ -153,6 +153,20 @@ type RationaleHit struct {
 	UpdatedAt string   `json:"updated_at"`
 }
 
+type InboxOutput struct {
+	Items []InboxEntry `json:"items"`
+}
+
+type InboxEntry struct {
+	IssueID    string      `json:"issue_id"`
+	IssueTitle string      `json:"issue_title"`
+	Type       string      `json:"type"`
+	Payload    interface{} `json:"payload,omitempty"`
+	CreatedAt  string      `json:"created_at"`
+	CreatedBy  string      `json:"created_by"`
+	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
+}
+
 func ToIssueSummary(i *model.Issue) IssueSummary {
 	return IssueSummary{
 		ID:               i.ID,

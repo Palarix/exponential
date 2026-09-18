@@ -1,16 +1,22 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/spf13/cobra"
 )
 
-var inboxClear bool
+var (
+	inboxClear    bool
+	inboxJSONFlag bool
+)
 
 var inboxCmd = &cobra.Command{
 	Use:   "inbox",
@@ -28,12 +34,14 @@ Read state is tracked per-user in ~/.config/xpo/user.yaml. Run
 
 Examples:
   xpo inbox
-  xpo inbox --clear`,
+  xpo inbox --clear
+  xpo inbox --json`,
 	RunE: runInbox,
 }
 
 func init() {
 	inboxCmd.Flags().BoolVar(&inboxClear, "clear", false, "Mark all inbox items as read")
+	inboxCmd.Flags().BoolVar(&inboxJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(inboxCmd)
 }
 
@@ -58,6 +66,29 @@ func runInbox(cmd *cobra.Command, args []string) error {
 	items, err := client.GetInbox(since)
 	if err != nil {
 		return err
+	}
+
+	if inboxJSONFlag {
+		entries := make([]jsonio.InboxEntry, len(items))
+		for i, item := range items {
+			entries[i] = jsonio.InboxEntry{
+				IssueID:    item.IssueID,
+				IssueTitle: item.IssueTitle,
+				Type:       string(item.Type),
+				Payload:    item.Payload,
+				CreatedAt:  item.CreatedAt.Format(time.RFC3339),
+				CreatedBy:  item.CreatedBy,
+				OnBehalfOf: item.OnBehalfOf,
+			}
+		}
+		out := jsonio.InboxOutput{Items: entries}
+		if out.Items == nil {
+			out.Items = []jsonio.InboxEntry{}
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		enc.Encode(out)
+		return nil
 	}
 
 	if len(items) == 0 {
