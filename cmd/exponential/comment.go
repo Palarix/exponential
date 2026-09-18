@@ -16,11 +16,14 @@ var commentJSONFlag bool
 var commentCmd = &cobra.Command{
 	Use:               "comment [issue ID] [text]",
 	Short:             "Add a comment to an issue",
-	Long:              `Add a comment to an existing issue. Text can be passed as a positional argument, piped via stdin, or read from stdin explicitly with '-' as the second argument. Pass --json to read a structured payload {"body": "..."} from stdin.`,
-	Args:              cobra.RangeArgs(1, 2),
+	Long:              `Add a comment to an existing issue. Text can be passed as a positional argument, piped via stdin, or read from stdin explicitly with '-' as the second argument. Pass --json to read a structured payload {"id": "...", "body": "..."} from stdin.`,
+	Args:              cobra.RangeArgs(0, 2),
 	ValidArgsFunction: completeIssueIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		issueID := args[0]
+		var issueID string
+		if len(args) > 0 {
+			issueID = args[0]
+		}
 		var text string
 
 		switch {
@@ -29,9 +32,15 @@ var commentCmd = &cobra.Command{
 			if err != nil {
 				exitJSONError(err)
 			}
-			var input jsonio.CommentInput
+			var input jsonio.CommentToolInput
 			if err := jsonio.DecodeStrict(content, &input); err != nil {
 				exitJSONError(err)
+			}
+			if input.ID != "" {
+				issueID = input.ID
+			}
+			if issueID == "" {
+				exitJSONError(fmt.Errorf("'id' is required (provide in JSON payload or as positional argument)"))
 			}
 			text = input.Body
 		case len(args) == 2 && args[1] == "-":
@@ -49,6 +58,9 @@ var commentCmd = &cobra.Command{
 			}
 			text = content
 		default:
+			if issueID == "" {
+				return fmt.Errorf("issue ID is required")
+			}
 			return fmt.Errorf("comment text is required (provide as argument, pipe to stdin, or use '-' to read stdin explicitly)")
 		}
 
