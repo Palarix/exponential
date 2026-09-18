@@ -63,6 +63,13 @@ var blockedCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if blockedJSONFlag {
+			out := jsonio.UpdateOutput{ID: args[0], Messages: msgs}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
+			return
+		}
 		for _, msg := range msgs {
 			fmt.Println(msg)
 		}

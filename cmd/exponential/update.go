@@ -1,13 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/palarix/exponential/internal/exponential"
-	"github.com/palarix/exponential/internal/inputs"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/spf13/cobra"
 )
@@ -42,8 +43,8 @@ var updateCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			var input inputs.UpdateInput
-			if err := inputs.DecodeStrict(content, &input); err != nil {
+			var input jsonio.UpdateInput
+			if err := jsonio.DecodeStrict(content, &input); err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -52,18 +53,23 @@ var updateCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			if inputs.UpdatePayloadEmpty(payload) {
+			if jsonio.UpdatePayloadEmpty(payload) {
 				fmt.Println("No changes in payload.")
 				return
+			}
+			if err := client.ValidateUpdatePayload(&payload); err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
 			}
 			msgs, err := client.UpdateIssue(id, payload, "update")
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			for _, msg := range msgs {
-				fmt.Println(msg)
-			}
+			out := jsonio.UpdateOutput{ID: id, Messages: msgs}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
 			return
 		}
 
@@ -230,6 +236,8 @@ var startCmd = &cobra.Command{
 	},
 }
 
+var doneJSONFlag bool
+
 var doneCmd = &cobra.Command{
 	Use:               "done [id]",
 	Short:             "Mark an issue as DONE",
@@ -244,11 +252,20 @@ var doneCmd = &cobra.Command{
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
+		if doneJSONFlag {
+			out := jsonio.UpdateOutput{ID: args[0], Messages: msgs}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
+			return
+		}
 		for _, msg := range msgs {
 			fmt.Println(msg)
 		}
 	},
 }
+
+var plannedJSONFlag bool
 
 var plannedCmd = &cobra.Command{
 	Use:               "planned [id]",
@@ -263,6 +280,13 @@ var plannedCmd = &cobra.Command{
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
+		}
+		if plannedJSONFlag {
+			out := jsonio.UpdateOutput{ID: args[0], Messages: msgs}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
+			return
 		}
 		for _, msg := range msgs {
 			fmt.Println(msg)
@@ -284,7 +308,9 @@ func init() {
 	startCmd.Flags().BoolVar(&startForce, "force", false, "Take over an issue already in progress or with an existing branch")
 	startCmd.Flags().StringVar(&startMode, "mode", "", "Create a \"worktree\" or a \"branch\" (overrides config)")
 	rootCmd.AddCommand(startCmd)
+	doneCmd.Flags().BoolVar(&doneJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(doneCmd)
+	plannedCmd.Flags().BoolVar(&plannedJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(plannedCmd)
 }
 
