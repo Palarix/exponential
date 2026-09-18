@@ -9,7 +9,6 @@ import (
 
 	"github.com/palarix/exponential/internal/auth"
 	"github.com/palarix/exponential/internal/config"
-	"github.com/palarix/exponential/internal/inputs"
 	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -94,7 +93,7 @@ func TestAddAndShow(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, addRes, err := ts.add(context.Background(), nil, inputs.AddInput{
+	_, addRes, err := ts.add(context.Background(), nil, jsonio.AddInput{
 		Title:       "Hello",
 		Description: "## Body\n\nWith `code`.",
 		Status:      "PLANNED",
@@ -130,12 +129,12 @@ func TestUpdateStatusTransition(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Work"})
+	_, addRes, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Work"})
 
 	doing := "DOING"
 	_, updRes, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{
 		ID:          addRes.ID,
-		UpdateInput: inputs.UpdateInput{Status: &doing},
+		UpdateInput: jsonio.UpdateInput{Status: &doing},
 	})
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
@@ -154,7 +153,7 @@ func TestUpdateEmptyRejected(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, addRes, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	_, _, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{ID: addRes.ID})
 	if err == nil {
@@ -166,7 +165,7 @@ func TestCommentRoundTrip(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, addRes, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	body := "## Comment\n\nWith `code` and \"quotes\" and $vars."
 	if _, _, err := ts.comment(context.Background(), nil, jsonio.CommentToolInput{ID: addRes.ID, Body: body}); err != nil {
@@ -186,7 +185,7 @@ func TestCommentRequiresBody(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, addRes, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 	if _, _, err := ts.comment(context.Background(), nil, jsonio.CommentToolInput{ID: addRes.ID, Body: ""}); err == nil {
 		t.Fatal("expected error for empty body")
 	}
@@ -196,9 +195,9 @@ func TestList(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	ts.add(context.Background(), nil, inputs.AddInput{Title: "A", Labels: []string{"feature"}})
-	ts.add(context.Background(), nil, inputs.AddInput{Title: "B", Labels: []string{"bug"}})
-	ts.add(context.Background(), nil, inputs.AddInput{Title: "C", Labels: []string{"bug"}})
+	ts.add(context.Background(), nil, jsonio.AddInput{Title: "A", Labels: []string{"feature"}})
+	ts.add(context.Background(), nil, jsonio.AddInput{Title: "B", Labels: []string{"bug"}})
+	ts.add(context.Background(), nil, jsonio.AddInput{Title: "C", Labels: []string{"bug"}})
 
 	_, all, err := ts.list(context.Background(), nil, jsonio.ListToolInput{})
 	if err != nil {
@@ -218,8 +217,8 @@ func TestLink(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "A"})
-	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "B"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "B"})
 
 	_, linkRes, err := ts.link(context.Background(), nil, jsonio.LinkToolInput{
 		Source: a.ID,
@@ -243,8 +242,8 @@ func TestLinkInvalidType(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "A"})
-	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "B"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "B"})
 
 	_, _, err := ts.link(context.Background(), nil, jsonio.LinkToolInput{
 		Source: a.ID,
@@ -260,12 +259,12 @@ func TestAddWithStatusAndLinks(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, target, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Target"})
+	_, target, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Target"})
 
-	_, addRes, err := ts.add(context.Background(), nil, inputs.AddInput{
+	_, addRes, err := ts.add(context.Background(), nil, jsonio.AddInput{
 		Title:  "Linked at creation",
 		Status: "PLANNED",
-		Links: []inputs.LinkInput{
+		Links: []jsonio.LinkInput{
 			{Target: target.ID, Type: "blocks"},
 		},
 	})
@@ -292,9 +291,9 @@ func TestHistoryIncludesEvents(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 	doing := "DOING"
-	ts.update(context.Background(), nil, jsonio.UpdateToolInput{ID: a.ID, UpdateInput: inputs.UpdateInput{Status: &doing}})
+	ts.update(context.Background(), nil, jsonio.UpdateToolInput{ID: a.ID, UpdateInput: jsonio.UpdateInput{Status: &doing}})
 
 	_, h, err := ts.history(context.Background(), nil, jsonio.HistoryToolInput{ID: a.ID})
 	if err != nil {
@@ -311,7 +310,7 @@ func TestAgentIdentityFromEnv(t *testing.T) {
 
 	t.Setenv(EnvAgentIdentity, "AgentTest <agent@test>")
 
-	_, a, err := ts.add(context.Background(), nil, inputs.AddInput{Title: "Identity check"})
+	_, a, err := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Identity check"})
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -330,7 +329,7 @@ func TestAgentIdentityFallsBackToConfig(t *testing.T) {
 	// Ensure no env override is set
 	os.Unsetenv(EnvAgentIdentity)
 
-	_, a, err := ts.add(context.Background(), nil, inputs.AddInput{Title: "Config default"})
+	_, a, err := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Config default"})
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -347,7 +346,7 @@ func TestSpecWriteReadDelete(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Spec test"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Spec test"})
 
 	// Write
 	_, res, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
@@ -410,7 +409,7 @@ func TestSpecRequiresContent(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	_, _, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID, Content: "",
@@ -424,7 +423,7 @@ func TestSpecInvalidOperation(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	_, _, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "invalid", IssueID: a.ID,
@@ -438,7 +437,7 @@ func TestWalkthroughWriteReadDelete(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Walk test"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Walk test"})
 
 	_, res, err := ts.walkthrough(context.Background(), nil, jsonio.WalkthroughToolInput{
 		Operation: "write", IssueID: a.ID, Content: "# Walkthrough\n\nStep by step.",
@@ -479,7 +478,7 @@ func TestArtifactAddReadDeleteList(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Artifact test"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Artifact test"})
 
 	// Add
 	_, res, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
@@ -538,7 +537,7 @@ func TestArtifactRejectsReservedFilenames(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	for _, name := range []string{"spec.md", "walkthrough.md"} {
 		_, _, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
@@ -554,7 +553,7 @@ func TestArtifactRequiresFilename(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	for _, op := range []string{"add", "read", "delete"} {
 		_, _, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
@@ -570,7 +569,7 @@ func TestArtifactInvalidOperation(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
 
 	_, _, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "explode", IssueID: a.ID,
@@ -584,7 +583,7 @@ func TestShowArtifactsEmptyByDefault(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "no artifacts"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "no artifacts"})
 
 	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: a.ID})
 	if len(showRes.Artifacts) != 0 {
@@ -598,7 +597,7 @@ func TestRationaleBasicSearch(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{
 		Title:  "Branch badge display",
 		Status: "PLANNED",
 		Labels: []string{"feature"},
@@ -631,7 +630,7 @@ func TestRationaleNoMatches(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Something"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Something"})
 	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "This spec is about widgets.",
@@ -661,7 +660,7 @@ func TestRationaleLimit(t *testing.T) {
 	defer cleanup()
 
 	for i := 0; i < 5; i++ {
-		_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
+		_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{
 			Title: "Feature with widget",
 		})
 		ts.spec(context.Background(), nil, jsonio.SpecToolInput{
@@ -687,7 +686,7 @@ func TestRationaleTitleBoost(t *testing.T) {
 	defer cleanup()
 
 	// Issue A: "widget" in title and spec content.
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{
 		Title: "Widget design rationale",
 	})
 	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
@@ -696,7 +695,7 @@ func TestRationaleTitleBoost(t *testing.T) {
 	})
 
 	// Issue B: "widget" only in spec content, different title.
-	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{
 		Title: "Card layout system",
 	})
 	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
@@ -720,7 +719,7 @@ func TestRationaleSearchesBothSpecAndWalkthrough(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Feature X"})
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "Feature X"})
 	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "The sorting algorithm uses quicksort.",

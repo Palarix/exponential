@@ -1,4 +1,4 @@
-package inputs
+package jsonio
 
 import (
 	"strings"
@@ -141,12 +141,15 @@ func TestUpdateInputInvalidStatus(t *testing.T) {
 	}
 }
 
-func TestValidateStatus(t *testing.T) {
+func TestValidateStatusValid(t *testing.T) {
 	for _, s := range []string{"BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"} {
 		if err := ValidateStatus(s); err != nil {
 			t.Errorf("ValidateStatus(%q) returned error: %v", s, err)
 		}
 	}
+}
+
+func TestValidateStatusInvalid(t *testing.T) {
 	for _, s := range []string{"", "backlog", "TODO", "INVALID"} {
 		if err := ValidateStatus(s); err == nil {
 			t.Errorf("ValidateStatus(%q) accepted invalid status", s)
@@ -154,7 +157,7 @@ func TestValidateStatus(t *testing.T) {
 	}
 }
 
-func TestUpdatePayloadEmpty(t *testing.T) {
+func TestUpdatePayloadEmptyCheck(t *testing.T) {
 	if !UpdatePayloadEmpty(model.UpdatePayload{}) {
 		t.Error("zero payload should be empty")
 	}
