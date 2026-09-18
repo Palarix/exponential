@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/palarix/exponential/internal/exponential"
-	"github.com/palarix/exponential/internal/inputs"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/spf13/cobra"
 )
 
@@ -21,16 +23,15 @@ var commentCmd = &cobra.Command{
 		issueID := args[0]
 		var text string
 
-		// 1. Get Comment Text
 		switch {
 		case commentJSONFlag:
 			content, err := readStdinExplicit()
 			if err != nil {
-				return err
+				exitJSONError(err)
 			}
-			var input inputs.CommentInput
-			if err := inputs.DecodeStrict(content, &input); err != nil {
-				return err
+			var input jsonio.CommentInput
+			if err := jsonio.DecodeStrict(content, &input); err != nil {
+				exitJSONError(err)
 			}
 			text = input.Body
 		case len(args) == 2 && args[1] == "-":
@@ -52,26 +53,36 @@ var commentCmd = &cobra.Command{
 		}
 
 		if text == "" {
+			if commentJSONFlag {
+				exitJSONError(fmt.Errorf("comment text cannot be empty"))
+			}
 			return fmt.Errorf("comment text cannot be empty")
 		}
 
-		// 2. Use Client to Add Comment
 		client := exponential.NewClient(cfg)
 
-		// Verify issue exists first? AddComment appends event, projection happens later.
-		// However, Client.AddComment doesn't verify existence currenty.
-		// Should we verify? The original implementation did.
-		// Let's verify existence using client.GetIssue first.
 		if _, err := client.GetIssue(issueID); err != nil {
+			if commentJSONFlag {
+				exitJSONError(fmt.Errorf("issue %s not found", issueID))
+			}
 			return fmt.Errorf("issue %s not found", issueID)
 		}
 
 		if err := client.AddComment(issueID, text); err != nil {
+			if commentJSONFlag {
+				exitJSONError(fmt.Errorf("failed to add comment: %w", err))
+			}
 			return fmt.Errorf("failed to add comment: %w", err)
 		}
 
-		fmt.Printf("Comment added to %s\n", issueID)
+		if commentJSONFlag {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(jsonio.CommentOutput{ID: issueID})
+			return nil
+		}
 
+		fmt.Printf("Comment added to %s\n", issueID)
 		return nil
 	},
 }

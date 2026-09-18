@@ -1,10 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/palarix/exponential/internal/jsonio"
 )
 
 // isStdinPiped reports whether stdin is connected to a pipe or redirected file
@@ -37,4 +40,11 @@ func readStdinExplicit() (string, error) {
 		return "", fmt.Errorf("'-' was used to read from stdin, but stdin is a terminal")
 	}
 	return readAllStdin()
+}
+
+func exitJSONError(err error) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(jsonio.ErrorOutput{Error: err.Error()})
+	os.Exit(1)
 }

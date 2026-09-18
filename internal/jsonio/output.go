@@ -6,6 +6,10 @@ import (
 	"github.com/palarix/exponential/internal/model"
 )
 
+type ErrorOutput struct {
+	Error string `json:"error"`
+}
+
 type IssueSummary struct {
 	ID               string             `json:"id"`
 	Title            string             `json:"title"`
