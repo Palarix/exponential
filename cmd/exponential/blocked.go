@@ -83,6 +83,6 @@ var blockedCmd = &cobra.Command{
 }
 
 func init() {
-	blockedCmd.Flags().BoolVar(&blockedJSONFlag, "json", false, "Output blocked issues as JSON")
+	blockedCmd.Flags().BoolVar(&blockedJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(blockedCmd)
 }

@@ -278,7 +278,7 @@ func TestJSONError_UpdateEmptyPayload(t *testing.T) {
 	if e, ok := err.(*exec.ExitError); ok {
 		exitCode = e.ExitCode()
 	}
-	assertJSONError(t, outBuf.String(), exitCode, "no changes")
+	assertJSONError(t, outBuf.String(), exitCode, "no fields set")
 }
 
 func TestJSONError_DoneNotFound(t *testing.T) {

@@ -206,6 +206,6 @@ func init() {
 	mergeCmd.Flags().BoolVarP(&mergeDeleteBranch, "delete-branch", "d", false, "Delete branch after merge")
 	mergeCmd.Flags().BoolVar(&mergeKeepBranch, "keep-branch", false, "Keep branch after merge (skip prompt)")
 	mergeCmd.Flags().BoolVar(&mergeNoWorktree, "no-wt", false, "Use checkout-based merge instead of worktree-aware merge")
-	mergeCmd.Flags().BoolVar(&mergeJSONFlag, "json", false, "Read a structured merge payload as JSON from stdin")
+	mergeCmd.Flags().BoolVar(&mergeJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(mergeCmd)
 }

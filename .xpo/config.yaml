@@ -3,6 +3,7 @@ prefix: xpo
 default_branch: main
 version: 3
 worktrees: true
+worktree_setup: "cd web && bun install --silent"
 estimation_system: fibonacci
 count_unestimated: true
 automations:

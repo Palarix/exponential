@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	historyJSON    bool
+	historyJSONFlag    bool
 	historyReverse bool
 	historySince   string
 	historyLimit   int
@@ -40,13 +40,13 @@ var historyCmd = &cobra.Command{
 		if len(args) == 1 {
 			issue, _, archived, err := client.FindIssue(args[0])
 			if err != nil {
-				if historyJSON {
+				if historyJSONFlag {
 					exitJSONError(err)
 				}
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			if archived && !historyJSON {
+			if archived && !historyJSONFlag {
 				fmt.Println("Note: This issue is archived.")
 			}
 
@@ -91,7 +91,7 @@ var historyCmd = &cobra.Command{
 		} else {
 			issues, err := client.ListIssues(exponential.FilterOptions{})
 			if err != nil {
-				if historyJSON {
+				if historyJSONFlag {
 					exitJSONError(err)
 				}
 				fmt.Printf("Error: %v\n", err)
@@ -111,7 +111,7 @@ var historyCmd = &cobra.Command{
 		if historySince != "" {
 			d, err := parseDuration(historySince)
 			if err != nil {
-				if historyJSON {
+				if historyJSONFlag {
 					exitJSONError(fmt.Errorf("invalid --since value %q: %v", historySince, err))
 				}
 				fmt.Printf("Error: invalid --since value %q: %v\n", historySince, err)
@@ -141,7 +141,7 @@ var historyCmd = &cobra.Command{
 			}
 		}
 
-		if historyJSON {
+		if historyJSONFlag {
 			out := jsonio.HistoryOutput{Timeline: jsonio.ToTimelineEntries(entries)}
 			if out.Timeline == nil {
 				out.Timeline = []jsonio.TimelineEntry{}
@@ -168,7 +168,7 @@ var historyCmd = &cobra.Command{
 }
 
 func pagerWriter() io.WriteCloser {
-	if historyNoPager || historyJSON || !isatty.IsTerminal(os.Stdout.Fd()) {
+	if historyNoPager || historyJSONFlag || !isatty.IsTerminal(os.Stdout.Fd()) {
 		return nopWriteCloser{os.Stdout}
 	}
 
@@ -214,7 +214,7 @@ func (p *pagerPipe) Close() error {
 }
 
 func init() {
-	historyCmd.Flags().BoolVar(&historyJSON, "json", false, "Output timeline as JSON envelope")
+	historyCmd.Flags().BoolVar(&historyJSONFlag, "json", false, "Output as JSON")
 	historyCmd.Flags().BoolVar(&historyReverse, "reverse", false, "Show oldest events first (chronological)")
 	historyCmd.Flags().StringVar(&historySince, "since", "", "Show events within a duration (e.g. 24h, 7d, 2w)")
 	historyCmd.Flags().IntVar(&historyLimit, "limit", 50, "Maximum events to show (global mode only)")

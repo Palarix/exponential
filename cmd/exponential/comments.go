@@ -86,6 +86,6 @@ var commentsCmd = &cobra.Command{
 }
 
 func init() {
-	commentsCmd.Flags().BoolVar(&commentsJSONFlag, "json", false, "Output as JSON matching MCP comment schema")
+	commentsCmd.Flags().BoolVar(&commentsJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(commentsCmd)
 }

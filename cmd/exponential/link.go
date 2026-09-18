@@ -123,6 +123,6 @@ var linkCmd = &cobra.Command{
 
 func init() {
 	linkCmd.Flags().StringVarP(&linkTypeFlag, "type", "t", "", "Type of relationship: blocks, blocked_by, depends_on, dependency_of, duplicates, duplicated_by, relates_to (required)")
-	linkCmd.Flags().BoolVar(&linkJSONFlag, "json", false, "Read a structured link payload as JSON from stdin")
+	linkCmd.Flags().BoolVar(&linkJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(linkCmd)
 }

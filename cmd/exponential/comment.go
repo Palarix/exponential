@@ -100,6 +100,6 @@ var commentCmd = &cobra.Command{
 }
 
 func init() {
-	commentCmd.Flags().BoolVar(&commentJSONFlag, "json", false, "Read a structured comment payload as JSON from stdin")
+	commentCmd.Flags().BoolVar(&commentJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(commentCmd)
 }

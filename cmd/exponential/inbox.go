@@ -58,6 +58,12 @@ func runInbox(cmd *cobra.Command, args []string) error {
 			}
 			return fmt.Errorf("failed to update read cursor: %w", err)
 		}
+		if inboxJSONFlag {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(map[string]bool{"cleared": true})
+			return nil
+		}
 		fmt.Println("Inbox marked as read.")
 		return nil
 	}

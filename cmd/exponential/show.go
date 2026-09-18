@@ -80,6 +80,6 @@ func showIssue(id string) {
 }
 
 func init() {
-	showCmd.Flags().BoolVar(&showJSONFlag, "json", false, "Output as JSON matching MCP show schema")
+	showCmd.Flags().BoolVar(&showJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(showCmd)
 }

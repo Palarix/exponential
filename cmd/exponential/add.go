@@ -171,6 +171,6 @@ func init() {
 	addCmd.Flags().StringSliceVar(&addLabelFlag, "label", nil, "Labels (can be specified multiple times)")
 	addCmd.Flags().StringVar(&addAssigneeFlag, "assignee", "", "Issue assignee")
 	addCmd.Flags().StringVar(&addCycleFlag, "cycle", "", "Assign to cycle (current, next, or YYYY-MM-DD)")
-	addCmd.Flags().BoolVar(&addJSONFlag, "json", false, "Read a full issue payload as JSON from stdin")
+	addCmd.Flags().BoolVar(&addJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(addCmd)
 }

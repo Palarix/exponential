@@ -51,7 +51,7 @@ var updateCmd = &cobra.Command{
 				exitJSONError(err)
 			}
 			if jsonio.UpdatePayloadEmpty(payload) {
-				exitJSONError(fmt.Errorf("no changes in payload"))
+				exitJSONError(fmt.Errorf("no fields set: provide at least one field to update"))
 			}
 			if err := client.ValidateUpdatePayload(&payload); err != nil {
 				exitJSONError(err)
@@ -302,7 +302,7 @@ func init() {
 	updateCmd.Flags().StringSliceVar(&updateLabelFlag, "label", nil, "Labels")
 	updateCmd.Flags().StringVar(&updateAssigneeFlag, "assignee", "", "Assignee")
 	updateCmd.Flags().StringVar(&updateCycleFlag, "cycle", "", "Assign to cycle (current, next, none, or YYYY-MM-DD)")
-	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured update patch as JSON from stdin")
+	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 
 	rootCmd.AddCommand(updateCmd)
 	startCmd.Flags().BoolVar(&startForce, "force", false, "Take over an issue already in progress or with an existing branch")

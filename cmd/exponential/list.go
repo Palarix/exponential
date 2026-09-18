@@ -33,6 +33,14 @@ var listCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := exponential.NewClient(cfg)
 
+		if listJSONFlag {
+			for _, s := range listStatusFlag {
+				if err := jsonio.ValidateStatus(s); err != nil {
+					exitJSONError(err)
+				}
+			}
+		}
+
 		opts := exponential.FilterOptions{
 			Statuses: listStatusFlag,
 			Since:    listSinceFlag,
@@ -89,6 +97,6 @@ func init() {
 	listCmd.Flags().StringVar(&listCycleFlag, "cycle", "", "Filter by cycle (current, next, or YYYY-MM-DD)")
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including old DONE)")
 	listCmd.Flags().BoolVar(&listArchivedFlag, "archived", false, "Include archived issues")
-	listCmd.Flags().BoolVar(&listJSONFlag, "json", false, "Output as JSON matching MCP list schema")
+	listCmd.Flags().BoolVar(&listJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(listCmd)
 }

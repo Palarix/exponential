@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var pulseJSON bool
+var pulseJSONFlag bool
 
 var pulseCmd = &cobra.Command{
 	Use:   "pulse",
@@ -25,14 +25,14 @@ Reads directly from the local event log — no server needed.`,
 }
 
 func init() {
-	pulseCmd.Flags().BoolVar(&pulseJSON, "json", false, "output raw metrics as JSON")
+	pulseCmd.Flags().BoolVar(&pulseJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(pulseCmd)
 }
 
 func runPulse(cmd *cobra.Command, args []string) error {
 	events, err := storage.ReadEvents()
 	if err != nil {
-		if pulseJSON {
+		if pulseJSONFlag {
 			exitJSONError(fmt.Errorf("failed to read events: %w", err))
 		}
 		return fmt.Errorf("failed to read events: %w", err)
@@ -41,7 +41,7 @@ func runPulse(cmd *cobra.Command, args []string) error {
 	issues := exponential.ProjectIssuesWithConfig(events, cfg)
 	m := server.ComputePulseMetrics(issues, time.Now())
 
-	if pulseJSON {
+	if pulseJSONFlag {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(m)

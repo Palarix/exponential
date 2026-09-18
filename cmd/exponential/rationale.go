@@ -89,6 +89,6 @@ Examples:
 
 func init() {
 	rationaleCmd.Flags().IntVarP(&rationaleTopFlag, "top", "n", 5, "Maximum results to return (max 20)")
-	rationaleCmd.Flags().BoolVar(&rationaleJSONFlag, "json", false, "Output results as JSON")
+	rationaleCmd.Flags().BoolVar(&rationaleJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(rationaleCmd)
 }
