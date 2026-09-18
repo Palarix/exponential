@@ -1,12 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/dustin/go-humanize"
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -16,6 +20,7 @@ var (
 	artifactWalkthroughFlag bool
 	artifactNameFlag        string
 	artifactFileFlag        string
+	artifactJSONFlag        bool
 )
 
 var artifactCmd = &cobra.Command{
@@ -38,6 +43,13 @@ Storage layout:
   .xpo/artifacts/<issue-id>/spec.md
   .xpo/artifacts/<issue-id>/walkthrough.md
   .xpo/artifacts/<issue-id>/<generic-file>`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if artifactJSONFlag {
+			runArtifactJSON()
+			return nil
+		}
+		return cmd.Help()
+	},
 }
 
 var artifactAddCmd = &cobra.Command{
@@ -212,6 +224,77 @@ Output columns:
 	},
 }
 
+func runArtifactJSON() {
+	content, err := readStdinExplicit()
+	if err != nil {
+		exitJSONError(err)
+	}
+	var input jsonio.ArtifactToolInput
+	if err := jsonio.DecodeStrict(content, &input); err != nil {
+		exitJSONError(err)
+	}
+	if input.IssueID == "" {
+		exitJSONError(fmt.Errorf("'issue_id' is required"))
+	}
+
+	client := exponential.NewClient(cfg)
+	issue, err := client.GetIssue(input.IssueID)
+	if err != nil {
+		exitJSONError(err)
+	}
+	issueID := issue.ID
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+
+	switch input.Operation {
+	case "add":
+		if input.Filename == "" {
+			exitJSONError(fmt.Errorf("'filename' is required for add"))
+		}
+		if input.Content == "" {
+			exitJSONError(fmt.Errorf("'content' is required for add"))
+		}
+		if err := client.AddArtifact(issueID, "generic", input.Filename, input.Content); err != nil {
+			exitJSONError(err)
+		}
+		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, input.Filename)
+		enc.Encode(jsonio.ArtifactOutput{OK: true, IssueID: issueID, Path: path})
+
+	case "read":
+		if input.Filename == "" {
+			exitJSONError(fmt.Errorf("'filename' is required for read"))
+		}
+		content, err := client.ReadArtifact(issueID, input.Filename)
+		if err != nil {
+			exitJSONError(err)
+		}
+		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, input.Filename)
+		enc.Encode(jsonio.ArtifactOutput{OK: true, IssueID: issueID, Path: path, Content: content})
+
+	case "delete":
+		if input.Filename == "" {
+			exitJSONError(fmt.Errorf("'filename' is required for delete"))
+		}
+		if err := client.DeleteArtifact(issueID, input.Filename); err != nil {
+			exitJSONError(err)
+		}
+		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, input.Filename)
+		enc.Encode(jsonio.ArtifactOutput{OK: true, IssueID: issueID, Path: path})
+
+	case "list":
+		artifacts, err := client.ListArtifacts(issueID)
+		if err != nil {
+			exitJSONError(err)
+		}
+		entries := jsonio.ToArtifactEntries(artifacts)
+		enc.Encode(jsonio.ArtifactOutput{OK: true, IssueID: issueID, Artifacts: entries})
+
+	default:
+		exitJSONError(fmt.Errorf("invalid operation %q: must be add, read, delete, or list", input.Operation))
+	}
+}
+
 func resolveAddFilename(spec, walkthrough bool, name string) (filename, artifactType string, err error) {
 	set := 0
 	if spec {
@@ -297,6 +380,8 @@ func init() {
 
 	artifactDeleteCmd.Flags().BoolVar(&artifactSpecFlag, "spec", false, "Shorthand for spec.md")
 	artifactDeleteCmd.Flags().BoolVar(&artifactWalkthroughFlag, "walkthrough", false, "Shorthand for walkthrough.md")
+
+	artifactCmd.Flags().BoolVar(&artifactJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 
 	artifactCmd.AddCommand(artifactAddCmd)
 	artifactCmd.AddCommand(artifactShowCmd)
