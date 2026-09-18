@@ -1,10 +1,11 @@
 package exponential
 
 import (
+	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/palarix/exponential/internal/model"
 )
@@ -100,14 +101,18 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 		EnsureGitignoreEntry(".xpo/worktrees/")
 
 		if c.Config.WorktreeSetup != "" {
+			var hookOut bytes.Buffer
 			cmd := exec.Command("sh", "-c", c.Config.WorktreeSetup)
 			cmd.Dir = absPath
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			cmd.Stdout = &hookOut
+			cmd.Stderr = &hookOut
 			if err := cmd.Run(); err != nil {
 				msgs = append(msgs, fmt.Sprintf("Warning: worktree_setup hook failed: %v", err))
 			} else {
 				msgs = append(msgs, "Ran worktree_setup hook")
+			}
+			if s := strings.TrimSpace(hookOut.String()); s != "" {
+				msgs = append(msgs, s)
 			}
 		}
 
