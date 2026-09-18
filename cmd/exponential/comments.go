@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -8,9 +9,11 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/palarix/exponential/internal/exponential"
-	"github.com/palarix/exponential/internal/storage"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/spf13/cobra"
 )
+
+var commentsJSONFlag bool
 
 var commentsCmd = &cobra.Command{
 	Use:               "comments [issue ID]",
@@ -19,46 +22,38 @@ var commentsCmd = &cobra.Command{
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		issueID := args[0]
-
-		events, err := storage.ReadEvents()
+		client := exponential.NewClient(cfg)
+		issue, err := client.GetIssue(args[0])
 		if err != nil {
-			return fmt.Errorf("failed to read events: %w", err)
+			return fmt.Errorf("issue %s not found: %w", args[0], err)
 		}
 
-		issues := exponential.ProjectIssues(events)
-		issue, ok := issues[issueID]
-		if !ok {
-			return fmt.Errorf("issue %s not found", issueID)
-		}
-
-		if len(issue.Comments) == 0 {
-			fmt.Printf("No comments for issue %s\n", issueID)
+		if commentsJSONFlag {
+			out := jsonio.CommentsOutput{
+				Comments: jsonio.ToCommentSummaries(issue.Comments),
+			}
+			if out.Comments == nil {
+				out.Comments = []jsonio.CommentSummary{}
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
 			return nil
 		}
 
-		// Calculate max width for indentation/alignment
-		// We want to format like:
-		// Author Name (Time Ago)
-		// Comment Text...
-		// ----------------------
-
-		// Detect if we should use colors (sanity check on top of lipgloss auto-detect)
-		// This follows the pattern in other commands
-		useColors := true
-		if os.Getenv("NO_COLOR") != "" {
-			useColors = false
+		if len(issue.Comments) == 0 {
+			fmt.Printf("No comments for issue %s\n", issue.ID)
+			return nil
 		}
 
-		// Styles
-		authorStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("4")) // Blue
-		timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))            // Gray
-		borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))          // Dark Gray
+		useColors := os.Getenv("NO_COLOR") == ""
+
+		authorStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("4"))
+		timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
 		for i, comment := range issue.Comments {
-			// Header: Author (Time)
 			author := comment.CreatedBy
-			// Attempt to extract name from "First Last <email>"
 			if idx := strings.Index(author, "<"); idx > 0 {
 				author = strings.TrimSpace(author[:idx])
 			}
@@ -88,5 +83,6 @@ var commentsCmd = &cobra.Command{
 }
 
 func init() {
+	commentsCmd.Flags().BoolVar(&commentsJSONFlag, "json", false, "Output as JSON matching MCP comment schema")
 	rootCmd.AddCommand(commentsCmd)
 }

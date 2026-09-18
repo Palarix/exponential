@@ -62,6 +62,10 @@ type ShowOutput struct {
 	Archived         bool               `json:"archived,omitempty"`
 }
 
+type CommentsOutput struct {
+	Comments []CommentSummary `json:"comments"`
+}
+
 type HistoryOutput struct {
 	Events []EventSummary `json:"events"`
 }
