@@ -58,6 +58,8 @@ type ShowOutput struct {
 	Artifacts        []ArtifactEntry    `json:"artifacts,omitempty"`
 	Comments         []CommentSummary   `json:"comments,omitempty"`
 	Events           []EventSummary     `json:"events,omitempty"`
+	Children         []IssueSummary     `json:"children,omitempty"`
+	Archived         bool               `json:"archived,omitempty"`
 }
 
 type HistoryOutput struct {

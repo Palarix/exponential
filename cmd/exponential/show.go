@@ -1,14 +1,19 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+var showJSONFlag bool
 
 var showCmd = &cobra.Command{
 	Use:               "show [id]",
@@ -28,15 +33,50 @@ func showIssue(id string) {
 		os.Exit(1)
 	}
 
-	// Detect Terminal Width
+	if showJSONFlag {
+		out := jsonio.ShowOutput{
+			ID:               issue.ID,
+			Title:            issue.Title,
+			Status:           string(issue.Status),
+			IsInferred:       issue.InferredStatus,
+			Description:      issue.Description,
+			Labels:           issue.Labels,
+			ParentID:         issue.ParentID,
+			StoryPoints:      issue.Estimate,
+			Assignee:         issue.Assignee,
+			CycleID:          issue.CycleID,
+			EffectiveCycleID: issue.EffectiveCycleID,
+			BranchStats:      issue.BranchStats,
+			CreatedBy:        issue.CreatedBy,
+			CreatedAt:        issue.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:        issue.UpdatedAt.Format(time.RFC3339),
+			Dependencies:     issue.Dependencies,
+			Artifacts:        jsonio.ToArtifactEntries(issue.Artifacts),
+			Comments:         jsonio.ToCommentSummaries(issue.Comments),
+			Events:           jsonio.ToEventSummaries(issue.Events),
+			Archived:         archived,
+		}
+		if len(children) > 0 {
+			out.Children = make([]jsonio.IssueSummary, len(children))
+			for i, c := range children {
+				out.Children[i] = jsonio.ToIssueSummary(c)
+			}
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		enc.Encode(out)
+		return
+	}
+
 	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || termWidth <= 0 {
-		termWidth = 100 // Fallback
+		termWidth = 100
 	}
 
 	fmt.Println(ui.RenderIssueDetails(issue, children, archived, termWidth))
 }
 
 func init() {
+	showCmd.Flags().BoolVar(&showJSONFlag, "json", false, "Output as JSON matching MCP show schema")
 	rootCmd.AddCommand(showCmd)
 }
