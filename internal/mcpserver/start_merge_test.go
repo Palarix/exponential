@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/storage"
 )
@@ -88,7 +89,7 @@ func TestMCPStart_BranchMode(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-br01", "Branch Mode", "PLANNED")
 
-	_, out, err := ts.start(context.Background(), nil, startIn{
+	_, out, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
 		ID:   "test-br01",
 		Mode: "branch",
 	})
@@ -107,7 +108,7 @@ func TestMCPStart_WorktreeMode(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-wt01", "Worktree Mode", "PLANNED")
 
-	_, out, err := ts.start(context.Background(), nil, startIn{
+	_, out, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
 		ID:   "test-wt01",
 		Mode: "worktree",
 	})
@@ -126,7 +127,7 @@ func TestMCPStart_InvalidMode(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-inv01", "Invalid Mode", "PLANNED")
 
-	_, _, err := ts.start(context.Background(), nil, startIn{
+	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
 		ID:   "test-inv01",
 		Mode: "invalid",
 	})
@@ -141,7 +142,7 @@ func TestMCPStart_InvalidMode(t *testing.T) {
 func TestMCPStart_MissingID(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 
-	_, _, err := ts.start(context.Background(), nil, startIn{})
+	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{})
 	if err == nil {
 		t.Fatal("expected error for missing ID")
 	}
@@ -154,7 +155,7 @@ func TestMCPMerge_Squash(t *testing.T) {
 	seedMCPIssue(t, "test-sq01", "Squash Merge", "PLANNED")
 
 	// Start work to create the branch
-	_, _, err := ts.start(context.Background(), nil, startIn{
+	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
 		ID:   "test-sq01",
 		Mode: "branch",
 	})
@@ -167,7 +168,7 @@ func TestMCPMerge_Squash(t *testing.T) {
 	mcpRunGit(t, dir, "add", ".")
 	mcpRunGit(t, dir, "commit", "-m", "add feature")
 
-	_, out, err := ts.merge(context.Background(), nil, mergeIn{
+	_, out, err := ts.merge(context.Background(), nil, jsonio.MergeToolInput{
 		ID:         "test-sq01",
 		Strategy:   "squash",
 		KeepBranch: true,
@@ -184,7 +185,7 @@ func TestMCPMerge_DefaultStrategy(t *testing.T) {
 	ts, dir := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-def01", "Default Strategy", "PLANNED")
 
-	_, _, err := ts.start(context.Background(), nil, startIn{
+	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
 		ID:   "test-def01",
 		Mode: "branch",
 	})
@@ -197,7 +198,7 @@ func TestMCPMerge_DefaultStrategy(t *testing.T) {
 	mcpRunGit(t, dir, "commit", "-m", "add feature")
 
 	// Empty strategy should default to squash
-	_, out, err := ts.merge(context.Background(), nil, mergeIn{
+	_, out, err := ts.merge(context.Background(), nil, jsonio.MergeToolInput{
 		ID:         "test-def01",
 		Strategy:   "",
 		KeepBranch: true,
@@ -224,7 +225,7 @@ func TestMCPMerge_InvalidStrategy(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-invstr01", "Invalid Strategy", "DOING")
 
-	_, _, err := ts.merge(context.Background(), nil, mergeIn{
+	_, _, err := ts.merge(context.Background(), nil, jsonio.MergeToolInput{
 		ID:       "test-invstr01",
 		Strategy: "rebase",
 	})
@@ -239,7 +240,7 @@ func TestMCPMerge_InvalidStrategy(t *testing.T) {
 func TestMCPMerge_MissingID(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 
-	_, _, err := ts.merge(context.Background(), nil, mergeIn{})
+	_, _, err := ts.merge(context.Background(), nil, jsonio.MergeToolInput{})
 	if err == nil {
 		t.Fatal("expected error for missing ID")
 	}

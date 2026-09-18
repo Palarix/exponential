@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -74,9 +75,9 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 	if addRes.IsError {
 		t.Fatalf("add returned error: %s", textOf(addRes))
 	}
-	var addOutput addOut
+	var addOutput jsonio.AddOutput
 	if err := remarshal(addRes.StructuredContent, &addOutput); err != nil {
-		t.Fatalf("unmarshal addOut: %v", err)
+		t.Fatalf("unmarshal AddOutput: %v", err)
 	}
 	if addOutput.ID == "" {
 		t.Fatalf("expected non-empty issue ID, got: %+v", addOutput)
@@ -100,9 +101,9 @@ func TestEndToEndAddViaMCP(t *testing.T) {
 	if showRes.IsError {
 		t.Fatalf("show returned error: %s", textOf(showRes))
 	}
-	var showOutput showOut
+	var showOutput jsonio.ShowOutput
 	if err := remarshal(showRes.StructuredContent, &showOutput); err != nil {
-		t.Fatalf("unmarshal showOut: %v", err)
+		t.Fatalf("unmarshal ShowOutput: %v", err)
 	}
 	wantDesc := "## Body\n\nWith `code` and \"quotes\"."
 	if showOutput.Description != wantDesc {

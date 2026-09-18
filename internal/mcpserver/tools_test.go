@@ -10,6 +10,7 @@ import (
 	"github.com/palarix/exponential/internal/auth"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/inputs"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -110,7 +111,7 @@ func TestAddAndShow(t *testing.T) {
 		t.Errorf("Status: got %q want PLANNED", addRes.Status)
 	}
 
-	_, showRes, err := ts.show(context.Background(), nil, showIn{ID: addRes.ID})
+	_, showRes, err := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: addRes.ID})
 	if err != nil {
 		t.Fatalf("show failed: %v", err)
 	}
@@ -132,7 +133,7 @@ func TestUpdateStatusTransition(t *testing.T) {
 	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Work"})
 
 	doing := "DOING"
-	_, updRes, err := ts.update(context.Background(), nil, updateIn{
+	_, updRes, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{
 		ID:          addRes.ID,
 		UpdateInput: inputs.UpdateInput{Status: &doing},
 	})
@@ -143,7 +144,7 @@ func TestUpdateStatusTransition(t *testing.T) {
 		t.Errorf("ID mismatch: got %q want %q", updRes.ID, addRes.ID)
 	}
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: addRes.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: addRes.ID})
 	if showRes.Status != "DOING" {
 		t.Errorf("Status: got %q want DOING", showRes.Status)
 	}
@@ -155,7 +156,7 @@ func TestUpdateEmptyRejected(t *testing.T) {
 
 	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
-	_, _, err := ts.update(context.Background(), nil, updateIn{ID: addRes.ID})
+	_, _, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{ID: addRes.ID})
 	if err == nil {
 		t.Fatal("expected error for empty update")
 	}
@@ -168,11 +169,11 @@ func TestCommentRoundTrip(t *testing.T) {
 	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
 	body := "## Comment\n\nWith `code` and \"quotes\" and $vars."
-	if _, _, err := ts.comment(context.Background(), nil, commentIn{ID: addRes.ID, Body: body}); err != nil {
+	if _, _, err := ts.comment(context.Background(), nil, jsonio.CommentToolInput{ID: addRes.ID, Body: body}); err != nil {
 		t.Fatalf("comment failed: %v", err)
 	}
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: addRes.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: addRes.ID})
 	if len(showRes.Comments) != 1 {
 		t.Fatalf("expected 1 comment, got %d", len(showRes.Comments))
 	}
@@ -186,7 +187,7 @@ func TestCommentRequiresBody(t *testing.T) {
 	defer cleanup()
 
 	_, addRes, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
-	if _, _, err := ts.comment(context.Background(), nil, commentIn{ID: addRes.ID, Body: ""}); err == nil {
+	if _, _, err := ts.comment(context.Background(), nil, jsonio.CommentToolInput{ID: addRes.ID, Body: ""}); err == nil {
 		t.Fatal("expected error for empty body")
 	}
 }
@@ -199,7 +200,7 @@ func TestList(t *testing.T) {
 	ts.add(context.Background(), nil, inputs.AddInput{Title: "B", Labels: []string{"bug"}})
 	ts.add(context.Background(), nil, inputs.AddInput{Title: "C", Labels: []string{"bug"}})
 
-	_, all, err := ts.list(context.Background(), nil, listIn{})
+	_, all, err := ts.list(context.Background(), nil, jsonio.ListToolInput{})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
@@ -207,7 +208,7 @@ func TestList(t *testing.T) {
 		t.Errorf("expected 3 issues, got %d", len(all.Issues))
 	}
 
-	_, bugs, _ := ts.list(context.Background(), nil, listIn{Label: "bug"})
+	_, bugs, _ := ts.list(context.Background(), nil, jsonio.ListToolInput{Label: "bug"})
 	if len(bugs.Issues) != 2 {
 		t.Errorf("expected 2 bug issues, got %d", len(bugs.Issues))
 	}
@@ -220,7 +221,7 @@ func TestLink(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "A"})
 	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "B"})
 
-	_, linkRes, err := ts.link(context.Background(), nil, linkIn{
+	_, linkRes, err := ts.link(context.Background(), nil, jsonio.LinkToolInput{
 		Source: a.ID,
 		Target: b.ID,
 		Type:   "depends_on",
@@ -232,7 +233,7 @@ func TestLink(t *testing.T) {
 		t.Errorf("Kind: got %q want depends_on", linkRes.Kind)
 	}
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: a.ID})
 	if len(showRes.Dependencies) != 1 || showRes.Dependencies[0].TargetID != b.ID {
 		t.Errorf("dependency not persisted: %+v", showRes.Dependencies)
 	}
@@ -245,7 +246,7 @@ func TestLinkInvalidType(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "A"})
 	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "B"})
 
-	_, _, err := ts.link(context.Background(), nil, linkIn{
+	_, _, err := ts.link(context.Background(), nil, jsonio.LinkToolInput{
 		Source: a.ID,
 		Target: b.ID,
 		Type:   "garbage",
@@ -272,7 +273,7 @@ func TestAddWithStatusAndLinks(t *testing.T) {
 		t.Fatalf("add failed: %v", err)
 	}
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: addRes.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: addRes.ID})
 	if showRes.Status != "PLANNED" {
 		t.Errorf("Status: got %q want PLANNED", showRes.Status)
 	}
@@ -293,9 +294,9 @@ func TestHistoryIncludesEvents(t *testing.T) {
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 	doing := "DOING"
-	ts.update(context.Background(), nil, updateIn{ID: a.ID, UpdateInput: inputs.UpdateInput{Status: &doing}})
+	ts.update(context.Background(), nil, jsonio.UpdateToolInput{ID: a.ID, UpdateInput: inputs.UpdateInput{Status: &doing}})
 
-	_, h, err := ts.history(context.Background(), nil, historyIn{ID: a.ID})
+	_, h, err := ts.history(context.Background(), nil, jsonio.HistoryToolInput{ID: a.ID})
 	if err != nil {
 		t.Fatalf("history failed: %v", err)
 	}
@@ -315,7 +316,7 @@ func TestAgentIdentityFromEnv(t *testing.T) {
 		t.Fatalf("add failed: %v", err)
 	}
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: a.ID})
 	// Projected issue shows the principal (on_behalf_of), not the agent
 	if showRes.CreatedBy != "Test User <test@test.com>" {
 		t.Errorf("CreatedBy: got %q want %q", showRes.CreatedBy, "Test User <test@test.com>")
@@ -334,7 +335,7 @@ func TestAgentIdentityFallsBackToConfig(t *testing.T) {
 		t.Fatalf("add failed: %v", err)
 	}
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: a.ID})
 	if showRes.CreatedBy != "Test User <test@test.com>" {
 		t.Errorf("CreatedBy: got %q want config default", showRes.CreatedBy)
 	}
@@ -349,7 +350,7 @@ func TestSpecWriteReadDelete(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Spec test"})
 
 	// Write
-	_, res, err := ts.spec(context.Background(), nil, specIn{
+	_, res, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID, Content: "# Spec\n\nDetails here.",
 	})
 	if err != nil {
@@ -363,7 +364,7 @@ func TestSpecWriteReadDelete(t *testing.T) {
 	}
 
 	// Read
-	_, readRes, err := ts.spec(context.Background(), nil, specIn{
+	_, readRes, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "read", IssueID: a.ID,
 	})
 	if err != nil {
@@ -374,7 +375,7 @@ func TestSpecWriteReadDelete(t *testing.T) {
 	}
 
 	// Show includes artifact
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: a.ID})
 	if len(showRes.Artifacts) != 1 {
 		t.Fatalf("expected 1 artifact in show, got %d", len(showRes.Artifacts))
 	}
@@ -386,7 +387,7 @@ func TestSpecWriteReadDelete(t *testing.T) {
 	}
 
 	// Delete
-	_, delRes, err := ts.spec(context.Background(), nil, specIn{
+	_, delRes, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "delete", IssueID: a.ID,
 	})
 	if err != nil {
@@ -397,7 +398,7 @@ func TestSpecWriteReadDelete(t *testing.T) {
 	}
 
 	// Read after delete should fail
-	_, _, err = ts.spec(context.Background(), nil, specIn{
+	_, _, err = ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "read", IssueID: a.ID,
 	})
 	if err == nil {
@@ -411,7 +412,7 @@ func TestSpecRequiresContent(t *testing.T) {
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
-	_, _, err := ts.spec(context.Background(), nil, specIn{
+	_, _, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID, Content: "",
 	})
 	if err == nil {
@@ -425,7 +426,7 @@ func TestSpecInvalidOperation(t *testing.T) {
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
-	_, _, err := ts.spec(context.Background(), nil, specIn{
+	_, _, err := ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "invalid", IssueID: a.ID,
 	})
 	if err == nil {
@@ -439,7 +440,7 @@ func TestWalkthroughWriteReadDelete(t *testing.T) {
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Walk test"})
 
-	_, res, err := ts.walkthrough(context.Background(), nil, walkthroughIn{
+	_, res, err := ts.walkthrough(context.Background(), nil, jsonio.WalkthroughToolInput{
 		Operation: "write", IssueID: a.ID, Content: "# Walkthrough\n\nStep by step.",
 	})
 	if err != nil {
@@ -449,7 +450,7 @@ func TestWalkthroughWriteReadDelete(t *testing.T) {
 		t.Fatalf("expected OK=true")
 	}
 
-	_, readRes, err := ts.walkthrough(context.Background(), nil, walkthroughIn{
+	_, readRes, err := ts.walkthrough(context.Background(), nil, jsonio.WalkthroughToolInput{
 		Operation: "read", IssueID: a.ID,
 	})
 	if err != nil {
@@ -459,14 +460,14 @@ func TestWalkthroughWriteReadDelete(t *testing.T) {
 		t.Errorf("content mismatch: %q", readRes.Content)
 	}
 
-	_, _, err = ts.walkthrough(context.Background(), nil, walkthroughIn{
+	_, _, err = ts.walkthrough(context.Background(), nil, jsonio.WalkthroughToolInput{
 		Operation: "delete", IssueID: a.ID,
 	})
 	if err != nil {
 		t.Fatalf("walkthrough delete failed: %v", err)
 	}
 
-	_, _, err = ts.walkthrough(context.Background(), nil, walkthroughIn{
+	_, _, err = ts.walkthrough(context.Background(), nil, jsonio.WalkthroughToolInput{
 		Operation: "read", IssueID: a.ID,
 	})
 	if err == nil {
@@ -481,7 +482,7 @@ func TestArtifactAddReadDeleteList(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Artifact test"})
 
 	// Add
-	_, res, err := ts.artifact(context.Background(), nil, artifactIn{
+	_, res, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "add", IssueID: a.ID, Filename: "notes.md", Content: "Some notes.",
 	})
 	if err != nil {
@@ -492,7 +493,7 @@ func TestArtifactAddReadDeleteList(t *testing.T) {
 	}
 
 	// List
-	_, listRes, err := ts.artifact(context.Background(), nil, artifactIn{
+	_, listRes, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "list", IssueID: a.ID,
 	})
 	if err != nil {
@@ -506,7 +507,7 @@ func TestArtifactAddReadDeleteList(t *testing.T) {
 	}
 
 	// Read
-	_, readRes, err := ts.artifact(context.Background(), nil, artifactIn{
+	_, readRes, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "read", IssueID: a.ID, Filename: "notes.md",
 	})
 	if err != nil {
@@ -517,7 +518,7 @@ func TestArtifactAddReadDeleteList(t *testing.T) {
 	}
 
 	// Delete
-	_, _, err = ts.artifact(context.Background(), nil, artifactIn{
+	_, _, err = ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "delete", IssueID: a.ID, Filename: "notes.md",
 	})
 	if err != nil {
@@ -525,7 +526,7 @@ func TestArtifactAddReadDeleteList(t *testing.T) {
 	}
 
 	// List after delete
-	_, listRes2, _ := ts.artifact(context.Background(), nil, artifactIn{
+	_, listRes2, _ := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "list", IssueID: a.ID,
 	})
 	if len(listRes2.Artifacts) != 0 {
@@ -540,7 +541,7 @@ func TestArtifactRejectsReservedFilenames(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
 	for _, name := range []string{"spec.md", "walkthrough.md"} {
-		_, _, err := ts.artifact(context.Background(), nil, artifactIn{
+		_, _, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 			Operation: "add", IssueID: a.ID, Filename: name, Content: "nope",
 		})
 		if err == nil {
@@ -556,7 +557,7 @@ func TestArtifactRequiresFilename(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
 	for _, op := range []string{"add", "read", "delete"} {
-		_, _, err := ts.artifact(context.Background(), nil, artifactIn{
+		_, _, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 			Operation: op, IssueID: a.ID, Filename: "", Content: "x",
 		})
 		if err == nil {
@@ -571,7 +572,7 @@ func TestArtifactInvalidOperation(t *testing.T) {
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "x"})
 
-	_, _, err := ts.artifact(context.Background(), nil, artifactIn{
+	_, _, err := ts.artifact(context.Background(), nil, jsonio.ArtifactToolInput{
 		Operation: "explode", IssueID: a.ID,
 	})
 	if err == nil {
@@ -585,7 +586,7 @@ func TestShowArtifactsEmptyByDefault(t *testing.T) {
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "no artifacts"})
 
-	_, showRes, _ := ts.show(context.Background(), nil, showIn{ID: a.ID})
+	_, showRes, _ := ts.show(context.Background(), nil, jsonio.ShowToolInput{ID: a.ID})
 	if len(showRes.Artifacts) != 0 {
 		t.Errorf("expected empty artifacts, got %d", len(showRes.Artifacts))
 	}
@@ -603,12 +604,12 @@ func TestRationaleBasicSearch(t *testing.T) {
 		Labels: []string{"feature"},
 	})
 
-	ts.spec(context.Background(), nil, specIn{
+	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "# Spec\n\nThe branch badge should display the short git ref name.\n\n## Details\n\nTruncate to 8 characters for readability.",
 	})
 
-	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "branch badge"})
+	_, res, err := ts.rationale(context.Background(), nil, jsonio.RationaleToolInput{Query: "branch badge"})
 	if err != nil {
 		t.Fatalf("rationale failed: %v", err)
 	}
@@ -631,12 +632,12 @@ func TestRationaleNoMatches(t *testing.T) {
 	defer cleanup()
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Something"})
-	ts.spec(context.Background(), nil, specIn{
+	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "This spec is about widgets.",
 	})
 
-	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "nonexistent term zzzzz"})
+	_, res, err := ts.rationale(context.Background(), nil, jsonio.RationaleToolInput{Query: "nonexistent term zzzzz"})
 	if err != nil {
 		t.Fatalf("rationale failed: %v", err)
 	}
@@ -649,7 +650,7 @@ func TestRationaleEmptyQuery(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
 
-	_, _, err := ts.rationale(context.Background(), nil, rationaleIn{Query: ""})
+	_, _, err := ts.rationale(context.Background(), nil, jsonio.RationaleToolInput{Query: ""})
 	if err == nil {
 		t.Fatal("expected error for empty query")
 	}
@@ -663,13 +664,13 @@ func TestRationaleLimit(t *testing.T) {
 		_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
 			Title: "Feature with widget",
 		})
-		ts.spec(context.Background(), nil, specIn{
+		ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 			Operation: "write", IssueID: a.ID,
 			Content: "This spec describes a widget implementation approach.",
 		})
 	}
 
-	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "widget", Limit: 2})
+	_, res, err := ts.rationale(context.Background(), nil, jsonio.RationaleToolInput{Query: "widget", Limit: 2})
 	if err != nil {
 		t.Fatalf("rationale failed: %v", err)
 	}
@@ -689,7 +690,7 @@ func TestRationaleTitleBoost(t *testing.T) {
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{
 		Title: "Widget design rationale",
 	})
-	ts.spec(context.Background(), nil, specIn{
+	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "The widget should render as a card.",
 	})
@@ -698,12 +699,12 @@ func TestRationaleTitleBoost(t *testing.T) {
 	_, b, _ := ts.add(context.Background(), nil, inputs.AddInput{
 		Title: "Card layout system",
 	})
-	ts.spec(context.Background(), nil, specIn{
+	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: b.ID,
 		Content: "The widget should render as a card.",
 	})
 
-	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "widget"})
+	_, res, err := ts.rationale(context.Background(), nil, jsonio.RationaleToolInput{Query: "widget"})
 	if err != nil {
 		t.Fatalf("rationale failed: %v", err)
 	}
@@ -720,16 +721,16 @@ func TestRationaleSearchesBothSpecAndWalkthrough(t *testing.T) {
 	defer cleanup()
 
 	_, a, _ := ts.add(context.Background(), nil, inputs.AddInput{Title: "Feature X"})
-	ts.spec(context.Background(), nil, specIn{
+	ts.spec(context.Background(), nil, jsonio.SpecToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "The sorting algorithm uses quicksort.",
 	})
-	ts.walkthrough(context.Background(), nil, walkthroughIn{
+	ts.walkthrough(context.Background(), nil, jsonio.WalkthroughToolInput{
 		Operation: "write", IssueID: a.ID,
 		Content: "Implemented quicksort with a median-of-three pivot.",
 	})
 
-	_, res, err := ts.rationale(context.Background(), nil, rationaleIn{Query: "quicksort"})
+	_, res, err := ts.rationale(context.Background(), nil, jsonio.RationaleToolInput{Query: "quicksort"})
 	if err != nil {
 		t.Fatalf("rationale failed: %v", err)
 	}
