@@ -55,26 +55,30 @@ var blockedCmd = &cobra.Command{
 			return
 		}
 
-		status := string(model.StatusBlocked)
-		payload := model.UpdatePayload{
-			Status: &status,
-		}
-
-		msgs, err := client.UpdateIssue(args[0], payload, "block")
-		if err != nil {
-			if blockedJSONFlag {
+		if blockedJSONFlag {
+			issue, err := client.GetIssue(args[0])
+			if err != nil {
 				exitJSONError(err)
 			}
-			fmt.Printf("Error marking blocked: %v\n", err)
-			os.Exit(1)
-		}
-
-		if blockedJSONFlag {
-			out := jsonio.UpdateOutput{ID: args[0], Messages: msgs}
+			status := string(model.StatusBlocked)
+			payload := model.UpdatePayload{Status: &status}
+			msgs, err := client.UpdateIssue(issue.ID, payload, "block")
+			if err != nil {
+				exitJSONError(err)
+			}
+			out := jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			enc.Encode(out)
 			return
+		}
+
+		status := string(model.StatusBlocked)
+		payload := model.UpdatePayload{Status: &status}
+		msgs, err := client.UpdateIssue(args[0], payload, "block")
+		if err != nil {
+			fmt.Printf("Error marking blocked: %v\n", err)
+			os.Exit(1)
 		}
 		for _, msg := range msgs {
 			fmt.Println(msg)

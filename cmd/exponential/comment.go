@@ -73,14 +73,15 @@ var commentCmd = &cobra.Command{
 
 		client := exponential.NewClient(cfg)
 
-		if _, err := client.GetIssue(issueID); err != nil {
+		issue, err := client.GetIssue(issueID)
+		if err != nil {
 			if commentJSONFlag {
 				exitJSONError(fmt.Errorf("issue %s not found", issueID))
 			}
 			return fmt.Errorf("issue %s not found", issueID)
 		}
 
-		if err := client.AddComment(issueID, text); err != nil {
+		if err := client.AddComment(issue.ID, text); err != nil {
 			if commentJSONFlag {
 				exitJSONError(fmt.Errorf("failed to add comment: %w", err))
 			}
@@ -90,11 +91,11 @@ var commentCmd = &cobra.Command{
 		if commentJSONFlag {
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
-			enc.Encode(jsonio.CommentOutput{ID: issueID})
+			enc.Encode(jsonio.CommentOutput{ID: issue.ID})
 			return nil
 		}
 
-		fmt.Printf("Comment added to %s\n", issueID)
+		fmt.Printf("Comment added to %s\n", issue.ID)
 		return nil
 	},
 }

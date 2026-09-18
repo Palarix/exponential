@@ -56,11 +56,15 @@ var updateCmd = &cobra.Command{
 			if err := client.ValidateUpdatePayload(&payload); err != nil {
 				exitJSONError(err)
 			}
-			msgs, err := client.UpdateIssue(id, payload, "update")
+			issue, err := client.GetIssue(id)
 			if err != nil {
 				exitJSONError(err)
 			}
-			out := jsonio.UpdateOutput{ID: id, Messages: msgs}
+			msgs, err := client.UpdateIssue(issue.ID, payload, "update")
+			if err != nil {
+				exitJSONError(err)
+			}
+			out := jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			enc.Encode(out)
@@ -264,14 +268,18 @@ func runStartJSON() {
 	}
 
 	client := exponential.NewClient(cfg)
-	branch, wtPath, msgs, err := client.StartWork(input.ID, input.Force)
+	issue, err := client.GetIssue(input.ID)
+	if err != nil {
+		exitJSONError(err)
+	}
+	branch, wtPath, msgs, err := client.StartWork(issue.ID, input.Force)
 	if err != nil {
 		exitJSONError(err)
 	}
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	enc.Encode(jsonio.StartOutput{ID: input.ID, Branch: branch, WorktreePath: wtPath, Messages: msgs})
+	enc.Encode(jsonio.StartOutput{ID: issue.ID, Branch: branch, WorktreePath: wtPath, Messages: msgs})
 }
 
 var doneJSONFlag bool
@@ -283,22 +291,29 @@ var doneCmd = &cobra.Command{
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := exponential.NewClient(cfg)
-		status := string(model.StatusDone)
-		payload := model.UpdatePayload{Status: &status}
-		msgs, err := client.UpdateIssue(args[0], payload, "done")
-		if err != nil {
-			if doneJSONFlag {
+		if doneJSONFlag {
+			issue, err := client.GetIssue(args[0])
+			if err != nil {
 				exitJSONError(err)
 			}
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-		if doneJSONFlag {
-			out := jsonio.UpdateOutput{ID: args[0], Messages: msgs}
+			status := string(model.StatusDone)
+			payload := model.UpdatePayload{Status: &status}
+			msgs, err := client.UpdateIssue(issue.ID, payload, "done")
+			if err != nil {
+				exitJSONError(err)
+			}
+			out := jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			enc.Encode(out)
 			return
+		}
+		status := string(model.StatusDone)
+		payload := model.UpdatePayload{Status: &status}
+		msgs, err := client.UpdateIssue(args[0], payload, "done")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
 		}
 		for _, msg := range msgs {
 			fmt.Println(msg)
@@ -315,22 +330,29 @@ var plannedCmd = &cobra.Command{
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
 		client := exponential.NewClient(cfg)
-		status := string(model.StatusPlanned)
-		payload := model.UpdatePayload{Status: &status}
-		msgs, err := client.UpdateIssue(args[0], payload, "planned")
-		if err != nil {
-			if plannedJSONFlag {
+		if plannedJSONFlag {
+			issue, err := client.GetIssue(args[0])
+			if err != nil {
 				exitJSONError(err)
 			}
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-		if plannedJSONFlag {
-			out := jsonio.UpdateOutput{ID: args[0], Messages: msgs}
+			status := string(model.StatusPlanned)
+			payload := model.UpdatePayload{Status: &status}
+			msgs, err := client.UpdateIssue(issue.ID, payload, "planned")
+			if err != nil {
+				exitJSONError(err)
+			}
+			out := jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			enc.Encode(out)
 			return
+		}
+		status := string(model.StatusPlanned)
+		payload := model.UpdatePayload{Status: &status}
+		msgs, err := client.UpdateIssue(args[0], payload, "planned")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
 		}
 		for _, msg := range msgs {
 			fmt.Println(msg)
