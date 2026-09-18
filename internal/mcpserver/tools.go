@@ -158,7 +158,7 @@ func (t *toolset) history(ctx context.Context, req *mcp.CallToolRequest, in json
 	if err != nil {
 		return nil, jsonio.HistoryOutput{}, err
 	}
-	return textResult(fmt.Sprintf("%d event(s)", len(issue.Events))), jsonio.HistoryOutput{Events: jsonio.ToEventSummaries(issue.Events)}, nil
+	return textResult(fmt.Sprintf("%d event(s)", len(issue.Events))), jsonio.HistoryOutput{Timeline: jsonio.EventsToTimelineEntries(issue.Events)}, nil
 }
 
 func (t *toolset) add(ctx context.Context, req *mcp.CallToolRequest, in jsonio.AddInput) (*mcp.CallToolResult, jsonio.AddOutput, error) {

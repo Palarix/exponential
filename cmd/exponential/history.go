@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
@@ -131,7 +133,13 @@ var historyCmd = &cobra.Command{
 		}
 
 		if historyJSON {
-			ui.RenderTimelineJSON(entries, os.Stdout)
+			out := jsonio.HistoryOutput{Timeline: jsonio.ToTimelineEntries(entries)}
+			if out.Timeline == nil {
+				out.Timeline = []jsonio.TimelineEntry{}
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
 			return
 		}
 
@@ -197,7 +205,7 @@ func (p *pagerPipe) Close() error {
 }
 
 func init() {
-	historyCmd.Flags().BoolVar(&historyJSON, "json", false, "Output events as JSONL (one JSON object per line)")
+	historyCmd.Flags().BoolVar(&historyJSON, "json", false, "Output timeline as JSON envelope")
 	historyCmd.Flags().BoolVar(&historyReverse, "reverse", false, "Show oldest events first (chronological)")
 	historyCmd.Flags().StringVar(&historySince, "since", "", "Show events within a duration (e.g. 24h, 7d, 2w)")
 	historyCmd.Flags().IntVar(&historyLimit, "limit", 50, "Maximum events to show (global mode only)")

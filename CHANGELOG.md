@@ -9,37 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Unified JSON I/O layer: `internal/jsonio/` package as single source of truth for all JSON-serializable types shared between CLI and MCP (xpo-1a5504)
+- `xpo list --json` outputs `jsonio.ListOutput` envelope (xpo-2e3060)
+- `xpo show --json` outputs `jsonio.ShowOutput` envelope with children and archived status (xpo-b5d8f0)
+- `xpo comments --json` outputs `jsonio.CommentsOutput` envelope (xpo-e43fff)
+- `xpo blocked` without arguments lists all blocked issues; `--json` flag for JSON output (xpo-c3f7a0)
+- `xpo inbox --json` outputs `jsonio.InboxOutput` envelope (xpo-d31d61)
+- `SearchInput` component added to Timeline TopBar (xpo-23529e)
 - `MenuFilter` component for filterable menus; `bare` prop on `Menu` for chrome-free mode inside existing containers (xpo-9a7907)
 - Digit keys (0-9) registered in Menu keyboard handler for number-key shortcuts (xpo-9a7907)
-- Composable `Menu`, `MenuItem`, `SubMenu`, `MenuDivider`, `MenuLabel` component system with keyboard navigation, safe-triangle diagonal movement, and submenu close delay (xpo-de8d06)
+- Composable `Menu`, `MenuItem`, `SubMenu`, `MenuDivider`, `MenuLabel` component system with ARIA roles, keyboard navigation via the shortcut registry, safe-triangle diagonal movement, submenu close delay, and sub-menu flyout positioning; ContextMenu and FilterMenu refactored to compose from these primitives (xpo-de8d06)
 - `PopoverPanel` component for visual chrome in raw-content Popovers (xpo-de8d06)
 - `pointInTriangle` utility for safe-triangle hover calculations (xpo-de8d06)
-
-### Changed
-
-- `StatusPicker`, `PriorityPicker`, `EstimatePicker`, `LabelPicker` rewritten as Menu + MenuItem compositions, eliminating duplicated keyboard handling, focus management, and CheckIcon definitions (xpo-9a7907)
-- `Popover` is now positioning-only; visual chrome moved to `PopoverPanel` or `Menu` (xpo-de8d06)
-- `ContextMenu` decomposed from monolithic 470-line component into Menu/MenuItem/SubMenu composition (xpo-de8d06)
-- `FilterMenu` rebuilt with Menu/SubMenu; positioning fixed with `useLayoutEffect` + `queueMicrotask` (xpo-de8d06, xpo-b5a70c)
-- Backlog and Board view option menus refactored from inline JSX to Menu compositions (xpo-de8d06)
-- Menu items use compact sizing (`py-1.5`) with three-tier visual hierarchy: secondary text, hover highlight, active highlight (xpo-de8d06)
-
-### Fixed
-
-- Popover visibility in production builds: anchor ref not attached when `useLayoutEffect` fires; deferred via `queueMicrotask` (xpo-b5a70c)
-
-- `xpo init` is now a unified wizard: prefix prompt → agent multi-select → terraform-style change plan → confirm → apply. Replaces the separate `init mcp` and `init skill` subcommands (xpo-76e2a1)
-- Agent instruction files use managed blocks (`<!-- xpo:begin VERSION sha256:HASH -->`) for safe refresh — only the xpo-owned section is replaced, user content is never touched (xpo-76e2a1)
-- Prefix stored without trailing dash (`pay` not `pay-`); separator added at point of use. Existing configs normalized on load (xpo-76e2a1)
-- `xpo doctor` reorganized into four sections: xpo, Project, Integrations, This machine (xpo-76e2a1)
-- Branded welcome message when running `xpo` or any command outside a project directory (xpo-76e2a1)
-- Tagline defined once (`ui.Tagline`) and used consistently across all CLI output (xpo-76e2a1)
-
-### Added
-
-- Composable `Menu`, `MenuItem`, `SubMenu`, `MenuDivider`, `MenuLabel` component system with ARIA roles, keyboard navigation via the shortcut registry, and sub-menu flyout positioning; ContextMenu and FilterMenu refactored to compose from these primitives (xpo-de8d06)
 - `popover-utils` extended with `right-start` placement for sub-menu flyouts with left-flip and viewport clamping (xpo-de8d06)
 - `menu-utils` pure functions for index navigation with wrapping/skip and shortcut matching (xpo-de8d06)
+- `Text` component for consistent typography primitives (xpo-e0334f)
 - Shared `Tabs<T>` component with `[`/`]` keyboard cycling via the shortcut registry; Backlog and My Issues migrated, removing duplicated tab markup (xpo-d47781)
 - Control-priority shortcuts fold into the active view's group in the keyboard help overlay instead of creating separate sections (xpo-d47781)
 - Keyboard system architecture design document (`design-docs/keyboard-system.md`) (xpo-d47781)
@@ -48,26 +32,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Popover` refactored to anchor-ref positioning with placement options, 4-edge viewport clamping, and built-in click-outside/Escape dismissal; 17 consumer instances migrated, `InlineDropdown` rewritten on Popover (xpo-5d1c38)
 - `Button` component supports `forwardRef` for ref-based popover anchoring (xpo-5d1c38)
 - Shared `FilterButton` component bundling IconButton, FilterMenu, `f` shortcut, and active dot; Backlog, MyIssues, and Inbox migrated (xpo-e16962)
-
-### Fixed
-
-- FilterMenu arrow-left key not registered for submenu entry (xpo-e16962)
-- FilterMenu submenu options don't scroll into view on keyboard navigation (xpo-e16962)
 - `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
-- Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
 - `xpo init` flags: `--yes`, `--prefix`, `--agents`, `--force` for non-interactive/CI use (xpo-76e2a1)
 - Version stamping in managed block markers — integration version derived from blocks, not stored in config (xpo-76e2a1)
 - Re-init intelligence: up-to-date one-liner, stale version diffs, downgrade protection, edited-block detection (xpo-76e2a1)
 - `charmbracelet/huh` dependency for multi-select and select prompts (xpo-76e2a1)
 - 53 new tests: managed blocks, health checks, doctor scenarios, version comparison (xpo-76e2a1)
 
+### Changed
+
+- `xpo rationale --json` now outputs `jsonio.RationaleOutput` envelope instead of raw search result (xpo-11e559)
+- **Breaking**: `xpo history --json` now outputs a single JSON envelope with rich timeline entries instead of JSONL; MCP `history` tool output upgraded to include payload, on_behalf_of, and source fields (xpo-f56ce4)
+- `internal/inputs/` reduced to a backward-compat re-export shim over `internal/jsonio/`; will be removed once CLI commands are migrated (xpo-1a5504)
+- `StatusPicker`, `PriorityPicker`, `EstimatePicker`, `LabelPicker` rewritten as Menu + MenuItem compositions, eliminating duplicated keyboard handling, focus management, and CheckIcon definitions (xpo-9a7907)
+- `Popover` is now positioning-only; visual chrome moved to `PopoverPanel` or `Menu` (xpo-de8d06)
+- `ContextMenu` decomposed from monolithic 470-line component into Menu/MenuItem/SubMenu composition (xpo-de8d06)
+- `FilterMenu` rebuilt with Menu/SubMenu; positioning fixed with `useLayoutEffect` + `queueMicrotask` (xpo-de8d06, xpo-b5a70c)
+- Backlog and Board view option menus refactored from inline JSX to Menu compositions (xpo-de8d06)
+- Menu items use compact sizing (`py-1.5`) with three-tier visual hierarchy: secondary text, hover highlight, active highlight (xpo-de8d06)
+- `xpo init` is now a unified wizard: prefix prompt → agent multi-select → terraform-style change plan → confirm → apply. Replaces the separate `init mcp` and `init skill` subcommands (xpo-76e2a1)
+- Agent instruction files use managed blocks (`<!-- xpo:begin VERSION sha256:HASH -->`) for safe refresh — only the xpo-owned section is replaced, user content is never touched (xpo-76e2a1)
+- Prefix stored without trailing dash (`pay` not `pay-`); separator added at point of use. Existing configs normalized on load (xpo-76e2a1)
+- `xpo doctor` reorganized into four sections: xpo, Project, Integrations, This machine (xpo-76e2a1)
+- Branded welcome message when running `xpo` or any command outside a project directory (xpo-76e2a1)
+- Tagline defined once (`ui.Tagline`) and used consistently across all CLI output (xpo-76e2a1)
+- `comments` command refactored from raw `storage.ReadEvents()` to `Client.GetIssue()` (xpo-e43fff)
+
 ### Fixed
 
+- Popover visibility in production builds: anchor ref not attached when `useLayoutEffect` fires; deferred via `queueMicrotask` (xpo-b5a70c)
+- FilterMenu arrow-left key not registered for submenu entry (xpo-e16962)
+- FilterMenu submenu options don't scroll into view on keyboard navigation (xpo-e16962)
 - TopBar center slot now stays truly centered regardless of left/right content width changes (xpo-c078b7)
 - MergeView "Files changed" badge now reflects the active scope — shows uncommitted file count when viewing uncommitted changes instead of always showing 0 (xpo-54a423)
 - "All Changes" view falls back to uncommitted diffs when there are no commits yet, instead of showing an empty pane (xpo-54a423)
 - Scope selector ("All changes" / "Uncommitted") promoted from file-tree sidebar to the tab bar for better visibility (xpo-54a423)
+- Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
 
 ### Removed
 

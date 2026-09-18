@@ -300,8 +300,8 @@ func TestHistoryIncludesEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("history failed: %v", err)
 	}
-	if len(h.Events) < 2 {
-		t.Errorf("expected at least 2 events, got %d", len(h.Events))
+	if len(h.Timeline) < 2 {
+		t.Errorf("expected at least 2 timeline entries, got %d", len(h.Timeline))
 	}
 }
 

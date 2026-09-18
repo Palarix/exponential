@@ -67,7 +67,23 @@ type CommentsOutput struct {
 }
 
 type HistoryOutput struct {
-	Events []EventSummary `json:"events"`
+	Timeline []TimelineEntry `json:"timeline"`
+}
+
+type TimelineEntry struct {
+	Kind       string      `json:"kind"`
+	Timestamp  string      `json:"timestamp"`
+	IssueID    string      `json:"issue_id,omitempty"`
+	IssueTitle string      `json:"issue_title,omitempty"`
+	EventType  string      `json:"event_type,omitempty"`
+	Payload    interface{} `json:"payload,omitempty"`
+	CreatedBy  string      `json:"created_by,omitempty"`
+	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
+	Source     string      `json:"source,omitempty"`
+	SHA        string      `json:"sha,omitempty"`
+	Message    string      `json:"message,omitempty"`
+	Author     string      `json:"author,omitempty"`
+	Branch     string      `json:"branch,omitempty"`
 }
 
 type AddOutput struct {
@@ -226,6 +242,51 @@ func ToEventSummaries(es []model.Event) []EventSummary {
 			Type:      string(e.Type),
 			CreatedBy: e.CreatedBy,
 			CreatedAt: e.CreatedAt.Format(time.RFC3339),
+		}
+	}
+	return out
+}
+
+func ToTimelineEntries(entries []model.TimelineEntry) []TimelineEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	out := make([]TimelineEntry, len(entries))
+	for i, e := range entries {
+		out[i] = TimelineEntry{
+			Kind:       e.Kind,
+			Timestamp:  e.Timestamp.Format(time.RFC3339),
+			IssueID:    e.IssueID,
+			IssueTitle: e.IssueTitle,
+			EventType:  e.EventType,
+			Payload:    e.Payload,
+			CreatedBy:  e.CreatedBy,
+			OnBehalfOf: e.OnBehalfOf,
+			Source:     e.Source,
+			SHA:        e.SHA,
+			Message:    e.Message,
+			Author:     e.Author,
+			Branch:     e.Branch,
+		}
+	}
+	return out
+}
+
+func EventsToTimelineEntries(es []model.Event) []TimelineEntry {
+	if len(es) == 0 {
+		return nil
+	}
+	out := make([]TimelineEntry, len(es))
+	for i, e := range es {
+		out[i] = TimelineEntry{
+			Kind:       "issue_event",
+			Timestamp:  e.CreatedAt.Format(time.RFC3339),
+			IssueID:    e.ID,
+			EventType:  string(e.Type),
+			Payload:    e.Payload,
+			CreatedBy:  e.CreatedBy,
+			OnBehalfOf: e.OnBehalfOf,
+			Source:     e.Source,
 		}
 	}
 	return out
