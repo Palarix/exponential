@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Popover` refactored to anchor-ref positioning with placement options, 4-edge viewport clamping, and built-in click-outside/Escape dismissal; 17 consumer instances migrated, `InlineDropdown` rewritten on Popover (xpo-5d1c38)
 - `Button` component supports `forwardRef` for ref-based popover anchoring (xpo-5d1c38)
 - Shared `FilterButton` component bundling IconButton, FilterMenu, `f` shortcut, and active dot; Backlog, MyIssues, and Inbox migrated (xpo-e16962)
+- `xpo spec` CLI command for viewing and managing issue specs (xpo-d9d6f2)
+- `xpo walkthrough` CLI command for viewing and managing issue walkthroughs (xpo-09a820)
+- `--with-spec` and `--with-walkthrough` flags on `xpo show` command and MCP `show` tool to inline artifact content (xpo-68eb93)
+- `xpo artifact --json` input/output with `jsonio` envelope (xpo-43d8c5)
+- `xpo start --json` input/output with `jsonio` envelope (xpo-cdd060)
+- `xpo merge --json` input/output with `jsonio` envelope (xpo-e19cfd)
+- `xpo link --json` input/output with `jsonio` envelope (xpo-885f42)
+- Standardized JSON error output across all CLI `--json` commands — consistent `{"error": ...}` envelope on validation and runtime failures (xpo-d1a06b)
+- `Heading` component for consistent title and heading styling (xpo-250ddf)
+- `CountBadge` component for issue count badges (xpo-f27a3e)
 - `xpo doctor --fix`: auto-fixes local state silently, shows change plan for committed files, offers replace/keep/diff for edited managed blocks (xpo-76e2a1)
 - `xpo doctor --strict`: warnings exit non-zero for CI (xpo-76e2a1)
 - `xpo init` flags: `--yes`, `--prefix`, `--agents`, `--force` for non-interactive/CI use (xpo-76e2a1)
@@ -60,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Branded welcome message when running `xpo` or any command outside a project directory (xpo-76e2a1)
 - Tagline defined once (`ui.Tagline`) and used consistently across all CLI output (xpo-76e2a1)
 - `comments` command refactored from raw `storage.ReadEvents()` to `Client.GetIssue()` (xpo-e43fff)
+- `xpo comment --json` refactored to use shared MCP `CommentToolInput` schema via `jsonio`, with full validation parity (xpo-aa4529)
+- All CLI `--json` commands now resolve input IDs (short IDs, bare hashes) to canonical issue IDs before processing (xpo-db6d52)
+- Pulse types moved from `internal/pulse` to `jsonio` package; velocity calculation no longer double-counts issues (xpo-b18d99)
+- Cosmetic consistency pass for `--json` flags across all CLI commands — uniform flag descriptions and help text (xpo-66b8af)
 
 ### Fixed
 
@@ -71,10 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - "All Changes" view falls back to uncommitted diffs when there are no commits yet, instead of showing an empty pane (xpo-54a423)
 - Scope selector ("All changes" / "Uncommitted") promoted from file-tree sidebar to the tab bar for better visibility (xpo-54a423)
 - Issues.db validation in `xpo doctor` with line-number reporting for invalid entries (xpo-76e2a1)
+- `comment --json` now accepts MCP `CommentToolInput` payload format (xpo-eb0d61)
+- `worktree_setup` hook output captured instead of leaking to stdout (xpo-7abb38)
 
 ### Removed
 
 - `xpo init mcp` and `xpo init skill` subcommands — absorbed into unified `xpo init` (xpo-76e2a1)
+- `internal/inputs` backward-compat re-export shim — all CLI commands now use `jsonio` directly (xpo-aebfc5)
 
 ## [1.2.1] — 2026-09-10
 

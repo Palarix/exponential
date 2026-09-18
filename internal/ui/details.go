@@ -10,8 +10,17 @@ import (
 	"github.com/palarix/exponential/internal/model"
 )
 
+type DetailOptions struct {
+	Spec        string
+	Walkthrough string
+}
+
 // RenderIssueDetails renders a detailed view of an issue.
-func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived bool, termWidth int) string {
+func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived bool, termWidth int, opts ...DetailOptions) string {
+	var opt DetailOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
 	var sb strings.Builder
 
 	// --- Header ---
@@ -121,6 +130,34 @@ func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived 
 			sb.WriteString(rendered)
 		} else {
 			sb.WriteString("  " + issue.Description + "\n")
+		}
+	}
+
+	// --- Spec ---
+	if opt.Spec != "" {
+		sb.WriteString(RenderHeader("Spec"))
+		renderer, _ := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(min(termWidth-4, 76)),
+		)
+		if rendered, err := renderer.Render(opt.Spec); err == nil {
+			sb.WriteString(rendered)
+		} else {
+			sb.WriteString("  " + opt.Spec + "\n")
+		}
+	}
+
+	// --- Walkthrough ---
+	if opt.Walkthrough != "" {
+		sb.WriteString(RenderHeader("Walkthrough"))
+		renderer, _ := glamour.NewTermRenderer(
+			glamour.WithAutoStyle(),
+			glamour.WithWordWrap(min(termWidth-4, 76)),
+		)
+		if rendered, err := renderer.Render(opt.Walkthrough); err == nil {
+			sb.WriteString(rendered)
+		} else {
+			sb.WriteString("  " + opt.Walkthrough + "\n")
 		}
 	}
 

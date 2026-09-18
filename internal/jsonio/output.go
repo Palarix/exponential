@@ -64,6 +64,8 @@ type ShowOutput struct {
 	Events           []EventSummary     `json:"events,omitempty"`
 	Children         []IssueSummary     `json:"children,omitempty"`
 	Archived         bool               `json:"archived,omitempty"`
+	Spec             string             `json:"spec,omitempty"`
+	Walkthrough      string             `json:"walkthrough,omitempty"`
 }
 
 type CommentsOutput struct {

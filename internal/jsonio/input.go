@@ -172,8 +172,10 @@ func (f *FlexStrings) UnmarshalJSON(data []byte) error {
 }
 
 type ShowToolInput struct {
-	ID            string `json:"id" jsonschema:"Issue ID (full or unique suffix)"`
-	IncludeEvents bool   `json:"include_events,omitempty" jsonschema:"Include the full event audit trail"`
+	ID                 string `json:"id" jsonschema:"Issue ID (full or unique suffix)"`
+	IncludeEvents      bool   `json:"include_events,omitempty" jsonschema:"Include the full event audit trail"`
+	IncludeSpec        bool   `json:"include_spec,omitempty" jsonschema:"Include spec content"`
+	IncludeWalkthrough bool   `json:"include_walkthrough,omitempty" jsonschema:"Include walkthrough content"`
 }
 
 type HistoryToolInput struct {

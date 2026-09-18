@@ -146,6 +146,16 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 	if in.IncludeEvents {
 		out.Events = jsonio.ToEventSummaries(issue.Events)
 	}
+	if in.IncludeSpec {
+		if content, err := c.ReadSpec(issue.ID); err == nil {
+			out.Spec = content
+		}
+	}
+	if in.IncludeWalkthrough {
+		if content, err := c.ReadWalkthrough(issue.ID); err == nil {
+			out.Walkthrough = content
+		}
+	}
 	return textResult(fmt.Sprintf("%s — %s [%s]", issue.ID, issue.Title, issue.Status)), out, nil
 }
 

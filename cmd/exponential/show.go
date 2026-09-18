@@ -13,7 +13,11 @@ import (
 	"golang.org/x/term"
 )
 
-var showJSONFlag bool
+var (
+	showJSONFlag            bool
+	showWithSpecFlag        bool
+	showWithWalkthroughFlag bool
+)
 
 var showCmd = &cobra.Command{
 	Use:               "show [id]",
@@ -65,6 +69,16 @@ func showIssue(id string) {
 				out.Children[i] = jsonio.ToIssueSummary(c)
 			}
 		}
+		if showWithSpecFlag {
+			if content, err := client.ReadSpec(issue.ID); err == nil {
+				out.Spec = content
+			}
+		}
+		if showWithWalkthroughFlag {
+			if content, err := client.ReadWalkthrough(issue.ID); err == nil {
+				out.Walkthrough = content
+			}
+		}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		enc.Encode(out)
@@ -76,10 +90,24 @@ func showIssue(id string) {
 		termWidth = 100
 	}
 
-	fmt.Println(ui.RenderIssueDetails(issue, children, archived, termWidth))
+	var opts ui.DetailOptions
+	if showWithSpecFlag {
+		if content, err := client.ReadSpec(issue.ID); err == nil {
+			opts.Spec = content
+		}
+	}
+	if showWithWalkthroughFlag {
+		if content, err := client.ReadWalkthrough(issue.ID); err == nil {
+			opts.Walkthrough = content
+		}
+	}
+
+	fmt.Println(ui.RenderIssueDetails(issue, children, archived, termWidth, opts))
 }
 
 func init() {
 	showCmd.Flags().BoolVar(&showJSONFlag, "json", false, "Output as JSON")
+	showCmd.Flags().BoolVar(&showWithSpecFlag, "with-spec", false, "Include spec content")
+	showCmd.Flags().BoolVar(&showWithWalkthroughFlag, "with-walkthrough", false, "Include walkthrough content")
 	rootCmd.AddCommand(showCmd)
 }
