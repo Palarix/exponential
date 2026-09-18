@@ -200,13 +200,22 @@ var updateCmd = &cobra.Command{
 
 var startForce bool
 var startMode string
+var startJSONFlag bool
 
 var startCmd = &cobra.Command{
 	Use:               "start [id]",
 	Short:             "Start working on an issue (set to DOING + create worktree)",
-	Args:              cobra.ExactArgs(1),
+	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
+		if startJSONFlag {
+			runStartJSON()
+			return
+		}
+		if len(args) == 0 {
+			fmt.Println("Error: requires exactly 1 arg(s)")
+			os.Exit(1)
+		}
 		switch startMode {
 		case "":
 			// no override — use global config
@@ -228,6 +237,41 @@ var startCmd = &cobra.Command{
 			fmt.Println(msg)
 		}
 	},
+}
+
+func runStartJSON() {
+	content, err := readStdinExplicit()
+	if err != nil {
+		exitJSONError(err)
+	}
+	var input jsonio.StartToolInput
+	if err := jsonio.DecodeStrict(content, &input); err != nil {
+		exitJSONError(err)
+	}
+	if input.ID == "" {
+		exitJSONError(fmt.Errorf("'id' is required"))
+	}
+
+	switch input.Mode {
+	case "":
+		// no override
+	case "worktree":
+		cfg.Worktrees = true
+	case "branch":
+		cfg.Worktrees = false
+	default:
+		exitJSONError(fmt.Errorf("invalid mode %q: must be \"worktree\" or \"branch\"", input.Mode))
+	}
+
+	client := exponential.NewClient(cfg)
+	branch, wtPath, msgs, err := client.StartWork(input.ID, input.Force)
+	if err != nil {
+		exitJSONError(err)
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(jsonio.StartOutput{ID: input.ID, Branch: branch, WorktreePath: wtPath, Messages: msgs})
 }
 
 var doneJSONFlag bool
@@ -307,6 +351,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	startCmd.Flags().BoolVar(&startForce, "force", false, "Take over an issue already in progress or with an existing branch")
 	startCmd.Flags().StringVar(&startMode, "mode", "", "Create a \"worktree\" or a \"branch\" (overrides config)")
+	startCmd.Flags().BoolVar(&startJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(startCmd)
 	doneCmd.Flags().BoolVar(&doneJSONFlag, "json", false, "Output as JSON")
 	rootCmd.AddCommand(doneCmd)
