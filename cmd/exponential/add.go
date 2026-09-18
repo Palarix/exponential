@@ -2,13 +2,14 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/config"
-	"github.com/palarix/exponential/internal/inputs"
+	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
@@ -40,8 +41,8 @@ var addCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			var input inputs.AddInput
-			if err := inputs.DecodeStrict(content, &input); err != nil {
+			var input jsonio.AddInput
+			if err := jsonio.DecodeStrict(content, &input); err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -50,11 +51,9 @@ var addCmd = &cobra.Command{
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
 			}
-			if payload.Estimate > 0 {
-				if err := config.ValidateEstimate(cfg.EstimationSystem, payload.Estimate); err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
-				}
+			if err := client.ValidateCreatePayload(&payload); err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
 			}
 			if !addForceFlag {
 				if dupes, derr := client.CheckDuplicates(payload.Title); derr == nil && len(dupes) > 0 {
@@ -71,7 +70,10 @@ var addCmd = &cobra.Command{
 				fmt.Printf("Error adding issue: %v\n", err)
 				os.Exit(1)
 			}
-			showConfirmation(issue)
+			out := jsonio.AddOutput{ID: issue.ID, Title: issue.Title, Status: string(issue.Status)}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			enc.Encode(out)
 			return
 		}
 

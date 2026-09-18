@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `xpo add --json` now uses `jsonio.AddInput` directly (dropping `inputs` shim), calls `ValidateCreatePayload` for full validation parity with MCP, and emits `jsonio.AddOutput` JSON instead of plain text (xpo-3847a5)
 - `xpo rationale --json` now outputs `jsonio.RationaleOutput` envelope instead of raw search result (xpo-11e559)
 - **Breaking**: `xpo history --json` now outputs a single JSON envelope with rich timeline entries instead of JSONL; MCP `history` tool output upgraded to include payload, on_behalf_of, and source fields (xpo-f56ce4)
 - `internal/inputs/` reduced to a backward-compat re-export shim over `internal/jsonio/`; will be removed once CLI commands are migrated (xpo-1a5504)
