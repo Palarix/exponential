@@ -135,3 +135,4 @@ func FindWorktreeForBranch(branch string) (string, bool) {
 	}
 	return "", false
 }
+

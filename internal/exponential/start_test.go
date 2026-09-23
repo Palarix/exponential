@@ -513,3 +513,248 @@ func TestStartWork_Worktree_SetupHookFails(t *testing.T) {
 		t.Errorf("expected hook failure warning in %v", msgs)
 	}
 }
+
+func TestStartWork_Worktree_Idempotent_AlreadyDoing(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+	client.Config.WorktreeSetup = "touch .setup-ran"
+
+	createTestIssue(t, "test-idem01", "Idempotent Start", "PLANNED")
+
+	// First start creates the worktree and runs hooks
+	_, wtPath, _, err := client.StartWork("test-idem01", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+
+	// Remove the marker so we can verify hooks don't re-run
+	os.Remove(filepath.Join(wtPath, ".setup-ran"))
+
+	// Change cwd into the worktree
+	origDir, _ := os.Getwd()
+	os.Chdir(wtPath)
+	storage.ResetHubRoot()
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}()
+
+	// Second start from inside the worktree should be a no-op
+	branch, wtPath2, msgs, err := client.StartWork("test-idem01", false)
+	if err != nil {
+		t.Fatalf("idempotent StartWork() failed: %v", err)
+	}
+	if branch != "test-idem01-idempotent-start" {
+		t.Errorf("expected branch 'test-idem01-idempotent-start', got %q", branch)
+	}
+	if wtPath2 != wtPath {
+		t.Errorf("expected same worktree path %q, got %q", wtPath, wtPath2)
+	}
+
+	// Should have a resuming message
+	foundResume := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Resuming existing worktree") {
+			foundResume = true
+		}
+	}
+	if !foundResume {
+		t.Errorf("expected 'Resuming existing worktree' message in %v", msgs)
+	}
+
+	// Setup hook should NOT have re-run
+	if _, err := os.Stat(filepath.Join(wtPath, ".setup-ran")); !os.IsNotExist(err) {
+		t.Error("setup hook should not have re-run on idempotent start")
+	}
+}
+
+func TestStartWork_Worktree_Idempotent_PlannedTransitions(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+
+	createTestIssue(t, "test-idem02", "Idempotent Planned", "PLANNED")
+
+	// First start creates the worktree (transitions PLANNED→DOING)
+	_, wtPath, _, err := client.StartWork("test-idem02", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+
+	// Manually revert issue status to PLANNED (simulates external tool
+	// having created the worktree but status not yet DOING)
+	status := "PLANNED"
+	payload := model.UpdatePayload{Status: &status}
+	client.Transport.UpdateIssue("test-idem02", payload, "test-revert")
+
+	// Change cwd into the worktree
+	origDir, _ := os.Getwd()
+	os.Chdir(wtPath)
+	storage.ResetHubRoot()
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}()
+
+	// Start from inside worktree: should transition to DOING
+	_, _, _, err = client.StartWork("test-idem02", false)
+	if err != nil {
+		t.Fatalf("idempotent StartWork() with PLANNED status failed: %v", err)
+	}
+
+	issue, _ := client.GetIssue("test-idem02")
+	if issue.Status != model.StatusDoing {
+		t.Errorf("expected DOING after idempotent start, got %s", issue.Status)
+	}
+}
+
+func TestStartWork_Worktree_Idempotent_TerminalErrors(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+
+	createTestIssue(t, "test-idem03", "Idempotent Terminal", "PLANNED")
+
+	// Create the worktree
+	_, wtPath, _, err := client.StartWork("test-idem03", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+
+	// Mark issue as DONE
+	status := "DONE"
+	payload := model.UpdatePayload{Status: &status}
+	client.Transport.UpdateIssue("test-idem03", payload, "test-done")
+
+	// Change cwd into the worktree
+	origDir, _ := os.Getwd()
+	os.Chdir(wtPath)
+	storage.ResetHubRoot()
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}()
+
+	// Start from inside worktree with terminal status: should error
+	_, _, _, err = client.StartWork("test-idem03", false)
+	if err == nil {
+		t.Fatal("expected error for terminal status even from inside worktree")
+	}
+	if !strings.Contains(err.Error(), "DONE") {
+		t.Errorf("expected error to mention DONE, got: %v", err)
+	}
+}
+
+func TestStartWork_Worktree_Idempotent_Subdirectory(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+
+	createTestIssue(t, "test-idem04", "Idempotent Subdir", "PLANNED")
+
+	_, wtPath, _, err := client.StartWork("test-idem04", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+
+	// Create and enter a subdirectory inside the worktree
+	subDir := filepath.Join(wtPath, "sub", "dir")
+	os.MkdirAll(subDir, 0755)
+	origDir, _ := os.Getwd()
+	os.Chdir(subDir)
+	storage.ResetHubRoot()
+	defer func() {
+		os.Chdir(origDir)
+		storage.ResetHubRoot()
+	}()
+
+	// Start from subdirectory should still be idempotent
+	_, wtPath2, msgs, err := client.StartWork("test-idem04", false)
+	if err != nil {
+		t.Fatalf("idempotent StartWork() from subdirectory failed: %v", err)
+	}
+	if wtPath2 != wtPath {
+		t.Errorf("expected same worktree path %q, got %q", wtPath, wtPath2)
+	}
+
+	foundResume := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Resuming existing worktree") {
+			foundResume = true
+		}
+	}
+	if !foundResume {
+		t.Errorf("expected 'Resuming existing worktree' message in %v", msgs)
+	}
+}
+
+func TestStartWork_Worktree_Idempotent_ForceStillDestroys(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+
+	createTestIssue(t, "test-idem05", "Idempotent Force", "PLANNED")
+
+	_, wtPath, _, err := client.StartWork("test-idem05", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+
+	// Create a marker file to verify worktree gets recreated
+	os.WriteFile(filepath.Join(wtPath, ".marker"), []byte("original"), 0644)
+
+	// Force start should NOT take idempotent path — it should destroy and recreate
+	_, wtPath2, msgs, err := client.StartWork("test-idem05", true)
+	if err != nil {
+		t.Fatalf("force StartWork() failed: %v", err)
+	}
+
+	foundRemove := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Removed existing worktree") {
+			foundRemove = true
+		}
+	}
+	if !foundRemove {
+		t.Errorf("expected 'Removed existing worktree' message in %v", msgs)
+	}
+
+	// Marker file should be gone (worktree was recreated)
+	if _, err := os.Stat(filepath.Join(wtPath2, ".marker")); !os.IsNotExist(err) {
+		t.Error("marker file should not exist after force takeover")
+	}
+}
+
+func TestStartWork_Branch_Idempotent_AlreadyCheckedOut(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+
+	cwd, _ := os.Getwd()
+	runGit(t, cwd, "init", "-b", "main")
+	runGit(t, cwd, "config", "user.email", "test@test.com")
+	runGit(t, cwd, "config", "user.name", "Test")
+	os.WriteFile("dummy.txt", []byte("init"), 0644)
+	runGit(t, cwd, "add", ".")
+	runGit(t, cwd, "commit", "-m", "init")
+
+	createTestIssue(t, "test-br01", "Branch Idempotent", "PLANNED")
+
+	// First start creates and checks out the branch
+	branch, _, _, err := client.StartWork("test-br01", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+	if branch != "test-br01-branch-idempotent" {
+		t.Errorf("expected branch 'test-br01-branch-idempotent', got %q", branch)
+	}
+
+	// Second start: branch is already checked out, should be idempotent
+	branch2, _, msgs, err := client.StartWork("test-br01", false)
+	if err != nil {
+		t.Fatalf("idempotent StartWork() failed: %v", err)
+	}
+	if branch2 != branch {
+		t.Errorf("expected same branch %q, got %q", branch, branch2)
+	}
+
+	foundResume := false
+	for _, msg := range msgs {
+		if strings.Contains(msg, "Resuming on current branch") {
+			foundResume = true
+		}
+	}
+	if !foundResume {
+		t.Errorf("expected 'Resuming on current branch' message in %v", msgs)
+	}
+}

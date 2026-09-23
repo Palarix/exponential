@@ -3,6 +3,7 @@ package exponential
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,52 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 	issue, err := c.Transport.GetIssue(id)
 	if err != nil {
 		return "", "", nil, err
+	}
+
+	candidateBranch := fmt.Sprintf("%s-%s", issue.ID, Slugify(issue.Title))
+	useWorktrees := c.Config.Worktrees && CheckGitRepo()
+
+	// Idempotent path: cwd is already inside the worktree for this issue.
+	if !force && c.Config.Worktrees {
+		if wtPath, found := FindWorktreeForBranch(candidateBranch); found {
+			if cwdInsidePath(wtPath) {
+				if model.IsTerminal(issue.Status) {
+					return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
+				}
+				if issue.Status != model.StatusDoing {
+					status := string(model.StatusDoing)
+					payload := model.UpdatePayload{Status: &status}
+					updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
+					if err != nil {
+						return "", "", nil, err
+					}
+					msgs = append(msgs, updateMsgs...)
+				}
+				msgs = append(msgs, "Resuming existing worktree")
+				msgs = append(msgs, fmt.Sprintf("Worktree: %s", wtPath))
+				return candidateBranch, wtPath, msgs, nil
+			}
+		}
+	}
+
+	// Idempotent path for branch mode: candidate branch is already checked out.
+	if !force && CheckGitRepo() && !useWorktrees {
+		if CurrentBranch() == candidateBranch {
+			if model.IsTerminal(issue.Status) {
+				return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
+			}
+			if issue.Status != model.StatusDoing {
+				status := string(model.StatusDoing)
+				payload := model.UpdatePayload{Status: &status}
+				updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
+				if err != nil {
+					return "", "", nil, err
+				}
+				msgs = append(msgs, updateMsgs...)
+			}
+			msgs = append(msgs, "Resuming on current branch")
+			return candidateBranch, "", msgs, nil
+		}
 	}
 
 	switch {
@@ -37,9 +84,6 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 		}
 		msgs = append(msgs, fmt.Sprintf("Force-claiming issue %s", id))
 	}
-
-	candidateBranch := fmt.Sprintf("%s-%s", issue.ID, Slugify(issue.Title))
-	useWorktrees := c.Config.Worktrees && CheckGitRepo()
 
 	if CheckGitRepo() && !force && !useWorktrees {
 		if BranchExists(candidateBranch) || RemoteBranchExists(candidateBranch) {
@@ -140,4 +184,21 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 	}
 
 	return branchName, worktreePath, msgs, nil
+}
+
+func cwdInsidePath(target string) bool {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	resolvedCwd, err := filepath.EvalSymlinks(cwd)
+	if err != nil {
+		resolvedCwd = cwd
+	}
+	resolvedTarget, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		resolvedTarget = target
+	}
+	return resolvedCwd == resolvedTarget ||
+		strings.HasPrefix(resolvedCwd, resolvedTarget+string(filepath.Separator))
 }
