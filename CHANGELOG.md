@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Re-init intelligence: up-to-date one-liner, stale version diffs, downgrade protection, edited-block detection (xpo-76e2a1)
 - `charmbracelet/huh` dependency for multi-select and select prompts (xpo-76e2a1)
 - 53 new tests: managed blocks, health checks, doctor scenarios, version comparison (xpo-76e2a1)
+- `xpo doctor` reports `issues.db` lines whose `created_at` does not strictly increase in file order (report-only) (xpo-e9a2eb)
 
 ### Changed
 
@@ -77,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Web UI edit collapsing no longer merges edits across actors or past a newer event on the same issue, moves the merged event to the end so timestamps follow file order, keeps edited comments at their original time, and prunes no-op edits against running state; this repo's `issues.db` timestamps were repaired once so time-ordered and file-ordered replay agree (xpo-e9a2eb)
 - Popover visibility in production builds: anchor ref not attached when `useLayoutEffect` fires; deferred via `queueMicrotask` (xpo-b5a70c)
 - FilterMenu arrow-left key not registered for submenu entry (xpo-e16962)
 - FilterMenu submenu options don't scroll into view on keyboard navigation (xpo-e16962)

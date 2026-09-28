@@ -17,7 +17,11 @@ func setupTestRepo(t *testing.T) string {
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
 	oldWd, _ := os.Getwd()
 	os.Chdir(dir)
-	t.Cleanup(func() { os.Chdir(oldWd) })
+	ResetHubRoot()
+	t.Cleanup(func() {
+		os.Chdir(oldWd)
+		ResetHubRoot()
+	})
 
 	exec.Command("git", "init", "-b", "main").Run()
 	exec.Command("git", "config", "user.email", "test@test.com").Run()

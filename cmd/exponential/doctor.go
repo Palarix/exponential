@@ -182,6 +182,7 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 				})
 			} else {
 				counts.pass("Issues database (%d events)", lineNum)
+				doctorEventOrder(counts)
 			}
 		}
 
@@ -225,6 +226,56 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 			os.Exit(1)
 		}
 	},
+}
+
+// doctorEventOrder reports issues.db lines whose created_at does not strictly
+// increase in file order. Report-only: xpo never rewrites the issue log.
+func doctorEventOrder(c *doctorCounts) {
+	violations, err := storage.CheckEventOrder()
+	if err != nil {
+		c.err("Could not check event timestamps: %v", err)
+		return
+	}
+	if len(violations) == 0 {
+		c.pass("Event timestamps are in file order")
+		return
+	}
+	summary, lines := describeOrderViolations(violations)
+	c.note("%s (%s)", summary, lines)
+	c.attention = append(c.attention, attentionItem{
+		message: summary + "\n    File order is authoritative, so the board is unaffected, but history\n    and anything that orders events by time may be wrong.",
+	})
+}
+
+const maxListedViolations = 10
+
+func describeOrderViolations(violations []storage.EventOrderViolation) (summary, lines string) {
+	outOfOrder, ties := 0, 0
+	for _, v := range violations {
+		if v.Kind == storage.OrderViolationTie {
+			ties++
+		} else {
+			outOfOrder++
+		}
+	}
+	summary = fmt.Sprintf("Issues database has %d out-of-order and %d tied timestamps", outOfOrder, ties)
+
+	var nums []string
+	for i, v := range violations {
+		if i == maxListedViolations {
+			break
+		}
+		nums = append(nums, fmt.Sprintf("%d", v.Line))
+	}
+	label := "lines"
+	if len(violations) == 1 {
+		label = "line"
+	}
+	lines = label + " " + strings.Join(nums, ", ")
+	if extra := len(violations) - maxListedViolations; extra > 0 {
+		lines += fmt.Sprintf(" …and %d more", extra)
+	}
+	return summary, lines
 }
 
 // checkAgentHealth delegates to the testable internal function.

@@ -110,10 +110,7 @@ func TestMergeUpdate_AllFieldsIndividually(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			existing := makeMergeEvent(tc.old)
-			merged := mergeUpdatePayloads(&existing, makeMergeEvent(tc.new_))
-			if !merged {
-				t.Fatal("merge should return true")
-			}
+			mergeUpdatePayloads(&existing, makeMergeEvent(tc.new_))
 			tc.check(t, decodeMergedPayload(t, existing))
 		})
 	}

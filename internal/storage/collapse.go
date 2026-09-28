@@ -47,25 +47,12 @@ func AppendEventCollapsed(event model.Event) error {
 
 	uncommitted := events[committedCount:]
 
-	merged := false
-	for i := len(uncommitted) - 1; i >= 0; i-- {
-		existing := uncommitted[i]
-		if existing.ID != event.ID || existing.Type != event.Type {
-			continue
-		}
-
-		switch event.Type {
-		case model.EventTypeUpdate:
-			merged = mergeUpdatePayloads(&uncommitted[i], event)
-		case model.EventTypeComment:
-			merged = mergeCommentPayloads(&uncommitted[i], event)
-		}
-		if merged {
-			break
-		}
-	}
-
-	if !merged {
+	switch event.Type {
+	case model.EventTypeUpdate:
+		uncommitted = collapseUpdate(uncommitted, event)
+	case model.EventTypeComment:
+		uncommitted = collapseComment(uncommitted, event)
+	default:
 		uncommitted = append(uncommitted, event)
 	}
 
@@ -75,7 +62,54 @@ func AppendEventCollapsed(event model.Event) error {
 	return rewriteFile(path, committedBytes, uncommitted)
 }
 
-func mergeUpdatePayloads(existing *model.Event, incoming model.Event) bool {
+// collapseUpdate folds an incoming UPDATE into the issue's most recent
+// uncommitted event when that event is an UPDATE from the same actor, and
+// moves the merged event to the end of the tail so file order and
+// created_at stay consistent. Merging past a newer event for the issue
+// would re-apply stale fields after it; merging across actors would credit
+// one actor's edits to another. In both cases the event is appended as is.
+func collapseUpdate(uncommitted []model.Event, incoming model.Event) []model.Event {
+	last := -1
+	for i := len(uncommitted) - 1; i >= 0; i-- {
+		if uncommitted[i].ID == incoming.ID {
+			last = i
+			break
+		}
+	}
+	if last < 0 || uncommitted[last].Type != model.EventTypeUpdate || !sameActor(uncommitted[last], incoming) {
+		return append(uncommitted, incoming)
+	}
+
+	merged := uncommitted[last]
+	mergeUpdatePayloads(&merged, incoming)
+
+	result := make([]model.Event, 0, len(uncommitted))
+	result = append(result, uncommitted[:last]...)
+	result = append(result, uncommitted[last+1:]...)
+	return append(result, merged)
+}
+
+// collapseComment replaces an uncommitted COMMENT event with the same
+// comment ID in place. The comment keeps its original created_at so it keeps
+// its position in the thread and its timestamp stays consistent with file order.
+func collapseComment(uncommitted []model.Event, incoming model.Event) []model.Event {
+	for i := len(uncommitted) - 1; i >= 0; i-- {
+		existing := uncommitted[i]
+		if existing.ID != incoming.ID || existing.Type != model.EventTypeComment {
+			continue
+		}
+		if mergeCommentPayloads(&uncommitted[i], incoming) {
+			return uncommitted
+		}
+	}
+	return append(uncommitted, incoming)
+}
+
+func sameActor(a, b model.Event) bool {
+	return a.CreatedBy == b.CreatedBy && a.OnBehalfOf == b.OnBehalfOf && a.Source == b.Source
+}
+
+func mergeUpdatePayloads(existing *model.Event, incoming model.Event) {
 	oldBytes, _ := json.Marshal(existing.Payload)
 	newBytes, _ := json.Marshal(incoming.Payload)
 
@@ -119,7 +153,6 @@ func mergeUpdatePayloads(existing *model.Event, incoming model.Event) bool {
 
 	existing.Payload = oldP
 	existing.CreatedAt = incoming.CreatedAt
-	return true
 }
 
 func mergeCommentPayloads(existing *model.Event, incoming model.Event) bool {
@@ -135,96 +168,100 @@ func mergeCommentPayloads(existing *model.Event, incoming model.Event) bool {
 	}
 
 	existing.Payload = newP
-	existing.CreatedAt = incoming.CreatedAt
 	return true
 }
 
 func projectCommittedState(events []model.Event) map[string]*model.Issue {
 	issues := make(map[string]*model.Issue)
 	for _, evt := range events {
-		switch evt.Type {
-		case model.EventTypeCreate:
-			b, _ := json.Marshal(evt.Payload)
-			var p model.CreatePayload
-			json.Unmarshal(b, &p)
-			status := model.IssueStatus(p.Status)
-			if status == "" {
-				status = model.StatusBacklog
-			}
-			issues[evt.ID] = &model.Issue{
-				ID:           evt.ID,
-				Title:        p.Title,
-				Description:  p.Description,
-				Status:       status,
-				ParentID:     p.ParentID,
-				Estimate:     p.Estimate,
-				Priority:     p.Priority,
-				SortOrder:    p.SortOrder,
-				Assignee:     p.Assignee,
-				CycleID:      p.CycleID,
-				Labels:       p.Labels,
-				Dependencies: p.Dependencies,
-			}
-		case model.EventTypeUpdate:
-			issue, ok := issues[evt.ID]
-			if !ok {
-				continue
-			}
-			b, _ := json.Marshal(evt.Payload)
-			var p model.UpdatePayload
-			json.Unmarshal(b, &p)
-			if p.Title != nil {
-				issue.Title = *p.Title
-			}
-			if p.Description != nil {
-				issue.Description = *p.Description
-			}
-			if p.Status != nil {
-				issue.Status = model.IssueStatus(*p.Status)
-			}
-			if p.ParentID != nil {
-				issue.ParentID = *p.ParentID
-			}
-			if p.Estimate != nil {
-				issue.Estimate = *p.Estimate
-			}
-			if p.Priority != nil {
-				issue.Priority = *p.Priority
-			}
-			if p.SortOrder != nil {
-				issue.SortOrder = *p.SortOrder
-			}
-			if p.Assignee != nil {
-				issue.Assignee = *p.Assignee
-			}
-			if p.CycleID != nil {
-				issue.CycleID = *p.CycleID
-			}
-			if p.Labels != nil {
-				issue.Labels = p.Labels
-			}
-			if p.Dependencies != nil {
-				issue.Dependencies = p.Dependencies
-			}
-		case model.EventTypeDelete:
-			if issue, ok := issues[evt.ID]; ok {
-				issue.Deleted = true
-			}
-		}
+		applyStateEvent(issues, evt)
 	}
 	return issues
 }
 
-func pruneNoopUpdates(uncommitted []model.Event, committedState map[string]*model.Issue) []model.Event {
+// applyStateEvent applies one event's effect on issue fields to the state map.
+func applyStateEvent(issues map[string]*model.Issue, evt model.Event) {
+	switch evt.Type {
+	case model.EventTypeCreate:
+		b, _ := json.Marshal(evt.Payload)
+		var p model.CreatePayload
+		json.Unmarshal(b, &p)
+		status := model.IssueStatus(p.Status)
+		if status == "" {
+			status = model.StatusBacklog
+		}
+		issues[evt.ID] = &model.Issue{
+			ID:           evt.ID,
+			Title:        p.Title,
+			Description:  p.Description,
+			Status:       status,
+			ParentID:     p.ParentID,
+			Estimate:     p.Estimate,
+			Priority:     p.Priority,
+			SortOrder:    p.SortOrder,
+			Assignee:     p.Assignee,
+			CycleID:      p.CycleID,
+			Labels:       p.Labels,
+			Dependencies: p.Dependencies,
+		}
+	case model.EventTypeUpdate:
+		issue, ok := issues[evt.ID]
+		if !ok {
+			return
+		}
+		b, _ := json.Marshal(evt.Payload)
+		var p model.UpdatePayload
+		json.Unmarshal(b, &p)
+		if p.Title != nil {
+			issue.Title = *p.Title
+		}
+		if p.Description != nil {
+			issue.Description = *p.Description
+		}
+		if p.Status != nil {
+			issue.Status = model.IssueStatus(*p.Status)
+		}
+		if p.ParentID != nil {
+			issue.ParentID = *p.ParentID
+		}
+		if p.Estimate != nil {
+			issue.Estimate = *p.Estimate
+		}
+		if p.Priority != nil {
+			issue.Priority = *p.Priority
+		}
+		if p.SortOrder != nil {
+			issue.SortOrder = *p.SortOrder
+		}
+		if p.Assignee != nil {
+			issue.Assignee = *p.Assignee
+		}
+		if p.CycleID != nil {
+			issue.CycleID = *p.CycleID
+		}
+		if p.Labels != nil {
+			issue.Labels = p.Labels
+		}
+		if p.Dependencies != nil {
+			issue.Dependencies = p.Dependencies
+		}
+	case model.EventTypeDelete:
+		if issue, ok := issues[evt.ID]; ok {
+			issue.Deleted = true
+		}
+	}
+}
+
+// pruneNoopUpdates drops UPDATE fields that don't change the issue. Each
+// UPDATE is compared against the state at its position in the tail —
+// committed state plus the uncommitted events kept before it — so an edit
+// that reverts another actor's pending change is kept.
+func pruneNoopUpdates(uncommitted []model.Event, state map[string]*model.Issue) []model.Event {
 	var result []model.Event
 	for _, evt := range uncommitted {
-		if evt.Type != model.EventTypeUpdate {
-			result = append(result, evt)
-			continue
-		}
-
-		issue, exists := committedState[evt.ID]
-		if !exists {
+		issue, exists := state[evt.ID]
+		if evt.Type != model.EventTypeUpdate || !exists {
+			applyStateEvent(state, evt)
 			result = append(result, evt)
 			continue
 		}
@@ -275,6 +312,7 @@ func pruneNoopUpdates(uncommitted []model.Event, committedState map[string]*mode
 		}
 
 		evt.Payload = p
+		applyStateEvent(state, evt)
 		result = append(result, evt)
 	}
 	return result
