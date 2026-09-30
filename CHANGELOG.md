@@ -79,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xpo merge` no longer fails with a phantom "resolve the conflict" error when xpo runs from inside the issue's worktree: every merge git call now targets the hub checkout. MERGE/DONE events are recorded only after the code commit succeeds, so a failed merge (hook, conflict, nothing to commit) leaves the issue in its old status with nothing staged and never rewrites `issues.db`. Errors carry git's real output, and the conflict advice appears only for real conflicts (xpo-9fef67)
 - Web UI edit collapsing no longer merges edits across actors or past a newer event on the same issue, moves the merged event to the end so timestamps follow file order, keeps edited comments at their original time, and prunes no-op edits against running state; this repo's `issues.db` timestamps were repaired once so time-ordered and file-ordered replay agree (xpo-e9a2eb)
 - Popover visibility in production builds: anchor ref not attached when `useLayoutEffect` fires; deferred via `queueMicrotask` (xpo-b5a70c)
 - FilterMenu arrow-left key not registered for submenu entry (xpo-e16962)

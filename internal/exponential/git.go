@@ -2,6 +2,7 @@ package exponential
 
 import (
 	"bufio"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -81,10 +82,10 @@ func WorktreeAddExisting(path, branch string) error {
 
 // WorktreeRemove removes a worktree directory and its administrative files.
 func WorktreeRemove(path string) error {
-	if err := exec.Command("git", "worktree", "remove", "--force", path).Run(); err != nil {
-		return err
+	if out, err := hubGit("worktree", "remove", "--force", path).CombinedOutput(); err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
-	return exec.Command("git", "worktree", "prune").Run()
+	return hubGit("worktree", "prune").Run()
 }
 
 // WorktreeEntry represents one entry from `git worktree list --porcelain`.
@@ -95,7 +96,7 @@ type WorktreeEntry struct {
 
 // WorktreeList returns all worktrees known to git.
 func WorktreeList() ([]WorktreeEntry, error) {
-	out, err := exec.Command("git", "worktree", "list", "--porcelain").Output()
+	out, err := hubGit("worktree", "list", "--porcelain").Output()
 	if err != nil {
 		return nil, err
 	}

@@ -63,7 +63,8 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	result := &MergeResult{}
 
 	gitErr := WithGitLock(func() error {
-		// Capture base SHA before merge
+		// Every git call below targets the hub via hubGit, never the process
+		// cwd: an MCP server may be running inside the issue's worktree.
 		baseSHA := resolveRef(base)
 
 		if useWorktrees {
@@ -72,25 +73,9 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 				return fmt.Errorf("hub checkout is on %s, not %s — park the hub on the default branch before merging", current, base)
 			}
 		} else {
-			if err := CheckoutBranch(base); err != nil {
+			if err := hubGit("checkout", base).Run(); err != nil {
 				return fmt.Errorf("failed to checkout %s: %w", base, err)
 			}
-		}
-
-		mergeRef := branch
-
-		user := c.Transport.GetUser()
-		event := model.Event{
-			ID:   issue.ID,
-			Type: model.EventTypeMerge,
-			Payload: model.MergePayload{
-				Branch:   branch,
-				BaseSHA:  baseSHA,
-				MergeSHA: "",
-				Strategy: string(opts.Strategy),
-			},
-			CreatedAt: time.Now().UTC(),
-			CreatedBy: user,
 		}
 
 		commitMsg := opts.CommitMessage
@@ -113,68 +98,62 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			mainIssuesDB, _ = os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
 		}
 
+		// Merge and commit the code before recording anything. issues.db is
+		// shared by every agent on the hub, so events can never be taken
+		// back: a failure up to here must leave the event log untouched.
 		var mergeErr error
 		switch opts.Strategy {
 		case MergeStrategySquash:
-			mergeErr = runGitMerge("--squash", mergeRef)
+			mergeErr = runGitMerge("--squash", branch)
 		case MergeStrategyFF:
-			mergeErr = runGitMerge("--ff-only", mergeRef)
+			mergeErr = runGitMerge("--ff-only", branch)
 		default:
-			mergeErr = runGitMerge("--no-ff", "-m", commitMsg, mergeRef)
+			mergeErr = runGitMerge("--no-ff", "--no-commit", branch)
 		}
-
-		if mergeErr == nil {
-			if mainIssuesDB != nil {
-				branchIssuesDB, _ := os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
-				merged := unionLines(mainIssuesDB, branchIssuesDB)
-				os.WriteFile(filepath.Join(storage.XpoDir(), "issues.db"), merged, 0644)
-			}
-
-			preEvents, _ := storage.ReadEvents()
-			preMergeState := ProjectIssues(preEvents)
-
-			doneStatus := string(model.StatusDone)
-			doneEvents, doneMessages, err := c.local.buildUpdate(
-				issue.ID, model.UpdatePayload{Status: &doneStatus}, preMergeState)
-			if err != nil {
-				return fmt.Errorf("failed to build DONE transition: %w", err)
-			}
-
-			if err := c.local.appendEvent(event); err != nil {
-				return fmt.Errorf("failed to record merge event: %w", err)
-			}
-			for _, evt := range doneEvents {
-				if err := c.local.appendEvent(evt); err != nil {
-					return fmt.Errorf("failed to apply DONE transition: %w", err)
-				}
-			}
-			result.Messages = append(result.Messages, doneMessages...)
-
-			exec.Command("git", "-C", storage.HubRoot(), "add", ".xpo/issues.db").Run()
-			exec.Command("git", "-C", storage.HubRoot(), "add", filepath.Join(".xpo", "artifacts", issue.ID)).Run()
-			switch opts.Strategy {
-			case MergeStrategySquash, MergeStrategyFF:
-				mergeErr = exec.Command("git", "commit", "-m", commitMsg).Run()
-			default:
-				exec.Command("git", "commit", "--amend", "--no-edit").Run()
-			}
-		}
-
 		if mergeErr != nil {
-			// --no-ff sets MERGE_HEAD so --abort works; squash does not,
-			// so fall back to reset --merge to clean up the index.
-			if err := exec.Command("git", "merge", "--abort").Run(); err != nil {
-				exec.Command("git", "reset", "--merge").Run()
-			}
-			detail := ""
-			if me, ok := mergeErr.(*mergeError); ok && me.output != "" {
-				detail = "\n" + me.output
-			}
-			return fmt.Errorf("merge failed: %w%s\nDo NOT stash or reset. Resolve the conflict in the listed files, then re-run xpo merge.", mergeErr, detail)
+			abortMerge()
+			return mergeFailure(mergeErr)
 		}
 
+		if opts.Strategy != MergeStrategyFF {
+			if err := runHubCommit("-m", commitMsg); err != nil {
+				abortMerge()
+				return fmt.Errorf("commit failed — nothing was merged, %s is still %s: %w%s",
+					issue.ID, issue.Status, err, errDetail(err))
+			}
+		}
 		mergeSHA := resolveRef("HEAD")
-		result.MergeSHA = mergeSHA
+
+		if mainIssuesDB != nil {
+			branchIssuesDB, _ := os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
+			merged := unionLines(mainIssuesDB, branchIssuesDB)
+			os.WriteFile(filepath.Join(storage.XpoDir(), "issues.db"), merged, 0644)
+		}
+
+		if err := c.recordMerge(issue, branch, baseSHA, opts.Strategy, result); err != nil {
+			return fmt.Errorf("merged %s into %s as %s but failed to record the merge: %w\nThe code is merged — do not re-run merge. Transition %s to DONE manually.",
+				branch, base, mergeSHA, err, issue.ID)
+		}
+
+		// Fold the xpo bookkeeping into the merge commit. Hooks already ran
+		// on the code commit, so skip them here. If this fails the events
+		// stay recorded but uncommitted, and ride along with the next commit.
+		hubGit("add", ".xpo/issues.db").Run()
+		hubGit("add", filepath.Join(".xpo", "artifacts", issue.ID)).Run()
+		var bookkeepErr error
+		if opts.Strategy == MergeStrategyFF {
+			bookkeepErr = runHubCommit("--no-verify", "-m", commitMsg)
+		} else {
+			bookkeepErr = runHubCommit("--amend", "--no-edit", "--no-verify")
+		}
+		if bookkeepErr != nil {
+			hubGit("reset", "-q", "--", ".xpo").Run()
+			result.Messages = append(result.Messages, fmt.Sprintf(
+				"Warning: merge recorded but .xpo changes were not committed (%v%s) — they will be included in the next commit",
+				bookkeepErr, errDetail(bookkeepErr)))
+		}
+
+		result.MergeSHA = resolveRef("HEAD")
 		result.Messages = append(result.Messages, fmt.Sprintf("Merged %s into %s (%s)", branch, base, opts.Strategy))
 
 		// Clean up worktree (always — worktrees are ephemeral, even with --keep-branch)
@@ -200,6 +179,44 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	}
 
 	return result, nil
+}
+
+// recordMerge appends the MERGE event and the DONE transition. It must only
+// run once the merge commit exists on the base branch.
+func (c *Client) recordMerge(issue *model.Issue, branch, baseSHA string, strategy MergeStrategy, result *MergeResult) error {
+	preEvents, err := storage.ReadEvents()
+	if err != nil {
+		return err
+	}
+	doneStatus := string(model.StatusDone)
+	doneEvents, doneMessages, err := c.local.buildUpdate(
+		issue.ID, model.UpdatePayload{Status: &doneStatus}, ProjectIssues(preEvents))
+	if err != nil {
+		return fmt.Errorf("failed to build DONE transition: %w", err)
+	}
+
+	event := model.Event{
+		ID:   issue.ID,
+		Type: model.EventTypeMerge,
+		Payload: model.MergePayload{
+			Branch:   branch,
+			BaseSHA:  baseSHA,
+			MergeSHA: "",
+			Strategy: string(strategy),
+		},
+		CreatedAt: time.Now().UTC(),
+		CreatedBy: c.Transport.GetUser(),
+	}
+	if err := c.local.appendEvent(event); err != nil {
+		return fmt.Errorf("failed to record merge event: %w", err)
+	}
+	for _, evt := range doneEvents {
+		if err := c.local.appendEvent(evt); err != nil {
+			return fmt.Errorf("failed to apply DONE transition: %w", err)
+		}
+	}
+	result.Messages = append(result.Messages, doneMessages...)
+	return nil
 }
 
 func IsWorkingTreeClean() bool {
@@ -400,7 +417,7 @@ func HubBranch() string {
 }
 
 func resolveRef(ref string) string {
-	out, err := exec.Command("git", "rev-parse", "--short", ref).Output()
+	out, err := hubGit("rev-parse", "--short", ref).Output()
 	if err != nil {
 		return ""
 	}
@@ -453,13 +470,55 @@ type mergeError struct {
 func (e *mergeError) Error() string { return e.err.Error() }
 func (e *mergeError) Unwrap() error { return e.err }
 
+// hubGit runs git against the hub checkout regardless of the process cwd.
+// Never os.Chdir instead: cwd is process-global and servers handle
+// requests concurrently.
+func hubGit(args ...string) *exec.Cmd {
+	return exec.Command("git", append([]string{"-C", storage.HubRoot()}, args...)...)
+}
+
 func runGitMerge(args ...string) error {
-	cmd := exec.Command("git", append([]string{"merge"}, args...)...)
-	out, err := cmd.CombinedOutput()
+	return runHubGit(append([]string{"merge"}, args...)...)
+}
+
+func runHubCommit(args ...string) error {
+	return runHubGit(append([]string{"commit"}, args...)...)
+}
+
+func runHubGit(args ...string) error {
+	out, err := hubGit(args...).CombinedOutput()
 	if err != nil {
 		return &mergeError{err: err, output: strings.TrimSpace(string(out))}
 	}
 	return nil
+}
+
+// abortMerge cleans up the hub's index after a failed merge or commit.
+// --no-ff sets MERGE_HEAD so --abort works; squash does not, so fall back
+// to reset --merge. Neither touches files that differ only between the
+// index and the working tree, so concurrent issues.db appends survive.
+func abortMerge() {
+	if err := hubGit("merge", "--abort").Run(); err != nil {
+		hubGit("reset", "--merge").Run()
+	}
+}
+
+// errDetail returns git's captured output for err, prefixed with a newline.
+func errDetail(err error) string {
+	if me, ok := err.(*mergeError); ok && me.output != "" {
+		return "\n" + me.output
+	}
+	return ""
+}
+
+// mergeFailure builds the error for a failed `git merge`. Only a real
+// conflict gets the resolve-the-conflict guidance.
+func mergeFailure(err error) error {
+	detail := errDetail(err)
+	if strings.Contains(detail, "CONFLICT") {
+		return fmt.Errorf("merge failed: %w%s\nDo NOT stash or reset. Resolve the conflict in the listed files, then re-run xpo merge.", err, detail)
+	}
+	return fmt.Errorf("merge failed — nothing was merged: %w%s", err, detail)
 }
 
 func deleteBranch(branch string) {
@@ -471,11 +530,11 @@ func deleteBranch(branch string) {
 			name = parts[1]
 		}
 	}
-	exec.Command("git", "branch", "-D", name).Run()
+	hubGit("branch", "-D", name).Run()
 
 	// Delete remote tracking branch if it exists
 	if strings.HasPrefix(branch, "origin/") {
 		remoteBranch := strings.TrimPrefix(branch, "origin/")
-		exec.Command("git", "push", "origin", "--delete", remoteBranch).Run()
+		hubGit("push", "origin", "--delete", remoteBranch).Run()
 	}
 }
