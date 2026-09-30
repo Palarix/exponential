@@ -2,12 +2,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
-import { addDraft, fetchArtifactContent, ApiError } from "../../api/client";
-import type { Issue } from "../../api/client";
-import { StatusIcon, CopyableId, useToast, TopBar, Text } from "../ui";
+import { addDraft, fetchArtifactContent, fetchLocalWorktree, ApiError } from "../../api/client";
+import type { Issue, LocalWorktree } from "../../api/client";
+import { StatusIcon, CopyableId, useToast, TopBar, Text, VSCodeIcon } from "../ui";
+import Tooltip from "../ui/Tooltip";
+import { iconButtonClass } from "../ui/icon-button-utils";
 import { ChevronRight } from "lucide-react";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
+import { vscodeUrl } from "../../utils/editor";
 import { linkifyIssueIds } from "../../utils/format";
 import { useKeyboardHandler } from "../../keyboard";
 import {
@@ -70,6 +73,7 @@ export default function IssueDetail({
   const [artifactContent, setArtifactContent] = useState<
     Record<string, string>
   >({});
+  const [worktree, setWorktree] = useState<LocalWorktree | null>(null);
   const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -106,6 +110,15 @@ export default function IssueDetail({
   useEffect(() => {
     setArtifactContent({});
   }, [issue.updated_at]);
+
+  // Re-check on status changes: `start` creates the worktree, `merge` removes it.
+  useEffect(() => {
+    let cancelled = false;
+    fetchLocalWorktree(issue.id)
+      .then((wt) => { if (!cancelled) setWorktree(wt); })
+      .catch(() => { if (!cancelled) setWorktree(null); });
+    return () => { cancelled = true; };
+  }, [issue.id, issue.status]);
 
   useEffect(() => {
     if (activeTab === "details") return;
@@ -379,6 +392,17 @@ export default function IssueDetail({
         }
         right={
           <div className="flex items-center gap-1 shrink-0">
+            {worktree && (
+              <Tooltip content="Open worktree in VSCode">
+                <a
+                  href={vscodeUrl(worktree.path)}
+                  className={iconButtonClass(false, "w-auto px-2 gap-1.5 mr-2 text-xs")}
+                >
+                  <VSCodeIcon size={13} />
+                  Open
+                </a>
+              </Tooltip>
+            )}
             <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
               {currentIndex + 1} / {totalCount}
             </span>

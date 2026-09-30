@@ -977,6 +977,19 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, out)
 }
 
+// handleGetLocalWorktree returns the worktree for an issue on the machine
+// running this process. Resolved purely from local git, so it works in proxy
+// mode where issue data lives on the remote.
+func (s *Server) handleGetLocalWorktree(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	entry, ok := exponential.FindWorktreeForIssue(id)
+	if !ok {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("no local worktree for %s", id))
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"path": entry.Path, "branch": entry.Branch})
+}
+
 func resolveWorkingDir(branch string) (string, bool) {
 	if dir, ok := exponential.FindWorktreeForBranch(branch); ok {
 		return dir, true

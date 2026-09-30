@@ -136,3 +136,19 @@ func FindWorktreeForBranch(branch string) (string, bool) {
 	return "", false
 }
 
+// FindWorktreeForIssue returns the linked worktree whose branch belongs to
+// the given issue. The main checkout (always listed first by git) is never
+// returned, even when it has the issue's branch checked out.
+func FindWorktreeForIssue(issueID string) (WorktreeEntry, bool) {
+	entries, err := WorktreeList()
+	if err != nil || len(entries) < 2 {
+		return WorktreeEntry{}, false
+	}
+	for _, e := range entries[1:] {
+		if e.Branch != "" && branchNameMatchesIssue(e.Branch, issueID) {
+			return e, true
+		}
+	}
+	return WorktreeEntry{}, false
+}
+

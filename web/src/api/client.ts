@@ -350,3 +350,19 @@ export async function mergeIssue(issueId: string, options?: { strategy?: string;
     body: JSON.stringify(options || {}),
   });
 }
+
+export interface LocalWorktree {
+  path: string;
+  branch: string;
+}
+
+// Resolved by the local `xpo board` process (never proxied), so the path is
+// valid on the viewer's machine. Returns null when there is no worktree.
+export async function fetchLocalWorktree(issueId: string): Promise<LocalWorktree | null> {
+  try {
+    return await request<LocalWorktree>(`${API_BASE}/local/issues/${issueId}/worktree`);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}

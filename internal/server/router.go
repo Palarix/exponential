@@ -52,6 +52,14 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		handle("GET /api/events", s.handleSSE)
 	}
 
+	// Local-only routes: answered by this process in both local and proxy
+	// mode, because they describe the viewer's machine (e.g. worktree paths),
+	// not the API server's. More specific than the proxy's /api/{path...}
+	// catch-all, so they win. Never exposed by a headless server.
+	if !s.Headless {
+		mux.HandleFunc("GET /api/local/issues/{id}/worktree", s.handleGetLocalWorktree)
+	}
+
 	// Proxy mode: reverse-proxy /api/* to remote server with bearer token
 	if s.ProxyURL != "" {
 		remoteURL, err := url.Parse(s.ProxyURL)

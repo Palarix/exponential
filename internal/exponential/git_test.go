@@ -314,3 +314,46 @@ func TestFindWorktreeForBranch_HubCheckout(t *testing.T) {
 		t.Errorf("expected hub path %s, got %s", dir, gotPath)
 	}
 }
+
+func TestFindWorktreeForIssue_Found(t *testing.T) {
+	dir := initTestRepo(t, "main")
+
+	wtPath := filepath.Join(dir, "wt-issue")
+	if err := WorktreeAdd(wtPath, "xpo-abc123-some-feature", "main"); err != nil {
+		t.Fatalf("WorktreeAdd failed: %v", err)
+	}
+	t.Cleanup(func() {
+		exec.Command("git", "worktree", "remove", "--force", wtPath).Run()
+		exec.Command("git", "worktree", "prune").Run()
+	})
+
+	entry, ok := FindWorktreeForIssue("xpo-abc123")
+	if !ok {
+		t.Fatal("expected to find worktree for xpo-abc123")
+	}
+	if entry.Path != wtPath {
+		t.Errorf("expected path %s, got %s", wtPath, entry.Path)
+	}
+	if entry.Branch != "xpo-abc123-some-feature" {
+		t.Errorf("expected branch xpo-abc123-some-feature, got %s", entry.Branch)
+	}
+}
+
+func TestFindWorktreeForIssue_NotFound(t *testing.T) {
+	initTestRepo(t, "main")
+
+	if _, ok := FindWorktreeForIssue("xpo-000000"); ok {
+		t.Error("expected no worktree for unknown issue")
+	}
+}
+
+func TestFindWorktreeForIssue_SkipsHubCheckout(t *testing.T) {
+	dir := initTestRepo(t, "main")
+	// Hub itself is on the issue branch (branch mode) — it is the project
+	// checkout, not a worktree, so it must not be returned.
+	runGit(t, dir, "checkout", "-b", "xpo-abc123-branch-mode")
+
+	if entry, ok := FindWorktreeForIssue("xpo-abc123"); ok {
+		t.Errorf("expected hub checkout to be skipped, got %+v", entry)
+	}
+}

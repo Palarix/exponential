@@ -38,4 +38,13 @@ describe('iconButtonClass', () => {
     expect(cls).toContain('relative');
     expect(cls).toContain('extra');
   });
+
+  it('widens into a labelled toolbar button while keeping the outline style', () => {
+    const cls = iconButtonClass(false, 'w-auto px-2 gap-1.5 text-xs');
+    expect(cls).toContain('w-auto');
+    expect(cls).not.toContain('w-7');
+    expect(cls).toContain('h-7');
+    expect(cls).toContain('border-[var(--color-border-default)]');
+    expect(cls).toContain('bg-[var(--color-surface-1)]');
+  });
 });

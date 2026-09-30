@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -666,5 +667,109 @@ func TestAuth_NonceReplayPrevented(t *testing.T) {
 	mux.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("replay: expected 401, got %d", w.Code)
+	}
+}
+
+// initServerTestRepo turns the test server's temp dir into a git repo with
+// one commit and a worktree for the given branch. Returns the worktree path.
+func initServerTestRepo(t *testing.T, branch string) string {
+	t.Helper()
+	dir, _ := os.Getwd()
+	dir, _ = filepath.EvalSymlinks(dir)
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init", "-b", "main")
+	git("config", "user.email", "test@test.com")
+	git("config", "user.name", "Test")
+	git("commit", "--allow-empty", "-m", "init")
+	storage.ResetHubRoot()
+	t.Cleanup(storage.ResetHubRoot)
+
+	wtPath := filepath.Join(dir, "wt")
+	git("worktree", "add", "-b", branch, wtPath, "main")
+	return wtPath
+}
+
+func TestLocalWorktree_Found(t *testing.T) {
+	s := setupTestServer(t)
+	wtPath := initServerTestRepo(t, "test-abc123-feature")
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/local/issues/test-abc123/worktree", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Path   string `json:"path"`
+		Branch string `json:"branch"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Path != wtPath || got.Branch != "test-abc123-feature" {
+		t.Errorf("unexpected response %+v (want path %s)", got, wtPath)
+	}
+}
+
+func TestLocalWorktree_NotFound(t *testing.T) {
+	s := setupTestServer(t)
+	initServerTestRepo(t, "test-abc123-feature")
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/local/issues/test-999999/worktree", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestLocalWorktree_ServedLocallyInProxyMode(t *testing.T) {
+	var proxied bool
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxied = true
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	defer backend.Close()
+
+	s := setupTestServer(t)
+	wtPath := initServerTestRepo(t, "test-abc123-feature")
+	s.ProxyURL = backend.URL
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/local/issues/test-abc123/worktree", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if proxied {
+		t.Fatal("local worktree request must not be forwarded to the remote")
+	}
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), wtPath) {
+		t.Errorf("expected 200 with local path, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestLocalWorktree_NotRegisteredWhenHeadless(t *testing.T) {
+	s := setupTestServer(t)
+	initServerTestRepo(t, "test-abc123-feature")
+	s.Headless = true
+	mux := s.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/api/local/issues/test-abc123/worktree", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code == http.StatusOK {
+		t.Errorf("headless server must not serve local worktree paths, got 200: %s", w.Body.String())
 	}
 }

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- "Open" button in the issue detail top bar that opens the issue's local worktree in VS Code via a `vscode://file/…` link; the path comes from a new local-only `GET /api/local/issues/{id}/worktree` endpoint, which `xpo board` answers itself even in remote/proxy mode (xpo-c4fbed)
 - Unified JSON I/O layer: `internal/jsonio/` package as single source of truth for all JSON-serializable types shared between CLI and MCP (xpo-1a5504)
 - `xpo list --json` outputs `jsonio.ListOutput` envelope (xpo-2e3060)
 - `xpo show --json` outputs `jsonio.ShowOutput` envelope with children and archived status (xpo-b5d8f0)
