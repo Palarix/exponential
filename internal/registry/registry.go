@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -69,20 +68,6 @@ func save(entries []Entry) error {
 		return err
 	}
 	return os.Rename(tmp, path)
-}
-
-// isAlive checks whether a process is still running by sending it signal 0.
-// Reliable on Unix; on Windows os.FindProcess always succeeds so this may
-// produce false positives.
-func isAlive(pid int) bool {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	if err := p.Signal(syscall.Signal(0)); err != nil {
-		return false
-	}
-	return true
 }
 
 // List returns all live registered instances, pruning any stale entries from

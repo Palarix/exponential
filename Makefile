@@ -39,6 +39,7 @@ frontend-test:
 lint:
 	@echo "Running lint..."
 	@go vet ./... 2>&1 || { echo "go vet failed"; exit 1; }
+	@GOOS=windows go vet ./... 2>&1 || { echo "go vet (windows) failed"; exit 1; }
 	@cd web && bun run --silent lint 2>&1 || { echo "eslint failed"; exit 1; }
 
 install: cli
