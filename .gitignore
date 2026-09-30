@@ -9,6 +9,7 @@ internal/server/static/*
 .xpo/issues.snapshot.json
 NOTES.md
 .xpo/git.lock
+.xpo/events.lock
 
 # Secrets and credentials
 .env

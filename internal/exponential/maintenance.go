@@ -10,12 +10,11 @@ import (
 )
 
 type ArchiveStats struct {
-	ActiveEvents   []model.Event
-	ArchivedEvents []model.Event
-	DoneCount      int
-	DeletedCount   int
-	KeptCount      int
-	TotalArchive   int
+	IssueIDs     map[string]bool
+	DoneCount    int
+	DeletedCount int
+	KeptCount    int
+	TotalArchive int
 }
 
 // GetArchiveStats calculates which issues would be archived.
@@ -66,35 +65,24 @@ func (c *Client) GetArchiveStats(days int, keep int) (*ArchiveStats, error) {
 		idsToArchive[id] = true
 	}
 
-	// Filter events
-	var activeEvents []model.Event
-	var archivedEvents []model.Event
-
-	for _, evt := range events {
-		if idsToArchive[evt.ID] {
-			archivedEvents = append(archivedEvents, evt)
-		} else {
-			activeEvents = append(activeEvents, evt)
-		}
-	}
-
 	return &ArchiveStats{
-		ActiveEvents:   activeEvents,
-		ArchivedEvents: archivedEvents,
-		DoneCount:      len(doneIDsToArchive),
-		DeletedCount:   len(deletedIDs),
-		KeptCount:      len(doneIssues) - len(doneIDsToArchive),
-		TotalArchive:   len(idsToArchive),
+		IssueIDs:     idsToArchive,
+		DoneCount:    len(doneIDsToArchive),
+		DeletedCount: len(deletedIDs),
+		KeptCount:    len(doneIssues) - len(doneIDsToArchive),
+		TotalArchive: len(idsToArchive),
 	}, nil
 }
 
-// PerformArchive executes the archiving operation.
-func (c *Client) PerformArchive(stats *ArchiveStats) error {
+// PerformArchive archives the issues chosen by GetArchiveStats. Issues that
+// changed since then and are no longer eligible are skipped and reported
+// in the result.
+func (c *Client) PerformArchive(stats *ArchiveStats) (storage.ArchiveResult, error) {
 	if c.local == nil {
-		return ErrLocalOnly
+		return storage.ArchiveResult{}, ErrLocalOnly
 	}
 	if stats == nil {
-		return fmt.Errorf("archive stats cannot be nil")
+		return storage.ArchiveResult{}, fmt.Errorf("archive stats cannot be nil")
 	}
-	return storage.ArchiveEvents(stats.ActiveEvents, stats.ArchivedEvents)
+	return storage.ArchiveEvents(stats.IssueIDs)
 }

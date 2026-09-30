@@ -97,7 +97,7 @@ func TestErrLocalOnly_PerformArchive(t *testing.T) {
 	}
 	c := NewClient(cfg)
 
-	err := c.PerformArchive(&ArchiveStats{})
+	_, err := c.PerformArchive(&ArchiveStats{})
 	if !errors.Is(err, ErrLocalOnly) {
 		t.Errorf("expected ErrLocalOnly, got %v", err)
 	}

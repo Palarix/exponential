@@ -80,7 +80,7 @@ func InitProject(force bool, prefix string) (*InitResult, error) {
 		contentStr = string(content)
 	}
 
-	ignoreEntries := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"}
+	ignoreEntries := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/events.lock", ".xpo/worktrees/"}
 	var toAdd []string
 	for _, entry := range ignoreEntries {
 		if !strings.Contains(contentStr, entry) {

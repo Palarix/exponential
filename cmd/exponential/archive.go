@@ -46,12 +46,16 @@ var archiveCmd = &cobra.Command{
 			}
 		}
 
-		if err := client.PerformArchive(stats); err != nil {
+		result, err := client.PerformArchive(stats)
+		if err != nil {
 			fmt.Printf("Error archiving events: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Println("Archive complete.")
+		fmt.Printf("Archive complete: %d issues archived.\n", len(result.Archived))
+		if len(result.Skipped) > 0 {
+			fmt.Printf("%d skipped — changed since preview: %s\n", len(result.Skipped), strings.Join(result.Skipped, ", "))
+		}
 	},
 }
 

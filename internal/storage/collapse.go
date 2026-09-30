@@ -30,7 +30,17 @@ func countLines(data []byte) int {
 	return strings.Count(s, "\n") + 1
 }
 
+// AppendEventCollapsed folds the event into the uncommitted tail of
+// issues.db and rewrites the file. The whole read-rebuild-rewrite runs
+// under the events lock so a concurrent append cannot land in between
+// and be dropped by the rewrite.
 func AppendEventCollapsed(event model.Event) error {
+	return withEventsLock(func() error {
+		return appendEventCollapsed(event)
+	})
+}
+
+func appendEventCollapsed(event model.Event) error {
 	path := filepath.Join(XpoDir(), "issues.db")
 
 	committedBytes, err := readCommittedBytes(path)
@@ -342,35 +352,44 @@ func depsEqual(a, b []model.Dependency) bool {
 	return true
 }
 
+// rewriteFile replaces path with committedRaw followed by uncommitted,
+// via a temp file and rename so readers always see a whole file. Callers
+// must hold the events lock: the temp path is shared.
 func rewriteFile(path string, committedRaw []byte, uncommitted []model.Event) error {
 	tmp := path + ".tmp"
 	f, err := os.Create(tmp)
 	if err != nil {
 		return err
 	}
+	fail := func(err error) error {
+		f.Close()
+		os.Remove(tmp)
+		return err
+	}
 	w := bufio.NewWriter(f)
 
-	if len(committedRaw) > 0 {
-		w.Write(committedRaw)
+	if _, err := w.Write(committedRaw); err != nil {
+		return fail(err)
 	}
 
 	for _, evt := range uncommitted {
 		bytes, err := json.Marshal(evt)
 		if err != nil {
-			f.Close()
-			os.Remove(tmp)
-			return err
+			return fail(err)
 		}
-		w.Write(bytes)
-		w.WriteString("\n")
+		bytes = append(bytes, '\n')
+		if _, err := w.Write(bytes); err != nil {
+			return fail(err)
+		}
 	}
 
 	if err := w.Flush(); err != nil {
-		f.Close()
+		return fail(err)
+	}
+	if err := f.Close(); err != nil {
 		os.Remove(tmp)
 		return err
 	}
-	f.Close()
 
 	return os.Rename(tmp, path)
 }

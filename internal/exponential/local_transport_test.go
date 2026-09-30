@@ -105,9 +105,8 @@ func TestFindIssue_ArchivedFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Read all events, move them to archive
-	events, _ := storage.ReadEvents()
-	storage.ArchiveEvents(nil, events)
+	// Move the issue's events to archive
+	storage.ArchiveEvents(map[string]bool{created.ID: true})
 
 	// FindIssue should find it in the archive
 	issue, _, archived, err := tr.FindIssue(created.ID)

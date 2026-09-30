@@ -120,7 +120,7 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 		}
 
 		// .gitignore
-		requiredIgnores := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/worktrees/"}
+		requiredIgnores := []string{".xpo/issues.snapshot.json", ".xpo/git.lock", ".xpo/events.lock", ".xpo/worktrees/"}
 		gitignoreContent, _ := os.ReadFile(".gitignore")
 		gitignoreStr := string(gitignoreContent)
 		var missingIgnores []string

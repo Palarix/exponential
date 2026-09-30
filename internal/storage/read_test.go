@@ -93,3 +93,43 @@ func TestReadArchivedEvents_WithData(t *testing.T) {
 		t.Errorf("expected 2 archived events, got %d", len(events))
 	}
 }
+
+func TestReadEvents_IgnoresTornFinalLine(t *testing.T) {
+	setupXpoDir(t)
+	AppendEvent(model.Event{ID: "a", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "A"}, CreatedAt: time.Now().UTC(), CreatedBy: "t"})
+
+	// Another process is halfway through appending the next event.
+	f, _ := os.OpenFile(filepath.Join(".xpo", "issues.db"), os.O_APPEND|os.O_WRONLY, 0644)
+	f.WriteString(`{"id":"b","type":"CRE`)
+	f.Close()
+
+	events, err := ReadEvents()
+	if err != nil {
+		t.Fatalf("torn final line should be ignored, got %v", err)
+	}
+	if len(events) != 1 || events[0].ID != "a" {
+		t.Errorf("expected only event a, got %d events", len(events))
+	}
+}
+
+func TestReadEvents_KeepsValidUnterminatedFinalLine(t *testing.T) {
+	setupXpoDir(t)
+	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte(`{"id":"a","type":"CREATE"}`), 0644)
+
+	events, err := ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Errorf("a complete final line without newline should still be read, got %d events", len(events))
+	}
+}
+
+func TestReadEvents_ErrorsOnMalformedLineBeforeTail(t *testing.T) {
+	setupXpoDir(t)
+	os.WriteFile(filepath.Join(".xpo", "issues.db"), []byte("{\"id\":\"a\",\"ty\n{\"id\":\"b\",\"type\":\"CREATE\"}\n"), 0644)
+
+	if _, err := ReadEvents(); err == nil {
+		t.Error("a malformed line that is not the torn tail must still error")
+	}
+}

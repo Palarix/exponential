@@ -19,6 +19,9 @@ const (
 // before running fn, preventing concurrent git-mutating operations
 // from corrupting the working tree. The lock is released when fn
 // returns or if the process crashes.
+//
+// Lock order: git.lock before .xpo/events.lock (storage's event-write
+// lock). fn may append events; storage never takes git.lock.
 func WithGitLock(fn func() error) error {
 	lockPath := filepath.Join(storage.XpoDir(), "git.lock")
 	fl := flock.New(lockPath)
