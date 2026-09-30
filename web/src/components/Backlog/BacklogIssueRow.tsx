@@ -21,6 +21,7 @@ import { formatShortDate } from "../../utils/format";
 import { isTerminal } from "../../constants";
 import { IssueRowDnd } from "./DndComponents";
 import type { TreeGuide, HierarchyMode } from "./useBacklogRows";
+import { nodeIndicator } from "./backlog-row-utils";
 
 type PopoverType = "status" | "labels" | "estimate" | "priority";
 
@@ -102,6 +103,12 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const indent = depth * 24;
   const isGhostRow = !!isGhostParent || !!isGhostChild;
+  const indicator = nodeIndicator({
+    hasChildren,
+    hasVisibleChildren,
+    isGhostParent,
+    hierarchyMode,
+  });
 
   return (
     <div className="relative" data-context-issue={issue.id} data-depth={depth}>
@@ -141,46 +148,44 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 </svg>
               ) : null,
             )}
-            {hasChildren && hierarchyMode === "nested" ? (
-              hasVisibleChildren && !isGhostParent ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleNode(issue.id);
-                  }}
-                  className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10"
+            {indicator === "toggle" ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleNode(issue.id);
+                }}
+                className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center rounded cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-white/10"
+              >
+                <svg
+                  className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
                 >
-                  <svg
-                    className={`w-3 h-3 transition-transform duration-100 ${isNodeExpanded ? "rotate-90" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </button>
-              ) : (
-                <span className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center text-[var(--color-text-muted)]">
-                  <svg
-                    className={`w-3 h-3 ${hasVisibleChildren ? "rotate-90" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </span>
-              )
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            ) : indicator === "expanded" ? (
+              <span className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center text-[var(--color-text-muted)]">
+                <svg
+                  className="w-3 h-3 rotate-90"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </span>
             ) : (
               <span className="w-4 shrink-0" />
             )}
