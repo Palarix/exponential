@@ -16,6 +16,9 @@ import (
 
 // --- Registration ---
 
+const linkToolDescription = "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues. " +
+	"Only blocked_by (set on the issue being started) prevents `start`; all other kinds are informational."
+
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list",
@@ -49,7 +52,7 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "link",
-		Description: "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues.",
+		Description: linkToolDescription,
 	}, t.link)
 
 	mcp.AddTool(s, &mcp.Tool{

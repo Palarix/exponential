@@ -37,6 +37,10 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 
 	payload.Labels = normalizeLabels(payload.Labels, t.Config)
 
+	if err := normalizeUpdateDependencies(id, payload.Dependencies); err != nil {
+		return nil, nil, err
+	}
+
 	// Prune fields that already match current state so redundant updates are no-ops.
 	pruneUnchangedFields(&payload, targetIssue)
 	if payloadEmpty(payload) {
@@ -304,6 +308,23 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 	}
 
 	return payload, nil
+}
+
+// normalizeUpdateDependencies stamps the owning issue's ID onto every
+// dependency and rejects self-links and duplicate (target, kind) pairs.
+func normalizeUpdateDependencies(id string, deps []model.Dependency) error {
+	seen := make(map[model.Dependency]bool, len(deps))
+	for i := range deps {
+		deps[i].SourceID = id
+		if deps[i].TargetID == id {
+			return fmt.Errorf("cannot link an issue to itself")
+		}
+		if seen[deps[i]] {
+			return fmt.Errorf("duplicate link %s %s", deps[i].Kind, deps[i].TargetID)
+		}
+		seen[deps[i]] = true
+	}
+	return nil
 }
 
 // pruneUnchangedFields nils out payload fields that already match the

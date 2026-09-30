@@ -1,10 +1,13 @@
 package exponential
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 func TestUpdateIssue_StatusChange(t *testing.T) {
@@ -485,4 +488,110 @@ func countEvents(t *testing.T, id string) int {
 		t.Fatalf("issue %s not found", id)
 	}
 	return len(issue.Events)
+}
+
+func TestUpdateIssue_DependenciesGetSourceID(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a, _ := tr.AddIssue(model.CreatePayload{Title: "a"})
+	b, _ := tr.AddIssue(model.CreatePayload{Title: "b"})
+
+	_, err := tr.UpdateIssue(a.ID, model.UpdatePayload{
+		Dependencies: []model.Dependency{{TargetID: b.ID, Kind: model.DependencyDependsOn}},
+	}, "update")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events, _ := storage.ReadEvents()
+	for _, evt := range events {
+		if evt.Type != model.EventTypeUpdate || evt.ID != a.ID {
+			continue
+		}
+		raw, _ := json.Marshal(evt.Payload)
+		if strings.Contains(string(raw), `"source_id":""`) {
+			t.Errorf("stored update event has empty source_id: %s", raw)
+		}
+	}
+	deps := readAllIssues(t)[a.ID].Dependencies
+	if len(deps) != 1 || deps[0].SourceID != a.ID {
+		t.Errorf("deps = %+v, want one with SourceID %s", deps, a.ID)
+	}
+}
+
+func TestUpdateIssue_EmptyDependenciesClears(t *testing.T) {
+	tr := setupLocalTransport(t)
+	b, _ := tr.AddIssue(model.CreatePayload{Title: "b"})
+	a, _ := tr.AddIssue(model.CreatePayload{
+		Title:        "a",
+		Dependencies: []model.Dependency{{TargetID: b.ID, Kind: model.DependencyDependsOn}},
+	})
+
+	if _, err := tr.UpdateIssue(a.ID, model.UpdatePayload{Dependencies: []model.Dependency{}}, "update"); err != nil {
+		t.Fatal(err)
+	}
+	if deps := readAllIssues(t)[a.ID].Dependencies; len(deps) != 0 {
+		t.Errorf("expected deps cleared, got %+v", deps)
+	}
+}
+
+func TestUpdateIssue_EmptyLabelsClears(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a, _ := tr.AddIssue(model.CreatePayload{Title: "a", Labels: []string{"bug"}})
+
+	if _, err := tr.UpdateIssue(a.ID, model.UpdatePayload{Labels: []string{}}, "update"); err != nil {
+		t.Fatal(err)
+	}
+	if labels := readAllIssues(t)[a.ID].Labels; len(labels) != 0 {
+		t.Errorf("expected labels cleared, got %+v", labels)
+	}
+}
+
+func TestUpdateIssue_RejectsSelfLink(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a, _ := tr.AddIssue(model.CreatePayload{Title: "a"})
+
+	_, err := tr.UpdateIssue(a.ID, model.UpdatePayload{
+		Dependencies: []model.Dependency{{TargetID: a.ID, Kind: "relates_to"}},
+	}, "update")
+	if err == nil || !strings.Contains(err.Error(), "itself") {
+		t.Errorf("expected self-link error, got %v", err)
+	}
+}
+
+func TestUpdateIssue_RejectsDuplicateLinks(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a, _ := tr.AddIssue(model.CreatePayload{Title: "a"})
+	b, _ := tr.AddIssue(model.CreatePayload{Title: "b"})
+
+	_, err := tr.UpdateIssue(a.ID, model.UpdatePayload{
+		Dependencies: []model.Dependency{
+			{TargetID: b.ID, Kind: model.DependencyDependsOn},
+			{TargetID: b.ID, Kind: model.DependencyDependsOn},
+		},
+	}, "update")
+	if err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Errorf("expected duplicate link error, got %v", err)
+	}
+}
+
+func TestProjectIssues_FillsEmptyDependencySourceID(t *testing.T) {
+	now := time.Now().UTC()
+	events := []model.Event{
+		{ID: "x-1", Type: model.EventTypeCreate, CreatedAt: now, Payload: model.CreatePayload{
+			Title:        "legacy create",
+			Dependencies: []model.Dependency{{TargetID: "x-3", Kind: model.DependencyBlocks}},
+		}},
+		{ID: "x-2", Type: model.EventTypeCreate, CreatedAt: now, Payload: model.CreatePayload{Title: "legacy update"}},
+		{ID: "x-3", Type: model.EventTypeCreate, CreatedAt: now, Payload: model.CreatePayload{Title: "target"}},
+		{ID: "x-2", Type: model.EventTypeUpdate, CreatedAt: now, Payload: model.UpdatePayload{
+			Dependencies: []model.Dependency{{TargetID: "x-3", Kind: model.DependencyDependsOn}},
+		}},
+	}
+	issues := ProjectIssues(events)
+	for _, id := range []string{"x-1", "x-2"} {
+		deps := issues[id].Dependencies
+		if len(deps) != 1 || deps[0].SourceID != id {
+			t.Errorf("%s deps = %+v, want SourceID %s", id, deps, id)
+		}
+	}
 }

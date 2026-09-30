@@ -19,7 +19,7 @@ var (
 var linkCmd = &cobra.Command{
 	Use:   "link <source-id> <target-id> -t <type>",
 	Short: "Add a dependency or relationship between two issues",
-	Long:  `Add a dependency or relationship between two issues. Pass --json to read a structured payload {"source": "...", "target": "...", "type": "..."} from stdin.`,
+	Long:  `Add a dependency or relationship between two issues. Only blocked_by (set on the issue being started) prevents start; all other kinds are informational. Pass --json to read a structured payload {"source": "...", "target": "...", "type": "..."} from stdin.`,
 	Args:  cobra.RangeArgs(0, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := exponential.NewClient(cfg)

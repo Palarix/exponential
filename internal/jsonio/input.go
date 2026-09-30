@@ -20,7 +20,7 @@ type AddInput struct {
 	Assignee    string      `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Labels such as feature, bug, epic"`
 	CycleID     string      `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time"`
+	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. Only blocked_by gates start; other kinds are informational"`
 }
 
 type UpdateInput struct {
@@ -33,7 +33,7 @@ type UpdateInput struct {
 	Assignee    *string     `json:"assignee,omitempty"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
 	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the full dependency list"`
+	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the full dependency list; pass [] to remove all links. Only blocked_by gates start; other kinds are informational"`
 }
 
 type CommentInput struct {
@@ -65,8 +65,11 @@ func ValidateStatus(s string) error {
 	return fmt.Errorf("invalid status %q: must be one of BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, DUPLICATE", s)
 }
 
+// LinksToDependencies converts link inputs to dependencies. A nil slice
+// (field omitted) stays nil; an empty slice becomes an empty, non-nil list
+// so that an update with `links: []` clears all links.
 func LinksToDependencies(links []LinkInput) ([]model.Dependency, error) {
-	if len(links) == 0 {
+	if links == nil {
 		return nil, nil
 	}
 	deps := make([]model.Dependency, 0, len(links))

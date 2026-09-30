@@ -187,6 +187,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	finalIssues := make(map[string]*model.Issue)
 	for id, issue := range issues {
 		if !issue.Deleted {
+			fillDependencySourceIDs(issue)
 			finalIssues[id] = issue
 		}
 	}
@@ -194,6 +195,26 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	backfillSortOrder(finalIssues)
 
 	return finalIssues
+}
+
+// fillDependencySourceIDs repairs dependencies written without a source_id
+// (older `update { links }` calls) by attributing them to the owning issue.
+// It copies the slice rather than mutating one shared with an event payload.
+func fillDependencySourceIDs(issue *model.Issue) {
+	for i, dep := range issue.Dependencies {
+		if dep.SourceID != "" {
+			continue
+		}
+		fixed := make([]model.Dependency, len(issue.Dependencies))
+		copy(fixed, issue.Dependencies)
+		for j := i; j < len(fixed); j++ {
+			if fixed[j].SourceID == "" {
+				fixed[j].SourceID = issue.ID
+			}
+		}
+		issue.Dependencies = fixed
+		return
+	}
 }
 
 // backfillSortOrder assigns sort_order to issues that don't have one.

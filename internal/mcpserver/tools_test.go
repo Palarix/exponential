@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/palarix/exponential/internal/auth"
@@ -742,5 +743,42 @@ func TestRationaleSearchesBothSpecAndWalkthrough(t *testing.T) {
 	}
 	if !docs["spec"] || !docs["walkthrough"] {
 		t.Errorf("expected both spec and walkthrough, got %v", docs)
+	}
+}
+
+func TestUpdateLinksSetsSourceIDAndClears(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "B"})
+
+	_, _, err := ts.update(ctx, nil, jsonio.UpdateToolInput{ID: a.ID, UpdateInput: jsonio.UpdateInput{
+		Links: []jsonio.LinkInput{{Target: b.ID, Type: "depends_on"}},
+	}})
+	if err != nil {
+		t.Fatalf("update links failed: %v", err)
+	}
+	_, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: a.ID})
+	if len(show.Dependencies) != 1 || show.Dependencies[0].SourceID != a.ID {
+		t.Fatalf("deps = %+v, want one with SourceID %s", show.Dependencies, a.ID)
+	}
+
+	_, _, err = ts.update(ctx, nil, jsonio.UpdateToolInput{ID: a.ID, UpdateInput: jsonio.UpdateInput{
+		Links: []jsonio.LinkInput{},
+	}})
+	if err != nil {
+		t.Fatalf("update links: [] failed: %v", err)
+	}
+	_, show, _ = ts.show(ctx, nil, jsonio.ShowToolInput{ID: a.ID})
+	if len(show.Dependencies) != 0 {
+		t.Errorf("expected links cleared, got %+v", show.Dependencies)
+	}
+}
+
+func TestLinkToolDocumentsStartGating(t *testing.T) {
+	if !strings.Contains(linkToolDescription, "blocked_by") {
+		t.Errorf("link description must say only blocked_by gates start: %q", linkToolDescription)
 	}
 }

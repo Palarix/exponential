@@ -1,6 +1,7 @@
 package jsonio
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -244,4 +245,62 @@ func jsonQuote(s string) string {
 	}
 	b.WriteByte('"')
 	return b.String()
+}
+
+func TestUpdateInputEmptyLinksClears(t *testing.T) {
+	var in UpdateInput
+	if err := DecodeStrict(`{"links": []}`, &in); err != nil {
+		t.Fatal(err)
+	}
+	got, err := in.ToUpdatePayload()
+	if err != nil {
+		t.Fatalf("ToUpdatePayload failed: %v", err)
+	}
+	if got.Dependencies == nil || len(got.Dependencies) != 0 {
+		t.Errorf("expected empty non-nil Dependencies, got %#v", got.Dependencies)
+	}
+	if UpdatePayloadEmpty(got) {
+		t.Error("links: [] must count as a set field")
+	}
+}
+
+func TestUpdateInputEmptyLabelsClears(t *testing.T) {
+	var in UpdateInput
+	if err := DecodeStrict(`{"labels": []}`, &in); err != nil {
+		t.Fatal(err)
+	}
+	got, err := in.ToUpdatePayload()
+	if err != nil {
+		t.Fatalf("ToUpdatePayload failed: %v", err)
+	}
+	if got.Labels == nil || len(got.Labels) != 0 {
+		t.Errorf("expected empty non-nil Labels, got %#v", got.Labels)
+	}
+	if UpdatePayloadEmpty(got) {
+		t.Error("labels: [] must count as a set field")
+	}
+}
+
+func TestUpdateInputOmittedLinksStaysUnset(t *testing.T) {
+	var in UpdateInput
+	if err := DecodeStrict(`{"title": "x"}`, &in); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := in.ToUpdatePayload()
+	if got.Dependencies != nil {
+		t.Errorf("omitted links must stay nil, got %#v", got.Dependencies)
+	}
+}
+
+func TestLinkSchemasDocumentStartGating(t *testing.T) {
+	for _, typ := range []reflect.Type{reflect.TypeOf(AddInput{}), reflect.TypeOf(UpdateInput{})} {
+		f, _ := typ.FieldByName("Links")
+		if !strings.Contains(f.Tag.Get("jsonschema"), "blocked_by") {
+			t.Errorf("%s.Links schema must say only blocked_by gates start, got %q", typ.Name(), f.Tag.Get("jsonschema"))
+		}
+	}
+	f, _ := reflect.TypeOf(UpdateInput{}).FieldByName("Links")
+	if !strings.Contains(f.Tag.Get("jsonschema"), "[]") {
+		t.Errorf("UpdateInput.Links schema must document [] to clear, got %q", f.Tag.Get("jsonschema"))
+	}
 }
