@@ -520,7 +520,8 @@ func TestWriteAgentSkill_LocalInstall(t *testing.T) {
 	defer os.Chdir(orig)
 
 	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
-	skillDir, err := WriteAgentSkill(agent, "")
+	res, err := WriteAgentSkill(agent, "", false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -538,7 +539,8 @@ func TestWriteAgentSkill_LocalInstall(t *testing.T) {
 
 func TestWriteAgentSkill_NoSkillDir(t *testing.T) {
 	agent := AgentConfig{Name: "Test"}
-	skillDir, err := WriteAgentSkill(agent, "")
+	res, err := WriteAgentSkill(agent, "", false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -555,7 +557,8 @@ func TestWriteAgentSkill_GlobalInstall(t *testing.T) {
 
 	globalBase := filepath.Join(dir, "global-skills")
 	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills", GlobalSkillDir: ""}
-	skillDir, err := WriteAgentSkill(agent, globalBase)
+	res, err := WriteAgentSkill(agent, globalBase, false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -575,7 +578,7 @@ func TestDetectSkillInstall_Local(t *testing.T) {
 	defer os.Chdir(orig)
 
 	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
-	WriteAgentSkill(agent, "")
+	WriteAgentSkill(agent, "", false)
 
 	status := DetectSkillInstall(agent)
 	if !status.Local {

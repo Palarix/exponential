@@ -172,3 +172,42 @@ func remarshal(src interface{}, dst interface{}) error {
 	}
 	return json.Unmarshal(b, dst)
 }
+
+// Bug: the merge description did not say a committed worktree is required,
+// so agents only learned it from the failure.
+func TestMergeToolDescriptionRequiresCommit(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpDir, ".xpo"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, ".xpo", "issues.db"), []byte{}, 0644)
+	origDir, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(origDir)
+
+	cfg := &config.Config{Prefix: "e2e-", User: "x", EstimationSystem: "fibonacci", Version: 2}
+	ctx := context.Background()
+	st, ct := mcp.NewInMemoryTransports()
+	srv := mcp.NewServer(&mcp.Implementation{Name: "xpo", Version: "v0"}, nil)
+	newToolset(cfg).register(srv)
+	srvSess, _ := srv.Connect(ctx, st, nil)
+	defer srvSess.Close()
+	cli := mcp.NewClient(&mcp.Implementation{Name: "c", Version: "v0"}, nil)
+	cliSess, _ := cli.Connect(ctx, ct, nil)
+	defer cliSess.Close()
+
+	res, err := cliSess.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	for _, tool := range res.Tools {
+		if tool.Name != "merge" {
+			continue
+		}
+		for _, want := range []string{"must be committed", "squash"} {
+			if !strings.Contains(tool.Description, want) {
+				t.Errorf("merge description missing %q: %s", want, tool.Description)
+			}
+		}
+		return
+	}
+	t.Fatal("merge tool not registered")
+}

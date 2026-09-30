@@ -11,7 +11,7 @@ may use different naming conventions). The table uses the base tool names.
 | `add` | Create a new issue |
 | `update` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE) |
 | `start` | Start working on an issue: transitions to DOING and creates a git worktree (or branch). Returns the worktree path |
-| `merge` | Merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree |
+| `merge` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed on the worktree or branch first |
 | `comment` | Add a markdown comment to an issue |
 | `link` | Add a relationship between two issues |
 | `history` | View the audit trail for an issue |
@@ -19,3 +19,5 @@ may use different naming conventions). The table uses the base tool names.
 | `walkthrough` | Read, write, or delete the implementation walkthrough for an issue |
 | `rationale` | Search across specs and walkthroughs for prior design decisions related to a topic |
 | `artifact` | Manage generic artifacts attached to an issue |
+
+<!-- xpo:skill 1.2.1 sha256:56f5bd6354e5 -->

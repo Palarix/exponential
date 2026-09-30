@@ -32,7 +32,7 @@ func setupAgentFull(t *testing.T, agent AgentConfig, prefix string) {
 		EnsureMCPConfigFor(agent.MCPConfig)
 	}
 	if agent.SkillDir != "" {
-		WriteAgentSkill(agent, "")
+		WriteAgentSkill(agent, "", false)
 	}
 }
 
@@ -193,7 +193,7 @@ func TestDoctor_MCP_FileExistsButNoXpo(t *testing.T) {
 
 func TestDoctor_Skill_InstalledLocally(t *testing.T) {
 	setupProject(t, "test")
-	WriteAgentSkill(testClaudeCode, "")
+	WriteAgentSkill(testClaudeCode, "", false)
 
 	status := DetectSkillInstall(testClaudeCode)
 	if !status.Local {
@@ -213,7 +213,7 @@ func TestDoctor_Skill_NotInstalled(t *testing.T) {
 
 func TestDoctor_Skill_Deleted(t *testing.T) {
 	setupProject(t, "test")
-	WriteAgentSkill(testClaudeCode, "")
+	WriteAgentSkill(testClaudeCode, "", false)
 
 	// Verify it's detected
 	status := DetectSkillInstall(testClaudeCode)
@@ -258,7 +258,7 @@ func TestDoctor_Agent_PartiallyConfigured_MissingMCP(t *testing.T) {
 	setupProject(t, "test")
 	// Install instructions and skill but NOT MCP
 	AppendAgentInstructions(testClaudeCode, "test")
-	WriteAgentSkill(testClaudeCode, "")
+	WriteAgentSkill(testClaudeCode, "", false)
 
 	// Instructions present
 	content, _ := os.ReadFile("CLAUDE.md")

@@ -341,10 +341,21 @@ Write the walkthrough **after** any user-requested corrections are applied, so i
 1. The user has explicitly approved the changes
 2. Tests pass
 3. The walkthrough is written
+4. All changes are committed on the issue's worktree or branch
 
 If any are missing, go back to the missing step.
 
-Commit all changes on the worktree or branch, then use the xpo MCP server's ` + "`merge`" + ` tool to complete the issue. It merges the branch, records a MERGE event, closes the issue, and cleans up the worktree or branch. Do not use manual git commands to merge or commit — use ` + "`merge`" + `.
+Then, in the issue's worktree (or on its branch):
+
+1. If the project's instructions require a changelog entry, add it now.
+2. Run ` + "`git status`" + `. Delete or move scratch files that are not part of the change.
+3. Commit everything: ` + "`git add -A && git commit -m \"<issue-id>: <issue title>\"`" + `.
+4. Call the xpo MCP server's ` + "`merge`" + ` tool. It squash-merges the branch into the default
+   branch, records a MERGE event, closes the issue, and removes the worktree or branch.
+   It refuses to run while the worktree has uncommitted or untracked files.
+
+Committing on the issue's worktree or branch is your job. Merging is ` + "`merge`" + `'s job: never run
+` + "`git merge`" + `, ` + "`git rebase`" + `, ` + "`git push`" + `, or commit on the default branch yourself.
 
 ---
 
@@ -427,7 +438,7 @@ may use different naming conventions). The table uses the base tool names.
 | ` + "`add`" + ` | Create a new issue |
 | ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE) |
 | ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree (or branch). Returns the worktree path |
-| ` + "`merge`" + ` | Merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree |
+| ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed on the worktree or branch first |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |
 | ` + "`link`" + ` | Add a relationship between two issues |
 | ` + "`history`" + ` | View the audit trail for an issue |
@@ -444,10 +455,11 @@ const GlobalSkillCanonicalDir = ".config/xpo/skills"
 // WriteAgentSkill writes the xpo skill to the agent's skill directory.
 // When globalBaseDir is non-empty, files are written to that canonical location
 // and a symlink is created from the agent's global skill directory.
-// Returns the skill directory path, or empty string if the agent has no skill support.
-func WriteAgentSkill(agent AgentConfig, globalBaseDir string) (string, error) {
+// Files with local edits are left alone and reported in the result unless
+// force is set. Result.Dir is empty if the agent has no skill support.
+func WriteAgentSkill(agent AgentConfig, globalBaseDir string, force bool) (SkillWriteResult, error) {
 	if agent.SkillDir == "" {
-		return "", nil
+		return SkillWriteResult{}, nil
 	}
 
 	var skillDir string
@@ -456,31 +468,36 @@ func WriteAgentSkill(agent AgentConfig, globalBaseDir string) (string, error) {
 	} else {
 		skillDir = filepath.Join(agent.SkillDir, "xpo")
 	}
+	result := SkillWriteResult{Dir: skillDir}
 
 	refsDir := filepath.Join(skillDir, "references")
 	if err := os.MkdirAll(refsDir, 0755); err != nil {
-		return "", fmt.Errorf("could not create skill directory %s: %w", refsDir, err)
+		return result, fmt.Errorf("could not create skill directory %s: %w", refsDir, err)
 	}
 
-	files := map[string]string{
-		filepath.Join(skillDir, "SKILL.md"):     GenerateSkillMD(),
-		filepath.Join(refsDir, "spec-guide.md"): GenerateSpecGuide(),
-		filepath.Join(refsDir, "mcp-tools.md"):  GenerateMCPToolsRef(),
-	}
-
-	for path, content := range files {
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return "", fmt.Errorf("could not write %s: %w", path, err)
+	for _, f := range generatedSkillFiles(skillDir) {
+		if !force && CheckSkillFile(f.Path, f.Content) == SkillFileEdited {
+			data, _ := os.ReadFile(f.Path)
+			body, _, _, _ := ParseSkillFile(string(data))
+			result.Edited = append(result.Edited, EditedSkillFile{
+				Path:       f.Path,
+				OldContent: strings.TrimSpace(body),
+				NewContent: strings.TrimSpace(f.Content),
+			})
+			continue
+		}
+		if err := os.WriteFile(f.Path, []byte(WrapSkillFile(f.Content, version.CLIVersion)), 0644); err != nil {
+			return result, fmt.Errorf("could not write %s: %w", f.Path, err)
 		}
 	}
 
 	if globalBaseDir != "" && agent.GlobalSkillDir != "" {
 		if err := createSkillSymlink(agent, skillDir); err != nil {
-			return skillDir, fmt.Errorf("skill files written but symlink failed: %w", err)
+			return result, fmt.Errorf("skill files written but symlink failed: %w", err)
 		}
 	}
 
-	return skillDir, nil
+	return result, nil
 }
 
 // createSkillSymlink creates a symlink from the agent's global skill directory to the canonical location.

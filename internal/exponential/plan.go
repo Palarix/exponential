@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -48,13 +47,13 @@ func ComputeInitPlan(agents []AgentConfig) *ChangePlan {
 			plan.addFile(agent.File)
 		}
 
-		// Skill files
-		if agent.SkillDir != "" {
-			skillPath := filepath.Join(agent.SkillDir, "xpo", "SKILL.md")
-			if !seen[skillPath] {
-				seen[skillPath] = true
-				plan.addFile(skillPath)
+		// Skill files: only those that differ from the current template
+		for _, f := range AgentSkillStates(agent) {
+			if seen[f.Path] || f.State == SkillFileUpToDate {
+				continue
 			}
+			seen[f.Path] = true
+			plan.addFile(f.Path)
 		}
 	}
 

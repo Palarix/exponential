@@ -62,7 +62,7 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "merge",
-		Description: "Merge an issue's branch into the default branch, record a MERGE event, and close the issue. When worktrees are enabled, the merge runs from the hub (primary checkout on main) and the worktree is cleaned up automatically.",
+		Description: "Merge an issue's branch into the default branch (squash by default), record a MERGE event, and close the issue. All changes on the issue's worktree or branch must be committed first — merge refuses to run while the worktree has uncommitted or untracked files. When worktrees are enabled, the merge runs from the hub (primary checkout on main) and the worktree is cleaned up automatically.",
 	}, t.merge)
 
 	mcp.AddTool(s, &mcp.Tool{

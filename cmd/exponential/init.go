@@ -287,11 +287,65 @@ func applyInit(prefix string, agents []exponential.AgentConfig) {
 		if agent.SkillDir == "" {
 			continue
 		}
-		if _, err := exponential.WriteAgentSkill(agent, ""); err != nil {
-			fmt.Printf("  %s %s skill: %v\n", ui.ErrorPrefix, agent.Name, err)
-		}
+		handleEditedSkills(agent)
 	}
 
+}
+
+// handleEditedSkills writes the agent's skill files. Files with local edits are
+// replaced without asking in non-interactive mode or with --yes, and prompted
+// for otherwise.
+func handleEditedSkills(agent exponential.AgentConfig) {
+	res, err := exponential.WriteAgentSkill(agent, "", initForce)
+	if err != nil {
+		fmt.Printf("  %s %s skill: %v\n", ui.ErrorPrefix, agent.Name, err)
+		return
+	}
+	for _, f := range res.Edited {
+		if !isInteractive() || initYes {
+			if err := exponential.ReplaceSkillFile(f); err != nil {
+				fmt.Printf("  %s %s: %v\n", ui.ErrorPrefix, f.Path, err)
+				continue
+			}
+			fmt.Printf("%s %s: local edits replaced with the %s version\n", ui.NotePrefix, f.Path, version.CLIVersion)
+			continue
+		}
+		promptEditedSkill(f, true)
+	}
+}
+
+func promptEditedSkill(f exponential.EditedSkillFile, showHeader bool) {
+	if showHeader {
+		fmt.Printf("\n%s %s: the xpo skill has local edits\n", ui.NotePrefix, f.Path)
+	}
+
+	choice := promptSelect("How should xpo handle it?", []string{
+		fmt.Sprintf("Replace with the %s version", version.CLIVersion),
+		"Keep your version",
+		"Show diff",
+	})
+
+	switch choice {
+	case 0: // replace
+		if err := exponential.ReplaceSkillFile(f); err != nil {
+			fmt.Printf("%s %s: %v\n", ui.ErrorPrefix, f.Path, err)
+			return
+		}
+		fmt.Printf("%s %s: replaced with %s version\n", ui.OKPrefix, f.Path, version.CLIVersion)
+	case 1: // keep
+		fmt.Printf("%s %s: kept your version\n", ui.OKPrefix, f.Path)
+	case 2: // diff
+		fmt.Printf("\n--- current\n+++ %s\n", version.CLIVersion)
+		showSimpleDiff(f.OldContent, f.NewContent)
+		fmt.Println()
+		promptEditedSkill(f, false)
+	}
+}
+
+// blockNeedsPrompt reports whether an agent's interactive problems include
+// its instruction file (edited or legacy block), not just edited skill files.
+func blockNeedsPrompt(h exponential.AgentHealth) bool {
+	return len(h.Interactive) > len(h.EditedSkills)
 }
 
 func handleEditedBlock(agent exponential.AgentConfig, prefix string) {
@@ -377,26 +431,37 @@ func runReinit(interactive bool) {
 
 	// Case A: Up-to-date
 	if integrationVer == version.CLIVersion && !initForce {
-		// Check for edited blocks that need the replace/keep/diff prompt
-		var editedAgents []exponential.AgentConfig
+		// Check for edited blocks and skills that need the replace/keep/diff
+		// prompt, and for skills that differ from the current template even
+		// though the version matches.
+		var blockAgents []exponential.AgentConfig
+		var skillHealth []exponential.AgentHealth
 		for _, agent := range exponential.DetectInstalledAgents() {
 			h := exponential.CheckAgentHealth(agent, integrationVer)
-			if len(h.Interactive) > 0 {
-				editedAgents = append(editedAgents, agent)
+			if blockNeedsPrompt(h) {
+				blockAgents = append(blockAgents, agent)
+			}
+			if h.SkillStale || h.SkillEdited() {
+				skillHealth = append(skillHealth, h)
 			}
 		}
 
-		if len(editedAgents) == 0 {
-			fmt.Printf("\nExponential is already set up in this project (prefix %s)\n", prefix)
+		fmt.Printf("\nExponential is already set up in this project (prefix %s)\n", prefix)
+		if len(blockAgents) == 0 && len(skillHealth) == 0 {
 			fmt.Printf("%s Integrations are up to date (%s)\n\n", ui.OKPrefix, version.CLIVersion)
 			return
 		}
 
-		// Handle only the edited blocks — not a full re-init
-		fmt.Printf("\nExponential is already set up in this project (prefix %s)\n", prefix)
+		// Handle only what changed — not a full re-init
 		fmt.Printf("%s Integrations are up to date (%s)\n", ui.OKPrefix, version.CLIVersion)
-		for _, agent := range editedAgents {
+		for _, agent := range blockAgents {
 			handleEditedBlock(agent, prefix)
+		}
+		for _, h := range skillHealth {
+			handleEditedSkills(h.Agent)
+			if h.SkillStale {
+				fmt.Printf("%s %s: skill updated to the %s template\n", ui.OKPrefix, h.Agent.Name, version.CLIVersion)
+			}
 		}
 		fmt.Println()
 		return

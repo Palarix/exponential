@@ -332,7 +332,8 @@ func TestScenario_InitSkill_Clean(t *testing.T) {
 		t.Fatal("CLAUDE.md should have managed block end marker")
 	}
 
-	skillDir, err := WriteAgentSkill(agent, "")
+	res, err := WriteAgentSkill(agent, "", false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("WriteAgentSkill failed: %v", err)
 	}
@@ -548,13 +549,14 @@ func TestScenario_InitSkill_SkillAlreadyInstalled(t *testing.T) {
 
 	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills"}
 
-	WriteAgentSkill(agent, "")
+	WriteAgentSkill(agent, "", false)
 	status := DetectSkillInstall(agent)
 	if !status.Local {
 		t.Fatal("skill should be detected after first install")
 	}
 
-	skillDir, err := WriteAgentSkill(agent, "")
+	res, err := WriteAgentSkill(agent, "", false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("force re-install failed: %v", err)
 	}
@@ -574,7 +576,8 @@ func TestScenario_InitSkill_GlobalInstall(t *testing.T) {
 	globalBase := filepath.Join(dir, ".config", "xpo", "skills")
 	agent := AgentConfig{Name: "Test", SkillDir: ".test/skills", GlobalSkillDir: ""}
 
-	skillDir, err := WriteAgentSkill(agent, globalBase)
+	res, err := WriteAgentSkill(agent, globalBase, false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("global install failed: %v", err)
 	}
@@ -616,7 +619,8 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 		t.Fatal("agent without skill support should get MCP tools reference inline")
 	}
 
-	skillDir, err := WriteAgentSkill(agent, "")
+	res, err := WriteAgentSkill(agent, "", false)
+	skillDir := res.Dir
 	if err != nil {
 		t.Fatalf("WriteAgentSkill failed: %v", err)
 	}
@@ -663,7 +667,7 @@ func TestScenario_FullWorkflow(t *testing.T) {
 	if err := AppendAgentInstructions(agent, "test"); err != nil {
 		t.Fatalf("AppendAgentInstructions failed: %v", err)
 	}
-	if _, err := WriteAgentSkill(agent, ""); err != nil {
+	if _, err := WriteAgentSkill(agent, "", false); err != nil {
 		t.Fatalf("WriteAgentSkill failed: %v", err)
 	}
 

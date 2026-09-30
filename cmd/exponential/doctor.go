@@ -342,6 +342,8 @@ func doctorIntegrations(c *doctorCounts, prefix string, integrationVer string) {
 		return
 	}
 
+	skillsHandled := map[string]bool{}
+
 	// Auto-fixable agents: show change plan and apply
 	if len(autoFixAgents) > 0 {
 		plan := exponential.ComputeInitPlan(autoFixAgents)
@@ -363,12 +365,22 @@ func doctorIntegrations(c *doctorCounts, prefix string, integrationVer string) {
 			}
 			applyInit(prefix, autoFixAgents)
 			c.fixed += len(autoFixAgents)
+			for _, agent := range autoFixAgents {
+				skillsHandled[agent.Name] = true
+			}
 		}
 	}
 
 	// Interactive agents: offer replace/keep/diff per file
 	for _, agent := range interactiveAgents {
-		promptEditedBlock(agent, prefix, true)
+		h := checkAgentHealth(agent, integrationVer)
+		if blockNeedsPrompt(h) {
+			promptEditedBlock(agent, prefix, true)
+		}
+		// applyInit already prompted for this agent's edited skill files.
+		if h.SkillEdited() && !skillsHandled[agent.Name] {
+			handleEditedSkills(agent)
+		}
 		c.fixed++
 	}
 }

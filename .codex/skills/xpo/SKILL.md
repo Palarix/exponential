@@ -126,10 +126,21 @@ Write the walkthrough **after** any user-requested corrections are applied, so i
 1. The user has explicitly approved the changes
 2. Tests pass
 3. The walkthrough is written
+4. All changes are committed on the issue's worktree or branch
 
 If any are missing, go back to the missing step.
 
-Commit the changes on the worktree then use the xpo MCP server's `merge` tool to complete the issue. It merges the branch, records a MERGE event, closes the issue, and cleans up the worktree or branch. Do not use manual git commands to merge or commit — use `merge`.
+Then, in the issue's worktree (or on its branch):
+
+1. If the project's instructions require a changelog entry, add it now.
+2. Run `git status`. Delete or move scratch files that are not part of the change.
+3. Commit everything: `git add -A && git commit -m "<issue-id>: <issue title>"`.
+4. Call the xpo MCP server's `merge` tool. It squash-merges the branch into the default
+   branch, records a MERGE event, closes the issue, and removes the worktree or branch.
+   It refuses to run while the worktree has uncommitted or untracked files.
+
+Committing on the issue's worktree or branch is your job. Merging is `merge`'s job: never run
+`git merge`, `git rebase`, `git push`, or commit on the default branch yourself.
 
 ---
 
@@ -195,3 +206,5 @@ When choosing what to work on next (and dependency links do not resolve the orde
 1. **Blockers** — issues blocking other work
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
+
+<!-- xpo:skill 1.2.1 sha256:7dd87a72d002 -->

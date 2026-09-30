@@ -15,7 +15,16 @@ type AgentHealth struct {
 	HasSkill   bool     // has skill installed locally
 	Configured bool     // at least one of the above is true (agent was set up)
 	AutoFix    []string // fixable silently (missing MCP, missing skill, stale version)
-	Interactive []string // fixable with user prompt (edited block, legacy format)
+	Interactive []string // fixable with user prompt (edited block, edited skill, legacy format)
+
+	BlockEdited  bool     // managed instruction block has local edits
+	SkillStale   bool     // skill files are missing or differ from the current template
+	EditedSkills []string // skill files with local edits
+}
+
+// SkillEdited returns true if any skill file has local edits.
+func (h *AgentHealth) SkillEdited() bool {
+	return len(h.EditedSkills) > 0
 }
 
 // HasProblems returns true if the agent has any issues (auto-fixable or interactive).
@@ -43,6 +52,7 @@ func CheckAgentHealth(agent AgentConfig, integrationVer string) AgentHealth {
 		if block != nil {
 			h.HasInstrs = true
 			if BlockWasEdited(block) {
+				h.BlockEdited = true
 				h.Interactive = append(h.Interactive, fmt.Sprintf("%s: xpo section has local edits", agent.File))
 			} else if integrationVer != "" && integrationVer != version.CLIVersion &&
 				version.CompareVersions(integrationVer, version.CLIVersion) < 0 {
@@ -58,6 +68,18 @@ func CheckAgentHealth(agent AgentConfig, integrationVer string) AgentHealth {
 		status := DetectSkillInstall(agent)
 		if status.Local {
 			h.HasSkill = true
+			for _, f := range AgentSkillStates(agent) {
+				switch f.State {
+				case SkillFileEdited:
+					h.EditedSkills = append(h.EditedSkills, f.Path)
+					h.Interactive = append(h.Interactive, fmt.Sprintf("%s: skill has local edits", f.Path))
+				case SkillFileStale, SkillFileMissing:
+					h.SkillStale = true
+				}
+			}
+			if h.SkillStale {
+				h.AutoFix = append(h.AutoFix, "Skill out of date")
+			}
 		} else if status.BrokenSymlink {
 			h.AutoFix = append(h.AutoFix, "Skill symlink broken")
 		}
