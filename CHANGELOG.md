@@ -77,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pulse types moved from `internal/pulse` to `jsonio` package; velocity calculation no longer double-counts issues (xpo-b18d99)
 - Cosmetic consistency pass for `--json` flags across all CLI commands — uniform flag descriptions and help text (xpo-66b8af)
 
+### Security
+
+- `xpo board` no longer listens on all network interfaces. It binds `127.0.0.1` by default (`--host` overrides it and logs a warning for non-loopback addresses) and rejects requests whose `Host` header isn't a loopback name or the `--host` value, blocking DNS rebinding. Previously anyone who could reach the port had unauthenticated read/write access, and in remote mode could use the user's bearer token through the proxy. The README documents `ssh -L` as the supported way to view a board on another machine. The Vite dev proxy targets `127.0.0.1` (xpo-809ad0)
+
 ### Fixed
 
 - Backlog: parent issues whose sub-issues are all hidden from the current view no longer show a non-clickable collapse chevron; the slot is left blank, like issues without sub-issues (xpo-e7c400)

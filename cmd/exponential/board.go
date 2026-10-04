@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var boardHost string
 var boardPort int
 var boardNoOpen bool
 var boardDev bool
@@ -31,12 +31,19 @@ for visual project management.
 Changes made in the UI are buffered locally until you click "Save & Sync",
 which commits all changes to the repository in a single commit.
 
+The server listens on 127.0.0.1 only. It has no authentication, so to view
+a board running on another machine, forward the port over SSH instead of
+exposing it:
+
+  ssh -L 8080:127.0.0.1:8080 user@host
+
 In development mode (--dev), assets are proxied from the Vite dev server,
 enabling hot module replacement for faster iteration.`,
 	RunE: runBoard,
 }
 
 func init() {
+	boardCmd.Flags().StringVar(&boardHost, "host", server.DefaultHost, "address to listen on (the board is unauthenticated; prefer ssh -L for remote access)")
 	boardCmd.Flags().IntVarP(&boardPort, "port", "p", 8080, "port to run the server on")
 	boardCmd.Flags().BoolVar(&boardNoOpen, "no-open", false, "don't open browser automatically")
 	boardCmd.Flags().BoolVar(&boardDev, "dev", false, "enable dev mode (proxy assets from Vite dev server)")
@@ -46,7 +53,11 @@ func init() {
 
 func runBoard(cmd *cobra.Command, args []string) error {
 	srv := server.NewServer(cfg, boardPort, boardDev, boardDevPort)
+	srv.Host = boardHost
 	srv.SSEHub = server.NewSSEHub()
+	if !server.IsLoopbackHost(boardHost) {
+		log.Printf("WARNING: listening on %q — the board is unauthenticated and anyone who can reach this address can read and modify issues. Prefer: ssh -L %d:127.0.0.1:%d <host>", boardHost, boardPort, boardPort)
+	}
 
 	if cfg.Remote.URL != "" {
 		srv.ProxyURL = cfg.Remote.URL
@@ -78,8 +89,7 @@ func runBoard(cmd *cobra.Command, args []string) error {
 	}()
 
 	if !boardNoOpen {
-		url := fmt.Sprintf("http://localhost:%d", srv.Port)
-		go openBrowser(url)
+		go openBrowser(srv.URL())
 	}
 
 	return srv.ServeOn(listener)

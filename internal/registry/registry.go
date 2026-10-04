@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -127,12 +128,13 @@ func UnregisterByPID(pid int) error {
 	return save(out)
 }
 
-// FindFreePort tries to bind a TCP listener starting at startPort, incrementing
-// up to maxAttempts-1 times. Returns the listener and the port actually bound.
-func FindFreePort(startPort, maxAttempts int) (net.Listener, int, error) {
+// FindFreePort tries to bind a TCP listener on host starting at startPort,
+// incrementing up to maxAttempts-1 times. Returns the listener and the port
+// actually bound. An empty host listens on all interfaces.
+func FindFreePort(host string, startPort, maxAttempts int) (net.Listener, int, error) {
 	for i := 0; i < maxAttempts; i++ {
 		port := startPort + i
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		l, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 		if err == nil {
 			return l, port, nil
 		}

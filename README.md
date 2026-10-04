@@ -81,7 +81,15 @@ To reduce permission prompts in Claude Code, allow-list the tools in `.claude/se
 - Inbox with grouped notifications and read/unread state
 - Run multiple boards in parallel — the sidebar links to your other live projects
 
-The server binds to `127.0.0.1` only. No remote access, no auth needed.
+The server binds to `127.0.0.1` only and has no authentication. Requests whose `Host` header isn't a loopback name are rejected, so web pages can't reach it through DNS rebinding.
+
+To view a board running on another machine, forward the port over SSH:
+
+```bash
+ssh -L 8080:127.0.0.1:8080 user@host   # then open http://localhost:8080
+```
+
+`xpo board --host <addr>` binds a different address, but anyone who can reach it can read and modify your issues. Prefer `ssh -L`.
 
 ## CLI
 

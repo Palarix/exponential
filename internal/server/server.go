@@ -24,6 +24,7 @@ import (
 // Server holds the state for the xpo web server.
 type Server struct {
 	Config        *config.Config
+	Host          string // bind address; loopback by default
 	Port          int
 	DevMode       bool
 	DevPort       int
@@ -83,6 +84,7 @@ func (s *Server) requireCapability(w http.ResponseWriter, r *http.Request, capab
 func NewServer(cfg *config.Config, port int, devMode bool, devPort int) *Server {
 	return &Server{
 		Config:        cfg,
+		Host:          DefaultHost,
 		Port:          port,
 		DevMode:       devMode,
 		DevPort:       devPort,
@@ -90,11 +92,11 @@ func NewServer(cfg *config.Config, port int, devMode bool, devPort int) *Server 
 	}
 }
 
-// Bind acquires a TCP listener on s.Port, falling back to the next free port
-// if that one is taken. The actual port bound is written back to s.Port.
+// Bind acquires a TCP listener on s.Host:s.Port, falling back to the next free
+// port if that one is taken. The actual port bound is written back to s.Port.
 func (s *Server) Bind() (net.Listener, error) {
 	requested := s.Port
-	l, actual, err := registry.FindFreePort(requested, 10)
+	l, actual, err := registry.FindFreePort(s.Host, requested, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -110,9 +112,9 @@ func (s *Server) ServeOn(l net.Listener) error {
 	s.WatchDB()
 	s.WatchGitRefs()
 	mux := s.SetupRoutes()
-	log.Printf("Starting xpo board server on http://localhost:%d", s.Port)
+	log.Printf("Starting xpo board server on %s", s.URL())
 	server := &http.Server{
-		Handler:     mux,
+		Handler:     s.hostGuard(mux),
 		ReadTimeout: 15 * time.Second,
 		IdleTimeout: 60 * time.Second,
 	}
