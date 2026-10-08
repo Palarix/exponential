@@ -64,6 +64,16 @@ export function matchesFilters(issue: { status: string; labels?: string[]; assig
   return true;
 }
 
+export function matchesSearch(issue: { id: string; title: string; labels?: string[] }, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    issue.title.toLowerCase().includes(q) ||
+    issue.id.toLowerCase().includes(q) ||
+    (issue.labels?.some((l) => l.toLowerCase().includes(q)) ?? false)
+  );
+}
+
 export type FilterDimension = "status" | "assignee" | "workedBy" | "priority" | "labels" | "epic";
 
 export function chipLabel(dimension: string, values: string[], lookup?: Map<string, string>): string {

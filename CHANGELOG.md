@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `SearchInput` in the My Issues TopBar filters the active tab by title, ID or label; Backlog and My Issues share a new `matchesSearch` predicate, and Backlog search now ignores surrounding whitespace (xpo-5ed512)
 - `SearchInput` in the Labels TopBar filters labels by name (case-insensitive substring), with a "No labels match" empty state (xpo-c6043f)
 - `unlink` MCP tool and `xpo unlink <source> <target> -t <type>` CLI command (with `--json`): remove one relationship between two issues, whichever side stores it, including links to deleted issues (xpo-9d5d00)
 - "Worked by" filter (Agent / Human) in the Backlog, My Issues and Inbox filter menus, backed by a new `assignee_via` field on issues in the CLI JSON, MCP and HTTP API (xpo-35fc16)

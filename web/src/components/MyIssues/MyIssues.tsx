@@ -14,12 +14,13 @@ import {
   FilterButton,
   CountBadge,
   Text,
+  SearchInput,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
 import { extractEmail, formatShortDate } from "../../utils/format";
 import { isEditableTarget } from "../../utils/keyboard";
 import { useAllLabels } from "../../hooks/useLabels";
-import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
+import { type BacklogFilters, hasActiveFilters, matchesFilters, matchesSearch } from "../Backlog/filters";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
 
@@ -29,10 +30,6 @@ const TAB_CONFIGS: Record<MyIssuesTab, { label: string }> = {
   assigned: { label: "Assigned to Me" },
   created: { label: "Created by Me" },
 };
-
-function applyFilters(issues: Issue[], filters: BacklogFilters): Issue[] {
-  return issues.filter((i) => matchesFilters(i, filters));
-}
 
 interface MyIssuesProps {
   issues: Issue[];
@@ -61,6 +58,7 @@ export default function MyIssues({
 }: MyIssuesProps) {
   const [user, setUser] = useState<User | null>(null);
   const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchUser()
@@ -98,9 +96,13 @@ export default function MyIssues({
   }, [issues, userEmail]);
 
   const tabIssues = activeTab === "assigned" ? assigned : created;
+  const searching = search.trim() !== "";
   const filtered = useMemo(
-    () => (hasActiveFilters(filters) ? applyFilters(tabIssues, filters) : tabIssues),
-    [tabIssues, filters],
+    () =>
+      searching || hasActiveFilters(filters)
+        ? tabIssues.filter((i) => matchesSearch(i, search) && matchesFilters(i, filters))
+        : tabIssues,
+    [tabIssues, filters, search, searching],
   );
 
   return (
@@ -112,6 +114,14 @@ export default function MyIssues({
             items={TAB_CONFIGS}
             activeId={activeTab}
             onChange={onTabChange}
+            keyboardNavigationEnabled={!contextMenu}
+          />
+        }
+        center={
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Filter issues..."
             keyboardNavigationEnabled={!contextMenu}
           />
         }
@@ -133,8 +143,8 @@ export default function MyIssues({
               : "No issues created by you"
           }
           description={
-            hasActiveFilters(filters)
-              ? "Try adjusting your filters."
+            searching || hasActiveFilters(filters)
+              ? "Try adjusting your filters or search."
               : activeTab === "assigned"
                 ? "Issues assigned to you will appear here."
                 : "Issues you've created will appear here."

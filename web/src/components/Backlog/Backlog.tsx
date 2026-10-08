@@ -52,7 +52,7 @@ import type { SortKey } from "../../utils/sort";
 import { isTerminal } from "../../constants";
 import { buildChildrenByParent } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
-import { type BacklogFilters, hasActiveFilters, matchesFilters } from "./filters";
+import { type BacklogFilters, hasActiveFilters, matchesFilters, matchesSearch } from "./filters";
 import { expandedNodeIds } from "./backlog-row-utils";
 import { DragOverlayCard } from "./DndComponents";
 import { backlogCollision } from "./backlogCollision";
@@ -445,18 +445,10 @@ export default function Backlog({
 
 
   const visibleStatuses = TAB_CONFIGS[activeTab].statuses;
-  const query = search.toLowerCase();
+  const query = search.trim().toLowerCase();
   const filteredIssues = issues.filter((i) => {
     if (!visibleStatuses.includes(i.status)) return false;
-    if (
-      query &&
-      !(
-        i.title.toLowerCase().includes(query) ||
-        i.id.toLowerCase().includes(query) ||
-        i.labels?.some((l) => l.toLowerCase().includes(query))
-      )
-    )
-      return false;
+    if (!matchesSearch(i, query)) return false;
     return matchesFilters(i, filters);
   });
 

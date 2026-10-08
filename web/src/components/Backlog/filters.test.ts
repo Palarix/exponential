@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasActiveFilters, matchesFilters, chipLabel, getSelected, setSelected, parseStoredFilters, EMPTY_FILTERS, type BacklogFilters } from "./filters";
+import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, EMPTY_FILTERS, type BacklogFilters } from "./filters";
 
 describe("hasActiveFilters", () => {
   it("returns false for empty filters", () => {
@@ -240,5 +240,38 @@ describe("parseStoredFilters", () => {
   it("falls back to empty filters on missing or corrupt input", () => {
     expect(parseStoredFilters(null)).toEqual(EMPTY_FILTERS);
     expect(parseStoredFilters("{nope")).toEqual(EMPTY_FILTERS);
+  });
+});
+
+describe("matchesSearch", () => {
+  const issue = { id: "xpo-a1b2c3", title: "Fix Login Redirect", labels: ["bug", "Frontend"] };
+
+  it("matches everything for an empty or whitespace-only query", () => {
+    expect(matchesSearch(issue, "")).toBe(true);
+    expect(matchesSearch(issue, "   ")).toBe(true);
+  });
+
+  it("matches a title substring case-insensitively", () => {
+    expect(matchesSearch(issue, "login redir")).toBe(true);
+  });
+
+  it("matches an ID substring", () => {
+    expect(matchesSearch(issue, "A1B2")).toBe(true);
+  });
+
+  it("matches a label substring", () => {
+    expect(matchesSearch(issue, "front")).toBe(true);
+  });
+
+  it("trims surrounding whitespace from the query", () => {
+    expect(matchesSearch(issue, "  bug  ")).toBe(true);
+  });
+
+  it("handles issues without labels", () => {
+    expect(matchesSearch({ id: "xpo-1", title: "Thing" }, "bug")).toBe(false);
+  });
+
+  it("returns false when nothing matches", () => {
+    expect(matchesSearch(issue, "zzz")).toBe(false);
   });
 });
