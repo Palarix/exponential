@@ -9,9 +9,9 @@ import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
 import { UserRound, Triangle, RefreshCw, Trash2, Check, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
-import { collectKnownPeople } from "../../utils/issues";
+import { collectKnownPeople, filterPeople } from "../../utils/issues";
 import { useKeyboardShortcuts } from "../../keyboard";
-import { Menu, MenuItem, MenuDivider } from "./Menu";
+import { Menu, MenuItem, MenuDivider, MenuFilter, MenuLabel } from "./Menu";
 import { SubMenu } from "./SubMenu";
 
 interface ContextMenuProps {
@@ -50,47 +50,27 @@ function AssigneePanel({
   onClose: () => void;
 }) {
   const [filterText, setFilterText] = useState("");
-  const knownPeople = useMemo(() => {
-    const all = collectKnownPeople(issues, contributors);
-    const q = filterText.toLowerCase();
-    if (!q) return all;
-    return all.filter(p => p.toLowerCase().includes(q));
-  }, [issues, contributors, filterText]);
-  const q = filterText.toLowerCase();
+  const allPeople = useMemo(() => collectKnownPeople(issues, contributors), [issues, contributors]);
+  const people = useMemo(() => filterPeople(allPeople, filterText), [allPeople, filterText]);
+  const hasQuery = filterText.trim().length > 0;
 
   return (
-    <div onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); if (filterText) setFilterText(""); else onClose(); } }}>
-      <div className="px-3 py-1.5">
-        <input
-          autoFocus
-          value={filterText}
-          onChange={e => setFilterText(e.target.value)}
-          placeholder="Set assignee..."
-          className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+    <Menu onClose={onClose} bare autoFocus={false} maxHeight="18rem">
+      <MenuFilter value={filterText} onChange={setFilterText} placeholder="Set assignee..." />
+      {issue.assignee && !hasQuery && (
+        <MenuItem label="Remove assignee" onClick={() => onAction("UPDATE", { assignee: "" })} />
+      )}
+      {people.map(person => (
+        <MenuItem
+          key={person}
+          label={person.split(" <")[0]}
+          icon={<Avatar name={person} size="sm" />}
+          checked={person === issue.assignee}
+          onClick={() => onAction("UPDATE", { assignee: person })}
         />
-      </div>
-      <div className="border-t border-[var(--color-border-subtle)]" />
-      <div className="max-h-60 overflow-y-auto">
-        {issue.assignee && !q && (
-          <button onClick={() => onAction("UPDATE", { assignee: "" })} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">
-            Remove assignee
-          </button>
-        )}
-        {knownPeople.map(person => {
-          const isCurrent = person === issue.assignee;
-          return (
-            <button key={person} onClick={() => onAction("UPDATE", { assignee: person })} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-              <Avatar name={person} size="sm" />
-              <span className="truncate">{person.split(" <")[0]}</span>
-              {isCurrent && <Check className="w-4 h-4 ml-auto shrink-0" />}
-            </button>
-          );
-        })}
-        {knownPeople.length === 0 && (
-          <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">No matching people</div>
-        )}
-      </div>
-    </div>
+      ))}
+      {people.length === 0 && <MenuLabel>No matching people</MenuLabel>}
+    </Menu>
   );
 }
 

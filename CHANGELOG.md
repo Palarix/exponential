@@ -88,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Context Menu Assignee submenu now autofocuses its filter input and uses the shared `Menu`/`MenuItem` styling and keyboard navigation, matching Status, Priority and Labels (xpo-690930)
 - Every `xpo` command stalled ~5 s (and printed a stray `ESC ]11;?`) under a pseudo-terminal that doesn't answer terminal queries: bubbletea v1's package init queried the background colour. Migrated the interactive prompts to `charm.land/huh/v2`, which removes bubbletea v1 (xpo-d053b5)
 - `xpo init` and `xpo doctor` now detect CLAUDE.md/AGENTS.md instruction blocks that differ from the current template even when the version is unchanged; `init` refreshes them and `doctor` reports "Instructions out of date" (fixed by `--fix`) (xpo-757732)
 - Backlog: ghost parents (faded parent rows shown above sub-issues in another status group) can be collapsed and expanded by click, ←/→ and Expand/Collapse all; the collapsed state is shared with the real parent row. While a search or filter is active, saved collapsed state is ignored so matches are never hidden, and collapses made during the search are temporary (xpo-0cbecc)

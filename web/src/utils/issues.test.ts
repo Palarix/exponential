@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildChildrenByParent, collectKnownPeople } from "./issues";
+import { buildChildrenByParent, collectKnownPeople, filterPeople } from "./issues";
 import { makeIssue } from "../test-utils";
 
 describe("buildChildrenByParent", () => {
@@ -95,5 +95,33 @@ describe("collectKnownPeople", () => {
 
   it("returns empty for no input", () => {
     expect(collectKnownPeople([], [])).toEqual([]);
+  });
+});
+
+describe("filterPeople", () => {
+  const people = ["Alice Smith <alice@x.io>", "Bob Jones <bob@y.io>", "Carol <carol@alice.dev>"];
+
+  it("returns all people for an empty query", () => {
+    expect(filterPeople(people, "")).toEqual(people);
+  });
+
+  it("returns all people for a whitespace-only query", () => {
+    expect(filterPeople(people, "   ")).toEqual(people);
+  });
+
+  it("matches case-insensitively on name", () => {
+    expect(filterPeople(people, "BOB")).toEqual(["Bob Jones <bob@y.io>"]);
+  });
+
+  it("matches on email as well as name", () => {
+    expect(filterPeople(people, "alice")).toEqual(["Alice Smith <alice@x.io>", "Carol <carol@alice.dev>"]);
+  });
+
+  it("trims surrounding whitespace from the query", () => {
+    expect(filterPeople(people, "  jones ")).toEqual(["Bob Jones <bob@y.io>"]);
+  });
+
+  it("returns empty when nothing matches", () => {
+    expect(filterPeople(people, "zed")).toEqual([]);
   });
 });

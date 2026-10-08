@@ -13,6 +13,12 @@ export function buildChildrenByParent(issues: Issue[]): Map<string, Issue[]> {
   return map;
 }
 
+export function filterPeople(people: string[], query: string): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return people;
+  return people.filter(p => p.toLowerCase().includes(q));
+}
+
 export function collectKnownPeople(issues: Issue[], contributors: string[]): string[] {
   const byEmail = new Map<string, string>();
   for (const val of contributors) {
