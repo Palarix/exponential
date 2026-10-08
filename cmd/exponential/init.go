@@ -435,11 +435,14 @@ func runReinit(interactive bool) {
 		// prompt, and for skills that differ from the current template even
 		// though the version matches.
 		var blockAgents []exponential.AgentConfig
+		var staleBlocks []exponential.AgentConfig
 		var skillHealth []exponential.AgentHealth
 		for _, agent := range exponential.DetectInstalledAgents() {
-			h := exponential.CheckAgentHealth(agent, integrationVer)
+			h := exponential.CheckAgentHealth(agent, integrationVer, prefix)
 			if blockNeedsPrompt(h) {
 				blockAgents = append(blockAgents, agent)
+			} else if h.BlockStale {
+				staleBlocks = append(staleBlocks, agent)
 			}
 			if h.SkillStale || h.SkillEdited() {
 				skillHealth = append(skillHealth, h)
@@ -447,7 +450,7 @@ func runReinit(interactive bool) {
 		}
 
 		fmt.Printf("\nExponential is already set up in this project (prefix %s)\n", prefix)
-		if len(blockAgents) == 0 && len(skillHealth) == 0 {
+		if len(blockAgents) == 0 && len(staleBlocks) == 0 && len(skillHealth) == 0 {
 			fmt.Printf("%s Integrations are up to date (%s)\n\n", ui.OKPrefix, version.CLIVersion)
 			return
 		}
@@ -456,6 +459,13 @@ func runReinit(interactive bool) {
 		fmt.Printf("%s Integrations are up to date (%s)\n", ui.OKPrefix, version.CLIVersion)
 		for _, agent := range blockAgents {
 			handleEditedBlock(agent, prefix)
+		}
+		for _, agent := range staleBlocks {
+			if _, err := exponential.WriteAgentInstructions(agent, prefix, false); err != nil {
+				fmt.Printf("%s %s: %v\n", ui.ErrorPrefix, agent.File, err)
+				continue
+			}
+			fmt.Printf("%s %s: instructions updated to the %s template\n", ui.OKPrefix, agent.Name, version.CLIVersion)
 		}
 		for _, h := range skillHealth {
 			handleEditedSkills(h.Agent)

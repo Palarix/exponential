@@ -17,7 +17,7 @@ func TestHealth_UnconfiguredAgent_NotFixable(t *testing.T) {
 	setupProject(t, "test")
 	// Agent binary might be on PATH but nothing installed — simulate by not calling setup
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if h.Configured {
 		t.Fatal("agent with nothing installed should not be considered configured")
@@ -36,7 +36,7 @@ func TestHealth_FullyConfiguredAgent_NoProblem(t *testing.T) {
 	setupProject(t, "test")
 	setupAgentFull(t, testClaudeCode, "test")
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !h.Configured {
 		t.Fatal("fully set up agent should be configured")
@@ -60,7 +60,7 @@ func TestHealth_EditedBlock_IsManualNotFixable(t *testing.T) {
 	modified := strings.Replace(string(content), "Every code change must", "CUSTOM RULE", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if len(h.AutoFix) > 0 {
 		t.Fatalf("edited block should NOT be in Problems (fixable), got: %v", h.AutoFix)
@@ -83,7 +83,7 @@ func TestHealth_LegacyFormat_IsManualNotFixable(t *testing.T) {
 	// Also install MCP so the agent counts as configured
 	EnsureMCPConfigFor(testClaudeCode.MCPConfig)
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !h.Configured {
 		t.Fatal("agent with MCP + legacy instructions should be configured")
@@ -111,7 +111,7 @@ func TestHealth_DeletedSkill_ReportsAsFixable(t *testing.T) {
 	// Delete skill directory
 	os.RemoveAll(".claude")
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !h.Configured {
 		t.Fatal("agent with MCP + instructions should still be configured after skill deletion")
@@ -135,7 +135,7 @@ func TestHealth_MissingMCP_ReportsAsFixable(t *testing.T) {
 
 	os.Remove(".mcp.json")
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !h.Configured {
 		t.Fatal("agent with instructions + skill should still be configured")
@@ -157,7 +157,7 @@ func TestHealth_OnlyMCP_ReportsMissingPieces(t *testing.T) {
 	setupProject(t, "test")
 	EnsureMCPConfigFor(testClaudeCode.MCPConfig)
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !h.Configured {
 		t.Fatal("agent with only MCP should be configured")
@@ -188,7 +188,7 @@ func TestHealth_StaleVersion_ReportsUpdate(t *testing.T) {
 	setupProject(t, "test")
 	setupAgentFull(t, testClaudeCode, "test")
 
-	h := CheckAgentHealth(testClaudeCode, "0.1.0")
+	h := CheckAgentHealth(testClaudeCode, "0.1.0", "test")
 
 	found := false
 	for _, p := range h.AutoFix {
@@ -206,7 +206,7 @@ func TestHealth_CurrentVersion_NoProblem(t *testing.T) {
 	setupProject(t, "test")
 	setupAgentFull(t, testClaudeCode, "test")
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if len(h.AutoFix) > 0 {
 		t.Fatalf("current version should have no problems, got: %v", h.AutoFix)
@@ -222,8 +222,8 @@ func TestHealth_FixPlan_OnlyBrokenAgent(t *testing.T) {
 	// Set up Codex partially (MCP only)
 	EnsureMCPConfigFor(testCodex.MCPConfig)
 
-	claudeHealth := CheckAgentHealth(testClaudeCode, version.CLIVersion)
-	codexHealth := CheckAgentHealth(testCodex, version.CLIVersion)
+	claudeHealth := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
+	codexHealth := CheckAgentHealth(testCodex, version.CLIVersion, "test")
 
 	if len(claudeHealth.AutoFix) > 0 {
 		t.Fatalf("Claude Code should have no problems, got: %v", claudeHealth.AutoFix)
@@ -251,5 +251,89 @@ func TestHealth_FixPlan_OnlyBrokenAgent(t *testing.T) {
 		if c.Path == ".mcp.json" {
 			t.Fatalf("fix plan for Codex should not include .mcp.json (Claude Code's MCP), found: %s", c.Path)
 		}
+	}
+}
+
+// Bug (xpo-757732): a template change shipped without a version bump never
+// reached existing repos, because staleness was gated on the version stamp.
+func writeStaleBlock(t *testing.T, outside string) {
+	t.Helper()
+	old := strings.Replace(GeneratedInstructions(testClaudeCode, "test"),
+		"### Hard Rules", "### Agent Identity\n\nSet the assignee to yourself.\n\n### Hard Rules", 1)
+	wrapped := WrapManagedBlock(old, version.CLIVersion, "markdown")
+	if err := os.WriteFile("CLAUDE.md", []byte(outside+"\n\n"+wrapped+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHealth_StaleBlockContent_SameVersion_IsFixable(t *testing.T) {
+	setupProject(t, "test")
+	setupAgentFull(t, testClaudeCode, "test")
+	writeStaleBlock(t, "# My project")
+
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
+
+	if !h.BlockStale {
+		t.Fatal("block differing from the current template should be stale")
+	}
+	if len(h.Interactive) > 0 {
+		t.Fatalf("an unedited stale block is not interactive, got: %v", h.Interactive)
+	}
+	found := false
+	for _, p := range h.AutoFix {
+		if p == "Instructions out of date" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected AutoFix 'Instructions out of date', got: %v", h.AutoFix)
+	}
+}
+
+func TestHealth_StaleVersion_DoesNotDoubleReport(t *testing.T) {
+	setupProject(t, "test")
+	setupAgentFull(t, testClaudeCode, "test")
+	writeStaleBlock(t, "")
+
+	h := CheckAgentHealth(testClaudeCode, "0.1.0", "test")
+
+	for _, p := range h.AutoFix {
+		if p == "Instructions out of date" {
+			t.Fatalf("an older version already reports Update available, got: %v", h.AutoFix)
+		}
+	}
+	if !h.BlockStale {
+		t.Fatal("older version should still mark the block stale")
+	}
+}
+
+func TestHealth_StaleBlock_RefreshKeepsOutsideContent(t *testing.T) {
+	setupProject(t, "test")
+	setupAgentFull(t, testClaudeCode, "test")
+	writeStaleBlock(t, "# My project\n\nKeep me.")
+
+	if _, err := WriteAgentInstructions(testClaudeCode, "test", false); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile("CLAUDE.md")
+	if !strings.Contains(string(data), "Keep me.") {
+		t.Fatal("content outside the managed block must be preserved")
+	}
+	if strings.Contains(string(data), "Agent Identity") {
+		t.Fatal("stale section should be replaced by the current template")
+	}
+	if h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test"); h.BlockStale || len(h.AutoFix) > 0 {
+		t.Fatalf("refreshed block should be up to date, got stale=%v autofix=%v", h.BlockStale, h.AutoFix)
+	}
+}
+
+func TestHealth_UnknownPrefix_SkipsContentCheck(t *testing.T) {
+	setupProject(t, "test")
+	setupAgentFull(t, testClaudeCode, "test")
+	writeStaleBlock(t, "")
+
+	if h := CheckAgentHealth(testClaudeCode, version.CLIVersion, ""); h.BlockStale {
+		t.Fatal("without a known prefix the template can't be generated, so the block must not be flagged")
 	}
 }

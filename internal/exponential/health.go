@@ -3,6 +3,7 @@ package exponential
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/palarix/exponential/internal/version"
 )
@@ -18,6 +19,7 @@ type AgentHealth struct {
 	Interactive []string // fixable with user prompt (edited block, edited skill, legacy format)
 
 	BlockEdited  bool     // managed instruction block has local edits
+	BlockStale   bool     // unedited managed block differs from the current template
 	SkillStale   bool     // skill files are missing or differ from the current template
 	EditedSkills []string // skill files with local edits
 }
@@ -38,7 +40,9 @@ func (h *AgentHealth) AllProblems() []string {
 }
 
 // CheckAgentHealth examines one agent's integration state and classifies issues.
-func CheckAgentHealth(agent AgentConfig, integrationVer string) AgentHealth {
+// prefix is the project's issue prefix, which the generated instructions embed;
+// when empty (unknown), the block content is not compared with the template.
+func CheckAgentHealth(agent AgentConfig, integrationVer, prefix string) AgentHealth {
 	h := AgentHealth{Agent: agent}
 
 	if agent.MCPConfig.HasMCPConfig() {
@@ -56,7 +60,12 @@ func CheckAgentHealth(agent AgentConfig, integrationVer string) AgentHealth {
 				h.Interactive = append(h.Interactive, fmt.Sprintf("%s: xpo section has local edits", agent.File))
 			} else if integrationVer != "" && integrationVer != version.CLIVersion &&
 				version.CompareVersions(integrationVer, version.CLIVersion) < 0 {
+				h.BlockStale = true
 				h.AutoFix = append(h.AutoFix, fmt.Sprintf("Update available (%s → %s)", integrationVer, version.CLIVersion))
+			} else if prefix != "" && strings.TrimSpace(block.Content) != strings.TrimSpace(GeneratedInstructions(agent, prefix)) {
+				// Template changed without a version bump.
+				h.BlockStale = true
+				h.AutoFix = append(h.AutoFix, "Instructions out of date")
 			}
 		} else if HasAgentInstructions(string(content)) {
 			h.HasInstrs = true

@@ -745,16 +745,20 @@ func AppendAgentInstructions(agent AgentConfig, prefix string) error {
 	return nil
 }
 
+// GeneratedInstructions returns the managed-block content xpo writes for an
+// agent: a short stub when the agent loads the skill, the full docs otherwise.
+func GeneratedInstructions(agent AgentConfig, prefix string) string {
+	if agent.SkillDir != "" {
+		return GenerateAgentStub(prefix)
+	}
+	return GenerateAgentDocs(prefix)
+}
+
 // WriteAgentInstructions writes xpo instructions and returns detailed result.
 // When force is false and the managed block has been edited, it returns a result
 // with Action="skipped" and WasEdited=true so the caller can prompt the user.
 func WriteAgentInstructions(agent AgentConfig, prefix string, force bool) (InstructionWriteResult, error) {
-	var xpoSection string
-	if agent.SkillDir != "" {
-		xpoSection = GenerateAgentStub(prefix)
-	} else {
-		xpoSection = GenerateAgentDocs(prefix)
-	}
+	xpoSection := GeneratedInstructions(agent, prefix)
 
 	cliVersion := version.CLIVersion
 

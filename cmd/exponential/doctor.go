@@ -279,8 +279,14 @@ func describeOrderViolations(violations []storage.EventOrderViolation) (summary,
 }
 
 // checkAgentHealth delegates to the testable internal function.
+// The content check uses the configured prefix only: doctor's "issue"
+// display fallback would flag every block as stale.
 func checkAgentHealth(agent exponential.AgentConfig, integrationVer string) exponential.AgentHealth {
-	return exponential.CheckAgentHealth(agent, integrationVer)
+	configured := ""
+	if cfg != nil {
+		configured = cfg.Prefix
+	}
+	return exponential.CheckAgentHealth(agent, integrationVer, configured)
 }
 
 func doctorIntegrations(c *doctorCounts, prefix string, integrationVer string) {

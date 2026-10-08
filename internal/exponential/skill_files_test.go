@@ -250,7 +250,7 @@ func TestHealth_StaleSkill_SameVersion_IsAutoFix(t *testing.T) {
 	setupAgentFull(t, testClaudeCode, "test")
 	writeFile(t, skillPath(testClaudeCode), WrapSkillFile("older template", version.CLIVersion))
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !containsStr(h.AutoFix, "Skill out of date") {
 		t.Fatalf("expected 'Skill out of date' in AutoFix, got %v", h.AutoFix)
@@ -267,7 +267,7 @@ func TestHealth_EditedSkill_IsInteractive(t *testing.T) {
 	data, _ := os.ReadFile(path)
 	writeFile(t, path, strings.Replace(string(data), "### 1. Check existing work", "### 1. My own step", 1))
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
 	if !h.SkillEdited() {
 		t.Fatal("expected SkillEdited")
@@ -284,7 +284,7 @@ func TestHealth_EditedBlockOnly_SkillNotEdited(t *testing.T) {
 	setupProject(t, "test")
 	setupAgentFull(t, testClaudeCode, "test")
 
-	h := CheckAgentHealth(testClaudeCode, version.CLIVersion)
+	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 	if h.SkillEdited() || h.BlockEdited {
 		t.Fatal("fresh setup must report no edits")
 	}
