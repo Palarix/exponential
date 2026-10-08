@@ -7,6 +7,7 @@ import {
   mergeAndSort,
   splitLabels,
   contrastTextColor,
+  filterLabelsByName,
 } from "./labels";
 
 const CONFIG: Record<string, string> = {
@@ -139,5 +140,38 @@ describe("contrastTextColor", () => {
   it("returns correct contrast for mid-range colors", () => {
     expect(contrastTextColor("#808080")).toBe("#000000");
     expect(contrastTextColor("#333333")).toBe("#ffffff");
+  });
+});
+
+describe("filterLabelsByName", () => {
+  const LABELS = [{ name: "bug" }, { name: "Feature" }, { name: "frontend" }, { name: "Epic" }];
+
+  it("returns all labels for an empty query", () => {
+    expect(filterLabelsByName(LABELS, "")).toBe(LABELS);
+  });
+
+  it("returns all labels for a whitespace-only query", () => {
+    expect(filterLabelsByName(LABELS, "   ")).toBe(LABELS);
+  });
+
+  it("matches case-insensitively", () => {
+    expect(filterLabelsByName(LABELS, "EPIC")).toEqual([{ name: "Epic" }]);
+  });
+
+  it("matches substrings anywhere in the name", () => {
+    expect(filterLabelsByName(LABELS, "e")).toEqual([
+      { name: "Feature" },
+      { name: "frontend" },
+      { name: "Epic" },
+    ]);
+    expect(filterLabelsByName(LABELS, "ont")).toEqual([{ name: "frontend" }]);
+  });
+
+  it("trims surrounding whitespace from the query", () => {
+    expect(filterLabelsByName(LABELS, "  bug ")).toEqual([{ name: "bug" }]);
+  });
+
+  it("returns an empty list when nothing matches", () => {
+    expect(filterLabelsByName(LABELS, "zzz")).toEqual([]);
   });
 });

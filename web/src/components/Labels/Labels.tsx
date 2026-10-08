@@ -3,10 +3,10 @@ import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
-import { TopBar, CountBadge, Heading, Text } from "../ui";
+import { TopBar, CountBadge, Heading, Text, SearchInput } from "../ui";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
-import { labelColor, canonicalLabel } from "../../utils/labels";
+import { labelColor, canonicalLabel, filterLabelsByName } from "../../utils/labels";
 
 interface LabelsProps {
   issues: Issue[];
@@ -30,6 +30,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(LABEL_PRESET_COLORS[0]);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +62,8 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
         return { name, color: labelColor(name, configLabels), count };
       });
   }, [configLabels, labelCounts]);
+
+  const visibleLabels = useMemo(() => filterLabelsByName(labels, search), [labels, search]);
 
   useEffect(() => {
     if (editing) {
@@ -121,6 +124,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
       {/* Header */}
       <TopBar
         left={<Heading title="Labels" as="h1" />}
+        center={<SearchInput value={search} onChange={setSearch} placeholder="Filter labels..." />}
         right={
           <button
             onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}
@@ -200,9 +204,13 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                 Create your first label
               </button>
             </div>
+          ) : visibleLabels.length === 0 && labels.length > 0 ? (
+            <div className="flex justify-center py-16">
+              <Text as="p">No labels match “{search.trim()}”</Text>
+            </div>
           ) : (
             <div className="divide-y divide-[var(--color-border-subtle)]">
-              {labels.map((label) => (
+              {visibleLabels.map((label) => (
                 <div key={label.name}>
                   {editing === label.name ? (
                     <div className="px-4 py-3 bg-[var(--color-surface-1)]">

@@ -85,3 +85,12 @@ export function contrastTextColor(hex: string): string {
     0.0722 * (b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4);
   return luminance > 0.179 ? "#000000" : "#ffffff";
 }
+
+export function filterLabelsByName<T extends { name: string }>(
+  labels: T[],
+  query: string,
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return labels;
+  return labels.filter((l) => l.name.toLowerCase().includes(q));
+}
