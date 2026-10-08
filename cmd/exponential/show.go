@@ -51,6 +51,7 @@ func showIssue(id string) {
 			ParentID:         issue.ParentID,
 			StoryPoints:      issue.Estimate,
 			Assignee:         issue.Assignee,
+			AssigneeVia:      issue.AssigneeVia,
 			CycleID:          issue.CycleID,
 			EffectiveCycleID: issue.EffectiveCycleID,
 			BranchStats:      issue.BranchStats,

@@ -1,4 +1,5 @@
 import type { Issue } from "../api/types";
+import { isAgentIdentity } from "./format";
 
 export function buildChildrenByParent(issues: Issue[]): Map<string, Issue[]> {
   const map = new Map<string, Issue[]>();
@@ -16,13 +17,13 @@ export function collectKnownPeople(issues: Issue[], contributors: string[]): str
   const byEmail = new Map<string, string>();
   for (const val of contributors) {
     const email = val.match(/<([^>]+@[^>]+)>/)?.[1]?.toLowerCase();
-    if (email && !byEmail.has(email)) byEmail.set(email, val);
+    if (email && !byEmail.has(email) && !isAgentIdentity(val)) byEmail.set(email, val);
   }
   for (const i of issues) {
     for (const val of [i.created_by, i.assignee]) {
       if (!val) continue;
       const email = val.match(/<([^>]+@[^>]+)>/)?.[1]?.toLowerCase();
-      if (email && !byEmail.has(email)) byEmail.set(email, val);
+      if (email && !byEmail.has(email) && !isAgentIdentity(val)) byEmail.set(email, val);
     }
   }
   return Array.from(byEmail.values()).sort((a, b) =>

@@ -19,6 +19,7 @@ type IssueSummary struct {
 	ParentID         string             `json:"parent_id,omitempty"`
 	StoryPoints      int                `json:"story_points,omitempty"`
 	Assignee         string             `json:"assignee,omitempty"`
+	AssigneeVia      string             `json:"assignee_via,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
@@ -52,6 +53,7 @@ type ShowOutput struct {
 	ParentID         string             `json:"parent_id,omitempty"`
 	StoryPoints      int                `json:"story_points,omitempty"`
 	Assignee         string             `json:"assignee,omitempty"`
+	AssigneeVia      string             `json:"assignee_via,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
@@ -320,6 +322,7 @@ func ToIssueSummary(i *model.Issue) IssueSummary {
 		ParentID:         i.ParentID,
 		StoryPoints:      i.Estimate,
 		Assignee:         i.Assignee,
+		AssigneeVia:      i.AssigneeVia,
 		CycleID:          i.CycleID,
 		EffectiveCycleID: i.EffectiveCycleID,
 		BranchStats:      i.BranchStats,

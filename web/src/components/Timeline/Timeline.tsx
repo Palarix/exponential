@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } fro
 import { createPortal } from "react-dom";
 import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
-import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
+import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentCommentAuthor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 import { TopBar, IconButton, Heading, Text, SearchInput } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
@@ -175,13 +175,17 @@ function describeIssueEvent(
 ): EventDescription | null {
   const p = evt.payload || {};
   const name = (
-    <Tooltip content={via || ""}><span className="font-medium text-[var(--color-text-primary)]">{who}</span></Tooltip>
+    <Tooltip content={via ? `${via} for ${who}` : ""}><span className="font-medium text-[var(--color-text-primary)]">{who}</span></Tooltip>
   );
   switch (evt.event_type) {
     case "CREATE":
       return { before: <>{name} created</> };
-    case "COMMENT":
-      return { before: <>{name} commented on</> };
+    case "COMMENT": {
+      const author = via
+        ? <span className="font-medium text-[var(--color-text-primary)]">{agentCommentAuthor(via, who)}</span>
+        : name;
+      return { before: <>{author} commented on</> };
+    }
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return { before: <>{name} merged</>, after: strategy || undefined };
@@ -209,7 +213,7 @@ function describeIssueEvent(
         return { before: <>{name} {verb}</>, after: suffix || undefined };
       }
       if (p.assignee !== undefined) {
-        const assignee = String(p.assignee);
+        const assignee = resolveAssignee(String(p.assignee), evt.created_by ?? "", evt.on_behalf_of);
         if (!assignee) return { before: <>{name} unassigned</> };
         return { before: <>{name} assigned</>, after: <>to <span className="font-medium text-[var(--color-text-primary)]">{shortName(assignee)}</span></> };
       }

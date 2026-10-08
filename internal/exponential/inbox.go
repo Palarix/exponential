@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/palarix/exponential/internal/identity"
 	"github.com/palarix/exponential/internal/model"
 )
 
@@ -157,7 +158,7 @@ func commentSnippet(text string) string {
 // FormatInboxItem renders a single inbox item as a one-line human sentence
 // from the perspective of `me` (used to render "to you").
 func FormatInboxItem(item InboxItem, me string) string {
-	who := actorName(item.CreatedBy)
+	who := identity.Actor(item.CreatedBy, item.OnBehalfOf)
 	id := item.IssueID
 
 	switch item.Type {
@@ -173,13 +174,14 @@ func FormatInboxItem(item InboxItem, me string) string {
 		var p model.UpdatePayload
 		decodePayload(item.Payload, &p)
 		if p.Assignee != nil {
+			assignee, _ := identity.ResolveAssignment(*p.Assignee, item.CreatedBy, item.OnBehalfOf)
 			switch {
-			case identityMatches(*p.Assignee, me):
+			case identityMatches(assignee, me):
 				return fmt.Sprintf("%s assigned %s to you", who, id)
-			case strings.TrimSpace(*p.Assignee) == "":
+			case strings.TrimSpace(assignee) == "":
 				return fmt.Sprintf("%s unassigned %s", who, id)
 			default:
-				return fmt.Sprintf("%s assigned %s to %s", who, id, actorName(*p.Assignee))
+				return fmt.Sprintf("%s assigned %s to %s", who, id, actorName(assignee))
 			}
 		}
 		if p.Status != nil {

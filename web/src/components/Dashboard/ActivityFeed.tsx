@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Text } from "../ui";
 import type { ActivityEvent, Issue } from "../../api/client";
-import { shortName, formatRelativeTime, displayActor } from "../../utils/format";
+import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentCommentAuthor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 import {
   Plus,
@@ -87,13 +87,17 @@ function describeActivity(
 ): { icon: ActIconKey; sentence: ReactNode } | null {
   const p = evt.payload || {};
   const name = (
-    <Tooltip content={via || ""}><span className="text-[var(--color-text-primary)] mr-1">{who}</span></Tooltip>
+    <Tooltip content={via ? `${via} for ${who}` : ""}><span className="text-[var(--color-text-primary)] mr-1">{who}</span></Tooltip>
   );
   switch (evt.type) {
     case "CREATE":
       return { icon: "create", sentence: <>{name} created</> };
-    case "COMMENT":
-      return { icon: "comment", sentence: <>{name} commented on</> };
+    case "COMMENT": {
+      const author = via
+        ? <span className="text-[var(--color-text-primary)] mr-1">{agentCommentAuthor(via, who)}</span>
+        : name;
+      return { icon: "comment", sentence: <>{author} commented on</> };
+    }
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return {
@@ -132,7 +136,7 @@ function describeActivity(
         };
       }
       if (p.assignee !== undefined) {
-        const assignee = String(p.assignee);
+        const assignee = resolveAssignee(String(p.assignee), evt.created_by, evt.on_behalf_of);
         if (!assignee)
           return {
             icon: "assign",

@@ -37,6 +37,10 @@ func withAssignee(a string) func(*model.Issue) {
 	return func(i *model.Issue) { i.Assignee = a }
 }
 
+func withAssigneeVia(a, via string) func(*model.Issue) {
+	return func(i *model.Issue) { i.Assignee, i.AssigneeVia = a, via }
+}
+
 func withLabels(l ...string) func(*model.Issue) {
 	return func(i *model.Issue) { i.Labels = l }
 }
@@ -207,6 +211,20 @@ func TestMetrics_Workload(t *testing.T) {
 	}
 	if w.Blocked != 1 {
 		t.Errorf("blocked = %d, want 1", w.Blocked)
+	}
+}
+
+func TestMetrics_WorkloadFoldsAgentWorkIntoPrincipal(t *testing.T) {
+	now := time.Now()
+	const nic = "Nicolas <nic@example.com>"
+	issues := map[string]*model.Issue{
+		"a": makeMetricIssue("a", model.StatusDoing, withAssigneeVia(nic, "claude-code/2.1.263 <agent@mcp>")),
+		"b": makeMetricIssue("b", model.StatusDoing, withAssignee(nic)),
+	}
+
+	m := ComputePulseMetrics(issues, now)
+	if len(m.Workload) != 1 || m.Workload[0].InProgress != 2 {
+		t.Fatalf("agent work should fold into the principal's row, got %+v", m.Workload)
 	}
 }
 

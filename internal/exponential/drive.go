@@ -550,12 +550,11 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	supExec := NewAgentExecutor(supervisor, supervisorModel)
 	coderExec := NewAgentExecutor(coder)
 
-	// Set agent identity — attribute work to the agent, not the user
 	hostname, _ := os.Hostname()
 	if hostname == "" {
 		hostname = "local"
 	}
-	c.UserOverride = fmt.Sprintf("%s <agent@%s>", supervisor, hostname)
+	c.setDriveIdentity(supervisor, hostname)
 
 	timeout := 30 * time.Minute
 	if cfg.Drive.Timeout != "" {
@@ -1122,4 +1121,11 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max] + "\n... (truncated)"
+}
+
+// setDriveIdentity records drive's events as the supervisor agent acting on
+// behalf of the user who ran drive.
+func (c *Client) setDriveIdentity(supervisor, hostname string) {
+	c.OnBehalfOf = c.GetUser()
+	c.UserOverride = fmt.Sprintf("%s <agent@%s>", supervisor, hostname)
 }

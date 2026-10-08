@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- "Worked by" filter (Agent / Human) in the Backlog, My Issues and Inbox filter menus, backed by a new `assignee_via` field on issues in the CLI JSON, MCP and HTTP API (xpo-35fc16)
 - "Open" button in the issue detail top bar that opens the issue's local worktree in VS Code via a `vscode://file/…` link; the path comes from a new local-only `GET /api/local/issues/{id}/worktree` endpoint, which `xpo board` answers itself even in remote/proxy mode (xpo-c4fbed)
 - Unified JSON I/O layer: `internal/jsonio/` package as single source of truth for all JSON-serializable types shared between CLI and MCP (xpo-1a5504)
 - `xpo list --json` outputs `jsonio.ListOutput` envelope (xpo-2e3060)
@@ -54,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Assignees are principal-first: an issue is always assigned to a person, never an agent. Old assignments to agent identities (`Claude Code <agent@host.local>`) resolve to the person the agent worked for, at read time, with no event-log rewrite. Avatars and assignee names always show the person; agent-written comments read "Claude Code on behalf of <person>" (xpo-35fc16)
+- `start` assigns the issue to the person the starter works for (the MCP/drive principal, or the CLI user); an issue held by someone else keeps its assignee unless `--force` (xpo-35fc16)
+- `xpo drive` records its events on behalf of the git-config user (xpo-35fc16)
+- CLI timeline and inbox lead with the person: "Nicolas (via Claude Code)" (xpo-35fc16)
 - `xpo add --json` now uses `jsonio.AddInput` directly (dropping `inputs` shim), calls `ValidateCreatePayload` for full validation parity with MCP, and emits `jsonio.AddOutput` JSON instead of plain text (xpo-3847a5)
 - `xpo update --json` now uses `jsonio.UpdateInput` directly, calls `ValidateUpdatePayload` for full validation parity with MCP, and emits `jsonio.UpdateOutput` JSON instead of plain text; `done`, `planned`, and `blocked <id>` gain `--json` output (xpo-199282)
 - `xpo rationale --json` now outputs `jsonio.RationaleOutput` envelope instead of raw search result (xpo-11e559)
@@ -105,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- "Agent Identity" instructions telling agents to set themselves as assignee, from CLAUDE.md/AGENTS.md/GEMINI.md, the xpo skill and the generated templates (xpo-35fc16)
 - `xpo init mcp` and `xpo init skill` subcommands — absorbed into unified `xpo init` (xpo-76e2a1)
 - `internal/inputs` backward-compat re-export shim — all CLI commands now use `jsonio` directly (xpo-aebfc5)
 

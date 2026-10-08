@@ -33,6 +33,7 @@ type apiIssue struct {
 	Priority         int             `json:"priority"`
 	SortOrder        string          `json:"sort_order"`
 	Assignee         string          `json:"assignee"`
+	AssigneeVia      string          `json:"assignee_via"`
 	CycleID          string          `json:"cycle_id"`
 	EffectiveCycleID string          `json:"effective_cycle_id"`
 	BranchStats      *apiBranchStats `json:"branch_stats"`
@@ -94,6 +95,7 @@ func apiIssueToModel(a apiIssue) *model.Issue {
 		Priority:         a.Priority,
 		SortOrder:        a.SortOrder,
 		Assignee:         a.Assignee,
+		AssigneeVia:      a.AssigneeVia,
 		CycleID:          a.CycleID,
 		EffectiveCycleID: a.EffectiveCycleID,
 		Labels:           a.Labels,

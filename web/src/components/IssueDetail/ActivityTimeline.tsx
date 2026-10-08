@@ -10,6 +10,10 @@ import {
   formatRelativeTime,
   linkifyIssueIds,
   activityActor,
+  agentCommentAuthor,
+  agentTooltip,
+  resolveAssignee,
+  shortName,
 } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 
@@ -18,7 +22,7 @@ type ActivityEntry =
       kind: "system";
       actor: string;
       author: string;
-      tooltip: string;
+      via?: string;
       content: React.ReactNode;
       time: string;
     }
@@ -26,7 +30,7 @@ type ActivityEntry =
       kind: "comment";
       actor: string;
       author: string;
-      tooltip: string;
+      via?: string;
       text: string;
       time: string;
     };
@@ -95,7 +99,7 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
           <>
             assigned to{" "}
             <Text weight="medium" color="primary">
-              {String(p.assignee)}
+              {shortName(resolveAssignee(String(p.assignee), evt.created_by, evt.on_behalf_of))}
             </Text>
           </>,
         );
@@ -181,7 +185,7 @@ export default function ActivityTimeline({
           kind: "comment",
           actor: actor.identity,
           author: actor.name,
-          tooltip: actor.tooltip,
+          via: actor.via,
           text: String(p.text || ""),
           time: evt.created_at,
         });
@@ -192,7 +196,7 @@ export default function ActivityTimeline({
             kind: "system",
             actor: actor.identity,
             author: actor.name,
-            tooltip: actor.tooltip,
+            via: actor.via,
             content: desc,
             time: evt.created_at,
           });
@@ -233,7 +237,7 @@ export default function ActivityTimeline({
                 key={`sys-${i}`}
                 className="flex items-center gap-2 px-4 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
-                <Tooltip content={entry.tooltip}>
+                <Tooltip content={entry.via ? agentTooltip(entry.via, entry.actor) : ""}>
                   <span className="flex items-center gap-2">
                     <Avatar name={entry.actor} size="sm" />
                     <span>{entry.author}</span>
@@ -252,12 +256,12 @@ export default function ActivityTimeline({
               className="!mt-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]"
             >
               <div className="flex items-center gap-3 mb-2">
-                <Tooltip content={entry.tooltip}>
-                  <span className="flex items-center gap-3">
-                    <Avatar name={entry.actor} size="sm" />
-                    <Text weight="medium" color="primary">{entry.author}</Text>
-                  </span>
-                </Tooltip>
+                <span className="flex items-center gap-3">
+                  <Avatar name={entry.actor} size="sm" />
+                  <Text weight="medium" color="primary">
+                    {entry.via ? agentCommentAuthor(entry.via, entry.actor) : entry.author}
+                  </Text>
+                </span>
                 <Text>
                   {formatRelativeTime(entry.time)}
                 </Text>

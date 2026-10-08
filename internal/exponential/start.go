@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/palarix/exponential/internal/identity"
 	"github.com/palarix/exponential/internal/model"
 )
 
@@ -16,6 +17,7 @@ import (
 // Returns the branch name, worktree path (empty when worktrees disabled),
 // messages, and any error.
 func (c *Client) StartWork(id string, force bool) (branchName, worktreePath string, msgs []string, err error) {
+	c.syncLocal()
 	issue, err := c.Transport.GetIssue(id)
 	if err != nil {
 		return "", "", nil, err
@@ -32,8 +34,8 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 					return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
 				}
 				if issue.Status != model.StatusDoing {
-					status := string(model.StatusDoing)
-					payload := model.UpdatePayload{Status: &status}
+					payload, notice := c.startPayload(issue, false)
+					msgs = append(msgs, notice...)
 					updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
 					if err != nil {
 						return "", "", nil, err
@@ -54,8 +56,8 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 				return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
 			}
 			if issue.Status != model.StatusDoing {
-				status := string(model.StatusDoing)
-				payload := model.UpdatePayload{Status: &status}
+				payload, notice := c.startPayload(issue, false)
+				msgs = append(msgs, notice...)
 				updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
 				if err != nil {
 					return "", "", nil, err
@@ -91,14 +93,16 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 		}
 	}
 
-	if issue.Status != model.StatusDoing {
-		status := string(model.StatusDoing)
-		payload := model.UpdatePayload{Status: &status}
-		updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
-		if err != nil {
-			return "", "", nil, err
+	if issue.Status != model.StatusDoing || force {
+		payload, notice := c.startPayload(issue, force)
+		msgs = append(msgs, notice...)
+		if payload.Status != nil || payload.Assignee != nil {
+			updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
+			if err != nil {
+				return "", "", nil, err
+			}
+			msgs = append(msgs, updateMsgs...)
 		}
-		msgs = append(msgs, updateMsgs...)
 	}
 
 	if !CheckGitRepo() {
@@ -184,6 +188,31 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 	}
 
 	return branchName, worktreePath, msgs, nil
+}
+
+// startPayload builds the UPDATE that starts an issue: DOING, assigned to the
+// principal (the person the starter works for). An issue assigned to another
+// person keeps its assignee unless force takes it over.
+func (c *Client) startPayload(issue *model.Issue, force bool) (model.UpdatePayload, []string) {
+	var payload model.UpdatePayload
+	if issue.Status != model.StatusDoing {
+		status := string(model.StatusDoing)
+		payload.Status = &status
+	}
+
+	principal := c.OnBehalfOf
+	if principal == "" {
+		principal = c.GetUser()
+	}
+	switch {
+	case principal == "" || identity.Same(issue.Assignee, principal):
+		return payload, nil
+	case issue.Assignee == "" || identity.IsAgent(issue.Assignee) || force:
+		payload.Assignee = &principal
+		return payload, nil
+	default:
+		return payload, []string{fmt.Sprintf("Assigned to %s, left unchanged", identity.Name(issue.Assignee))}
+	}
 }
 
 func cwdInsidePath(target string) bool {

@@ -211,6 +211,18 @@ func TestFormatInboxItem(t *testing.T) {
 			want: "Carol QA assigned issue-b to Bob Ops",
 		},
 		{
+			name: "agent acting for someone leads with the principal",
+			item: InboxItem{IssueID: "issue-a", Type: model.EventTypeUpdate, CreatedBy: "claude-code/2.1.263 <agent@mcp>", OnBehalfOf: carol,
+				Payload: model.UpdatePayload{Status: strptr("DOING")}},
+			want: "Carol QA (via Claude Code) changed issue-a status to DOING",
+		},
+		{
+			name: "legacy agent self-assignment names the principal",
+			item: InboxItem{IssueID: "issue-a", Type: model.EventTypeUpdate, CreatedBy: "claude-code/2.1.263 <agent@mcp>", OnBehalfOf: carol,
+				Payload: model.UpdatePayload{Assignee: strptr("Claude Code <agent@macbook.local>")}},
+			want: "Carol QA (via Claude Code) assigned issue-a to Carol QA",
+		},
+		{
 			name: "status change",
 			item: InboxItem{IssueID: "issue-a", Type: model.EventTypeUpdate, CreatedBy: bob,
 				Payload: model.UpdatePayload{Status: strptr("BLOCKED")}},

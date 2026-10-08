@@ -1,4 +1,4 @@
-<!-- xpo:begin 1.2.1 sha256:04bcb9830f10 -->
+<!-- xpo:begin 1.2.1 sha256:72feaa538ca4 -->
 ## Exponential (xpo)
 
 This project uses `xpo` (Exponential) via the MCP server registered in `.mcp.json`.
@@ -13,11 +13,6 @@ Issue IDs in this project use the prefix `xpo` (e.g. `xpo-a1b2c3`).
 3. Bugs discovered during implementation may be filed and fixed without approval — file the issue, link it to the current work, and fix it.
 4. Before beginning any implementation task, load the `xpo` skill and follow it.
 5. If an MCP tool call fails, report the error to the user. Never fall back to the CLI.
-
-### Agent Identity
-
-Set the `assignee` field to yourself when transitioning an issue to DOING. Use the form
-`<Agent Name> <agent@<host>.local>` — e.g. `Claude Code <agent@macbook.local>`.
 
 <!-- xpo:end -->
 

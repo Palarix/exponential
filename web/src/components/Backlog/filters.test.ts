@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasActiveFilters, matchesFilters, chipLabel, getSelected, setSelected, EMPTY_FILTERS, type BacklogFilters } from "./filters";
+import { hasActiveFilters, matchesFilters, chipLabel, getSelected, setSelected, parseStoredFilters, EMPTY_FILTERS, type BacklogFilters } from "./filters";
 
 describe("hasActiveFilters", () => {
   it("returns false for empty filters", () => {
@@ -33,6 +33,7 @@ describe("hasActiveFilters", () => {
       assignees: [],
       priorities: [],
       epicId: null,
+      workedBy: [],
     };
     expect(hasActiveFilters(f)).toBe(true);
   });
@@ -95,6 +96,7 @@ describe("matchesFilters", () => {
       assignees: ["alice"],
       priorities: [2],
       epicId: "epic-1",
+      workedBy: [],
     };
     expect(matchesFilters(base, filters)).toBe(true);
 
@@ -131,6 +133,7 @@ describe("getSelected", () => {
     assignees: ["alice"],
     priorities: [1, 2],
     epicId: "epic-1",
+    workedBy: [],
   };
 
   it("gets statuses", () => {
@@ -191,9 +194,51 @@ describe("setSelected", () => {
   });
 
   it("preserves other fields", () => {
-    const base: BacklogFilters = { statuses: ["DONE"], labels: ["bug"], assignees: [], priorities: [], epicId: null };
+    const base: BacklogFilters = { statuses: ["DONE"], labels: ["bug"], assignees: [], priorities: [], epicId: null, workedBy: [] };
     const result = setSelected("assignee", base, ["alice"]);
     expect(result.statuses).toEqual(["DONE"]);
     expect(result.labels).toEqual(["bug"]);
+  });
+});
+
+describe("workedBy filter", () => {
+  const byAgent = { status: "DOING", assignee: "Alice <a@x.com>", assignee_via: "claude-code/2.1.263 <agent@mcp>", priority: 0 };
+  const byHand = { status: "DOING", assignee: "Alice <a@x.com>", priority: 0 };
+  const unassigned = { status: "DOING", priority: 0 };
+
+  it("counts as an active filter", () => {
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, workedBy: ["agent"] })).toBe(true);
+  });
+
+  it("matches agent-worked issues", () => {
+    const f = { ...EMPTY_FILTERS, workedBy: ["agent"] };
+    expect(matchesFilters(byAgent, f)).toBe(true);
+    expect(matchesFilters(byHand, f)).toBe(false);
+    expect(matchesFilters(unassigned, f)).toBe(false);
+  });
+
+  it("matches hand-worked issues", () => {
+    const f = { ...EMPTY_FILTERS, workedBy: ["human"] };
+    expect(matchesFilters(byAgent, f)).toBe(false);
+    expect(matchesFilters(byHand, f)).toBe(true);
+    expect(matchesFilters(unassigned, f)).toBe(false);
+  });
+
+  it("round-trips through getSelected/setSelected", () => {
+    const f = setSelected("workedBy", EMPTY_FILTERS, ["agent"]);
+    expect(getSelected("workedBy", f)).toEqual(["agent"]);
+  });
+});
+
+describe("parseStoredFilters", () => {
+  it("fills dimensions missing from filters saved by older versions", () => {
+    const f = parseStoredFilters(JSON.stringify({ statuses: ["DOING"], labels: [], assignees: [], priorities: [], epicId: null }));
+    expect(f.statuses).toEqual(["DOING"]);
+    expect(f.workedBy).toEqual([]);
+  });
+
+  it("falls back to empty filters on missing or corrupt input", () => {
+    expect(parseStoredFilters(null)).toEqual(EMPTY_FILTERS);
+    expect(parseStoredFilters("{nope")).toEqual(EMPTY_FILTERS);
   });
 });

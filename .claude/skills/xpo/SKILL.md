@@ -67,10 +67,7 @@ document the question, the answer you chose, and your reasoning. Use a dedicated
 - Check the issue's dependencies. If any `depends_on` or `blocked_by` targets are not DONE, stop and ask the user how to proceed. Do not start multiple issues in a dependency chain simultaneously.
 - If the issue is already in DOING and assigned to someone else, stop and ask the user before taking it over.
 
-Set the `assignee` field to yourself via `update` before calling `start`. Use the form
-`<Agent Name> <agent@<host>.local>` — e.g. `Claude Code <agent@macbook.local>`.
-
-Then call `start` with the issue ID **before touching any file**. This transitions the issue to DOING and creates an isolated git worktree or branch (depending on configuration).
+Call `start` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree or branch (depending on configuration). Never set `assignee` to yourself — xpo records that an agent did the work.
 
 All file reads, edits, builds, and test runs must happen inside the worktree path or branch returned by `start` — not the main checkout. To resume an issue already in DOING, call `start` with `force: true`.
 
@@ -207,4 +204,4 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 
-<!-- xpo:skill 1.2.1 sha256:7dd87a72d002 -->
+<!-- xpo:skill 1.2.1 sha256:f010818f875b -->

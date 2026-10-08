@@ -25,6 +25,8 @@ export interface Issue {
   priority: number;
   sort_order: string;
   assignee?: string;
+  // Agent doing the work for the assignee (principal-first assignees).
+  assignee_via?: string;
   cycle_id?: string;
   effective_cycle_id?: string;
   labels?: string[];

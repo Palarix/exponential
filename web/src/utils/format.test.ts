@@ -5,6 +5,11 @@ import {
   extractEmail,
   displayActor,
   activityActor,
+  isAgentIdentity,
+  agentDisplayName,
+  agentTooltip,
+  resolveAssignee,
+  agentCommentAuthor,
   formatShortDate,
   formatTriage,
   stripMarkdown,
@@ -50,15 +55,72 @@ describe("extractEmail", () => {
   });
 });
 
+describe("isAgentIdentity", () => {
+  it("recognises agent@ emails", () => {
+    expect(isAgentIdentity("Claude Code <agent@macbook.local>")).toBe(true);
+    expect(isAgentIdentity("claude-code/2.1.263 <agent@mcp>")).toBe(true);
+    expect(isAgentIdentity("Codex <AGENT@MBPM1X.local>")).toBe(true);
+  });
+
+  it("rejects people and malformed identities", () => {
+    expect(isAgentIdentity("Nicolas <nicbet@gmail.com>")).toBe(false);
+    expect(isAgentIdentity("Agent Smith <agent.smith@x.com>")).toBe(false);
+    expect(isAgentIdentity("")).toBe(false);
+    expect(isAgentIdentity(undefined)).toBe(false);
+  });
+});
+
+describe("agentDisplayName", () => {
+  it("names known MCP clients and drops versions", () => {
+    expect(agentDisplayName("claude-code/2.1.263 <agent@mcp>")).toBe("Claude Code");
+    expect(agentDisplayName("codex-mcp-client/0.154.0 <agent@mcp>")).toBe("Codex");
+    expect(agentDisplayName("claude <agent@NICSPC>")).toBe("Claude Code");
+    expect(agentDisplayName("Claude Code <agent@macbook.local>")).toBe("Claude Code");
+    expect(agentDisplayName("windsurf/1.2 <agent@mcp>")).toBe("windsurf");
+  });
+});
+
+describe("agentTooltip", () => {
+  it("reads '<agent> for <principal>'", () => {
+    expect(agentTooltip("claude-code/2.1.263 <agent@mcp>", "Alice <a@x.com>")).toBe("Claude Code for Alice");
+  });
+});
+
+describe("agentCommentAuthor", () => {
+  it("names the agent on behalf of the principal", () => {
+    expect(agentCommentAuthor("claude-code/2.1.263 <agent@mcp>", "Nicolas Bettenburg <nic@x.com>"))
+      .toBe("Claude Code on behalf of Nicolas Bettenburg");
+  });
+
+  it("accepts the already-shortened names the activity feeds pass", () => {
+    expect(agentCommentAuthor("Claude Code", "Nicolas Bettenburg")).toBe("Claude Code on behalf of Nicolas Bettenburg");
+  });
+});
+
+describe("resolveAssignee", () => {
+  const nic = "Nicolas <nic@x.com>";
+  const mcp = "claude-code/2.1.263 <agent@mcp>";
+  it("maps a legacy agent self-assignment to the principal", () => {
+    expect(resolveAssignee("Claude Code <agent@mac.local>", mcp, nic)).toBe(nic);
+  });
+  it("maps a human-assigned agent to that human", () => {
+    expect(resolveAssignee("Claude Code <agent@mac.local>", nic)).toBe(nic);
+  });
+  it("keeps people as they are", () => {
+    expect(resolveAssignee("Alice <a@x.com>", mcp, nic)).toBe("Alice <a@x.com>");
+    expect(resolveAssignee("", mcp, nic)).toBe("");
+  });
+});
+
 describe("displayActor", () => {
   it("returns principal only without onBehalfOf", () => {
     expect(displayActor("John <j@x.com>")).toEqual({ principal: "John" });
   });
 
-  it("returns principal and via with onBehalfOf", () => {
-    expect(displayActor("Bot <b@x.com>", "Alice <a@x.com>")).toEqual({
-      principal: "Bot",
-      via: "Alice",
+  it("leads with the principal and names the agent as via", () => {
+    expect(displayActor("claude-code/2.1.263 <agent@mcp>", "Alice <a@x.com>")).toEqual({
+      principal: "Alice",
+      via: "Claude Code",
     });
   });
 });
@@ -68,15 +130,14 @@ describe("activityActor", () => {
     expect(activityActor("John Doe <j@x.com>")).toEqual({
       identity: "John Doe <j@x.com>",
       name: "John Doe",
-      tooltip: "",
     });
   });
 
-  it("describes the on-behalf-of principal in the tooltip", () => {
+  it("is principal-first, keeping the agent as via", () => {
     expect(activityActor("Claude Code <agent@mac.local>", "Alice <a@x.com>")).toEqual({
-      identity: "Claude Code <agent@mac.local>",
-      name: "Claude Code",
-      tooltip: "on behalf of Alice",
+      identity: "Alice <a@x.com>",
+      name: "Alice",
+      via: "Claude Code <agent@mac.local>",
     });
   });
 });

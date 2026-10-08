@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Bot, Hand } from "lucide-react";
 import type { Issue } from "../../api/client";
 import { StatusIcon, Avatar, PriorityIcon } from "../ui";
 import { labelColor } from "../../utils/labels";
+import { shortName } from "../../utils/format";
 import { LabelColorsContext } from "../ui/BadgeContexts";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 import { getSelected, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
@@ -25,6 +27,7 @@ const DIMENSIONS: { key: Dimension; label: string; icon: React.ReactNode }[] = [
     key: "assignee", label: "Assignee",
     icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" /></svg>,
   },
+  { key: "workedBy", label: "Worked by", icon: <Bot className="w-3.5 h-3.5" /> },
   { key: "priority", label: "Priority", icon: <PriorityIcon priority={2} size={14} /> },
   {
     key: "labels", label: "Labels",
@@ -61,12 +64,19 @@ function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Re
       const rows: FilterOption[] = Array.from(counts.entries())
         .sort((a, b) => b[1] - a[1])
         .map(([assignee, count]) => ({
-          value: assignee, label: assignee.split(" <")[0],
+          value: assignee, label: shortName(assignee),
           icon: <Avatar name={assignee} size="xs" />,
           count,
         }));
       if (unassigned > 0) rows.push({ value: "__unassigned__", label: "Unassigned", count: unassigned, icon: <Avatar size="xs" /> });
       return rows;
+    }
+    case "workedBy": {
+      const assigned = issues.filter((i) => i.assignee);
+      return [
+        { value: "agent", label: "Agent", icon: <Bot className="w-3.5 h-3.5" />, count: assigned.filter((i) => i.assignee_via).length },
+        { value: "human", label: "Human", icon: <Hand className="w-3.5 h-3.5" />, count: assigned.filter((i) => !i.assignee_via).length },
+      ];
     }
     case "priority":
       return PRIORITY_OPTIONS.map((p) => ({

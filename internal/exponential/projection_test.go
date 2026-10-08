@@ -255,3 +255,61 @@ func TestProjectIssues_ArtifactOnMissingIssue(t *testing.T) {
 		t.Fatalf("expected no issues, got %d", len(issues))
 	}
 }
+
+func TestProjectIssues_PrincipalFirstAssignee(t *testing.T) {
+	const (
+		nic = "Nicolas Bettenburg <nicbet@gmail.com>"
+		cc  = "Claude Code <agent@macbook.local>"
+		mcp = "claude-code/2.1.263 <agent@mcp>"
+	)
+	agentSelf := cc
+	principal := nic
+	other := "Alice <alice@example.com>"
+	empty := ""
+	now := time.Now()
+	evt := func(typ model.EventType, payload interface{}, by, behalf string) model.Event {
+		now = now.Add(time.Second)
+		return model.Event{ID: "x-1", Type: typ, Payload: payload, CreatedAt: now, CreatedBy: by, OnBehalfOf: behalf}
+	}
+	create := evt(model.EventTypeCreate, model.CreatePayload{Title: "t"}, nic, "")
+
+	cases := []struct {
+		name         string
+		update       model.Event
+		wantAssignee string
+		wantVia      string
+	}{
+		{"legacy agent self-assign", evt(model.EventTypeUpdate, model.UpdatePayload{Assignee: &agentSelf}, mcp, nic), nic, cc},
+		{"agent auto-assigns principal", evt(model.EventTypeUpdate, model.UpdatePayload{Assignee: &principal}, mcp, nic), nic, mcp},
+		{"agent assigns someone else", evt(model.EventTypeUpdate, model.UpdatePayload{Assignee: &other}, mcp, nic), other, ""},
+		{"human assigns self", evt(model.EventTypeUpdate, model.UpdatePayload{Assignee: &principal}, nic, ""), nic, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			issue := ProjectIssues([]model.Event{create, c.update})["x-1"]
+			if issue.Assignee != c.wantAssignee || issue.AssigneeVia != c.wantVia {
+				t.Errorf("got (%q, %q), want (%q, %q)", issue.Assignee, issue.AssigneeVia, c.wantAssignee, c.wantVia)
+			}
+		})
+	}
+
+	t.Run("unassign clears via", func(t *testing.T) {
+		issue := ProjectIssues([]model.Event{
+			create,
+			evt(model.EventTypeUpdate, model.UpdatePayload{Assignee: &agentSelf}, mcp, nic),
+			evt(model.EventTypeUpdate, model.UpdatePayload{Assignee: &empty}, nic, ""),
+		})["x-1"]
+		if issue.Assignee != "" || issue.AssigneeVia != "" {
+			t.Errorf("got (%q, %q), want empty", issue.Assignee, issue.AssigneeVia)
+		}
+	})
+
+	t.Run("create with agent assignee", func(t *testing.T) {
+		issue := ProjectIssues([]model.Event{
+			evt(model.EventTypeCreate, model.CreatePayload{Title: "t", Assignee: cc}, mcp, nic),
+		})["x-1"]
+		if issue.Assignee != nic || issue.AssigneeVia != cc {
+			t.Errorf("got (%q, %q), want (%q, %q)", issue.Assignee, issue.AssigneeVia, nic, cc)
+		}
+	})
+}

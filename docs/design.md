@@ -254,7 +254,16 @@ MCP tool calls need an author identity for event attribution. Resolution order:
 2. MCP `clientInfo` from the initialize handshake (e.g. `claude-code/2.x <agent@mcp>`).
 3. The configured xpo user (git identity fallback).
 
-Each tool invocation creates a fresh Client with `UserOverride` set to the resolved identity.
+Each tool invocation creates a fresh Client with `UserOverride` set to the resolved identity and `OnBehalfOf` set to the configured user (the principal). `xpo drive` does the same: its supervisor agent acts on behalf of the user who ran it.
+
+### Principal-first assignees
+
+An issue is always assigned to a person, never to an agent. `start` assigns the issue to the principal (the `on_behalf_of` user, or the starter themselves) unless another person already holds it. Projection resolves each assignment with `identity.ResolveAssignment` into:
+
+- `assignee` — the accountable person. Legacy assignments to an agent identity (`agent@…` email) resolve to the event's `on_behalf_of`, or to the human who made the assignment.
+- `assignee_via` — the agent doing the work for that person, or empty.
+
+Clients render the principal everywhere and mark agent work with a robot avatar ("Claude Code for Nicolas"). The event log is never rewritten.
 
 **Files:** `internal/mcpserver/`
 

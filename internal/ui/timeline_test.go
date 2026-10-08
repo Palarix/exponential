@@ -121,8 +121,8 @@ func TestFormatActor_Simple(t *testing.T) {
 }
 
 func TestFormatActor_OnBehalfOf(t *testing.T) {
-	got := FormatActor("Claude Code <agent@macbook.local>", "Alice <alice@example.com>")
-	if got != "Claude Code (via Alice)" {
+	got := FormatActor("claude-code/2.1.263 <agent@mcp>", "Alice <alice@example.com>")
+	if got != "Alice (via Claude Code)" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -196,7 +196,7 @@ func TestRenderTimeline_OnBehalfOf(t *testing.T) {
 		OnBehalfOf: "Nicolas <nic@example.com>",
 	}}
 	got := renderToString(entries, 80)
-	if !strings.Contains(got, "(via Nicolas)") {
+	if !strings.Contains(got, "Nicolas (via Claude Code)") {
 		t.Errorf("should show on_behalf_of, got %q", got)
 	}
 }

@@ -24,6 +24,7 @@ type IssueResponse struct {
 	Priority     int                  `json:"priority"`
 	SortOrder    string               `json:"sort_order"`
 	Assignee     string               `json:"assignee,omitempty"`
+	AssigneeVia  string               `json:"assignee_via,omitempty"`
 	CycleID          string               `json:"cycle_id,omitempty"`
 	EffectiveCycleID string               `json:"effective_cycle_id,omitempty"`
 	BranchStats      *model.BranchStats   `json:"branch_stats,omitempty"`
@@ -84,6 +85,7 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		Priority:    issue.Priority,
 		SortOrder:   issue.SortOrder,
 		Assignee:    issue.Assignee,
+		AssigneeVia: issue.AssigneeVia,
 		CycleID:          issue.CycleID,
 		EffectiveCycleID: issue.EffectiveCycleID,
 		BranchStats:      issue.BranchStats,

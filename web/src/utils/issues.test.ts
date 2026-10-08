@@ -73,6 +73,13 @@ describe("collectKnownPeople", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("excludes agent identities so only people can be picked", () => {
+    const issues = [
+      makeIssue({ created_by: "claude-code/2.1.263 <agent@mcp>", assignee: "Claude Code <agent@macbook.local>" }),
+    ];
+    expect(collectKnownPeople(issues, [])).toEqual([]);
+  });
+
   it("excludes entries without valid email", () => {
     const result = collectKnownPeople([], ["No Email", "Agent <bot.local>"]);
     expect(result).toEqual([]);

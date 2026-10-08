@@ -92,3 +92,19 @@ func TestRenderIssueDetails_NoDescription(t *testing.T) {
 		t.Fatal("should render even without description")
 	}
 }
+
+func TestRenderIssueDetails_AssigneeVia(t *testing.T) {
+	issue := &model.Issue{
+		ID:          "test-abc123",
+		Title:       "Agent work",
+		Status:      model.StatusDoing,
+		Assignee:    "Nicolas <nic@example.com>",
+		AssigneeVia: "claude-code/2.1.263 <agent@mcp>",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	got := RenderIssueDetails(issue, nil, false, 120)
+	if !strings.Contains(got, "Nicolas <nic@example.com>") || strings.Contains(got, "via") {
+		t.Errorf("assignee should be shown as the person only, got %q", got)
+	}
+}

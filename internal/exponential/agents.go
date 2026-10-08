@@ -129,11 +129,6 @@ Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`
 3. Bugs discovered during implementation may be filed and fixed without approval — file the issue, link it to the current work, and fix it.
 4. Before beginning any implementation task, load the ` + "`xpo`" + ` skill and follow it.
 5. If an MCP tool call fails, report the error to the user. Never fall back to the CLI.
-
-### Agent Identity
-
-Set the ` + "`assignee`" + ` field to yourself when transitioning an issue to DOING. Use the form
-` + "`<Agent Name> <agent@<host>.local>`" + ` — e.g. ` + "`Claude Code <agent@macbook.local>`" + `.
 `
 }
 
@@ -282,10 +277,7 @@ document the question, the answer you chose, and your reasoning. Use a dedicated
 - Check the issue's dependencies. If any ` + "`depends_on`" + ` or ` + "`blocked_by`" + ` targets are not DONE, stop and ask the user how to proceed. Do not start multiple issues in a dependency chain simultaneously.
 - If the issue is already in DOING and assigned to someone else, stop and ask the user before taking it over.
 
-Set the ` + "`assignee`" + ` field to yourself via ` + "`update`" + ` before calling ` + "`start`" + `. Use the form
-` + "`<Agent Name> <agent@<host>.local>`" + ` — e.g. ` + "`Claude Code <agent@macbook.local>`" + `.
-
-Then call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING and creates an isolated git worktree or branch (depending on configuration).
+Call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree or branch (depending on configuration). Never set ` + "`assignee`" + ` to yourself — xpo records that an agent did the work.
 
 All file reads, edits, builds, and test runs must happen inside the worktree path or branch returned by ` + "`start`" + ` — not the main checkout. To resume an issue already in DOING, call ` + "`start`" + ` with ` + "`force: true`" + `.
 

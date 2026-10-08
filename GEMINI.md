@@ -44,10 +44,6 @@ Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`
 8. **Attach a walkthrough before done** — attach a walkthrough document to the issue  _before_ transitioning to `DONE`. The walkthrough shall be written from the perspective of a senior engineer explaining the code changes to a junior developer.
 9. **File what you find** — bugs or follow-up work discovered during a task must be filed as new issues (linked to the current one via `link`), not left as TODOs in code.
 
-## Agent Identity
-
-When the tracker records who made a change, identify yourself as an agent. Use the form `<Agent Name> <agent@<host>.local>` — e.g. `Claude Code <agent@nicbet-wsl.local>`. The host portion helps distinguish contributions from different execution environments. (Note: per stored memory, `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` env vars do not affect `xpo` identity.)
-
 ## Usage Notes
 
 ### Discovery

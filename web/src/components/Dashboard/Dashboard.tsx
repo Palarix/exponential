@@ -3,7 +3,7 @@ import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, ty
 import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
-import { formatDuration } from "../../utils/format";
+import { formatDuration, shortName } from "../../utils/format";
 import { isTerminal } from "../../constants";
 import { Section, SectionIcon, PulseCard } from "./Section";
 import { SECTION_ICONS } from "./sectionIcons";
@@ -147,7 +147,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
         label: (
           <div className="flex items-center gap-2 min-w-0">
             <Avatar name={assignee} size="xs" />
-            <Text color="primary" truncate>{assignee.split(" <")[0]}</Text>
+            <Text color="primary" truncate>{shortName(assignee)}</Text>
           </div>
         ),
         count,
@@ -441,7 +441,7 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
                   <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-hover-surface)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar name={w.assignee} size="xs" />
-                      <Text color="primary" truncate>{w.assignee.split(" <")[0]}</Text>
+                      <Text color="primary" truncate>{shortName(w.assignee)}</Text>
                     </div>
                     <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-primary)]">{w.in_progress}</span>
                     <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-muted)]">{w.open_points}</span>

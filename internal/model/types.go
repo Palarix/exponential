@@ -129,7 +129,8 @@ type Issue struct {
 	Estimate     int
 	Priority     int
 	SortOrder    string
-	Assignee     string
+	Assignee     string // principal: the person accountable, never an agent
+	AssigneeVia  string // agent identity doing the work for Assignee, or ""
 	CycleID          string
 	EffectiveCycleID string
 	InferredStatus   bool

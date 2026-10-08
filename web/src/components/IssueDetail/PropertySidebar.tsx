@@ -4,7 +4,7 @@ import type { Issue, Cycle } from "../../api/client";
 import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
-import { formatRelativeTime } from "../../utils/format";
+import { formatRelativeTime, shortName } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { isTerminal } from "../../constants";
@@ -491,7 +491,7 @@ export default function PropertySidebar({
                     <UserRound className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   )}
                   <span className="text-sm text-[var(--color-text-primary)] truncate">
-                    {issue.assignee ? issue.assignee.split(" <")[0] : "No assignee"}
+                    {issue.assignee ? shortName(issue.assignee) : "No assignee"}
                   </span>
                 </Button>
                 {openPopover === "assignee" && (

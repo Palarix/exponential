@@ -22,7 +22,7 @@ import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, Err
 import { useSSE } from './hooks/useSSE';
 import { sortIssuesWithinGroups } from './utils/sort';
 import type { SortKey } from './utils/sort';
-import { type BacklogFilters, EMPTY_FILTERS, hasActiveFilters } from './components/Backlog/filters';
+import { type BacklogFilters, hasActiveFilters, parseStoredFilters } from './components/Backlog/filters';
 import FilterChips from './components/Backlog/FilterChips';
 import { useKeyboardShortcuts } from './keyboard';
 
@@ -139,24 +139,21 @@ function App() {
   const [backlogTab, setBacklogTab] = useState<Tab>('all');
   const [backlogFilters, setBacklogFilters] = useState<BacklogFilters>(() => {
     const stored = localStorage.getItem(`exponential-backlog-filters-${backlogTab}`);
-    if (stored) { try { return JSON.parse(stored); } catch { /* corrupt stored filter — use default */ } }
-    return EMPTY_FILTERS;
+    return parseStoredFilters(stored);
   });
   const [myIssuesTab, setMyIssuesTab] = useState<MyIssuesTab>(() =>
     (localStorage.getItem('exponential-my-issues-tab') as MyIssuesTab) || 'assigned'
   );
   const [myIssuesFilters, setMyIssuesFilters] = useState<BacklogFilters>(() => {
     const stored = localStorage.getItem(`exponential-my-issues-filters-${myIssuesTab}`);
-    if (stored) { try { return JSON.parse(stored); } catch { /* corrupt stored filter — use default */ } }
-    return EMPTY_FILTERS;
+    return parseStoredFilters(stored);
   });
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [inboxLastRead, setInboxLastRead] = useState('');
   const [inboxUnread, setInboxUnread] = useState(0);
   const [inboxFilters, setInboxFilters] = useState<BacklogFilters>(() => {
     const stored = localStorage.getItem('exponential-inbox-filters');
-    if (stored) { try { return JSON.parse(stored); } catch { /* corrupt stored filter — use default */ } }
-    return EMPTY_FILTERS;
+    return parseStoredFilters(stored);
   });
   const showToast = useToast();
 
@@ -174,8 +171,7 @@ function App() {
     setMyIssuesTab(t);
     localStorage.setItem('exponential-my-issues-tab', t);
     const stored = localStorage.getItem(`exponential-my-issues-filters-${t}`);
-    if (stored) { try { setMyIssuesFilters(JSON.parse(stored)); } catch { /* corrupt stored filter — use default */ } }
-    else setMyIssuesFilters(EMPTY_FILTERS);
+    setMyIssuesFilters(parseStoredFilters(stored));
   }, []);
 
   const handleMyIssuesFiltersChange = useCallback((f: BacklogFilters) => {

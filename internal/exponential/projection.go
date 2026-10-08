@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/identity"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/sortorder"
 )
@@ -42,7 +43,6 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				Estimate:     p.Estimate,
 				Priority:     p.Priority,
 				SortOrder:    p.SortOrder,
-				Assignee:     p.Assignee,
 				CycleID:      p.CycleID,
 				Status:       status,
 				CreatedAt:    evt.CreatedAt,
@@ -52,6 +52,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				Dependencies: p.Dependencies,
 				Labels:       p.Labels,
 			}
+			issue.Assignee, issue.AssigneeVia = identity.ResolveAssignment(p.Assignee, evt.CreatedBy, evt.OnBehalfOf)
 			issues[evt.ID] = issue
 
 		case model.EventTypeUpdate:
@@ -86,7 +87,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				issue.ParentID = *p.ParentID
 			}
 			if p.Assignee != nil {
-				issue.Assignee = *p.Assignee
+				issue.Assignee, issue.AssigneeVia = identity.ResolveAssignment(*p.Assignee, evt.CreatedBy, evt.OnBehalfOf)
 			}
 			if p.CycleID != nil {
 				issue.CycleID = *p.CycleID

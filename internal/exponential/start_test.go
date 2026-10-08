@@ -758,3 +758,98 @@ func TestStartWork_Branch_Idempotent_AlreadyCheckedOut(t *testing.T) {
 		t.Errorf("expected 'Resuming on current branch' message in %v", msgs)
 	}
 }
+
+func createAssignedTestIssue(t *testing.T, id, status, assignee string) {
+	t.Helper()
+	createAssignedTestIssueBy(t, id, status, assignee, "Test User <test@test.com>")
+}
+
+func createAssignedTestIssueBy(t *testing.T, id, status, assignee, createdBy string) {
+	t.Helper()
+	evt := model.Event{
+		ID:        id,
+		Type:      model.EventTypeCreate,
+		CreatedBy: createdBy,
+		Payload:   model.CreatePayload{Title: "Fix login", Status: status, Assignee: assignee},
+	}
+	if err := storage.AppendEvent(evt); err != nil {
+		t.Fatalf("failed to create test issue: %v", err)
+	}
+}
+
+func TestStartWork_AssignsHumanStarter(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+	createTestIssue(t, "test-abc123", "Fix login", "PLANNED")
+
+	if _, _, _, err := client.StartWork("test-abc123", false); err != nil {
+		t.Fatal(err)
+	}
+	issue, _ := client.GetIssue("test-abc123")
+	if issue.Assignee != "Test User <test@test.com>" || issue.AssigneeVia != "" {
+		t.Errorf("got (%q, %q), want the human starter with no via", issue.Assignee, issue.AssigneeVia)
+	}
+}
+
+func TestStartWork_AgentAssignsPrincipal(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+	createTestIssue(t, "test-abc123", "Fix login", "PLANNED")
+	client.UserOverride = "claude-code/2.1.263 <agent@mcp>"
+	client.OnBehalfOf = "Nicolas <nic@example.com>"
+
+	if _, _, _, err := client.StartWork("test-abc123", false); err != nil {
+		t.Fatal(err)
+	}
+	issue, _ := client.GetIssue("test-abc123")
+	if issue.Assignee != "Nicolas <nic@example.com>" || issue.AssigneeVia != "claude-code/2.1.263 <agent@mcp>" {
+		t.Errorf("got (%q, %q), want principal via agent", issue.Assignee, issue.AssigneeVia)
+	}
+}
+
+func TestStartWork_ReplacesLegacyAgentAssignee(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+	// Written by an old drive run: no human anywhere, so the agent string survives projection.
+	createAssignedTestIssueBy(t, "test-abc123", "PLANNED", "Claude Code <agent@macbook.local>", "claude <agent@host>")
+
+	if _, _, _, err := client.StartWork("test-abc123", false); err != nil {
+		t.Fatal(err)
+	}
+	issue, _ := client.GetIssue("test-abc123")
+	if issue.Assignee != "Test User <test@test.com>" {
+		t.Errorf("assignee = %q, want the starter", issue.Assignee)
+	}
+}
+
+func TestStartWork_KeepsOtherHumanAssignee(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+	createAssignedTestIssue(t, "test-abc123", "PLANNED", "Alice <alice@example.com>")
+
+	_, _, msgs, err := client.StartWork("test-abc123", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issue, _ := client.GetIssue("test-abc123")
+	if issue.Assignee != "Alice <alice@example.com>" {
+		t.Errorf("assignee = %q, want Alice kept", issue.Assignee)
+	}
+	if !strings.Contains(strings.Join(msgs, "\n"), "left unchanged") {
+		t.Errorf("expected a notice that the assignee was kept, got %v", msgs)
+	}
+}
+
+func TestStartWork_ForceTakeoverReassigns(t *testing.T) {
+	client, cleanup := setupStartTestEnv(t)
+	defer cleanup()
+	createAssignedTestIssue(t, "test-abc123", "DOING", "Alice <alice@example.com>")
+
+	if _, _, _, err := client.StartWork("test-abc123", true); err != nil {
+		t.Fatal(err)
+	}
+	issue, _ := client.GetIssue("test-abc123")
+	if issue.Assignee != "Test User <test@test.com>" {
+		t.Errorf("assignee = %q, want the starter after force takeover", issue.Assignee)
+	}
+}

@@ -9,17 +9,14 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
+	"github.com/palarix/exponential/internal/identity"
 	"github.com/palarix/exponential/internal/model"
 )
 
-// FormatActor returns a display name, appending "(via Principal)" when
-// on_behalf_of is set.
+// FormatActor returns a principal-first display name: when an agent acted
+// on someone's behalf, the principal leads and the agent follows as "(via …)".
 func FormatActor(createdBy, onBehalfOf string) string {
-	name := ExtractName(createdBy)
-	if onBehalfOf != "" {
-		return fmt.Sprintf("%s (via %s)", name, ExtractName(onBehalfOf))
-	}
-	return name
+	return identity.Actor(createdBy, onBehalfOf)
 }
 
 // DescribeEvent returns a human-readable description for an event.

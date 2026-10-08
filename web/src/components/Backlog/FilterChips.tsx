@@ -1,4 +1,5 @@
 import { EMPTY_FILTERS, chipLabel, type BacklogFilters } from "./filters";
+import { shortName } from "../../utils/format";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 
 interface FilterChipsProps {
@@ -8,6 +9,7 @@ interface FilterChipsProps {
 
 const STATUS_LABELS = new Map(STATUS_OPTIONS.map((s) => [s.value, s.label]));
 const PRIORITY_LABELS = new Map(PRIORITY_OPTIONS.map((p) => [String(p.value), p.label]));
+const WORKED_BY_LABELS = new Map([["agent", "Agent"], ["human", "Human"]]);
 
 export default function FilterChips({ filters, onChange }: FilterChipsProps) {
   const chips: { key: string; label: string; onClear: () => void }[] = [];
@@ -21,12 +23,19 @@ export default function FilterChips({ filters, onChange }: FilterChipsProps) {
   }
   if (filters.assignees.length > 0) {
     const display = filters.assignees.map((a) =>
-      a === "__unassigned__" ? "Unassigned" : a.split(" <")[0]
+      a === "__unassigned__" ? "Unassigned" : shortName(a)
     );
     chips.push({
       key: "assignee",
       label: display.length <= 2 ? `Assignee: ${display.join(", ")}` : `Assignee (${display.length})`,
       onClear: () => onChange({ ...filters, assignees: [] }),
+    });
+  }
+  if (filters.workedBy.length > 0) {
+    chips.push({
+      key: "workedBy",
+      label: chipLabel("Worked by", filters.workedBy, WORKED_BY_LABELS),
+      onClear: () => onChange({ ...filters, workedBy: [] }),
     });
   }
   if (filters.priorities.length > 0) {

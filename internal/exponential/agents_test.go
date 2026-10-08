@@ -631,3 +631,18 @@ func TestAgentRegistry_TrimmedToSixHarnesses(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentTemplates_DoNotAskAgentsToAssignThemselves(t *testing.T) {
+	for name, doc := range map[string]string{
+		"stub":  GenerateAgentStub("xpo"),
+		"docs":  GenerateAgentDocs("xpo"),
+		"skill": GenerateSkillMD(),
+	} {
+		if strings.Contains(doc, "agent@<host>") || strings.Contains(doc, "Agent Identity") {
+			t.Errorf("%s still tells agents to format their own identity", name)
+		}
+	}
+	if !strings.Contains(GenerateSkillMD(), "assigns it to the person you are working for") {
+		t.Error("skill should explain that start assigns the principal")
+	}
+}

@@ -137,7 +137,7 @@ describe("entryActor", () => {
 
   it("handles on_behalf_of by returning the principal", () => {
     const entry = makeEntry({ created_by: "Agent <agent@bot.local>", on_behalf_of: "Carol <carol@example.com>" });
-    expect(entryActor(entry)).toBe("Agent");
+    expect(entryActor(entry)).toBe("Carol");
   });
 
   it("returns empty string for missing author/creator", () => {

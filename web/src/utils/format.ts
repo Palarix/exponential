@@ -6,16 +6,55 @@ export function extractEmail(identity: string): string {
   return identity.match(/<([^>]+)>/)?.[1]?.toLowerCase().trim() || "";
 }
 
+// Mirrors internal/identity: an agent's email local part is "agent".
+export function isAgentIdentity(identity?: string): boolean {
+  return !!identity && extractEmail(identity).startsWith("agent@");
+}
+
+const KNOWN_AGENTS: Record<string, string> = {
+  "claude-code": "Claude Code",
+  "codex-mcp-client": "Codex",
+  claude: "Claude Code",
+  codex: "Codex",
+};
+
+// "claude-code/2.1.263 <agent@mcp>" → "Claude Code"
+export function agentDisplayName(identity: string): string {
+  const name = shortName(identity).split("/")[0];
+  return KNOWN_AGENTS[name] ?? name;
+}
+
+export function agentTooltip(via: string, principal: string): string {
+  return `${agentDisplayName(via)} for ${shortName(principal)}`;
+}
+
+// Comments are the one place the agent is named up front: who wrote the
+// words matters.
+export function agentCommentAuthor(via: string, principal: string): string {
+  return `${agentDisplayName(via)} on behalf of ${shortName(principal)}`;
+}
+
+// Mirrors identity.ResolveAssignment: the person an assignment belongs to,
+// even when the raw value written was an agent identity.
+export function resolveAssignee(raw: string, createdBy: string, onBehalfOf?: string): string {
+  if (!raw || !isAgentIdentity(raw)) return raw;
+  if (onBehalfOf) return onBehalfOf;
+  if (createdBy && !isAgentIdentity(createdBy)) return createdBy;
+  return raw;
+}
+
 export interface ActorDisplay {
   principal: string;
   via?: string;
 }
 
+// Principal-first: when an agent acted for someone, that person leads and
+// the agent's display name is the "via".
 export function displayActor(createdBy: string, onBehalfOf?: string): ActorDisplay {
   if (onBehalfOf) {
     return {
-      principal: shortName(createdBy),
-      via: shortName(onBehalfOf),
+      principal: shortName(onBehalfOf),
+      via: agentDisplayName(createdBy),
     };
   }
   return { principal: shortName(createdBy) };
@@ -24,16 +63,16 @@ export function displayActor(createdBy: string, onBehalfOf?: string): ActorDispl
 export interface ActivityActor {
   identity: string;
   name: string;
-  tooltip: string;
+  via?: string;
 }
 
-// identity keeps the "<email>" so Avatar can resolve a gravatar.
+// identity keeps the "<email>" so Avatar can resolve a gravatar; via is the
+// raw agent identity so Avatar can render the robot.
 export function activityActor(createdBy: string, onBehalfOf?: string): ActivityActor {
-  return {
-    identity: createdBy,
-    name: shortName(createdBy),
-    tooltip: onBehalfOf ? `on behalf of ${shortName(onBehalfOf)}` : "",
-  };
+  if (onBehalfOf) {
+    return { identity: onBehalfOf, name: shortName(onBehalfOf), via: createdBy };
+  }
+  return { identity: createdBy, name: shortName(createdBy) };
 }
 
 export function formatRelativeTime(dateStr: string): string {

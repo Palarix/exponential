@@ -136,6 +136,7 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 		ParentID:         issue.ParentID,
 		StoryPoints:      issue.Estimate,
 		Assignee:         issue.Assignee,
+		AssigneeVia:      issue.AssigneeVia,
 		CycleID:          issue.CycleID,
 		EffectiveCycleID: issue.EffectiveCycleID,
 		BranchStats:      issue.BranchStats,
