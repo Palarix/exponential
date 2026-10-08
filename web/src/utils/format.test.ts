@@ -4,6 +4,7 @@ import {
   shortName,
   extractEmail,
   displayActor,
+  activityActor,
   formatShortDate,
   formatTriage,
   stripMarkdown,
@@ -58,6 +59,24 @@ describe("displayActor", () => {
     expect(displayActor("Bot <b@x.com>", "Alice <a@x.com>")).toEqual({
       principal: "Bot",
       via: "Alice",
+    });
+  });
+});
+
+describe("activityActor", () => {
+  it("keeps the full identity for the avatar and the short name for the label", () => {
+    expect(activityActor("John Doe <j@x.com>")).toEqual({
+      identity: "John Doe <j@x.com>",
+      name: "John Doe",
+      tooltip: "",
+    });
+  });
+
+  it("describes the on-behalf-of principal in the tooltip", () => {
+    expect(activityActor("Claude Code <agent@mac.local>", "Alice <a@x.com>")).toEqual({
+      identity: "Claude Code <agent@mac.local>",
+      name: "Claude Code",
+      tooltip: "on behalf of Alice",
     });
   });
 });

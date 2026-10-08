@@ -83,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Issue detail Activity avatars show the actor's gravatar or initials instead of the dashed placeholder; avatar and name share an "on behalf of …" tooltip when an agent acted for someone (xpo-53ed0e)
 - Backlog: parent issues whose sub-issues are all hidden from the current view no longer show a non-clickable collapse chevron; the slot is left blank, like issues without sub-issues (xpo-e7c400)
 - Agents no longer call `merge` on an uncommitted worktree. Step 9 of the generated xpo skill now requires a commit (it is a gate and an explicit step, with an optional changelog entry first), and the self-contradicting "do not commit" sentence is gone. The `merge` tool description says a committed worktree is required. Generated skill files end with an `xpo:skill` version/hash marker: `xpo doctor` reports "Skill out of date" when a skill differs from the current template, even at the same CLI version, and reports local edits separately. `xpo init` / `doctor --fix` refresh out-of-date skills and offer replace/keep/diff for edited ones instead of silently overwriting them (xpo-e88f1b)
 - The instance registry no longer treats every process as dead on Windows, which emptied the web UI instance list and pruned live peers on `Register`. Liveness is now checked per platform: `Signal(0)` on Unix (with `EPERM` counted as alive) and `OpenProcess` + `GetExitCodeProcess` on Windows. `make lint` also runs `GOOS=windows go vet ./...` (xpo-60dc3c)

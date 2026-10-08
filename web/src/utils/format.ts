@@ -21,6 +21,21 @@ export function displayActor(createdBy: string, onBehalfOf?: string): ActorDispl
   return { principal: shortName(createdBy) };
 }
 
+export interface ActivityActor {
+  identity: string;
+  name: string;
+  tooltip: string;
+}
+
+// identity keeps the "<email>" so Avatar can resolve a gravatar.
+export function activityActor(createdBy: string, onBehalfOf?: string): ActivityActor {
+  return {
+    identity: createdBy,
+    name: shortName(createdBy),
+    tooltip: onBehalfOf ? `on behalf of ${shortName(onBehalfOf)}` : "",
+  };
+}
+
 export function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();

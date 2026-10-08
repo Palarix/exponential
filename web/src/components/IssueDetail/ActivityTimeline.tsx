@@ -9,22 +9,24 @@ import { Triangle, ChevronDown } from "lucide-react";
 import {
   formatRelativeTime,
   linkifyIssueIds,
-  displayActor,
+  activityActor,
 } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 
 type ActivityEntry =
   | {
       kind: "system";
+      actor: string;
       author: string;
-      via?: string;
+      tooltip: string;
       content: React.ReactNode;
       time: string;
     }
   | {
       kind: "comment";
+      actor: string;
       author: string;
-      via?: string;
+      tooltip: string;
       text: string;
       time: string;
     };
@@ -172,13 +174,14 @@ export default function ActivityTimeline({
     const items: ActivityEntry[] = [];
 
     for (const evt of history) {
-      const actor = displayActor(evt.created_by, evt.on_behalf_of);
+      const actor = activityActor(evt.created_by, evt.on_behalf_of);
       if (evt.type === "COMMENT") {
         const p = evt.payload || {};
         items.push({
           kind: "comment",
-          author: actor.principal,
-          via: actor.via,
+          actor: actor.identity,
+          author: actor.name,
+          tooltip: actor.tooltip,
           text: String(p.text || ""),
           time: evt.created_at,
         });
@@ -187,8 +190,9 @@ export default function ActivityTimeline({
         if (desc) {
           items.push({
             kind: "system",
-            author: actor.principal,
-            via: actor.via,
+            actor: actor.identity,
+            author: actor.name,
+            tooltip: actor.tooltip,
             content: desc,
             time: evt.created_at,
           });
@@ -229,9 +233,11 @@ export default function ActivityTimeline({
                 key={`sys-${i}`}
                 className="flex items-center gap-2 px-4 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
-                <Avatar name={entry.author} size="sm" />
-                <Tooltip content={entry.via || ""}>
-                  <span>{entry.author}</span>
+                <Tooltip content={entry.tooltip}>
+                  <span className="flex items-center gap-2">
+                    <Avatar name={entry.actor} size="sm" />
+                    <span>{entry.author}</span>
+                  </span>
                 </Tooltip>
                 {entry.content}
                 <span>·</span>
@@ -246,9 +252,11 @@ export default function ActivityTimeline({
               className="!mt-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]"
             >
               <div className="flex items-center gap-3 mb-2">
-                <Avatar name={entry.author} size="sm" />
-                <Tooltip content={entry.via || ""}>
-                  <Text weight="medium" color="primary">{entry.author}</Text>
+                <Tooltip content={entry.tooltip}>
+                  <span className="flex items-center gap-3">
+                    <Avatar name={entry.actor} size="sm" />
+                    <Text weight="medium" color="primary">{entry.author}</Text>
+                  </span>
                 </Tooltip>
                 <Text>
                   {formatRelativeTime(entry.time)}
