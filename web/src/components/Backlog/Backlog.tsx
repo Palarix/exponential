@@ -53,6 +53,7 @@ import { isTerminal } from "../../constants";
 import { buildChildrenByParent } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
 import { type BacklogFilters, hasActiveFilters, matchesFilters } from "./filters";
+import { expandedNodeIds } from "./backlog-row-utils";
 import { DragOverlayCard } from "./DndComponents";
 import { backlogCollision } from "./backlogCollision";
 import {
@@ -200,6 +201,12 @@ export default function Backlog({
     () => new Set(),
   );
   const [nodeToggleCount, setNodeToggleCount] = useState(0);
+  // Node collapses made while a search/filter is active. Scoped to that
+  // query (`key`) and never persisted, so matches are never hidden.
+  const [transientNodes, setTransientNodes] = useState<{
+    key: string;
+    collapsed: Set<string>;
+  }>(() => ({ key: "", collapsed: new Set() }));
   const [showAllGroups, setShowAllGroups] = useState<Set<string>>(
     () => new Set(),
   );
@@ -455,16 +462,29 @@ export default function Backlog({
 
   const childrenByParent = useMemo(() => buildChildrenByParent(issues), [issues]);
 
+  const filtering = query !== "" || hasActiveFilters(filters);
+  const filterKey = filtering ? JSON.stringify([query, filters]) : "";
+  const transientCollapsed = useMemo(
+    () =>
+      transientNodes.key === filterKey
+        ? transientNodes.collapsed
+        : new Set<string>(),
+    [transientNodes, filterKey],
+  );
+
   const expandedNodes = useMemo(() => {
     void nodeToggleCount;
     const stored = localStorage.getItem(`exponential-backlog-nodes-collapsed`);
-    const collapsed: Set<string> = stored
+    const persistedCollapsed: Set<string> = stored
       ? new Set(JSON.parse(stored) as string[])
       : new Set();
-    const expanded = new Set(Array.from(childrenByParent.keys()));
-    for (const id of collapsed) expanded.delete(id);
-    return expanded;
-  }, [childrenByParent, nodeToggleCount]);
+    return expandedNodeIds({
+      parentIds: childrenByParent.keys(),
+      persistedCollapsed,
+      transientCollapsed,
+      filtering,
+    });
+  }, [childrenByParent, nodeToggleCount, transientCollapsed, filtering]);
 
   useEffect(() => {
     const storageKey = `exponential-backlog-expanded-${activeTab}`;
@@ -518,6 +538,13 @@ export default function Backlog({
   );
 
   const toggleNode = useCallback((id: string) => {
+    if (filtering) {
+      const next = new Set(transientCollapsed);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      setTransientNodes({ key: filterKey, collapsed: next });
+      return;
+    }
     const nodesKey = `exponential-backlog-nodes-collapsed`;
     const stored = localStorage.getItem(nodesKey);
     const collapsed: Set<string> = stored
@@ -527,20 +554,31 @@ export default function Backlog({
     else collapsed.add(id);
     localStorage.setItem(nodesKey, JSON.stringify(Array.from(collapsed)));
     setNodeToggleCount((c) => c + 1);
-  }, []);
+  }, [filtering, filterKey, transientCollapsed]);
 
   const expandAllNodes = useCallback(() => {
+    if (filtering) {
+      setTransientNodes({ key: filterKey, collapsed: new Set() });
+      return;
+    }
     localStorage.setItem(`exponential-backlog-nodes-collapsed`, "[]");
     setNodeToggleCount((c) => c + 1);
-  }, []);
+  }, [filtering, filterKey]);
 
   const collapseAllNodes = useCallback(() => {
+    if (filtering) {
+      setTransientNodes({
+        key: filterKey,
+        collapsed: new Set(childrenByParent.keys()),
+      });
+      return;
+    }
     localStorage.setItem(
       `exponential-backlog-nodes-collapsed`,
       JSON.stringify(Array.from(childrenByParent.keys())),
     );
     setNodeToggleCount((c) => c + 1);
-  }, [childrenByParent]);
+  }, [childrenByParent, filtering, filterKey]);
 
 
   const rows = useBacklogRows(
@@ -1127,7 +1165,7 @@ export default function Backlog({
       if (
         position === "below" &&
         overRow.hasVisibleChildren &&
-        (expandedNodes.has(overRow.issue.id) || overRow.isGhostParent)
+        expandedNodes.has(overRow.issue.id)
       ) {
         const firstChildIdx = rows.findIndex(
           (r, j) =>

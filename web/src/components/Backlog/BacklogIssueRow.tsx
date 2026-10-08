@@ -170,22 +170,6 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                   />
                 </svg>
               </button>
-            ) : indicator === "expanded" ? (
-              <span className="w-6 h-6 -m-1 shrink-0 flex items-center justify-center text-[var(--color-text-muted)]">
-                <svg
-                  className="w-3 h-3 rotate-90"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </span>
             ) : (
               <span className="w-4 shrink-0" />
             )}

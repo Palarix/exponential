@@ -83,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Backlog: ghost parents (faded parent rows shown above sub-issues in another status group) can be collapsed and expanded by click, ←/→ and Expand/Collapse all; the collapsed state is shared with the real parent row. While a search or filter is active, saved collapsed state is ignored so matches are never hidden, and collapses made during the search are temporary (xpo-0cbecc)
 - Issue detail Activity avatars show the actor's gravatar or initials instead of the dashed placeholder; avatar and name share an "on behalf of …" tooltip when an agent acted for someone (xpo-53ed0e)
 - Backlog: parent issues whose sub-issues are all hidden from the current view no longer show a non-clickable collapse chevron; the slot is left blank, like issues without sub-issues (xpo-e7c400)
 - Agents no longer call `merge` on an uncommitted worktree. Step 9 of the generated xpo skill now requires a commit (it is a gate and an explicit step, with an optional changelog entry first), and the self-contradicting "do not commit" sentence is gone. The `merge` tool description says a committed worktree is required. Generated skill files end with an `xpo:skill` version/hash marker: `xpo doctor` reports "Skill out of date" when a skill differs from the current template, even at the same CLI version, and reports local edits separately. `xpo init` / `doctor --fix` refresh out-of-date skills and offer replace/keep/diff for edited ones instead of silently overwriting them (xpo-e88f1b)
