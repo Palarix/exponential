@@ -3,7 +3,7 @@ import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
-import { TopBar, CountBadge, Heading, Text, SearchInput } from "../ui";
+import { TopBar, CountBadge, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel, filterLabelsByName } from "../../utils/labels";
@@ -120,198 +120,196 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
   }, [newName, newColor, configLabels, onConfigLabelsChange]);
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <TopBar
-        left={<Heading title="Labels" as="h1" />}
-        center={<SearchInput value={search} onChange={setSearch} placeholder="Filter labels..." />}
-        right={
-          <button
-            onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}
-            className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New Label
-          </button>
-        }
-      />
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto py-4">
-          {/* Create form */}
-          {creating && (
-            <div className="mx-4 mb-4 p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-surface-1)]">
-              <div className="flex items-center gap-3 mb-3">
-                <input
-                  ref={createInputRef}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreate();
-                    if (e.key === "Escape") setCreating(false);
-                  }}
-                  placeholder="Label name"
-                  className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
-                />
-              </div>
-              <div className="flex items-center gap-2 mb-3">
-                <Text size="xs">Color</Text>
-                {LABEL_PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setNewColor(c)}
-                    className={`w-6 h-6 rounded-full transition-transform ${newColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
-                    style={{ background: c }}
-                  />
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--color-text-muted)] mr-auto">
-                  {newName.trim() && <LabelBadge label={newName.trim()} />}
-                </span>
-                <button
-                  onClick={() => setCreating(false)}
-                  className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreate}
-                  disabled={!newName.trim()}
-                  className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Label list */}
-          {labels.length === 0 && !creating ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <svg className="w-10 h-10 text-[var(--color-text-muted)] opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+    <ViewContainer
+      maxWidth="7xl"
+      innerClassName="py-4"
+      topBar={
+        <TopBar
+          left={<Heading title="Labels" as="h1" />}
+          center={<SearchInput value={search} onChange={setSearch} placeholder="Filter labels..." />}
+          right={
+            <button
+              onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}
+              className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              <Text as="p">No labels yet</Text>
+              New Label
+            </button>
+          }
+        />
+      }
+    >
+      {/* Create form */}
+      {creating && (
+        <div className="mx-4 mb-4 p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-surface-1)]">
+          <div className="flex items-center gap-3 mb-3">
+            <input
+              ref={createInputRef}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+                if (e.key === "Escape") setCreating(false);
+              }}
+              placeholder="Label name"
+              className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
+            />
+          </div>
+          <div className="flex items-center gap-2 mb-3">
+            <Text size="xs">Color</Text>
+            {LABEL_PRESET_COLORS.map((c) => (
               <button
-                onClick={() => setCreating(true)}
-                className="text-xs text-[var(--color-accent-primary)] hover:underline"
-              >
-                Create your first label
-              </button>
-            </div>
-          ) : visibleLabels.length === 0 && labels.length > 0 ? (
-            <div className="flex justify-center py-16">
-              <Text as="p">No labels match “{search.trim()}”</Text>
-            </div>
-          ) : (
-            <div className="divide-y divide-[var(--color-border-subtle)]">
-              {visibleLabels.map((label) => (
-                <div key={label.name}>
-                  {editing === label.name ? (
-                    <div className="px-4 py-3 bg-[var(--color-surface-1)]">
-                      <div className="flex items-center gap-3 mb-3">
-                        <input
-                          ref={editInputRef}
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit();
-                            if (e.key === "Escape") cancelEditing();
-                          }}
-                          className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Text size="xs">Color</Text>
-                        {LABEL_PRESET_COLORS.map((c) => (
-                          <button
-                            key={c}
-                            onClick={() => setEditColor(c)}
-                            className={`w-6 h-6 rounded-full transition-transform ${editColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
-                            style={{ background: c }}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[var(--color-text-muted)] mr-auto">
-                          {editName.trim() && (
-                            <span className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-bg-elevated">
-                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: editColor }} />
-                              {editName.trim().charAt(0).toUpperCase() + editName.trim().slice(1)}
-                            </span>
-                          )}
+                key={c}
+                onClick={() => setNewColor(c)}
+                className={`w-6 h-6 rounded-full transition-transform ${newColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
+                style={{ background: c }}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--color-text-muted)] mr-auto">
+              {newName.trim() && <LabelBadge label={newName.trim()} />}
+            </span>
+            <button
+              onClick={() => setCreating(false)}
+              className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={!newName.trim()}
+              className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Label list */}
+      {labels.length === 0 && !creating ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <svg className="w-10 h-10 text-[var(--color-text-muted)] opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+          </svg>
+          <Text as="p">No labels yet</Text>
+          <button
+            onClick={() => setCreating(true)}
+            className="text-xs text-[var(--color-accent-primary)] hover:underline"
+          >
+            Create your first label
+          </button>
+        </div>
+      ) : visibleLabels.length === 0 && labels.length > 0 ? (
+        <div className="flex justify-center py-16">
+          <Text as="p">No labels match “{search.trim()}”</Text>
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--color-border-subtle)]">
+          {visibleLabels.map((label) => (
+            <div key={label.name}>
+              {editing === label.name ? (
+                <div className="px-4 py-3 bg-[var(--color-surface-1)]">
+                  <div className="flex items-center gap-3 mb-3">
+                    <input
+                      ref={editInputRef}
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit();
+                        if (e.key === "Escape") cancelEditing();
+                      }}
+                      className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Text size="xs">Color</Text>
+                    {LABEL_PRESET_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setEditColor(c)}
+                        className={`w-6 h-6 rounded-full transition-transform ${editColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
+                        style={{ background: c }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[var(--color-text-muted)] mr-auto">
+                      {editName.trim() && (
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-bg-elevated">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: editColor }} />
+                          {editName.trim().charAt(0).toUpperCase() + editName.trim().slice(1)}
                         </span>
-                        <button
-                          onClick={cancelEditing}
-                          className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={saveEdit}
-                          disabled={!editName.trim()}
-                          className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
-                        >
-                          Save
-                        </button>
-                      </div>
+                      )}
+                    </span>
+                    <button
+                      onClick={cancelEditing}
+                      className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveEdit}
+                      disabled={!editName.trim()}
+                      className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer" onClick={() => onLabelClick?.(label.name)}>
+                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
+                  <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
+                    {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
+                  </span>
+                  <CountBadge count={label.count} />
+                  {confirmDelete === label.name ? (
+                    <div className="flex items-center gap-2">
+                      <Text size="xs">Delete?</Text>
+                      <button
+                        onClick={() => handleDelete(label.name)}
+                        className="h-6 px-2 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="h-6 px-2 text-xs rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                      >
+                        No
+                      </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer" onClick={() => onLabelClick?.(label.name)}>
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
-                      <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
-                        {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
-                      </span>
-                      <CountBadge count={label.count} />
-                      {confirmDelete === label.name ? (
-                        <div className="flex items-center gap-2">
-                          <Text size="xs">Delete?</Text>
-                          <button
-                            onClick={() => handleDelete(label.name)}
-                            className="h-6 px-2 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity"
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => setConfirmDelete(null)}
-                            className="h-6 px-2 text-xs rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                          >
-                            No
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => startEditing(label)}
-                            className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-1)] transition-colors"
-                            title="Edit label"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => setConfirmDelete(label.name)}
-                            className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-surface-1)] transition-colors"
-                            title="Delete label"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => startEditing(label)}
+                        className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-1)] transition-colors"
+                        title="Edit label"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(label.name)}
+                        className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-surface-1)] transition-colors"
+                        title="Delete label"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   )}
                 </div>
-              ))}
+              )}
             </div>
-          )}
+          ))}
         </div>
-      </div>
-    </div>
+      )}
+    </ViewContainer>
   );
 }

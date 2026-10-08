@@ -15,6 +15,7 @@ import {
   CountBadge,
   Text,
   SearchInput,
+  ViewContainer,
 } from "../ui";
 import { User as UserIcon } from "lucide-react";
 import { extractEmail, formatShortDate } from "../../utils/format";
@@ -106,34 +107,35 @@ export default function MyIssues({
   );
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <TopBar
-        left={
-          <Tabs
-            items={TAB_CONFIGS}
-            activeId={activeTab}
-            onChange={onTabChange}
-            keyboardNavigationEnabled={!contextMenu}
-          />
-        }
-        center={
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Filter issues..."
-            keyboardNavigationEnabled={!contextMenu}
-          />
-        }
-        right={
-          <div className="flex items-center gap-2">
-            <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} />
-            <CountBadge count={filtered.length} />
-          </div>
-        }
-      />
-
-      {/* List */}
+    <ViewContainer
+      scroll={filtered.length > 0}
+      topBar={
+        <TopBar
+          left={
+            <Tabs
+              items={TAB_CONFIGS}
+              activeId={activeTab}
+              onChange={onTabChange}
+              keyboardNavigationEnabled={!contextMenu}
+            />
+          }
+          center={
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Filter issues..."
+              keyboardNavigationEnabled={!contextMenu}
+            />
+          }
+          right={
+            <div className="flex items-center gap-2">
+              <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} />
+              <CountBadge count={filtered.length} />
+            </div>
+          }
+        />
+      }
+    >
       {filtered.length === 0 ? (
         <EmptyState
           icon={<UserIcon className="w-16 h-16" />}
@@ -151,7 +153,7 @@ export default function MyIssues({
           }
         />
       ) : (
-        <div className="flex-1 overflow-y-auto">
+        <>
           {filtered.map((issue) => (
             <div
               key={issue.id}
@@ -185,7 +187,7 @@ export default function MyIssues({
               </span>
             </div>
           ))}
-        </div>
+        </>
       )}
 
       {contextMenu && onRefresh && (() => {
@@ -206,6 +208,6 @@ export default function MyIssues({
           />
         );
       })()}
-    </div>
+    </ViewContainer>
   );
 }

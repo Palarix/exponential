@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
-import { TopBar, IconButton, CountBadge, Heading } from '../ui';
+import { TopBar, IconButton, CountBadge, Heading, ViewContainer } from '../ui';
 import {
   DndContext,
   DragOverlay,
@@ -451,39 +451,44 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   }
 
   return (
-    <div ref={boardRef} className="h-full flex flex-col">
-      <TopBar
-        left={<Heading title="Board" />}
-        right={
-          <span className="flex items-center gap-2">
-            <div>
-              <IconButton
-                ref={viewBtnRef}
-                onClick={() => setShowViewMenu(v => !v)}
-                icon={<Settings2 size={14} />}
-              />
-              {showViewMenu && (
-                <Popover anchorRef={viewBtnRef} onClose={() => setShowViewMenu(false)}>
-                  <Menu onClose={() => setShowViewMenu(false)}>
-                    <MenuLabel>Columns</MenuLabel>
-                    {COLUMNS.map((col) => (
-                      <MenuItem
-                        key={col.id}
-                        label={col.label}
-                        icon={<StatusIcon status={col.id} size={14} />}
-                        checked={!hiddenColumns.has(col.id)}
-                        onClick={() => toggleColumnVisible(col.id)}
-                      />
-                    ))}
-                  </Menu>
-                </Popover>
-              )}
-            </div>
-            <CountBadge count={issues.filter(i => !hiddenColumns.has(i.status)).length} />
-          </span>
-        }
-      />
-
+    <ViewContainer
+      ref={boardRef}
+      scroll={false}
+      contentClassName="p-3"
+      topBar={
+        <TopBar
+          left={<Heading title="Board" />}
+          right={
+            <span className="flex items-center gap-2">
+              <div>
+                <IconButton
+                  ref={viewBtnRef}
+                  onClick={() => setShowViewMenu(v => !v)}
+                  icon={<Settings2 size={14} />}
+                />
+                {showViewMenu && (
+                  <Popover anchorRef={viewBtnRef} onClose={() => setShowViewMenu(false)}>
+                    <Menu onClose={() => setShowViewMenu(false)}>
+                      <MenuLabel>Columns</MenuLabel>
+                      {COLUMNS.map((col) => (
+                        <MenuItem
+                          key={col.id}
+                          label={col.label}
+                          icon={<StatusIcon status={col.id} size={14} />}
+                          checked={!hiddenColumns.has(col.id)}
+                          onClick={() => toggleColumnVisible(col.id)}
+                        />
+                      ))}
+                    </Menu>
+                  </Popover>
+                )}
+              </div>
+              <CountBadge count={issues.filter(i => !hiddenColumns.has(i.status)).length} />
+            </span>
+          }
+        />
+      }
+    >
       <DndContext
         sensors={sensors}
         collisionDetection={boardCollision}
@@ -492,24 +497,22 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="flex-1 overflow-hidden p-3">
-          <div className="flex gap-3 h-full">
-            {visibleColumns.map((column) => (
-              <BoardColumn
-                key={column.id}
-                column={column}
-                itemIds={containers[column.id] ?? []}
-                getIssue={(id) => issuesById.get(id)}
-                getCardMeta={getCardMeta}
-                activeId={activeId}
-                focusedId={focusedIssueId}
-                collapsed={collapsedCols.has(column.id)}
-                onToggleCollapse={() => toggleCollapse(column.id)}
-                onIssueClick={onIssueClick}
-                onIssueContextMenu={(issue, x, y) => setContextMenu({ issueId: issue.id, x, y })}
-              />
-            ))}
-          </div>
+        <div className="flex gap-3 h-full">
+          {visibleColumns.map((column) => (
+            <BoardColumn
+              key={column.id}
+              column={column}
+              itemIds={containers[column.id] ?? []}
+              getIssue={(id) => issuesById.get(id)}
+              getCardMeta={getCardMeta}
+              activeId={activeId}
+              focusedId={focusedIssueId}
+              collapsed={collapsedCols.has(column.id)}
+              onToggleCollapse={() => toggleCollapse(column.id)}
+              onIssueClick={onIssueClick}
+              onIssueContextMenu={(issue, x, y) => setContextMenu({ issueId: issue.id, x, y })}
+            />
+          ))}
         </div>
         <DragOverlay dropAnimation={null}>
           {activeIssue ? <BoardCard issue={activeIssue} meta={getCardMeta(activeIssue)} isOverlay /> : null}
@@ -573,6 +576,6 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
           </>
         );
       })()}
-    </div>
+    </ViewContainer>
   );
 }

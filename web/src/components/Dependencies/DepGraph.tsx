@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useCallback, useEffect, type WheelEvent as R
 import type { Issue } from '../../api/types';
 import type { DepGraph, GraphEdge } from './useDepGraph';
 import StatusIcon from '../ui/StatusIcon';
-import { Heading, Text, Toggle, TopBar } from '../ui';
+import { Heading, Text, Toggle, TopBar, ViewContainer } from '../ui';
 import { truncate, edgePath } from './dep-graph-utils';
 import { useKeyboardShortcuts } from '../../keyboard';
 
@@ -124,52 +124,54 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
     : null;
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <TopBar
-        left={
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-              title="Back to table"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <Heading truncate title={`Dependencies for ${truncate(focusIssue.title, 50)}`} />
-            <Text size="xs" mono>{focusIssue.id}</Text>
-          </div>
-        }
-        right={
-          <div className="flex items-center gap-3">
-            <Toggle
-              checked={showCompleted}
-              onChange={onShowCompletedChange}
-              label="Completed"
-            />
-            <button
-              className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-              onClick={fitToScreen}
-              title="Fit to screen"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
-              </svg>
-            </button>
-          </div>
-        }
-      />
-
+    <ViewContainer
+      scroll={false}
+      topBar={
+        <TopBar
+          left={
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onBack}
+                className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                title="Back to table"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <Heading truncate title={`Dependencies for ${truncate(focusIssue.title, 50)}`} />
+              <Text size="xs" mono>{focusIssue.id}</Text>
+            </div>
+          }
+          right={
+            <div className="flex items-center gap-3">
+              <Toggle
+                checked={showCompleted}
+                onChange={onShowCompletedChange}
+                label="Completed"
+              />
+              <button
+                className="flex items-center justify-center w-7 h-7 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                onClick={fitToScreen}
+                title="Fit to screen"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+                </svg>
+              </button>
+            </div>
+          }
+        />
+      }
+    >
       {graph.nodes.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="h-full flex items-center justify-center">
           <Text as="p">This issue has no dependencies</Text>
         </div>
       ) : (
         <div
           ref={containerRef}
-          className="flex-1 min-h-0 overflow-hidden cursor-grab active:cursor-grabbing"
+          className="h-full cursor-grab active:cursor-grabbing"
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -258,7 +260,7 @@ export default function DepGraphView({ graph, focusIssue, showCompleted, onShowC
           </svg>
         </div>
       )}
-    </div>
+    </ViewContainer>
   );
 }
 

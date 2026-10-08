@@ -196,7 +196,7 @@ export default function Inbox({
         />
 
         {/* Card list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 scroll-stable">
           {filteredGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
               <Bell className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />

@@ -383,7 +383,7 @@ export function Menu({
       className={cn(
         "outline-none",
         !bare && "min-w-64 p-2 bg-[var(--color-surface-2)] border border-[var(--color-border-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-popover)]",
-        maxHeight && "overflow-y-auto scrollbar-gutter-both px-0 scrollbar-thin",
+        maxHeight && "scroll-stable px-0",
         className,
       )}
     >

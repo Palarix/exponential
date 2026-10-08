@@ -48,7 +48,7 @@ export const BacklogGroupHeader = memo(function BacklogGroupHeader({
           data-group-header
           onClick={() => !isEmpty && onToggle(status)}
           onMouseEnter={() => onMouseEnter(groupIndex)}
-          className={`flex items-center gap-3 w-full px-5 py-2 border-b border-[var(--color-border-subtle)] transition-colors duration-[var(--duration-fast)] select-none ${isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${isFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isFocused ? "bg-[var(--color-hover-surface)]" : "bg-[var(--color-surface-1)]"}`}
+          className={`flex items-center gap-3 w-full px-5 py-2 border-b border-transparent rounded-[var(--radius-md)] transition-colors duration-[var(--duration-fast)] select-none ${isEmpty ? "opacity-40 cursor-default" : "cursor-pointer"} ${isFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isFocused ? "bg-[var(--color-hover-surface)]" : "bg-[var(--color-surface-1)]"}`}
         >
           <span className="w-4 shrink-0 flex items-center justify-center">
             <svg

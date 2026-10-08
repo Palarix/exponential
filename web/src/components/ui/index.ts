@@ -34,6 +34,7 @@ export { useToast } from './ToastContext';
 export { SearchInput } from './SearchInput';
 export { Tabs } from './Tabs';
 export { TopBar } from './TopBar';
+export { ViewContainer } from './ViewContainer';
 export { default as Heading } from './Heading';
 export { default as Text } from './Text';
 export { default as VSCodeIcon } from './VSCodeIcon';

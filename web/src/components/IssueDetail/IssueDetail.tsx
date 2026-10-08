@@ -4,7 +4,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { addDraft, fetchArtifactContent, fetchLocalWorktree, ApiError } from "../../api/client";
 import type { Issue, LocalWorktree } from "../../api/client";
-import { StatusIcon, CopyableId, useToast, TopBar, Text, VSCodeIcon } from "../ui";
+import { StatusIcon, CopyableId, useToast, TopBar, Text, VSCodeIcon, ViewContainer } from "../ui";
 import Tooltip from "../ui/Tooltip";
 import { iconButtonClass } from "../ui/icon-button-utils";
 import { ChevronRight } from "lucide-react";
@@ -372,309 +372,308 @@ export default function IssueDetail({
   }
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Top bar */}
-      <TopBar
-        left={
-          <div className="flex items-center gap-2 text-sm min-w-0">
-            <button
-              onClick={onClose}
-              className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
-            >
-              Issues
-            </button>
-            <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
-            <CopyableId id={issue.id} className="text-xs shrink-0" />
-            <span className="text-[var(--color-text-primary)] truncate">
-              {optimisticTitle ?? issue.title}
-            </span>
-          </div>
-        }
-        right={
-          <div className="flex items-center gap-1 shrink-0">
-            {worktree && (
-              <Tooltip content="Open worktree in VSCode">
-                <a
-                  href={vscodeUrl(worktree.path)}
-                  className={iconButtonClass(false, "w-auto px-2 gap-1.5 mr-2 text-xs")}
-                >
-                  <VSCodeIcon size={13} />
-                  Open
-                </a>
-              </Tooltip>
-            )}
-            <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
-              {currentIndex + 1} / {totalCount}
-            </span>
-            <button
-              onClick={() => onNavigate("prev")}
-              disabled={!hasPrev}
-              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+    <ViewContainer
+      header={banner}
+      contentRef={scrollRef}
+      maxWidth="detail"
+      innerClassName="flex min-h-full"
+      topBar={
+        <TopBar
+          left={
+            <div className="flex items-center gap-2 text-sm min-w-0">
+              <button
+                onClick={onClose}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors shrink-0"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={() => onNavigate("next")}
-              disabled={!hasNext}
-              className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        }
-      />
-
-      {banner}
-      {/* Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="flex min-h-full max-w-[76rem] mx-auto">
-          {/* Main content */}
-          <div className="flex-1 min-w-0">
-            <div className="px-8 py-12">
-              {/* Title */}
-              {editingField === "title" ? (
-                <input
-                  autoFocus
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveTitle();
-                    if (e.key === "Escape") setEditingField(null);
-                  }}
-                  onBlur={handleSaveTitle}
-                  className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none m-0 p-0 leading-tight block"
-                  style={{
-                    caretColor: "var(--color-accent-primary)",
-                    height: "auto",
-                  }}
-                />
-              ) : (
-                <h1
-                  onClick={() => startEditing("title")}
-                  className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text"
-                >
-                  {optimisticTitle ?? issue.title}
-                </h1>
+                Issues
+              </button>
+              <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
+              <CopyableId id={issue.id} className="text-xs shrink-0" />
+              <span className="text-[var(--color-text-primary)] truncate">
+                {optimisticTitle ?? issue.title}
+              </span>
+            </div>
+          }
+          right={
+            <div className="flex items-center gap-1 shrink-0">
+              {worktree && (
+                <Tooltip content="Open worktree in VSCode">
+                  <a
+                    href={vscodeUrl(worktree.path)}
+                    className={iconButtonClass(false, "w-auto px-2 gap-1.5 mr-2 text-xs")}
+                  >
+                    <VSCodeIcon size={13} />
+                    Open
+                  </a>
+                </Tooltip>
               )}
+              <span className="text-xs text-[var(--color-text-muted)] tabular-nums mr-1">
+                {currentIndex + 1} / {totalCount}
+              </span>
+              <button
+                onClick={() => onNavigate("prev")}
+                disabled={!hasPrev}
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={() => onNavigate("next")}
+                disabled={!hasNext}
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors disabled:opacity-20 disabled:pointer-events-none"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          }
+        />
+      }
+    >
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
+        <div className="px-8 py-12">
+          {/* Title */}
+          {editingField === "title" ? (
+            <input
+              autoFocus
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveTitle();
+                if (e.key === "Escape") setEditingField(null);
+              }}
+              onBlur={handleSaveTitle}
+              className="w-full text-xl font-semibold bg-transparent text-[var(--color-text-primary)] outline-none border-none m-0 p-0 leading-tight block"
+              style={{
+                caretColor: "var(--color-accent-primary)",
+                height: "auto",
+              }}
+            />
+          ) : (
+            <h1
+              onClick={() => startEditing("title")}
+              className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text"
+            >
+              {optimisticTitle ?? issue.title}
+            </h1>
+          )}
 
-              {/* Parent reference */}
-              {issue.parent_id &&
-                (() => {
-                  const parent = issues.find((i) => i.id === issue.parent_id);
-                  const siblings = parent
-                    ? issues.filter((i) => i.parent_id === parent.id)
-                    : [];
-                  const siblingsDone = siblings.filter(
-                    (i) => i.status === "DONE",
-                  ).length;
-                  return (
-                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
-                      <span>Sub-issue of</span>
-                      {parent && (
-                        <StatusIcon
-                          status={parent.status}
-                          size={14}
-                          isInferred={parent.is_inferred}
-                        />
-                      )}
-                      <a
-                        href={`#/issues/${issue.parent_id}`}
-                        className="font-mono text-[var(--color-accent-primary)] hover:underline"
-                        onClick={(e) => e.stopPropagation()}
+          {/* Parent reference */}
+          {issue.parent_id &&
+            (() => {
+              const parent = issues.find((i) => i.id === issue.parent_id);
+              const siblings = parent
+                ? issues.filter((i) => i.parent_id === parent.id)
+                : [];
+              const siblingsDone = siblings.filter(
+                (i) => i.status === "DONE",
+              ).length;
+              return (
+                <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] mt-2 flex-wrap">
+                  <span>Sub-issue of</span>
+                  {parent && (
+                    <StatusIcon
+                      status={parent.status}
+                      size={14}
+                      isInferred={parent.is_inferred}
+                    />
+                  )}
+                  <a
+                    href={`#/issues/${issue.parent_id}`}
+                    className="font-mono text-[var(--color-accent-primary)] hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {issue.parent_id}
+                  </a>
+                  {parent && (
+                    <Text color="secondary">
+                      {parent.title}
+                    </Text>
+                  )}
+                  {siblings.length > 0 && (
+                    <Text>
+                      ({siblingsDone}/{siblings.length})
+                    </Text>
+                  )}
+                </div>
+              );
+            })()}
+
+          {/* Tabs */}
+          {(() => {
+            const hasSpec = issue.artifacts?.some(
+              (a) => a.artifact_type === "spec",
+            );
+            const hasWalkthrough = issue.artifacts?.some(
+              (a) => a.artifact_type === "walkthrough",
+            );
+            const hasTabs = hasSpec || hasWalkthrough;
+
+            const tabs: { key: DetailTab; label: string }[] = [
+              { key: "details", label: "Details" },
+              ...(hasSpec
+                ? [{ key: "spec" as DetailTab, label: "Spec" }]
+                : []),
+              ...(hasWalkthrough
+                ? [
+                    {
+                      key: "walkthrough" as DetailTab,
+                      label: "Walkthrough",
+                    },
+                  ]
+                : []),
+            ];
+
+            return (
+              <>
+                {hasTabs && (
+                  <div className="flex items-center gap-1 mt-4 border-b border-[var(--color-border-subtle)]">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key)}
+                        className={`px-3 py-2 text-sm font-medium transition-colors relative ${
+                          activeTab === tab.key
+                            ? "text-[var(--color-text-primary)]"
+                            : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                        }`}
                       >
-                        {issue.parent_id}
-                      </a>
-                      {parent && (
-                        <Text color="secondary">
-                          {parent.title}
-                        </Text>
-                      )}
-                      {siblings.length > 0 && (
-                        <Text>
-                          ({siblingsDone}/{siblings.length})
-                        </Text>
-                      )}
-                    </div>
-                  );
-                })()}
+                        {tab.label}
+                        {activeTab === tab.key && (
+                          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              {/* Tabs */}
-              {(() => {
-                const hasSpec = issue.artifacts?.some(
-                  (a) => a.artifact_type === "spec",
-                );
-                const hasWalkthrough = issue.artifacts?.some(
-                  (a) => a.artifact_type === "walkthrough",
-                );
-                const hasTabs = hasSpec || hasWalkthrough;
-
-                const tabs: { key: DetailTab; label: string }[] = [
-                  { key: "details", label: "Details" },
-                  ...(hasSpec
-                    ? [{ key: "spec" as DetailTab, label: "Spec" }]
-                    : []),
-                  ...(hasWalkthrough
-                    ? [
-                        {
-                          key: "walkthrough" as DetailTab,
-                          label: "Walkthrough",
-                        },
-                      ]
-                    : []),
-                ];
-
-                return (
+                {activeTab === "details" && (
                   <>
-                    {hasTabs && (
-                      <div className="flex items-center gap-1 mt-4 border-b border-[var(--color-border-subtle)]">
-                        {tabs.map((tab) => (
-                          <button
-                            key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`px-3 py-2 text-sm font-medium transition-colors relative ${
-                              activeTab === tab.key
-                                ? "text-[var(--color-text-primary)]"
-                                : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                            }`}
-                          >
-                            {tab.label}
-                            {activeTab === tab.key && (
-                              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {activeTab === "details" && (
-                      <>
-                        {/* Description */}
-                        <div className={hasTabs ? "mt-6" : "mt-4"}>
-                          {editingField === "description" ? (
-                            <MarkdownEditor
-                              value={editDescription}
-                              onChange={setEditDescription}
-                              onSave={handleSaveDescription}
-                              onCancel={() => setEditingField(null)}
-                              autoFocus
-                              clickEvent={descClickEvent}
-                              className="prose-exponential"
-                            />
-                          ) : (
-                            <div
-                              onClick={(e) => {
-                                if ((e.target as HTMLElement).closest("a"))
-                                  return;
-                                setDescClickEvent({
-                                  clientX: e.clientX,
-                                  clientY: e.clientY,
-                                });
-                                startEditing("description");
-                              }}
-                              className="cursor-text min-h-10 prose-exponential"
+                    {/* Description */}
+                    <div className={hasTabs ? "mt-6" : "mt-4"}>
+                      {editingField === "description" ? (
+                        <MarkdownEditor
+                          value={editDescription}
+                          onChange={setEditDescription}
+                          onSave={handleSaveDescription}
+                          onCancel={() => setEditingField(null)}
+                          autoFocus
+                          clickEvent={descClickEvent}
+                          className="prose-exponential"
+                        />
+                      ) : (
+                        <div
+                          onClick={(e) => {
+                            if ((e.target as HTMLElement).closest("a"))
+                              return;
+                            setDescClickEvent({
+                              clientX: e.clientX,
+                              clientY: e.clientY,
+                            });
+                            startEditing("description");
+                          }}
+                          className="cursor-text min-h-10 prose-exponential"
+                        >
+                          {(optimisticDescription ?? issue.description) ? (
+                            <Markdown
+                              remarkPlugins={[remarkGfm, remarkBreaks]}
                             >
-                              {(optimisticDescription ?? issue.description) ? (
-                                <Markdown
-                                  remarkPlugins={[remarkGfm, remarkBreaks]}
-                                >
-                                  {linkifyIssueIds(
-                                    optimisticDescription ??
-                                      issue.description ??
-                                      "",
-                                    prefix,
-                                  )}
-                                </Markdown>
-                              ) : (
-                                <Text as="p" size="base">
-                                  Add a description...
-                                </Text>
+                              {linkifyIssueIds(
+                                optimisticDescription ??
+                                  issue.description ??
+                                  "",
+                                prefix,
                               )}
-                            </div>
+                            </Markdown>
+                          ) : (
+                            <Text as="p" size="base">
+                              Add a description...
+                            </Text>
                           )}
                         </div>
+                      )}
+                    </div>
 
-                        <SubIssuesTable
-                          issue={issue}
-                          issues={issues}
-                          onRefresh={onRefresh}
-                        />
+                    <SubIssuesTable
+                      issue={issue}
+                      issues={issues}
+                      onRefresh={onRefresh}
+                    />
 
-                        <ArtifactList
-                          artifacts={issue.artifacts ?? []}
-                          issue={issue}
-                        />
+                    <ArtifactList
+                      artifacts={issue.artifacts ?? []}
+                      issue={issue}
+                    />
 
-                        <ActivityTimeline
-                          issue={issue}
-                          newComment={newComment}
-                          onNewCommentChange={setNewComment}
-                          onAddComment={handleAddComment}
-                          saving={saving}
-                          commentRef={commentRef}
-                          prefix={prefix}
-                        />
-                      </>
-                    )}
-
-                    {(activeTab === "spec" || activeTab === "walkthrough") &&
-                      (() => {
-                        const filename =
-                          activeTab === "spec" ? "spec.md" : "walkthrough.md";
-                        const content = artifactContent[filename];
-                        return (
-                          <div className="mt-6 prose-exponential">
-                            {content === undefined ? (
-                              <Text as="p">
-                                Loading...
-                              </Text>
-                            ) : content ? (
-                              <Markdown
-                                remarkPlugins={[remarkGfm, remarkBreaks]}
-                              >
-                                {linkifyIssueIds(content, prefix)}
-                              </Markdown>
-                            ) : (
-                              <Text as="p">
-                                No content.
-                              </Text>
-                            )}
-                          </div>
-                        );
-                      })()}
+                    <ActivityTimeline
+                      issue={issue}
+                      newComment={newComment}
+                      onNewCommentChange={setNewComment}
+                      onAddComment={handleAddComment}
+                      saving={saving}
+                      commentRef={commentRef}
+                      prefix={prefix}
+                    />
                   </>
-                );
-              })()}
-            </div>
-          </div>
+                )}
 
-          <PropertySidebar
-            issue={issue}
-            issues={issues}
-            openPopover={openPopover}
-            setOpenPopover={setOpenPopover}
-            popoverIndex={popoverIndex}
-            setPopoverIndex={setPopoverIndex}
-            saveDraft={saveDraft}
-            onClose={onClose}
-            onRefresh={onRefresh}
-            contributors={contributors}
-            onConfigLabelsChange={onConfigLabelsChange}
-            onOpenMerge={() => setMergeViewOpen(true)}
-          />
+                {(activeTab === "spec" || activeTab === "walkthrough") &&
+                  (() => {
+                    const filename =
+                      activeTab === "spec" ? "spec.md" : "walkthrough.md";
+                    const content = artifactContent[filename];
+                    return (
+                      <div className="mt-6 prose-exponential">
+                        {content === undefined ? (
+                          <Text as="p">
+                            Loading...
+                          </Text>
+                        ) : content ? (
+                          <Markdown
+                            remarkPlugins={[remarkGfm, remarkBreaks]}
+                          >
+                            {linkifyIssueIds(content, prefix)}
+                          </Markdown>
+                        ) : (
+                          <Text as="p">
+                            No content.
+                          </Text>
+                        )}
+                      </div>
+                    );
+                  })()}
+              </>
+            );
+          })()}
         </div>
       </div>
-    </div>
+
+      <PropertySidebar
+        issue={issue}
+        issues={issues}
+        openPopover={openPopover}
+        setOpenPopover={setOpenPopover}
+        popoverIndex={popoverIndex}
+        setPopoverIndex={setPopoverIndex}
+        saveDraft={saveDraft}
+        onClose={onClose}
+        onRefresh={onRefresh}
+        contributors={contributors}
+        onConfigLabelsChange={onConfigLabelsChange}
+        onOpenMerge={() => setMergeViewOpen(true)}
+      />
+    </ViewContainer>
   );
 }

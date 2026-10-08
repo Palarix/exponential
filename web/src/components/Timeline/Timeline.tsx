@@ -4,7 +4,7 @@ import { fetchTimeline, fetchCommitDetail } from "../../api/client";
 import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentCommentAuthor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
-import { TopBar, IconButton, Heading, Text, SearchInput } from "../ui";
+import { TopBar, IconButton, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
 import {
   Plus,
@@ -276,23 +276,25 @@ export default function Timeline({
     );
   }
 
+  const headerBar = (
+    <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
+  );
+
   if (rawEntries.length === 0) {
     return (
-      <div className="h-full flex flex-col">
-        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
+      <ViewContainer topBar={headerBar} scroll={false}>
         <EmptyState
           icon={<Clock className="w-12 h-12" />}
           title="No activity yet"
           description="Events and commits will appear here as work progresses."
         />
-      </div>
+      </ViewContainer>
     );
   }
 
   if (entries.length === 0) {
     return (
-      <div className="h-full flex flex-col">
-        <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
+      <ViewContainer topBar={headerBar} scroll={false}>
         <EmptyState
           icon={<Clock className="w-12 h-12" />}
           title="No matching activity"
@@ -300,49 +302,44 @@ export default function Timeline({
           actionLabel={rawEntries.length >= limit ? "Load more" : undefined}
           onAction={rawEntries.length >= limit ? handleLoadMore : undefined}
         />
-      </div>
+      </ViewContainer>
     );
   }
 
   const days = groupByDay(entries);
 
   return (
-    <div className="h-full flex flex-col">
-      <HeaderBar enabledTypes={enabledTypes} onEnabledTypesChange={setEnabledTypes} allEnabled={allEnabled} person={person} onPersonChange={setPerson} contributors={contributors} search={search} onSearchChange={setSearch} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto py-2">
-          {Array.from(days.entries()).map(([day, dayEntries], dayIdx) => (
-            <DayGroup
-              key={day}
-              day={day}
-              entries={dayEntries}
-              issues={issues}
-              onIssueClick={onIssueClick}
-              isFirst={dayIdx === 0}
-              isLast={dayIdx === days.size - 1 && rawEntries.length < limit}
-            />
-          ))}
-          {rawEntries.length >= limit && (
-            <div className="flex items-stretch px-5">
-              <div className="w-24 shrink-0" />
-              <div className="w-7 flex flex-col items-center shrink-0">
-                <div className="w-px flex-1 bg-[var(--color-border-default)]" />
-                <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--color-text-muted)]" />
-                <div className="w-px flex-1 bg-transparent" />
-              </div>
-              <div className="flex-1 flex items-center py-2 pl-3">
-                <button
-                  onClick={handleLoadMore}
-                  className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)] transition-colors"
-                >
-                  Load more
-                </button>
-              </div>
-            </div>
-          )}
+    <ViewContainer topBar={headerBar} maxWidth="7xl" innerClassName="py-2">
+      {Array.from(days.entries()).map(([day, dayEntries], dayIdx) => (
+        <DayGroup
+          key={day}
+          day={day}
+          entries={dayEntries}
+          issues={issues}
+          onIssueClick={onIssueClick}
+          isFirst={dayIdx === 0}
+          isLast={dayIdx === days.size - 1 && rawEntries.length < limit}
+        />
+      ))}
+      {rawEntries.length >= limit && (
+        <div className="flex items-stretch px-5">
+          <div className="w-24 shrink-0" />
+          <div className="w-7 flex flex-col items-center shrink-0">
+            <div className="w-px flex-1 bg-[var(--color-border-default)]" />
+            <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--color-text-muted)]" />
+            <div className="w-px flex-1 bg-transparent" />
+          </div>
+          <div className="flex-1 flex items-center py-2 pl-3">
+            <button
+              onClick={handleLoadMore}
+              className="text-sm text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)] transition-colors"
+            >
+              Load more
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </ViewContainer>
   );
 }
 

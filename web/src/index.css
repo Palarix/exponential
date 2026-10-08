@@ -143,8 +143,17 @@ body {
   }
 }
 
-.overflow-y-auto, .overflow-y-scroll {
+/* Vertical scroll container with a stable, symmetric gutter: content never
+   shifts when it starts or stops overflowing. overflow-y is forced to scroll
+   because Safari only applies scrollbar-gutter while a scrollbar exists (our
+   styled scrollbars are classic there); the track is transparent, so nothing
+   shows when content fits. both-edges mirrors the gutter on the left so
+   full-bleed row backgrounds are inset symmetrically. Use for panes and lists
+   whose content changes while visible (ViewContainer, sidebars, filterable
+   pickers); static lists use plain overflow-y-auto. */
+@utility scroll-stable {
   overflow-y: scroll;
+  scrollbar-gutter: stable both-edges;
 }
 
 /* ========================================

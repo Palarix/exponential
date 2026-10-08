@@ -122,7 +122,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
             {...dragProps.listeners}
             onClick={() => onIssueClick?.(issue)}
             onMouseEnter={() => onMouseEnter(rowIndex)}
-            className={`relative flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] select-none group ${isGhostRow ? "opacity-65" : ""} ${isFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isFocused ? "bg-[var(--color-hover-surface)]" : keyboardNav ? "" : "hover:bg-[var(--color-hover-surface)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
+            className={`relative flex items-center gap-3 px-5 h-10 border-b border-transparent rounded-[var(--radius-md)] cursor-pointer transition-colors duration-[var(--duration-fast)] select-none group ${isGhostRow ? "opacity-65" : ""} ${isFocused && keyboardNav ? "bg-[var(--color-hover-surface)] ring-1 ring-inset ring-[var(--color-accent-primary)]/40" : isFocused ? "bg-[var(--color-hover-surface)]" : keyboardNav ? "" : "hover:bg-[var(--color-hover-surface)]"} ${isDraggedOrBatch ? "opacity-40" : ""}`}
             style={{ paddingLeft: `${20 + indent}px` }}
           >
             {treeGuides.map((guide, k) =>

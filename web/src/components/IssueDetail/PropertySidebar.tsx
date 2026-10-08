@@ -251,7 +251,7 @@ export default function PropertySidebar({
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === issue.status);
 
   return (
-    <div className="w-80 shrink-0 sticky top-0 self-start max-h-screen overflow-y-auto pt-12">
+    <div className="w-80 shrink-0 sticky top-0 self-start max-h-screen scroll-stable pt-12">
       <div className="px-5 pb-5 space-y-3">
         {/* Start Work button */}
         {(issue.status === "BACKLOG" || issue.status === "PLANNED") && (
@@ -443,7 +443,7 @@ export default function PropertySidebar({
                         <input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                       </div>
                       <div className="border-t border-[var(--color-border-subtle)]" />
-                      <div className="max-h-60 overflow-y-auto">
+                      <div className="max-h-60 scroll-stable">
                         {issue.parent_id && (
                           <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
                             Remove parent
@@ -501,7 +501,7 @@ export default function PropertySidebar({
                         <input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
                       </div>
                       <div className="border-t border-[var(--color-border-subtle)]" />
-                      <div className="max-h-60 overflow-y-auto">
+                      <div className="max-h-60 scroll-stable">
                         {issue.assignee && (
                           <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
                             Remove assignee
@@ -749,7 +749,7 @@ export default function PropertySidebar({
                       <span className="w-12 shrink-0 text-right">Est</span>
                       <span className="w-8 shrink-0" />
                     </div>
-                    <div className="max-h-[50vh] overflow-y-auto">
+                    <div className="max-h-[50vh] scroll-stable">
                       {relCandidates.slice(0, 30).map((candidate) => (
                         <button
                           key={candidate.id}

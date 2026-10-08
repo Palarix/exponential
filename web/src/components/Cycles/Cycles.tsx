@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchCycles, fetchCycleProgress } from '../../api/client';
 import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
-import { StatusIcon, TopBar, Heading, Text } from '../ui';
+import { StatusIcon, TopBar, Heading, Text, ViewContainer } from '../ui';
 import { UserRound } from "lucide-react";
 
 interface CyclesProps {
@@ -189,29 +189,28 @@ function CyclesTimeline({ cycles, issues, onSelect }: { cycles: Cycle[]; issues:
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <TopBar
-        left={<Heading title="Cycles" />}
-      />
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
-          <div className="pb-4">
-            {sorted.length > 0 && (
-              <TimelineSeparator date={formatShortDate(topBoundary)} dotColor={sorted[0].status === 'current' ? 'border-[var(--color-accent-primary)]' : 'border-[var(--color-text-muted)]'} hollow={true} />
-            )}
-            {sorted.map((c, i) => {
-              const dp = dotProps(i);
-              return (
-                <div key={c.id}>
-                  <TimelineRow cycle={c} issues={issues} lineColor={lineColor(i)} onClick={() => onSelect(c.id)} />
-                  <TimelineSeparator date={formatShortDate(c.start)} dotColor={dp.dotColor} hollow={dp.hollow} />
-                </div>
-              );
-            })}
+    <ViewContainer
+      maxWidth="7xl"
+      innerClassName="pb-4"
+      topBar={
+        <TopBar
+          left={<Heading title="Cycles" />}
+        />
+      }
+    >
+      {sorted.length > 0 && (
+        <TimelineSeparator date={formatShortDate(topBoundary)} dotColor={sorted[0].status === 'current' ? 'border-[var(--color-accent-primary)]' : 'border-[var(--color-text-muted)]'} hollow={true} />
+      )}
+      {sorted.map((c, i) => {
+        const dp = dotProps(i);
+        return (
+          <div key={c.id}>
+            <TimelineRow cycle={c} issues={issues} lineColor={lineColor(i)} onClick={() => onSelect(c.id)} />
+            <TimelineSeparator date={formatShortDate(c.start)} dotColor={dp.dotColor} hollow={dp.hollow} />
           </div>
-        </div>
-      </div>
-    </div>
+        );
+      })}
+    </ViewContainer>
   );
 }
 
@@ -346,7 +345,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
   return (
     <div className="flex h-full">
       {/* Issue list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 scroll-stable">
         <div className="px-6 pt-5 pb-3">
           <button
             onClick={onBack}
@@ -404,7 +403,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
       </div>
 
       {/* Stats sidebar */}
-      <div className="w-72 shrink-0 border-l border-[var(--color-border-subtle)] overflow-y-auto">
+      <div className="w-72 shrink-0 border-l border-[var(--color-border-subtle)] scroll-stable">
         {/* Header badges */}
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${

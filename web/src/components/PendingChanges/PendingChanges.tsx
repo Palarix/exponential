@@ -1,5 +1,5 @@
 import type { PendingState, Issue } from '../../api/client';
-import { StatusIcon, LabelBadge, Text, TopBar } from '../ui';
+import { StatusIcon, LabelBadge, Text, TopBar, ViewContainer } from '../ui';
 import { ChevronRight } from "lucide-react";
 
 interface PendingChangesProps {
@@ -17,96 +17,94 @@ export default function PendingChanges({ pending, issues, autoCommit, onClose, o
   const issueMap = new Map(issues.map(i => [i.id, i]));
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <TopBar
-        left={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-            >
-              Issues
-            </button>
-            <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)]" />
-            <span className="text-sm font-medium text-[var(--color-text-primary)]">Pending Changes</span>
-            <Text size="xs" tabular>{events.length}</Text>
-          </div>
-        }
-        right={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onDiscard}
-              className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] rounded-[var(--radius-md)] transition-colors"
-            >
-              Discard All
-            </button>
-            <button
-              onClick={onSave}
-              className="px-3 py-1 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
-            >
-              {autoCommit ? 'Save & Commit' : 'Save'}
-            </button>
-          </div>
-        }
-      />
+    <ViewContainer
+      topBar={
+        <TopBar
+          left={
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                Issues
+              </button>
+              <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)]" />
+              <span className="text-sm font-medium text-[var(--color-text-primary)]">Pending Changes</span>
+              <Text size="xs" tabular>{events.length}</Text>
+            </div>
+          }
+          right={
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onDiscard}
+                className="px-3 py-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] rounded-[var(--radius-md)] transition-colors"
+              >
+                Discard All
+              </button>
+              <button
+                onClick={onSave}
+                className="px-3 py-1 text-sm text-white bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] rounded-[var(--radius-md)] transition-colors"
+              >
+                {autoCommit ? 'Save & Commit' : 'Save'}
+              </button>
+            </div>
+          }
+        />
+      }
+    >
+      {events.length === 0 ? (
+        <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
+          No pending changes
+        </div>
+      ) : (
+        <div>
+          {events.map((event, i) => {
+            const issue = issueMap.get(event.issue_id);
+            return (
+              <div
+                key={i}
+                className="flex items-start gap-3 px-5 py-3 border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors"
+              >
+                {/* Type badge */}
+                <TypeBadge type={event.type} />
 
-      {/* Changes list */}
-      <div className="flex-1 overflow-y-auto">
-        {events.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
-            No pending changes
-          </div>
-        ) : (
-          <div>
-            {events.map((event, i) => {
-              const issue = issueMap.get(event.issue_id);
-              return (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 px-5 py-3 border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                >
-                  {/* Type badge */}
-                  <TypeBadge type={event.type} />
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  {/* Issue reference */}
+                  {issue ? (
+                    <button
+                      onClick={() => onIssueClick(issue)}
+                      className="flex items-center gap-2 mb-2 group"
+                    >
+                      <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
+                      <span className="text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent-primary)] transition-colors truncate">
+                        {issue.title}
+                      </span>
+                      <span className="text-xs font-mono text-[var(--color-text-muted)] shrink-0">
+                        {event.issue_id}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-2">
+                      <Text mono>{event.issue_id}</Text>
+                    </div>
+                  )}
 
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    {/* Issue reference */}
-                    {issue ? (
-                      <button
-                        onClick={() => onIssueClick(issue)}
-                        className="flex items-center gap-2 mb-2 group"
-                      >
-                        <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
-                        <span className="text-sm font-medium text-[var(--color-text-primary)] group-hover:text-[var(--color-accent-primary)] transition-colors truncate">
-                          {issue.title}
-                        </span>
-                        <span className="text-xs font-mono text-[var(--color-text-muted)] shrink-0">
-                          {event.issue_id}
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2 mb-2">
-                        <Text mono>{event.issue_id}</Text>
-                      </div>
-                    )}
+                  {/* Payload details */}
+                  {event.payload && (
+                    <PayloadDetail type={event.type} payload={event.payload} />
+                  )}
 
-                    {/* Payload details */}
-                    {event.payload && (
-                      <PayloadDetail type={event.type} payload={event.payload} />
-                    )}
-
-                    <Text size="xs">
-                      {formatTime(event.created_at)}
-                    </Text>
-                  </div>
+                  <Text size="xs">
+                    {formatTime(event.created_at)}
+                  </Text>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </ViewContainer>
   );
 }
 

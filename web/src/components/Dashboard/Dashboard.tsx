@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
-import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar } from "../ui";
+import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar, ViewContainer } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration, shortName } from "../../utils/format";
@@ -210,282 +210,281 @@ export default function Dashboard({ issues, onIssueClick, onNewIssue }: Dashboar
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <TopBar
-        left={<Heading title="Overview" />}
-        right={
-          <CountBadge count={issues.length} />
-        }
-      />
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto space-y-3 py-3">
-          {/* Pulse */}
-          <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="exponential-dashboard-pulse-open">
-            {/* Charts row: 50/50 */}
-            <div className="px-5 py-3 grid grid-cols-2 gap-3">
-              <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
-                  <Text as="p" size="xs" tabular>last 14 days</Text>
-                </div>
-                <div className="flex-1 min-h-0">
-                  {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0
-                    ? <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
-                    : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
-                  }
-                </div>
-              </Card>
-              {metrics && metrics.trends.weekly.length > 0 && (
-                <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
-                    <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)]" />created</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <CumulativeChart weekly={metrics.trends.weekly} />
-                  </div>
-                </Card>
-              )}
+    <ViewContainer
+      maxWidth="7xl"
+      innerClassName="space-y-3 py-3"
+      topBar={
+        <TopBar
+          left={<Heading title="Overview" />}
+          right={
+            <CountBadge count={issues.length} />
+          }
+        />
+      }
+    >
+      {/* Pulse */}
+      <Section title="Pulse" icon={<SectionIcon d={SECTION_ICONS.pulse} />} collapsible storageKey="exponential-dashboard-pulse-open">
+        {/* Charts row: 50/50 */}
+        <div className="px-5 py-3 grid grid-cols-2 gap-3">
+          <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Daily Velocity</p>
+              <Text as="p" size="xs" tabular>last 14 days</Text>
             </div>
+            <div className="flex-1 min-h-0">
+              {metrics && metrics.velocity.daily_buckets && metrics.velocity.daily_buckets.length > 0
+                ? <DailyVelocityChart buckets={metrics.velocity.daily_buckets} />
+                : <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+              }
+            </div>
+          </Card>
+          {metrics && metrics.trends.weekly.length > 0 && (
+            <Card variant="elevated" padding="sm" className="flex flex-col min-h-48">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">Created vs Completed</p>
+                <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-text-muted)]" />created</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[var(--color-accent-primary)]" />completed</span>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0">
+                <CumulativeChart weekly={metrics.trends.weekly} />
+              </div>
+            </Card>
+          )}
+        </div>
 
-            {/* Stats row: Velocity + Cycle Time + Lead Time + Staleness */}
-            <div className="px-5 pb-3 grid grid-cols-4 gap-3">
-              <PulseCard title="Velocity">
+        {/* Stats row: Velocity + Cycle Time + Lead Time + Staleness */}
+        <div className="px-5 pb-3 grid grid-cols-4 gap-3">
+          <PulseCard title="Velocity">
+            <table className="w-full text-center tabular-nums border-collapse">
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+                  <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Last Week</th>
+                  <th className="font-normal py-1.5">Current</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{metrics ? metrics.velocity.last_7d_points : "—"} <Text size="xs">pts</Text></td>
+                  <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)]">{metrics ? metrics.velocity.current_week_points : "—"} <Text size="xs">pts</Text></td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 flex items-center gap-1">
+              {metrics && metrics.velocity.delta !== 0 ? (
+                <>
+                  <span className={`inline-flex items-center ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                    {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
+                  </span>
+                  <span>{metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}pts vs prior</span>
+                </>
+              ) : metrics && metrics.velocity.prior_7d_points > 0 ? (
+                <span>no change vs prior week</span>
+              ) : (
+                <span>no prior week data</span>
+              )}
+            </p>
+          </PulseCard>
+          <PulseCard title="Cycle Time">
+            {metrics && metrics.flow.cycle_count > 0 ? (
+              <>
                 <table className="w-full text-center tabular-nums border-collapse">
                   <thead>
                     <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Last Week</th>
-                      <th className="font-normal py-1.5">Current</th>
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Min</th>
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Median</th>
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">P90</th>
+                      <th className="font-normal py-1.5">Max</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{metrics ? metrics.velocity.last_7d_points : "—"} <Text size="xs">pts</Text></td>
-                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)]">{metrics ? metrics.velocity.current_week_points : "—"} <Text size="xs">pts</Text></td>
+                      <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_min_hrs)}</td>
+                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_hrs)}</td>
+                      <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_p90_hrs)}</td>
+                      <td className="py-2 text-sm text-[var(--color-text-muted)]">{formatDuration(metrics.flow.cycle_time_max_hrs)}</td>
                     </tr>
                   </tbody>
                 </table>
-                <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 flex items-center gap-1">
-                  {metrics && metrics.velocity.delta !== 0 ? (
-                    <>
-                      <span className={`inline-flex items-center ${metrics.velocity.delta > 0 ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
-                        {metrics.velocity.delta > 0 ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />}
-                      </span>
-                      <span>{metrics.velocity.delta > 0 ? "+" : ""}{metrics.velocity.delta}pts vs prior</span>
-                    </>
-                  ) : metrics && metrics.velocity.prior_7d_points > 0 ? (
-                    <span>no change vs prior week</span>
-                  ) : (
-                    <span>no prior week data</span>
-                  )}
-                </p>
-              </PulseCard>
-              <PulseCard title="Cycle Time">
-                {metrics && metrics.flow.cycle_count > 0 ? (
-                  <>
-                    <table className="w-full text-center tabular-nums border-collapse">
-                      <thead>
-                        <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Min</th>
-                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Median</th>
-                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">P90</th>
-                          <th className="font-normal py-1.5">Max</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_min_hrs)}</td>
-                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.cycle_time_p90_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)]">{formatDuration(metrics.flow.cycle_time_max_hrs)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">Based on start → done · {metrics.flow.cycle_count} issues</p>
-                  </>
-                ) : (
-                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
-                )}
-              </PulseCard>
-              <PulseCard title="Lead Time">
-                {metrics && metrics.flow.lead_count > 0 ? (
-                  <>
-                    <table className="w-full text-center tabular-nums border-collapse">
-                      <thead>
-                        <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Min</th>
-                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Median</th>
-                          <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">P90</th>
-                          <th className="font-normal py-1.5">Max</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_min_hrs)}</td>
-                          <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_p90_hrs)}</td>
-                          <td className="py-2 text-sm text-[var(--color-text-muted)]">{formatDuration(metrics.flow.lead_time_max_hrs)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">Based on created → done · {metrics.flow.lead_count} issues</p>
-                  </>
-                ) : (
-                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
-                )}
-              </PulseCard>
-              <PulseCard title="Staleness">
-                {(() => {
-                  const s = metrics?.flow.staleness;
-                  const total = metrics?.flow.staleness_total ?? 0;
-                  if (!metrics || total === 0) return (
-                    <>
-                      <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">0</p>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-2">no open issues</p>
-                    </>
-                  );
-                  const bars = [
-                    { label: "<1d", count: s!.under_1d, cls: "bg-[var(--color-success)]" },
-                    { label: "<3d", count: s!.under_3d, cls: "bg-[var(--color-success)]" },
-                    { label: "<7d", count: s!.under_7d, cls: "bg-[var(--color-text-secondary)]" },
-                    { label: "<14d", count: s!.under_14d, cls: "bg-[var(--color-warning)]" },
-                    { label: "<30d", count: s!.under_30d, cls: "bg-[var(--color-warning)]" },
-                    { label: ">30d", count: s!.over_30d, cls: "bg-[var(--color-error)]" },
-                  ];
-                  const max = Math.max(1, ...bars.map(b => b.count));
-                  return (
-                    <>
-                      <div>
-                        <div className="flex items-end gap-1 h-10">
-                          {bars.map(b => (
-                            <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
-                              <span className="text-xs text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
-                              <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex gap-1 mt-1.5">
-                          {bars.map(b => <span key={b.label} className="flex-1 text-center text-xs text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
-                        </div>
-                      </div>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 tabular-nums">Based on {total} open issues</p>
-                    </>
-                  );
-                })()}
-              </PulseCard>
-            </div>
-
-          </Section>
-
-          {/* Composition */}
-          <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="exponential-dashboard-composition-open">
-            <div className="px-5 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <DistributionSection title="By status" filter={statusFilter} onFilterChange={setStatusFilter} rows={statusDistribution.rows} total={statusDistribution.total} emptyHasIssues="No issues." hideBars />
-                <DistributionSection title="By label" filter={labelFilter} onFilterChange={setLabelFilter} rows={labelDistribution.rows} total={labelDistribution.total} emptyHasIssues="No labels on the filtered issues." />
-                <DistributionSection title="By assignee" filter={assigneeFilter} onFilterChange={setAssigneeFilter} rows={assigneeDistribution.rows} total={assigneeDistribution.total} emptyHasIssues="No assignees on the filtered issues." />
-                <DistributionSection title="By priority" filter={priorityFilter} onFilterChange={setPriorityFilter} rows={priorityDistribution.rows} total={priorityDistribution.total} emptyHasIssues="No priorities set on the filtered issues." />
-              </div>
-            </div>
-          </Section>
-
-          {/* Trends — hidden, superseded by Pulse charts */}
-
-          {/* Needs Attention */}
-          {metrics && metrics.attention.length > 0 && (
-            <Section title="Needs Attention" icon={<SectionIcon d={SECTION_ICONS.attention} />} count={metrics.attention.length} collapsible storageKey="exponential-dashboard-attention-open">
-              <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {metrics.attention.map((item) => {
-                  const issue = issues.find((i) => i.id === item.issue_id);
-                  const reason = attentionReason(item);
-                  return (
-                    <button
-                      key={item.issue_id}
-                      onClick={() => issue && onIssueClick?.(issue)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] transition-colors text-left"
-                    >
-                      <StatusIcon status={issue?.status || "BACKLOG"} size={14} isInferred={issue?.is_inferred} />
-                      <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">{item.issue_id}</span>
-                      <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.title}</span>
-                      {issue?.assignee && <Avatar name={issue.assignee} size="xs" />}
-                      <span className={`shrink-0 ${reason.cls}`} title={reason.label}>
-                        {reason.icon ? (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            {reason.icon}
-                          </svg>
-                        ) : (
-                          <PriorityIcon priority={item.priority || 1} size={16} />
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </Section>
-          )}
-
-          {/* Workload */}
-          <Section title="Workload" icon={<SectionIcon d={SECTION_ICONS.workload} />} count={metrics?.workload.length} collapsible storageKey="exponential-dashboard-workload-open">
-            {!metrics || metrics.workload.length === 0 ? (
-              <div className="px-5 py-10 flex items-center justify-center"><p className="text-sm text-[var(--color-text-muted)] text-center">No assigned work.</p></div>
+                <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">Based on start → done · {metrics.flow.cycle_count} issues</p>
+              </>
             ) : (
-              <div className="py-2">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-5 py-1 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
-                  <span>Person</span><span className="text-right w-10">WIP</span><span className="text-right w-10">Pts</span><span className="text-right w-12">Blocked</span>
-                </div>
-                {metrics.workload.map((w) => (
-                  <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-hover-surface)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar name={w.assignee} size="xs" />
-                      <Text color="primary" truncate>{shortName(w.assignee)}</Text>
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+            )}
+          </PulseCard>
+          <PulseCard title="Lead Time">
+            {metrics && metrics.flow.lead_count > 0 ? (
+              <>
+                <table className="w-full text-center tabular-nums border-collapse">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Min</th>
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">Median</th>
+                      <th className="font-normal py-1.5 border-r border-[var(--color-border-default)]">P90</th>
+                      <th className="font-normal py-1.5">Max</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_min_hrs)}</td>
+                      <td className="py-2 text-lg font-semibold text-[var(--color-text-primary)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_hrs)}</td>
+                      <td className="py-2 text-sm text-[var(--color-text-muted)] border-r border-[var(--color-border-default)]">{formatDuration(metrics.flow.lead_time_p90_hrs)}</td>
+                      <td className="py-2 text-sm text-[var(--color-text-muted)]">{formatDuration(metrics.flow.lead_time_max_hrs)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3">Based on created → done · {metrics.flow.lead_count} issues</p>
+              </>
+            ) : (
+              <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">—</p>
+            )}
+          </PulseCard>
+          <PulseCard title="Staleness">
+            {(() => {
+              const s = metrics?.flow.staleness;
+              const total = metrics?.flow.staleness_total ?? 0;
+              if (!metrics || total === 0) return (
+                <>
+                  <p className="text-2xl font-semibold text-[var(--color-text-primary)] leading-none">0</p>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-2">no open issues</p>
+                </>
+              );
+              const bars = [
+                { label: "<1d", count: s!.under_1d, cls: "bg-[var(--color-success)]" },
+                { label: "<3d", count: s!.under_3d, cls: "bg-[var(--color-success)]" },
+                { label: "<7d", count: s!.under_7d, cls: "bg-[var(--color-text-secondary)]" },
+                { label: "<14d", count: s!.under_14d, cls: "bg-[var(--color-warning)]" },
+                { label: "<30d", count: s!.under_30d, cls: "bg-[var(--color-warning)]" },
+                { label: ">30d", count: s!.over_30d, cls: "bg-[var(--color-error)]" },
+              ];
+              const max = Math.max(1, ...bars.map(b => b.count));
+              return (
+                <>
+                  <div>
+                    <div className="flex items-end gap-1 h-10">
+                      {bars.map(b => (
+                        <div key={b.label} className="flex-1 flex flex-col items-center justify-end h-full">
+                          <span className="text-xs text-[var(--color-text-muted)] tabular-nums leading-none mb-1">{b.count > 0 ? b.count : ""}</span>
+                          <div className={`w-3 rounded-t-sm ${b.cls} transition-all duration-500`} style={{ height: `${(b.count / max) * 100}%`, minHeight: b.count > 0 ? 2 : 0 }} />
+                        </div>
+                      ))}
                     </div>
-                    <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-primary)]">{w.in_progress}</span>
-                    <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-muted)]">{w.open_points}</span>
-                    <span className={`w-12 text-right text-sm tabular-nums ${w.blocked > 0 ? "text-[var(--color-error)]" : "text-[var(--color-text-muted)]"}`}>{w.blocked}</span>
+                    <div className="flex gap-1 mt-1.5">
+                      {bars.map(b => <span key={b.label} className="flex-1 text-center text-xs text-[var(--color-text-muted)] tabular-nums">{b.label}</span>)}
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          {/* Active Epics */}
-          <Section title="Active Epics" icon={<SectionIcon d={SECTION_ICONS.epics} />} count={metrics?.epics.length} collapsible storageKey="exponential-dashboard-epics-open">
-            {!metrics || metrics.epics.length === 0 ? (
-              <div className="px-5 py-10 flex items-center justify-center">
-                <p className="text-sm text-[var(--color-text-muted)] text-center">No epics yet — create one with the <span className="font-mono">epic</span> label.</p>
-              </div>
-            ) : (
-              <div className="py-2">
-                {metrics.epics.map((ep) => {
-                  const issue = issues.find((i) => i.id === ep.issue_id);
-                  return (
-                    <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-hover-surface)]">
-                      <StatusIcon status={issue?.status || "PLANNED"} size={14} isInferred={issue?.is_inferred} />
-                      <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
-                      <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />
-                      {ep.stale && <span className="text-xs uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
-                      <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
-                        <SubProgress done={ep.children_done} total={ep.children_total} />
-                        {ep.children_done}/{ep.children_total}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </Section>
-
-          {/* Recent Activity */}
-          <Section title="Recent Activity" icon={<SectionIcon d={SECTION_ICONS.activity} />} count={activity.length} collapsible storageKey="exponential-dashboard-activity-open">
-            <ActivityFeed activity={activity} issues={issues} onIssueClick={onIssueClick} />
-          </Section>
-
+                  <p className="text-xs text-[var(--color-text-muted)] mt-auto pt-3 tabular-nums">Based on {total} open issues</p>
+                </>
+              );
+            })()}
+          </PulseCard>
         </div>
-      </div>
-    </div>
+
+      </Section>
+
+      {/* Composition */}
+      <Section title="Composition" icon={<SectionIcon d={SECTION_ICONS.composition} />} collapsible defaultOpen={false} storageKey="exponential-dashboard-composition-open">
+        <div className="px-5 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <DistributionSection title="By status" filter={statusFilter} onFilterChange={setStatusFilter} rows={statusDistribution.rows} total={statusDistribution.total} emptyHasIssues="No issues." hideBars />
+            <DistributionSection title="By label" filter={labelFilter} onFilterChange={setLabelFilter} rows={labelDistribution.rows} total={labelDistribution.total} emptyHasIssues="No labels on the filtered issues." />
+            <DistributionSection title="By assignee" filter={assigneeFilter} onFilterChange={setAssigneeFilter} rows={assigneeDistribution.rows} total={assigneeDistribution.total} emptyHasIssues="No assignees on the filtered issues." />
+            <DistributionSection title="By priority" filter={priorityFilter} onFilterChange={setPriorityFilter} rows={priorityDistribution.rows} total={priorityDistribution.total} emptyHasIssues="No priorities set on the filtered issues." />
+          </div>
+        </div>
+      </Section>
+
+      {/* Trends — hidden, superseded by Pulse charts */}
+
+      {/* Needs Attention */}
+      {metrics && metrics.attention.length > 0 && (
+        <Section title="Needs Attention" icon={<SectionIcon d={SECTION_ICONS.attention} />} count={metrics.attention.length} collapsible storageKey="exponential-dashboard-attention-open">
+          <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {metrics.attention.map((item) => {
+              const issue = issues.find((i) => i.id === item.issue_id);
+              const reason = attentionReason(item);
+              return (
+                <button
+                  key={item.issue_id}
+                  onClick={() => issue && onIssueClick?.(issue)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] transition-colors text-left"
+                >
+                  <StatusIcon status={issue?.status || "BACKLOG"} size={14} isInferred={issue?.is_inferred} />
+                  <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">{item.issue_id}</span>
+                  <span className="text-sm text-[var(--color-text-primary)] truncate flex-1">{item.title}</span>
+                  {issue?.assignee && <Avatar name={issue.assignee} size="xs" />}
+                  <span className={`shrink-0 ${reason.cls}`} title={reason.label}>
+                    {reason.icon ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        {reason.icon}
+                      </svg>
+                    ) : (
+                      <PriorityIcon priority={item.priority || 1} size={16} />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      {/* Workload */}
+      <Section title="Workload" icon={<SectionIcon d={SECTION_ICONS.workload} />} count={metrics?.workload.length} collapsible storageKey="exponential-dashboard-workload-open">
+        {!metrics || metrics.workload.length === 0 ? (
+          <div className="px-5 py-10 flex items-center justify-center"><p className="text-sm text-[var(--color-text-muted)] text-center">No assigned work.</p></div>
+        ) : (
+          <div className="py-2">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-5 py-1 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">
+              <span>Person</span><span className="text-right w-10">WIP</span><span className="text-right w-10">Pts</span><span className="text-right w-12">Blocked</span>
+            </div>
+            {metrics.workload.map((w) => (
+              <div key={w.assignee} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-5 py-2 hover:bg-[var(--color-hover-surface)] transition-colors" title={w.last_completed ? `Last completed ${w.last_completed}` : "No completed issues yet"}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Avatar name={w.assignee} size="xs" />
+                  <Text color="primary" truncate>{shortName(w.assignee)}</Text>
+                </div>
+                <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-primary)]">{w.in_progress}</span>
+                <span className="w-10 text-right text-sm tabular-nums text-[var(--color-text-muted)]">{w.open_points}</span>
+                <span className={`w-12 text-right text-sm tabular-nums ${w.blocked > 0 ? "text-[var(--color-error)]" : "text-[var(--color-text-muted)]"}`}>{w.blocked}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* Active Epics */}
+      <Section title="Active Epics" icon={<SectionIcon d={SECTION_ICONS.epics} />} count={metrics?.epics.length} collapsible storageKey="exponential-dashboard-epics-open">
+        {!metrics || metrics.epics.length === 0 ? (
+          <div className="px-5 py-10 flex items-center justify-center">
+            <p className="text-sm text-[var(--color-text-muted)] text-center">No epics yet — create one with the <span className="font-mono">epic</span> label.</p>
+          </div>
+        ) : (
+          <div className="py-2">
+            {metrics.epics.map((ep) => {
+              const issue = issues.find((i) => i.id === ep.issue_id);
+              return (
+                <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-hover-surface)]">
+                  <StatusIcon status={issue?.status || "PLANNED"} size={14} isInferred={issue?.is_inferred} />
+                  <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
+                  <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />
+                  {ep.stale && <span className="text-xs uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
+                  <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
+                    <SubProgress done={ep.children_done} total={ep.children_total} />
+                    {ep.children_done}/{ep.children_total}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
+      {/* Recent Activity */}
+      <Section title="Recent Activity" icon={<SectionIcon d={SECTION_ICONS.activity} />} count={activity.length} collapsible storageKey="exponential-dashboard-activity-open">
+        <ActivityFeed activity={activity} issues={issues} onIssueClick={onIssueClick} />
+      </Section>
+    </ViewContainer>
   );
 }

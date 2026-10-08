@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Backlog rows and status headers no longer draw separator lines and have rounded backgrounds (xpo-c26f7b)
+- All TopBar views except Inbox render through a shared `ViewContainer` shell (TopBar, optional header bars, and a full-width content area with the scrollbar at the view's right edge; width-limited views center a `max-w-7xl` or issue-detail column inside it). Scroll areas that change while visible (views, sidebars, MergeView panes and diffs, pickers, the command palette, scrolling menus) use a new `scroll-stable` utility: a forced, transparent track with a symmetric `both-edges` gutter, so content no longer shifts when a scrollbar appears in Chrome or Safari. The global `.overflow-y-auto { overflow-y: scroll }` override is gone, so `overflow-y-auto` behaves normally again (xpo-c26f7b)
 - Links are bidirectional: `A blocks B` also means `B blocked_by A`, whichever issue stores it. `show` (MCP, CLI, API, web) lists derived inverse links with `derived: true`. `start` and `xpo drive` honour blockers stored on the other issue. `link` reports a relationship already stored from the other side as existing. `update { links }` treats the list as the issue's full relationship set, so a link left out is removed from whichever side stores it (xpo-9d6609)
 - Assignees are principal-first: an issue is always assigned to a person, never an agent. Old assignments to agent identities (`Claude Code <agent@host.local>`) resolve to the person the agent worked for, at read time, with no event-log rewrite. Avatars and assignee names always show the person; agent-written comments read "Claude Code on behalf of <person>" (xpo-35fc16)
 - `start` assigns the issue to the person the starter works for (the MCP/drive principal, or the CLI user); an issue held by someone else keeps its assignee unless `--force` (xpo-35fc16)
@@ -92,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- MergeView diff panes no longer jump sideways when expanding or collapsing diffs; scrolling menus (Assignee, Cycle, filter submenus) now actually get the stable gutter their undefined `scrollbar-gutter-both` class intended (xpo-c26f7b)
+- Backlog right-click context menu no longer stops working after the list was empty (at load, or after a search with no matches was cleared) (xpo-164038)
 - `merge` with `strategy: ff` no longer adds a separate `xpo: merge <id>` commit: the issue database and artifacts are amended into the fast-forwarded tip, and an explicit `commit_message` rewords it. The `merge` tool, the mcp-tools reference and skill step 9 now tell agents to omit `strategy` unless the user asks for one. Re-run `xpo init` in other projects to refresh installed skill copies (xpo-c16e28)
 - Issue detail sidebar Cycle popover now uses the shared `CyclePicker` (also used by the context menu), gaining a filter input, `Cycle N (status)` labels and keyboard navigation (xpo-f16b80)
 - Context Menu Cycle submenu now has a filter input and uses the shared `Menu`/`MenuItem` styling and keyboard navigation; cycles are labelled `Cycle N (status)` so the checkmark only marks the selected cycle (xpo-70e66a)
@@ -120,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Unused `PendingEventsPanel` component (xpo-c26f7b)
 - "Agent Identity" instructions telling agents to set themselves as assignee, from CLAUDE.md/AGENTS.md/GEMINI.md, the xpo skill and the generated templates (xpo-35fc16)
 - `xpo init mcp` and `xpo init skill` subcommands — absorbed into unified `xpo init` (xpo-76e2a1)
 - `internal/inputs` backward-compat re-export shim — all CLI commands now use `jsonio` directly (xpo-aebfc5)

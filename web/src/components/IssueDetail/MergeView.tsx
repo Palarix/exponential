@@ -41,7 +41,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { StatusIcon, Avatar, Text, TopBar } from "../ui";
+import { StatusIcon, Avatar, Text, TopBar, ViewContainer } from "../ui";
 import Modal from "../ui/Modal";
 import { formatRelativeTime } from "../../utils/format";
 
@@ -302,398 +302,401 @@ export default function MergeView({
     );
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-surface)]">
-      {/* ── Top bar ── */}
-      <TopBar
-        className="bg-[var(--color-surface-1)] border-[var(--color-border-default)]"
-        left={
-          <div className="flex items-center gap-2">
-            <StatusIcon
-              status={issue.status}
-              size={16}
-              isInferred={issue.is_inferred}
-            />
-            <Text weight="semibold" color="primary">
-              {issue.title}
-            </Text>
-            <Text mono>
-              {issue.id}
-            </Text>
-          </div>
-        }
-        right={
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-          >
-            <X size={20} />
-          </button>
-        }
-      />
-
-      {/* ── Merge bar (3-column) ── */}
-      <div className="shrink-0 border-b border-[var(--color-border-default)] bg-[var(--color-surface-1)] px-5 py-3">
-        <div className="grid grid-cols-3 items-center gap-3">
-          {/* Left: branch direction */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-surface-1)] text-[var(--color-text-secondary)] font-mono text-xs">
-              <GitBranch size={12} />
-              main
-            </span>
-            <span className="text-[var(--color-text-muted)]">←</span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] font-mono text-xs truncate">
-              <GitBranch size={12} className="shrink-0" />
-              <span className="truncate">{bs.branch}</span>
-            </span>
-          </div>
-
-          {/* Center: mergeability */}
-          <div className="relative flex flex-col items-center">
-            {!canMerge ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (mergeability?.blockers?.some((b) => b.files?.length))
-                    setBlockerDetailOpen(!blockerDetailOpen);
-                }}
-                className="flex items-center gap-2 text-sm text-amber-500 hover:text-amber-400 transition-colors"
-              >
-                <AlertTriangle size={16} className="shrink-0" />
-                <span>
-                  {!hasCommits
-                    ? "No commits to merge"
-                    : mergeability?.blockers?.[0]?.message || "Cannot merge"}
+    <ViewContainer
+      scroll={false}
+      className="bg-[var(--color-surface)]"
+      topBar={
+        <TopBar
+          className="bg-[var(--color-surface-1)] border-[var(--color-border-default)]"
+          left={
+            <div className="flex items-center gap-2">
+              <StatusIcon
+                status={issue.status}
+                size={16}
+                isInferred={issue.is_inferred}
+              />
+              <Text weight="semibold" color="primary">
+                {issue.title}
+              </Text>
+              <Text mono>
+                {issue.id}
+              </Text>
+            </div>
+          }
+          right={
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+            >
+              <X size={20} />
+            </button>
+          }
+        />
+      }
+      header={
+        <>
+          {/* ── Merge bar (3-column) ── */}
+          <div className="shrink-0 border-b border-[var(--color-border-default)] bg-[var(--color-surface-1)] px-5 py-3">
+            <div className="grid grid-cols-3 items-center gap-3">
+              {/* Left: branch direction */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-surface-1)] text-[var(--color-text-secondary)] font-mono text-xs">
+                  <GitBranch size={12} />
+                  main
                 </span>
-              </button>
-            ) : mergeError ? (
-              <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
-                <AlertTriangle size={16} />
-                <span>{mergeError}</span>
+                <span className="text-[var(--color-text-muted)]">←</span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] font-mono text-xs truncate">
+                  <GitBranch size={12} className="shrink-0" />
+                  <span className="truncate">{bs.branch}</span>
+                </span>
               </div>
-            ) : (
-              <div className="flex items-center gap-1.5 text-sm text-green-500">
-                <Check size={16} />
-                Ready to merge
+
+              {/* Center: mergeability */}
+              <div className="relative flex flex-col items-center">
+                {!canMerge ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (mergeability?.blockers?.some((b) => b.files?.length))
+                        setBlockerDetailOpen(!blockerDetailOpen);
+                    }}
+                    className="flex items-center gap-2 text-sm text-amber-500 hover:text-amber-400 transition-colors"
+                  >
+                    <AlertTriangle size={16} className="shrink-0" />
+                    <span>
+                      {!hasCommits
+                        ? "No commits to merge"
+                        : mergeability?.blockers?.[0]?.message || "Cannot merge"}
+                    </span>
+                  </button>
+                ) : mergeError ? (
+                  <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
+                    <AlertTriangle size={16} />
+                    <span>{mergeError}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-sm text-green-500">
+                    <Check size={16} />
+                    Ready to merge
+                  </div>
+                )}
+                <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                  {!canMerge && !hasCommits && bs.has_uncommitted
+                    ? "Commit your changes to enable merging"
+                    : !canMerge && hasCommits
+                      ? "Resolve blockers to enable merging"
+                      : hasCommits
+                        ? "Merging will close this issue"
+                        : "Nothing to merge yet"}
+                </span>
+                <Modal
+                  isOpen={blockerDetailOpen}
+                  onClose={() => setBlockerDetailOpen(false)}
+                  title="Unable to merge"
+                  size="xl"
+                >
+                  <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                    This branch cannot be merged because the worktree contains
+                    uncommitted or untracked files that would be lost.
+                  </p>
+                  {mergeability?.blockers?.map((b, i) => (
+                    <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
+                      <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
+                        <AlertTriangle size={14} className="shrink-0" />
+                        {b.message}
+                      </div>
+                      {b.files?.length ? (
+                        <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
+                          {b.files.map((f) => (
+                            <li
+                              key={f}
+                              className="text-sm font-mono text-[var(--color-text-muted)]"
+                            >
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ))}
+                  <p className="mt-5 text-sm text-[var(--color-text-muted)]">
+                    Commit, move, or remove these files before merging.
+                  </p>
+                </Modal>
+              </div>
+
+              {/* Right: merge button + strategy */}
+              <div className="flex justify-end items-center">
+                <button
+                  onClick={openConfirm}
+                  disabled={merging || !canMerge}
+                  className="flex items-center h-8 gap-2 px-4 text-sm font-medium rounded-l-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+                >
+                  <GitMerge size={14} />
+                  {merging ? "Merging..." : strategyLabel}
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setStrategyOpen(!strategyOpen)}
+                    className="flex items-center h-8 px-2 rounded-r-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity border-l border-white/20"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                  {strategyOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setStrategyOpen(false)}
+                      />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] py-1">
+                        {(
+                          [
+                            {
+                              key: "squash",
+                              label: "Squash and merge",
+                              desc: "Single commit on main",
+                            },
+                            {
+                              key: "merge",
+                              label: "Create merge commit",
+                              desc: "Preserves branch history",
+                            },
+                            {
+                              key: "ff",
+                              label: "Fast-forward",
+                              desc: "Linear, no merge commit",
+                            },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => {
+                              setMergeStrategy(opt.key);
+                              setCommitMessage(defaultCommitMessage(opt.key));
+                              setStrategyOpen(false);
+                            }}
+                            className={`w-full px-3 py-2 text-left hover:bg-[var(--color-hover-surface)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}
+                          >
+                            <div className="text-sm">{opt.label}</div>
+                            <div className="text-xs text-[var(--color-text-muted)]">
+                              {opt.desc}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Tabs ── */}
+          <div className="shrink-0 flex items-center gap-1 px-5 border-b border-[var(--color-border-subtle)] relative">
+            {hasWalkthrough && (
+              <button
+                onClick={() => setActiveTab("walkthrough")}
+                className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === "walkthrough" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <BookOpen size={14} />
+                  Walkthrough
+                </span>
+                {activeTab === "walkthrough" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
+                )}
+              </button>
+            )}
+            {[
+              { key: "commits" as Tab, label: "Commits", count: commits.length },
+              { key: "files" as Tab, label: "Files changed", count: activeFileDiffs.size },
+              {
+                key: "conversation" as Tab,
+                label: "Conversation",
+                count: issue.comments?.length || 0,
+              },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === t.key ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
+              >
+                {t.label}
+                <span className="ml-1.5 text-xs tabular-nums px-1.5 py-0.5 rounded-full bg-[var(--color-surface-1)]">
+                  {t.count}
+                </span>
+                {activeTab === t.key && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
+                )}
+              </button>
+            ))}
+            <div className="flex-1" />
+            {activeTab === "files" && (
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+                <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
+                  <button
+                    onClick={() => handleScopeChange("all")}
+                    className={`px-3 py-1 text-sm transition-colors ${
+                      diffScope === "all"
+                        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                    }`}
+                  >
+                    All changes
+                  </button>
+                  <button
+                    onClick={() => handleScopeChange("uncommitted")}
+                    className={`px-3 py-1 text-sm border-l border-[var(--color-border-default)] transition-colors ${
+                      diffScope === "uncommitted"
+                        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                        : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                    }`}
+                  >
+                    Uncommitted
+                  </button>
+                </div>
               </div>
             )}
-            <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
-              {!canMerge && !hasCommits && bs.has_uncommitted
-                ? "Commit your changes to enable merging"
-                : !canMerge && hasCommits
-                  ? "Resolve blockers to enable merging"
-                  : hasCommits
-                    ? "Merging will close this issue"
-                    : "Nothing to merge yet"}
-            </span>
-            <Modal
-              isOpen={blockerDetailOpen}
-              onClose={() => setBlockerDetailOpen(false)}
-              title="Unable to merge"
-              size="xl"
-            >
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                This branch cannot be merged because the worktree contains
-                uncommitted or untracked files that would be lost.
-              </p>
-              {mergeability?.blockers?.map((b, i) => (
-                <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
-                  <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
-                    <AlertTriangle size={14} className="shrink-0" />
-                    {b.message}
-                  </div>
-                  {b.files?.length ? (
-                    <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
-                      {b.files.map((f) => (
-                        <li
-                          key={f}
-                          className="text-sm font-mono text-[var(--color-text-muted)]"
-                        >
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ))}
-              <p className="mt-5 text-sm text-[var(--color-text-muted)]">
-                Commit, move, or remove these files before merging.
-              </p>
-            </Modal>
-          </div>
-
-          {/* Right: merge button + strategy */}
-          <div className="flex justify-end items-center">
             <button
-              onClick={openConfirm}
-              disabled={merging || !canMerge}
-              className="flex items-center h-8 gap-2 px-4 text-sm font-medium rounded-l-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+              onClick={refreshData}
+              title="Refresh"
+              className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
             >
-              <GitMerge size={14} />
-              {merging ? "Merging..." : strategyLabel}
+              <RefreshCw size={14} />
             </button>
-            <div className="relative">
+          </div>
+        </>
+      }
+    >
+      {activeTab === "walkthrough" && (
+        <div className="h-full scroll-stable px-8 py-6">
+          <div className="prose-exponential text-sm max-w-[52rem] mx-auto">
+            <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+              {walkthroughContent}
+            </Markdown>
+          </div>
+        </div>
+      )}
+      {activeTab === "commits" && (
+        <CommitsTab
+          commits={commits}
+          selectedCommit={selectedCommit}
+          commitDiffs={commitFileDiffs}
+          commitDiffLoading={commitDiffLoading}
+          onSelectCommit={loadCommitDiff}
+        />
+      )}
+      {activeTab === "files" && (
+        <FilesTab
+          fileDiffs={activeFileDiffs}
+          selectedFile={selectedFile}
+          onSelectFile={setSelectedFile}
+          fileFilter={fileFilter}
+          onFilterChange={setFileFilter}
+          dirtyFiles={dirtyFilesSet}
+          isEmpty={diffScope === "uncommitted" && activeFileDiffs.size === 0 && !uncommittedLoading}
+        />
+      )}
+      {activeTab === "conversation" && (
+        <ConversationTab
+          issue={issue}
+          newComment={newComment}
+          onNewCommentChange={setNewComment}
+          onAddComment={handleAddComment}
+          saving={commentSaving}
+        />
+      )}
+
+    {/* ── Merge confirmation dialog ── */}
+    {confirmOpen && (
+      <>
+        <div
+          className="fixed inset-0 z-50 bg-black/50"
+          onClick={() => setConfirmOpen(false)}
+        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-subtle)]">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
+                <GitMerge
+                  size={16}
+                  className="text-[var(--color-accent-primary)]"
+                />
+                Confirm merge
+              </div>
               <button
-                onClick={() => setStrategyOpen(!strategyOpen)}
-                className="flex items-center h-8 px-2 rounded-r-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity border-l border-white/20"
+                onClick={() => setConfirmOpen(false)}
+                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]"
               >
-                <ChevronDown size={14} />
+                <X size={16} />
               </button>
-              {strategyOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setStrategyOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] py-1">
-                    {(
-                      [
-                        {
-                          key: "squash",
-                          label: "Squash and merge",
-                          desc: "Single commit on main",
-                        },
-                        {
-                          key: "merge",
-                          label: "Create merge commit",
-                          desc: "Preserves branch history",
-                        },
-                        {
-                          key: "ff",
-                          label: "Fast-forward",
-                          desc: "Linear, no merge commit",
-                        },
-                      ] as const
-                    ).map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => {
-                          setMergeStrategy(opt.key);
-                          setCommitMessage(defaultCommitMessage(opt.key));
-                          setStrategyOpen(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left hover:bg-[var(--color-hover-surface)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}
-                      >
-                        <div className="text-sm">{opt.label}</div>
-                        <div className="text-xs text-[var(--color-text-muted)]">
-                          {opt.desc}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                <Text size="xs">
+                  Strategy:
+                </Text>
+                <span className="font-medium">{strategyLabel}</span>
+              </div>
+              <div className="text-xs text-[var(--color-text-muted)]">
+                {mergeStrategy === "squash"
+                  ? "All commits will be combined into a single commit on main. The branch history is not preserved."
+                  : mergeStrategy === "merge"
+                    ? "A merge commit will be created on main. The full branch commit history is preserved."
+                    : "Main will be fast-forwarded to the branch tip. No merge commit is created. Only possible if main has no new commits since the branch was created."}{" "}
+                The issue will be marked as done.
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
+                  Commit message
+                </label>
+                <textarea
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                  rows={6}
+                  className="w-full text-sm font-mono bg-[var(--color-surface-1)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
+                />
+              </div>
+              {mergeError && (
+                <div className="text-sm text-[var(--color-error)]">
+                  {mergeError}
+                </div>
               )}
+            </div>
+            <div className="flex items-center px-5 py-3 border-t border-[var(--color-border-subtle)]">
+              <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deleteBranch}
+                  onChange={(e) => setDeleteBranch(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0"
+                />
+                <span className="leading-none">
+                  Delete branch after merge
+                </span>
+              </label>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => setConfirmOpen(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMerge}
+                  disabled={merging || !commitMessage.trim()}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+                >
+                  <GitMerge size={14} />
+                  {merging ? "Merging..." : "Merge and close issue"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="shrink-0 flex items-center gap-1 px-5 border-b border-[var(--color-border-subtle)] relative">
-        {hasWalkthrough && (
-          <button
-            onClick={() => setActiveTab("walkthrough")}
-            className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === "walkthrough" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <BookOpen size={14} />
-              Walkthrough
-            </span>
-            {activeTab === "walkthrough" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
-            )}
-          </button>
-        )}
-        {[
-          { key: "commits" as Tab, label: "Commits", count: commits.length },
-          { key: "files" as Tab, label: "Files changed", count: activeFileDiffs.size },
-          {
-            key: "conversation" as Tab,
-            label: "Conversation",
-            count: issue.comments?.length || 0,
-          },
-        ].map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === t.key ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
-          >
-            {t.label}
-            <span className="ml-1.5 text-xs tabular-nums px-1.5 py-0.5 rounded-full bg-[var(--color-surface-1)]">
-              {t.count}
-            </span>
-            {activeTab === t.key && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-accent-primary)]" />
-            )}
-          </button>
-        ))}
-        <div className="flex-1" />
-        {activeTab === "files" && (
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-            <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
-              <button
-                onClick={() => handleScopeChange("all")}
-                className={`px-3 py-1 text-sm transition-colors ${
-                  diffScope === "all"
-                    ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
-                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                }`}
-              >
-                All changes
-              </button>
-              <button
-                onClick={() => handleScopeChange("uncommitted")}
-                className={`px-3 py-1 text-sm border-l border-[var(--color-border-default)] transition-colors ${
-                  diffScope === "uncommitted"
-                    ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
-                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                }`}
-              >
-                Uncommitted
-              </button>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={refreshData}
-          title="Refresh"
-          className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-        >
-          <RefreshCw size={14} />
-        </button>
-      </div>
-
-      {/* ── Content ── */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab === "walkthrough" && (
-          <div className="h-full overflow-y-auto px-8 py-6">
-            <div className="prose-exponential text-sm max-w-[52rem] mx-auto">
-              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                {walkthroughContent}
-              </Markdown>
-            </div>
-          </div>
-        )}
-        {activeTab === "commits" && (
-          <CommitsTab
-            commits={commits}
-            selectedCommit={selectedCommit}
-            commitDiffs={commitFileDiffs}
-            commitDiffLoading={commitDiffLoading}
-            onSelectCommit={loadCommitDiff}
-          />
-        )}
-        {activeTab === "files" && (
-          <FilesTab
-            fileDiffs={activeFileDiffs}
-            selectedFile={selectedFile}
-            onSelectFile={setSelectedFile}
-            fileFilter={fileFilter}
-            onFilterChange={setFileFilter}
-            dirtyFiles={dirtyFilesSet}
-            isEmpty={diffScope === "uncommitted" && activeFileDiffs.size === 0 && !uncommittedLoading}
-          />
-        )}
-        {activeTab === "conversation" && (
-          <ConversationTab
-            issue={issue}
-            newComment={newComment}
-            onNewCommentChange={setNewComment}
-            onAddComment={handleAddComment}
-            saving={commentSaving}
-          />
-        )}
-      </div>
-
-      {/* ── Merge confirmation dialog ── */}
-      {confirmOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/50"
-            onClick={() => setConfirmOpen(false)}
-          />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-subtle)]">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
-                  <GitMerge
-                    size={16}
-                    className="text-[var(--color-accent-primary)]"
-                  />
-                  Confirm merge
-                </div>
-                <button
-                  onClick={() => setConfirmOpen(false)}
-                  className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="px-5 py-4 space-y-4">
-                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                  <Text size="xs">
-                    Strategy:
-                  </Text>
-                  <span className="font-medium">{strategyLabel}</span>
-                </div>
-                <div className="text-xs text-[var(--color-text-muted)]">
-                  {mergeStrategy === "squash"
-                    ? "All commits will be combined into a single commit on main. The branch history is not preserved."
-                    : mergeStrategy === "merge"
-                      ? "A merge commit will be created on main. The full branch commit history is preserved."
-                      : "Main will be fast-forwarded to the branch tip. No merge commit is created. Only possible if main has no new commits since the branch was created."}{" "}
-                  The issue will be marked as done.
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
-                    Commit message
-                  </label>
-                  <textarea
-                    value={commitMessage}
-                    onChange={(e) => setCommitMessage(e.target.value)}
-                    rows={6}
-                    className="w-full text-sm font-mono bg-[var(--color-surface-1)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
-                  />
-                </div>
-                {mergeError && (
-                  <div className="text-sm text-[var(--color-error)]">
-                    {mergeError}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center px-5 py-3 border-t border-[var(--color-border-subtle)]">
-                <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={deleteBranch}
-                    onChange={(e) => setDeleteBranch(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0"
-                  />
-                  <span className="leading-none">
-                    Delete branch after merge
-                  </span>
-                </label>
-                <div className="ml-auto flex items-center gap-2">
-                  <button
-                    onClick={() => setConfirmOpen(false)}
-                    className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleMerge}
-                    disabled={merging || !commitMessage.trim()}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-                  >
-                    <GitMerge size={14} />
-                    {merging ? "Merging..." : "Merge and close issue"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+      </>
+    )}
+    </ViewContainer>
   );
 }
 
@@ -729,7 +732,7 @@ function CommitsTab({
 
   return (
     <div className="h-full flex">
-      <div className="w-80 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
+      <div className="w-80 shrink-0 border-r border-[var(--color-border-default)] scroll-stable bg-[var(--color-surface-1)]">
         {commits.map((c) => (
           <button
             key={c.sha}
@@ -752,7 +755,7 @@ function CommitsTab({
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 scroll-stable">
         {!selectedCommit && (
           <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
             Select a commit to view its changes
@@ -933,7 +936,7 @@ function FilesTab({
 
   return (
     <div className="h-full flex">
-      <div className="w-72 shrink-0 border-r border-[var(--color-border-default)] overflow-y-auto bg-[var(--color-surface-1)]">
+      <div className="w-72 shrink-0 border-r border-[var(--color-border-default)] scroll-stable bg-[var(--color-surface-1)]">
         <div className="p-3 border-b border-[var(--color-border-subtle)]">
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-default)]">
             <Search size={13} className="text-[var(--color-text-muted)]" />
@@ -967,7 +970,7 @@ function FilesTab({
           </p>
         </div>
       ) : (
-        <div ref={diffRef} className="flex-1 overflow-auto">
+        <div ref={diffRef} className="flex-1 scroll-stable">
           <DiffViewer
             diffs={fileDiffs}
             collapsed={collapsedCards}
@@ -995,7 +998,7 @@ function ConversationTab({
 }) {
   const comments = issue.comments || [];
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full scroll-stable">
       <div className="max-w-[52rem] mx-auto">
         {comments.length === 0 && !newComment && (
           <div className="px-5 py-12 text-center text-sm text-[var(--color-text-muted)]">

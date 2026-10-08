@@ -181,7 +181,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-100 overflow-y-auto py-1">
+        <div ref={listRef} className="max-h-100 scroll-stable py-1">
           {items.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
               No results for "{query}"

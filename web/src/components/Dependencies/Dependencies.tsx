@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { Issue } from '../../api/client';
-import { Heading, LabelBadge, Toggle, TopBar } from '../ui';
+import { Heading, LabelBadge, Toggle, TopBar, ViewContainer } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
@@ -167,70 +167,69 @@ function TableView({
   }, [issues, issueMap, showCompleted, kindFilter, search]);
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <TopBar
-        left={
-          <Heading
-            title="Dependencies"
-            subtitle={stats.total > 0 ? (
-              <span className="text-xs tabular-nums shrink-0" style={{ color: stats.resolved === stats.total ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-                {stats.resolved} of {stats.total} blocker{stats.total !== 1 ? 's' : ''} resolved
-              </span>
-            ) : undefined}
-          />
-        }
-        center={
-          <SearchInput
-            value={search}
-            onChange={onSearchChange}
-            placeholder="Search dependencies..."
-          />
-        }
-        right={
-          <div className="flex items-center gap-3">
-            <select
-              className="text-xs h-7 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-secondary)] outline-none shrink-0"
-              value={kindFilter}
-              onChange={e => onKindFilterChange(e.target.value)}
-            >
-              {KIND_FILTER_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <Toggle
-              checked={showCompleted}
-              onChange={onShowCompletedChange}
-              label="Completed"
+    <ViewContainer
+      scroll={rows.length > 0}
+      topBar={
+        <TopBar
+          left={
+            <Heading
+              title="Dependencies"
+              subtitle={stats.total > 0 ? (
+                <span className="text-xs tabular-nums shrink-0" style={{ color: stats.resolved === stats.total ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                  {stats.resolved} of {stats.total} blocker{stats.total !== 1 ? 's' : ''} resolved
+                </span>
+              ) : undefined}
             />
-          </div>
-        }
-      />
-
-      {/* Table */}
+          }
+          center={
+            <SearchInput
+              value={search}
+              onChange={onSearchChange}
+              placeholder="Search dependencies..."
+            />
+          }
+          right={
+            <div className="flex items-center gap-3">
+              <select
+                className="text-xs h-7 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-0)] text-[var(--color-text-secondary)] outline-none shrink-0"
+                value={kindFilter}
+                onChange={e => onKindFilterChange(e.target.value)}
+              >
+                {KIND_FILTER_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <Toggle
+                checked={showCompleted}
+                onChange={onShowCompletedChange}
+                label="Completed"
+              />
+            </div>
+          }
+        />
+      }
+    >
       {rows.length === 0 ? (
         <EmptyState hasAnyDeps={issues.some(i => i.dependencies && i.dependencies.length > 0)} />
       ) : (
-        <div className="flex-1 overflow-y-auto px-5 py-3">
-          <div className="space-y-1.5">
-            {rows.map((edge, i) => {
-              const source = issueMap.get(edge.sourceId);
-              const target = issueMap.get(edge.targetId);
-              if (!source || !target) return null;
-              return (
-                <DepRow
-                  key={i}
-                  source={source}
-                  target={target}
-                  kind={edge.kind}
-                  onClick={() => onRowClick(source.id)}
-                />
-              );
-            })}
-          </div>
+        <div className="space-y-1.5 px-5 py-3">
+          {rows.map((edge, i) => {
+            const source = issueMap.get(edge.sourceId);
+            const target = issueMap.get(edge.targetId);
+            if (!source || !target) return null;
+            return (
+              <DepRow
+                key={i}
+                source={source}
+                target={target}
+                kind={edge.kind}
+                onClick={() => onRowClick(source.id)}
+              />
+            );
+          })}
         </div>
       )}
-    </div>
+    </ViewContainer>
   );
 }
 
@@ -282,7 +281,7 @@ function DepRow({ source, target, kind, onClick }: { source: Issue; target: Issu
 
 function EmptyState({ hasAnyDeps }: { hasAnyDeps: boolean }) {
   return (
-    <div className="flex-1 flex items-center justify-center">
+    <div className="h-full flex items-center justify-center">
       <div className="text-center py-16 text-[var(--color-text-muted)]">
         <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />

@@ -33,6 +33,7 @@ import {
   useToast,
   Modal,
   TopBar,
+  ViewContainer,
   IconButton,
   FilterButton,
   CountBadge,
@@ -1465,122 +1466,7 @@ export default function Backlog({
   }
 
   return (
-    <div className="h-full flex flex-col relative">
-      {/* Tab bar */}
-      <TopBar
-        left={
-          <Tabs
-            items={TAB_CONFIGS}
-            activeId={activeTab}
-            onChange={onTabChange}
-            keyboardNavigationEnabled={!openPopover && !showViewMenu && !contextMenu}
-          />
-        }
-        center={
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Filter issues..."
-            keyboardNavigationEnabled={!openPopover && !showViewMenu && !contextMenu}
-          />
-        }
-        right={
-          <div className="flex items-center gap-2">
-            <FilterButton issues={filteredIssues} filters={filters} onFiltersChange={onFiltersChange} />
-            <div>
-              <IconButton
-                ref={viewBtnRef}
-                onClick={() => setShowViewMenu((v) => !v)}
-                tooltip="View options"
-                icon={<Settings2 size={14} />}
-              />
-              {showViewMenu && (
-                <Popover anchorRef={viewBtnRef} onClose={() => setShowViewMenu(false)}>
-                  <Menu onClose={() => setShowViewMenu(false)}>
-                    <MenuLabel>Layout</MenuLabel>
-                    {childrenByParent.size > 0 && (
-                      <>
-                        <MenuItem
-                          label="Flat"
-                          icon={<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5" /></svg>}
-                          active={hierarchyMode === "flat"}
-                          onClick={() => { if (hierarchyMode !== "flat") toggleHierarchy(); }}
-                        />
-                        <MenuItem
-                          label="Nested"
-                          icon={<ListTree size={14} />}
-                          active={hierarchyMode === "nested"}
-                          onClick={() => { if (hierarchyMode !== "nested") toggleHierarchy(); }}
-                        />
-                        {hierarchyMode === "nested" && (
-                          <>
-                            <MenuDivider />
-                            <MenuItem label="Expand all" icon={<ChevronsUpDown size={14} />} onClick={expandAllNodes} />
-                            <MenuItem label="Collapse all" icon={<ChevronsDownUp size={14} />} onClick={collapseAllNodes} />
-                          </>
-                        )}
-                        <MenuDivider />
-                      </>
-                    )}
-                    <MenuItem label="Show empty groups" checked={showEmptyGroups} onClick={toggleEmptyGroups} />
-                    {hierarchyMode === "nested" && (
-                      <MenuItem label="Show done ghosts" checked={showGhosts} onClick={toggleGhosts} />
-                    )}
-                    <MenuDivider />
-                    <MenuLabel>Sort by</MenuLabel>
-                    {SORT_OPTIONS.map((opt) => (
-                      <MenuItem
-                        key={opt.value}
-                        label={opt.label}
-                        active={opt.value === sortKey}
-                        onClick={() => onSortChange(opt.value)}
-                      />
-                    ))}
-                  </Menu>
-                </Popover>
-              )}
-            </div>
-            <CountBadge count={filteredIssues.length} />
-          </div>
-        }
-      />
-
-      {filteredIssues.length === 0 ? (
-        <EmptyState
-          title={
-            hasActiveFilters(filters) || search
-              ? "No matching issues"
-              : activeTab === "backlog"
-                ? "No issues in the backlog"
-                : activeTab === "active"
-                  ? "No active issues"
-                  : activeTab === "done"
-                    ? "No completed issues"
-                    : "No issues"
-          }
-          description={
-            hasActiveFilters(filters) || search
-              ? "Try adjusting your filters or search."
-              : activeTab === "backlog"
-                ? "Issues with Backlog status will appear here."
-                : activeTab === "active"
-                  ? "Issues that are Planned, In Progress, or Blocked will appear here."
-                  : activeTab === "done"
-                    ? "Completed, canceled, and duplicate issues will appear here."
-                    : "No issues to display."
-          }
-          icon={
-            <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
-              <rect x="30" y="20" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
-              <rect x="30" y="42" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
-              <rect x="30" y="64" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
-              <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
-            </svg>
-          }
-        />
-      ) : (
-      <>
-      {/* Rows */}
+    <>
       <DndContext
         sensors={sensors}
         collisionDetection={backlogCollision}
@@ -1590,174 +1476,291 @@ export default function Backlog({
         onDragEnd={handleDndEnd}
         onDragCancel={resetDropState}
       >
-        <div
-          ref={listRef}
-          className="flex-1 overflow-y-auto relative"
-          onClickCapture={(e) => {
-            if (wasDraggingRef.current) {
-              e.stopPropagation();
-              e.preventDefault();
-            }
+        <ViewContainer
+          scroll={filteredIssues.length > 0}
+          contentRef={listRef}
+          contentClassName="relative"
+          contentProps={{
+            onClickCapture: (e) => {
+              if (wasDraggingRef.current) {
+                e.stopPropagation();
+                e.preventDefault();
+              }
+            },
+            onMouseLeave: () => {
+              if (!keyboardNav) setFocusedIndex(-1);
+            },
           }}
-          onMouseLeave={() => {
-            if (!keyboardNav) setFocusedIndex(-1);
-          }}
-        >
-          {(() => {
-            const sections: {
-              groupRow: RowItem & { kind: "group" };
-              groupIndex: number;
-              issueRows: { row: RowItem & { kind: "issue" }; index: number }[];
-            }[] = [];
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows[i];
-              if (row.kind === "group")
-                sections.push({ groupRow: row, groupIndex: i, issueRows: [] });
-              else if (sections.length > 0)
-                sections[sections.length - 1].issueRows.push({ row, index: i });
-            }
-            return sections.map(({ groupRow, groupIndex, issueRows }) => {
-              const isExpanded = expandedGroups.has(groupRow.status);
-              const isInlineActive = inlineCreateStatus === groupRow.status;
-              return (
-                <div
-                  key={`g-${groupRow.status}`}
-                  data-group-status={groupRow.status}
-                >
-                  <BacklogGroupHeader
-                    status={groupRow.status}
-                    label={groupRow.label}
-                    isEmpty={groupRow.isEmpty}
-                    isExpanded={isExpanded}
-                    count={groupRow.count}
-                    storyPoints={groupRow.storyPoints}
-                    groupIndex={groupIndex}
-                    isFocused={groupIndex === focusedIndex}
-                    keyboardNav={keyboardNav}
-                    isDndEnabled={isDndEnabled}
-                    hasActiveId={activeId !== null}
-                    showStoryPoints={showStoryPoints}
-                    onToggle={toggleGroup}
-                    onToggleStoryPoints={handleToggleStoryPoints}
-                    onStartInlineCreate={startInlineCreate}
-                    onMouseEnter={handleRowMouseEnter}
-                  />
-                  {isInlineActive && (
-                    <div className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
-                      <span className="w-4 shrink-0" />
-                      <div className="shrink-0">
-                        <div className="w-6 h-6 -m-1 flex items-center justify-center">
-                          <PriorityIcon priority={0} size={16} />
-                        </div>
-                      </div>
-                      <span className="font-mono text-xs text-left shrink-0 tabular-nums text-[var(--color-text-muted)] opacity-40">
-                        xpo-······
-                      </span>
-                      <div className="shrink-0">
-                        <div className="w-6 h-6 -m-1 flex items-center justify-center">
-                          <StatusIcon
-                            status={groupRow.status}
-                            size={14}
-                          />
-                        </div>
-                      </div>
-                      <input
-                        ref={inlineRef}
-                        value={inlineTitle}
-                        onChange={(e) => setInlineTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && inlineTitle.trim())
-                            handleInlineCreate(groupRow.status, inlineTitle);
-                          if (e.key === "Escape") {
-                            setInlineCreateStatus(null);
-                            setInlineTitle("");
-                          }
-                        }}
-                        onBlur={() => {
-                          if (!inlineTitle.trim()) {
-                            setInlineCreateStatus(null);
-                            setInlineTitle("");
-                          }
-                        }}
-                        placeholder="New issue title... (Enter to create, Esc to cancel)"
-                        className="flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
-                      />
-                    </div>
-                  )}
-                  {(() => {
-                    const groupShowAll = showAllGroups.has(groupRow.status);
-                    const shouldCap =
-                      issueRows.length > GROUP_VISIBLE_COUNT && !groupShowAll;
-                    const visibleRows = shouldCap
-                      ? issueRows.slice(0, GROUP_VISIBLE_COUNT)
-                      : issueRows;
-                    const hiddenCount = issueRows.length - GROUP_VISIBLE_COUNT;
-                    return (
-                      <>
-                        {visibleRows.map(({ row, index: i }) => {
-                          const { issue, depth, hasChildren, hasVisibleChildren, childDone, childTotal, childPointsDone, childPointsTotal, parentBreadcrumb, isGhostParent, treeGuides } = row;
-                          const isGhostRow = !!isGhostParent || !!row.isGhostChild;
-                          return (
-                            <BacklogIssueRow
-                              key={issue.id}
-                              issue={issue}
-                              depth={depth}
-                              hasChildren={hasChildren}
-                              hasVisibleChildren={hasVisibleChildren}
-                              childDone={childDone}
-                              childTotal={childTotal}
-                              childPointsDone={childPointsDone}
-                              childPointsTotal={childPointsTotal}
-                              parentBreadcrumb={parentBreadcrumb}
-                              isGhostParent={isGhostParent}
-                              isGhostChild={row.isGhostChild}
-                              treeGuides={treeGuides}
-                              rowIndex={i}
-                              hierarchyMode={hierarchyMode}
-                              isFocused={i === focusedIndex || contextMenu?.issueId === issue.id}
-                              keyboardNav={keyboardNav}
-                              isNodeExpanded={expandedNodes.has(issue.id)}
-                              canDrag={isDndEnabled && !isGhostRow}
-                              isDropTarget={isDndEnabled && activeId !== null}
-                              dndId={isGhostRow ? `ghost:${issue.id}` : issue.id}
-                              isDraggedOrBatch={activeId !== null && dragBatchRef.current.includes(issue.id)}
-                              dragBatchCount={activeId === issue.id ? dragBatchRef.current.length : 0}
-                              popoverType={openPopover?.rowIndex === i ? openPopover.type : null}
-                              allKnownLabels={allKnownLabels}
-                              cycleNumber={cycleMap.get(issue.cycle_id || "")}
-                              onIssueClick={onIssueClick}
-                              onToggleNode={toggleNode}
-                              onMouseEnter={handleRowMouseEnter}
-                              onOpenPopover={handleOpenPopover}
-                              onClosePopover={handleClosePopover}
-                              onQuickStatus={handleQuickStatus}
-                              onQuickPriority={handleQuickPriority}
-                              onQuickEstimate={handleQuickEstimate}
-                              onQuickLabelToggle={handleQuickLabelToggle}
-                              onConfigLabelsChange={onConfigLabelsChange}
+          topBar={
+            <TopBar
+              left={
+                <Tabs
+                  items={TAB_CONFIGS}
+                  activeId={activeTab}
+                  onChange={onTabChange}
+                  keyboardNavigationEnabled={!openPopover && !showViewMenu && !contextMenu}
+                />
+              }
+              center={
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Filter issues..."
+                  keyboardNavigationEnabled={!openPopover && !showViewMenu && !contextMenu}
+                />
+              }
+              right={
+                <div className="flex items-center gap-2">
+                  <FilterButton issues={filteredIssues} filters={filters} onFiltersChange={onFiltersChange} />
+                  <div>
+                    <IconButton
+                      ref={viewBtnRef}
+                      onClick={() => setShowViewMenu((v) => !v)}
+                      tooltip="View options"
+                      icon={<Settings2 size={14} />}
+                    />
+                    {showViewMenu && (
+                      <Popover anchorRef={viewBtnRef} onClose={() => setShowViewMenu(false)}>
+                        <Menu onClose={() => setShowViewMenu(false)}>
+                          <MenuLabel>Layout</MenuLabel>
+                          {childrenByParent.size > 0 && (
+                            <>
+                              <MenuItem
+                                label="Flat"
+                                icon={<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5" /></svg>}
+                                active={hierarchyMode === "flat"}
+                                onClick={() => { if (hierarchyMode !== "flat") toggleHierarchy(); }}
+                              />
+                              <MenuItem
+                                label="Nested"
+                                icon={<ListTree size={14} />}
+                                active={hierarchyMode === "nested"}
+                                onClick={() => { if (hierarchyMode !== "nested") toggleHierarchy(); }}
+                              />
+                              {hierarchyMode === "nested" && (
+                                <>
+                                  <MenuDivider />
+                                  <MenuItem label="Expand all" icon={<ChevronsUpDown size={14} />} onClick={expandAllNodes} />
+                                  <MenuItem label="Collapse all" icon={<ChevronsDownUp size={14} />} onClick={collapseAllNodes} />
+                                </>
+                              )}
+                              <MenuDivider />
+                            </>
+                          )}
+                          <MenuItem label="Show empty groups" checked={showEmptyGroups} onClick={toggleEmptyGroups} />
+                          {hierarchyMode === "nested" && (
+                            <MenuItem label="Show done ghosts" checked={showGhosts} onClick={toggleGhosts} />
+                          )}
+                          <MenuDivider />
+                          <MenuLabel>Sort by</MenuLabel>
+                          {SORT_OPTIONS.map((opt) => (
+                            <MenuItem
+                              key={opt.value}
+                              label={opt.label}
+                              active={opt.value === sortKey}
+                              onClick={() => onSortChange(opt.value)}
                             />
-                          );
-                        })}
-                        {shouldCap && (
-                          <button
-                            onClick={() =>
-                              setShowAllGroups((prev) =>
-                                new Set(prev).add(groupRow.status),
-                              )
-                            }
-                            className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors border-b border-[var(--color-border-subtle)]"
-                          >
-                            + {hiddenCount} more
-                          </button>
-                        )}
-                      </>
-                    );
-                  })()}
+                          ))}
+                        </Menu>
+                      </Popover>
+                    )}
+                  </div>
+                  <CountBadge count={filteredIssues.length} />
                 </div>
-              );
-            });
-          })()}
-        </div>
+              }
+            />
+          }
+        >
+          {filteredIssues.length === 0 ? (
+            <EmptyState
+              title={
+                hasActiveFilters(filters) || search
+                  ? "No matching issues"
+                  : activeTab === "backlog"
+                    ? "No issues in the backlog"
+                    : activeTab === "active"
+                      ? "No active issues"
+                      : activeTab === "done"
+                        ? "No completed issues"
+                        : "No issues"
+              }
+              description={
+                hasActiveFilters(filters) || search
+                  ? "Try adjusting your filters or search."
+                  : activeTab === "backlog"
+                    ? "Issues with Backlog status will appear here."
+                    : activeTab === "active"
+                      ? "Issues that are Planned, In Progress, or Blocked will appear here."
+                      : activeTab === "done"
+                        ? "Completed, canceled, and duplicate issues will appear here."
+                        : "No issues to display."
+              }
+              icon={
+                <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
+                  <rect x="30" y="20" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+                  <rect x="30" y="42" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+                  <rect x="30" y="64" width="100" height="14" rx="4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeDasharray="4 3" />
+                  <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
+                </svg>
+              }
+            />
+          ) : (
+            (() => {
+              const sections: {
+                groupRow: RowItem & { kind: "group" };
+                groupIndex: number;
+                issueRows: { row: RowItem & { kind: "issue" }; index: number }[];
+              }[] = [];
+              for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.kind === "group")
+                  sections.push({ groupRow: row, groupIndex: i, issueRows: [] });
+                else if (sections.length > 0)
+                  sections[sections.length - 1].issueRows.push({ row, index: i });
+              }
+              return sections.map(({ groupRow, groupIndex, issueRows }) => {
+                const isExpanded = expandedGroups.has(groupRow.status);
+                const isInlineActive = inlineCreateStatus === groupRow.status;
+                return (
+                  <div
+                    key={`g-${groupRow.status}`}
+                    data-group-status={groupRow.status}
+                  >
+                    <BacklogGroupHeader
+                      status={groupRow.status}
+                      label={groupRow.label}
+                      isEmpty={groupRow.isEmpty}
+                      isExpanded={isExpanded}
+                      count={groupRow.count}
+                      storyPoints={groupRow.storyPoints}
+                      groupIndex={groupIndex}
+                      isFocused={groupIndex === focusedIndex}
+                      keyboardNav={keyboardNav}
+                      isDndEnabled={isDndEnabled}
+                      hasActiveId={activeId !== null}
+                      showStoryPoints={showStoryPoints}
+                      onToggle={toggleGroup}
+                      onToggleStoryPoints={handleToggleStoryPoints}
+                      onStartInlineCreate={startInlineCreate}
+                      onMouseEnter={handleRowMouseEnter}
+                    />
+                    {isInlineActive && (
+                      <div className="flex items-center gap-3 px-5 h-10 border-b border-transparent rounded-[var(--radius-md)] bg-[var(--color-surface-1)]">
+                        <span className="w-4 shrink-0" />
+                        <div className="shrink-0">
+                          <div className="w-6 h-6 -m-1 flex items-center justify-center">
+                            <PriorityIcon priority={0} size={16} />
+                          </div>
+                        </div>
+                        <span className="font-mono text-xs text-left shrink-0 tabular-nums text-[var(--color-text-muted)] opacity-40">
+                          xpo-······
+                        </span>
+                        <div className="shrink-0">
+                          <div className="w-6 h-6 -m-1 flex items-center justify-center">
+                            <StatusIcon
+                              status={groupRow.status}
+                              size={14}
+                            />
+                          </div>
+                        </div>
+                        <input
+                          ref={inlineRef}
+                          value={inlineTitle}
+                          onChange={(e) => setInlineTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && inlineTitle.trim())
+                              handleInlineCreate(groupRow.status, inlineTitle);
+                            if (e.key === "Escape") {
+                              setInlineCreateStatus(null);
+                              setInlineTitle("");
+                            }
+                          }}
+                          onBlur={() => {
+                            if (!inlineTitle.trim()) {
+                              setInlineCreateStatus(null);
+                              setInlineTitle("");
+                            }
+                          }}
+                          placeholder="New issue title... (Enter to create, Esc to cancel)"
+                          className="flex-1 bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+                        />
+                      </div>
+                    )}
+                    {(() => {
+                      const groupShowAll = showAllGroups.has(groupRow.status);
+                      const shouldCap =
+                        issueRows.length > GROUP_VISIBLE_COUNT && !groupShowAll;
+                      const visibleRows = shouldCap
+                        ? issueRows.slice(0, GROUP_VISIBLE_COUNT)
+                        : issueRows;
+                      const hiddenCount = issueRows.length - GROUP_VISIBLE_COUNT;
+                      return (
+                        <>
+                          {visibleRows.map(({ row, index: i }) => {
+                            const { issue, depth, hasChildren, hasVisibleChildren, childDone, childTotal, childPointsDone, childPointsTotal, parentBreadcrumb, isGhostParent, treeGuides } = row;
+                            const isGhostRow = !!isGhostParent || !!row.isGhostChild;
+                            return (
+                              <BacklogIssueRow
+                                key={issue.id}
+                                issue={issue}
+                                depth={depth}
+                                hasChildren={hasChildren}
+                                hasVisibleChildren={hasVisibleChildren}
+                                childDone={childDone}
+                                childTotal={childTotal}
+                                childPointsDone={childPointsDone}
+                                childPointsTotal={childPointsTotal}
+                                parentBreadcrumb={parentBreadcrumb}
+                                isGhostParent={isGhostParent}
+                                isGhostChild={row.isGhostChild}
+                                treeGuides={treeGuides}
+                                rowIndex={i}
+                                hierarchyMode={hierarchyMode}
+                                isFocused={i === focusedIndex || contextMenu?.issueId === issue.id}
+                                keyboardNav={keyboardNav}
+                                isNodeExpanded={expandedNodes.has(issue.id)}
+                                canDrag={isDndEnabled && !isGhostRow}
+                                isDropTarget={isDndEnabled && activeId !== null}
+                                dndId={isGhostRow ? `ghost:${issue.id}` : issue.id}
+                                isDraggedOrBatch={activeId !== null && dragBatchRef.current.includes(issue.id)}
+                                dragBatchCount={activeId === issue.id ? dragBatchRef.current.length : 0}
+                                popoverType={openPopover?.rowIndex === i ? openPopover.type : null}
+                                allKnownLabels={allKnownLabels}
+                                cycleNumber={cycleMap.get(issue.cycle_id || "")}
+                                onIssueClick={onIssueClick}
+                                onToggleNode={toggleNode}
+                                onMouseEnter={handleRowMouseEnter}
+                                onOpenPopover={handleOpenPopover}
+                                onClosePopover={handleClosePopover}
+                                onQuickStatus={handleQuickStatus}
+                                onQuickPriority={handleQuickPriority}
+                                onQuickEstimate={handleQuickEstimate}
+                                onQuickLabelToggle={handleQuickLabelToggle}
+                                onConfigLabelsChange={onConfigLabelsChange}
+                              />
+                            );
+                          })}
+                          {shouldCap && (
+                            <button
+                              onClick={() =>
+                                setShowAllGroups((prev) =>
+                                  new Set(prev).add(groupRow.status),
+                                )
+                              }
+                              className="w-full py-2 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors border-b border-transparent rounded-[var(--radius-md)]"
+                            >
+                              + {hiddenCount} more
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                );
+              });
+            })()
+          )}
+        </ViewContainer>
         <DragOverlay dropAnimation={null}>
           {draggedIssue ? (
             <DragOverlayCard
@@ -1925,8 +1928,6 @@ export default function Backlog({
             );
           })()}
       </Modal>
-      </>
-      )}
-    </div>
+    </>
   );
 }
