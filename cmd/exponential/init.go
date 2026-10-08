@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/ui"
