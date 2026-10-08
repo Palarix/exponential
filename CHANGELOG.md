@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Links are bidirectional: `A blocks B` also means `B blocked_by A`, whichever issue stores it. `show` (MCP, CLI, API, web) lists derived inverse links with `derived: true`. `start` and `xpo drive` honour blockers stored on the other issue. `link` reports a relationship already stored from the other side as existing. `update { links }` treats the list as the issue's full relationship set, so a link left out is removed from whichever side stores it (xpo-9d6609)
 - Assignees are principal-first: an issue is always assigned to a person, never an agent. Old assignments to agent identities (`Claude Code <agent@host.local>`) resolve to the person the agent worked for, at read time, with no event-log rewrite. Avatars and assignee names always show the person; agent-written comments read "Claude Code on behalf of <person>" (xpo-35fc16)
 - `start` assigns the issue to the person the starter works for (the MCP/drive principal, or the CLI user); an issue held by someone else keeps its assignee unless `--force` (xpo-35fc16)
 - `xpo drive` records its events on behalf of the git-config user (xpo-35fc16)

@@ -58,7 +58,7 @@ func showIssue(id string) {
 			CreatedBy:        issue.CreatedBy,
 			CreatedAt:        issue.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:        issue.UpdatedAt.Format(time.RFC3339),
-			Dependencies:     issue.Dependencies,
+			Dependencies:     issue.Links,
 			Artifacts:        jsonio.ToArtifactEntries(issue.Artifacts),
 			Comments:         jsonio.ToCommentSummaries(issue.Comments),
 			Events:           jsonio.ToEventSummaries(issue.Events),

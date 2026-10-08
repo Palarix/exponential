@@ -20,7 +20,7 @@ type AddInput struct {
 	Assignee    string      `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Labels such as feature, bug, epic"`
 	CycleID     string      `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. Only blocked_by gates start; other kinds are informational"`
+	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. Links are bidirectional (A blocks B also means B blocked_by A); only blocked_by gates start, other kinds are informational"`
 }
 
 type UpdateInput struct {
@@ -33,7 +33,7 @@ type UpdateInput struct {
 	Assignee    *string     `json:"assignee,omitempty"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
 	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the full dependency list; pass [] to remove all links. Only blocked_by gates start; other kinds are informational"`
+	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the issue's full relationship set, including derived links stored on the other issue (as returned by show); a link left out is removed from whichever side stores it; pass [] to remove all links. Only blocked_by gates start; other kinds are informational"`
 }
 
 type CommentInput struct {

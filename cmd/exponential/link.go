@@ -19,7 +19,7 @@ var (
 var linkCmd = &cobra.Command{
 	Use:   "link <source-id> <target-id> -t <type>",
 	Short: "Add a dependency or relationship between two issues",
-	Long:  `Add a dependency or relationship between two issues. Only blocked_by (set on the issue being started) prevents start; all other kinds are informational. Pass --json to read a structured payload {"source": "...", "target": "...", "type": "..."} from stdin.`,
+	Long:  `Add a dependency or relationship between two issues. Links are bidirectional: A blocks B also means B blocked_by A, whichever side stores it. Only blocked_by prevents start; all other kinds are informational. Pass --json to read a structured payload {"source": "...", "target": "...", "type": "..."} from stdin.`,
 	Args:  cobra.RangeArgs(0, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		client := exponential.NewClient(cfg)
@@ -51,12 +51,12 @@ var linkCmd = &cobra.Command{
 			if src.ID == tgt.ID {
 				exitJSONError(fmt.Errorf("cannot link an issue to itself"))
 			}
-			for _, dep := range src.Dependencies {
+			for _, dep := range src.Links {
 				if dep.TargetID == tgt.ID && string(dep.Kind) == kind {
 					exitJSONError(fmt.Errorf("link %s %s already exists on %s", kind, tgt.ID, src.ID))
 				}
 			}
-			newDeps := append(src.Dependencies, model.Dependency{
+			newDeps := append(src.Links, model.Dependency{
 				SourceID: src.ID,
 				TargetID: tgt.ID,
 				Kind:     model.DependencyKind(kind),
@@ -103,7 +103,7 @@ var linkCmd = &cobra.Command{
 			Kind:     model.DependencyKind(depKind),
 		}
 
-		newDeps := append(sourceIssue.Dependencies, dependency)
+		newDeps := append(sourceIssue.Links, dependency)
 		payload := model.UpdatePayload{
 			Dependencies: newDeps,
 		}

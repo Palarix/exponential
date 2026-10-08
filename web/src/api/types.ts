@@ -71,6 +71,8 @@ export interface Dependency {
   source_id: string;
   target_id: string;
   kind: string;
+  /** Stored on the other issue and shown here as its inverse. */
+  derived?: boolean;
 }
 
 export interface Comment {

@@ -42,6 +42,7 @@ type DependencyResponse struct {
 	SourceID string `json:"source_id"`
 	TargetID string `json:"target_id"`
 	Kind     string `json:"kind"`
+	Derived  bool   `json:"derived,omitempty"`
 }
 
 type CommentResponse struct {
@@ -104,11 +105,12 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		})
 	}
 
-	for _, dep := range issue.Dependencies {
+	for _, dep := range issue.Links {
 		resp.Dependencies = append(resp.Dependencies, DependencyResponse{
 			SourceID: dep.SourceID,
 			TargetID: dep.TargetID,
 			Kind:     string(dep.Kind),
+			Derived:  dep.Derived,
 		})
 	}
 

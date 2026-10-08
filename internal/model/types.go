@@ -137,7 +137,11 @@ type Issue struct {
 	BranchStats      *BranchStats
 	Deleted          bool
 
+	// Dependencies holds the links stored on this issue (the event-sourced
+	// truth). Links is the combined view: Dependencies plus the inverse of
+	// every link other live issues store against this one, marked Derived.
 	Dependencies []Dependency
+	Links        []Dependency
 	Labels       []string
 
 	CreatedAt time.Time
@@ -183,6 +187,9 @@ type Dependency struct {
 	SourceID string         `json:"source_id"`
 	TargetID string         `json:"target_id"`
 	Kind     DependencyKind `json:"kind"`
+	// Derived marks a link stored on the other issue and shown here as its
+	// inverse. It is never persisted.
+	Derived bool `json:"derived,omitempty"`
 }
 
 // NormalizeDependencyKind maps loose user input ("blocks", "blocked_by",

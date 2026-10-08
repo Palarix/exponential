@@ -194,8 +194,55 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 	}
 
 	backfillSortOrder(finalIssues)
+	deriveLinks(finalIssues)
 
 	return finalIssues
+}
+
+// linkKey identifies a link from one issue's point of view.
+type linkKey struct {
+	target string
+	kind   model.DependencyKind
+}
+
+// deriveLinks fills Issue.Links for every issue: its own dependencies plus
+// the inverse of every link another live issue stores against it. A
+// relationship recorded from both sides shows up once, as the owned row.
+func deriveLinks(issues map[string]*model.Issue) {
+	for _, issue := range issues {
+		issue.Links = append([]model.Dependency(nil), issue.Dependencies...)
+	}
+	ids := make([]string, 0, len(issues))
+	for id := range issues {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		for _, dep := range issues[id].Dependencies {
+			target, ok := issues[dep.TargetID]
+			if !ok || target.ID == id {
+				continue
+			}
+			inverse := model.Dependency{
+				SourceID: target.ID,
+				TargetID: id,
+				Kind:     model.InverseKind(dep.Kind),
+				Derived:  true,
+			}
+			if !hasLink(target.Links, inverse.TargetID, inverse.Kind) {
+				target.Links = append(target.Links, inverse)
+			}
+		}
+	}
+}
+
+func hasLink(links []model.Dependency, target string, kind model.DependencyKind) bool {
+	for _, l := range links {
+		if l.TargetID == target && l.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // fillDependencySourceIDs repairs dependencies written without a source_id

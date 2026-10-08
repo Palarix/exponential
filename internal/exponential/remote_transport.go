@@ -50,6 +50,7 @@ type apiDependency struct {
 	SourceID string `json:"source_id"`
 	TargetID string `json:"target_id"`
 	Kind     string `json:"kind"`
+	Derived  bool   `json:"derived,omitempty"`
 }
 
 type apiComment struct {
@@ -115,12 +116,18 @@ func apiIssueToModel(a apiIssue) *model.Issue {
 		}
 	}
 
+	// The API returns the combined view; rebuild the owned rows from it.
 	for _, d := range a.Dependencies {
-		issue.Dependencies = append(issue.Dependencies, model.Dependency{
+		dep := model.Dependency{
 			SourceID: d.SourceID,
 			TargetID: d.TargetID,
 			Kind:     model.DependencyKind(d.Kind),
-		})
+			Derived:  d.Derived,
+		}
+		issue.Links = append(issue.Links, dep)
+		if !dep.Derived {
+			issue.Dependencies = append(issue.Dependencies, dep)
+		}
 	}
 
 	for _, c := range a.Comments {

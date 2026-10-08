@@ -56,6 +56,22 @@ describe("collectEdges", () => {
     expect(edges[0]).toEqual({ sourceId: "a", targetId: "b", kind: "blocked_by", originalKind: "blocked_by" });
   });
 
+  it("emits one edge when the API returns a link and its derived inverse", () => {
+    const issues = [
+      makeIssue({
+        id: "a",
+        dependencies: [{ source_id: "a", target_id: "b", kind: "blocks" }],
+      }),
+      makeIssue({
+        id: "b",
+        dependencies: [{ source_id: "b", target_id: "a", kind: "blocked_by", derived: true }],
+      }),
+    ];
+    const edges = collectEdges(issues);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ sourceId: "b", targetId: "a", kind: "blocked_by" });
+  });
+
   it("canonicalizes blocks to blocked_by with swap", () => {
     const issues = [
       makeIssue({

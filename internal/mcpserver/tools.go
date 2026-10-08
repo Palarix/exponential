@@ -17,7 +17,8 @@ import (
 // --- Registration ---
 
 const linkToolDescription = "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues. " +
-	"Only blocked_by (set on the issue being started) prevents `start`; all other kinds are informational."
+	"Links are bidirectional: A blocks B also shows on B as blocked_by A (derived: true), whichever side stores it. " +
+	"Only blocked_by (stored on either side) prevents `start`; all other kinds are informational."
 
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
@@ -143,7 +144,7 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 		CreatedBy:        issue.CreatedBy,
 		CreatedAt:        issue.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        issue.UpdatedAt.Format(time.RFC3339),
-		Dependencies:     issue.Dependencies,
+		Dependencies:     issue.Links,
 		Artifacts:        jsonio.ToArtifactEntries(issue.Artifacts),
 		Comments:         jsonio.ToCommentSummaries(issue.Comments),
 	}
@@ -259,12 +260,12 @@ func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 	if src.ID == tgt.ID {
 		return nil, jsonio.LinkOutput{}, fmt.Errorf("cannot link an issue to itself")
 	}
-	for _, dep := range src.Dependencies {
+	for _, dep := range src.Links {
 		if dep.TargetID == tgt.ID && string(dep.Kind) == kind {
 			return nil, jsonio.LinkOutput{}, fmt.Errorf("link %s %s already exists on %s", kind, tgt.ID, src.ID)
 		}
 	}
-	newDeps := append(src.Dependencies, model.Dependency{
+	newDeps := append(src.Links, model.Dependency{
 		SourceID: src.ID,
 		TargetID: tgt.ID,
 		Kind:     model.DependencyKind(kind),

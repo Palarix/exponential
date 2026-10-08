@@ -41,10 +41,18 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 		return nil, nil, err
 	}
 
+	// Links are bidirectional: payload.Dependencies is the issue's full set
+	// of relationships, including ones stored on the other issue.
+	var linkEvents []model.Event
+	var linkMessages []string
+	if payload.Dependencies != nil {
+		payload.Dependencies, linkEvents, linkMessages = reconcileLinks(targetIssue, payload.Dependencies, issues, user, timestamp)
+	}
+
 	// Prune fields that already match current state so redundant updates are no-ops.
 	pruneUnchangedFields(&payload, targetIssue)
 	if payloadEmpty(payload) {
-		return nil, nil, nil
+		return linkEvents, linkMessages, nil
 	}
 
 	// Auto-assign sort_order when status changes and no explicit sort_order is set
@@ -78,6 +86,8 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 	}
 	eventsToAppend = append(eventsToAppend, primaryEvent)
 	messages = append(messages, fmt.Sprintf("Updated %s", id))
+	eventsToAppend = append(eventsToAppend, linkEvents...)
+	messages = append(messages, linkMessages...)
 
 	// Cascading side effects based on status change
 	if payload.Status != nil {
@@ -85,7 +95,7 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 
 		// --- Check blocked_by dependencies before starting ---
 		if newStatus == model.StatusDoing {
-			for _, dep := range targetIssue.Dependencies {
+			for _, dep := range targetIssue.Links {
 				if dep.Kind == model.DependencyBlockedBy {
 					blocker, bExists := issues[dep.TargetID]
 					if bExists && !model.IsTerminal(blocker.Status) && !blocker.Deleted {
@@ -311,11 +321,13 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 }
 
 // normalizeUpdateDependencies stamps the owning issue's ID onto every
-// dependency and rejects self-links and duplicate (target, kind) pairs.
+// dependency, clears the derived flag, and rejects self-links and duplicate
+// (target, kind) pairs.
 func normalizeUpdateDependencies(id string, deps []model.Dependency) error {
 	seen := make(map[model.Dependency]bool, len(deps))
 	for i := range deps {
 		deps[i].SourceID = id
+		deps[i].Derived = false
 		if deps[i].TargetID == id {
 			return fmt.Errorf("cannot link an issue to itself")
 		}
@@ -325,6 +337,67 @@ func normalizeUpdateDependencies(id string, deps []model.Dependency) error {
 		seen[deps[i]] = true
 	}
 	return nil
+}
+
+// reconcileLinks splits the desired relationship set for issue into the rows
+// the issue itself should store and the events that remove rows other issues
+// store against it. A desired link already stored on the other side is left
+// there; a link stored on the other side that is no longer desired is removed
+// from that issue.
+func reconcileLinks(issue *model.Issue, desired []model.Dependency, issues map[string]*model.Issue, user string, timestamp time.Time) ([]model.Dependency, []model.Event, []string) {
+	want := make(map[linkKey]bool, len(desired))
+	for _, d := range desired {
+		want[linkKey{d.TargetID, d.Kind}] = true
+	}
+
+	owned := make([]model.Dependency, 0, len(desired))
+	for _, d := range desired {
+		if !hasLink(issue.Dependencies, d.TargetID, d.Kind) && derivedLinkExists(issue, d, issues) {
+			continue
+		}
+		owned = append(owned, d)
+	}
+
+	ids := make([]string, 0, len(issues))
+	for id := range issues {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	var events []model.Event
+	var messages []string
+	for _, otherID := range ids {
+		other := issues[otherID]
+		if other.ID == issue.ID {
+			continue
+		}
+		kept := make([]model.Dependency, 0, len(other.Dependencies))
+		for _, dep := range other.Dependencies {
+			if dep.TargetID == issue.ID && !want[linkKey{other.ID, model.InverseKind(dep.Kind)}] {
+				continue
+			}
+			kept = append(kept, dep)
+		}
+		if len(kept) == len(other.Dependencies) {
+			continue
+		}
+		events = append(events, model.Event{
+			ID:        other.ID,
+			Type:      model.EventTypeUpdate,
+			Payload:   model.UpdatePayload{Dependencies: kept},
+			CreatedAt: timestamp,
+			CreatedBy: user,
+		})
+		messages = append(messages, fmt.Sprintf("Removed link from %s", other.ID))
+	}
+	return owned, events, messages
+}
+
+// derivedLinkExists reports whether the other issue in d stores the inverse
+// of d against issue.
+func derivedLinkExists(issue *model.Issue, d model.Dependency, issues map[string]*model.Issue) bool {
+	other, ok := issues[d.TargetID]
+	return ok && hasLink(other.Dependencies, issue.ID, model.InverseKind(d.Kind))
 }
 
 // pruneUnchangedFields nils out payload fields that already match the

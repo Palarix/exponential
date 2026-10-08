@@ -108,9 +108,9 @@ func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived 
 		humanize.Time(issue.UpdatedAt)))
 
 	// Dependencies
-	if len(issue.Dependencies) > 0 {
+	if len(issue.Links) > 0 {
 		sb.WriteString(fmt.Sprintf("\n  %s\n", MutedStyle.Render("Dependencies:")))
-		for _, dep := range issue.Dependencies {
+		for _, dep := range issue.Links {
 			kindStr := string(dep.Kind)
 			sb.WriteString(fmt.Sprintf("    %s %s\n",
 				MutedStyle.Render(kindStr+":"),

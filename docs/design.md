@@ -115,7 +115,9 @@ Dependencies express directional relationships between issues:
 | `duplicates` | `duplicated_by` | Source duplicates target |
 | `relates_to` | `relates_to` | Symmetric, informational |
 
-The system enforces `blocked_by` at status transition time — an issue cannot move to DOING if any of its `blocked_by` targets are not DONE.
+Links are bidirectional. A link is stored once, on the issue that created it (`Issue.Dependencies`), and projection derives the inverse on the other issue. `Issue.Links` is the combined view: owned rows plus derived rows, which are marked `derived: true`. A relationship recorded from both sides appears once. Readers (start-gating, drive, `show`, the web API) use `Links`. Writers treat an update's dependency list as the issue's full relationship set: a link stored on the other side that's left out is removed from that issue.
+
+The system enforces `blocked_by` at status transition time: an issue can't move to DOING if any of its `blocked_by` targets are not DONE. This includes `blocked_by` derived from another issue's `blocks`.
 
 ### Sort order
 

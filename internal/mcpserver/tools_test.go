@@ -782,3 +782,60 @@ func TestLinkToolDocumentsStartGating(t *testing.T) {
 		t.Errorf("link description must say only blocked_by gates start: %q", linkToolDescription)
 	}
 }
+
+func TestShowListsDerivedLink(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "B"})
+	if _, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: a.ID, Target: b.ID, Type: "blocks"}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: b.ID})
+	if len(show.Dependencies) != 1 {
+		t.Fatalf("B deps = %+v, want one derived link", show.Dependencies)
+	}
+	if d := show.Dependencies[0]; d.TargetID != a.ID || d.Kind != model.DependencyBlockedBy || !d.Derived {
+		t.Errorf("B dep = %+v, want derived blocked_by %s", d, a.ID)
+	}
+}
+
+func TestLinkRejectsInverseOfExisting(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "B"})
+	if _, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: a.ID, Target: b.ID, Type: "blocks"}); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"})
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("expected already-exists error, got %v", err)
+	}
+}
+
+func TestLinkKeepsDerivedLinksOnSource(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "B"})
+	_, c, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "C"})
+	if _, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: a.ID, Target: b.ID, Type: "blocks"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: c.ID, Type: "depends_on"}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: a.ID})
+	if len(show.Dependencies) != 1 || show.Dependencies[0].TargetID != b.ID {
+		t.Errorf("A deps = %+v, want blocks %s kept", show.Dependencies, b.ID)
+	}
+}

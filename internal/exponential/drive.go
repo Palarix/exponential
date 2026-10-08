@@ -912,7 +912,7 @@ func (c *Client) pickIssue(opts DriveOptions) (*model.Issue, error) {
 }
 
 func hasUnresolvedBlockers(issue *model.Issue, c *Client) bool {
-	for _, dep := range issue.Dependencies {
+	for _, dep := range issue.Links {
 		if dep.Kind != model.DependencyBlockedBy && dep.Kind != model.DependencyDependsOn {
 			continue
 		}
