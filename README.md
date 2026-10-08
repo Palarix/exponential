@@ -59,7 +59,7 @@ Wire `xpo mcp` into any MCP-compatible client. The fastest setup is a `.mcp.json
 }
 ```
 
-Agents get twelve structured tools: `list`, `show`, `add`, `update`, `comment`, `link`, `start`, `merge`, `history`, `spec`, `walkthrough`, `artifact`. All writes are append-only events on a git-tracked file, so a mistaken call is recoverable via `git`.
+Agents get fourteen structured tools: `list`, `show`, `add`, `update`, `comment`, `link`, `unlink`, `start`, `merge`, `history`, `spec`, `walkthrough`, `artifact`, `rationale`. All writes are append-only events on a git-tracked file, so a mistaken call is recoverable via `git`.
 
 To reduce permission prompts in Claude Code, allow-list the tools in `.claude/settings.json`:
 

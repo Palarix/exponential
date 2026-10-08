@@ -839,3 +839,31 @@ func TestLinkKeepsDerivedLinksOnSource(t *testing.T) {
 		t.Errorf("A deps = %+v, want blocks %s kept", show.Dependencies, b.ID)
 	}
 }
+
+func TestUnlink(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "B"})
+	if _, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: a.ID, Target: b.ID, Type: "blocks"}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, res, err := ts.unlink(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"})
+	if err != nil {
+		t.Fatalf("unlink failed: %v", err)
+	}
+	if res.Source != b.ID || res.Target != a.ID || res.Kind != "blocked_by" {
+		t.Errorf("unlink output = %+v", res)
+	}
+	_, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: a.ID})
+	if len(show.Dependencies) != 0 {
+		t.Errorf("A deps = %+v, want none", show.Dependencies)
+	}
+
+	if _, _, err := ts.unlink(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"}); err == nil {
+		t.Error("expected error unlinking a missing link")
+	}
+}

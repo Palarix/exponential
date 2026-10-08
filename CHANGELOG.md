@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `unlink` MCP tool and `xpo unlink <source> <target> -t <type>` CLI command (with `--json`): remove one relationship between two issues, whichever side stores it, including links to deleted issues (xpo-9d5d00)
 - "Worked by" filter (Agent / Human) in the Backlog, My Issues and Inbox filter menus, backed by a new `assignee_via` field on issues in the CLI JSON, MCP and HTTP API (xpo-35fc16)
 - "Open" button in the issue detail top bar that opens the issue's local worktree in VS Code via a `vscode://file/…` link; the path comes from a new local-only `GET /api/local/issues/{id}/worktree` endpoint, which `xpo board` answers itself even in remote/proxy mode (xpo-c4fbed)
 - Unified JSON I/O layer: `internal/jsonio/` package as single source of truth for all JSON-serializable types shared between CLI and MCP (xpo-1a5504)

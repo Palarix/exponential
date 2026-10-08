@@ -20,6 +20,10 @@ const linkToolDescription = "Add a relationship (blocks, depends_on, relates_to,
 	"Links are bidirectional: A blocks B also shows on B as blocked_by A (derived: true), whichever side stores it. " +
 	"Only blocked_by (stored on either side) prevents `start`; all other kinds are informational."
 
+const unlinkToolDescription = "Remove one relationship between two issues, the counterpart of `link`. " +
+	"Links are bidirectional, so `unlink { B, A, blocked_by }` also removes `A blocks B` stored on A. " +
+	"A link to a deleted issue can be removed by its ID."
+
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list",
@@ -55,6 +59,11 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "link",
 		Description: linkToolDescription,
 	}, t.link)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "unlink",
+		Description: unlinkToolDescription,
+	}, t.unlink)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start",
@@ -276,6 +285,18 @@ func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 	t.broadcast("UPDATE", src.ID)
 	return textResult(fmt.Sprintf("Linked %s %s %s", src.ID, kind, tgt.ID)),
 		jsonio.LinkOutput{Source: src.ID, Target: tgt.ID, Kind: kind}, nil
+}
+
+func (t *toolset) unlink(ctx context.Context, req *mcp.CallToolRequest, in jsonio.LinkToolInput) (*mcp.CallToolResult, jsonio.LinkOutput, error) {
+	c := t.clientFor(req)
+	dep, _, err := c.Unlink(in.Source, in.Target, in.Type)
+	if err != nil {
+		return nil, jsonio.LinkOutput{}, err
+	}
+	t.broadcast("UPDATE", dep.SourceID)
+	t.broadcast("UPDATE", dep.TargetID)
+	return textResult(fmt.Sprintf("Unlinked %s %s %s", dep.SourceID, dep.Kind, dep.TargetID)),
+		jsonio.LinkOutput{Source: dep.SourceID, Target: dep.TargetID, Kind: string(dep.Kind)}, nil
 }
 
 func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in jsonio.StartToolInput) (*mcp.CallToolResult, jsonio.StartOutput, error) {

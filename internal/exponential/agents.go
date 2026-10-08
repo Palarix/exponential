@@ -433,6 +433,7 @@ may use different naming conventions). The table uses the base tool names.
 | ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed on the worktree or branch first |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |
 | ` + "`link`" + ` | Add a relationship between two issues |
+| ` + "`unlink`" + ` | Remove one relationship between two issues, whichever side stores it |
 | ` + "`history`" + ` | View the audit trail for an issue |
 | ` + "`spec`" + ` | Read, write, or delete the design spec for an issue |
 | ` + "`walkthrough`" + ` | Read, write, or delete the implementation walkthrough for an issue |
