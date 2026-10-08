@@ -646,3 +646,14 @@ func TestAgentTemplates_DoNotAskAgentsToAssignThemselves(t *testing.T) {
 		t.Error("skill should explain that start assigns the principal")
 	}
 }
+
+func TestMergeDocsTellAgentsToOmitStrategy(t *testing.T) {
+	for name, doc := range map[string]string{
+		"skill":     GenerateSkillMD(),
+		"mcp-tools": GenerateMCPToolsRef(),
+	} {
+		if !strings.Contains(doc, "without a `strategy`") {
+			t.Errorf("%s should tell agents to call merge without a strategy", name)
+		}
+	}
+}

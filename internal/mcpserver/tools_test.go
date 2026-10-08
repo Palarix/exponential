@@ -867,3 +867,9 @@ func TestUnlink(t *testing.T) {
 		t.Error("expected error unlinking a missing link")
 	}
 }
+
+func TestMergeToolDocumentsDefaultStrategy(t *testing.T) {
+	if !strings.Contains(mergeToolDescription, "Omit `strategy`") {
+		t.Errorf("merge description must tell agents to omit strategy: %q", mergeToolDescription)
+	}
+}

@@ -203,7 +203,7 @@ type StartToolInput struct {
 
 type MergeToolInput struct {
 	ID            string `json:"id" jsonschema:"Issue ID to merge"`
-	Strategy      string `json:"strategy,omitempty" jsonschema:"Merge strategy: squash (default), merge, or ff"`
+	Strategy      string `json:"strategy,omitempty" jsonschema:"Merge strategy: squash (default), merge, or ff. Omit unless the user asks for a specific strategy"`
 	CommitMessage string `json:"commit_message,omitempty" jsonschema:"Custom commit message (auto-generated if omitted)"`
 	KeepBranch    bool   `json:"keep_branch,omitempty" jsonschema:"Keep the branch after merge (default: delete)"`
 }

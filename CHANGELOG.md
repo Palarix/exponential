@@ -90,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `merge` with `strategy: ff` no longer adds a separate `xpo: merge <id>` commit: the issue database and artifacts are amended into the fast-forwarded tip, and an explicit `commit_message` rewords it. The `merge` tool, the mcp-tools reference and skill step 9 now tell agents to omit `strategy` unless the user asks for one. Re-run `xpo init` in other projects to refresh installed skill copies (xpo-c16e28)
 - Issue detail sidebar Cycle popover now uses the shared `CyclePicker` (also used by the context menu), gaining a filter input, `Cycle N (status)` labels and keyboard navigation (xpo-f16b80)
 - Context Menu Cycle submenu now has a filter input and uses the shared `Menu`/`MenuItem` styling and keyboard navigation; cycles are labelled `Cycle N (status)` so the checkmark only marks the selected cycle (xpo-70e66a)
 - Context Menu Assignee submenu now autofocuses its filter input and uses the shared `Menu`/`MenuItem` styling and keyboard navigation, matching Status, Priority and Labels (xpo-690930)

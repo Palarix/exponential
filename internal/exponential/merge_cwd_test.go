@@ -186,14 +186,15 @@ func TestMergeIssue_FromInsideWorktree(t *testing.T) {
 				t.Errorf("expected MERGE event committed on main, got:\n%s", committedDB)
 			}
 
-			if strategy != MergeStrategyFF {
-				// Code and bookkeeping land in one commit.
-				changed := gitOut(t, hub, "diff", "--name-only", "main^1", "main")
-				for _, f := range []string{"feature.txt", ".xpo/issues.db"} {
-					if !strings.Contains(changed, f) {
-						t.Errorf("expected %s in the merge commit, changed files:\n%s", f, changed)
-					}
+			// Code and bookkeeping land in one commit, for every strategy.
+			changed := gitOut(t, hub, "diff", "--name-only", "main^1", "main")
+			for _, f := range []string{"feature.txt", ".xpo/issues.db"} {
+				if !strings.Contains(changed, f) {
+					t.Errorf("expected %s in the merge commit, changed files:\n%s", f, changed)
 				}
+			}
+			if log := gitOut(t, hub, "log", "--format=%s", "main"); strings.Contains(log, "xpo: merge") {
+				t.Errorf("expected no separate bookkeeping commit, log:\n%s", log)
 			}
 
 			if got := issueStatus(t, "test-cwd01"); got != model.StatusDone {
@@ -369,4 +370,67 @@ func TestMergeIssue_BookkeepingCommitFails_MergeSucceedsWithWarning(t *testing.T
 		t.Errorf("expected DONE, got %s", got)
 	}
 	assertHubClean(t, hub)
+}
+
+func TestMergeIssue_FFFoldsArtifactsIntoTip(t *testing.T) {
+	hub, wtPath, branch, client := setupHubWorktreeRepo(t, "test-ffart")
+	os.WriteFile(filepath.Join(wtPath, "second.txt"), []byte("second\n"), 0644)
+	runGit(t, wtPath, "add", "second.txt")
+	runGit(t, wtPath, "commit", "-m", "add second")
+	branchCommits := gitOut(t, hub, "rev-list", "--count", "main.."+branch)
+
+	artifactDir := filepath.Join(hub, ".xpo", "artifacts", "test-ffart")
+	os.MkdirAll(artifactDir, 0755)
+	os.WriteFile(filepath.Join(artifactDir, "spec.md"), []byte("# spec\n"), 0644)
+	before := gitOut(t, hub, "rev-parse", "main")
+
+	if _, err := client.MergeIssue("test-ffart", MergeOptions{Strategy: MergeStrategyFF, DeleteBranch: true}); err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+
+	if got := gitOut(t, hub, "rev-list", "--count", before+"..main"); got != branchCommits {
+		t.Errorf("expected exactly the branch's %s commits on main, got %s", branchCommits, got)
+	}
+	tip := gitOut(t, hub, "show", "--name-only", "--format=%s", "main")
+	for _, want := range []string{"add second", "second.txt", ".xpo/issues.db", ".xpo/artifacts/test-ffart/spec.md"} {
+		if !strings.Contains(tip, want) {
+			t.Errorf("expected %q in tip commit, got:\n%s", want, tip)
+		}
+	}
+}
+
+func TestMergeIssue_FFCustomMessageRewordsTip(t *testing.T) {
+	hub, _, _, client := setupHubWorktreeRepo(t, "test-ffmsg")
+	if _, err := client.MergeIssue("test-ffmsg", MergeOptions{
+		Strategy:      MergeStrategyFF,
+		CommitMessage: "test-ffmsg: custom",
+		DeleteBranch:  true,
+	}); err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+	if subject := gitOut(t, hub, "log", "-1", "--format=%s", "main"); subject != "test-ffmsg: custom" {
+		t.Errorf("tip subject = %q, want custom message", subject)
+	}
+}
+
+func TestMergeIssue_FFAmendFailureKeepsEventsUncommitted(t *testing.T) {
+	hub, _, branch, client := setupHubWorktreeRepo(t, "test-fffail")
+	tip := gitOut(t, hub, "rev-parse", branch)
+	// The fast-forward makes no commit; only the bookkeeping amend can fail.
+	runGit(t, hub, "config", "commit.gpgsign", "true")
+	runGit(t, hub, "config", "gpg.program", "false")
+
+	result, err := client.MergeIssue("test-fffail", MergeOptions{Strategy: MergeStrategyFF, DeleteBranch: true})
+	if err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+	if got := gitOut(t, hub, "rev-parse", "main"); got != tip {
+		t.Errorf("main = %s, want the untouched branch tip %s", got, tip)
+	}
+	if !strings.Contains(strings.Join(result.Messages, "\n"), "were not committed") {
+		t.Errorf("expected uncommitted warning, got %v", result.Messages)
+	}
+	if !strings.Contains(readIssuesDB(t, hub), `"type":"MERGE"`) {
+		t.Error("expected MERGE event recorded in the working tree")
+	}
 }

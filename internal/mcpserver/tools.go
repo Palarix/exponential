@@ -20,6 +20,11 @@ const linkToolDescription = "Add a relationship (blocks, depends_on, relates_to,
 	"Links are bidirectional: A blocks B also shows on B as blocked_by A (derived: true), whichever side stores it. " +
 	"Only blocked_by (stored on either side) prevents `start`; all other kinds are informational."
 
+const mergeToolDescription = "Merge an issue's branch into the default branch (squash by default), record a MERGE event, and close the issue. " +
+	"Omit `strategy` unless the user asks for a specific one. " +
+	"All changes on the issue's worktree or branch must be committed first — merge refuses to run while the worktree has uncommitted or untracked files. " +
+	"When worktrees are enabled, the merge runs from the hub (primary checkout on main) and the worktree is cleaned up automatically."
+
 const unlinkToolDescription = "Remove one relationship between two issues, the counterpart of `link`. " +
 	"Links are bidirectional, so `unlink { B, A, blocked_by }` also removes `A blocks B` stored on A. " +
 	"A link to a deleted issue can be removed by its ID."
@@ -72,7 +77,7 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "merge",
-		Description: "Merge an issue's branch into the default branch (squash by default), record a MERGE event, and close the issue. All changes on the issue's worktree or branch must be committed first — merge refuses to run while the worktree has uncommitted or untracked files. When worktrees are enabled, the merge runs from the hub (primary checkout on main) and the worktree is cleaned up automatically.",
+		Description: mergeToolDescription,
 	}, t.merge)
 
 	mcp.AddTool(s, &mcp.Tool{

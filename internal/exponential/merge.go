@@ -84,7 +84,8 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			case MergeStrategySquash:
 				commitMsg = fmt.Sprintf("%s: %s", issue.ID, issue.Title)
 			case MergeStrategyFF:
-				commitMsg = fmt.Sprintf("xpo: merge %s", issue.ID)
+				// A fast-forward creates no commit; the branch tip keeps its
+				// message unless one was given (applied when amending below).
 			default:
 				commitMsg = fmt.Sprintf("Merge branch '%s'", branch)
 			}
@@ -135,18 +136,18 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 				branch, base, mergeSHA, err, issue.ID)
 		}
 
-		// Fold the xpo bookkeeping into the merge commit. Hooks already ran
-		// on the code commit, so skip them here. If this fails the events
-		// stay recorded but uncommitted, and ride along with the next commit.
+		// Fold the xpo bookkeeping into the merge commit, or for ff into the
+		// fast-forwarded branch tip (the branch always has commits ahead, and
+		// it and its worktree are removed below). Hooks already ran on the
+		// code commit, so skip them here. If this fails the events stay
+		// recorded but uncommitted, and ride along with the next commit.
 		hubGit("add", ".xpo/issues.db").Run()
 		hubGit("add", filepath.Join(".xpo", "artifacts", issue.ID)).Run()
-		var bookkeepErr error
-		if opts.Strategy == MergeStrategyFF {
-			bookkeepErr = runHubCommit("--no-verify", "-m", commitMsg)
-		} else {
-			bookkeepErr = runHubCommit("--amend", "--no-edit", "--no-verify")
+		amendArgs := []string{"--amend", "--no-edit", "--no-verify"}
+		if opts.Strategy == MergeStrategyFF && opts.CommitMessage != "" {
+			amendArgs = []string{"--amend", "--no-verify", "-m", opts.CommitMessage}
 		}
-		if bookkeepErr != nil {
+		if bookkeepErr := runHubCommit(amendArgs...); bookkeepErr != nil {
 			hubGit("reset", "-q", "--", ".xpo").Run()
 			result.Messages = append(result.Messages, fmt.Sprintf(
 				"Warning: merge recorded but .xpo changes were not committed (%v%s) — they will be included in the next commit",

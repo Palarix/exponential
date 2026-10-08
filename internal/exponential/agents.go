@@ -342,7 +342,8 @@ Then, in the issue's worktree (or on its branch):
 1. If the project's instructions require a changelog entry, add it now.
 2. Run ` + "`git status`" + `. Delete or move scratch files that are not part of the change.
 3. Commit everything: ` + "`git add -A && git commit -m \"<issue-id>: <issue title>\"`" + `.
-4. Call the xpo MCP server's ` + "`merge`" + ` tool. It squash-merges the branch into the default
+4. Call the xpo MCP server's ` + "`merge`" + ` tool without a ` + "`strategy`" + ` (the user may ask for one).
+   It squash-merges the branch into the default
    branch, records a MERGE event, closes the issue, and removes the worktree or branch.
    It refuses to run while the worktree has uncommitted or untracked files.
 
@@ -430,7 +431,7 @@ may use different naming conventions). The table uses the base tool names.
 | ` + "`add`" + ` | Create a new issue |
 | ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE) |
 | ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree (or branch). Returns the worktree path |
-| ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed on the worktree or branch first |
+| ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed on the worktree or branch first. Call it without a ` + "`strategy`" + ` unless the user asks for one |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |
 | ` + "`link`" + ` | Add a relationship between two issues |
 | ` + "`unlink`" + ` | Remove one relationship between two issues, whichever side stores it |

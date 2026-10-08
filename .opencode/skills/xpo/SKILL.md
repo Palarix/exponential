@@ -132,7 +132,8 @@ Then, in the issue's worktree (or on its branch):
 1. If the project's instructions require a changelog entry, add it now.
 2. Run `git status`. Delete or move scratch files that are not part of the change.
 3. Commit everything: `git add -A && git commit -m "<issue-id>: <issue title>"`.
-4. Call the xpo MCP server's `merge` tool. It squash-merges the branch into the default
+4. Call the xpo MCP server's `merge` tool without a `strategy` (the user may ask for one).
+   It squash-merges the branch into the default
    branch, records a MERGE event, closes the issue, and removes the worktree or branch.
    It refuses to run while the worktree has uncommitted or untracked files.
 
@@ -204,4 +205,4 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 
-<!-- xpo:skill 1.2.1 sha256:f010818f875b -->
+<!-- xpo:skill 1.2.1 sha256:3d8b9340c2bb -->
