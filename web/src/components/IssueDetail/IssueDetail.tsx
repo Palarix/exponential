@@ -204,7 +204,7 @@ export default function IssueDetail({
       }
       if (e.metaKey || e.ctrlKey) return;
       if (openPopover) {
-        if (openPopover === "labels") return;
+        if (openPopover === "labels" || openPopover === "cycle") return;
         const len =
           openPopover === "status"
             ? STATUS_OPTIONS.length

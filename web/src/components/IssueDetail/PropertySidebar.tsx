@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useContext, useRef } from "react";
 import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
 import type { Issue, Cycle } from "../../api/client";
-import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, Text } from "../ui";
+import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { formatRelativeTime, shortName } from "../../utils/format";
@@ -551,33 +551,12 @@ export default function PropertySidebar({
                   {openPopover === "cycle" && (
                     <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                       <PopoverPanel>
-                        <PopoverHeader>Move to cycle...</PopoverHeader>
-                        {issue.cycle_id && (
-                          <button
-                            onClick={() => handleCycleChange(null)}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
-                          >
-                            No cycle
-                          </button>
-                        )}
-                        {cycles.filter(c => c.status !== 'completed').map(c => {
-                          const isCurrent = c.id === issue.cycle_id;
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => handleCycleChange(c.id)}
-                              className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-2)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                            >
-                              <span>Cycle {c.number}</span>
-                              <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
-                              {isCurrent && (
-                                <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
+                        <CyclePicker
+                          cycles={cycles}
+                          current={issue.cycle_id}
+                          onSelect={handleCycleChange}
+                          onClose={() => setOpenPopover(null)}
+                        />
                       </PopoverPanel>
                     </Popover>
                   )}

@@ -6,11 +6,11 @@ import LabelPicker from "./LabelPicker";
 import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
+import CyclePicker from "./CyclePicker";
 import Avatar from "./Avatar";
 import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
 import { collectKnownPeople, filterPeople } from "../../utils/issues";
-import { cycleLabel, filterCycles } from "../../utils/cycles";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { Menu, MenuItem, MenuDivider, MenuFilter, MenuLabel } from "./Menu";
 import { SubMenu } from "./SubMenu";
@@ -71,43 +71,6 @@ function AssigneePanel({
         />
       ))}
       {people.length === 0 && <MenuLabel>No matching people</MenuLabel>}
-    </Menu>
-  );
-}
-
-function CyclePanel({
-  issue, cycles, onAction, onClose,
-}: {
-  issue: Issue; cycles: Cycle[];
-  onAction: (type: string, payload: Record<string, unknown>) => void;
-  onClose: () => void;
-}) {
-  const [filterText, setFilterText] = useState("");
-  const visible = useMemo(() => filterCycles(cycles, filterText), [cycles, filterText]);
-  const hasQuery = filterText.trim().length > 0;
-
-  if (cycles.length === 0) {
-    return (
-      <Menu onClose={onClose} bare autoFocus={false}>
-        <MenuLabel>Cycles not configured</MenuLabel>
-      </Menu>
-    );
-  }
-  return (
-    <Menu onClose={onClose} bare autoFocus={false} maxHeight="18rem">
-      <MenuFilter value={filterText} onChange={setFilterText} placeholder="Move to cycle..." />
-      {issue.cycle_id && !hasQuery && (
-        <MenuItem label="No cycle" onClick={() => onAction("UPDATE", { cycle_id: "" })} />
-      )}
-      {visible.map(c => (
-        <MenuItem
-          key={c.id}
-          label={cycleLabel(c)}
-          checked={c.id === issue.cycle_id}
-          onClick={() => onAction("UPDATE", { cycle_id: c.id })}
-        />
-      ))}
-      {visible.length === 0 && <MenuLabel>No matching cycles</MenuLabel>}
     </Menu>
   );
 }
@@ -233,7 +196,7 @@ export default function ContextMenu({
           renderPanel={(close) => <EstimatePicker current={issue.estimate || 0} onSelect={v => handleAction("UPDATE", { estimate: v })} onClose={close} />}
         />
         <SubMenu label="Cycle" icon={<RefreshCw size={16} />} shortcut="C"
-          renderPanel={(close) => <CyclePanel issue={issue} cycles={cycles} onAction={handleAction} onClose={close} />}
+          renderPanel={(close) => <CyclePicker cycles={cycles} current={issue.cycle_id} onSelect={id => handleAction("UPDATE", { cycle_id: id })} onClose={close} />}
         />
         {issue.parent_id && (
           <>
