@@ -7,9 +7,10 @@ import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import Avatar from "./Avatar";
-import { UserRound, Triangle, RefreshCw, Trash2, Check, Tag, Unlink } from "lucide-react";
+import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
 import { collectKnownPeople, filterPeople } from "../../utils/issues";
+import { cycleLabel, filterCycles } from "../../utils/cycles";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { Menu, MenuItem, MenuDivider, MenuFilter, MenuLabel } from "./Menu";
 import { SubMenu } from "./SubMenu";
@@ -81,29 +82,33 @@ function CyclePanel({
   onAction: (type: string, payload: Record<string, unknown>) => void;
   onClose: () => void;
 }) {
+  const [filterText, setFilterText] = useState("");
+  const visible = useMemo(() => filterCycles(cycles, filterText), [cycles, filterText]);
+  const hasQuery = filterText.trim().length > 0;
+
   if (cycles.length === 0) {
-    return <div className="px-3 py-1.5 text-sm text-[var(--color-text-muted)]">Cycles not configured</div>;
+    return (
+      <Menu onClose={onClose} bare autoFocus={false}>
+        <MenuLabel>Cycles not configured</MenuLabel>
+      </Menu>
+    );
   }
   return (
-    <div onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
-      <div className="px-3 py-1 text-[11px] font-medium text-[var(--color-text-muted)]">Move to cycle...</div>
-      <div className="border-t border-[var(--color-border-subtle)]" />
-      {issue.cycle_id && (
-        <button onClick={() => onAction("UPDATE", { cycle_id: "" })} className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-3)] transition-colors">
-          No cycle
-        </button>
+    <Menu onClose={onClose} bare autoFocus={false} maxHeight="18rem">
+      <MenuFilter value={filterText} onChange={setFilterText} placeholder="Move to cycle..." />
+      {issue.cycle_id && !hasQuery && (
+        <MenuItem label="No cycle" onClick={() => onAction("UPDATE", { cycle_id: "" })} />
       )}
-      {cycles.filter(c => c.status !== 'completed').map(c => {
-        const isCurrent = c.id === issue.cycle_id;
-        return (
-          <button key={c.id} onClick={() => onAction("UPDATE", { cycle_id: c.id })} className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-hover-surface-3)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-            <span>Cycle {c.number}</span>
-            <span className="text-xs text-[var(--color-text-muted)] capitalize">{c.status}</span>
-            {isCurrent && <Check className="w-4 h-4 ml-auto shrink-0" />}
-          </button>
-        );
-      })}
-    </div>
+      {visible.map(c => (
+        <MenuItem
+          key={c.id}
+          label={cycleLabel(c)}
+          checked={c.id === issue.cycle_id}
+          onClick={() => onAction("UPDATE", { cycle_id: c.id })}
+        />
+      ))}
+      {visible.length === 0 && <MenuLabel>No matching cycles</MenuLabel>}
+    </Menu>
   );
 }
 
