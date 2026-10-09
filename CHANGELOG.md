@@ -101,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Event timestamps in `issues.db` strictly increase in file order again. `merge` stamped the DONE update about 100µs before its MERGE event, and cascading or link updates gave all their events one shared time, so `xpo doctor` reported out-of-order and tied timestamps after every merge. Storage now stamps each appended event, and each event in a rewritten web-UI tail, at least 1ns after the line before it, so this holds for every writer. `merge` and `update` also build their events in time order. This repo's 28 affected lines were re-timed once (xpo-e669d4)
 - Agent-written comments in the merge view's Conversation tab show the principal's avatar and "Claude Code on behalf of <Principal>" instead of the raw agent identity; `xpo comments` and the TUI details pane show "<Principal> (via <Agent>)". Comments now carry `on_behalf_of` in the HTTP API, remote transport, CLI `--json` and MCP `show` output (xpo-a103c3)
 - Dropping an issue onto a Backlog row with no status group no longer sends `status: null` (xpo-6e757d)
 - MergeView no longer re-renders the whole diff on every 3s uncommitted-diff poll or Refresh. Unchanged polls and refreshes no longer block the page (before: ~190–200ms per poll on a 1,000-line diff), and a change to one file re-renders only that file's card (xpo-5839aa)

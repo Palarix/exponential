@@ -98,3 +98,56 @@ func TestAppendEvent_PreservesPayload(t *testing.T) {
 		t.Errorf("payload fields lost: %+v", p)
 	}
 }
+
+func lastCreatedAt(t *testing.T) []time.Time {
+	t.Helper()
+	events, err := ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []time.Time
+	for _, e := range events {
+		out = append(out, e.CreatedAt)
+	}
+	return out
+}
+
+func TestAppendEvent_KeepsTimestampsStrictlyIncreasing(t *testing.T) {
+	setupXpoDir(t)
+	base := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	ev := func(id string, at time.Time) model.Event {
+		return model.Event{ID: id, Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: id}, CreatedAt: at, CreatedBy: "test"}
+	}
+
+	for _, e := range []model.Event{
+		ev("a", base),
+		ev("b", base.Add(-time.Second)), // earlier than the last line
+		ev("c", base),                   // equal to an earlier line
+		ev("d", base.Add(time.Hour)),    // later: kept as is
+		ev("e", base.Add(time.Hour)),    // tie with the last line
+	} {
+		if err := AppendEvent(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	want := []time.Time{
+		base,
+		base.Add(1),
+		base.Add(2),
+		base.Add(time.Hour),
+		base.Add(time.Hour + 1),
+	}
+	got := lastCreatedAt(t)
+	if len(got) != len(want) {
+		t.Fatalf("got %d events, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if !got[i].Equal(want[i]) {
+			t.Errorf("event %d created_at = %s, want %s", i, got[i].Format(time.RFC3339Nano), want[i].Format(time.RFC3339Nano))
+		}
+	}
+	if v, _ := CheckEventOrder(); len(v) != 0 {
+		t.Errorf("CheckEventOrder: %+v, want none", v)
+	}
+}

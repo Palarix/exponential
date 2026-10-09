@@ -157,18 +157,27 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 // recordMerge appends the MERGE event and the DONE transition. It must only
 // run once the merge commit exists on the base branch.
 func (c *Client) recordMerge(issue *model.Issue, branch, baseSHA string, strategy MergeStrategy, result *MergeResult) error {
-	preEvents, err := storage.ReadEvents()
+	events, messages, err := c.buildMergeEvents(issue, branch, baseSHA, strategy)
 	if err != nil {
 		return err
 	}
-	doneStatus := string(model.StatusDone)
-	doneEvents, doneMessages, err := c.local.buildUpdate(
-		issue.ID, model.UpdatePayload{Status: &doneStatus}, ProjectIssues(preEvents))
-	if err != nil {
-		return fmt.Errorf("failed to build DONE transition: %w", err)
+	for _, evt := range events {
+		if err := c.local.appendEvent(evt); err != nil {
+			if evt.Type == model.EventTypeMerge {
+				return fmt.Errorf("failed to record merge event: %w", err)
+			}
+			return fmt.Errorf("failed to apply DONE transition: %w", err)
+		}
 	}
+	result.Messages = append(result.Messages, messages...)
+	return nil
+}
 
-	event := model.Event{
+// buildMergeEvents returns the MERGE event followed by the DONE transition.
+// MERGE is stamped first so the events' times follow the order they are
+// appended in.
+func (c *Client) buildMergeEvents(issue *model.Issue, branch, baseSHA string, strategy MergeStrategy) ([]model.Event, []string, error) {
+	merge := model.Event{
 		ID:   issue.ID,
 		Type: model.EventTypeMerge,
 		Payload: model.MergePayload{
@@ -180,16 +189,20 @@ func (c *Client) recordMerge(issue *model.Issue, branch, baseSHA string, strateg
 		CreatedAt: time.Now().UTC(),
 		CreatedBy: c.Transport.GetUser(),
 	}
-	if err := c.local.appendEvent(event); err != nil {
-		return fmt.Errorf("failed to record merge event: %w", err)
+
+	preEvents, err := storage.ReadEvents()
+	if err != nil {
+		return nil, nil, err
 	}
-	for _, evt := range doneEvents {
-		if err := c.local.appendEvent(evt); err != nil {
-			return fmt.Errorf("failed to apply DONE transition: %w", err)
-		}
+	doneStatus := string(model.StatusDone)
+	doneEvents, doneMessages, err := c.local.buildUpdate(
+		issue.ID, model.UpdatePayload{Status: &doneStatus}, ProjectIssues(preEvents))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build DONE transition: %w", err)
 	}
-	result.Messages = append(result.Messages, doneMessages...)
-	return nil
+	events := append([]model.Event{merge}, doneEvents...)
+	sequenceTimes(events)
+	return events, doneMessages, nil
 }
 
 func IsWorkingTreeClean() bool {

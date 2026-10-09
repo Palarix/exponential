@@ -14,6 +14,18 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
+// sequenceTimes makes each event's CreatedAt strictly later than the one
+// before it, bumping by 1ns where needed. Events built in one call often
+// share a single time.Now(), and two time.Now() calls can return the same
+// value on coarse clocks; appended in this order, they must not tie.
+func sequenceTimes(events []model.Event) {
+	for i := 1; i < len(events); i++ {
+		if !events[i].CreatedAt.After(events[i-1].CreatedAt) {
+			events[i].CreatedAt = events[i-1].CreatedAt.Add(time.Nanosecond)
+		}
+	}
+}
+
 // buildUpdate resolves the target issue, prunes unchanged fields, and
 // returns the events that should be appended (primary update + cascading
 // automations) along with human-readable messages.  It performs no I/O;
@@ -52,6 +64,7 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 	// Prune fields that already match current state so redundant updates are no-ops.
 	pruneUnchangedFields(&payload, targetIssue)
 	if payloadEmpty(payload) {
+		sequenceTimes(linkEvents)
 		return linkEvents, linkMessages, nil
 	}
 
@@ -155,6 +168,7 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 		}
 	}
 
+	sequenceTimes(eventsToAppend)
 	return eventsToAppend, messages, nil
 }
 

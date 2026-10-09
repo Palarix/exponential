@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/palarix/exponential/internal/model"
 )
@@ -68,6 +69,12 @@ func appendEventCollapsed(event model.Event) error {
 
 	committedState := projectCommittedState(events[:committedCount])
 	uncommitted = pruneNoopUpdates(uncommitted, committedState)
+
+	var lastCommitted time.Time
+	if committedCount > 0 {
+		lastCommitted = events[committedCount-1].CreatedAt
+	}
+	stampInOrder(lastCommitted, uncommitted)
 
 	return rewriteFile(path, committedBytes, uncommitted)
 }

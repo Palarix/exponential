@@ -218,3 +218,23 @@ func TestCollapseCommentEditKeepsOriginalTimeAndPosition(t *testing.T) {
 		t.Errorf("edited comment created_at = %s, want original %s", events[1].CreatedAt, base.Add(time.Minute))
 	}
 }
+
+func TestCollapseKeepsTimestampsStrictlyIncreasing(t *testing.T) {
+	setupTestRepo(t)
+	base := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	seedCommitted(t, base, "a", "b") // committed CREATEs at base and base+1s
+
+	// Incoming events stamped earlier than (or equal to) what is already in
+	// the file: a slow clock, or a caller that stamped before an earlier write.
+	mustAppendCollapsed(t, agentUpdate("a", model.UpdatePayload{Title: strptr("A")}, base))
+	mustAppendCollapsed(t, webUpdate("b", model.UpdatePayload{SortOrder: strptr("b1")}, base.Add(-time.Hour)))
+	mustAppendCollapsed(t, webUpdate("b", model.UpdatePayload{Title: strptr("B")}, base.Add(time.Second)))
+
+	if v, err := CheckEventOrder(); err != nil || len(v) != 0 {
+		t.Fatalf("CheckEventOrder = %+v, %v; want no violations", v, err)
+	}
+	events, _ := ReadEvents()
+	if got, want := events[len(events)-1].CreatedAt, base.Add(time.Second+2); !got.Equal(want) {
+		t.Errorf("last event at %s, want %s (committed tail + 1ns steps)", got.Format(time.RFC3339Nano), want.Format(time.RFC3339Nano))
+	}
+}
