@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Settings2 } from 'lucide-react';
 import { TopBar, IconButton, CountBadge, Heading, ViewContainer } from '../ui';
 import {
@@ -14,7 +14,6 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
-import { addDraft } from '../../api/client';
 import type { Issue } from '../../api/client';
 import { EmptyState, Popover, PopoverPanel, StatusPicker, EstimatePicker, ContextMenu, StatusIcon } from '../ui';
 import { LabelPicker } from '../ui';
@@ -29,7 +28,8 @@ import { isEditableTarget } from '../../utils/keyboard';
 import { useKeyboardHandler } from '../../keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
-import { useConfig, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels } from '../../api/queries';
+import { useConfig, useIssueList } from '../../api/queries';
+import { useUpdateIssue } from '../../api/mutations';
 import { useAppNav, useIssueClick, useIssueNavOrder } from '../../app/hooks';
 
 const COLUMNS = [
@@ -72,14 +72,12 @@ function findContainer(id: string, state: Containers): string | null {
 
 export default function Board() {
   const issues = useIssueList();
-  const onRefresh = useRefreshIssues();
+  const updateIssue = useUpdateIssue();
   const onIssueClick = useIssueClick();
   const { newIssue: onNewIssue } = useAppNav();
   const { contributors } = useConfig();
-  const onConfigLabelsChange = useSetConfigLabels();
-  const patchIssue = usePatchIssue();
-  const containersRef = useRef<Containers>(buildContainers(issues));
-  const [containers, setContainersState] = useState<Containers>(containersRef.current);
+  const [containers, setContainersState] = useState<Containers>(() => buildContainers(issues));
+  const containersRef = useRef<Containers>(containers);
   const setContainers = useCallback(
     (updater: Containers | ((prev: Containers) => Containers)) => {
       const next = typeof updater === 'function' ? (updater as (prev: Containers) => Containers)(containersRef.current) : updater;
@@ -89,6 +87,14 @@ export default function Board() {
     [],
   );
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Rebuild columns when `issues` changes. Mid-drag, dnd-kit owns the
+  // containers; the drop's optimistic patch then changes `issues` again.
+  const [syncedIssues, setSyncedIssues] = useState(issues);
+  if (issues !== syncedIssues) {
+    setSyncedIssues(issues);
+    if (!activeId) setContainersState(buildContainers(issues));
+  }
+  useLayoutEffect(() => { containersRef.current = containers; }, [containers]);
   const [collapsedCols, setCollapsedCols] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem("exponential-board-collapsed");
@@ -136,11 +142,6 @@ export default function Board() {
     window.addEventListener('pointermove', handler);
     return () => window.removeEventListener('pointermove', handler);
   }, [activeId]);
-
-  useEffect(() => {
-    if (isDraggingRef.current) return;
-    setContainers(buildContainers(issues));
-  }, [issues, setContainers]);
 
   const issuesById = useMemo(() => new Map(issues.map((i) => [i.id, i])), [issues]);
 
@@ -211,7 +212,7 @@ export default function Board() {
   }, [setContainers]);
 
   const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
+    (event: DragEndEvent) => {
       const draggedId = String(event.active.id);
       const overId = event.over ? String(event.over.id) : null;
       setActiveId(null);
@@ -272,16 +273,14 @@ export default function Board() {
       const nextKey = next?.sort_order || null;
       const newKey = generateKeyBetween(prevKey, nextKey);
 
-      const update: Record<string, unknown> = { sort_order: newKey };
-      if (dragged.status !== targetStatus) update.status = targetStatus;
-      try {
-        await addDraft(draggedId, 'UPDATE', update);
-      } finally {
-        isDraggingRef.current = false;
-        onRefresh();
-      }
+      const patch: Partial<Issue> = { sort_order: newKey };
+      if (dragged.status !== targetStatus) patch.status = targetStatus;
+      // The optimistic patch lands the card where it was dropped, and a
+      // failed write rolls `issues` back, so containers can follow `issues` again.
+      isDraggingRef.current = false;
+      updateIssue(draggedId, patch);
     },
-    [issues, issuesById, onRefresh, setContainers],
+    [issues, issuesById, updateIssue, setContainers],
   );
 
   const handleDragCancel = useCallback(() => {
@@ -301,7 +300,7 @@ export default function Board() {
 
   const allKnownLabels = useAllLabels(issues);
   const openPopoverRef = useRef(openPopover);
-  openPopoverRef.current = openPopover;
+  useEffect(() => { openPopoverRef.current = openPopover; }, [openPopover]);
   const boardRef = useRef<HTMLDivElement>(null);
 
   const focusedIssueId = useMemo(() => {
@@ -317,11 +316,10 @@ export default function Board() {
     el?.scrollIntoView({ block: "nearest" });
   }, [focusedIssueId, keyboardNav]);
 
-  const handleQuickUpdate = useCallback((issueId: string, payload: Record<string, unknown>) => {
-    if (patchIssue) patchIssue(issueId, payload as Partial<Issue>);
+  const handleQuickUpdate = useCallback((issueId: string, patch: Partial<Issue>) => {
     setOpenPopover(null);
-    addDraft(issueId, "UPDATE", payload).then(() => onRefresh());
-  }, [onRefresh, patchIssue]);
+    updateIssue(issueId, patch);
+  }, [updateIssue, setOpenPopover]);
 
   const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (openPopoverRef.current) return;
@@ -410,7 +408,7 @@ export default function Board() {
           return;
         }
       }
-    }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols, handleQuickUpdate]);
+    }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols, handleQuickUpdate, setOpenPopover]);
 
   useKeyboardHandler({
     scope: "board",
@@ -533,11 +531,9 @@ export default function Board() {
             x={contextMenu.x}
             y={contextMenu.y}
             onClose={() => setContextMenu(null)}
-            onRefresh={onRefresh}
             allLabels={allKnownLabels}
             contributors={contributors}
-            onConfigLabelsChange={onConfigLabelsChange}
-            patchIssue={patchIssue}
+            canCreateLabels
           />
         );
       })()}
@@ -567,11 +563,7 @@ export default function Board() {
                   <LabelPicker
                     allLabels={allKnownLabels}
                     selected={issue.labels || []}
-                    onToggle={async (label) => {
-                      const labels = toggleLabel(issue.labels || [], label);
-                      await addDraft(issue.id, "UPDATE", { labels });
-                      onRefresh();
-                    }}
+                    onToggle={(label) => updateIssue(issue.id, { labels: toggleLabel(issue.labels || [], label) })}
                     onClose={() => setOpenPopover(null)}
                   />
                 </PopoverPanel>

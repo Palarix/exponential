@@ -16,7 +16,7 @@ import { type BacklogFilters, FILTERS_CODEC, hasActiveFilters, matchesFilters } 
 import FilterChips from "../Backlog/FilterChips";
 import { groupByIssue, buildChangeSummary, type IssueGroup } from "./inbox-utils";
 import { useKeyboardHandler } from "../../keyboard";
-import { useConfig, useInbox, useIssueList, useMarkInboxRead, useRefreshIssues, useSetConfigLabels, useUser } from "../../api/queries";
+import { useConfig, useInbox, useIssueList, useMarkInboxRead, useUser } from "../../api/queries";
 import { useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
 
@@ -38,9 +38,7 @@ export default function Inbox() {
   const { items, lastRead } = useInbox();
   const issues = useIssueList();
   const onMarkAllRead = useMarkInboxRead();
-  const onRefresh = useRefreshIssues();
   const { prefix, contributors } = useConfig();
-  const onConfigLabelsChange = useSetConfigLabels();
   const [filters, onFiltersChange] = useViewState("exponential-inbox-filters", FILTERS_CODEC);
   const user = useUser();
   const [visibleCount, setVisibleCount] = useState(GROUPS_PER_PAGE);
@@ -272,10 +270,8 @@ export default function Inbox() {
                 totalCount={issueIds.length}
                 onClose={() => setSelectedId(null)}
                 onNavigate={navigateIssue}
-                onRefresh={onRefresh}
                 prefix={prefix}
                 contributors={contributors}
-                onConfigLabelsChange={onConfigLabelsChange}
                 banner={changeSummary.length > 0 ? (
                   <div className="flex items-center gap-2 px-5 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] shrink-0">
                     <svg className="w-4 h-4 text-[var(--color-accent-primary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

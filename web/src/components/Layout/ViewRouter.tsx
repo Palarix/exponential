@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, type ComponentType, type LazyExoticComponent } from "react";
-import { useConfig, useIssueList, useIssues, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
+import { useConfig, useIssueList, useIssues, useRefreshIssues } from "../../api/queries";
 import { useAppNav, useViewState } from "../../app/hooks";
 import { resolveNavOrder } from "../../app/nav-order-utils";
 import { ErrorBoundary } from "../ui";
@@ -63,9 +63,7 @@ function IssueRoute({ issueId, publishedOrder, onIssueChange, onClose }: {
   onClose: () => void;
 }) {
   const issues = useIssueList();
-  const refresh = useRefreshIssues();
   const { prefix, contributors } = useConfig();
-  const setConfigLabels = useSetConfigLabels();
   const [sortKey] = useViewState(SORT_STATE_KEY, SORT_CODEC);
   const fallbackOrder = useMemo(() => sortIssuesWithinGroups(issues, sortKey).map(i => i.id), [issues, sortKey]);
   const navigationOrder = resolveNavOrder(publishedOrder, fallbackOrder, issueId);
@@ -88,10 +86,8 @@ function IssueRoute({ issueId, publishedOrder, onIssueChange, onClose }: {
       totalCount={navigationOrder.length}
       onClose={onClose}
       onNavigate={navigate}
-      onRefresh={refresh}
       prefix={prefix}
       contributors={contributors}
-      onConfigLabelsChange={setConfigLabels}
     />
   );
 }

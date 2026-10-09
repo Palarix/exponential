@@ -1,8 +1,8 @@
 import { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { Issue } from "../../api/client";
-import { addDraft } from "../../api/client";
 import { useCycles } from "../../api/queries";
+import { useDeleteIssue, useUpdateIssue } from "../../api/mutations";
 import LabelPicker from "./LabelPicker";
 import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
@@ -22,11 +22,10 @@ interface ContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-  onRefresh: () => void;
   allLabels: string[];
   contributors: string[];
-  onConfigLabelsChange?: (labels: Record<string, string>) => void;
-  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
+  /** Offer "Create label" for labels without a configured color. */
+  canCreateLabels?: boolean;
 }
 
 const StatusIcon = () => (
@@ -45,10 +44,10 @@ const PriorityIcon = () => (
 );
 
 function AssigneePanel({
-  issue, issues, contributors, onAction, onClose,
+  issue, issues, contributors, onUpdate, onClose,
 }: {
   issue: Issue; issues: Issue[]; contributors: string[];
-  onAction: (type: string, payload: Record<string, unknown>) => void;
+  onUpdate: (patch: Partial<Issue>) => void;
   onClose: () => void;
 }) {
   const [filterText, setFilterText] = useState("");
@@ -60,7 +59,7 @@ function AssigneePanel({
     <Menu onClose={onClose} bare autoFocus={false} maxHeight="18rem">
       <MenuFilter value={filterText} onChange={setFilterText} placeholder="Set assignee..." />
       {issue.assignee && !hasQuery && (
-        <MenuItem label="Remove assignee" onClick={() => onAction("UPDATE", { assignee: "" })} />
+        <MenuItem label="Remove assignee" onClick={() => onUpdate({ assignee: "" })} />
       )}
       {people.map(person => (
         <MenuItem
@@ -68,7 +67,7 @@ function AssigneePanel({
           label={person.split(" <")[0]}
           icon={<Avatar name={person} size="sm" />}
           checked={person === issue.assignee}
-          onClick={() => onAction("UPDATE", { assignee: person })}
+          onClick={() => onUpdate({ assignee: person })}
         />
       ))}
       {people.length === 0 && <MenuLabel>No matching people</MenuLabel>}
@@ -77,7 +76,7 @@ function AssigneePanel({
 }
 
 export default function ContextMenu({
-  issue, issues, x, y, onClose, onRefresh, allLabels, contributors, onConfigLabelsChange, patchIssue,
+  issue, issues, x, y, onClose, allLabels, contributors, canCreateLabels,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
@@ -122,17 +121,23 @@ export default function ContextMenu({
     return () => { cancelAnimationFrame(armTimer); document.removeEventListener("mousedown", handleClick); };
   }, [closeAll]);
 
-  const handleAction = useCallback((type: string, payload: Record<string, unknown>) => {
-    if (type === "UPDATE" && patchIssue) patchIssue(issue.id, payload as Partial<Issue>);
+  const updateIssue = useUpdateIssue();
+  const { mutate: deleteIssue } = useDeleteIssue();
+
+  const handleUpdate = useCallback((patch: Partial<Issue>) => {
     closeAll();
-    addDraft(issue.id, type, payload).then(() => onRefresh());
-  }, [issue.id, onRefresh, closeAll, patchIssue]);
+    updateIssue(issue.id, patch);
+  }, [issue.id, closeAll, updateIssue]);
+
+  const handleDelete = useCallback((cascade: boolean) => {
+    closeAll();
+    deleteIssue({ issueId: issue.id, cascade });
+  }, [issue.id, closeAll, deleteIssue]);
 
   const handleLabelToggle = useCallback((label: string) => {
     const labels = toggleLabel(issue.labels || [], label);
-    if (patchIssue) patchIssue(issue.id, { labels });
-    addDraft(issue.id, "UPDATE", { labels }).then(() => onRefresh());
-  }, [issue.id, issue.labels, onRefresh, patchIssue]);
+    updateIssue(issue.id, { labels });
+  }, [issue.id, issue.labels, updateIssue]);
 
   useKeyboardShortcuts({
     scope: "context-menu-delete",
@@ -148,8 +153,8 @@ export default function ContextMenu({
       <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
         <div className="flex flex-col gap-2">
-          <button onClick={() => handleAction("DELETE", { cascade: false })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">Keep sub-issues</button>
-          <button onClick={() => handleAction("DELETE", { cascade: true })} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">Delete sub-issues too</button>
+          <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">Keep sub-issues</button>
+          <button onClick={() => handleDelete(true)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">Delete sub-issues too</button>
           <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] transition-colors text-left">Cancel</button>
         </div>
       </div>,
@@ -162,7 +167,7 @@ export default function ContextMenu({
       <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
         <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleAction("DELETE", {})} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">Delete</button>
+          <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">Delete</button>
           <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] transition-colors">Cancel</button>
         </div>
       </div>,
@@ -174,29 +179,29 @@ export default function ContextMenu({
     <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100]">
       <Menu onClose={closeAll} aria-label="Issue actions">
         <SubMenu label="Status" icon={<StatusIcon />} shortcut="S"
-          renderPanel={(close) => <StatusPicker current={issue.status} onSelect={v => handleAction("UPDATE", { status: v })} onClose={close} />}
+          renderPanel={(close) => <StatusPicker current={issue.status} onSelect={v => handleUpdate({ status: v })} onClose={close} />}
         />
         <SubMenu label="Priority" icon={<PriorityIcon />} shortcut="P"
-          renderPanel={(close) => <PriorityPicker current={issue.priority || 0} onSelect={v => handleAction("UPDATE", { priority: v })} onClose={close} />}
+          renderPanel={(close) => <PriorityPicker current={issue.priority || 0} onSelect={v => handleUpdate({ priority: v })} onClose={close} />}
         />
         <SubMenu label="Assignee" icon={<UserRound size={16} />} shortcut="A"
-          renderPanel={(close) => <AssigneePanel issue={issue} issues={issues} contributors={contributors} onAction={handleAction} onClose={close} />}
+          renderPanel={(close) => <AssigneePanel issue={issue} issues={issues} contributors={contributors} onUpdate={handleUpdate} onClose={close} />}
         />
         <SubMenu label="Labels" icon={<Tag size={16} />} shortcut="L"
           renderPanel={() => (
-            <LabelPicker allLabels={allLabels} selected={issue.labels || []} onToggle={handleLabelToggle} onConfigLabelsChange={onConfigLabelsChange} onClose={closeAll} />
+            <LabelPicker allLabels={allLabels} selected={issue.labels || []} onToggle={handleLabelToggle} canCreateLabels={canCreateLabels} onClose={closeAll} />
           )}
         />
         <SubMenu label="Estimate" icon={<Triangle size={16} />} shortcut="E"
-          renderPanel={(close) => <EstimatePicker current={issue.estimate || 0} onSelect={v => handleAction("UPDATE", { estimate: v })} onClose={close} />}
+          renderPanel={(close) => <EstimatePicker current={issue.estimate || 0} onSelect={v => handleUpdate({ estimate: v })} onClose={close} />}
         />
         <SubMenu label="Cycle" icon={<RefreshCw size={16} />} shortcut="C"
-          renderPanel={(close) => <CyclePicker cycles={cycles} current={issue.cycle_id} onSelect={id => handleAction("UPDATE", { cycle_id: id })} onClose={close} />}
+          renderPanel={(close) => <CyclePicker cycles={cycles} current={issue.cycle_id} onSelect={id => handleUpdate({ cycle_id: id })} onClose={close} />}
         />
         {issue.parent_id && (
           <>
             <MenuDivider />
-            <MenuItem label="Remove from parent" icon={<Unlink size={16} />} onClick={() => handleAction("UPDATE", { parent_id: "" })} />
+            <MenuItem label="Remove from parent" icon={<Unlink size={16} />} onClick={() => handleUpdate({ parent_id: "" })} />
           </>
         )}
         <MenuDivider />

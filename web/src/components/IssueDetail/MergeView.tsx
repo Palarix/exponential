@@ -12,7 +12,8 @@ import type { FileTreeNode, SplitLine } from "./diff-utils";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
-import { mergeIssue, addDraft, ApiError } from "../../api/client";
+import { ApiError } from "../../api/client";
+import { useAddComment, useMergeIssue } from "../../api/mutations";
 import type { Issue, CommitInfo } from "../../api/client";
 import {
   useArtifact,
@@ -164,12 +165,12 @@ export default function MergeView({
 
   // Conversation tab
   const [newComment, setNewComment] = useState("");
-  const [commentSaving, setCommentSaving] = useState(false);
+  const { mutate: addComment, isPending: commentSaving } = useAddComment();
 
   // Merge
   const [strategyOpen, setStrategyOpen] = useState(false);
   const [mergeStrategy, setMergeStrategy] = useState("squash");
-  const [merging, setMerging] = useState(false);
+  const { mutate: mergeIssue, isPending: merging } = useMergeIssue();
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [commitMessage, setCommitMessage] = useState("");
@@ -242,21 +243,13 @@ export default function MergeView({
     setSelectedCommit((prev) => (prev === sha ? null : sha));
   }, []);
 
-  const handleAddComment = useCallback(async () => {
+  const handleAddComment = useCallback(() => {
     if (!newComment.trim()) return;
-    setCommentSaving(true);
-    try {
-      await addDraft(issue.id, "COMMENT", {
-        id: `cmt-${crypto.randomUUID()}`,
-        text: newComment,
-      });
-      setNewComment("");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCommentSaving(false);
-    }
-  }, [issue.id, newComment]);
+    addComment(
+      { issueId: issue.id, comment: { id: `cmt-${crypto.randomUUID()}`, text: newComment } },
+      { onSuccess: () => setNewComment("") },
+    );
+  }, [issue.id, newComment, addComment]);
 
   const fileDiffs = useStableFileDiffs(useMemo(() => parseDiffByFile(diff), [diff]));
   const uncommittedFileDiffs = useStableFileDiffs(
@@ -304,23 +297,19 @@ export default function MergeView({
     setConfirmOpen(true);
   }, [mergeStrategy, defaultCommitMessage]);
 
-  const handleMerge = useCallback(async () => {
-    setMerging(true);
+  const handleMerge = useCallback(() => {
     setMergeError(null);
-    try {
-      await mergeIssue(issue.id, {
-        strategy: mergeStrategy,
-        commit_message: commitMessage,
-        delete_branch: deleteBranch,
-      });
-      setConfirmOpen(false);
-      onMerged();
-    } catch (err) {
-      setMergeError(err instanceof ApiError ? err.message : "Merge failed");
-    } finally {
-      setMerging(false);
-    }
-  }, [issue.id, mergeStrategy, commitMessage, deleteBranch, onMerged]);
+    mergeIssue(
+      { issueId: issue.id, options: { strategy: mergeStrategy, commit_message: commitMessage, delete_branch: deleteBranch } },
+      {
+        onSuccess: () => {
+          setConfirmOpen(false);
+          onMerged();
+        },
+        onError: (err) => setMergeError(err instanceof ApiError ? err.message : "Merge failed"),
+      },
+    );
+  }, [issue.id, mergeStrategy, commitMessage, deleteBranch, onMerged, mergeIssue]);
 
   const strategyLabel =
     mergeStrategy === "squash"

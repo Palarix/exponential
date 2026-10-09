@@ -1,28 +1,34 @@
 import { useState, useRef, useCallback, useMemo } from "react";
-import { createIssue } from "../../api/client";
+import { useCreateIssue } from "../../api/mutations";
 import type { Issue } from "../../api/client";
 import { computeAppendKey } from "../../utils/sort";
 import { Avatar, LabelBadge, PriorityIcon, StatusIcon } from "../ui";
 import { Triangle } from "lucide-react";
 
-export default function SubIssuesTable({ issue, issues, onRefresh }: { issue: Issue; issues: Issue[]; onRefresh: () => void }) {
+export default function SubIssuesTable({ issue, issues }: { issue: Issue; issues: Issue[] }) {
   const children = useMemo(() => [...issues.filter(i => i.parent_id === issue.id)].sort((a, b) => (a.sort_order || '').localeCompare(b.sort_order || '')), [issues, issue.id]);
   const [expanded, setExpanded] = useState(true);
   const [inlineTitle, setInlineTitle] = useState("");
   const [showInline, setShowInline] = useState(false);
   const inlineRef = useRef<HTMLInputElement>(null);
+  const { mutate: createIssue } = useCreateIssue();
 
   const hasChildren = children.length > 0;
   const doneCount = children.filter(c => c.status === 'DONE').length;
 
-  const handleInlineCreate = useCallback(async (title: string) => {
+  const handleInlineCreate = useCallback((title: string) => {
     if (!title.trim()) return;
     const sortOrder = computeAppendKey(issues);
-    await createIssue({ title: title.trim(), labels: ['feature'], parent_id: issue.id, sort_order: sortOrder });
-    setInlineTitle("");
-    setShowInline(false);
-    onRefresh();
-  }, [issue.id, issues, onRefresh]);
+    createIssue(
+      { issue: { title: title.trim(), labels: ['feature'], parent_id: issue.id, sort_order: sortOrder } },
+      {
+        onSuccess: () => {
+          setInlineTitle("");
+          setShowInline(false);
+        },
+      },
+    );
+  }, [issue.id, issues, createIssue]);
 
   const startInline = useCallback(() => {
     setShowInline(true);

@@ -20,7 +20,6 @@ import {
   type DragEndEvent,
   type DragMoveEvent,
 } from "@dnd-kit/core";
-import { createIssue, addDraft } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
   EmptyState,
@@ -68,7 +67,8 @@ import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
 import { SearchInput } from "../ui/SearchInput";
-import { useConfig, useCycles, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
+import { useConfig, useCycles, useIssueList } from "../../api/queries";
+import { useCreateIssue, useUpdateIssue, useUpdateIssues } from "../../api/mutations";
 import { useAppNav, useIssueClick, useIssueNavOrder, useNavIntent, useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
 
@@ -169,12 +169,12 @@ function applyNestDOM(
 
 export default function Backlog() {
   const issues = useIssueList();
-  const onRefresh = useRefreshIssues();
+  const updateIssue = useUpdateIssue();
+  const { mutate: updateIssues } = useUpdateIssues();
+  const { mutate: createIssue } = useCreateIssue();
   const onIssueClick = useIssueClick();
   const { newIssue: onNewIssue } = useAppNav();
   const { contributors } = useConfig();
-  const onConfigLabelsChange = useSetConfigLabels();
-  const patchIssue = usePatchIssue();
   const [sortKey, onSortChange] = useViewState(SORT_STATE_KEY, SORT_CODEC);
   const [activeTab, onTabChange] = useViewState<Tab>("backlog.tab", () => "all");
   // Keyed per tab, so switching tabs loads that tab's saved filters (xpo-0c0556).
@@ -286,20 +286,23 @@ export default function Backlog() {
   const defaultLabels = useContext(DefaultLabelsContext);
 
   const handleInlineCreate = useCallback(
-    async (status: string, title: string) => {
+    (status: string, title: string) => {
       if (!title.trim()) return;
       const sortOrder = computeAppendKey(issues);
-      const issueId = await createIssue({
-        title: title.trim(),
-        labels: ["feature"],
-        sort_order: sortOrder,
-      });
-      if (status !== "BACKLOG") await addDraft(issueId, "UPDATE", { status });
-      setInlineTitle("");
-      onRefresh();
-      showToast("Issue created");
+      createIssue(
+        {
+          issue: { title: title.trim(), labels: ["feature"], sort_order: sortOrder },
+          update: status !== "BACKLOG" ? { status } : undefined,
+        },
+        {
+          onSuccess: () => {
+            setInlineTitle("");
+            showToast("Issue created");
+          },
+        },
+      );
     },
-    [onRefresh, issues, showToast],
+    [createIssue, issues, showToast],
   );
 
   const STATUS_LABELS: Record<string, string> = {
@@ -318,17 +321,18 @@ export default function Backlog() {
     status: string;
     doneCount: number;
     children: { id: string; title: string; status: string }[];
-    pendingUpdate?: Record<string, unknown>;
+    pendingUpdate?: Partial<Issue>;
   } | null>(null);
 
   const applyStatusChange = useCallback(
-    async (
+    (
       issueId: string,
       status: string,
       includeChildren: boolean,
-      extraFields?: Record<string, unknown>,
+      extraFields: Partial<Issue> | undefined,
+      onSuccess: () => void,
     ) => {
-      await addDraft(issueId, "UPDATE", { status, ...extraFields });
+      const patches = [{ issueId, patch: { ...extraFields, status } }];
       if (includeChildren) {
         const children = issues.filter(
           (i) =>
@@ -336,17 +340,15 @@ export default function Backlog() {
             i.status !== status &&
             !isTerminal(i.status),
         );
-        for (const child of children) {
-          await addDraft(child.id, "UPDATE", { status });
-        }
+        for (const child of children) patches.push({ issueId: child.id, patch: { status } });
       }
-      onRefresh();
+      updateIssues(patches, { onSuccess });
     },
-    [issues, onRefresh],
+    [issues, updateIssues],
   );
 
   const handleQuickStatus = useCallback(
-    async (issueId: string, status: string) => {
+    (issueId: string, status: string) => {
       const children = issues.filter(
         (i) =>
           i.parent_id === issueId && i.status !== status && !isTerminal(i.status),
@@ -370,41 +372,34 @@ export default function Backlog() {
         });
         return;
       }
-      await addDraft(issueId, "UPDATE", { status });
-      onRefresh();
-      showToast(`Status changed to ${status}`);
+      updateIssue(issueId, { status }, { onSuccess: () => showToast(`Status changed to ${status}`) });
     },
-    [issues, onRefresh, showToast],
+    [issues, updateIssue, showToast],
   );
   const handleQuickEstimate = useCallback(
-    async (issueId: string, estimate: number) => {
-      await addDraft(issueId, "UPDATE", { estimate });
+    (issueId: string, estimate: number) => {
       setOpenPopover(null);
-      onRefresh();
-      showToast(`Estimate set to ${estimate || "none"}`);
+      updateIssue(issueId, { estimate }, { onSuccess: () => showToast(`Estimate set to ${estimate || "none"}`) });
     },
-    [onRefresh, showToast],
+    [updateIssue, showToast],
   );
   const handleQuickPriority = useCallback(
-    async (issueId: string, priority: number) => {
-      await addDraft(issueId, "UPDATE", { priority });
+    (issueId: string, priority: number) => {
       setOpenPopover(null);
-      onRefresh();
+      updateIssue(issueId, { priority });
     },
-    [onRefresh],
+    [updateIssue],
   );
   const handleQuickLabelToggle = useCallback(
-    async (issue: Issue, label: string) => {
+    (issue: Issue, label: string) => {
       const current = issue.labels || [];
       const next = toggleLabel(current, label);
       const removed = next.length < current.length;
-      await addDraft(issue.id, "UPDATE", { labels: next });
-      onRefresh();
-      showToast(
-        removed ? `Removed label "${label}"` : `Added label "${label}"`,
-      );
+      updateIssue(issue.id, { labels: next }, {
+        onSuccess: () => showToast(removed ? `Removed label "${label}"` : `Added label "${label}"`),
+      });
     },
-    [onRefresh, showToast],
+    [updateIssue, showToast],
   );
 
   const allKnownLabels = useAllLabels(issues);
@@ -651,7 +646,7 @@ export default function Backlog() {
   );
 
   const performDrop = useCallback(
-    async (
+    (
       droppedId: string,
       groupTarget: string | null,
       indicatorTarget: { rowIndex: number; position: "above" | "below" } | null,
@@ -675,20 +670,19 @@ export default function Backlog() {
                 : 0,
           );
         const lastKey = newSiblings[newSiblings.length - 1]?.sort_order || null;
-        const nestUpdate: Record<string, unknown> = {
+        const nestUpdate: Partial<Issue> = {
           parent_id: nestTarget,
           sort_order: generateKeyBetween(lastKey, null),
         };
         if (targetStatus && draggedIssue?.status !== targetStatus) {
           nestUpdate.status = targetStatus;
         }
-        await addDraft(droppedId, "UPDATE", nestUpdate);
-        onRefresh();
+        updateIssue(droppedId, nestUpdate);
         return;
       }
       if (groupTarget) {
         const draggedIssue = issues.find((i) => i.id === droppedId);
-        let groupUpdate: Record<string, unknown>;
+        let groupUpdate: Partial<Issue>;
         if (draggedIssue?.parent_id) {
           groupUpdate = { status: groupTarget };
         } else {
@@ -733,8 +727,7 @@ export default function Backlog() {
           });
           return;
         }
-        await addDraft(droppedId, "UPDATE", groupUpdate);
-        onRefresh();
+        updateIssue(droppedId, groupUpdate);
         return;
       }
       if (!indicatorTarget) return;
@@ -742,8 +735,8 @@ export default function Backlog() {
       if (targetRow.kind !== "issue") return;
       const status = getRowStatusGroup(indicatorTarget.rowIndex);
       const draggedStatus = issues.find((i) => i.id === droppedId)?.status;
-      const update: Record<string, unknown> = {};
-      if (draggedStatus !== status) update.status = status;
+      const update: Partial<Issue> = {};
+      if (status && draggedStatus !== status) update.status = status;
       if (targetRow.depth > 0) {
         if (altHeld) {
           update.parent_id = targetRow.issue.parent_id!;
@@ -854,7 +847,7 @@ export default function Backlog() {
           setMoveChildrenPrompt({
             issueId: droppedId,
             title: issue?.title || droppedId,
-            status: update.status as string,
+            status: update.status,
             doneCount,
             children: movableChildren.map((c) => ({
               id: c.id,
@@ -866,10 +859,9 @@ export default function Backlog() {
           return;
         }
       }
-      await addDraft(droppedId, "UPDATE", update);
-      onRefresh();
+      updateIssue(droppedId, update);
     },
-    [rows, getRowStatusGroup, issues, onRefresh],
+    [rows, getRowStatusGroup, issues, updateIssue],
   );
 
   const resetDropState = useCallback(() => {
@@ -1179,7 +1171,7 @@ export default function Backlog() {
   );
 
   const handleDndEnd = useCallback(
-    async (event: DragEndEvent) => {
+    (event: DragEndEvent) => {
       const droppedId = String(event.active.id);
       const groupTarget = dropGroupStatusRef.current;
       const indicatorTarget = dropIndicatorRef.current;
@@ -1187,7 +1179,7 @@ export default function Backlog() {
       const altHeld = modifiersRef.current.alt;
       resetDropState();
       if (!groupTarget && !indicatorTarget && !nestTarget) return;
-      await performDrop(
+      performDrop(
         droppedId,
         groupTarget,
         indicatorTarget,
@@ -1716,7 +1708,7 @@ export default function Backlog() {
                                 onQuickPriority={handleQuickPriority}
                                 onQuickEstimate={handleQuickEstimate}
                                 onQuickLabelToggle={handleQuickLabelToggle}
-                                onConfigLabelsChange={onConfigLabelsChange}
+                                canCreateLabels
                               />
                             );
                           })}
@@ -1761,11 +1753,9 @@ export default function Backlog() {
               x={contextMenu.x}
               y={contextMenu.y}
               onClose={() => setContextMenu(null)}
-              onRefresh={onRefresh}
               allLabels={allKnownLabels}
               contributors={contributors}
-              onConfigLabelsChange={onConfigLabelsChange}
-              patchIssue={patchIssue}
+              canCreateLabels
             />
           );
         })()}
@@ -1866,18 +1856,11 @@ export default function Backlog() {
                   <div className="flex-1" />
                   <button
                     className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                    onClick={async () => {
+                    onClick={() => {
                       const { issueId, status, pendingUpdate } =
                         moveChildrenPrompt;
                       setMoveChildrenPrompt(null);
-                      const extra = Object.fromEntries(Object.entries(pendingUpdate || {}).filter(([k]) => k !== "status"));
-                      await applyStatusChange(
-                        issueId,
-                        status,
-                        false,
-                        Object.keys(extra).length > 0 ? extra : undefined,
-                      );
-                      showToast("Status changed");
+                      applyStatusChange(issueId, status, false, pendingUpdate, () => showToast("Status changed"));
                     }}
                   >
                     Just this issue
@@ -1885,19 +1868,12 @@ export default function Backlog() {
 
                   <button
                     className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
-                    onClick={async () => {
+                    onClick={() => {
                       const { issueId, status, children, pendingUpdate } =
                         moveChildrenPrompt;
                       setMoveChildrenPrompt(null);
-                      const extra = Object.fromEntries(Object.entries(pendingUpdate || {}).filter(([k]) => k !== "status"));
-                      await applyStatusChange(
-                        issueId,
-                        status,
-                        true,
-                        Object.keys(extra).length > 0 ? extra : undefined,
-                      );
-                      showToast(
-                        `Updated ${children.length + 1} issues to ${targetLabel}`,
+                      applyStatusChange(issueId, status, true, pendingUpdate, () =>
+                        showToast(`Updated ${children.length + 1} issues to ${targetLabel}`),
                       );
                     }}
                   >

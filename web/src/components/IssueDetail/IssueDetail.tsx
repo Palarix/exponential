@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
-import { addDraft, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { useArtifact, useLocalWorktree } from "../../api/queries";
+import { useAddComment, useUpdateIssues, type IssuePatch } from "../../api/mutations";
 import { StatusIcon, CopyableId, useToast, TopBar, Text, VSCodeIcon, ViewContainer } from "../ui";
 import Tooltip from "../ui/Tooltip";
 import { iconButtonClass } from "../ui/icon-button-utils";
@@ -27,6 +27,17 @@ import MergeView from "./MergeView";
 
 type DetailTab = "details" | "spec" | "walkthrough";
 
+function updateToast(p: Partial<Issue>): string {
+  if (p.status) return `Status changed to ${p.status}`;
+  if (p.assignee !== undefined) return p.assignee ? `Assigned to ${p.assignee.split(" <")[0]}` : "Assignee removed";
+  if (p.priority !== undefined) return "Priority updated";
+  if (p.estimate !== undefined) return `Estimate set to ${p.estimate || "none"}`;
+  if (p.title) return "Title updated";
+  if (p.description !== undefined) return "Description updated";
+  if (p.labels) return "Labels updated";
+  return "Updated";
+}
+
 interface IssueDetailProps {
   issue: Issue;
   issues: Issue[];
@@ -34,10 +45,8 @@ interface IssueDetailProps {
   totalCount: number;
   onClose: () => void;
   onNavigate: (direction: "prev" | "next") => void;
-  onRefresh: () => void;
   prefix: string;
   contributors: string[];
-  onConfigLabelsChange: (labels: Record<string, string>) => void;
   banner?: React.ReactNode;
 }
 
@@ -48,19 +57,13 @@ export default function IssueDetail({
   totalCount,
   onClose,
   onNavigate,
-  onRefresh,
   prefix,
   contributors,
-  onConfigLabelsChange,
   banner,
 }: IssueDetailProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [optimisticTitle, setOptimisticTitle] = useState<string | null>(null);
-  const [optimisticDescription, setOptimisticDescription] = useState<
-    string | null
-  >(null);
   const [descClickEvent, setDescClickEvent] = useState<{
     clientX: number;
     clientY: number;
@@ -83,91 +86,71 @@ export default function IssueDetail({
     scrollRef.current?.scrollTo(0, 0);
   }, [issue.id]);
 
-  useEffect(() => {
+  // Reset per-issue UI state when navigating to another issue.
+  const [shownIssueId, setShownIssueId] = useState(issue.id);
+  if (shownIssueId !== issue.id) {
+    setShownIssueId(issue.id);
     setEditingField(null);
     setOpenPopover(null);
     setNewComment("");
-    setOptimisticTitle(null);
-    setOptimisticDescription(null);
     setActiveTab("details");
-  }, [issue.id]);
+  }
 
-  useEffect(() => {
-    if (optimisticTitle !== null && issue.title === optimisticTitle) {
-      setOptimisticTitle(null);
-    }
-  }, [issue.title, optimisticTitle]);
+  const { mutate: updateIssues } = useUpdateIssues();
+  const { mutate: addComment } = useAddComment();
 
-  useEffect(() => {
-    if (
-      optimisticDescription !== null &&
-      issue.description === optimisticDescription
-    ) {
-      setOptimisticDescription(null);
-    }
-  }, [issue.description, optimisticDescription]);
+  const settleSave = useCallback(() => {
+    setSaving(false);
+    setEditingField(null);
+    setOpenPopover(null);
+  }, []);
 
-  const saveDraft = useCallback(
-    async (type: string, payload: unknown) => {
+  /** Updates this issue, plus `alsoUpdate` (e.g. children) in the same mutation. */
+  const saveUpdate = useCallback(
+    (patch: Partial<Issue>, alsoUpdate: IssuePatch[] = []) => {
       setSaving(true);
-      try {
-        await addDraft(issue.id, type, payload);
-        onRefresh();
-        if (type === "COMMENT") {
-          showToast("Comment added");
-        } else if (type === "UPDATE") {
-          const p = payload as Record<string, unknown>;
-          if (p.status) showToast(`Status changed to ${String(p.status)}`);
-          else if (p.assignee !== undefined)
-            showToast(
-              p.assignee
-                ? `Assigned to ${String(p.assignee).split(" <")[0]}`
-                : "Assignee removed",
-            );
-          else if (p.priority !== undefined) showToast("Priority updated");
-          else if (p.estimate !== undefined)
-            showToast(`Estimate set to ${p.estimate || "none"}`);
-          else if (p.title) showToast("Title updated");
-          else if (p.description !== undefined)
-            showToast("Description updated");
-          else if (p.labels) showToast("Labels updated");
-          else showToast("Updated");
-        }
-      } catch (err) {
-        const msg = err instanceof ApiError ? err.message : "Failed to save";
-        showToast(msg, { variant: "error" });
-      } finally {
-        setSaving(false);
-        setEditingField(null);
-        setOpenPopover(null);
-      }
+      updateIssues([{ issueId: issue.id, patch }, ...alsoUpdate], {
+        onSuccess: () => showToast(updateToast(patch)),
+        onSettled: settleSave,
+      });
     },
-    [issue.id, onRefresh, showToast],
+    [issue.id, updateIssues, settleSave, showToast],
+  );
+
+  const saveComment = useCallback(
+    (comment: { id: string; text: string }) => {
+      setSaving(true);
+      addComment({ issueId: issue.id, comment }, {
+        onSuccess: () => showToast("Comment added"),
+        onSettled: settleSave,
+      });
+    },
+    [issue.id, addComment, settleSave, showToast],
   );
 
   const handleStatusChange = useCallback(
     (newStatus: string) => {
       if (newStatus !== issue.status)
-        saveDraft("UPDATE", { status: newStatus });
+        saveUpdate({ status: newStatus });
       else setOpenPopover(null);
     },
-    [issue.status, saveDraft],
+    [issue.status, saveUpdate],
   );
 
   const handleEstimateChange = useCallback(
     (est: number) => {
-      if (est !== (issue.estimate || 0)) saveDraft("UPDATE", { estimate: est });
+      if (est !== (issue.estimate || 0)) saveUpdate({ estimate: est });
       else setOpenPopover(null);
     },
-    [issue.estimate, saveDraft],
+    [issue.estimate, saveUpdate],
   );
 
   const handlePriorityChange = useCallback(
     (pri: number) => {
-      if (pri !== (issue.priority || 0)) saveDraft("UPDATE", { priority: pri });
+      if (pri !== (issue.priority || 0)) saveUpdate({ priority: pri });
       else setOpenPopover(null);
     },
-    [issue.priority, saveDraft],
+    [issue.priority, saveUpdate],
   );
 
   const handleKeyboard = useCallback((e: KeyboardEvent) => {
@@ -259,7 +242,7 @@ export default function IssueDetail({
       if (num >= 1 && num <= 5) {
         const status = STATUS_OPTIONS[num - 1];
         if (status && status.value !== issue.status)
-          saveDraft("UPDATE", { status: status.value });
+          saveUpdate({ status: status.value });
       }
     }, [
     onClose,
@@ -270,7 +253,7 @@ export default function IssueDetail({
     issue.estimate,
     issue.priority,
     issue.id,
-    saveDraft,
+    saveUpdate,
     handleStatusChange,
     handleEstimateChange,
     handlePriorityChange,
@@ -304,8 +287,7 @@ export default function IssueDetail({
 
   const handleSaveTitle = () => {
     if (editTitle.trim() && editTitle !== issue.title) {
-      setOptimisticTitle(editTitle.trim());
-      saveDraft("UPDATE", { title: editTitle.trim() });
+      saveUpdate({ title: editTitle.trim() });
     } else {
       setEditingField(null);
     }
@@ -313,8 +295,7 @@ export default function IssueDetail({
 
   const handleSaveDescription = () => {
     if (editDescription !== (issue.description || "")) {
-      setOptimisticDescription(editDescription);
-      saveDraft("UPDATE", { description: editDescription });
+      saveUpdate({ description: editDescription });
     } else {
       setEditingField(null);
     }
@@ -322,7 +303,7 @@ export default function IssueDetail({
 
   const handleAddComment = () => {
     if (newComment.trim()) {
-      saveDraft("COMMENT", {
+      saveComment({
         id: `c-${Date.now().toString(36)}`,
         text: newComment.trim(),
       });
@@ -340,7 +321,6 @@ export default function IssueDetail({
         onClose={() => setMergeViewOpen(false)}
         onMerged={() => {
           setMergeViewOpen(false);
-          onRefresh();
           showToast("Branch merged");
         }}
       />
@@ -366,7 +346,7 @@ export default function IssueDetail({
               <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
               <CopyableId id={issue.id} className="text-xs shrink-0" />
               <span className="text-[var(--color-text-primary)] truncate">
-                {optimisticTitle ?? issue.title}
+                {issue.title}
               </span>
             </div>
           }
@@ -442,7 +422,7 @@ export default function IssueDetail({
               onClick={() => startEditing("title")}
               className="text-xl font-semibold text-[var(--color-text-primary)] m-0 p-0 leading-tight cursor-text"
             >
-              {optimisticTitle ?? issue.title}
+              {issue.title}
             </h1>
           )}
 
@@ -562,14 +542,12 @@ export default function IssueDetail({
                           }}
                           className="cursor-text min-h-10 prose-exponential"
                         >
-                          {(optimisticDescription ?? issue.description) ? (
+                          {issue.description ? (
                             <Markdown
                               remarkPlugins={[remarkGfm, remarkBreaks]}
                             >
                               {linkifyIssueIds(
-                                optimisticDescription ??
-                                  issue.description ??
-                                  "",
+                                issue.description,
                                 prefix,
                               )}
                             </Markdown>
@@ -585,7 +563,6 @@ export default function IssueDetail({
                     <SubIssuesTable
                       issue={issue}
                       issues={issues}
-                      onRefresh={onRefresh}
                     />
 
                     <ArtifactList
@@ -641,11 +618,9 @@ export default function IssueDetail({
         setOpenPopover={setOpenPopover}
         popoverIndex={popoverIndex}
         setPopoverIndex={setPopoverIndex}
-        saveDraft={saveDraft}
+        saveUpdate={saveUpdate}
         onClose={onClose}
-        onRefresh={onRefresh}
         contributors={contributors}
-        onConfigLabelsChange={onConfigLabelsChange}
         onOpenMerge={() => setMergeViewOpen(true)}
       />
     </ViewContainer>

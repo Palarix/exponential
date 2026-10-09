@@ -2,7 +2,7 @@ import { useState, useMemo, useContext, useCallback, type ReactNode } from "reac
 import { LabelBadge } from "./Badge";
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./BadgeContexts";
 import { LABEL_PRESET_COLORS } from "../../constants";
-import { addConfigLabel } from "../../api/client";
+import { useAddLabel } from "../../api/mutations";
 import { labelColor } from "../../utils/labels";
 import { Menu, MenuItem, MenuFilter, MenuDivider, MenuLabel } from "./Menu";
 
@@ -10,7 +10,8 @@ interface LabelPickerProps {
   allLabels: string[];
   selected: string[];
   onToggle: (label: string) => void;
-  onConfigLabelsChange?: (labels: Record<string, string>) => void;
+  /** Offer "Create" for new labels and ask for a color when picking an uncolored one. */
+  canCreateLabels?: boolean;
   onClose?: () => void;
   singleSelect?: boolean;
   exclude?: string[];
@@ -27,7 +28,7 @@ export default function LabelPicker({
   allLabels,
   selected,
   onToggle,
-  onConfigLabelsChange,
+  canCreateLabels = false,
   onClose,
   // singleSelect — accepted for API compatibility, no longer affects rendering
   exclude,
@@ -38,6 +39,7 @@ export default function LabelPicker({
   const defaultLabels = useContext(DefaultLabelsContext);
   const [search, setSearch] = useState("");
   const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
+  const { mutate: addLabel } = useAddLabel();
 
   const excludeSet = useMemo(
     () => new Set((exclude || []).map((l) => l.toLowerCase())),
@@ -77,25 +79,27 @@ export default function LabelPicker({
   const handleSelect = useCallback(
     (name: string) => {
       const hasColor = labelColor(name, configLabels) !== "var(--color-text-muted)";
-      if (!hasColor && onConfigLabelsChange) {
+      if (!hasColor && canCreateLabels) {
         setCreatingLabel(name);
       } else {
         onToggle(name);
         setSearch("");
       }
     },
-    [configLabels, onConfigLabelsChange, onToggle],
+    [configLabels, canCreateLabels, onToggle],
   );
 
   const handleCreateLabel = useCallback(
-    async (name: string, color: string) => {
-      await addConfigLabel(name, color);
-      onConfigLabelsChange?.({ ...configLabels, [name]: color });
-      setCreatingLabel(null);
-      setSearch("");
-      onToggle(name);
+    (name: string, color: string) => {
+      addLabel({ name, color }, {
+        onSuccess: () => {
+          setCreatingLabel(null);
+          setSearch("");
+          onToggle(name);
+        },
+      });
     },
-    [configLabels, onConfigLabelsChange, onToggle],
+    [addLabel, onToggle],
   );
 
   if (creatingLabel) {
@@ -175,7 +179,7 @@ export default function LabelPicker({
         placeholder="Filter or create label..."
       />
       {items}
-      {canCreate && onConfigLabelsChange && (
+      {canCreate && canCreateLabels && (
         <MenuItem
           label={`Create "${search.trim()}"`}
           onClick={() => handleSelect(search.trim())}

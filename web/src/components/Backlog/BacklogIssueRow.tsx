@@ -60,7 +60,7 @@ interface Props {
   onQuickPriority: (issueId: string, priority: number) => void;
   onQuickEstimate: (issueId: string, estimate: number) => void;
   onQuickLabelToggle: (issue: Issue, label: string) => void;
-  onConfigLabelsChange?: (labels: Record<string, string>) => void;
+  canCreateLabels?: boolean;
 }
 
 export const BacklogIssueRow = memo(function BacklogIssueRow({
@@ -98,7 +98,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   onQuickPriority,
   onQuickEstimate,
   onQuickLabelToggle,
-  onConfigLabelsChange,
+  canCreateLabels,
 }: Props) {
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const indent = depth * 24;
@@ -300,7 +300,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                       allLabels={allKnownLabels}
                       selected={issue.labels || []}
                       onToggle={(label) => onQuickLabelToggle(issue, label)}
-                      onConfigLabelsChange={onConfigLabelsChange}
+                      canCreateLabels={canCreateLabels}
                       onClose={onClosePopover}
                     />
                   </PopoverPanel>

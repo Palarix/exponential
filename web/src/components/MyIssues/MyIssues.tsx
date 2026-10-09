@@ -24,7 +24,7 @@ import { FILTERS_CODEC, hasActiveFilters, matchesFilters, matchesSearch } from "
 import FilterChips from "../Backlog/FilterChips";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
-import { useConfig, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels, useUser } from "../../api/queries";
+import { useConfig, useIssueList, useUser } from "../../api/queries";
 import { useIssueClick, useIssueNavOrder, useViewState } from "../../app/hooks";
 import { stringCodec } from "../../app/view-state-utils";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
@@ -41,10 +41,7 @@ const TAB_CODEC = stringCodec<MyIssuesTab>("assigned");
 export default function MyIssues() {
   const issues = useIssueList();
   const onIssueClick = useIssueClick();
-  const onRefresh = useRefreshIssues();
   const { contributors } = useConfig();
-  const onConfigLabelsChange = useSetConfigLabels();
-  const patchIssue = usePatchIssue();
   const user = useUser();
   const [activeTab, onTabChange] = useViewState("exponential-my-issues-tab", TAB_CODEC);
   const [filters, onFiltersChange] = useViewState(`exponential-my-issues-filters-${activeTab}`, FILTERS_CODEC);
@@ -192,11 +189,9 @@ export default function MyIssues() {
               x={contextMenu.x}
               y={contextMenu.y}
               onClose={() => setContextMenu(null)}
-              onRefresh={onRefresh}
               allLabels={allKnownLabels}
               contributors={contributors}
-              onConfigLabelsChange={onConfigLabelsChange}
-              patchIssue={patchIssue}
+              canCreateLabels
             />
           );
         })()}

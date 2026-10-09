@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveAppConfig, effectiveLabelColors, withConfigLabels, patchIssueList, cyclesFromResponse, firstQueryError, type RawConfig } from "./query-utils";
+import { deriveAppConfig, effectiveLabelColors, withConfigLabels, applyIssuePatches, renameLabel, removeLabel, cyclesFromResponse, firstQueryError, type RawConfig } from "./query-utils";
 import { makeIssue } from "../test-utils";
 import { ApiError } from "./client";
 
@@ -76,17 +76,72 @@ describe("withConfigLabels", () => {
   });
 });
 
-describe("patchIssueList", () => {
-  it("merges the patch into the matching issue only", () => {
+describe("applyIssuePatches", () => {
+  it("merges each patch into its issue and leaves the others untouched", () => {
     const a = makeIssue({ id: "a", title: "A" });
     const b = makeIssue({ id: "b", title: "B" });
-    const next = patchIssueList([a, b], "b", { title: "B2" });
+    const c = makeIssue({ id: "c", status: "PLANNED" });
+    const { next } = applyIssuePatches([a, b, c], [
+      { issueId: "b", patch: { title: "B2" } },
+      { issueId: "c", patch: { status: "DOING" } },
+    ]);
     expect(next?.[0]).toBe(a);
     expect(next?.[1]).toEqual({ ...b, title: "B2" });
+    expect(next?.[2]).toEqual({ ...c, status: "DOING" });
+  });
+
+  it("returns an undo holding the previous value of each patched field", () => {
+    const a = makeIssue({ id: "a", status: "PLANNED", sort_order: "a0", title: "A" });
+    const { undo } = applyIssuePatches([a], [{ issueId: "a", patch: { status: "DOING", sort_order: "a5" } }]);
+    expect(undo).toEqual([{ issueId: "a", patch: { status: "PLANNED", sort_order: "a0" } }]);
+  });
+
+  it("undoes in reverse order so repeated patches to one issue restore the original", () => {
+    const a = makeIssue({ id: "a", status: "BACKLOG" });
+    const first = applyIssuePatches([a], [
+      { issueId: "a", patch: { status: "PLANNED" } },
+      { issueId: "a", patch: { status: "DOING" } },
+    ]);
+    expect(first.next?.[0].status).toBe("DOING");
+    expect(applyIssuePatches(first.next, first.undo).next?.[0].status).toBe("BACKLOG");
+  });
+
+  it("rolls back only its own fields, keeping a later concurrent edit", () => {
+    const a = makeIssue({ id: "a", status: "PLANNED", estimate: 0 });
+    const statusEdit = applyIssuePatches([a], [{ issueId: "a", patch: { status: "DOING" } }]);
+    const estimateEdit = applyIssuePatches(statusEdit.next, [{ issueId: "a", patch: { estimate: 3 } }]);
+    const rolledBack = applyIssuePatches(estimateEdit.next, statusEdit.undo).next?.[0];
+    expect(rolledBack?.status).toBe("PLANNED");
+    expect(rolledBack?.estimate).toBe(3);
+  });
+
+  it("skips patches for issues that aren't in the list", () => {
+    const a = makeIssue({ id: "a" });
+    const { next, undo } = applyIssuePatches([a], [{ issueId: "missing", patch: { title: "x" } }]);
+    expect(next?.[0]).toBe(a);
+    expect(undo).toEqual([]);
   });
 
   it("leaves an unloaded list alone", () => {
-    expect(patchIssueList(undefined, "a", { title: "x" })).toBeUndefined();
+    expect(applyIssuePatches(undefined, [{ issueId: "a", patch: { title: "x" } }])).toEqual({ next: undefined, undo: [] });
+  });
+});
+
+describe("renameLabel", () => {
+  it("replaces the old name with the new name and color, keeping the others", () => {
+    expect(renameLabel({ ui: "#f00", bug: "#0f0" }, "ui", "frontend", "#00f")).toEqual({ bug: "#0f0", frontend: "#00f" });
+  });
+
+  it("recolors in place when the name is unchanged", () => {
+    expect(renameLabel({ ui: "#f00" }, "ui", "ui", "#00f")).toEqual({ ui: "#00f" });
+  });
+});
+
+describe("removeLabel", () => {
+  it("drops the named label without mutating the input", () => {
+    const labels = { ui: "#f00", bug: "#0f0" };
+    expect(removeLabel(labels, "ui")).toEqual({ bug: "#0f0" });
+    expect(labels).toEqual({ ui: "#f00", bug: "#0f0" });
   });
 });
 

@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Web UI writes now go through TanStack Query mutations (`api/mutations.ts`) instead of components calling the API and then `onRefresh()`. Status, estimate, priority, label, assignee and cycle edits, plus Board and Backlog drags, show up immediately and roll back with a "Couldn't save: <reason>" toast if the server rejects them. A status cascade to sub-issues refetches issues once instead of once per child. Creating an issue, starting work, deleting, commenting and label edits now toast on failure instead of failing silently. The `onRefresh`, `patchIssue` and `onConfigLabelsChange` props are gone (xpo-6e757d)
 - Web UI per-view data (cycles, cycle progress, dashboard metrics and activity, timeline, instances, and issue history, artifacts, worktree, commits, diffs and mergeability) now loads through shared TanStack Query hooks: requests are deduplicated across views, and cycles, dashboard and timeline refresh on server events instead of going stale until remounted. MergeView spins its Refresh icon while refreshing (at least one full turn on a click), then briefly shows a check, or an alert plus a "Couldn't refresh: <reason>" toast; a failed uncommitted-diff poll shows "Couldn't refresh, showing changes as of HH:MM" beside it instead of silently showing outdated changes (xpo-ec0480)
 - Web UI restructured from a single `App` component into `Layout` → `Sidebar` + `ViewRouter` → views. Views no longer receive props: they read issues, config, inbox and user from TanStack Query hooks, whose cache is refreshed by server events, and own their own tab, filter and sort state. Saved filters, sort and tabs keep their existing localStorage keys. Filter chips are rendered into the status bar by each view, the sidebar, routes, titles and `g` shortcuts all come from one `VIEWS` registry, and the Inbox list now uses `ViewContainer` (xpo-de3808)
 - Issue detail prev/next (`j`/`k`) now walks the order of the view the issue was opened from (Issues, Board, My Issues or a cycle), instead of always the Issues list; deep links and other views use the default sorted order (xpo-de3808)
@@ -98,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dropping an issue onto a Backlog row with no status group no longer sends `status: null` (xpo-6e757d)
 - MergeView no longer re-renders the whole diff on every 3s uncommitted-diff poll or Refresh. Unchanged polls and refreshes no longer block the page (before: ~190–200ms per poll on a 1,000-line diff), and a change to one file re-renders only that file's card (xpo-5839aa)
 - MergeView's All changes / Uncommitted toggle no longer shifts sideways by a couple of pixels when switching, because each label reserves its bold width (xpo-e64b2b)
 - Switching Backlog tabs now loads that tab's saved filters instead of carrying over the previous tab's filters and overwriting the new tab's saved ones (xpo-0c0556)

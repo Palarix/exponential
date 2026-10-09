@@ -7,7 +7,7 @@ import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
 import { useKeyboardShortcuts } from './keyboard';
-import { useConfig, useInbox, useInvalidateOnServerEvent, useIssueList, useIssues, useRefreshIssues, useSetConfigLabels } from './api/queries';
+import { useConfig, useInbox, useInvalidateOnServerEvent, useIssueList, useIssues } from './api/queries';
 import { effectiveLabelColors } from './api/query-utils';
 import { AppNavContext, ViewStateContext, type AppNav, type NavIntent } from './app/contexts';
 import { createViewStateStore } from './app/view-state-utils';
@@ -39,9 +39,7 @@ function App() {
 
   const issuesQuery = useIssues();
   const issues = useIssueList();
-  const refresh = useRefreshIssues();
   const config = useConfig();
-  const setConfigLabels = useSetConfigLabels();
   const { unread: inboxUnread } = useInbox();
   const showToast = useToast();
 
@@ -154,14 +152,12 @@ function App() {
       <NewIssueModal
         isOpen={showNewIssue}
         onClose={() => setShowNewIssue(false)}
-        onCreated={async () => {
+        onCreated={() => {
           setShowNewIssue(false);
-          await refresh();
           showToast("Issue created");
         }}
         issues={issues}
         contributors={config.contributors}
-        onConfigLabelsChange={setConfigLabels}
       />
 
       <CommandPalette

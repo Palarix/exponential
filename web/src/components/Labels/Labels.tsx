@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback, useContext, useRef, useEffect } from "react";
-import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
 import { TopBar, CountBadge, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel, filterLabelsByName } from "../../utils/labels";
-import { useIssueList, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
+import { useIssueList } from "../../api/queries";
+import { useAddLabel, useDeleteLabel, useUpdateLabel } from "../../api/mutations";
 import { useAppNav } from "../../app/hooks";
 
 interface LabelInfo {
@@ -17,8 +17,9 @@ interface LabelInfo {
 
 export default function Labels() {
   const issues = useIssueList();
-  const onConfigLabelsChange = useSetConfigLabels();
-  const onRefresh = useRefreshIssues();
+  const { mutate: addLabel } = useAddLabel();
+  const { mutate: updateLabel } = useUpdateLabel();
+  const { mutate: deleteLabel } = useDeleteLabel();
   const { navigate } = useAppNav();
   const onLabelClick = (label: string) => navigate("backlog", { filters: { labels: [label] } });
   const configLabels = useContext(LabelColorsContext);
@@ -89,34 +90,28 @@ export default function Labels() {
     setEditColor("");
   }, []);
 
-  const saveEdit = useCallback(async () => {
+  const saveEdit = useCallback(() => {
     if (!editing || !editName.trim()) return;
-    await updateConfigLabel(editing, editName.trim(), editColor);
-    const updated = { ...configLabels };
-    if (editing !== editName.trim()) delete updated[editing];
-    updated[editName.trim()] = editColor;
-    onConfigLabelsChange(updated);
-    onRefresh();
-    setEditing(null);
-  }, [editing, editName, editColor, configLabels, onConfigLabelsChange, onRefresh]);
+    updateLabel(
+      { oldName: editing, newName: editName.trim(), color: editColor },
+      { onSuccess: () => setEditing(null) },
+    );
+  }, [editing, editName, editColor, updateLabel]);
 
-  const handleDelete = useCallback(async (name: string) => {
-    await deleteConfigLabel(name);
-    const updated = { ...configLabels };
-    delete updated[name];
-    onConfigLabelsChange(updated);
-    onRefresh();
-    setConfirmDelete(null);
-  }, [configLabels, onConfigLabelsChange, onRefresh]);
+  const handleDelete = useCallback((name: string) => {
+    deleteLabel({ name }, { onSuccess: () => setConfirmDelete(null) });
+  }, [deleteLabel]);
 
-  const handleCreate = useCallback(async () => {
+  const handleCreate = useCallback(() => {
     if (!newName.trim()) return;
-    await addConfigLabel(newName.trim(), newColor);
-    onConfigLabelsChange({ ...configLabels, [newName.trim()]: newColor });
-    setNewName("");
-    setNewColor(LABEL_PRESET_COLORS[0]);
-    setCreating(false);
-  }, [newName, newColor, configLabels, onConfigLabelsChange]);
+    addLabel({ name: newName.trim(), color: newColor }, {
+      onSuccess: () => {
+        setNewName("");
+        setNewColor(LABEL_PRESET_COLORS[0]);
+        setCreating(false);
+      },
+    });
+  }, [newName, newColor, addLabel]);
 
   return (
     <ViewContainer

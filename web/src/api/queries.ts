@@ -6,7 +6,7 @@ import {
   fetchLocalWorktree, fetchMergeability, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
 } from "./client";
 import type { Issue, InboxStatus } from "./types";
-import { cyclesFromResponse, deriveAppConfig, patchIssueList, withConfigLabels, type RawConfig } from "./query-utils";
+import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
 import { invalidateOnServerEvent, queryKeys } from "./query-keys";
 import { useToast } from "../components/ui/ToastContext";
 
@@ -38,27 +38,9 @@ export function useRefreshIssues(): () => Promise<void> {
   return useCallback(() => qc.invalidateQueries({ queryKey: queryKeys.issues }), [qc]);
 }
 
-/** Optimistically merges a patch into the cached issue list. */
-export function usePatchIssue(): (issueId: string, patch: Partial<Issue>) => void {
-  const qc = useQueryClient();
-  return useCallback(
-    (issueId, patch) => qc.setQueryData<Issue[]>(queryKeys.issues, (prev) => patchIssueList(prev, issueId, patch)),
-    [qc],
-  );
-}
-
 export function useConfig() {
   const { data } = useQuery({ queryKey: queryKeys.config, queryFn: fetchConfig });
   return useMemo(() => deriveAppConfig(data), [data]);
-}
-
-/** Replaces the cached config labels after a label edit. */
-export function useSetConfigLabels(): (labels: Record<string, string>) => void {
-  const qc = useQueryClient();
-  return useCallback(
-    (labels) => qc.setQueryData<RawConfig>(queryKeys.config, (prev) => withConfigLabels(prev, labels)),
-    [qc],
-  );
 }
 
 export function useInbox() {

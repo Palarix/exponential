@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { createIssue, addDraft, ApiError } from "../../api/client";
+import { useCreateIssue } from "../../api/mutations";
 import type { Issue } from "../../api/client";
 import { computeAppendKey } from "../../utils/sort";
 import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, PopoverPanel, StatusIcon, InlineDropdown } from "../ui";
@@ -33,16 +33,15 @@ interface NewIssueModalProps {
   onCreated: () => void;
   issues: Issue[];
   contributors: string[];
-  onConfigLabelsChange: (labels: Record<string, string>) => void;
 }
 
-export default function NewIssueModal({ isOpen, onClose, onCreated, issues, contributors, onConfigLabelsChange }: NewIssueModalProps) {
+export default function NewIssueModal({ isOpen, onClose, onCreated, issues, contributors }: NewIssueModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [labels, setLabels] = useState<string[]>(["feature"]);
   const [status, setStatus] = useState("BACKLOG");
   const [estimate, setEstimate] = useState("0");
-  const [saving, setSaving] = useState(false);
+  const { mutate: createIssue, isPending: saving } = useCreateIssue();
   const [labelOpen, setLabelOpen] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
@@ -120,25 +119,26 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
 
   const canCreate = title.trim() && labels.length > 0;
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!canCreate) return;
-    setSaving(true);
-    try {
-      const combinedLabels = [...labels, ...additionalLabels.filter((l) => !labels.includes(l))];
-      const sortOrder = computeAppendKey(issues);
-      const issueId = await createIssue({ title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, sort_order: sortOrder });
-      const update: Record<string, unknown> = {};
-      if (status !== "BACKLOG") update.status = status;
-      const estimateNum = parseInt(estimate, 10);
-      if (estimateNum > 0) update.estimate = estimateNum;
-      if (Object.keys(update).length > 0) await addDraft(issueId, "UPDATE", update);
-      resetForm();
-      onCreated();
-    } catch (err) {
-      console.error("Failed to create issue:", err instanceof ApiError ? err.message : err);
-    } finally {
-      setSaving(false);
-    }
+    const combinedLabels = [...labels, ...additionalLabels.filter((l) => !labels.includes(l))];
+    const sortOrder = computeAppendKey(issues);
+    const update: Partial<Issue> = {};
+    if (status !== "BACKLOG") update.status = status;
+    const estimateNum = parseInt(estimate, 10);
+    if (estimateNum > 0) update.estimate = estimateNum;
+    createIssue(
+      {
+        issue: { title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, sort_order: sortOrder },
+        update,
+      },
+      {
+        onSuccess: () => {
+          resetForm();
+          onCreated();
+        },
+      },
+    );
   };
 
   const handleModalKeyDown = (e: React.KeyboardEvent) => {
@@ -156,7 +156,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
             </button>
             {labelOpen && createPortal(
               <div ref={labelMenuRef} className="fixed z-[100] min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1" style={{ top: labelPos.top, left: labelPos.left }}>
-                <LabelPicker allLabels={allKnownLabels} selected={labels} onToggle={selectLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setLabelOpen(false)} singleSelect borderlessBadges />
+                <LabelPicker allLabels={allKnownLabels} selected={labels} onToggle={selectLabel} canCreateLabels onClose={() => setLabelOpen(false)} singleSelect borderlessBadges />
               </div>,
               document.body,
             )}
@@ -220,7 +220,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
                 {morePopover === "labels" && (
                   <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
                     <PopoverPanel>
-                      <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} onConfigLabelsChange={onConfigLabelsChange} onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
+                      <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} canCreateLabels onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
                     </PopoverPanel>
                   </Popover>
                 )}

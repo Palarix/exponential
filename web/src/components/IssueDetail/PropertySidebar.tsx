@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useContext, useRef } from "react";
-import { addDraft, startWork, ApiError } from "../../api/client";
 import type { Issue } from "../../api/client";
 import { useCycles } from "../../api/queries";
+import { useDeleteIssue, useStartWork, type IssuePatch } from "../../api/mutations";
 import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
@@ -31,11 +31,9 @@ interface PropertySidebarProps {
   setOpenPopover: (v: string | null) => void;
   popoverIndex: number;
   setPopoverIndex: (v: number) => void;
-  saveDraft: (type: string, payload: unknown) => Promise<void>;
+  saveUpdate: (patch: Partial<Issue>, alsoUpdate?: IssuePatch[]) => void;
   onClose: () => void;
-  onRefresh: () => void;
   contributors: string[];
-  onConfigLabelsChange: (labels: Record<string, string>) => void;
   onOpenMerge?: () => void;
 }
 
@@ -46,14 +44,11 @@ export default function PropertySidebar({
   setOpenPopover,
   popoverIndex,
   setPopoverIndex,
-  saveDraft,
+  saveUpdate,
   onClose,
-  onRefresh,
   contributors,
-  onConfigLabelsChange,
   onOpenMerge,
 }: PropertySidebarProps) {
-  const [starting, setStarting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
   const [addRelStep, setAddRelStep] = useState<"kind" | "issue" | null>(null);
   const [addRelKind, setAddRelKind] = useState("");
@@ -69,44 +64,25 @@ export default function PropertySidebar({
     children: { id: string; title: string; status: string }[];
   } | null>(null);
 
-  const handleStartWork = useCallback(async () => {
-    setStarting(true);
-    try {
-      await startWork(issue.id);
-      onRefresh();
-    } catch (err) {
-      console.error('Failed to start work:', err instanceof ApiError ? err.message : err);
-    } finally {
-      setStarting(false);
-    }
-  }, [issue.id, onRefresh]);
+  const { mutate: startWork, isPending: starting } = useStartWork();
+  const { mutate: deleteIssue } = useDeleteIssue();
+
+  const handleStartWork = useCallback(() => startWork(issue.id), [issue.id, startWork]);
 
   const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
 
-  const handleDelete = useCallback(async (cascade = false) => {
-    try {
-      await addDraft(issue.id, 'DELETE', { cascade });
-      onClose();
-      onRefresh();
-    } catch (err) {
-      console.error('Failed to delete:', err instanceof ApiError ? err.message : err);
-    }
-  }, [issue.id, onClose, onRefresh]);
+  const handleDelete = useCallback((cascade = false) => {
+    deleteIssue({ issueId: issue.id, cascade }, { onSuccess: onClose });
+  }, [issue.id, onClose, deleteIssue]);
 
   const applyStatusChange = useCallback(
-    async (status: string, includeChildren: boolean) => {
-      await saveDraft("UPDATE", { status });
-      if (includeChildren) {
-        const children = issues.filter(
-          (i) => i.parent_id === issue.id && i.status !== status && !isTerminal(i.status),
-        );
-        for (const child of children) {
-          await addDraft(child.id, "UPDATE", { status });
-        }
-        onRefresh();
-      }
+    (status: string, includeChildren: boolean) => {
+      const children = includeChildren
+        ? issues.filter((i) => i.parent_id === issue.id && i.status !== status && !isTerminal(i.status))
+        : [];
+      saveUpdate({ status }, children.map((c) => ({ issueId: c.id, patch: { status } })));
     },
-    [issue.id, issues, saveDraft, onRefresh],
+    [issue.id, issues, saveUpdate],
   );
 
   const handleStatusChange = useCallback(
@@ -130,76 +106,76 @@ export default function PropertySidebar({
         });
         return;
       }
-      saveDraft("UPDATE", { status: newStatus });
+      saveUpdate({ status: newStatus });
     },
-    [issue.id, issue.status, issues, saveDraft, setOpenPopover],
+    [issue.id, issue.status, issues, saveUpdate, setOpenPopover],
   );
 
   const handleEstimateChange = useCallback(
     (est: number) => {
-      if (est !== (issue.estimate || 0)) saveDraft("UPDATE", { estimate: est });
+      if (est !== (issue.estimate || 0)) saveUpdate({ estimate: est });
       else setOpenPopover(null);
     },
-    [issue.estimate, saveDraft, setOpenPopover],
+    [issue.estimate, saveUpdate, setOpenPopover],
   );
 
   const handlePriorityChange = useCallback(
     (pri: number) => {
-      if (pri !== (issue.priority || 0)) saveDraft("UPDATE", { priority: pri });
+      if (pri !== (issue.priority || 0)) saveUpdate({ priority: pri });
       else setOpenPopover(null);
     },
-    [issue.priority, saveDraft, setOpenPopover],
+    [issue.priority, saveUpdate, setOpenPopover],
   );
 
   const handleLabelToggle = useCallback(
     (label: string) => {
-      saveDraft("UPDATE", { labels: toggleLabel(issue.labels || [], label) });
+      saveUpdate({ labels: toggleLabel(issue.labels || [], label) });
     },
-    [issue.labels, saveDraft],
+    [issue.labels, saveUpdate],
   );
 
   const handleParentChange = useCallback(
     (parentId: string | null) => {
-      saveDraft("UPDATE", { parent_id: parentId || "" });
+      saveUpdate({ parent_id: parentId || "" });
     },
-    [saveDraft],
+    [saveUpdate],
   );
 
   const handleAssigneeChange = useCallback(
     (assignee: string | null) => {
-      saveDraft("UPDATE", { assignee: assignee || "" });
+      saveUpdate({ assignee: assignee || "" });
     },
-    [saveDraft],
+    [saveUpdate],
   );
 
   const handleCycleChange = useCallback(
     (cycleId: string | null) => {
-      saveDraft("UPDATE", { cycle_id: cycleId || "" });
+      saveUpdate({ cycle_id: cycleId || "" });
     },
-    [saveDraft],
+    [saveUpdate],
   );
 
   const handleAddRelation = useCallback(
     (targetId: string, kind: string) => {
       const existing = issue.dependencies || [];
-      saveDraft("UPDATE", {
+      saveUpdate({
         dependencies: [...existing, { source_id: issue.id, target_id: targetId, kind }],
       });
       setAddRelStep(null);
       setAddRelKind("");
       setAddRelSearch("");
     },
-    [issue.id, issue.dependencies, saveDraft],
+    [issue.id, issue.dependencies, saveUpdate],
   );
 
   const handleRemoveRelation = useCallback(
     (index: number) => {
       const existing = issue.dependencies || [];
-      saveDraft("UPDATE", {
+      saveUpdate({
         dependencies: existing.filter((_, i) => i !== index),
       });
     },
-    [issue.dependencies, saveDraft],
+    [issue.dependencies, saveUpdate],
   );
 
   const relCandidates = useMemo(() => {
@@ -598,7 +574,7 @@ export default function PropertySidebar({
                       allLabels={allKnownLabels}
                       selected={issue.labels || []}
                       onToggle={handleLabelToggle}
-                      onConfigLabelsChange={onConfigLabelsChange}
+                      canCreateLabels
                       onClose={() => setOpenPopover(null)}
                     />
                   </PopoverPanel>
@@ -883,20 +859,20 @@ export default function PropertySidebar({
                 <div className="flex-1" />
                 <button
                   className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                  onClick={async () => {
+                  onClick={() => {
                     const { status } = moveChildrenPrompt;
                     setMoveChildrenPrompt(null);
-                    await applyStatusChange(status, false);
+                    applyStatusChange(status, false);
                   }}
                 >
                   Just this issue
                 </button>
                 <button
                   className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
-                  onClick={async () => {
+                  onClick={() => {
                     const { status } = moveChildrenPrompt;
                     setMoveChildrenPrompt(null);
-                    await applyStatusChange(status, true);
+                    applyStatusChange(status, true);
                   }}
                 >
                   Update all
