@@ -4,14 +4,8 @@ import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
 import { StatusIcon, TopBar, Heading, Text, ViewContainer } from '../ui';
 import { UserRound } from "lucide-react";
-
-interface CyclesProps {
-  issues: Issue[];
-  onIssueClick: (issue: Issue) => void;
-  onRefresh: () => Promise<void>;
-  selectedCycleId: string | null;
-  onCycleSelect: (id: string | null) => void;
-}
+import { useIssueList } from '../../api/queries';
+import { useAppNav, useIssueClick, useIssueNavOrder } from '../../app/hooks';
 
 // --- Timeline Index View ---
 
@@ -299,6 +293,8 @@ function ProgressChart({ cycleId }: { cycleId: string }) {
 
 // --- Detail View ---
 
+const DETAIL_STATUS_ORDER = ['DOING', 'PLANNED', 'BACKLOG', 'BLOCKED', 'DONE'];
+
 function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
   cycle: Cycle;
   issues: Issue[];
@@ -322,7 +318,12 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
     return groups;
   }, [cycleIssues]);
 
-  const statusOrder = ['DOING', 'PLANNED', 'BACKLOG', 'BLOCKED', 'DONE'];
+  const navOrder = useMemo(
+    () => DETAIL_STATUS_ORDER.flatMap(s => (byStatus[s] ?? []).map(i => i.id)),
+    [byStatus],
+  );
+  useIssueNavOrder(navOrder);
+
   const scopeCount = cycleIssues.length;
   const startedCount = (byStatus['DOING']?.length || 0) + (byStatus['BLOCKED']?.length || 0);
   const completedCount = byStatus['DONE']?.length || 0;
@@ -370,7 +371,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
           </div>
         ) : (
           <div className="px-4">
-            {statusOrder.map(status => {
+            {DETAIL_STATUS_ORDER.map(status => {
               const group = byStatus[status];
               if (!group?.length) return null;
               return (
@@ -498,7 +499,7 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
         <div className="px-4 py-3">
           <div className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Status</div>
           <div className="space-y-1.5">
-            {statusOrder.map(status => {
+            {DETAIL_STATUS_ORDER.map(status => {
               const count = byStatus[status]?.length || 0;
               if (count === 0) return null;
               return (
@@ -522,7 +523,10 @@ function CycleDetail({ cycle, issues, onIssueClick, onBack }: {
 
 // --- Root ---
 
-export default function Cycles({ issues, onIssueClick, selectedCycleId, onCycleSelect }: CyclesProps) {
+export default function Cycles() {
+  const issues = useIssueList();
+  const onIssueClick = useIssueClick();
+  const { cycleId: selectedCycleId, setCycleId: onCycleSelect } = useAppNav();
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -29,16 +29,8 @@ import { isEditableTarget } from '../../utils/keyboard';
 import { useKeyboardHandler } from '../../keyboard';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
-
-interface BoardProps {
-  issues: Issue[];
-  onRefresh: () => void;
-  onIssueClick?: (issue: Issue) => void;
-  onNewIssue?: () => void;
-  contributors?: string[];
-  onConfigLabelsChange?: (labels: Record<string, string>) => void;
-  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
-}
+import { useConfig, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels } from '../../api/queries';
+import { useAppNav, useIssueClick, useIssueNavOrder } from '../../app/hooks';
 
 const COLUMNS = [
   { id: 'BACKLOG', label: 'Backlog', shortcut: '1', isBacklog: true },
@@ -78,7 +70,14 @@ function findContainer(id: string, state: Containers): string | null {
   return null;
 }
 
-export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, contributors = [], onConfigLabelsChange, patchIssue }: BoardProps) {
+export default function Board() {
+  const issues = useIssueList();
+  const onRefresh = useRefreshIssues();
+  const onIssueClick = useIssueClick();
+  const { newIssue: onNewIssue } = useAppNav();
+  const { contributors } = useConfig();
+  const onConfigLabelsChange = useSetConfigLabels();
+  const patchIssue = usePatchIssue();
   const containersRef = useRef<Containers>(buildContainers(issues));
   const [containers, setContainersState] = useState<Containers>(containersRef.current);
   const setContainers = useCallback(
@@ -123,6 +122,11 @@ export default function Board({ issues, onRefresh, onIssueClick, onNewIssue, con
   const [showViewMenu, setShowViewMenu] = useState(false);
   const viewBtnRef = useRef<HTMLButtonElement>(null);
   const visibleColumns = useMemo(() => COLUMNS.filter(c => !hiddenColumns.has(c.id)), [hiddenColumns]);
+  const navOrder = useMemo(
+    () => visibleColumns.filter(c => !collapsedCols.has(c.id)).flatMap(c => containers[c.id] ?? []),
+    [visibleColumns, collapsedCols, containers],
+  );
+  useIssueNavOrder(navOrder);
   const isDraggingRef = useRef(false);
   const pointerYRef = useRef<number>(0);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -106,7 +106,7 @@ function describeEvent(evt: HistoryEvent): React.ReactNode | null {
       if (fragments.length === 0) return null;
       return fragments.reduce<React.ReactNode[]>((acc, f, i) => {
         if (i > 0) acc.push(<span key={`sep-${i}`}> and </span>);
-        acc.push(f);
+        acc.push(<Fragment key={`part-${i}`}>{f}</Fragment>);
         return acc;
       }, []);
     }

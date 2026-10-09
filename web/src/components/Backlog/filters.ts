@@ -1,3 +1,5 @@
+import { jsonCodec } from "../../app/view-state-utils";
+
 export interface BacklogFilters {
   statuses: string[];
   labels: string[];
@@ -25,6 +27,9 @@ export function parseStoredFilters(stored: string | null): BacklogFilters {
     return EMPTY_FILTERS;
   }
 }
+
+/** Persists filters to localStorage through `useViewState`. */
+export const FILTERS_CODEC = jsonCodec(parseStoredFilters);
 
 export function hasActiveFilters(f: BacklogFilters): boolean {
   return (

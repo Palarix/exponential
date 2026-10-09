@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback, useContext, useRef, useEffect } from "react";
-import type { Issue } from "../../api/client";
 import { addConfigLabel, updateConfigLabel, deleteConfigLabel } from "../../api/client";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext } from "../ui/BadgeContexts";
@@ -7,13 +6,8 @@ import { TopBar, CountBadge, Heading, Text, SearchInput, ViewContainer } from ".
 import { Trash2 } from "lucide-react";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel, filterLabelsByName } from "../../utils/labels";
-
-interface LabelsProps {
-  issues: Issue[];
-  onConfigLabelsChange: (labels: Record<string, string>) => void;
-  onRefresh: () => void;
-  onLabelClick?: (label: string) => void;
-}
+import { useIssueList, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
+import { useAppNav } from "../../app/hooks";
 
 interface LabelInfo {
   name: string;
@@ -21,7 +15,12 @@ interface LabelInfo {
   count: number;
 }
 
-export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabelClick }: LabelsProps) {
+export default function Labels() {
+  const issues = useIssueList();
+  const onConfigLabelsChange = useSetConfigLabels();
+  const onRefresh = useRefreshIssues();
+  const { navigate } = useAppNav();
+  const onLabelClick = (label: string) => navigate("backlog", { filters: { labels: [label] } });
   const configLabels = useContext(LabelColorsContext);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -262,7 +261,7 @@ export default function Labels({ issues, onConfigLabelsChange, onRefresh, onLabe
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer" onClick={() => onLabelClick?.(label.name)}>
+                <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer" onClick={() => onLabelClick(label.name)}>
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
                   <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
                     {label.name.charAt(0).toUpperCase() + label.name.slice(1)}

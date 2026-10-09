@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type Issue, type PulseMetrics } from "../../api/client";
+import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type PulseMetrics } from "../../api/client";
 import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar, ViewContainer } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
@@ -10,6 +10,8 @@ import { SECTION_ICONS } from "./sectionIcons";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
+import { useIssueList } from "../../api/queries";
+import { useAppNav, useIssueClick } from "../../app/hooks";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
 
 function attentionReason(item: AttentionItem): { label: string; icon: React.ReactNode; cls: string } {
@@ -55,13 +57,10 @@ const STATUS_ORDER_MAP: Record<string, { label: string; idx: number }> = {
 
 const ALL_STATUSES = ["BACKLOG", "PLANNED", "DOING", "BLOCKED", "DONE", "CANCELED", "DUPLICATE"];
 
-interface DashboardProps {
-  issues: Issue[];
-  onIssueClick?: (issue: Issue) => void;
-  onNewIssue?: () => void;
-}
-
-export default function Dashboard({ issues, onIssueClick, onNewIssue }: DashboardProps) {
+export default function Dashboard() {
+  const issues = useIssueList();
+  const onIssueClick = useIssueClick();
+  const { newIssue: onNewIssue } = useAppNav();
   const labelColors = useContext(LabelColorsContext);
   const [statusFilter, setStatusFilter] = useState<DistFilter>("all");
   const [labelFilter, setLabelFilter] = useState<DistFilter>("all");

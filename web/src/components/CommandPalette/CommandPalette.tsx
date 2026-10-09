@@ -4,15 +4,16 @@ import type { Issue } from '../../api/client';
 import { StatusIcon, LabelBadge } from '../ui';
 import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard } from "lucide-react";
 import { fuzzyMatch, fuzzyScore } from '../../utils/format';
+import type { ViewId } from '../../views';
 
-type View = 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline';
+type View = Extract<ViewId, 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline'>;
 
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
   issues: Issue[];
   onIssueSelect: (issue: Issue) => void;
-  onViewChange: (view: View) => void;
+  onViewChange: (view: ViewId) => void;
   onNewIssue: () => void;
 }
 

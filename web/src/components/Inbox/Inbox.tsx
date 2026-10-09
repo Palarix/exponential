@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
 import { isEditableTarget } from "../../utils/keyboard";
-import { fetchUser, type User } from "../../api/client";
-import type { InboxItem, Issue } from "../../api/client";
+import type { Issue } from "../../api/client";
 import {
   StatusIcon,
   LabelBadge,
@@ -9,12 +8,17 @@ import {
   FilterButton,
   Heading,
   Text,
+  ViewContainer,
 } from "../ui";
 import { Bell, CheckCircle } from "lucide-react";
 import { formatRelativeTime } from "../../utils/format";
-import { type BacklogFilters, hasActiveFilters, matchesFilters } from "../Backlog/filters";
+import { type BacklogFilters, FILTERS_CODEC, hasActiveFilters, matchesFilters } from "../Backlog/filters";
+import FilterChips from "../Backlog/FilterChips";
 import { groupByIssue, buildChangeSummary, type IssueGroup } from "./inbox-utils";
 import { useKeyboardHandler } from "../../keyboard";
+import { useConfig, useInbox, useIssueList, useMarkInboxRead, useRefreshIssues, useSetConfigLabels, useUser } from "../../api/queries";
+import { useViewState } from "../../app/hooks";
+import { StatusBarSlot } from "../../app/StatusBarSlot";
 
 const IssueDetail = lazy(() => import("../IssueDetail/IssueDetail"));
 
@@ -30,39 +34,19 @@ function applyFilters(groups: IssueGroup[], issues: Issue[], filters: BacklogFil
 
 const GROUPS_PER_PAGE = 30;
 
-interface InboxProps {
-  items: InboxItem[];
-  lastRead: string;
-  issues: Issue[];
-  onMarkAllRead: () => void;
-  onRefresh: () => void;
-  prefix: string;
-  contributors: string[];
-  onConfigLabelsChange: (labels: Record<string, string>) => void;
-  filters: BacklogFilters;
-  onFiltersChange: (filters: BacklogFilters) => void;
-}
-
-export default function Inbox({
-  items,
-  lastRead,
-  issues,
-  onMarkAllRead,
-  onRefresh,
-  prefix,
-  contributors,
-  onConfigLabelsChange,
-  filters,
-  onFiltersChange,
-}: InboxProps) {
-  const [user, setUser] = useState<User | null>(null);
+export default function Inbox() {
+  const { items, lastRead } = useInbox();
+  const issues = useIssueList();
+  const onMarkAllRead = useMarkInboxRead();
+  const onRefresh = useRefreshIssues();
+  const { prefix, contributors } = useConfig();
+  const onConfigLabelsChange = useSetConfigLabels();
+  const [filters, onFiltersChange] = useViewState("exponential-inbox-filters", FILTERS_CODEC);
+  const user = useUser();
   const [visibleCount, setVisibleCount] = useState(GROUPS_PER_PAGE);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [keyboardNav, setKeyboardNav] = useState(false);
-  useEffect(() => {
-    fetchUser().then(setUser).catch(() => {});
-  }, []);
 
   const lastReadTime = lastRead ? new Date(lastRead).getTime() : 0;
 
@@ -170,10 +154,15 @@ export default function Inbox({
 
   return (
     <div className="flex h-full">
+      {hasActiveFilters(filters) && (
+        <StatusBarSlot>
+          <FilterChips filters={filters} onChange={onFiltersChange} />
+        </StatusBarSlot>
+      )}
       {/* Left panel — notification cards */}
-      <div className="w-80 xl:w-96 shrink-0 flex flex-col border-r border-[var(--color-border-subtle)]">
-        {/* Header */}
-        <TopBar
+      <ViewContainer
+        className="w-80 xl:w-96 shrink-0 border-r border-[var(--color-border-subtle)]"
+        topBar={<TopBar
           className="pl-4"
           left={
             <Heading title="Notifications" />
@@ -193,86 +182,83 @@ export default function Inbox({
               )}
             </div>
           }
-        />
-
-        {/* Card list */}
-        <div className="flex-1 scroll-stable">
-          {filteredGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
-              <Bell className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />
-              <div className="text-center">
-                <Heading as="p" title={hasActiveFilters(filters) ? "No matching notifications" : "All caught up"} />
-                <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                  {hasActiveFilters(filters) ? "Try adjusting your filters." : "No new notifications."}
-                </p>
-              </div>
+        />}
+      >
+        {filteredGroups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 px-6">
+            <Bell className="w-10 h-10 text-[var(--color-text-muted)] opacity-20" />
+            <div className="text-center">
+              <Heading as="p" title={hasActiveFilters(filters) ? "No matching notifications" : "All caught up"} />
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                {hasActiveFilters(filters) ? "Try adjusting your filters." : "No new notifications."}
+              </p>
             </div>
-          ) : (
-            <>
-              {visibleGroups.map((group, gi) => {
-                const issue = issues.find(it => it.id === group.issueId);
-                const isSelected = group.issueId === effectiveSelectedId;
-                const isFocused = keyboardNav && gi === effectiveFocusedIndex;
+          </div>
+        ) : (
+          <>
+            {visibleGroups.map((group, gi) => {
+              const issue = issues.find(it => it.id === group.issueId);
+              const isSelected = group.issueId === effectiveSelectedId;
+              const isFocused = keyboardNav && gi === effectiveFocusedIndex;
 
-                return (
-                  <div
-                    key={group.issueId}
-                    data-inbox-group={group.issueId}
-                    onClick={() => {
-                      selectGroup(group.issueId);
-                      setFocusedIndex(gi);
-                      setKeyboardNav(false);
-                    }}
-                    className={`
-                      px-4 py-2.5 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)]
-                      ${isSelected || isFocused
-                        ? "bg-[var(--color-surface-2)]"
-                        : "hover:bg-[var(--color-hover-surface)]"
-                      }
-                    `.trim().replace(/\s+/g, " ")}
-                  >
-                    {/* Top row: status + issue ID … time */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      {issue && <StatusIcon status={issue.status} size={13} isInferred={issue.is_inferred} />}
-                      <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">
-                        {group.issueId}
-                      </span>
-                      <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0">
-                        {formatRelativeTime(new Date(group.latestAt).toISOString())}
-                      </span>
-                    </div>
-                    {/* Title */}
-                    <div className={`text-sm truncate mt-1 ${isSelected ? "text-[var(--color-text-primary)] font-medium" : "text-[var(--color-text-primary)]"}`}>
-                      {group.issueTitle}
-                    </div>
-                    {/* Labels */}
-                    {issue?.labels && issue.labels.length > 0 && (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        {issue.labels.slice(0, 2).map(label => (
-                          <LabelBadge key={label} label={label} />
-                        ))}
-                        {issue.labels.length > 2 && (
-                          <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{issue.labels.length - 2}</span>
-                        )}
-                      </div>
-                    )}
+              return (
+                <div
+                  key={group.issueId}
+                  data-inbox-group={group.issueId}
+                  onClick={() => {
+                    selectGroup(group.issueId);
+                    setFocusedIndex(gi);
+                    setKeyboardNav(false);
+                  }}
+                  className={`
+                    px-4 py-2.5 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)]
+                    ${isSelected || isFocused
+                      ? "bg-[var(--color-surface-2)]"
+                      : "hover:bg-[var(--color-hover-surface)]"
+                    }
+                  `.trim().replace(/\s+/g, " ")}
+                >
+                  {/* Top row: status + issue ID … time */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    {issue && <StatusIcon status={issue.status} size={13} isInferred={issue.is_inferred} />}
+                    <span className="font-mono text-xs text-[var(--color-text-muted)] shrink-0">
+                      {group.issueId}
+                    </span>
+                    <span className="ml-auto text-xs tabular-nums text-[var(--color-text-muted)] shrink-0">
+                      {formatRelativeTime(new Date(group.latestAt).toISOString())}
+                    </span>
                   </div>
-                );
-              })}
-              {hasMore && (
-                <div className="flex justify-center py-3">
-                  <button
-                    onClick={() => setVisibleCount(c => c + GROUPS_PER_PAGE)}
-                    className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
-                  >
-                    Load more ({filteredGroups.length - visibleCount} remaining)
-                  </button>
+                  {/* Title */}
+                  <div className={`text-sm truncate mt-1 ${isSelected ? "text-[var(--color-text-primary)] font-medium" : "text-[var(--color-text-primary)]"}`}>
+                    {group.issueTitle}
+                  </div>
+                  {/* Labels */}
+                  {issue?.labels && issue.labels.length > 0 && (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {issue.labels.slice(0, 2).map(label => (
+                        <LabelBadge key={label} label={label} />
+                      ))}
+                      {issue.labels.length > 2 && (
+                        <span className="text-xs text-[var(--color-text-muted)] shrink-0">+{issue.labels.length - 2}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+              );
+            })}
+            {hasMore && (
+              <div className="flex justify-center py-3">
+                <button
+                  onClick={() => setVisibleCount(c => c + GROUPS_PER_PAGE)}
+                  className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+                >
+                  Load more ({filteredGroups.length - visibleCount} remaining)
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </ViewContainer>
 
       {/* Right panel — change summary + issue detail */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

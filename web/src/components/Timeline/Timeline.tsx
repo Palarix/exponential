@@ -6,6 +6,8 @@ import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentComm
 import Tooltip from "../ui/Tooltip";
 import { TopBar, IconButton, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
+import { useIssueList } from "../../api/queries";
+import { useIssueClick } from "../../app/hooks";
 import {
   Plus,
   MessageSquareMore,
@@ -230,13 +232,9 @@ function describeIssueEvent(
   }
 }
 
-export default function Timeline({
-  issues,
-  onIssueClick,
-}: {
-  issues: Issue[];
-  onIssueClick?: (issue: Issue) => void;
-}) {
+export default function Timeline() {
+  const issues = useIssueList();
+  const onIssueClick = useIssueClick();
   const [rawEntries, setRawEntries] = useState<TimelineEntry[]>([]);
   const [enabledTypes, setEnabledTypes] = useState<Set<EventCategory>>(() => new Set(ALL_CATEGORIES));
   const [person, setPerson] = useState<string>("");

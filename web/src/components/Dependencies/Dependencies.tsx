@@ -6,6 +6,8 @@ import DepGraphView from './DepGraph';
 import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
 import { kindColor } from './dep-graph-utils';
 import { SearchInput } from '../ui/SearchInput';
+import { useIssueList } from '../../api/queries';
+import { useAppNav, useIssueClick } from '../../app/hooks';
 
 const KIND_LABELS: Record<string, string> = {
   blocks: 'Blocks',
@@ -28,14 +30,10 @@ const KIND_FILTER_OPTIONS = [
   { value: 'duplicated_by', label: 'Duplicated by' },
 ];
 
-interface DependenciesProps {
-  issues: Issue[];
-  onIssueClick?: (issue: Issue) => void;
-  focusIssueId?: string | null;
-  onFocusChange?: (issueId: string | null) => void;
-}
-
-export default function Dependencies({ issues, onIssueClick, focusIssueId, onFocusChange }: DependenciesProps) {
+export default function Dependencies() {
+  const issues = useIssueList();
+  const onIssueClick = useIssueClick();
+  const { depFocusId: focusIssueId, setDepFocusId: onFocusChange } = useAppNav();
   const [showCompleted, setShowCompleted] = useState(() => localStorage.getItem('exponential-deps-show-completed') === 'true');
   const [kindFilter, setKindFilter] = useState('');
   const [search, setSearch] = useState('');

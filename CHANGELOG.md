@@ -59,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Web UI restructured from a single `App` component into `Layout` → `Sidebar` + `ViewRouter` → views. Views no longer receive props: they read issues, config, inbox and user from TanStack Query hooks, whose cache is refreshed by server events, and own their own tab, filter and sort state. Saved filters, sort and tabs keep their existing localStorage keys. Filter chips are rendered into the status bar by each view, the sidebar, routes, titles and `g` shortcuts all come from one `VIEWS` registry, and the Inbox list now uses `ViewContainer` (xpo-de3808)
+- Issue detail prev/next (`j`/`k`) now walks the order of the view the issue was opened from (Issues, Board, My Issues or a cycle), instead of always the Issues list; deep links and other views use the default sorted order (xpo-de3808)
 - Backlog rows and status headers no longer draw separator lines and have rounded backgrounds (xpo-c26f7b)
 - All TopBar views except Inbox render through a shared `ViewContainer` shell (TopBar, optional header bars, and a full-width content area with the scrollbar at the view's right edge; width-limited views center a `max-w-7xl` or issue-detail column inside it). Scroll areas that change while visible (views, sidebars, MergeView panes and diffs, pickers, the command palette, scrolling menus) use a new `scroll-stable` utility: a forced, transparent track with a symmetric `both-edges` gutter, so content no longer shifts when a scrollbar appears in Chrome or Safari. The global `.overflow-y-auto { overflow-y: scroll }` override is gone, so `overflow-y-auto` behaves normally again (xpo-c26f7b)
 - Links are bidirectional: `A blocks B` also means `B blocked_by A`, whichever issue stores it. `show` (MCP, CLI, API, web) lists derived inverse links with `derived: true`. `start` and `xpo drive` honour blockers stored on the other issue. `link` reports a relationship already stored from the other side as existing. `update { links }` treats the list as the issue's full relationship set, so a link left out is removed from whichever side stores it (xpo-9d6609)
@@ -95,6 +97,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Switching Backlog tabs now loads that tab's saved filters instead of carrying over the previous tab's filters and overwriting the new tab's saved ones (xpo-0c0556)
+- Clicking a label on the Labels page no longer briefly sets an invalid `#/backlog` URL, and the applied label filter is saved like a manually chosen one (xpo-787e7b)
+- Issue activity timeline no longer logs a React missing-key warning for updates that change several fields (xpo-1657f1)
 - MergeView diff panes no longer jump sideways when expanding or collapsing diffs; scrolling menus (Assignee, Cycle, filter submenus) now actually get the stable gutter their undefined `scrollbar-gutter-both` class intended (xpo-c26f7b)
 - Backlog right-click context menu no longer stops working after the list was empty (at load, or after a search with no matches was cleared) (xpo-164038)
 - `merge` with `strategy: ff` no longer adds a separate `xpo: merge <id>` commit: the issue database and artifacts are amended into the fast-forwarded tip, and an explicit `commit_message` rewords it. The `merge` tool, the mcp-tools reference and skill step 9 now tell agents to omit `strategy` unless the user asks for one. Re-run `xpo init` in other projects to refresh installed skill copies (xpo-c16e28)

@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { fetchUser, type User } from "../../api/client";
+import { useState, useMemo, useCallback } from "react";
 import type { Issue } from "../../api/types";
 import {
   Avatar,
@@ -21,9 +20,14 @@ import { User as UserIcon } from "lucide-react";
 import { extractEmail, formatShortDate } from "../../utils/format";
 import { isEditableTarget } from "../../utils/keyboard";
 import { useAllLabels } from "../../hooks/useLabels";
-import { type BacklogFilters, hasActiveFilters, matchesFilters, matchesSearch } from "../Backlog/filters";
+import { FILTERS_CODEC, hasActiveFilters, matchesFilters, matchesSearch } from "../Backlog/filters";
+import FilterChips from "../Backlog/FilterChips";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
+import { useConfig, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels, useUser } from "../../api/queries";
+import { useIssueClick, useIssueNavOrder, useViewState } from "../../app/hooks";
+import { stringCodec } from "../../app/view-state-utils";
+import { StatusBarSlot } from "../../app/StatusBarSlot";
 
 export type MyIssuesTab = "assigned" | "created";
 
@@ -32,40 +36,20 @@ const TAB_CONFIGS: Record<MyIssuesTab, { label: string }> = {
   created: { label: "Created by Me" },
 };
 
-interface MyIssuesProps {
-  issues: Issue[];
-  onIssueClick: (issue: Issue) => void;
-  activeTab: MyIssuesTab;
-  onTabChange: (tab: MyIssuesTab) => void;
-  filters: BacklogFilters;
-  onFiltersChange: (filters: BacklogFilters) => void;
-  onRefresh?: () => void;
-  contributors?: string[];
-  onConfigLabelsChange?: (labels: Record<string, string>) => void;
-  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
-}
+const TAB_CODEC = stringCodec<MyIssuesTab>("assigned");
 
-export default function MyIssues({
-  issues,
-  onIssueClick,
-  activeTab,
-  onTabChange,
-  filters,
-  onFiltersChange,
-  onRefresh,
-  contributors = [],
-  onConfigLabelsChange,
-  patchIssue,
-}: MyIssuesProps) {
-  const [user, setUser] = useState<User | null>(null);
+export default function MyIssues() {
+  const issues = useIssueList();
+  const onIssueClick = useIssueClick();
+  const onRefresh = useRefreshIssues();
+  const { contributors } = useConfig();
+  const onConfigLabelsChange = useSetConfigLabels();
+  const patchIssue = usePatchIssue();
+  const user = useUser();
+  const [activeTab, onTabChange] = useViewState("exponential-my-issues-tab", TAB_CODEC);
+  const [filters, onFiltersChange] = useViewState(`exponential-my-issues-filters-${activeTab}`, FILTERS_CODEC);
   const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
   const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    fetchUser()
-      .then(setUser)
-      .catch(() => {});
-  }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isEditableTarget(e)) return;
@@ -105,109 +89,118 @@ export default function MyIssues({
         : tabIssues,
     [tabIssues, filters, search, searching],
   );
+  const navOrder = useMemo(() => filtered.map((i) => i.id), [filtered]);
+  useIssueNavOrder(navOrder);
 
   return (
-    <ViewContainer
-      scroll={filtered.length > 0}
-      topBar={
-        <TopBar
-          left={
-            <Tabs
-              items={TAB_CONFIGS}
-              activeId={activeTab}
-              onChange={onTabChange}
-              keyboardNavigationEnabled={!contextMenu}
-            />
-          }
-          center={
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Filter issues..."
-              keyboardNavigationEnabled={!contextMenu}
-            />
-          }
-          right={
-            <div className="flex items-center gap-2">
-              <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} />
-              <CountBadge count={filtered.length} />
-            </div>
-          }
-        />
-      }
-    >
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={<UserIcon className="w-16 h-16" />}
-          title={
-            activeTab === "assigned"
-              ? "No issues assigned to you"
-              : "No issues created by you"
-          }
-          description={
-            searching || hasActiveFilters(filters)
-              ? "Try adjusting your filters or search."
-              : activeTab === "assigned"
-                ? "Issues assigned to you will appear here."
-                : "Issues you've created will appear here."
-          }
-        />
-      ) : (
-        <>
-          {filtered.map((issue) => (
-            <div
-              key={issue.id}
-              onClick={() => onIssueClick(issue)}
-              onContextMenu={(e) => { e.preventDefault(); setContextMenu({ issueId: issue.id, x: e.clientX, y: e.clientY }); }}
-              className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-hover-surface)] group"
-            >
-              <PriorityIcon priority={issue.priority || 0} size={16} />
-              <CopyableId
-                id={issue.id}
-                className="text-xs w-24 text-left shrink-0 truncate tabular-nums"
-              />
-              <StatusIcon
-                status={issue.status}
-                size={14}
-                isInferred={issue.is_inferred}
-              />
-              <Text color="primary" truncate>
-                {issue.title}
-              </Text>
-              {issue.branch_stats && (
-                <BranchBadge stats={issue.branch_stats} />
-              )}
-              <div className="flex-1" />
-              {issue.labels?.map((label) => (
-                <LabelBadge key={label} label={label} />
-              ))}
-              {issue.assignee && <Avatar name={issue.assignee} size="sm" />}
-              <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
-                {formatShortDate(issue.updated_at)}
-              </span>
-            </div>
-          ))}
-        </>
+    <>
+      {hasActiveFilters(filters) && (
+        <StatusBarSlot>
+          <FilterChips filters={filters} onChange={onFiltersChange} />
+        </StatusBarSlot>
       )}
-
-      {contextMenu && onRefresh && (() => {
-        const ctxIssue = issues.find((i) => i.id === contextMenu.issueId);
-        if (!ctxIssue) return null;
-        return (
-          <ContextMenu
-            issue={ctxIssue}
-            issues={issues}
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onClose={() => setContextMenu(null)}
-            onRefresh={onRefresh}
-            allLabels={allKnownLabels}
-            contributors={contributors}
-            onConfigLabelsChange={onConfigLabelsChange}
-            patchIssue={patchIssue}
+      <ViewContainer
+        scroll={filtered.length > 0}
+        topBar={
+          <TopBar
+            left={
+              <Tabs
+                items={TAB_CONFIGS}
+                activeId={activeTab}
+                onChange={onTabChange}
+                keyboardNavigationEnabled={!contextMenu}
+              />
+            }
+            center={
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Filter issues..."
+                keyboardNavigationEnabled={!contextMenu}
+              />
+            }
+            right={
+              <div className="flex items-center gap-2">
+                <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} />
+                <CountBadge count={filtered.length} />
+              </div>
+            }
           />
-        );
-      })()}
-    </ViewContainer>
+        }
+      >
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={<UserIcon className="w-16 h-16" />}
+            title={
+              activeTab === "assigned"
+                ? "No issues assigned to you"
+                : "No issues created by you"
+            }
+            description={
+              searching || hasActiveFilters(filters)
+                ? "Try adjusting your filters or search."
+                : activeTab === "assigned"
+                  ? "Issues assigned to you will appear here."
+                  : "Issues you've created will appear here."
+            }
+          />
+        ) : (
+          <>
+            {filtered.map((issue) => (
+              <div
+                key={issue.id}
+                onClick={() => onIssueClick(issue)}
+                onContextMenu={(e) => { e.preventDefault(); setContextMenu({ issueId: issue.id, x: e.clientX, y: e.clientY }); }}
+                className="flex items-center gap-3 px-5 h-10 border-b border-[var(--color-border-subtle)] cursor-pointer transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-hover-surface)] group"
+              >
+                <PriorityIcon priority={issue.priority || 0} size={16} />
+                <CopyableId
+                  id={issue.id}
+                  className="text-xs w-24 text-left shrink-0 truncate tabular-nums"
+                />
+                <StatusIcon
+                  status={issue.status}
+                  size={14}
+                  isInferred={issue.is_inferred}
+                />
+                <Text color="primary" truncate>
+                  {issue.title}
+                </Text>
+                {issue.branch_stats && (
+                  <BranchBadge stats={issue.branch_stats} />
+                )}
+                <div className="flex-1" />
+                {issue.labels?.map((label) => (
+                  <LabelBadge key={label} label={label} />
+                ))}
+                {issue.assignee && <Avatar name={issue.assignee} size="sm" />}
+                <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
+                  {formatShortDate(issue.updated_at)}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
+        {contextMenu && (() => {
+          const ctxIssue = issues.find((i) => i.id === contextMenu.issueId);
+          if (!ctxIssue) return null;
+          return (
+            <ContextMenu
+              issue={ctxIssue}
+              issues={issues}
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onClose={() => setContextMenu(null)}
+              onRefresh={onRefresh}
+              allLabels={allKnownLabels}
+              contributors={contributors}
+              onConfigLabelsChange={onConfigLabelsChange}
+              patchIssue={patchIssue}
+            />
+          );
+        })()}
+      </ViewContainer>
+    </>
   );
 }

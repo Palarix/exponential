@@ -48,12 +48,12 @@ import {
 } from "lucide-react";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
-import { computeAppendKey, SORT_OPTIONS } from "../../utils/sort";
-import type { SortKey } from "../../utils/sort";
+import { computeAppendKey, SORT_CODEC, SORT_OPTIONS, SORT_STATE_KEY } from "../../utils/sort";
 import { isTerminal } from "../../constants";
 import { buildChildrenByParent } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
-import { type BacklogFilters, hasActiveFilters, matchesFilters, matchesSearch } from "./filters";
+import { FILTERS_CODEC, hasActiveFilters, matchesFilters, matchesSearch } from "./filters";
+import FilterChips from "./FilterChips";
 import { expandedNodeIds } from "./backlog-row-utils";
 import { DragOverlayCard } from "./DndComponents";
 import { backlogCollision } from "./backlogCollision";
@@ -68,6 +68,9 @@ import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
 import { SearchInput } from "../ui/SearchInput";
+import { useConfig, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
+import { useAppNav, useIssueClick, useIssueNavOrder, useNavIntent, useViewState } from "../../app/hooks";
+import { StatusBarSlot } from "../../app/StatusBarSlot";
 
 export type Tab = "all" | "active" | "backlog" | "done";
 
@@ -164,39 +167,21 @@ function applyNestDOM(
   }
 }
 
-interface BacklogProps {
-  issues: Issue[];
-  onRefresh: () => void;
-  onIssueClick?: (issue: Issue) => void;
-  sortKey: SortKey;
-  onSortChange: (key: SortKey) => void;
-  onNavigationOrderChange?: (ids: string[]) => void;
-  activeTab: Tab;
-  onTabChange: (tab: Tab) => void;
-  contributors: string[];
-  onConfigLabelsChange?: (labels: Record<string, string>) => void;
-  onNewIssue?: () => void;
-  filters: BacklogFilters;
-  onFiltersChange: (filters: BacklogFilters) => void;
-  patchIssue?: (issueId: string, patch: Partial<Issue>) => void;
-}
-
-export default function Backlog({
-  issues,
-  onRefresh,
-  onIssueClick,
-  sortKey,
-  onSortChange,
-  onNavigationOrderChange,
-  activeTab,
-  onTabChange,
-  contributors,
-  onConfigLabelsChange,
-  onNewIssue,
-  filters,
-  onFiltersChange,
-  patchIssue,
-}: BacklogProps) {
+export default function Backlog() {
+  const issues = useIssueList();
+  const onRefresh = useRefreshIssues();
+  const onIssueClick = useIssueClick();
+  const { newIssue: onNewIssue } = useAppNav();
+  const { contributors } = useConfig();
+  const onConfigLabelsChange = useSetConfigLabels();
+  const patchIssue = usePatchIssue();
+  const [sortKey, onSortChange] = useViewState(SORT_STATE_KEY, SORT_CODEC);
+  const [activeTab, onTabChange] = useViewState<Tab>("backlog.tab", () => "all");
+  // Keyed per tab, so switching tabs loads that tab's saved filters (xpo-0c0556).
+  const [filters, onFiltersChange] = useViewState(`exponential-backlog-filters-${activeTab}`, FILTERS_CODEC);
+  useNavIntent("backlog", (intent) => {
+    if (intent.filters) onFiltersChange({ ...filters, ...intent.filters });
+  });
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     () => new Set(),
@@ -586,18 +571,12 @@ export default function Backlog({
     showGhosts,
   );
 
-  // Report navigation order to parent
-  const prevNavOrder = useRef<string>("");
-  useEffect(() => {
-    const ids = rows
-      .filter((r) => r.kind === "issue")
-      .map((r) => (r as { kind: "issue"; issue: Issue }).issue.id);
-    const key = ids.join(",");
-    if (key !== prevNavOrder.current) {
-      prevNavOrder.current = key;
-      onNavigationOrderChange?.(ids);
-    }
-  }, [rows, onNavigationOrderChange]);
+  // Visible order for IssueDetail's prev/next
+  const navOrder = useMemo(
+    () => rows.flatMap((r) => (r.kind === "issue" ? [r.issue.id] : [])),
+    [rows],
+  );
+  useIssueNavOrder(navOrder);
 
   // DnD state
   const isDndEnabled = sortKey === "manual";
@@ -1419,54 +1398,64 @@ export default function Backlog({
     el?.scrollIntoView({ block: "nearest" });
   }, [focusedIndex]);
 
+  const statusChips = hasActiveFilters(filters) && (
+    <StatusBarSlot>
+      <FilterChips filters={filters} onChange={onFiltersChange} />
+    </StatusBarSlot>
+  );
+
   if (issues.length === 0) {
     return (
-      <EmptyState
-        title="No issues yet"
-        description="Your backlog is empty. Create an issue to start tracking work for your project."
-        icon={
-          <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
-            <rect
-              x="30"
-              y="20"
-              width="100"
-              height="14"
-              rx="4"
-              stroke="var(--color-text-muted)"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-            />
-            <rect
-              x="30"
-              y="42"
-              width="100"
-              height="14"
-              rx="4"
-              stroke="var(--color-text-muted)"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-            />
-            <rect
-              x="30"
-              y="64"
-              width="100"
-              height="14"
-              rx="4"
-              stroke="var(--color-text-muted)"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
-            />
-            <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
-          </svg>
-        }
-        actionLabel="Create an issue"
-        onAction={onNewIssue}
-      />
+      <>
+        {statusChips}
+        <EmptyState
+          title="No issues yet"
+          description="Your backlog is empty. Create an issue to start tracking work for your project."
+          icon={
+            <svg width="160" height="120" viewBox="0 0 160 120" fill="none">
+              <rect
+                x="30"
+                y="20"
+                width="100"
+                height="14"
+                rx="4"
+                stroke="var(--color-text-muted)"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+              />
+              <rect
+                x="30"
+                y="42"
+                width="100"
+                height="14"
+                rx="4"
+                stroke="var(--color-text-muted)"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+              />
+              <rect
+                x="30"
+                y="64"
+                width="100"
+                height="14"
+                rx="4"
+                stroke="var(--color-text-muted)"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+              />
+              <circle cx="80" cy="100" r="2" fill="var(--color-text-muted)" />
+            </svg>
+          }
+          actionLabel="Create an issue"
+          onAction={onNewIssue}
+        />
+      </>
     );
   }
 
   return (
     <>
+      {statusChips}
       <DndContext
         sensors={sensors}
         collisionDetection={backlogCollision}

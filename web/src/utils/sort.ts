@@ -1,5 +1,6 @@
 import { generateKeyBetween } from 'fractional-indexing';
 import type { Issue } from '../api/types';
+import { stringCodec } from '../app/view-state-utils';
 
 export type SortKey = 'manual' | 'priority' | 'created' | 'updated' | 'title' | 'estimate';
 
@@ -11,6 +12,10 @@ export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'title', label: 'Title' },
   { value: 'estimate', label: 'Estimate' },
 ];
+
+/** localStorage key and codec for the Backlog sort, read through `useViewState`. */
+export const SORT_STATE_KEY = 'exponential-sort';
+export const SORT_CODEC = stringCodec<SortKey>('manual');
 
 export const STATUS_ORDER = ['BACKLOG', 'PLANNED', 'DOING', 'BLOCKED', 'DONE', 'CANCELED', 'DUPLICATE'];
 
