@@ -20,7 +20,7 @@ import {
   type DragEndEvent,
   type DragMoveEvent,
 } from "@dnd-kit/core";
-import { createIssue, addDraft, fetchCycles } from "../../api/client";
+import { createIssue, addDraft } from "../../api/client";
 import type { Issue } from "../../api/client";
 import {
   EmptyState,
@@ -68,7 +68,7 @@ import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
 import { SearchInput } from "../ui/SearchInput";
-import { useConfig, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
+import { useConfig, useCycles, useIssueList, usePatchIssue, useRefreshIssues, useSetConfigLabels } from "../../api/queries";
 import { useAppNav, useIssueClick, useIssueNavOrder, useNavIntent, useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
 
@@ -212,7 +212,8 @@ export default function Backlog() {
     x: number;
     y: number;
   } | null>(null);
-  const [cycleMap, setCycleMap] = useState<Map<string, number>>(new Map());
+  const { cycles } = useCycles();
+  const cycleMap = useMemo(() => new Map(cycles.map((c) => [c.id, c.number])), [cycles]);
   const [showStoryPoints, setShowStoryPoints] = useState(
     () => localStorage.getItem("exponential-backlog-show-points") === "true",
   );
@@ -283,16 +284,6 @@ export default function Backlog() {
   const listRef = useRef<HTMLDivElement>(null);
   const inlineRef = useRef<HTMLInputElement>(null);
   const defaultLabels = useContext(DefaultLabelsContext);
-
-  useEffect(() => {
-    fetchCycles()
-      .then((data) => {
-        if (data.enabled && data.cycles) {
-          setCycleMap(new Map(data.cycles.map((c) => [c.id, c.number])));
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const handleInlineCreate = useCallback(
     async (status: string, title: string) => {

@@ -256,3 +256,17 @@ export function parseDiffByFile(diff: string): Map<string, string[]> {
   }
   return result;
 }
+
+export type DiffFreshness = "fresh" | "refreshing" | "failed";
+
+/**
+ * Whether the polled uncommitted diff on screen is current. Timestamps are
+ * TanStack's `dataUpdatedAt` / `errorUpdatedAt` (0 = never) and when the user
+ * entered the uncommitted view; routine polls after entry never read as
+ * "refreshing", so the indicator doesn't flicker every 3s.
+ */
+export function diffFreshness(t: { dataUpdatedAt: number; errorUpdatedAt: number; enteredAt: number }): DiffFreshness {
+  if (t.errorUpdatedAt > t.dataUpdatedAt) return "failed";
+  if (t.dataUpdatedAt < t.enteredAt) return "refreshing";
+  return "fresh";
+}

@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { fetchCycles, fetchCycleProgress } from '../../api/client';
-import type { Issue, Cycle, CycleProgressDay } from '../../api/client';
+import { useMemo } from 'react';
+import type { Issue, Cycle } from '../../api/client';
 import { formatShortDate } from '../../utils/format';
 import { StatusIcon, TopBar, Heading, Text, ViewContainer } from '../ui';
 import { UserRound } from "lucide-react";
-import { useIssueList } from '../../api/queries';
+import { useCycleProgress, useCycles, useIssueList } from '../../api/queries';
 import { useAppNav, useIssueClick, useIssueNavOrder } from '../../app/hooks';
 
 // --- Timeline Index View ---
@@ -211,13 +210,7 @@ function CyclesTimeline({ cycles, issues, onSelect }: { cycles: Cycle[]; issues:
 // --- Progress Chart ---
 
 function ProgressChart({ cycleId }: { cycleId: string }) {
-  const [days, setDays] = useState<CycleProgressDay[]>([]);
-
-  useEffect(() => {
-    fetchCycleProgress(cycleId)
-      .then(data => setDays(data.days || []))
-      .catch(() => {});
-  }, [cycleId]);
+  const days = useCycleProgress(cycleId);
 
   if (days.length < 2) return null;
 
@@ -527,25 +520,7 @@ export default function Cycles() {
   const issues = useIssueList();
   const onIssueClick = useIssueClick();
   const { cycleId: selectedCycleId, setCycleId: onCycleSelect } = useAppNav();
-  const [cycles, setCycles] = useState<Cycle[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchCycles()
-      .then(data => {
-        if (data.enabled && data.cycles) setCycles(data.cycles);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetchCycles()
-      .then(data => {
-        if (data.enabled && data.cycles) setCycles(data.cycles);
-      })
-      .catch(() => {});
-  }, [issues]);
+  const { cycles, isPending: loading } = useCycles();
 
   const selectedCycle = selectedCycleId ? cycles.find(c => c.id === selectedCycleId) ?? null : null;
 

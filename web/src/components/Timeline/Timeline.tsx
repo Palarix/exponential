@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { fetchTimeline, fetchCommitDetail } from "../../api/client";
-import type { TimelineEntry, Issue, CommitDetail } from "../../api/client";
+import type { TimelineEntry, Issue } from "../../api/client";
 import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentCommentAuthor } from "../../utils/format";
 import Tooltip from "../ui/Tooltip";
 import { TopBar, IconButton, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
-import { useIssueList } from "../../api/queries";
+import { useCommitDetail, useIssueList, useTimeline } from "../../api/queries";
 import { useIssueClick } from "../../app/hooks";
 import {
   Plus,
@@ -232,28 +231,17 @@ function describeIssueEvent(
   }
 }
 
+const NO_ENTRIES: TimelineEntry[] = [];
+
 export default function Timeline() {
   const issues = useIssueList();
   const onIssueClick = useIssueClick();
-  const [rawEntries, setRawEntries] = useState<TimelineEntry[]>([]);
   const [enabledTypes, setEnabledTypes] = useState<Set<EventCategory>>(() => new Set(ALL_CATEGORIES));
   const [person, setPerson] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
   const [limit, setLimit] = useState(100);
-
-  const load = useCallback(async () => {
-    try {
-      const data = await fetchTimeline(limit);
-      setRawEntries(data ?? []);
-    } finally {
-      setLoading(false);
-    }
-  }, [limit]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data, isPending: loading } = useTimeline(limit);
+  const rawEntries = data ?? NO_ENTRIES;
 
   const allEnabled = enabledTypes.size === ALL_CATEGORIES.size;
   const contributors = useMemo(() => extractContributors(rawEntries), [rawEntries]);
@@ -629,14 +617,13 @@ function DayGroup({
 }
 
 function CommitSHA({ sha }: { sha: string }) {
-  const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { data: detail, isLoading: loading } = useCommitDetail(sha, open);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  const handleClick = async (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (open) { setOpen(false); return; }
     if (btnRef.current) {
@@ -653,15 +640,6 @@ function CommitSHA({ sha }: { sha: string }) {
       setPos({ top, left });
     }
     setOpen(true);
-    if (!detail) {
-      setLoading(true);
-      try {
-        const d = await fetchCommitDetail(sha);
-        setDetail(d);
-      } finally {
-        setLoading(false);
-      }
-    }
   };
 
   useEffect(() => {

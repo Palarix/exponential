@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useEffect, useContext, useRef } from "react";
-import { addDraft, startWork, ApiError, fetchCycles } from "../../api/client";
-import type { Issue, Cycle } from "../../api/client";
+import { useState, useMemo, useCallback, useContext, useRef } from "react";
+import { addDraft, startWork, ApiError } from "../../api/client";
+import type { Issue } from "../../api/client";
+import { useCycles } from "../../api/queries";
 import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
@@ -59,7 +60,7 @@ export default function PropertySidebar({
   const [addRelSearch, setAddRelSearch] = useState("");
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
-  const [cycles, setCycles] = useState<Cycle[]>([]);
+  const { cycles } = useCycles();
   const defaultLabels = useContext(DefaultLabelsContext);
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
@@ -67,12 +68,6 @@ export default function PropertySidebar({
     doneCount: number;
     children: { id: string; title: string; status: string }[];
   } | null>(null);
-
-  useEffect(() => {
-    fetchCycles().then(data => {
-      if (data.enabled && data.cycles) setCycles(data.cycles);
-    }).catch(() => {});
-  }, []);
 
   const handleStartWork = useCallback(async () => {
     setStarting(true);

@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import type { Issue, Cycle } from "../../api/client";
-import { addDraft, fetchCycles } from "../../api/client";
+import type { Issue } from "../../api/client";
+import { addDraft } from "../../api/client";
+import { useCycles } from "../../api/queries";
 import LabelPicker from "./LabelPicker";
 import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
@@ -80,15 +81,9 @@ export default function ContextMenu({
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
-  const [cycles, setCycles] = useState<Cycle[]>([]);
+  const { cycles } = useCycles();
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-
-  useEffect(() => {
-    fetchCycles().then(data => {
-      if (data.enabled && data.cycles) setCycles(data.cycles);
-    }).catch(() => {});
-  }, []);
 
   const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
 

@@ -1,5 +1,5 @@
-import { useContext, useEffect, useMemo, useState } from "react";
-import { fetchActivity, fetchMetrics, type ActivityEvent, type AttentionItem, type PulseMetrics } from "../../api/client";
+import { useContext, useMemo, useState } from "react";
+import type { AttentionItem } from "../../api/client";
 import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar, ViewContainer } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
@@ -10,7 +10,7 @@ import { SECTION_ICONS } from "./sectionIcons";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
-import { useIssueList } from "../../api/queries";
+import { useActivity, useIssueList, useMetrics } from "../../api/queries";
 import { useAppNav, useIssueClick } from "../../app/hooks";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
 
@@ -66,22 +66,8 @@ export default function Dashboard() {
   const [labelFilter, setLabelFilter] = useState<DistFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<DistFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<DistFilter>("all");
-  const [metrics, setMetrics] = useState<PulseMetrics | null>(null);
-  const [activity, setActivity] = useState<ActivityEvent[]>([]);
-
-  useEffect(() => {
-    const load = () => {
-      fetchMetrics().then(setMetrics).catch(() => {});
-      fetchActivity().then(setActivity).catch(() => {});
-    };
-    load();
-    const interval = setInterval(load, 30_000);
-    const onFocus = () => load();
-    window.addEventListener("focus", onFocus);
-    return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
-  }, [issues]);
-
-
+  const metrics = useMetrics();
+  const activity = useActivity();
 
   const statusDistribution = useMemo(() => {
     const filtered = statusFilter === "active" ? issues.filter((i) => !isTerminal(i.status)) : issues;

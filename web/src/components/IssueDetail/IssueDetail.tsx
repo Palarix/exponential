@@ -2,8 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
-import { addDraft, fetchArtifactContent, fetchLocalWorktree, ApiError } from "../../api/client";
-import type { Issue, LocalWorktree } from "../../api/client";
+import { addDraft, ApiError } from "../../api/client";
+import type { Issue } from "../../api/client";
+import { useArtifact, useLocalWorktree } from "../../api/queries";
 import { StatusIcon, CopyableId, useToast, TopBar, Text, VSCodeIcon, ViewContainer } from "../ui";
 import Tooltip from "../ui/Tooltip";
 import { iconButtonClass } from "../ui/icon-button-utils";
@@ -70,10 +71,10 @@ export default function IssueDetail({
   const [popoverIndex, setPopoverIndex] = useState(0);
   const [mergeViewOpen, setMergeViewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("details");
-  const [artifactContent, setArtifactContent] = useState<
-    Record<string, string>
-  >({});
-  const [worktree, setWorktree] = useState<LocalWorktree | null>(null);
+  const artifactFile = activeTab === "spec" ? "spec.md" : "walkthrough.md";
+  const artifact = useArtifact(issue, artifactFile, activeTab !== "details");
+  // Re-checked on status changes: `start` creates the worktree, `merge` removes it.
+  const worktree = useLocalWorktree(issue);
   const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -89,7 +90,6 @@ export default function IssueDetail({
     setOptimisticTitle(null);
     setOptimisticDescription(null);
     setActiveTab("details");
-    setArtifactContent({});
   }, [issue.id]);
 
   useEffect(() => {
@@ -106,30 +106,6 @@ export default function IssueDetail({
       setOptimisticDescription(null);
     }
   }, [issue.description, optimisticDescription]);
-
-  useEffect(() => {
-    setArtifactContent({});
-  }, [issue.updated_at]);
-
-  // Re-check on status changes: `start` creates the worktree, `merge` removes it.
-  useEffect(() => {
-    let cancelled = false;
-    fetchLocalWorktree(issue.id)
-      .then((wt) => { if (!cancelled) setWorktree(wt); })
-      .catch(() => { if (!cancelled) setWorktree(null); });
-    return () => { cancelled = true; };
-  }, [issue.id, issue.status]);
-
-  useEffect(() => {
-    if (activeTab === "details") return;
-    const filename = activeTab === "spec" ? "spec.md" : "walkthrough.md";
-    if (artifactContent[filename] !== undefined) return;
-    fetchArtifactContent(issue.id, filename)
-      .then((content) =>
-        setArtifactContent((prev) => ({ ...prev, [filename]: content })),
-      )
-      .catch(() => setArtifactContent((prev) => ({ ...prev, [filename]: "" })));
-  }, [activeTab, issue.id, issue.updated_at, artifactContent]);
 
   const saveDraft = useCallback(
     async (type: string, payload: unknown) => {
@@ -631,9 +607,7 @@ export default function IssueDetail({
 
                 {(activeTab === "spec" || activeTab === "walkthrough") &&
                   (() => {
-                    const filename =
-                      activeTab === "spec" ? "spec.md" : "walkthrough.md";
-                    const content = artifactContent[filename];
+                    const content = artifact.isPending ? undefined : (artifact.data ?? "");
                     return (
                       <div className="mt-6 prose-exponential">
                         {content === undefined ? (

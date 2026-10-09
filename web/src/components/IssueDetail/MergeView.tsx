@@ -1,30 +1,25 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import {
   buildFileTree,
   flattenSingleChildDirs,
   buildSplitLines,
   addLineNumbers,
   parseDiffByFile,
+  diffFreshness,
 } from "./diff-utils";
 import type { FileTreeNode, SplitLine } from "./diff-utils";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
+import { mergeIssue, addDraft, ApiError } from "../../api/client";
+import type { Issue, CommitInfo } from "../../api/client";
 import {
-  fetchIssueCommits,
-  fetchIssueDiff,
-  fetchCommitDiff,
-  fetchMergeability,
-  mergeIssue,
-  addDraft,
-  fetchArtifactContent,
-  ApiError,
-} from "../../api/client";
-import type {
-  Issue,
-  CommitInfo,
-  Mergeability,
-} from "../../api/client";
+  useArtifact,
+  useCommitDiff,
+  useIssueCommits,
+  useIssueDiff,
+  useMergeability,
+} from "../../api/queries";
 import {
   GitCommitVertical,
   GitMerge,
@@ -44,6 +39,67 @@ import {
 import { StatusIcon, Avatar, Text, TopBar, ViewContainer } from "../ui";
 import Modal from "../ui/Modal";
 import { formatRelativeTime } from "../../utils/format";
+import { useSpinOnce, useSpinner } from "../../hooks/useSpinner";
+import { firstQueryError } from "../../api/query-utils";
+import { useToast } from "../ui/ToastContext";
+
+const NO_COMMITS: CommitInfo[] = [];
+
+const FLASH_MS = 1500;
+
+/**
+ * Owns its spin state so starting and stopping the spin re-renders only this
+ * button, not the whole diff. A click always gets at least one full turn, then
+ * briefly shows a check, or an alert plus an error toast; an automatic refresh
+ * only spins if it's slow enough to notice, and reports nothing.
+ */
+function RefreshButton({ onRefresh, autoRefreshing }: { onRefresh: () => Promise<string | null>; autoRefreshing: boolean }) {
+  const showToast = useToast();
+  const [flash, setFlash] = useState<"success" | "failure" | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const { spinning: clickSpin, track } = useSpinOnce<string | null>((result) => {
+    const error = result.ok ? result.value : "Failed to load";
+    setFlash(error ? "failure" : "success");
+    if (error) showToast(`Couldn't refresh: ${error}`, { variant: "error" });
+    flashTimer.current = setTimeout(() => setFlash(null), FLASH_MS);
+  });
+  const autoSpin = useSpinner(autoRefreshing, 150);
+  const spinning = clickSpin || autoSpin;
+
+  const handleClick = () => {
+    clearTimeout(flashTimer.current);
+    setFlash(null);
+    track(onRefresh);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      title={flash === "success" ? "Refreshed" : flash === "failure" ? "Refresh failed" : "Refresh"}
+      aria-busy={spinning}
+      className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+    >
+      {flash === "success" && !spinning ? (
+        <Check size={14} className="text-[var(--color-success)]" />
+      ) : flash === "failure" && !spinning ? (
+        <AlertTriangle size={14} className="text-[var(--color-error)]" />
+      ) : (
+        <RefreshCw size={14} className={spinning ? "animate-spin" : undefined} />
+      )}
+    </button>
+  );
+}
+
+function StaleDiffNotice({ asOf }: { asOf: number }) {
+  const time = new Date(asOf).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const text = `Couldn't refresh, showing changes as of ${time}`;
+  return (
+    <span role="status" title={text} className="mr-2 flex items-center gap-1.5 min-w-0 text-xs text-[var(--color-warning)]">
+      <AlertTriangle size={12} className="shrink-0" />
+      <span className="truncate">{text}</span>
+    </span>
+  );
+}
 
 interface MergeViewProps {
   issue: Issue;
@@ -63,12 +119,6 @@ export default function MergeView({
     (a) => a.artifact_type === "walkthrough",
   );
 
-  const [commits, setCommits] = useState<CommitInfo[]>([]);
-  const [diff, setDiff] = useState("");
-  const [mergeability, setMergeability] = useState<Mergeability | null>(null);
-  const [walkthroughContent, setWalkthroughContent] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>(
     hasWalkthrough ? "walkthrough" : "files",
   );
@@ -77,13 +127,9 @@ export default function MergeView({
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFilter, setFileFilter] = useState("");
   const [diffScope, setDiffScope] = useState<DiffScope>("all");
-  const [uncommittedDiff, setUncommittedDiff] = useState("");
-  const [uncommittedLoading, setUncommittedLoading] = useState(false);
 
   // Commits tab
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
-  const [commitDiffText, setCommitDiffText] = useState("");
-  const [commitDiffLoading, setCommitDiffLoading] = useState(false);
 
   // Conversation tab
   const [newComment, setNewComment] = useState("");
@@ -101,53 +147,69 @@ export default function MergeView({
 
   const bs = issue.branch_stats;
 
-  const refreshData = useCallback(() => {
-    setLoading(true);
-    setError(null);
+  const commitsQuery = useIssueCommits(issue);
+  const diffQuery = useIssueDiff(issue);
+  const mergeabilityQuery = useMergeability(issue);
+  const walkthroughQuery = useArtifact(issue, "walkthrough.md", !!hasWalkthrough);
+  // Polls only while the uncommitted diff is on screen.
+  const pollUncommitted = diffScope === "uncommitted" && activeTab === "files";
+  const uncommittedQuery = useIssueDiff(issue, "uncommitted", pollUncommitted ? 3000 : false);
+  // When the uncommitted view was last entered; data older than this is shown as refreshing.
+  const [enteredAt, setEnteredAt] = useState(0);
+  const freshness = diffFreshness({
+    dataUpdatedAt: uncommittedQuery.dataUpdatedAt,
+    errorUpdatedAt: uncommittedQuery.errorUpdatedAt,
+    enteredAt,
+  });
+
+  // Entering the uncommitted view refetches at once; the 3s poll only covers later changes.
+  const showView = (tab: Tab, scope: DiffScope) => {
+    if (tab === "files" && scope === "uncommitted" && !pollUncommitted) {
+      setEnteredAt(Date.now());
+      uncommittedQuery.refetch();
+    }
+    setActiveTab(tab);
+    setDiffScope(scope);
+  };
+  const commitDiffQuery = useCommitDiff(issue.id, selectedCommit);
+
+  const commits = commitsQuery.data ?? NO_COMMITS;
+  const diff = diffQuery.data ?? "";
+  const mergeability = mergeabilityQuery.data ?? null;
+  const walkthroughContent = walkthroughQuery.data ?? "";
+  const uncommittedDiff = uncommittedQuery.data ?? "";
+  const uncommittedLoading = uncommittedQuery.isFetching;
+  const commitDiffText = commitDiffQuery.data ?? "";
+  const commitDiffLoading = commitDiffQuery.isLoading;
+
+  const loading =
+    commitsQuery.isPending ||
+    diffQuery.isPending ||
+    mergeabilityQuery.isPending ||
+    (!!hasWalkthrough && walkthroughQuery.isPending) ||
+    uncommittedQuery.isPending;
+  // A failed poll keeps the last uncommitted diff instead of replacing the view.
+  const error = firstQueryError([
+    commitsQuery,
+    diffQuery,
+    mergeabilityQuery,
+    !!hasWalkthrough && walkthroughQuery,
+    uncommittedQuery.data === undefined && uncommittedQuery,
+  ]);
+
+  /** Refetches everything; resolves to the first failure's message, or null. */
+  const refreshData = () =>
     Promise.all([
-      fetchIssueCommits(issue.id),
-      fetchIssueDiff(issue.id),
-      fetchMergeability(issue.id),
-      hasWalkthrough
-        ? fetchArtifactContent(issue.id, "walkthrough.md")
-        : Promise.resolve(""),
-      fetchIssueDiff(issue.id, "uncommitted"),
-    ])
-      .then(([c, d, m, w, ud]) => {
-        setCommits(c || []);
-        setDiff(d || "");
-        setMergeability(m);
-        setWalkthroughContent(w || "");
-        setUncommittedDiff(ud || "");
-      })
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Failed to load"),
-      )
-      .finally(() => setLoading(false));
-  }, [issue.id, hasWalkthrough]);
+      commitsQuery.refetch(),
+      diffQuery.refetch(),
+      mergeabilityQuery.refetch(),
+      !!hasWalkthrough && walkthroughQuery.refetch(),
+      uncommittedQuery.refetch(),
+    ]).then(firstQueryError);
 
-  useEffect(() => {
-    refreshData();
-  }, [refreshData, bs?.head_sha]);
-
-  const loadCommitDiff = useCallback(
-    async (sha: string) => {
-      if (selectedCommit === sha) {
-        setSelectedCommit(null);
-        return;
-      }
-      setSelectedCommit(sha);
-      setCommitDiffLoading(true);
-      try {
-        setCommitDiffText(await fetchCommitDiff(issue.id, sha));
-      } catch {
-        setCommitDiffText("");
-      } finally {
-        setCommitDiffLoading(false);
-      }
-    },
-    [issue.id, selectedCommit],
-  );
+  const loadCommitDiff = useCallback((sha: string) => {
+    setSelectedCommit((prev) => (prev === sha ? null : sha));
+  }, []);
 
   const handleAddComment = useCallback(async () => {
     if (!newComment.trim()) return;
@@ -185,33 +247,10 @@ export default function MergeView({
     [commitDiffText],
   );
 
-  const refreshingRef = useRef(false);
-  const refreshUncommitted = useCallback(async () => {
-    if (refreshingRef.current) return;
-    refreshingRef.current = true;
-    setUncommittedLoading(true);
-    try {
-      const d = await fetchIssueDiff(issue.id, "uncommitted");
-      setUncommittedDiff(d || "");
-    } catch {
-      // silently ignore polling errors
-    } finally {
-      setUncommittedLoading(false);
-      refreshingRef.current = false;
-    }
-  }, [issue.id]);
-
-  useEffect(() => {
-    if (diffScope !== "uncommitted" || activeTab !== "files") return;
-    refreshUncommitted();
-    const id = setInterval(refreshUncommitted, 3000);
-    return () => clearInterval(id);
-  }, [diffScope, activeTab, refreshUncommitted]);
-
-  const handleScopeChange = useCallback((scope: DiffScope) => {
-    setDiffScope(scope);
+  const handleScopeChange = (scope: DiffScope) => {
+    showView(activeTab, scope);
     setSelectedFile(null);
-  }, []);
+  };
 
   const defaultCommitMessage = useCallback(
     (strategy: string) => {
@@ -495,7 +534,7 @@ export default function MergeView({
           <div className="shrink-0 flex items-center gap-1 px-5 border-b border-[var(--color-border-subtle)] relative">
             {hasWalkthrough && (
               <button
-                onClick={() => setActiveTab("walkthrough")}
+                onClick={() => showView("walkthrough", diffScope)}
                 className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === "walkthrough" ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
               >
                 <span className="inline-flex items-center gap-1.5">
@@ -518,7 +557,7 @@ export default function MergeView({
             ].map((t) => (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                onClick={() => showView(t.key, diffScope)}
                 className={`px-3 py-2.5 text-sm font-medium transition-colors relative ${activeTab === t.key ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"}`}
               >
                 {t.label}
@@ -557,13 +596,13 @@ export default function MergeView({
                 </div>
               </div>
             )}
-            <button
-              onClick={refreshData}
-              title="Refresh"
-              className="p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-            >
-              <RefreshCw size={14} />
-            </button>
+            {pollUncommitted && freshness === "failed" && (
+              <StaleDiffNotice asOf={uncommittedQuery.dataUpdatedAt} />
+            )}
+            <RefreshButton
+              onRefresh={refreshData}
+              autoRefreshing={pollUncommitted && freshness === "refreshing"}
+            />
           </div>
         </>
       }

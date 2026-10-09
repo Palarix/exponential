@@ -1,9 +1,9 @@
-import { Fragment, useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
-import { fetchIssueHistory } from "../../api/client";
 import type { Issue, HistoryEvent } from "../../api/client";
+import { useIssueHistory } from "../../api/queries";
 import { Avatar, LabelBadge, StatusIcon, Text } from "../ui";
 import { Triangle, ChevronDown } from "lucide-react";
 import {
@@ -165,14 +165,8 @@ export default function ActivityTimeline({
   commentRef: React.RefObject<HTMLTextAreaElement | null>;
   prefix: string;
 }) {
-  const [history, setHistory] = useState<HistoryEvent[]>([]);
+  const history = useIssueHistory(issue);
   const [sortNewest, setSortNewest] = useState(true);
-
-  useEffect(() => {
-    fetchIssueHistory(issue.id)
-      .then(setHistory)
-      .catch(() => {});
-  }, [issue.id, issue.updated_at]);
 
   const entries = useMemo(() => {
     const items: ActivityEntry[] = [];

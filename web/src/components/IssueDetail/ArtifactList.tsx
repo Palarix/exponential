@@ -1,6 +1,6 @@
 import type { ArtifactSummary } from "../../api/types";
 import type { Issue } from "../../api/client";
-import { fetchArtifactContent } from "../../api/client";
+import { useFetchArtifact } from "../../api/queries";
 import { Heading, Text } from "../ui";
 import { FileCodeCorner, FileBracesCorner, Paperclip, Download } from "lucide-react";
 import { formatRelativeTime, shortName } from "../../utils/format";
@@ -15,16 +15,14 @@ const TYPE_LABEL: Record<string, string> = {
   walkthrough: "Walkthrough",
 };
 
-function downloadArtifact(issueId: string, filename: string) {
-  fetchArtifactContent(issueId, filename).then((content) => {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
+function saveFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function ArtifactList({
@@ -34,6 +32,7 @@ export default function ArtifactList({
   artifacts: ArtifactSummary[];
   issue: Issue;
 }) {
+  const fetchArtifact = useFetchArtifact();
   if (artifacts.length === 0) return null;
 
   return (
@@ -59,7 +58,7 @@ export default function ArtifactList({
               )}
               <div className="flex-1" />
               <button
-                onClick={() => downloadArtifact(issue.id, a.filename)}
+                onClick={() => fetchArtifact(issue, a.filename).then((content) => saveFile(a.filename, content))}
                 className="opacity-0 group-hover:opacity-100 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-all"
                 title={`Download ${a.filename}`}
               >

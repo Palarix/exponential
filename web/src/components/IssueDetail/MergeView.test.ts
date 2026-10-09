@@ -6,6 +6,7 @@ import {
   flattenSingleChildDirs,
   buildSplitLines,
   hasDirtyDescendant,
+  diffFreshness,
 } from "./diff-utils";
 
 /* ─── parseDiffByFile ─── */
@@ -436,5 +437,33 @@ describe("parseDiffByFile with synthetic diffs", () => {
     expect(adds).toHaveLength(2);
     expect(adds[0]).toMatchObject({ newNum: "1" });
     expect(adds[1]).toMatchObject({ newNum: "2" });
+  });
+});
+
+/* ─── diffFreshness ─── */
+
+describe("diffFreshness", () => {
+  it("is fresh once data from after entering has landed", () => {
+    expect(diffFreshness({ dataUpdatedAt: 200, errorUpdatedAt: 0, enteredAt: 100 })).toBe("fresh");
+  });
+
+  it("is refreshing while only data from before entering is shown", () => {
+    expect(diffFreshness({ dataUpdatedAt: 50, errorUpdatedAt: 0, enteredAt: 100 })).toBe("refreshing");
+  });
+
+  it("stays fresh across routine polls (data newer than entering)", () => {
+    expect(diffFreshness({ dataUpdatedAt: 3100, errorUpdatedAt: 0, enteredAt: 100 })).toBe("fresh");
+  });
+
+  it("is failed when the latest error is newer than the data", () => {
+    expect(diffFreshness({ dataUpdatedAt: 200, errorUpdatedAt: 300, enteredAt: 100 })).toBe("failed");
+  });
+
+  it("reports a failed entry refetch as failed, not refreshing", () => {
+    expect(diffFreshness({ dataUpdatedAt: 50, errorUpdatedAt: 150, enteredAt: 100 })).toBe("failed");
+  });
+
+  it("clears the failure once a later fetch succeeds", () => {
+    expect(diffFreshness({ dataUpdatedAt: 400, errorUpdatedAt: 300, enteredAt: 100 })).toBe("fresh");
   });
 });

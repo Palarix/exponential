@@ -1,5 +1,5 @@
-import type { Issue } from "./types";
-import type { fetchConfig } from "./client";
+import type { Cycle, CyclesResponse, Issue } from "./types";
+import { ApiError, type fetchConfig } from "./client";
 
 export type RawConfig = Awaited<ReturnType<typeof fetchConfig>>;
 
@@ -41,6 +41,23 @@ export function withConfigLabels(c: RawConfig | undefined, labels: Record<string
   return c && { ...c, labels };
 }
 
+/** The cycles to show, or a stable `[]` when cycles are disabled or not loaded. */
+export function cyclesFromResponse(r: CyclesResponse | undefined): Cycle[] {
+  return r?.enabled && r.cycles ? r.cycles : NO_CYCLES;
+}
+const NO_CYCLES: Cycle[] = [];
+
 export function patchIssueList(issues: Issue[] | undefined, issueId: string, patch: Partial<Issue>): Issue[] | undefined {
   return issues?.map((i) => (i.id === issueId ? { ...i, ...patch } : i));
+}
+
+/**
+ * The message of the first failed query among `results` (query results or
+ * refetch results; `false` entries are skipped), or null if none failed.
+ */
+export function firstQueryError(results: ReadonlyArray<{ status: string; error: unknown } | false>): string | null {
+  for (const r of results) {
+    if (r && r.status === "error") return r.error instanceof ApiError ? r.error.message : "Failed to load";
+  }
+  return null;
 }

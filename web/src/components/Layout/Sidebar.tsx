@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { fetchInstances, type Instance } from "../../api/client";
-import { useUser } from "../../api/queries";
+import type { Instance } from "../../api/client";
+import { useInstances, useUser } from "../../api/queries";
 import { Avatar } from "../ui";
 import {
   Bell,
@@ -213,7 +213,7 @@ export default function Sidebar({
   cyclesEnabled,
   inboxUnread,
 }: SidebarProps) {
-  const [instances, setInstances] = useState<Instance[]>([]);
+  const instances = useInstances();
   const user = useUser();
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("exponential-sidebar-collapsed") === "true"; } catch { return false; }
@@ -225,21 +225,6 @@ export default function Sidebar({
       return next;
     });
   };
-
-  useEffect(() => {
-    const load = () =>
-      fetchInstances()
-        .then(setInstances)
-        .catch(() => {});
-    load();
-    const interval = setInterval(load, 10000);
-    const onFocus = () => load();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, []);
 
   const visible = (v: ViewDef) => v.requires !== "cycles" || cyclesEnabled;
   const renderItem = (v: ViewDef) => (

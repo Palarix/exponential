@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { deriveAppConfig, effectiveLabelColors, withConfigLabels, patchIssueList, type RawConfig } from "./query-utils";
+import { deriveAppConfig, effectiveLabelColors, withConfigLabels, patchIssueList, cyclesFromResponse, firstQueryError, type RawConfig } from "./query-utils";
 import { makeIssue } from "../test-utils";
+import { ApiError } from "./client";
 
 const raw: RawConfig = {
   auto_commit: false,
@@ -86,5 +87,43 @@ describe("patchIssueList", () => {
 
   it("leaves an unloaded list alone", () => {
     expect(patchIssueList(undefined, "a", { title: "x" })).toBeUndefined();
+  });
+});
+
+describe("cyclesFromResponse", () => {
+  const cycle = { id: "c1", number: 1, start: "2026-01-05", end: "2026-01-12", status: "current" as const, done: 0, total: 0 };
+
+  it("returns the cycles when enabled", () => {
+    expect(cyclesFromResponse({ enabled: true, cycles: [cycle] })).toEqual([cycle]);
+  });
+
+  it("returns a stable empty list when disabled, missing or not loaded", () => {
+    const empty = cyclesFromResponse(undefined);
+    expect(empty).toEqual([]);
+    expect(cyclesFromResponse({ enabled: false, cycles: [cycle] })).toBe(empty);
+    expect(cyclesFromResponse({ enabled: true, cycles: null as unknown as [] })).toBe(empty);
+  });
+});
+
+describe("firstQueryError", () => {
+  const ok = { status: "success" as const, error: null };
+  const apiError = (status: number, body: string) =>
+    new ApiError(new Response(body, { status, statusText: "Err" }), body);
+
+  it("is null when every query succeeded", () => {
+    expect(firstQueryError([ok, ok])).toBeNull();
+  });
+
+  it("skips entries that weren't refetched", () => {
+    expect(firstQueryError([false, ok])).toBeNull();
+  });
+
+  it("returns the first failure's API message", () => {
+    const err = apiError(409, "worktree is locked");
+    expect(firstQueryError([ok, { status: "error", error: err }, { status: "error", error: new Error("later") }])).toBe(err.message);
+  });
+
+  it("falls back to a generic message for non-API errors", () => {
+    expect(firstQueryError([{ status: "error", error: new TypeError("Failed to fetch") }])).toBe("Failed to load");
   });
 });
