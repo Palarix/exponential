@@ -19,12 +19,21 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T = void>(url: string, init?: RequestInit): Promise<T> {
+// fetchOk fetches url and throws ApiError on a non-2xx response. A 401 means
+// the board requires an access token this browser doesn't hold, so it also
+// sends the user to the server's /auth page.
+async function fetchOk(url: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(url, init);
   if (!res.ok) {
+    if (res.status === 401) window.location.assign('/auth');
     const body = await res.text().catch(() => '');
     throw new ApiError(res, body);
   }
+  return res;
+}
+
+async function request<T = void>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetchOk(url, init);
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
@@ -310,11 +319,7 @@ export async function fetchIssueFiles(issueId: string, scope?: "uncommitted"): P
 
 export async function fetchIssueDiff(issueId: string, scope?: "uncommitted"): Promise<string> {
   const qs = scope ? `?scope=${scope}` : '';
-  const res = await fetch(`${API_BASE}/issues/${issueId}/diff${qs}`);
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new ApiError(res, body);
-  }
+  const res = await fetchOk(`${API_BASE}/issues/${issueId}/diff${qs}`);
   return res.text();
 }
 
@@ -335,11 +340,7 @@ export async function fetchMergeability(issueId: string): Promise<Mergeability> 
 }
 
 export async function fetchCommitDiff(issueId: string, sha: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/issues/${issueId}/commits/${sha}/diff`);
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new ApiError(res, body);
-  }
+  const res = await fetchOk(`${API_BASE}/issues/${issueId}/commits/${sha}/diff`);
   return res.text();
 }
 

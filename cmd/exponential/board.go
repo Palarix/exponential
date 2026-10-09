@@ -31,11 +31,14 @@ for visual project management.
 Changes made in the UI are buffered locally until you click "Save & Sync",
 which commits all changes to the repository in a single commit.
 
-The server listens on 127.0.0.1 only. It has no authentication, so to view
-a board running on another machine, forward the port over SSH instead of
-exposing it:
+The server listens on 127.0.0.1 by default. To view a board running on
+another machine, prefer forwarding the port over SSH:
 
   ssh -L 8080:127.0.0.1:8080 user@host
+
+When --host names a non-loopback address, the board requires a per-run
+access token. It is printed on startup as a URL with ?token=…; open that
+URL, or paste the token on the /auth page. Traffic is plain HTTP.
 
 In development mode (--dev), assets are proxied from the Vite dev server,
 enabling hot module replacement for faster iteration.`,
@@ -43,7 +46,7 @@ enabling hot module replacement for faster iteration.`,
 }
 
 func init() {
-	boardCmd.Flags().StringVar(&boardHost, "host", server.DefaultHost, "address to listen on (the board is unauthenticated; prefer ssh -L for remote access)")
+	boardCmd.Flags().StringVar(&boardHost, "host", server.DefaultHost, "address to listen on (non-loopback requires a per-run access token; prefer ssh -L for remote access)")
 	boardCmd.Flags().IntVarP(&boardPort, "port", "p", 8080, "port to run the server on")
 	boardCmd.Flags().BoolVar(&boardNoOpen, "no-open", false, "don't open browser automatically")
 	boardCmd.Flags().BoolVar(&boardDev, "dev", false, "enable dev mode (proxy assets from Vite dev server)")
@@ -56,7 +59,12 @@ func runBoard(cmd *cobra.Command, args []string) error {
 	srv.Host = boardHost
 	srv.SSEHub = server.NewSSEHub()
 	if !server.IsLoopbackHost(boardHost) {
-		log.Printf("WARNING: listening on %q — the board is unauthenticated and anyone who can reach this address can read and modify issues. Prefer: ssh -L %d:127.0.0.1:%d <host>", boardHost, boardPort, boardPort)
+		token, err := server.GenerateAccessToken()
+		if err != nil {
+			return err
+		}
+		srv.AccessToken = token
+		log.Printf("WARNING: listening on %q over plain HTTP — anyone who can reach this address and holds the access token can read and modify issues. Prefer: ssh -L %d:127.0.0.1:%d <host>", boardHost, boardPort, boardPort)
 	}
 
 	if cfg.Remote.URL != "" {
@@ -88,8 +96,12 @@ func runBoard(cmd *cobra.Command, args []string) error {
 		os.Exit(0)
 	}()
 
+	if srv.AccessToken != "" {
+		log.Printf("Access token required. Open: %s", srv.AccessURL())
+	}
+
 	if !boardNoOpen {
-		go openBrowser(srv.URL())
+		go openBrowser(srv.AccessURL())
 	}
 
 	return srv.ServeOn(listener)

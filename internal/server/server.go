@@ -26,6 +26,7 @@ type Server struct {
 	Config        *config.Config
 	Host          string // bind address; loopback by default
 	Port          int
+	AccessToken   string // required from clients when non-empty (non-loopback --host)
 	DevMode       bool
 	DevPort       int
 	Headless      bool
@@ -114,7 +115,7 @@ func (s *Server) ServeOn(l net.Listener) error {
 	mux := s.SetupRoutes()
 	log.Printf("Starting xpo board server on %s", s.URL())
 	server := &http.Server{
-		Handler:     s.hostGuard(mux),
+		Handler:     s.hostGuard(s.tokenGuard(mux)),
 		ReadTimeout: 15 * time.Second,
 		IdleTimeout: 60 * time.Second,
 	}

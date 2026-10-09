@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xpo board --host <non-loopback>` requires a per-run access token. It is printed on startup as `…/?token=…` and exchanged for an `HttpOnly`, `SameSite=Lax` session cookie named `exponential-<sha256(token)[:8]>`. Without the cookie, `/api/*` returns 401 and pages redirect to a new `/auth` form; the web UI redirects there on any 401. `/healthz` stays public, and loopback binds are unchanged (xpo-897f35)
 - Web UI bundles Inter Variable and JetBrains Mono Variable (latin + latin-ext woff2, embedded in the binary) instead of relying on locally installed fonts; `@font-face` pins `ascent-override` / `descent-override` / `line-gap-override` so Linux and macOS lay out text identically. SIL OFL 1.1 license texts ship at `/licenses/` (xpo-bade50)
 - `SearchInput` in the My Issues TopBar filters the active tab by title, ID or label; Backlog and My Issues share a new `matchesSearch` predicate, and Backlog search now ignores surrounding whitespace (xpo-5ed512)
 - `SearchInput` in the Labels TopBar filters labels by name (case-insensitive substring), with a "No labels match" empty state (xpo-c6043f)
