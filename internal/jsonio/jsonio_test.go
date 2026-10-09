@@ -320,3 +320,12 @@ func TestToCommentSummariesOnBehalfOf(t *testing.T) {
 		t.Errorf("human comment should omit on_behalf_of: %s", got)
 	}
 }
+
+// Branch mode is gone: a stale "mode" field is rejected, not silently ignored.
+func TestStartToolInputRejectsMode(t *testing.T) {
+	var in StartToolInput
+	err := DecodeStrict(`{"id":"xpo-abc123","mode":"branch"}`, &in)
+	if err == nil || !strings.Contains(err.Error(), "mode") {
+		t.Errorf("expected an unknown field error for mode, got %v", err)
+	}
+}

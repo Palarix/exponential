@@ -12,9 +12,10 @@ import (
 	"github.com/palarix/exponential/internal/model"
 )
 
-// StartWork transitions an issue to DOING and, when in a git repo,
-// creates a worktree (default) or checks out a branch (--no-wt).
-// Returns the branch name, worktree path (empty when worktrees disabled),
+// StartWork transitions an issue to DOING and, when in a git repo, creates
+// (or reuses) the issue's worktree under .xpo/worktrees/. The hub checkout
+// is never switched: .xpo/ is hub state shared by all concurrent work.
+// Returns the branch name, worktree path (empty outside a git repo),
 // messages, and any error.
 func (c *Client) StartWork(id string, force bool) (branchName, worktreePath string, msgs []string, err error) {
 	c.syncLocal()
@@ -24,10 +25,15 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 	}
 
 	candidateBranch := fmt.Sprintf("%s-%s", issue.ID, Slugify(issue.Title))
-	useWorktrees := c.Config.Worktrees && CheckGitRepo()
+
+	// Left over from branch mode: git can't add a worktree for a branch the
+	// hub has checked out, and the hub would match as "the issue's worktree".
+	if HubBranch() == candidateBranch {
+		return "", "", nil, fmt.Errorf("branch %s is checked out in the hub — check out %s there first, then start again", candidateBranch, DefaultBranch())
+	}
 
 	// Idempotent path: cwd is already inside the worktree for this issue.
-	if !force && c.Config.Worktrees {
+	if !force {
 		if wtPath, found := FindWorktreeForBranch(candidateBranch); found {
 			if cwdInsidePath(wtPath) {
 				if model.IsTerminal(issue.Status) {
@@ -49,26 +55,6 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 		}
 	}
 
-	// Idempotent path for branch mode: candidate branch is already checked out.
-	if !force && CheckGitRepo() && !useWorktrees {
-		if CurrentBranch() == candidateBranch {
-			if model.IsTerminal(issue.Status) {
-				return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
-			}
-			if issue.Status != model.StatusDoing {
-				payload, notice := c.startPayload(issue, false)
-				msgs = append(msgs, notice...)
-				updateMsgs, err := c.Transport.UpdateIssue(id, payload, "start")
-				if err != nil {
-					return "", "", nil, err
-				}
-				msgs = append(msgs, updateMsgs...)
-			}
-			msgs = append(msgs, "Resuming on current branch")
-			return candidateBranch, "", msgs, nil
-		}
-	}
-
 	switch {
 	case model.IsTerminal(issue.Status):
 		return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
@@ -85,12 +71,6 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 			return "", "", nil, fmt.Errorf("issue %s is already in progress (assigned to %s) — use --force to take over", id, who)
 		}
 		msgs = append(msgs, fmt.Sprintf("Force-claiming issue %s", id))
-	}
-
-	if CheckGitRepo() && !force && !useWorktrees {
-		if BranchExists(candidateBranch) || RemoteBranchExists(candidateBranch) {
-			return "", "", nil, fmt.Errorf("branch already exists: %s — use --force to take over", candidateBranch)
-		}
 	}
 
 	if issue.Status != model.StatusDoing || force {
@@ -110,82 +90,59 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 	}
 
 	branchName = candidateBranch
+	wtPath := WorktreeDir(branchName)
 
-	if useWorktrees {
-		wtPath := WorktreeDir(branchName)
-
-		gitErr := WithGitLock(func() error {
-			// Force takeover: remove existing worktree for this branch
-			if force {
-				if existing, ok := FindWorktreeForBranch(branchName); ok {
-					if err := WorktreeRemove(existing); err != nil {
-						return fmt.Errorf("failed to remove existing worktree %s: %w", existing, err)
-					}
-					msgs = append(msgs, fmt.Sprintf("Removed existing worktree at %s", existing))
+	gitErr := WithGitLock(func() error {
+		// Force takeover: remove existing worktree for this branch
+		if force {
+			if existing, ok := FindWorktreeForBranch(branchName); ok {
+				if err := WorktreeRemove(existing); err != nil {
+					return fmt.Errorf("failed to remove existing worktree %s: %w", existing, err)
 				}
-			}
-
-			if BranchExists(branchName) {
-				if err := WorktreeAddExisting(wtPath, branchName); err != nil {
-					return fmt.Errorf("failed to create worktree for existing branch %s: %w", branchName, err)
-				}
-				msgs = append(msgs, fmt.Sprintf("Created worktree for existing branch '%s'", branchName))
-			} else {
-				base := DefaultBranch()
-				if err := WorktreeAdd(wtPath, branchName, base); err != nil {
-					return fmt.Errorf("failed to create worktree %s from %s: %w", branchName, base, err)
-				}
-				msgs = append(msgs, fmt.Sprintf("Created worktree with new branch '%s'", branchName))
-			}
-			return nil
-		})
-		if gitErr != nil {
-			return "", "", msgs, gitErr
-		}
-
-		absPath, _ := filepath.Abs(wtPath)
-		worktreePath = absPath
-
-		EnsureGitignoreEntry(".xpo/worktrees/")
-
-		if c.Config.WorktreeSetup != "" {
-			var hookOut bytes.Buffer
-			cmd := exec.Command("sh", "-c", c.Config.WorktreeSetup)
-			cmd.Dir = absPath
-			cmd.Stdout = &hookOut
-			cmd.Stderr = &hookOut
-			if err := cmd.Run(); err != nil {
-				msgs = append(msgs, fmt.Sprintf("Warning: worktree_setup hook failed: %v", err))
-			} else {
-				msgs = append(msgs, "Ran worktree_setup hook")
-			}
-			if s := strings.TrimSpace(hookOut.String()); s != "" {
-				msgs = append(msgs, s)
+				msgs = append(msgs, fmt.Sprintf("Removed existing worktree at %s", existing))
 			}
 		}
 
-		msgs = append(msgs, fmt.Sprintf("Worktree: %s", absPath))
-	} else {
-		// Classic checkout-based flow
-		gitErr := WithGitLock(func() error {
-			if BranchExists(branchName) {
-				if err := CheckoutBranch(branchName); err != nil {
-					return fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
-				}
-				msgs = append(msgs, fmt.Sprintf("Switched to existing branch '%s'", branchName))
-			} else {
-				base := DefaultBranch()
-				if err := CreateAndCheckoutBranch(branchName, base); err != nil {
-					return fmt.Errorf("failed to create branch %s from %s: %w", branchName, base, err)
-				}
-				msgs = append(msgs, fmt.Sprintf("Created and switched to branch '%s'", branchName))
+		if BranchExists(branchName) {
+			if err := WorktreeAddExisting(wtPath, branchName); err != nil {
+				return fmt.Errorf("failed to create worktree for existing branch %s: %w", branchName, err)
 			}
-			return nil
-		})
-		if gitErr != nil {
-			return "", "", msgs, gitErr
+			msgs = append(msgs, fmt.Sprintf("Created worktree for existing branch '%s'", branchName))
+		} else {
+			base := DefaultBranch()
+			if err := WorktreeAdd(wtPath, branchName, base); err != nil {
+				return fmt.Errorf("failed to create worktree %s from %s: %w", branchName, base, err)
+			}
+			msgs = append(msgs, fmt.Sprintf("Created worktree with new branch '%s'", branchName))
+		}
+		return nil
+	})
+	if gitErr != nil {
+		return "", "", msgs, gitErr
+	}
+
+	absPath, _ := filepath.Abs(wtPath)
+	worktreePath = absPath
+
+	EnsureGitignoreEntry(".xpo/worktrees/")
+
+	if c.Config.WorktreeSetup != "" {
+		var hookOut bytes.Buffer
+		cmd := exec.Command("sh", "-c", c.Config.WorktreeSetup)
+		cmd.Dir = absPath
+		cmd.Stdout = &hookOut
+		cmd.Stderr = &hookOut
+		if err := cmd.Run(); err != nil {
+			msgs = append(msgs, fmt.Sprintf("Warning: worktree_setup hook failed: %v", err))
+		} else {
+			msgs = append(msgs, "Ran worktree_setup hook")
+		}
+		if s := strings.TrimSpace(hookOut.String()); s != "" {
+			msgs = append(msgs, s)
 		}
 	}
+
+	msgs = append(msgs, fmt.Sprintf("Worktree: %s", absPath))
 
 	return branchName, worktreePath, msgs, nil
 }

@@ -29,7 +29,6 @@ func setupStartTestEnv(t *testing.T) (*Client, func()) {
 		EstimationSystem: "fibonacci",
 		CountUnestimated: true,
 		Version:          2,
-		Worktrees:        false,
 	}
 
 	client := NewClient(cfg)
@@ -153,7 +152,7 @@ func TestStartWork_BlockedIssue(t *testing.T) {
 	}
 }
 
-func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
+func TestStartWork_GitRepo_AlwaysCreatesWorktree(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
 
@@ -167,32 +166,30 @@ func TestStartWork_GitRepo_CreatesBranch(t *testing.T) {
 
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
-	branch, _, msgs, err := client.StartWork("test-abc123", false)
+	branch, wtPath, _, err := client.StartWork("test-abc123", false)
 	if err != nil {
 		t.Fatalf("StartWork() unexpected error: %v", err)
 	}
 	if branch != "test-abc123-fix-login-flow" {
 		t.Errorf("expected branch 'test-abc123-fix-login-flow', got %q", branch)
 	}
-
-	foundBranchMsg := false
-	for _, msg := range msgs {
-		if msg == "Created and switched to branch 'test-abc123-fix-login-flow'" {
-			foundBranchMsg = true
-		}
+	if wtPath == "" {
+		t.Fatal("expected a worktree path: start always creates a worktree")
 	}
-	if !foundBranchMsg {
-		t.Errorf("expected branch creation message in %v", msgs)
+	if got := CurrentBranch(); got != "main" {
+		t.Errorf("hub must stay on main, got %q", got)
 	}
-
-	out, _ := exec.Command("git", "branch", "--show-current").Output()
-	currentBranch := string(out)
-	if currentBranch[:len(currentBranch)-1] != "test-abc123-fix-login-flow" {
-		t.Errorf("expected to be on branch test-abc123-fix-login-flow, got %q", currentBranch)
+	out, err := exec.Command("git", "-C", wtPath, "branch", "--show-current").Output()
+	if err != nil {
+		t.Fatalf("worktree not a git checkout: %v", err)
+	}
+	if got := strings.TrimSpace(string(out)); got != branch {
+		t.Errorf("worktree on %q, want %q", got, branch)
 	}
 }
-
-func TestStartWork_GitRepo_ExistingBranch_Rejected(t *testing.T) {
+// Upgrading mid-way through old branch-mode work: the hub has the issue
+// branch checked out, so git can't add a worktree for it. Say how to fix it.
+func TestStartWork_BranchCheckedOutInHub(t *testing.T) {
 	client, cleanup := setupStartTestEnv(t)
 	defer cleanup()
 
@@ -203,16 +200,16 @@ func TestStartWork_GitRepo_ExistingBranch_Rejected(t *testing.T) {
 	os.WriteFile("dummy.txt", []byte("init"), 0644)
 	runGit(t, cwd, "add", ".")
 	runGit(t, cwd, "commit", "-m", "init")
+	runGit(t, cwd, "checkout", "-b", "test-abc123-fix-login-flow")
 
-	runGit(t, cwd, "branch", "test-abc123-fix-login-flow")
 	createTestIssue(t, "test-abc123", "Fix Login Flow", "PLANNED")
 
 	_, _, _, err := client.StartWork("test-abc123", false)
 	if err == nil {
-		t.Fatal("expected error for existing branch")
+		t.Fatal("expected an error while the hub has the issue branch checked out")
 	}
-	if !strings.Contains(err.Error(), "branch already exists") {
-		t.Errorf("expected 'branch already exists' error, got: %v", err)
+	if !strings.Contains(err.Error(), "checked out in the hub") {
+		t.Errorf("expected a hub checkout hint, got: %v", err)
 	}
 }
 
@@ -303,7 +300,6 @@ func TestStartWork_Worktree_CreatesWorktree(t *testing.T) {
 		EstimationSystem: "fibonacci",
 		CountUnestimated: true,
 		Version:          2,
-		Worktrees:        true,
 	}
 	client := NewClient(cfg)
 
@@ -380,7 +376,6 @@ func setupWorktreeTestRepo(t *testing.T) (string, *Client) {
 		EstimationSystem: "fibonacci",
 		CountUnestimated: true,
 		Version:          2,
-		Worktrees:        true,
 	}
 	return tmpDir, NewClient(cfg)
 }
@@ -713,49 +708,6 @@ func TestStartWork_Worktree_Idempotent_ForceStillDestroys(t *testing.T) {
 	// Marker file should be gone (worktree was recreated)
 	if _, err := os.Stat(filepath.Join(wtPath2, ".marker")); !os.IsNotExist(err) {
 		t.Error("marker file should not exist after force takeover")
-	}
-}
-
-func TestStartWork_Branch_Idempotent_AlreadyCheckedOut(t *testing.T) {
-	client, cleanup := setupStartTestEnv(t)
-	defer cleanup()
-
-	cwd, _ := os.Getwd()
-	runGit(t, cwd, "init", "-b", "main")
-	runGit(t, cwd, "config", "user.email", "test@test.com")
-	runGit(t, cwd, "config", "user.name", "Test")
-	os.WriteFile("dummy.txt", []byte("init"), 0644)
-	runGit(t, cwd, "add", ".")
-	runGit(t, cwd, "commit", "-m", "init")
-
-	createTestIssue(t, "test-br01", "Branch Idempotent", "PLANNED")
-
-	// First start creates and checks out the branch
-	branch, _, _, err := client.StartWork("test-br01", false)
-	if err != nil {
-		t.Fatalf("first StartWork() failed: %v", err)
-	}
-	if branch != "test-br01-branch-idempotent" {
-		t.Errorf("expected branch 'test-br01-branch-idempotent', got %q", branch)
-	}
-
-	// Second start: branch is already checked out, should be idempotent
-	branch2, _, msgs, err := client.StartWork("test-br01", false)
-	if err != nil {
-		t.Fatalf("idempotent StartWork() failed: %v", err)
-	}
-	if branch2 != branch {
-		t.Errorf("expected same branch %q, got %q", branch, branch2)
-	}
-
-	foundResume := false
-	for _, msg := range msgs {
-		if strings.Contains(msg, "Resuming on current branch") {
-			foundResume = true
-		}
-	}
-	if !foundResume {
-		t.Errorf("expected 'Resuming on current branch' message in %v", msgs)
 	}
 }
 

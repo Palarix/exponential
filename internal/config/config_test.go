@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -110,5 +112,42 @@ func TestLoadConfigVersion(t *testing.T) {
 	}
 	if cfg.Version != 2 {
 		t.Errorf("Expected version 2, got %d", cfg.Version)
+	}
+}
+
+func loadConfigWith(t *testing.T, yaml string) (warnings string) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	xpoDir := filepath.Join(tmpDir, ".xpo")
+	os.MkdirAll(xpoDir, 0755)
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	t.Cleanup(func() { os.Chdir(originalWd) })
+
+	var buf bytes.Buffer
+	origOut := warnOut
+	warnOut = &buf
+	t.Cleanup(func() { warnOut = origOut })
+
+	os.WriteFile(filepath.Join(xpoDir, "config.yaml"), []byte(yaml), 0644)
+	if _, err := LoadConfig(); err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	return buf.String()
+}
+
+func TestLoadConfigWarnsOnWorktreesFalse(t *testing.T) {
+	got := loadConfigWith(t, "prefix: test-\nworktrees: false\n")
+	if !strings.Contains(got, "worktrees: false is no longer supported") {
+		t.Errorf("expected a worktrees warning, got %q", got)
+	}
+}
+
+func TestLoadConfigAcceptsLegacyWorktreesTrueSilently(t *testing.T) {
+	if got := loadConfigWith(t, "prefix: test-\nworktrees: true\n"); got != "" {
+		t.Errorf("worktrees: true should load silently, got %q", got)
+	}
+	if got := loadConfigWith(t, "prefix: test-\n"); got != "" {
+		t.Errorf("a config without the key should load silently, got %q", got)
 	}
 }

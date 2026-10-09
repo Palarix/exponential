@@ -277,9 +277,9 @@ document the question, the answer you chose, and your reasoning. Use a dedicated
 - Check the issue's dependencies. If any ` + "`depends_on`" + ` or ` + "`blocked_by`" + ` targets are not DONE, stop and ask the user how to proceed. Do not start multiple issues in a dependency chain simultaneously.
 - If the issue is already in DOING and assigned to someone else, stop and ask the user before taking it over.
 
-Call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree or branch (depending on configuration). Never set ` + "`assignee`" + ` to yourself — xpo records that an agent did the work.
+Call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree for it. Never set ` + "`assignee`" + ` to yourself — xpo records that an agent did the work.
 
-All file reads, edits, builds, and test runs must happen inside the worktree path or branch returned by ` + "`start`" + ` — not the main checkout. To resume an issue already in DOING, call ` + "`start`" + ` with ` + "`force: true`" + `.
+All file reads, edits, builds, and test runs must happen inside the worktree path returned by ` + "`start`" + ` — not the main checkout. To resume an issue already in DOING, call ` + "`start`" + ` with ` + "`force: true`" + `.
 
 ### 5. Implement & Test
 
@@ -333,21 +333,21 @@ Write the walkthrough **after** any user-requested corrections are applied, so i
 1. The user has explicitly approved the changes
 2. Tests pass
 3. The walkthrough is written
-4. All changes are committed on the issue's worktree or branch
+4. All changes are committed on the issue's worktree
 
 If any are missing, go back to the missing step.
 
-Then, in the issue's worktree (or on its branch):
+Then, in the issue's worktree:
 
 1. If the project's instructions require a changelog entry, add it now.
 2. Run ` + "`git status`" + `. Delete or move scratch files that are not part of the change.
 3. Commit everything: ` + "`git add -A && git commit -m \"<issue-id>: <issue title>\"`" + `.
 4. Call the xpo MCP server's ` + "`merge`" + ` tool without a ` + "`strategy`" + ` (the user may ask for one).
    It squash-merges the branch into the default
-   branch, records a MERGE event, closes the issue, and removes the worktree or branch.
+   branch, records a MERGE event, closes the issue, and removes the worktree and branch.
    It refuses to run while the worktree has uncommitted or untracked files.
 
-Committing on the issue's worktree or branch is your job. Merging is ` + "`merge`" + `'s job: never run
+Committing on the issue's worktree is your job. Merging is ` + "`merge`" + `'s job: never run
 ` + "`git merge`" + `, ` + "`git rebase`" + `, ` + "`git push`" + `, or commit on the default branch yourself.
 
 ---
@@ -430,8 +430,8 @@ may use different naming conventions). The table uses the base tool names.
 | ` + "`show`" + ` | Read one issue with details, dependencies, and comments |
 | ` + "`add`" + ` | Create a new issue |
 | ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE) |
-| ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree (or branch). Returns the worktree path |
-| ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed on the worktree or branch first. Call it without a ` + "`strategy`" + ` unless the user asks for one |
+| ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree. Returns the worktree path |
+| ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed in the worktree first. Call it without a ` + "`strategy`" + ` unless the user asks for one |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |
 | ` + "`link`" + ` | Add a relationship between two issues |
 | ` + "`unlink`" + ` | Remove one relationship between two issues, whichever side stores it |

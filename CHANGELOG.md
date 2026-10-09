@@ -136,6 +136,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **BREAKING:** branch mode is removed; worktrees are the only way to work on an issue (xpo-863802). `xpo start` always creates (or reuses) a worktree under `.xpo/worktrees/`, and `xpo merge` always merges from the hub checkout and never runs `git checkout`. Removed:
+  - `xpo start --mode` and `xpo merge --no-wt`, which now fail with "unknown flag".
+  - The `mode` field of the MCP `start` tool and `xpo start --json`. Passing it is now rejected as an unknown field.
+  - The `worktrees` config key. `worktrees: false` prints a warning and is ignored; `worktrees: true` is a silent no-op, and `xpo init` no longer writes it.
+  - The squash/ff `issues.db` union-merge that only branch mode needed.
+
+  **Migrating:** before upgrading, merge or park any issue you started in branch mode, and check out the default branch in the primary checkout. `xpo merge` refuses to run while the hub is on another branch. `xpo start` refuses an issue whose branch is checked out in the hub, and tells you to switch the hub back first. Branches without a worktree still merge normally from the hub.
 - Unused `PendingEventsPanel` component (xpo-c26f7b)
 - "Agent Identity" instructions telling agents to set themselves as assignee, from CLAUDE.md/AGENTS.md/GEMINI.md, the xpo skill and the generated templates (xpo-35fc16)
 - `xpo init mcp` and `xpo init skill` subcommands — absorbed into unified `xpo init` (xpo-76e2a1)

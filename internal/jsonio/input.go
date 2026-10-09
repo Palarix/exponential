@@ -198,7 +198,6 @@ type CommentToolInput struct {
 type StartToolInput struct {
 	ID    string `json:"id" jsonschema:"Issue ID to start working on"`
 	Force bool   `json:"force,omitempty" jsonschema:"Force take-over if already in progress or branch exists"`
-	Mode  string `json:"mode,omitempty" jsonschema:"Create a worktree or a branch, overriding the global config"`
 }
 
 type MergeToolInput struct {

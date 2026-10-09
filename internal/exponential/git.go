@@ -48,22 +48,6 @@ func BranchExists(name string) bool {
 	return err == nil
 }
 
-// CreateAndCheckoutBranch creates a new branch from base and checks it out.
-func CreateAndCheckoutBranch(name, base string) error {
-	return exec.Command("git", "checkout", "-b", name, base).Run()
-}
-
-// CheckoutBranch switches to an existing branch.
-func CheckoutBranch(name string) error {
-	return exec.Command("git", "checkout", name).Run()
-}
-
-// RemoteBranchExists checks whether a remote branch with the given name exists.
-func RemoteBranchExists(name string) bool {
-	err := exec.Command("git", "ls-remote", "--exit-code", "--heads", "origin", name).Run()
-	return err == nil
-}
-
 // WorktreeDir returns the canonical worktree path for a branch inside
 // the hub's .xpo/worktrees/ directory.
 func WorktreeDir(branch string) string {

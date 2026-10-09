@@ -34,16 +34,7 @@ func TestMergeIssue_Squash(t *testing.T) {
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "init")
 
-	// Create a feature branch with commits
-	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
-	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add a")
-	os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add b")
-
-	// Create a xpo issue
+	// Create a xpo issue (hub state lives on main)
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	client := NewClient(cfg)
 
@@ -59,6 +50,16 @@ func TestMergeIssue_Squash(t *testing.T) {
 	storage.AppendEvent(evt)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add issue")
+
+	// Create a feature branch with commits, then park the hub back on main
+	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "add a")
+	os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "add b")
+	runGit(t, dir, "checkout", "main")
 
 	result, err := client.MergeIssue("test-abc123", MergeOptions{
 		Strategy:   MergeStrategySquash,
@@ -127,197 +128,47 @@ func TestMergeIssue_Squash(t *testing.T) {
 	}
 }
 
-func TestMergeIssue_SquashPreservesMainIssuesDB(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
+// The hub is never switched: merging while it is parked on another branch
+// fails before any git state changes.
+func TestMergeIssue_HubNotOnBase_NoCheckout(t *testing.T) {
+	dir, client := setupMergeRepo(t, "test-hub01", nil)
+	runGit(t, dir, "checkout", "test-hub01/feature")
 
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: false\n"), 0644)
-	os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(".xpo/issues.db merge=union\n"), 0644)
-
-	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: false}
-	client := NewClient(cfg)
-
-	// Seed an initial issue on main
-	storage.ResetHubRoot()
-	evt0 := model.Event{
-		ID:   "test-000000",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Background issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
+	_, err := client.MergeIssue("test-hub01", MergeOptions{Strategy: MergeStrategySquash, KeepBranch: true})
+	if err == nil {
+		t.Fatal("expected an error when the hub is not on main")
 	}
-	storage.AppendEvent(evt0)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
-
-	// Create a feature branch
-	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
-
-	// Add a branch-only event and code change
-	evtBranch := model.Event{
-		ID:   "test-abc123",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Feature issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
+	if !strings.Contains(err.Error(), "hub checkout is on") {
+		t.Errorf("expected 'hub checkout is on' error, got: %v", err)
 	}
-	storage.ResetHubRoot()
-	storage.AppendEvent(evtBranch)
-	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "feature work")
-
-	// Go back to main and add a main-only event
-	runGit(t, dir, "checkout", "main")
-	storage.ResetHubRoot()
-	evtMain := model.Event{
-		ID:   "test-000000",
-		Type: model.EventTypeComment,
-		Payload: model.CommentPayload{
-			Text: "Main-only comment after branch diverged",
-		},
-		CreatedBy: "Test <test@test.com>",
+	if got := CurrentBranch(); got != "test-hub01/feature" {
+		t.Errorf("merge must not check out another branch, hub is on %q", got)
 	}
-	storage.AppendEvent(evtMain)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "main-only event")
+}
 
-	// Switch to the feature branch for merge
-	runGit(t, dir, "checkout", "test-abc123/feature")
-	storage.ResetHubRoot()
+// A branch without a worktree (made by hand, or whose worktree was removed)
+// still merges from the hub.
+func TestMergeIssue_BranchWithoutWorktree(t *testing.T) {
+	_, client := setupMergeRepo(t, "test-nowt01", nil)
+	if _, ok := FindWorktreeForBranch("test-nowt01/feature"); ok {
+		t.Fatal("setup should not create a worktree")
+	}
 
-	result, err := client.MergeIssue("test-abc123", MergeOptions{
-		Strategy:   MergeStrategySquash,
-		KeepBranch: true,
-	})
+	result, err := client.MergeIssue("test-nowt01", MergeOptions{Strategy: MergeStrategySquash})
 	if err != nil {
 		t.Fatalf("MergeIssue failed: %v", err)
 	}
 	if result.MergeSHA == "" {
 		t.Error("expected MergeSHA to be set")
 	}
-
-	// Verify all events survived the merge
-	storage.ResetHubRoot()
-	events, err := storage.ReadEvents()
-	if err != nil {
-		t.Fatalf("ReadEvents failed: %v", err)
-	}
-
-	hasBackgroundCreate := false
-	hasMainComment := false
-	hasBranchCreate := false
-	hasMerge := false
-	for _, e := range events {
-		if e.ID == "test-000000" && e.Type == model.EventTypeCreate {
-			hasBackgroundCreate = true
-		}
-		if e.ID == "test-000000" && e.Type == model.EventTypeComment {
-			hasMainComment = true
-		}
-		if e.ID == "test-abc123" && e.Type == model.EventTypeCreate {
-			hasBranchCreate = true
-		}
-		if e.ID == "test-abc123" && e.Type == model.EventTypeMerge {
-			hasMerge = true
-		}
-	}
-
-	if !hasBackgroundCreate {
-		t.Error("lost the initial create event from main")
-	}
-	if !hasMainComment {
-		t.Error("lost the comment event added on main after branch diverged")
-	}
-	if !hasBranchCreate {
-		t.Error("lost the create event from the feature branch")
-	}
-	if !hasMerge {
-		t.Error("expected MERGE event in issue history")
+	if got := CurrentBranch(); got != "main" {
+		t.Errorf("expected hub on main, got %s", got)
 	}
 }
 
-func TestMergeIssue_BranchModeWithWorktreesEnabled(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
-
-	runGit(t, dir, "checkout", "-b", "test-abc123/feature")
-	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add feature")
-
-	storage.ResetHubRoot()
-	evt := model.Event{
-		ID:   "test-abc123",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Test issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add issue")
-
-	// Worktrees enabled but no worktree exists — this is branch mode.
-	// The hub is on the feature branch; merge must auto-checkout main.
-	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: true}
-	client := NewClient(cfg)
-
-	result, err := client.MergeIssue("test-abc123", MergeOptions{
-		Strategy:   MergeStrategySquash,
-		KeepBranch: true,
-	})
-	if err != nil {
-		t.Fatalf("MergeIssue failed: %v", err)
-	}
-	if result.MergeSHA == "" {
-		t.Error("expected MergeSHA to be set")
-	}
-
-	branch := CurrentBranch()
-	if branch != "main" {
-		t.Errorf("expected to be on main, got %s", branch)
-	}
-}
-
-// setupMergeRepo creates a git repo with an initial commit on main, a feature
-// branch with one commit, and an xpo issue in DOING state. The working directory
-// is set to the repo. Returns the dir, a cleanup function, and the issue ID.
-// The caller is left on the feature branch.
+// setupMergeRepo creates a git repo with an initial commit and an xpo issue in
+// DOING state on main, plus a feature branch (no worktree) with one commit. The
+// working directory is set to the repo, and the hub is left on main.
 func setupMergeRepo(t *testing.T, issueID string, cfgOverrides *config.Config) (string, *Client) {
 	t.Helper()
 	dir := t.TempDir()
@@ -339,12 +190,6 @@ func setupMergeRepo(t *testing.T, issueID string, cfgOverrides *config.Config) (
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "init")
 
-	branchName := issueID + "/feature"
-	runGit(t, dir, "checkout", "-b", branchName)
-	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "add feature")
-
 	storage.ResetHubRoot()
 	evt := model.Event{
 		ID:   issueID,
@@ -358,6 +203,13 @@ func setupMergeRepo(t *testing.T, issueID string, cfgOverrides *config.Config) (
 	storage.AppendEvent(evt)
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add issue")
+
+	branchName := issueID + "/feature"
+	runGit(t, dir, "checkout", "-b", branchName)
+	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "add feature")
+	runGit(t, dir, "checkout", "main")
 
 	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	if cfgOverrides != nil {
@@ -413,8 +265,6 @@ func TestMergeIssue_MergeStrategy(t *testing.T) {
 }
 
 func TestMergeIssue_FFStrategy(t *testing.T) {
-	// FF needs no divergence, so we stay on the feature branch and let
-	// MergeIssue auto-checkout main.
 	_, client := setupMergeRepo(t, "test-ff01", nil)
 
 	result, err := client.MergeIssue("test-ff01", MergeOptions{
@@ -770,7 +620,7 @@ func TestMergeIssue_WorktreeCleanup(t *testing.T) {
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: true\n"), 0644)
+	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
 
 	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
 	runGit(t, dir, "add", ".")
@@ -801,7 +651,7 @@ func TestMergeIssue_WorktreeCleanup(t *testing.T) {
 	runGit(t, dir, "add", ".")
 	runGit(t, dir, "commit", "-m", "add issue")
 
-	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: true}
+	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	client := NewClient(cfg)
 
 	result, err := client.MergeIssue("test-wt01", MergeOptions{
@@ -846,7 +696,7 @@ func TestMergeIssue_WorktreeHubWrongBranch(t *testing.T) {
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: true\n"), 0644)
+	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
 
 	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
 	runGit(t, dir, "add", ".")
@@ -880,7 +730,7 @@ func TestMergeIssue_WorktreeHubWrongBranch(t *testing.T) {
 	// Move hub off main to simulate wrong branch
 	runGit(t, dir, "checkout", "-b", "some-other-branch")
 
-	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: true}
+	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	client := NewClient(cfg)
 
 	_, err := client.MergeIssue("test-wthub01", MergeOptions{
@@ -892,169 +742,6 @@ func TestMergeIssue_WorktreeHubWrongBranch(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "hub checkout is on") {
 		t.Errorf("expected 'hub checkout' error, got: %v", err)
-	}
-}
-
-func TestMergeIssue_FFPreservesMainIssuesDB(t *testing.T) {
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-b", "main")
-	runGit(t, dir, "config", "user.email", "test@test.com")
-	runGit(t, dir, "config", "user.name", "Test")
-
-	origDir, _ := os.Getwd()
-	os.Chdir(dir)
-	t.Cleanup(func() {
-		os.Chdir(origDir)
-		storage.ResetHubRoot()
-	})
-
-	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: false\n"), 0644)
-	os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(".xpo/issues.db merge=union\n"), 0644)
-
-	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: false}
-	client := NewClient(cfg)
-
-	// Seed an initial issue on main
-	storage.ResetHubRoot()
-	evt0 := model.Event{
-		ID:   "test-000000",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "Background issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.AppendEvent(evt0)
-
-	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "init")
-
-	// Create a feature branch (no divergence so FF is possible)
-	runGit(t, dir, "checkout", "-b", "test-ffdb01/feature")
-
-	evtBranch := model.Event{
-		ID:   "test-ffdb01",
-		Type: model.EventTypeCreate,
-		Payload: model.CreatePayload{
-			Title:  "FF issue",
-			Status: "DOING",
-		},
-		CreatedBy: "Test <test@test.com>",
-	}
-	storage.ResetHubRoot()
-	storage.AppendEvent(evtBranch)
-	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
-	runGit(t, dir, "add", ".")
-	runGit(t, dir, "commit", "-m", "feature work")
-
-	storage.ResetHubRoot()
-
-	result, err := client.MergeIssue("test-ffdb01", MergeOptions{
-		Strategy:   MergeStrategyFF,
-		KeepBranch: true,
-	})
-	if err != nil {
-		t.Fatalf("MergeIssue failed: %v", err)
-	}
-	if result.MergeSHA == "" {
-		t.Error("expected MergeSHA to be set")
-	}
-
-	// Verify all events survived
-	storage.ResetHubRoot()
-	events, err := storage.ReadEvents()
-	if err != nil {
-		t.Fatalf("ReadEvents failed: %v", err)
-	}
-
-	hasBackgroundCreate := false
-	hasBranchCreate := false
-	hasMerge := false
-	for _, e := range events {
-		if e.ID == "test-000000" && e.Type == model.EventTypeCreate {
-			hasBackgroundCreate = true
-		}
-		if e.ID == "test-ffdb01" && e.Type == model.EventTypeCreate {
-			hasBranchCreate = true
-		}
-		if e.ID == "test-ffdb01" && e.Type == model.EventTypeMerge {
-			hasMerge = true
-		}
-	}
-
-	if !hasBackgroundCreate {
-		t.Error("lost the initial create event from main")
-	}
-	if !hasBranchCreate {
-		t.Error("lost the create event from the feature branch")
-	}
-	if !hasMerge {
-		t.Error("expected MERGE event in issue history")
-	}
-}
-
-func TestUnionLines(t *testing.T) {
-	tests := []struct {
-		name     string
-		base     string
-		theirs   string
-		expected string
-	}{
-		{
-			name:     "disjoint lines",
-			base:     "a\nb\n",
-			theirs:   "c\nd\n",
-			expected: "a\nb\nc\nd\n",
-		},
-		{
-			name:     "overlapping lines",
-			base:     "a\nb\nc\n",
-			theirs:   "a\nb\nd\n",
-			expected: "a\nb\nc\nd\n",
-		},
-		{
-			name:     "identical",
-			base:     "a\nb\n",
-			theirs:   "a\nb\n",
-			expected: "a\nb\n",
-		},
-		{
-			name:     "empty base",
-			base:     "",
-			theirs:   "a\nb\n",
-			expected: "a\nb\n",
-		},
-		{
-			name:     "empty theirs",
-			base:     "a\nb\n",
-			theirs:   "",
-			expected: "a\nb\n",
-		},
-		{
-			name:     "both empty",
-			base:     "",
-			theirs:   "",
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := unionLines([]byte(tt.base), []byte(tt.theirs))
-			gotStr := string(got)
-			if tt.expected == "" {
-				if got != nil {
-					t.Errorf("expected nil, got %q", gotStr)
-				}
-				return
-			}
-			if gotStr != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, gotStr)
-			}
-		})
 	}
 }
 

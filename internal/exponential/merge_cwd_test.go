@@ -37,7 +37,7 @@ func setupHubWorktreeRepo(t *testing.T, issueID string) (hub, wtPath, branch str
 	})
 
 	os.MkdirAll(filepath.Join(dir, ".xpo"), 0755)
-	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\nworktrees: true\n"), 0644)
+	os.WriteFile(filepath.Join(dir, ".xpo/config.yaml"), []byte("prefix: test-\n"), 0644)
 	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(".xpo/worktrees/\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "base.txt"), []byte("base\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "shared.txt"), []byte("original\n"), 0644)
@@ -59,7 +59,7 @@ func setupHubWorktreeRepo(t *testing.T, issueID string) (hub, wtPath, branch str
 	runGit(t, wtPath, "add", "feature.txt")
 	runGit(t, wtPath, "commit", "-m", "add feature")
 
-	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>", Worktrees: true}
+	cfg := &config.Config{Prefix: "test-", User: "Test <test@test.com>"}
 	return dir, wtPath, branch, NewClient(cfg)
 }
 

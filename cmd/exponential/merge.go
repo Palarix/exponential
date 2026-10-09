@@ -19,14 +19,13 @@ var (
 	mergeFF           bool
 	mergeDeleteBranch bool
 	mergeKeepBranch   bool
-	mergeNoWorktree   bool
 	mergeJSONFlag     bool
 )
 
 var mergeCmd = &cobra.Command{
 	Use:               "merge [id]",
 	Short:             "Merge an issue's branch and close the issue",
-	Long:              "Merge the branch into the default branch, record a MERGE event, and transition to DONE. When worktrees are enabled (default), the merge runs from the hub checkout on main and the worktree is removed automatically. Use --no-wt for the classic checkout-based flow. If no issue ID is given, infers from the current branch.",
+	Long:              "Merge the branch into the default branch, record a MERGE event, and transition to DONE. The merge runs from the hub checkout, which must be on the default branch, and the issue's worktree is removed automatically. If no issue ID is given, infers from the current branch.",
 	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeIssueIDs,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -44,9 +43,6 @@ func runMerge(id string) {
 		return
 	}
 
-	if mergeNoWorktree {
-		cfg.Worktrees = false
-	}
 	client := exponential.NewClient(cfg)
 	issue, err := client.ResolveReviewIssue(id)
 	if err != nil {
@@ -205,7 +201,6 @@ func init() {
 	mergeCmd.Flags().BoolVar(&mergeFF, "ff", false, "Fast-forward only (fails if not possible)")
 	mergeCmd.Flags().BoolVarP(&mergeDeleteBranch, "delete-branch", "d", false, "Delete branch after merge")
 	mergeCmd.Flags().BoolVar(&mergeKeepBranch, "keep-branch", false, "Keep branch after merge (skip prompt)")
-	mergeCmd.Flags().BoolVar(&mergeNoWorktree, "no-wt", false, "Use checkout-based merge instead of worktree-aware merge")
 	mergeCmd.Flags().BoolVar(&mergeJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(mergeCmd)
 }

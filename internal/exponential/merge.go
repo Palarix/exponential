@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -54,12 +53,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 
 	branch := issue.BranchStats.Branch
 	base := DefaultBranch()
-	useWorktrees := c.Config.Worktrees && CheckGitRepo()
-	if useWorktrees {
-		if wtPath, ok := FindWorktreeForBranch(branch); !ok || wtPath == storage.HubRoot() {
-			useWorktrees = false
-		}
-	}
 	result := &MergeResult{}
 
 	gitErr := WithGitLock(func() error {
@@ -67,15 +60,10 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		// cwd: an MCP server may be running inside the issue's worktree.
 		baseSHA := resolveRef(base)
 
-		if useWorktrees {
-			current := HubBranch()
-			if current != base {
-				return fmt.Errorf("hub checkout is on %s, not %s — park the hub on the default branch before merging", current, base)
-			}
-		} else {
-			if err := hubGit("checkout", base).Run(); err != nil {
-				return fmt.Errorf("failed to checkout %s: %w", base, err)
-			}
+		// The hub is never switched: .xpo/ is hub state, and checking out
+		// another branch would carry it along.
+		if current := HubBranch(); current != base {
+			return fmt.Errorf("hub checkout is on %s, not %s — park the hub on the default branch before merging", current, base)
 		}
 
 		commitMsg := opts.CommitMessage
@@ -89,14 +77,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 			default:
 				commitMsg = fmt.Sprintf("Merge branch '%s'", branch)
 			}
-		}
-
-		// Squash and ff-only merges do not invoke the merge=union driver,
-		// so the branch's issues.db would overwrite main's. Save main's
-		// version before the merge so we can union them afterward.
-		var mainIssuesDB []byte
-		if !useWorktrees && opts.Strategy != MergeStrategyMerge {
-			mainIssuesDB, _ = os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
 		}
 
 		// Merge and commit the code before recording anything. issues.db is
@@ -125,12 +105,6 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		}
 		mergeSHA := resolveRef("HEAD")
 
-		if mainIssuesDB != nil {
-			branchIssuesDB, _ := os.ReadFile(filepath.Join(storage.XpoDir(), "issues.db"))
-			merged := unionLines(mainIssuesDB, branchIssuesDB)
-			os.WriteFile(filepath.Join(storage.XpoDir(), "issues.db"), merged, 0644)
-		}
-
 		if err := c.recordMerge(issue, branch, baseSHA, opts.Strategy, result); err != nil {
 			return fmt.Errorf("merged %s into %s as %s but failed to record the merge: %w\nThe code is merged — do not re-run merge. Transition %s to DONE manually.",
 				branch, base, mergeSHA, err, issue.ID)
@@ -158,13 +132,11 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 		result.Messages = append(result.Messages, fmt.Sprintf("Merged %s into %s (%s)", branch, base, opts.Strategy))
 
 		// Clean up worktree (always — worktrees are ephemeral, even with --keep-branch)
-		if useWorktrees {
-			if wtPath, ok := FindWorktreeForBranch(branch); ok {
-				if err := WorktreeRemove(wtPath); err != nil {
-					result.Messages = append(result.Messages, fmt.Sprintf("Warning: failed to remove worktree %s: %v", wtPath, err))
-				} else {
-					result.Messages = append(result.Messages, fmt.Sprintf("Removed worktree %s", wtPath))
-				}
+		if wtPath, ok := FindWorktreeForBranch(branch); ok {
+			if err := WorktreeRemove(wtPath); err != nil {
+				result.Messages = append(result.Messages, fmt.Sprintf("Warning: failed to remove worktree %s: %v", wtPath, err))
+			} else {
+				result.Messages = append(result.Messages, fmt.Sprintf("Removed worktree %s", wtPath))
 			}
 		}
 
@@ -423,44 +395,6 @@ func resolveRef(ref string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
-}
-
-// unionLines merges two line-delimited byte slices, keeping all lines from
-// base and appending any lines from theirs that are not already present.
-// This simulates git's merge=union driver for squash/ff merges.
-func unionLines(base, theirs []byte) []byte {
-	baseStr := strings.TrimRight(string(base), "\n")
-	theirStr := strings.TrimRight(string(theirs), "\n")
-
-	if baseStr == "" && theirStr == "" {
-		return nil
-	}
-
-	var baseLines []string
-	if baseStr != "" {
-		baseLines = strings.Split(baseStr, "\n")
-	}
-	var theirLines []string
-	if theirStr != "" {
-		theirLines = strings.Split(theirStr, "\n")
-	}
-
-	seen := make(map[string]struct{}, len(baseLines))
-	for _, line := range baseLines {
-		seen[line] = struct{}{}
-	}
-
-	result := make([]string, len(baseLines))
-	copy(result, baseLines)
-
-	for _, line := range theirLines {
-		if _, ok := seen[line]; !ok {
-			result = append(result, line)
-			seen[line] = struct{}{}
-		}
-	}
-
-	return []byte(strings.Join(result, "\n") + "\n")
 }
 
 type mergeError struct {

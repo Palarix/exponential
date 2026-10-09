@@ -132,7 +132,7 @@ xpo review <id>                         # unified diff from the terminal
 xpo merge <id>                          # squash-merge + close, removes worktree
 ```
 
-By default, `xpo start` creates a git worktree at `.xpo/worktrees/<branch>/` so the primary checkout stays on `main`. Multiple agents (or humans) can work on different issues concurrently without trampling each other's uncommitted changes. `xpo merge` runs from the hub and cleans up the worktree automatically. Use `--no-wt` on either command for the classic checkout-based flow, or set `worktrees: false` in `.xpo/config.yaml`.
+`xpo start` creates a git worktree at `.xpo/worktrees/<branch>/` so the primary checkout (the hub) stays on `main`. Multiple agents (or humans) can work on different issues concurrently without trampling each other's uncommitted changes. `xpo merge` runs from the hub, which must be on the default branch, and cleans up the worktree automatically. Worktrees are the only mode: `.xpo/` is shared hub state, so it never moves with a feature branch.
 
 Run `xpo --help` or `xpo <command> --help` for the full surface.
 

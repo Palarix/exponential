@@ -22,8 +22,8 @@ const linkToolDescription = "Add a relationship (blocks, depends_on, relates_to,
 
 const mergeToolDescription = "Merge an issue's branch into the default branch (squash by default), record a MERGE event, and close the issue. " +
 	"Omit `strategy` unless the user asks for a specific one. " +
-	"All changes on the issue's worktree or branch must be committed first — merge refuses to run while the worktree has uncommitted or untracked files. " +
-	"When worktrees are enabled, the merge runs from the hub (primary checkout on main) and the worktree is cleaned up automatically."
+	"All changes in the issue's worktree must be committed first — merge refuses to run while the worktree has uncommitted or untracked files. " +
+	"The merge runs from the hub (primary checkout, which must be on the default branch) and the worktree is cleaned up automatically."
 
 const unlinkToolDescription = "Remove one relationship between two issues, the counterpart of `link`. " +
 	"Links are bidirectional, so `unlink { B, A, blocked_by }` also removes `A blocks B` stored on A. " +
@@ -72,7 +72,7 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start",
-		Description: "Start working on an issue: transitions status to DOING and creates a git worktree (default) or branch for <issue-id>-<slug> off the default branch. Returns the worktree path when worktrees are enabled.",
+		Description: "Start working on an issue: transitions status to DOING and creates a git worktree with a new branch <issue-id>-<slug> off the default branch. Returns the worktree path.",
 	}, t.start)
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -309,16 +309,6 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in jsonio
 		return nil, jsonio.StartOutput{}, fmt.Errorf("'id' is required")
 	}
 	c := t.clientFor(req)
-	switch in.Mode {
-	case "":
-		// no override — use global config
-	case "worktree", "branch":
-		cfgCopy := *c.Config
-		cfgCopy.Worktrees = in.Mode == "worktree"
-		c.Config = &cfgCopy
-	default:
-		return nil, jsonio.StartOutput{}, fmt.Errorf("invalid mode %q: must be \"worktree\" or \"branch\"", in.Mode)
-	}
 	issue, err := c.GetIssue(in.ID)
 	if err != nil {
 		return nil, jsonio.StartOutput{}, err

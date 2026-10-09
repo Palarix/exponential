@@ -85,33 +85,11 @@ func seedMCPIssue(t *testing.T, id, title, status string) {
 
 // --- start tool tests ---
 
-func TestMCPStart_BranchMode(t *testing.T) {
-	ts, _ := setupGitToolset(t, nil)
-	seedMCPIssue(t, "test-br01", "Branch Mode", "PLANNED")
-
-	_, out, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
-		ID:   "test-br01",
-		Mode: "branch",
-	})
-	if err != nil {
-		t.Fatalf("start failed: %v", err)
-	}
-	if out.Branch == "" {
-		t.Error("expected non-empty branch")
-	}
-	if out.WorktreePath != "" {
-		t.Errorf("expected empty worktree path in branch mode, got %q", out.WorktreePath)
-	}
-}
-
-func TestMCPStart_WorktreeMode(t *testing.T) {
+func TestMCPStart_CreatesWorktree(t *testing.T) {
 	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-wt01", "Worktree Mode", "PLANNED")
 
-	_, out, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
-		ID:   "test-wt01",
-		Mode: "worktree",
-	})
+	_, out, err := ts.start(context.Background(), nil, jsonio.StartToolInput{ID: "test-wt01"})
 	if err != nil {
 		t.Fatalf("start failed: %v", err)
 	}
@@ -119,23 +97,7 @@ func TestMCPStart_WorktreeMode(t *testing.T) {
 		t.Error("expected non-empty branch")
 	}
 	if out.WorktreePath == "" {
-		t.Error("expected non-empty worktree path in worktree mode")
-	}
-}
-
-func TestMCPStart_InvalidMode(t *testing.T) {
-	ts, _ := setupGitToolset(t, nil)
-	seedMCPIssue(t, "test-inv01", "Invalid Mode", "PLANNED")
-
-	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
-		ID:   "test-inv01",
-		Mode: "invalid",
-	})
-	if err == nil {
-		t.Fatal("expected error for invalid mode")
-	}
-	if !strings.Contains(err.Error(), "invalid mode") {
-		t.Errorf("expected 'invalid mode' in error, got: %v", err)
+		t.Error("expected a worktree path: start always creates a worktree")
 	}
 }
 
@@ -151,22 +113,20 @@ func TestMCPStart_MissingID(t *testing.T) {
 // --- merge tool tests ---
 
 func TestMCPMerge_Squash(t *testing.T) {
-	ts, dir := setupGitToolset(t, nil)
+	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-sq01", "Squash Merge", "PLANNED")
 
-	// Start work to create the branch
-	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
-		ID:   "test-sq01",
-		Mode: "branch",
-	})
+	// Start work to create the worktree
+	_, started, err := ts.start(context.Background(), nil, jsonio.StartToolInput{ID: "test-sq01"})
 	if err != nil {
 		t.Fatalf("start failed: %v", err)
 	}
+	wt := started.WorktreePath
 
 	// Add a commit on the branch
-	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
-	mcpRunGit(t, dir, "add", ".")
-	mcpRunGit(t, dir, "commit", "-m", "add feature")
+	os.WriteFile(filepath.Join(wt, "feature.txt"), []byte("feature\n"), 0644)
+	mcpRunGit(t, wt, "add", ".")
+	mcpRunGit(t, wt, "commit", "-m", "add feature")
 
 	_, out, err := ts.merge(context.Background(), nil, jsonio.MergeToolInput{
 		ID:         "test-sq01",
@@ -182,20 +142,18 @@ func TestMCPMerge_Squash(t *testing.T) {
 }
 
 func TestMCPMerge_DefaultStrategy(t *testing.T) {
-	ts, dir := setupGitToolset(t, nil)
+	ts, _ := setupGitToolset(t, nil)
 	seedMCPIssue(t, "test-def01", "Default Strategy", "PLANNED")
 
-	_, _, err := ts.start(context.Background(), nil, jsonio.StartToolInput{
-		ID:   "test-def01",
-		Mode: "branch",
-	})
+	_, started, err := ts.start(context.Background(), nil, jsonio.StartToolInput{ID: "test-def01"})
 	if err != nil {
 		t.Fatalf("start failed: %v", err)
 	}
+	wt := started.WorktreePath
 
-	os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("feature\n"), 0644)
-	mcpRunGit(t, dir, "add", ".")
-	mcpRunGit(t, dir, "commit", "-m", "add feature")
+	os.WriteFile(filepath.Join(wt, "feature.txt"), []byte("feature\n"), 0644)
+	mcpRunGit(t, wt, "add", ".")
+	mcpRunGit(t, wt, "commit", "-m", "add feature")
 
 	// Empty strategy should default to squash
 	_, out, err := ts.merge(context.Background(), nil, jsonio.MergeToolInput{

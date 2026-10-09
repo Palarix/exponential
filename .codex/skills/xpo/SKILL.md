@@ -67,9 +67,9 @@ document the question, the answer you chose, and your reasoning. Use a dedicated
 - Check the issue's dependencies. If any `depends_on` or `blocked_by` targets are not DONE, stop and ask the user how to proceed. Do not start multiple issues in a dependency chain simultaneously.
 - If the issue is already in DOING and assigned to someone else, stop and ask the user before taking it over.
 
-Call `start` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree or branch (depending on configuration). Never set `assignee` to yourself — xpo records that an agent did the work.
+Call `start` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree for it. Never set `assignee` to yourself — xpo records that an agent did the work.
 
-All file reads, edits, builds, and test runs must happen inside the worktree path or branch returned by `start` — not the main checkout. To resume an issue already in DOING, call `start` with `force: true`.
+All file reads, edits, builds, and test runs must happen inside the worktree path returned by `start` — not the main checkout. To resume an issue already in DOING, call `start` with `force: true`.
 
 ### 5. Implement & Test
 
@@ -123,21 +123,21 @@ Write the walkthrough **after** any user-requested corrections are applied, so i
 1. The user has explicitly approved the changes
 2. Tests pass
 3. The walkthrough is written
-4. All changes are committed on the issue's worktree or branch
+4. All changes are committed on the issue's worktree
 
 If any are missing, go back to the missing step.
 
-Then, in the issue's worktree (or on its branch):
+Then, in the issue's worktree:
 
 1. If the project's instructions require a changelog entry, add it now.
 2. Run `git status`. Delete or move scratch files that are not part of the change.
 3. Commit everything: `git add -A && git commit -m "<issue-id>: <issue title>"`.
 4. Call the xpo MCP server's `merge` tool without a `strategy` (the user may ask for one).
    It squash-merges the branch into the default
-   branch, records a MERGE event, closes the issue, and removes the worktree or branch.
+   branch, records a MERGE event, closes the issue, and removes the worktree and branch.
    It refuses to run while the worktree has uncommitted or untracked files.
 
-Committing on the issue's worktree or branch is your job. Merging is `merge`'s job: never run
+Committing on the issue's worktree is your job. Merging is `merge`'s job: never run
 `git merge`, `git rebase`, `git push`, or commit on the default branch yourself.
 
 ---
@@ -205,4 +205,4 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 
-<!-- xpo:skill 1.2.1 sha256:3d8b9340c2bb -->
+<!-- xpo:skill 1.2.1 sha256:d180cdba7ca9 -->

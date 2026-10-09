@@ -139,60 +139,6 @@ func TestBranchExists_False(t *testing.T) {
 	}
 }
 
-func TestCreateAndCheckoutBranch(t *testing.T) {
-	initTestRepo(t, "main")
-
-	err := CreateAndCheckoutBranch("feature", "main")
-	if err != nil {
-		t.Fatalf("CreateAndCheckoutBranch failed: %v", err)
-	}
-
-	got := CurrentBranch()
-	if got != "feature" {
-		t.Errorf("expected to be on feature, got %s", got)
-	}
-
-	if !BranchExists("feature") {
-		t.Error("expected feature branch to exist")
-	}
-}
-
-func TestCreateAndCheckoutBranch_AlreadyExists(t *testing.T) {
-	initTestRepo(t, "main")
-	runGit(t, ".", "checkout", "-b", "feature")
-	runGit(t, ".", "checkout", "main")
-
-	err := CreateAndCheckoutBranch("feature", "main")
-	if err == nil {
-		t.Error("expected error when branch already exists")
-	}
-}
-
-func TestCheckoutBranch(t *testing.T) {
-	initTestRepo(t, "main")
-	runGit(t, ".", "checkout", "-b", "feature")
-	runGit(t, ".", "checkout", "main")
-
-	err := CheckoutBranch("feature")
-	if err != nil {
-		t.Fatalf("CheckoutBranch failed: %v", err)
-	}
-
-	got := CurrentBranch()
-	if got != "feature" {
-		t.Errorf("expected to be on feature, got %s", got)
-	}
-}
-
-func TestCheckoutBranch_Nonexistent(t *testing.T) {
-	initTestRepo(t, "main")
-
-	err := CheckoutBranch("nonexistent")
-	if err == nil {
-		t.Error("expected error for nonexistent branch")
-	}
-}
-
 func TestWorktreeLifecycle(t *testing.T) {
 	dir := initTestRepo(t, "main")
 

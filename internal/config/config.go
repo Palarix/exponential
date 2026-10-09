@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -57,7 +58,6 @@ type Config struct {
 	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
 	Permissions       PermissionsConfig `mapstructure:"permissions" yaml:"permissions,omitempty"`
 	Drive              DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
-	Worktrees          bool              `mapstructure:"worktrees" yaml:"worktrees"`
 	WorktreeSetup      string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
 	DefaultBranch      string            `mapstructure:"default_branch" yaml:"default_branch,omitempty"`
 }
@@ -388,6 +388,9 @@ func UpdateLabel(oldName, newName, color string) error {
 	return os.WriteFile(configPath, out, 0644)
 }
 
+// warnOut receives config warnings; tests swap it.
+var warnOut io.Writer = os.Stderr
+
 // LoadConfig reads configuration from file or environment variables.
 func LoadConfig() (*Config, error) {
 	v := viper.New()
@@ -410,7 +413,6 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("drive.coder.agent", "claude")
 	v.SetDefault("drive.max_retries", 3)
 	v.SetDefault("drive.timeout", "30m")
-	v.SetDefault("worktrees", true)
 
 	// Config file locations
 	v.SetConfigName("config")
@@ -437,6 +439,12 @@ func LoadConfig() (*Config, error) {
 	var cfg Config
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// Branch mode was removed: worktrees are the only way to work on issues.
+	// `worktrees: true` (what xpo init used to write) is a harmless no-op.
+	if v.IsSet("worktrees") && !v.GetBool("worktrees") {
+		fmt.Fprintln(warnOut, "warning: worktrees: false is no longer supported — xpo always uses worktrees; remove the key from .xpo/config.yaml")
 	}
 
 	// Validate user format if provided
