@@ -257,6 +257,33 @@ export function parseDiffByFile(diff: string): Map<string, string[]> {
   return result;
 }
 
+const sameLines = (a: string[], b: string[]) => a.length === b.length && a.every((l, i) => l === b[i]);
+
+/**
+ * Keeps `prev`'s lines array for every file whose lines are unchanged in
+ * `next`, so memoized per-file rendering skips them; returns `prev` itself
+ * when nothing changed at all (same files, same order, same lines). Follows
+ * `next`'s file order.
+ */
+export function reuseUnchangedFiles(
+  prev: Map<string, string[]> | undefined,
+  next: Map<string, string[]>,
+): Map<string, string[]> {
+  if (!prev || prev === next) return next;
+  const out = new Map<string, string[]>();
+  let changed = prev.size !== next.size;
+  const prevKeys = [...prev.keys()];
+  let i = 0;
+  for (const [file, lines] of next) {
+    const old = prev.get(file);
+    const reused = old && sameLines(old, lines) ? old : lines;
+    if (reused !== old || prevKeys[i] !== file) changed = true;
+    out.set(file, reused);
+    i++;
+  }
+  return changed ? out : prev;
+}
+
 export type DiffFreshness = "fresh" | "refreshing" | "failed";
 
 /**

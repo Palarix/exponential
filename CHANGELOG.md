@@ -98,6 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- MergeView no longer re-renders the whole diff on every 3s uncommitted-diff poll or Refresh. Unchanged polls and refreshes no longer block the page (before: ~190–200ms per poll on a 1,000-line diff), and a change to one file re-renders only that file's card (xpo-5839aa)
 - MergeView's All changes / Uncommitted toggle no longer shifts sideways by a couple of pixels when switching, because each label reserves its bold width (xpo-e64b2b)
 - Switching Backlog tabs now loads that tab's saved filters instead of carrying over the previous tab's filters and overwriting the new tab's saved ones (xpo-0c0556)
 - Clicking a label on the Labels page no longer briefly sets an invalid `#/backlog` URL, and the applied label filter is saved like a manually chosen one (xpo-787e7b)

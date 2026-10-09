@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { memo, useState, useCallback, useMemo, useRef } from "react";
 import {
   buildFileTree,
   flattenSingleChildDirs,
@@ -6,6 +6,7 @@ import {
   addLineNumbers,
   parseDiffByFile,
   diffFreshness,
+  reuseUnchangedFiles,
 } from "./diff-utils";
 import type { FileTreeNode, SplitLine } from "./diff-utils";
 import Markdown from "react-markdown";
@@ -102,6 +103,22 @@ function StableLabel({ active, children }: { active: boolean; children: string }
       <span className={`col-start-1 row-start-1${active ? " font-medium" : ""}`}>{children}</span>
     </span>
   );
+}
+
+/**
+ * `next`, but with each unchanged file's lines array carried over from the
+ * previous render (and the previous map itself when nothing changed), so the
+ * memoized per-file diff cards only re-render for files that changed. Uses the
+ * "store the previous render's info in state" pattern instead of a ref.
+ */
+function useStableFileDiffs(next: Map<string, string[]>): Map<string, string[]> {
+  const [state, setState] = useState(() => ({ input: next, output: next }));
+  if (state.input !== next) {
+    const output = reuseUnchangedFiles(state.output, next);
+    setState({ input: next, output });
+    return output;
+  }
+  return state.output;
 }
 
 function StaleDiffNotice({ asOf }: { asOf: number }) {
@@ -241,10 +258,9 @@ export default function MergeView({
     }
   }, [issue.id, newComment]);
 
-  const fileDiffs = useMemo(() => parseDiffByFile(diff), [diff]);
-  const uncommittedFileDiffs = useMemo(
-    () => parseDiffByFile(uncommittedDiff),
-    [uncommittedDiff],
+  const fileDiffs = useStableFileDiffs(useMemo(() => parseDiffByFile(diff), [diff]));
+  const uncommittedFileDiffs = useStableFileDiffs(
+    useMemo(() => parseDiffByFile(uncommittedDiff), [uncommittedDiff]),
   );
   const activeFileDiffs =
     diffScope === "uncommitted"
@@ -256,9 +272,8 @@ export default function MergeView({
     () => new Set(mergeability?.dirty_files ?? []),
     [mergeability],
   );
-  const commitFileDiffs = useMemo(
-    () => parseDiffByFile(commitDiffText),
-    [commitDiffText],
+  const commitFileDiffs = useStableFileDiffs(
+    useMemo(() => parseDiffByFile(commitDiffText), [commitDiffText]),
   );
 
   const handleScopeChange = (scope: DiffScope) => {
@@ -754,7 +769,7 @@ export default function MergeView({
 }
 
 /* ─── Commits Tab: list left, diff right ─── */
-function CommitsTab({
+const CommitsTab = memo(function CommitsTab({
   commits,
   selectedCommit,
   commitDiffs,
@@ -829,11 +844,12 @@ function CommitsTab({
       </div>
     </div>
   );
-}
+});
 
 /* ─── File tree ─── */
 
-function FileTreeView({
+// Named differently so the recursive <FileTreeView> below goes through memo.
+const FileTreeView = memo(function FileTreeLevel({
   nodes,
   depth,
   selectedFile,
@@ -916,10 +932,10 @@ function FileTreeView({
       })}
     </>
   );
-}
+});
 
 /* ─── Files Tab: file tree left, diff right ─── */
-function FilesTab({
+const FilesTab = memo(function FilesTab({
   fileDiffs,
   selectedFile,
   onSelectFile,
@@ -1033,7 +1049,7 @@ function FilesTab({
       )}
     </div>
   );
-}
+});
 
 /* ─── Conversation Tab ─── */
 function ConversationTab({
@@ -1103,7 +1119,7 @@ function ConversationTab({
 /* ─── Diff viewer with line numbers + collapsible cards ─── */
 type DiffMode = "unified" | "split";
 
-function DiffViewer({
+const DiffViewer = memo(function DiffViewer({
   diffs,
   collapsed,
   setCollapsed,
@@ -1185,70 +1201,76 @@ function DiffViewer({
       </div>
 
       <div className="p-4 space-y-4">
-        {Array.from(diffs.entries()).map(([file, rawLines]) => {
-          const isCollapsed = collapsed.has(file);
-          return (
-            <div
-              key={file}
-              data-diff-file={file}
-              className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden"
-            >
-              <button
-                onClick={() => toggleFile(file)}
-                className="flex items-center gap-2 w-full px-4 py-2 text-xs font-mono bg-[var(--color-surface-1)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors text-left"
-              >
-                {isCollapsed ? (
-                  <ChevronRight
-                    size={13}
-                    className="text-[var(--color-text-muted)] shrink-0"
-                  />
-                ) : (
-                  <ChevronDown
-                    size={13}
-                    className="text-[var(--color-text-muted)] shrink-0"
-                  />
-                )}
-                <FileDiff
-                  size={13}
-                  className="text-[var(--color-text-muted)] shrink-0"
-                />
-                <span className="text-[var(--color-text-primary)] font-semibold flex-1">
-                  {file}
-                </span>
-                {(() => {
-                  const add = rawLines.filter(
-                    (l) => l.startsWith("+") && !l.startsWith("+++"),
-                  ).length;
-                  const del = rawLines.filter(
-                    (l) => l.startsWith("-") && !l.startsWith("---"),
-                  ).length;
-                  if (add > 0 || del > 0) {
-                    return (
-                      <span className="text-[var(--color-text-muted)] tabular-nums shrink-0">
-                        <span className="text-green-500">+{add}</span>{" "}
-                        <span className="text-red-500">-{del}</span>
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
-              </button>
-              {!isCollapsed && (
-                <div className="overflow-x-auto">
-                  {mode === "unified" ? (
-                    <UnifiedDiff lines={rawLines} />
-                  ) : (
-                    <SplitDiff lines={rawLines} />
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {Array.from(diffs.entries()).map(([file, lines]) => (
+          <DiffFileCard
+            key={file}
+            file={file}
+            lines={lines}
+            collapsed={collapsed.has(file)}
+            mode={mode}
+            onToggle={toggleFile}
+          />
+        ))}
       </div>
     </div>
   );
-}
+});
+
+/**
+ * One file's diff card. Memoized on its own lines array (kept stable by
+ * useStableFileDiffs), so a poll that changes one file re-renders only that card.
+ */
+const DiffFileCard = memo(function DiffFileCard({
+  file,
+  lines,
+  collapsed,
+  mode,
+  onToggle,
+}: {
+  file: string;
+  lines: string[];
+  collapsed: boolean;
+  mode: DiffMode;
+  onToggle: (file: string) => void;
+}) {
+  const { add, del } = useMemo(
+    () => ({
+      add: lines.filter((l) => l.startsWith("+") && !l.startsWith("+++")).length,
+      del: lines.filter((l) => l.startsWith("-") && !l.startsWith("---")).length,
+    }),
+    [lines],
+  );
+  return (
+    <div
+      data-diff-file={file}
+      className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden"
+    >
+      <button
+        onClick={() => onToggle(file)}
+        className="flex items-center gap-2 w-full px-4 py-2 text-xs font-mono bg-[var(--color-surface-1)] border-b border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface)] transition-colors text-left"
+      >
+        {collapsed ? (
+          <ChevronRight size={13} className="text-[var(--color-text-muted)] shrink-0" />
+        ) : (
+          <ChevronDown size={13} className="text-[var(--color-text-muted)] shrink-0" />
+        )}
+        <FileDiff size={13} className="text-[var(--color-text-muted)] shrink-0" />
+        <span className="text-[var(--color-text-primary)] font-semibold flex-1">{file}</span>
+        {(add > 0 || del > 0) && (
+          <span className="text-[var(--color-text-muted)] tabular-nums shrink-0">
+            <span className="text-green-500">+{add}</span>{" "}
+            <span className="text-red-500">-{del}</span>
+          </span>
+        )}
+      </button>
+      {!collapsed && (
+        <div className="overflow-x-auto">
+          {mode === "unified" ? <UnifiedDiff lines={lines} /> : <SplitDiff lines={lines} />}
+        </div>
+      )}
+    </div>
+  );
+});
 
 function rowBg(type: string): string {
   if (type === "add") return "bg-green-500/10";
@@ -1263,17 +1285,15 @@ function gutterBg(type: string): string {
   return "bg-[var(--color-surface)]";
 }
 
-function UnifiedDiff({ lines }: { lines: string[] }) {
-  const numbered = addLineNumbers(lines);
+const UnifiedDiff = memo(function UnifiedDiff({ lines }: { lines: string[] }) {
+  const numbered = useMemo(() => addLineNumbers(lines).filter((ln) => ln.type !== "meta"), [lines]);
   return (
     <table
       className="text-xs font-mono leading-5 border-collapse"
       style={{ minWidth: "100%" }}
     >
       <tbody>
-        {numbered
-          .filter((ln) => ln.type !== "meta")
-          .map((ln, i) => (
+        {numbered.map((ln, i) => (
             <tr key={i} className={rowBg(ln.type)}>
               {ln.type === "hunk" ? (
                 <>
@@ -1323,7 +1343,7 @@ function UnifiedDiff({ lines }: { lines: string[] }) {
       </tbody>
     </table>
   );
-}
+});
 
 function splitCellBg(type: string): string {
   if (type === "del") return "bg-red-500/10";
@@ -1332,7 +1352,7 @@ function splitCellBg(type: string): string {
   return "";
 }
 
-function SplitDiff({ lines }: { lines: string[] }) {
+const SplitDiff = memo(function SplitDiff({ lines }: { lines: string[] }) {
   const chunks = useMemo(() => buildSplitLines(lines), [lines]);
 
   const rows: { left: SplitLine; right: SplitLine; isHunk: boolean }[] = [];
@@ -1416,4 +1436,4 @@ function SplitDiff({ lines }: { lines: string[] }) {
       </tbody>
     </table>
   );
-}
+});

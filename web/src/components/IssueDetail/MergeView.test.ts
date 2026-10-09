@@ -7,6 +7,7 @@ import {
   buildSplitLines,
   hasDirtyDescendant,
   diffFreshness,
+  reuseUnchangedFiles,
 } from "./diff-utils";
 
 /* ─── parseDiffByFile ─── */
@@ -465,5 +466,54 @@ describe("diffFreshness", () => {
 
   it("clears the failure once a later fetch succeeds", () => {
     expect(diffFreshness({ dataUpdatedAt: 400, errorUpdatedAt: 300, enteredAt: 100 })).toBe("fresh");
+  });
+});
+
+/* ─── reuseUnchangedFiles ─── */
+
+describe("reuseUnchangedFiles", () => {
+  const map = (entries: [string, string[]][]) => new Map(entries);
+
+  it("returns prev itself when nothing changed", () => {
+    const prev = map([["a.ts", ["+1"]], ["b.ts", ["-2"]]]);
+    const next = map([["a.ts", ["+1"]], ["b.ts", ["-2"]]]);
+    expect(reuseUnchangedFiles(prev, next)).toBe(prev);
+  });
+
+  it("reuses unchanged files' arrays when one file changed", () => {
+    const prev = map([["a.ts", ["+1"]], ["b.ts", ["-2"]]]);
+    const next = map([["a.ts", ["+1"]], ["b.ts", ["-2", "+3"]]]);
+    const out = reuseUnchangedFiles(prev, next);
+    expect(out).not.toBe(prev);
+    expect(out.get("a.ts")).toBe(prev.get("a.ts"));
+    expect(out.get("b.ts")).toBe(next.get("b.ts"));
+  });
+
+  it("returns a new map when a file is added or removed, still reusing unchanged arrays", () => {
+    const prev = map([["a.ts", ["+1"]], ["b.ts", ["-2"]]]);
+    const added = reuseUnchangedFiles(prev, map([["a.ts", ["+1"]], ["b.ts", ["-2"]], ["c.ts", ["+4"]]]));
+    expect(added).not.toBe(prev);
+    expect([...added.keys()]).toEqual(["a.ts", "b.ts", "c.ts"]);
+    expect(added.get("b.ts")).toBe(prev.get("b.ts"));
+
+    const removed = reuseUnchangedFiles(prev, map([["b.ts", ["-2"]]]));
+    expect(removed).not.toBe(prev);
+    expect([...removed.keys()]).toEqual(["b.ts"]);
+    expect(removed.get("b.ts")).toBe(prev.get("b.ts"));
+  });
+
+  it("follows next's order, and treats a reorder as a change", () => {
+    const prev = map([["a.ts", ["+1"]], ["b.ts", ["-2"]]]);
+    const out = reuseUnchangedFiles(prev, map([["b.ts", ["-2"]], ["a.ts", ["+1"]]]));
+    expect(out).not.toBe(prev);
+    expect([...out.keys()]).toEqual(["b.ts", "a.ts"]);
+    expect(out.get("a.ts")).toBe(prev.get("a.ts"));
+  });
+
+  it("returns next when there is nothing to reuse", () => {
+    const next = map([["a.ts", ["+1"]]]);
+    expect(reuseUnchangedFiles(undefined, next)).toBe(next);
+    const empty = map([]);
+    expect(reuseUnchangedFiles(empty, empty)).toBe(empty);
   });
 });
