@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-10-09
+
 ### Added
 
+- README "Upgrading from 1.2.x" section: branch-mode migration, re-running `xpo init`, `xpo board` network binding and access token, JSON output changes, principal-first assignees. The Board section now documents the `--host` access token (xpo-e60c26)
 - `xpo board --host <non-loopback>` requires a per-run access token. It is printed on startup as `…/?token=…` and exchanged for an `HttpOnly`, `SameSite=Lax` session cookie named `exponential-<sha256(token)[:8]>`. Without the cookie, `/api/*` returns 401 and pages redirect to a new `/auth` form; the web UI redirects there on any 401. `/healthz` stays public, and loopback binds are unchanged (xpo-897f35)
 - Web UI bundles Inter Variable and JetBrains Mono Variable (latin + latin-ext woff2, embedded in the binary) instead of relying on locally installed fonts; `@font-face` pins `ascent-override` / `descent-override` / `line-gap-override` so Linux and macOS lay out text identically. SIL OFL 1.1 license texts ship at `/licenses/` (xpo-bade50)
 - `SearchInput` in the My Issues TopBar filters the active tab by title, ID or label; Backlog and My Issues share a new `matchesSearch` predicate, and Backlog search now ignores surrounding whitespace (xpo-5ed512)
@@ -60,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `make release` is replaced by `make release-prep VERSION=x.y.z`, which bumps `CLIVersion` and dates the CHANGELOG section in the release issue's worktree without committing, and `make release-tag VERSION=x.y.z`, which tags on `main` after the merge after checking the branch, a clean tree and the version, and does not push. It uses `perl -pi` instead of GNU-only `sed -i`, so it works on macOS (xpo-e60c26)
 - `xpo start` (CLI and MCP) is idempotent when run from inside the issue's existing worktree. It returns success with the same branch and worktree path, moves the issue to DOING if needed, and doesn't recreate the worktree or re-run `worktree_setup`. This lets an orchestrator start an issue and then let the agent inside the worktree call `start` again. `--force` still tears down and recreates the worktree (xpo-7325f7)
 - Web UI writes now go through TanStack Query mutations (`api/mutations.ts`) instead of components calling the API and then `onRefresh()`. Status, estimate, priority, label, assignee and cycle edits, plus Board and Backlog drags, show up immediately and roll back with a "Couldn't save: <reason>" toast if the server rejects them. A status cascade to sub-issues refetches issues once instead of once per child. Creating an issue, starting work, deleting, commenting and label edits now toast on failure instead of failing silently. The `onRefresh`, `patchIssue` and `onConfigLabelsChange` props are gone (xpo-6e757d)
 - Web UI per-view data (cycles, cycle progress, dashboard metrics and activity, timeline, instances, and issue history, artifacts, worktree, commits, diffs and mergeability) now loads through shared TanStack Query hooks: requests are deduplicated across views, and cycles, dashboard and timeline refresh on server events instead of going stale until remounted. MergeView spins its Refresh icon while refreshing (at least one full turn on a click), then briefly shows a check, or an alert plus a "Couldn't refresh: <reason>" toast; a failed uncommitted-diff poll shows "Couldn't refresh, showing changes as of HH:MM" beside it instead of silently showing outdated changes (xpo-ec0480)

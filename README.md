@@ -81,7 +81,7 @@ To reduce permission prompts in Claude Code, allow-list the tools in `.claude/se
 - Inbox with grouped notifications and read/unread state
 - Run multiple boards in parallel — the sidebar links to your other live projects
 
-The server binds to `127.0.0.1` only and has no authentication. Requests whose `Host` header isn't a loopback name are rejected, so web pages can't reach it through DNS rebinding.
+The server binds to `127.0.0.1` by default and needs no login there. Requests whose `Host` header isn't a loopback name are rejected, so web pages can't reach it through DNS rebinding.
 
 To view a board running on another machine, forward the port over SSH:
 
@@ -89,7 +89,7 @@ To view a board running on another machine, forward the port over SSH:
 ssh -L 8080:127.0.0.1:8080 user@host   # then open http://localhost:8080
 ```
 
-`xpo board --host <addr>` binds a different address, but anyone who can reach it can read and modify your issues. Prefer `ssh -L`.
+`xpo board --host <addr>` binds a different address. Any non-loopback address, including `0.0.0.0`, requires a per-run access token. It is printed on startup as `http://<host>:<port>/?token=…`: open that URL, or paste the token on the `/auth` page. Traffic is plain HTTP, so prefer `ssh -L`.
 
 ## CLI
 
@@ -166,6 +166,29 @@ make && make install
 docker build -t xpo:latest .
 docker run -v /path/to/repo:/data -p 8080:8080 xpo:latest
 ```
+
+## Upgrading from 1.2.x
+
+1.3.0 contains breaking changes. Read this before upgrading.
+
+**1. Finish branch-mode work first** (xpo-863802). Branch mode is gone, and worktrees are the only way to work on an issue. `xpo start --mode`, `xpo merge --no-wt` and the `mode` field of the MCP `start` tool and `xpo start --json` are removed. `worktrees: false` in the config is ignored with a warning. Before upgrading:
+
+- merge or park any issue you started in branch mode, and
+- check out the default branch in the primary checkout. `xpo merge` refuses to run while it is on another branch.
+
+**2. Re-run `xpo init` in every project.** It is now one wizard (`--yes` for CI), and `xpo init mcp` / `xpo init skill` are gone (xpo-76e2a1). It refreshes the xpo-managed blocks in CLAUDE.md / AGENTS.md and the installed skill files. Their templates changed: agents no longer assign themselves (xpo-35fc16), branch-mode wording was removed, and agents must commit before `merge` (xpo-e88f1b, xpo-c16e28). Your own content outside the managed blocks is never touched. Afterwards `xpo doctor` should report the integrations as up to date; `xpo doctor --fix` also refreshes them.
+
+**3. `xpo board` network access** (xpo-809ad0, xpo-897f35). The board now binds `127.0.0.1` by default. If you relied on it being reachable from other machines, pass `--host` explicitly. A non-loopback `--host` requires the access token printed at startup. `ssh -L` is still the recommended way (see [The Board](#the-board)).
+
+**4. JSON and integration changes.** If scripts or integrations read xpo output:
+
+- `xpo history --json` prints one JSON envelope instead of JSONL (xpo-f56ce4).
+- `xpo add`, `update` and `rationale --json` print `jsonio` envelopes instead of plain text, and every `--json` command reports failures as `{"error": …}` (xpo-3847a5, xpo-199282, xpo-11e559, xpo-d1a06b).
+- Links are bidirectional: `A blocks B` also shows on B as `blocked_by A`, marked `derived: true` in `show`. `update { links }` replaces the issue's full relationship set, and the new `unlink` command/tool removes one link (xpo-9d6609, xpo-9d5d00).
+
+**5. Assignees are people, not agents** (xpo-35fc16). Issues previously assigned to an agent identity (`Claude Code <agent@…>`) display as the person the agent worked for. This happens at read time, so there is no data migration. `xpo start` assigns the issue to the person, not the agent.
+
+**6. Prefix without trailing dash** (xpo-76e2a1). The issue prefix is now stored as `pay` rather than `pay-`. Existing configs are normalised on load, so nothing to do. You may see this in a config diff after `xpo init`.
 
 ## Distributed mode
 

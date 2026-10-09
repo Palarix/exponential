@@ -21,4 +21,4 @@ may use different naming conventions). The table uses the base tool names.
 | `rationale` | Search across specs and walkthroughs for prior design decisions related to a topic |
 | `artifact` | Manage generic artifacts attached to an issue |
 
-<!-- xpo:skill 1.2.1 sha256:2ef01f06dbb6 -->
+<!-- xpo:skill 1.3.0 sha256:2ef01f06dbb6 -->

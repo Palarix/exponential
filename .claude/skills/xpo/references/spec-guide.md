@@ -47,4 +47,4 @@ A spec that merely restates the issue title has failed.
 - The spec is the source of truth for implementation. If you later discover it is wrong or
   incomplete, update the spec first, then change code.
 
-<!-- xpo:skill 1.2.1 sha256:5a874c8b87af -->
+<!-- xpo:skill 1.3.0 sha256:5a874c8b87af -->

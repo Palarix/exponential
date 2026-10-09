@@ -46,4 +46,4 @@ A new `fetchOk()` helper does the fetch and the `!res.ok → ApiError` check. On
 - [x] A wrong `?token=` or cookie is rejected, and comparisons are constant-time. Evidence: `TestTokenGuardCookie` (a wrong value and another run's cookie name both get 401) and the wrong-token case in `TestTokenGuardQueryExchange`. `validToken` uses `subtle.ConstantTimeCompare`.
 - [x] The frontend redirects to `/auth` on any API 401. Evidence: `web/src/api/client.test.ts` covers `request()`, `fetchIssueDiff` and `fetchCommitDiff`, and checks that a 500 does not redirect.
 - [x] A wildcard bind (`0.0.0.0`) also requires the token. Evidence: the live smoke test above ran with `--host 0.0.0.0`.
-- [x] `make test` passes (exit 0): `go vet`, eslint, vitest (36 files, 544 tests) and `go test ./...`.
+- [x] `make test` passes (exit 0): `go vet`, eslint, vitest (36 files, 540 tests) and `go test ./...`.

@@ -1,6 +1,6 @@
 BINARY_NAME=xpo
 
-.PHONY: all build clean test lint frontend frontend-test install docker release stressgen setup
+.PHONY: all build clean test lint frontend frontend-test install docker release-check-version release-prep release-tag stressgen setup
 
 all: setup build
 
@@ -56,25 +56,41 @@ docker:
 	docker build -t palarix/exponential:latest .
 
 # Cut a release: make release VERSION=x.y.z
-release:
+# Releasing is two steps so the xpo workflow does the committing and merging:
+#   1. In the release issue's worktree: make release-prep VERSION=x.y.z, then
+#      commit and merge the issue as usual.
+#   2. On main, after the merge: make release-tag VERSION=x.y.z, then push.
+
+release-check-version:
 ifndef VERSION
-	$(error VERSION is required — usage: make release VERSION=x.y.z)
+	$(error VERSION is required — usage: make $(MAKECMDGOALS) VERSION=x.y.z)
 endif
-	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "error: working tree is not clean — commit or stash changes first"; exit 1; \
-	fi
-	@if git rev-parse "v$(VERSION)" >/dev/null 2>&1; then \
+	@echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || { \
+		echo "error: VERSION must be x.y.z, got '$(VERSION)'"; exit 1; }
+	@if git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null; then \
 		echo "error: tag v$(VERSION) already exists"; exit 1; \
 	fi
-	@if ! grep -q '## \[Unreleased\]' CHANGELOG.md; then \
-		echo "error: no [Unreleased] section found in CHANGELOG.md"; exit 1; \
-	fi
-	@echo "Releasing v$(VERSION)..."
-	sed -i 's/const CLIVersion = ".*"/const CLIVersion = "$(VERSION)"/' internal/version/version.go
-	sed -i 's/## \[Unreleased\]/## [Unreleased]\n\n## [$(VERSION)] - $(shell date +%Y-%m-%d)/' CHANGELOG.md
-	git add internal/version/version.go CHANGELOG.md
-	git commit -m "release: v$(VERSION)"
+
+# Bumps CLIVersion and turns [Unreleased] into a dated [x.y.z] section.
+# perl -pi rather than sed -i, which differs between GNU and BSD.
+release-prep: release-check-version
+	@grep -q '^## \[Unreleased\]' CHANGELOG.md || { \
+		echo "error: no [Unreleased] section found in CHANGELOG.md"; exit 1; }
+	@perl -pi -e 's/^const CLIVersion = ".*"/const CLIVersion = "$(VERSION)"/' internal/version/version.go
+	@perl -CSD -pi -e 's/^## \[Unreleased\]$$/## [Unreleased]\n\n## [$(VERSION)] \x{2014} $(shell date +%Y-%m-%d)/' CHANGELOG.md
+	@echo "Prepared v$(VERSION): internal/version/version.go and CHANGELOG.md updated (not committed)."
+
+# Tags the merged release on main. Does not push.
+release-tag: release-check-version
+	@test "$$(git rev-parse --abbrev-ref HEAD)" = main || { \
+		echo "error: release-tag must run on main"; exit 1; }
+	@test -z "$$(git status --porcelain)" || { \
+		echo "error: working tree is not clean"; exit 1; }
+	@grep -q '^const CLIVersion = "$(VERSION)"$$' internal/version/version.go || { \
+		echo "error: CLIVersion is not $(VERSION) — run make release-prep in the release issue first"; exit 1; }
+	@grep -q '^## \[$(VERSION)\]' CHANGELOG.md || { \
+		echo "error: CHANGELOG.md has no [$(VERSION)] section"; exit 1; }
 	git tag -a "v$(VERSION)" -m "v$(VERSION)"
 	@echo ""
-	@echo "Done. To publish:"
+	@echo "Tagged v$(VERSION). To publish:"
 	@echo "  git push origin main v$(VERSION)"
