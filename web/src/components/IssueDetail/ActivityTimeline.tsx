@@ -10,7 +10,7 @@ import {
   formatRelativeTime,
   linkifyIssueIds,
   activityActor,
-  agentCommentAuthor,
+  commentAuthor,
   agentTooltip,
   resolveAssignee,
   shortName,
@@ -30,7 +30,6 @@ type ActivityEntry =
       kind: "comment";
       actor: string;
       author: string;
-      via?: string;
       text: string;
       time: string;
     };
@@ -175,11 +174,11 @@ export default function ActivityTimeline({
       const actor = activityActor(evt.created_by, evt.on_behalf_of);
       if (evt.type === "COMMENT") {
         const p = evt.payload || {};
+        const author = commentAuthor(evt.created_by, evt.on_behalf_of);
         items.push({
           kind: "comment",
-          actor: actor.identity,
-          author: actor.name,
-          via: actor.via,
+          actor: author.identity,
+          author: author.name,
           text: String(p.text || ""),
           time: evt.created_at,
         });
@@ -253,7 +252,7 @@ export default function ActivityTimeline({
                 <span className="flex items-center gap-3">
                   <Avatar name={entry.actor} size="sm" />
                   <Text weight="medium" color="primary">
-                    {entry.via ? agentCommentAuthor(entry.via, entry.actor) : entry.author}
+                    {entry.author}
                   </Text>
                 </span>
                 <Text>

@@ -10,6 +10,7 @@ import {
   agentTooltip,
   resolveAssignee,
   agentCommentAuthor,
+  commentAuthor,
   formatShortDate,
   formatTriage,
   stripMarkdown,
@@ -418,5 +419,25 @@ describe("fuzzyScore", () => {
 
   it("returns positive for empty query", () => {
     expect(fuzzyScore("anything", "")).toBeGreaterThan(0);
+  });
+});
+
+describe("commentAuthor", () => {
+  it("shows an agent comment as the principal, naming the agent", () => {
+    expect(commentAuthor("claude-code/2.1.263 <agent@mcp>", "Nicolas Bettenburg <nic@x.com>")).toEqual({
+      identity: "Nicolas Bettenburg <nic@x.com>",
+      name: "Claude Code on behalf of Nicolas Bettenburg",
+    });
+  });
+
+  it("shows a human comment by its author's short name, keeping the email for the avatar", () => {
+    expect(commentAuthor("Alice <a@x.com>")).toEqual({ identity: "Alice <a@x.com>", name: "Alice" });
+  });
+
+  it("falls back to the raw author for legacy agent comments without a principal", () => {
+    expect(commentAuthor("claude-code/2.1.263 <agent@mcp>", "")).toEqual({
+      identity: "claude-code/2.1.263 <agent@mcp>",
+      name: "claude-code/2.1.263",
+    });
   });
 });

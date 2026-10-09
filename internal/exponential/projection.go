@@ -122,10 +122,11 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			json.Unmarshal(payloadBytes, &p)
 
 			comment := model.Comment{
-				ID:        p.ID,
-				Text:      p.Text,
-				CreatedBy: evt.CreatedBy,
-				CreatedAt: evt.CreatedAt,
+				ID:         p.ID,
+				Text:       p.Text,
+				CreatedBy:  evt.CreatedBy,
+				OnBehalfOf: evt.OnBehalfOf,
+				CreatedAt:  evt.CreatedAt,
 			}
 			issue.Comments = append(issue.Comments, comment)
 			issue.UpdatedAt = evt.CreatedAt

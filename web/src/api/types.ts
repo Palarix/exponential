@@ -79,6 +79,8 @@ export interface Comment {
   id: string;
   text: string;
   created_by: string;
+  // Set when an agent wrote the comment for this person.
+  on_behalf_of?: string;
   created_at: string;
 }
 

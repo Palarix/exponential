@@ -59,6 +59,18 @@ func TestProjection_CommentAppended(t *testing.T) {
 	}
 }
 
+func TestProjection_CommentCarriesOnBehalfOf(t *testing.T) {
+	events := []model.Event{
+		{ID: "a", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "A"}},
+		{ID: "a", Type: model.EventTypeComment, Payload: model.CommentPayload{ID: "c1", Text: "hi"},
+			CreatedBy: "claude-code/2.1.263 <agent@mcp>", OnBehalfOf: "Nicolas <nic@x.com>"},
+	}
+	c := ProjectIssues(events)["a"].Comments[0]
+	if c.CreatedBy != "claude-code/2.1.263 <agent@mcp>" || c.OnBehalfOf != "Nicolas <nic@x.com>" {
+		t.Errorf("comment author = %q on behalf of %q", c.CreatedBy, c.OnBehalfOf)
+	}
+}
+
 func TestProjection_CommentOnMissingIssue(t *testing.T) {
 	events := []model.Event{
 		{ID: "ghost", Type: model.EventTypeComment, Payload: model.CommentPayload{ID: "c1", Text: "hello"}},

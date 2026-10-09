@@ -75,6 +75,16 @@ export function activityActor(createdBy: string, onBehalfOf?: string): ActivityA
   return { identity: createdBy, name: shortName(createdBy) };
 }
 
+// A comment header: the principal's avatar, and the agent named up front
+// ("Claude Code on behalf of Nicolas") when an agent wrote it.
+export function commentAuthor(createdBy: string, onBehalfOf?: string): { identity: string; name: string } {
+  const actor = activityActor(createdBy, onBehalfOf);
+  return {
+    identity: actor.identity,
+    name: actor.via ? agentCommentAuthor(actor.via, actor.identity) : actor.name,
+  };
+}
+
 export function formatRelativeTime(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();

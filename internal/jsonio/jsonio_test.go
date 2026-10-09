@@ -1,6 +1,7 @@
 package jsonio
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -302,5 +303,20 @@ func TestLinkSchemasDocumentStartGating(t *testing.T) {
 	f, _ := reflect.TypeOf(UpdateInput{}).FieldByName("Links")
 	if !strings.Contains(f.Tag.Get("jsonschema"), "[]") {
 		t.Errorf("UpdateInput.Links schema must document [] to clear, got %q", f.Tag.Get("jsonschema"))
+	}
+}
+
+func TestToCommentSummariesOnBehalfOf(t *testing.T) {
+	out := ToCommentSummaries([]model.Comment{
+		{ID: "c1", Text: "hi", CreatedBy: "claude-code/2.1.263 <agent@mcp>", OnBehalfOf: "Nicolas <nic@x.com>"},
+		{ID: "c2", Text: "yo", CreatedBy: "Alice <a@x.com>"},
+	})
+	b, _ := json.Marshal(out)
+	got := string(b)
+	if !strings.Contains(got, `"on_behalf_of":"Nicolas \u003cnic@x.com\u003e"`) {
+		t.Errorf("first summary should carry on_behalf_of: %s", got)
+	}
+	if strings.Count(got, "on_behalf_of") != 1 {
+		t.Errorf("human comment should omit on_behalf_of: %s", got)
 	}
 }

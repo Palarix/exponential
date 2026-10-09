@@ -70,10 +70,11 @@ type CommentPayload struct {
 }
 
 type Comment struct {
-	ID        string    `json:"id"`
-	Text      string    `json:"text"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	Text       string    `json:"text"`
+	CreatedBy  string    `json:"created_by"`
+	OnBehalfOf string    `json:"on_behalf_of,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type UpdatePayload struct {

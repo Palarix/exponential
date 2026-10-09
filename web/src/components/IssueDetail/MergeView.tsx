@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { StatusIcon, Avatar, Text, TopBar, ViewContainer } from "../ui";
 import Modal from "../ui/Modal";
-import { formatRelativeTime } from "../../utils/format";
+import { commentAuthor, formatRelativeTime } from "../../utils/format";
 import { useSpinOnce, useSpinner } from "../../hooks/useSpinner";
 import { firstQueryError } from "../../api/query-utils";
 import { useToast } from "../ui/ToastContext";
@@ -1064,22 +1064,25 @@ function ConversationTab({
           </div>
         )}
         <div className="divide-y divide-[var(--color-border-subtle)]">
-          {comments.map((c) => (
-            <div key={c.id} className="px-5 py-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Avatar name={c.created_by} size="sm" />
-                <Text weight="medium" color="primary">{c.created_by.split(" <")[0]}</Text>
-                <Text size="xs">
-                  {formatRelativeTime(c.created_at)}
-                </Text>
+          {comments.map((c) => {
+            const author = commentAuthor(c.created_by, c.on_behalf_of);
+            return (
+              <div key={c.id} className="px-5 py-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar name={author.identity} size="sm" />
+                  <Text weight="medium" color="primary">{author.name}</Text>
+                  <Text size="xs">
+                    {formatRelativeTime(c.created_at)}
+                  </Text>
+                </div>
+                <div className="prose-exponential text-sm pl-8">
+                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                    {c.text}
+                  </Markdown>
+                </div>
               </div>
-              <div className="prose-exponential text-sm pl-8">
-                <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                  {c.text}
-                </Markdown>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {/* Comment input */}
         <div className="px-5 py-4 border-t border-[var(--color-border-subtle)]">

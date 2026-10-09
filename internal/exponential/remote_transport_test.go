@@ -366,3 +366,15 @@ func TestRemoteTransport_AuthHeader(t *testing.T) {
 		t.Errorf("expected 'Bearer my-secret-token', got %q", gotAuth)
 	}
 }
+
+func TestApiIssueToModel_CommentOnBehalfOf(t *testing.T) {
+	var a apiIssue
+	body := `{"id":"a","comments":[{"id":"c1","text":"hi","created_by":"claude-code/2.1.263 <agent@mcp>","on_behalf_of":"Nicolas <nic@x.com>","created_at":"2026-06-11T12:00:00Z"}]}`
+	if err := json.Unmarshal([]byte(body), &a); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	c := apiIssueToModel(a).Comments[0]
+	if c.OnBehalfOf != "Nicolas <nic@x.com>" {
+		t.Errorf("OnBehalfOf = %q, want the principal", c.OnBehalfOf)
+	}
+}

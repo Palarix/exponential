@@ -197,7 +197,7 @@ func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived 
 		sb.WriteString(RenderHeader("Comments"))
 		for _, c := range issue.Comments {
 			sb.WriteString(fmt.Sprintf("  %s  %s\n",
-				AccentStyle.Render(c.CreatedBy),
+				AccentStyle.Render(FormatActor(c.CreatedBy, c.OnBehalfOf)),
 				MutedStyle.Render(humanize.Time(c.CreatedAt))))
 			sb.WriteString(fmt.Sprintf("  %s\n\n", c.Text))
 		}

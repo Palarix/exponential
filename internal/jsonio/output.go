@@ -27,10 +27,11 @@ type IssueSummary struct {
 }
 
 type CommentSummary struct {
-	ID        string `json:"id"`
-	Text      string `json:"text"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
+	ID         string `json:"id"`
+	Text       string `json:"text"`
+	CreatedBy  string `json:"created_by"`
+	OnBehalfOf string `json:"on_behalf_of,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 type EventSummary struct {
@@ -353,10 +354,11 @@ func ToCommentSummaries(cs []model.Comment) []CommentSummary {
 	out := make([]CommentSummary, len(cs))
 	for i, c := range cs {
 		out[i] = CommentSummary{
-			ID:        c.ID,
-			Text:      c.Text,
-			CreatedBy: c.CreatedBy,
-			CreatedAt: c.CreatedAt.Format(time.RFC3339),
+			ID:         c.ID,
+			Text:       c.Text,
+			CreatedBy:  c.CreatedBy,
+			OnBehalfOf: c.OnBehalfOf,
+			CreatedAt:  c.CreatedAt.Format(time.RFC3339),
 		}
 	}
 	return out

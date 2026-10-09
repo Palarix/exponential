@@ -46,10 +46,11 @@ type DependencyResponse struct {
 }
 
 type CommentResponse struct {
-	ID        string    `json:"id"`
-	Text      string    `json:"text"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	Text       string    `json:"text"`
+	CreatedBy  string    `json:"created_by"`
+	OnBehalfOf string    `json:"on_behalf_of,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type ArtifactResponse struct {
@@ -116,10 +117,11 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 
 	for _, c := range issue.Comments {
 		resp.Comments = append(resp.Comments, CommentResponse{
-			ID:        c.ID,
-			Text:      c.Text,
-			CreatedBy: c.CreatedBy,
-			CreatedAt: c.CreatedAt,
+			ID:         c.ID,
+			Text:       c.Text,
+			CreatedBy:  c.CreatedBy,
+			OnBehalfOf: c.OnBehalfOf,
+			CreatedAt:  c.CreatedAt,
 		})
 	}
 

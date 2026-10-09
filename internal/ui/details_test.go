@@ -108,3 +108,21 @@ func TestRenderIssueDetails_AssigneeVia(t *testing.T) {
 		t.Errorf("assignee should be shown as the person only, got %q", got)
 	}
 }
+
+func TestRenderIssueDetails_AgentCommentIsPrincipalFirst(t *testing.T) {
+	issue := &model.Issue{
+		ID:     "test-abc123",
+		Title:  "T",
+		Status: model.StatusDoing,
+		Comments: []model.Comment{
+			{ID: "c1", Text: "done", CreatedBy: "claude-code/2.1.263 <agent@mcp>", OnBehalfOf: "Nicolas <nic@x.com>", CreatedAt: time.Now()},
+		},
+	}
+	got := RenderIssueDetails(issue, nil, false, 120)
+	if !strings.Contains(got, "Nicolas (via Claude Code)") {
+		t.Errorf("comment author should be principal-first:\n%s", got)
+	}
+	if strings.Contains(got, "claude-code/2.1.263") {
+		t.Errorf("raw agent identity should not be shown:\n%s", got)
+	}
+}

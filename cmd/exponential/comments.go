@@ -9,7 +9,9 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/identity"
 	"github.com/palarix/exponential/internal/jsonio"
+	"github.com/palarix/exponential/internal/model"
 	"github.com/spf13/cobra"
 )
 
@@ -56,10 +58,7 @@ var commentsCmd = &cobra.Command{
 		borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
 		for i, comment := range issue.Comments {
-			author := comment.CreatedBy
-			if idx := strings.Index(author, "<"); idx > 0 {
-				author = strings.TrimSpace(author[:idx])
-			}
+			author := commentAuthor(comment)
 
 			timeAgo := time.Since(comment.CreatedAt).Round(time.Minute)
 			timeStr := fmt.Sprintf("%s ago", timeAgo)
@@ -83,6 +82,11 @@ var commentsCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+// commentAuthor is principal-first: "Nicolas (via Claude Code)" for an agent comment.
+func commentAuthor(c model.Comment) string {
+	return identity.Actor(c.CreatedBy, c.OnBehalfOf)
 }
 
 func init() {

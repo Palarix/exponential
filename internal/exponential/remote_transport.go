@@ -54,10 +54,11 @@ type apiDependency struct {
 }
 
 type apiComment struct {
-	ID        string    `json:"id"`
-	Text      string    `json:"text"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	Text       string    `json:"text"`
+	CreatedBy  string    `json:"created_by"`
+	OnBehalfOf string    `json:"on_behalf_of,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type apiUser struct {
@@ -132,10 +133,11 @@ func apiIssueToModel(a apiIssue) *model.Issue {
 
 	for _, c := range a.Comments {
 		issue.Comments = append(issue.Comments, model.Comment{
-			ID:        c.ID,
-			Text:      c.Text,
-			CreatedBy: c.CreatedBy,
-			CreatedAt: c.CreatedAt,
+			ID:         c.ID,
+			Text:       c.Text,
+			CreatedBy:  c.CreatedBy,
+			OnBehalfOf: c.OnBehalfOf,
+			CreatedAt:  c.CreatedAt,
 		})
 	}
 

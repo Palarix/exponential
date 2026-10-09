@@ -99,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent-written comments in the merge view's Conversation tab show the principal's avatar and "Claude Code on behalf of <Principal>" instead of the raw agent identity; `xpo comments` and the TUI details pane show "<Principal> (via <Agent>)". Comments now carry `on_behalf_of` in the HTTP API, remote transport, CLI `--json` and MCP `show` output (xpo-a103c3)
 - Dropping an issue onto a Backlog row with no status group no longer sends `status: null` (xpo-6e757d)
 - MergeView no longer re-renders the whole diff on every 3s uncommitted-diff poll or Refresh. Unchanged polls and refreshes no longer block the page (before: ~190–200ms per poll on a 1,000-line diff), and a change to one file re-renders only that file's card (xpo-5839aa)
 - MergeView's All changes / Uncommitted toggle no longer shifts sideways by a couple of pixels when switching, because each label reserves its bold width (xpo-e64b2b)
