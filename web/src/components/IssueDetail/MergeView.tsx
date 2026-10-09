@@ -90,6 +90,20 @@ function RefreshButton({ onRefresh, autoRefreshing }: { onRefresh: () => Promise
   );
 }
 
+/**
+ * Reserves the label's bold width with an invisible `font-medium` copy in the
+ * same grid cell, so toggling the weight never resizes (and so never shifts)
+ * the centered scope toggle.
+ */
+function StableLabel({ active, children }: { active: boolean; children: string }) {
+  return (
+    <span className="inline-grid">
+      <span aria-hidden className="col-start-1 row-start-1 invisible font-medium">{children}</span>
+      <span className={`col-start-1 row-start-1${active ? " font-medium" : ""}`}>{children}</span>
+    </span>
+  );
+}
+
 function StaleDiffNotice({ asOf }: { asOf: number }) {
   const time = new Date(asOf).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const text = `Couldn't refresh, showing changes as of ${time}`;
@@ -577,21 +591,21 @@ export default function MergeView({
                     onClick={() => handleScopeChange("all")}
                     className={`px-3 py-1 text-sm transition-colors ${
                       diffScope === "all"
-                        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
                         : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                     }`}
                   >
-                    All changes
+                    <StableLabel active={diffScope === "all"}>All changes</StableLabel>
                   </button>
                   <button
                     onClick={() => handleScopeChange("uncommitted")}
                     className={`px-3 py-1 text-sm border-l border-[var(--color-border-default)] transition-colors ${
                       diffScope === "uncommitted"
-                        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)] font-medium"
+                        ? "bg-[var(--color-surface-2)] text-[var(--color-text-primary)]"
                         : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                     }`}
                   >
-                    Uncommitted
+                    <StableLabel active={diffScope === "uncommitted"}>Uncommitted</StableLabel>
                   </button>
                 </div>
               </div>
