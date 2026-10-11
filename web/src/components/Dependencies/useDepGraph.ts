@@ -117,6 +117,22 @@ export function isResolved(e: RawEdge, issueMap: Map<string, Issue>): boolean {
   }
 }
 
+// Keeps edges whose source or target id or title contains the trimmed query; a blank query keeps all.
+export function filterEdgesBySearch(edges: RawEdge[], issueMap: Map<string, Issue>, search: string): RawEdge[] {
+  const q = search.trim().toLowerCase();
+  if (!q) return edges;
+  return edges.filter(e => {
+    const s = issueMap.get(e.sourceId);
+    const t = issueMap.get(e.targetId);
+    return (
+      e.sourceId.toLowerCase().includes(q) ||
+      e.targetId.toLowerCase().includes(q) ||
+      !!s?.title.toLowerCase().includes(q) ||
+      !!t?.title.toLowerCase().includes(q)
+    );
+  });
+}
+
 export function computeStats(issues: Issue[]): DepStats {
   const edges = collectEdges(issues);
   let resolved = 0;

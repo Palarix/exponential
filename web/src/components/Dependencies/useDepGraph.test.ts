@@ -5,6 +5,7 @@ import {
   isResolved,
   computeStats,
   detectCycles,
+  filterEdgesBySearch,
   type RawEdge,
 } from "./useDepGraph";
 import { makeIssue } from "../../test-utils";
@@ -350,5 +351,35 @@ describe("computeStats", () => {
   it("returns zeros for issues with no dependencies", () => {
     const stats = computeStats([makeIssue({ id: "a" })]);
     expect(stats).toEqual({ resolved: 0, total: 0 });
+  });
+});
+
+describe("filterEdgesBySearch", () => {
+  const issues = [
+    makeIssue({ id: "xpo-aaa111", title: "Alpha" }),
+    makeIssue({ id: "xpo-bbb222", title: "Beta" }),
+    makeIssue({ id: "xpo-ccc333", title: "Gamma" }),
+  ];
+  const map = new Map(issues.map((i) => [i.id, i]));
+  const edges: RawEdge[] = [
+    { sourceId: "xpo-aaa111", targetId: "xpo-bbb222", kind: "blocked_by", originalKind: "blocked_by" },
+    { sourceId: "xpo-bbb222", targetId: "xpo-ccc333", kind: "relates_to", originalKind: "relates_to" },
+  ];
+
+  it("matches ids and titles case-insensitively", () => {
+    expect(filterEdgesBySearch(edges, map, "AAA111")).toEqual([edges[0]]);
+    expect(filterEdgesBySearch(edges, map, "gamma")).toEqual([edges[1]]);
+  });
+
+  it("ignores leading and trailing whitespace", () => {
+    expect(filterEdgesBySearch(edges, map, "  xpo-aaa111 ")).toEqual(
+      filterEdgesBySearch(edges, map, "xpo-aaa111"),
+    );
+    expect(filterEdgesBySearch(edges, map, "\tgamma\n")).toEqual([edges[1]]);
+  });
+
+  it("treats an empty or whitespace-only query as no filter", () => {
+    expect(filterEdgesBySearch(edges, map, "")).toEqual(edges);
+    expect(filterEdgesBySearch(edges, map, "   ")).toEqual(edges);
   });
 });

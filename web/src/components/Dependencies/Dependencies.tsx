@@ -3,7 +3,7 @@ import type { Issue } from '../../api/client';
 import { Heading, LabelBadge, Toggle, TopBar, ViewContainer } from '../ui';
 import StatusIcon from '../ui/StatusIcon';
 import DepGraphView from './DepGraph';
-import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved } from './useDepGraph';
+import { useDepGraph, collectEdges, computeStats, resolveIssue, isResolved, filterEdgesBySearch } from './useDepGraph';
 import { kindColor } from './dep-graph-utils';
 import { SearchInput } from '../ui/SearchInput';
 import { useIssueList } from '../../api/queries';
@@ -147,21 +147,7 @@ function TableView({
       filtered = filtered.filter(e => normalizedFilter.has(e.kind));
     }
 
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(e => {
-        const s = issueMap.get(e.sourceId);
-        const t = issueMap.get(e.targetId);
-        return (
-          e.sourceId.toLowerCase().includes(q) ||
-          e.targetId.toLowerCase().includes(q) ||
-          s?.title.toLowerCase().includes(q) ||
-          t?.title.toLowerCase().includes(q)
-        );
-      });
-    }
-
-    return filtered;
+    return filterEdgesBySearch(filtered, issueMap, search);
   }, [issues, issueMap, showCompleted, kindFilter, search]);
 
   return (
