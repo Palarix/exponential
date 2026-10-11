@@ -38,6 +38,7 @@ type ArtifactSummary struct {
 	Filename     string    `json:"filename"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	UpdatedBy    string    `json:"updated_by"`
+	OnBehalfOf   string    `json:"on_behalf_of,omitempty"`
 }
 
 type Event struct {

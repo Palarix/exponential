@@ -329,3 +329,18 @@ func TestStartToolInputRejectsMode(t *testing.T) {
 		t.Errorf("expected an unknown field error for mode, got %v", err)
 	}
 }
+
+func TestToArtifactEntriesOnBehalfOf(t *testing.T) {
+	out := ToArtifactEntries([]model.ArtifactSummary{
+		{ArtifactType: "spec", Filename: "spec.md", UpdatedBy: "claude-code/2.1.295 <agent@mcp>", OnBehalfOf: "Nicolas <nic@x.com>"},
+		{ArtifactType: "walkthrough", Filename: "walkthrough.md", UpdatedBy: "Alice <a@x.com>"},
+	})
+	b, _ := json.Marshal(out)
+	got := string(b)
+	if !strings.Contains(got, `"on_behalf_of":"Nicolas \u003cnic@x.com\u003e"`) {
+		t.Errorf("first entry should carry on_behalf_of: %s", got)
+	}
+	if strings.Count(got, "on_behalf_of") != 1 {
+		t.Errorf("human-written artifact should omit on_behalf_of: %s", got)
+	}
+}

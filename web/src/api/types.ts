@@ -13,6 +13,7 @@ export interface ArtifactSummary {
   filename: string;
   updated_at: string;
   updated_by: string;
+  on_behalf_of?: string;
 }
 
 export interface Issue {

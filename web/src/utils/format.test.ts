@@ -129,6 +129,13 @@ describe("activityActor", () => {
       via: "Claude Code <agent@mac.local>",
     });
   });
+
+  it("falls back to the raw agent when no principal was recorded (legacy writes)", () => {
+    expect(activityActor("claude-code/2.1.295 <agent@mcp>", undefined)).toEqual({
+      identity: "claude-code/2.1.295 <agent@mcp>",
+      name: "claude-code/2.1.295",
+    });
+  });
 });
 
 describe("formatRelativeTime", () => {

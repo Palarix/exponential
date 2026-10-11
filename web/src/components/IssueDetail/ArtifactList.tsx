@@ -1,9 +1,9 @@
 import type { ArtifactSummary } from "../../api/types";
 import type { Issue } from "../../api/client";
 import { useFetchArtifact } from "../../api/queries";
-import { Heading, Text } from "../ui";
+import { ActorName, Heading, Text } from "../ui";
 import { FileCodeCorner, FileBracesCorner, Paperclip, Download } from "lucide-react";
-import { formatRelativeTime, shortName } from "../../utils/format";
+import { activityActor, formatRelativeTime } from "../../utils/format";
 
 const TYPE_ICON: Record<string, typeof FileCodeCorner> = {
   spec: FileCodeCorner,
@@ -44,6 +44,7 @@ export default function ArtifactList({
         {artifacts.map((a) => {
           const Icon = TYPE_ICON[a.artifact_type] ?? Paperclip;
           const label = TYPE_LABEL[a.artifact_type] ?? a.filename;
+          const author = activityActor(a.updated_by, a.on_behalf_of);
           return (
             <div
               key={a.filename}
@@ -64,9 +65,11 @@ export default function ArtifactList({
               >
                 <Download className="w-3.5 h-3.5" />
               </button>
-              <span className="text-xs text-[var(--color-text-muted)] shrink-0">
-                {shortName(a.updated_by)}
-              </span>
+              <ActorName
+                name={author.name}
+                via={author.via}
+                className="text-xs text-[var(--color-text-muted)] shrink-0"
+              />
               <span className="text-xs text-[var(--color-text-muted)] shrink-0">
                 {formatRelativeTime(a.updated_at)}
               </span>

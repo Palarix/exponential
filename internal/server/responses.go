@@ -58,6 +58,7 @@ type ArtifactResponse struct {
 	Filename     string    `json:"filename"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	UpdatedBy    string    `json:"updated_by"`
+	OnBehalfOf   string    `json:"on_behalf_of,omitempty"`
 }
 
 type PendingResponse struct {
@@ -103,6 +104,7 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 			Filename:     a.Filename,
 			UpdatedAt:    a.UpdatedAt,
 			UpdatedBy:    a.UpdatedBy,
+			OnBehalfOf:   a.OnBehalfOf,
 		})
 	}
 

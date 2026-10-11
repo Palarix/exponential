@@ -30,3 +30,15 @@ func TestIssueToResponse_CommentOnBehalfOf(t *testing.T) {
 		t.Errorf("comments = %+v, want on_behalf_of carried", resp.Comments)
 	}
 }
+
+func TestIssueToResponse_ArtifactOnBehalfOf(t *testing.T) {
+	resp := issueToResponse(&model.Issue{
+		ID: "a",
+		Artifacts: []model.ArtifactSummary{
+			{ArtifactType: "spec", Filename: "spec.md", UpdatedBy: "claude-code/2.1.295 <agent@mcp>", OnBehalfOf: "Nicolas <nic@x.com>"},
+		},
+	})
+	if len(resp.Artifacts) != 1 || resp.Artifacts[0].OnBehalfOf != "Nicolas <nic@x.com>" {
+		t.Errorf("artifacts = %+v, want on_behalf_of carried", resp.Artifacts)
+	}
+}

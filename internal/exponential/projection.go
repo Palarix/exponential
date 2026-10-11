@@ -158,6 +158,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 					if a.Filename == p.Filename {
 						issue.Artifacts[i].UpdatedAt = evt.CreatedAt
 						issue.Artifacts[i].UpdatedBy = evt.CreatedBy
+						issue.Artifacts[i].OnBehalfOf = evt.OnBehalfOf
 						found = true
 						break
 					}
@@ -168,6 +169,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 						Filename:     p.Filename,
 						UpdatedAt:    evt.CreatedAt,
 						UpdatedBy:    evt.CreatedBy,
+						OnBehalfOf:   evt.OnBehalfOf,
 					})
 				}
 			case "deleted":

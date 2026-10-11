@@ -150,6 +150,7 @@ type ArtifactEntry struct {
 	Filename     string `json:"filename"`
 	UpdatedAt    string `json:"updated_at"`
 	UpdatedBy    string `json:"updated_by"`
+	OnBehalfOf   string `json:"on_behalf_of,omitempty"`
 }
 
 type ArtifactOutput struct {
@@ -342,6 +343,7 @@ func ToArtifactEntries(as []model.ArtifactSummary) []ArtifactEntry {
 			Filename:     a.Filename,
 			UpdatedAt:    a.UpdatedAt.Format(time.RFC3339),
 			UpdatedBy:    a.UpdatedBy,
+			OnBehalfOf:   a.OnBehalfOf,
 		}
 	}
 	return out

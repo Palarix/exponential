@@ -313,3 +313,33 @@ func TestProjectIssues_PrincipalFirstAssignee(t *testing.T) {
 		}
 	})
 }
+
+// The artifact's via follows its latest write: an agent's attribution is
+// cleared when a human later edits the artifact directly.
+func TestProjectIssues_ArtifactOnBehalfOf(t *testing.T) {
+	now := time.Now()
+	agent, principal := "claude-code/2.1.295 <agent@mcp>", "Nicolas <nic@example.com>"
+	create := model.Event{
+		ID: "test-abc", Type: model.EventTypeCreate,
+		Payload: model.CreatePayload{Title: "test issue"}, CreatedAt: now, CreatedBy: principal,
+	}
+	artifact := func(action, by, onBehalfOf string, at time.Time) model.Event {
+		return model.Event{
+			ID: "test-abc", Type: model.EventTypeArtifact,
+			Payload:   model.ArtifactPayload{ArtifactType: "spec", Filename: "spec.md", Action: action},
+			CreatedAt: at, CreatedBy: by, OnBehalfOf: onBehalfOf,
+		}
+	}
+
+	agentWrite := []model.Event{create, artifact("created", agent, principal, now)}
+	a := ProjectIssues(agentWrite)["test-abc"].Artifacts[0]
+	if a.UpdatedBy != agent || a.OnBehalfOf != principal {
+		t.Errorf("after agent create: (%q, %q), want (agent, principal)", a.UpdatedBy, a.OnBehalfOf)
+	}
+
+	humanEdit := append(agentWrite, artifact("updated", principal, "", now.Add(time.Minute)))
+	a = ProjectIssues(humanEdit)["test-abc"].Artifacts[0]
+	if a.UpdatedBy != principal || a.OnBehalfOf != "" {
+		t.Errorf("after human update: (%q, %q), want (principal, \"\")", a.UpdatedBy, a.OnBehalfOf)
+	}
+}
