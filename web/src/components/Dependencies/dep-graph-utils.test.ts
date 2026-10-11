@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { truncate, kindColor, edgePath } from "./dep-graph-utils";
+import { truncate, kindColor, edgePath, depNodeClass, depEdgeClass } from "./dep-graph-utils";
 
 describe("truncate", () => {
   it("returns short strings unchanged", () => {
@@ -82,5 +82,33 @@ describe("edgePath", () => {
       { x: 100, y: 100 },
     ]);
     expect(path).toBe("M0,0L50,0L50,100L100,100");
+  });
+});
+
+describe("depNodeClass", () => {
+  it("is the base class when neither dimmed nor done", () => {
+    expect(depNodeClass({ dimmed: false, done: false })).toBe("dep-node");
+  });
+
+  it("adds dep-dimmed when dimmed", () => {
+    expect(depNodeClass({ dimmed: true, done: false })).toBe("dep-node dep-dimmed");
+  });
+
+  it("adds dep-done when done", () => {
+    expect(depNodeClass({ dimmed: false, done: true })).toBe("dep-node dep-done");
+  });
+
+  it("adds both when dimmed and done", () => {
+    expect(depNodeClass({ dimmed: true, done: true })).toBe("dep-node dep-dimmed dep-done");
+  });
+});
+
+describe("depEdgeClass", () => {
+  it("is the base class when not dimmed", () => {
+    expect(depEdgeClass(false)).toBe("dep-edge");
+  });
+
+  it("adds dep-dimmed when dimmed", () => {
+    expect(depEdgeClass(true)).toBe("dep-edge dep-dimmed");
   });
 });

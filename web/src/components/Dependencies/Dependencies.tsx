@@ -239,11 +239,8 @@ function IssueCell({ issue }: { issue: Issue }) {
       <span className="text-[11px] font-mono text-[var(--color-text-muted)] shrink-0">{issue.id.replace(/^xpo-/, '')}</span>
       {issue.labels?.[0] && <LabelBadge label={issue.labels[0]} borderless />}
       <span
-        className="text-sm text-[var(--color-text-primary)] truncate"
-        style={{
-          textDecoration: isDone ? 'line-through' : undefined,
-          opacity: isDone ? 0.6 : 1,
-        }}
+        className={`text-sm text-[var(--color-text-primary)] truncate${isDone ? ' dep-done' : ''}`}
+        style={{ textDecoration: isDone ? 'line-through' : undefined }}
       >
         {issue.title}
       </span>

@@ -26,3 +26,12 @@ export function edgePath(points: { x: number; y: number }[]): string {
   }
   return d;
 }
+
+// Opacity for these classes lives in index.css (--dep-*-opacity).
+export function depNodeClass({ dimmed, done }: { dimmed: boolean; done: boolean }): string {
+  return ["dep-node", dimmed && "dep-dimmed", done && "dep-done"].filter(Boolean).join(" ");
+}
+
+export function depEdgeClass(dimmed: boolean): string {
+  return dimmed ? "dep-edge dep-dimmed" : "dep-edge";
+}

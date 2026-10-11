@@ -165,6 +165,14 @@
   --duration-normal: 150ms;
 }
 
+/* Dependencies view — dimming of nodes/edges outside the focus or hover
+   set, and fading of DONE issues. Not colors, so plain :root, not @theme. */
+:root {
+  --dep-dimmed-node-opacity: 0.55;
+  --dep-dimmed-edge-opacity: 0.4;
+  --dep-done-opacity: 0.7;
+}
+
 /* ========================================
    BASE STYLES
    ======================================== */
@@ -577,4 +585,27 @@ body {
 ::selection {
   background: var(--color-accent-primary);
   color: var(--color-text-primary);
+}
+
+/* ========================================
+   DEPENDENCIES VIEW
+   ======================================== */
+
+/* Nodes get their transition from Tailwind's transition-all; an unlayered
+   transition here would override it and drop the border/shadow fade. */
+.dep-edge {
+  transition: opacity var(--duration-normal);
+}
+
+.dep-done {
+  opacity: var(--dep-done-opacity);
+}
+
+/* Dimmed wins over done: a dimmed DONE node is no fainter than other dimmed nodes. */
+.dep-node.dep-dimmed {
+  opacity: var(--dep-dimmed-node-opacity);
+}
+
+.dep-edge.dep-dimmed {
+  opacity: var(--dep-dimmed-edge-opacity);
 }

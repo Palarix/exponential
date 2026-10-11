@@ -3,7 +3,7 @@ import type { Issue } from '../../api/types';
 import type { DepGraph, GraphEdge } from './useDepGraph';
 import StatusIcon from '../ui/StatusIcon';
 import { Heading, Text, Toggle, TopBar, ViewContainer } from '../ui';
-import { truncate, edgePath } from './dep-graph-utils';
+import { truncate, edgePath, depNodeClass, depEdgeClass } from './dep-graph-utils';
 import { useKeyboardShortcuts } from '../../keyboard';
 
 const NODE_WIDTH = 240;
@@ -273,7 +273,7 @@ function EdgePath({ edge, dimmed, highlighted }: { edge: GraphEdge; dimmed: bool
   const label = KIND_LABELS[edge.kind] ?? edge.kind.replace(/_/g, ' ');
 
   return (
-    <g opacity={dimmed ? 0.15 : 1} style={{ transition: 'opacity 150ms' }}>
+    <g className={depEdgeClass(dimmed)}>
       <path
         d={edgePath(edge.points)}
         fill="none"
@@ -323,7 +323,7 @@ function GraphNodeCard({
   return (
     <div
       data-graph-node
-      className="h-full flex items-center gap-2.5 px-3 rounded-lg cursor-pointer select-none border transition-all duration-150"
+      className={`${depNodeClass({ dimmed: isDimmed, done: isDone })} h-full flex items-center gap-2.5 px-3 rounded-lg cursor-pointer select-none border transition-all duration-150`}
       style={{
         background: 'var(--color-surface-2)',
         borderColor: isHovered
@@ -334,7 +334,6 @@ function GraphNodeCard({
               ? 'var(--color-warning)'
               : 'var(--color-border-subtle)',
         borderWidth: isFocus ? 2 : 1,
-        opacity: isDimmed ? 0.3 : isDone ? 0.55 : 1,
         boxShadow: isHovered ? '0 0 0 1px var(--color-accent-primary)' : undefined,
       }}
       onMouseEnter={onMouseEnter}
