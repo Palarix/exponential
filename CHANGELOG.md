@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Two issues can have at most one link between them. `link` on an already-linked pair fails unless `overwrite` is set, and `add`/`update` reject a `links` set with two entries for the same issue (create previously had no duplicate check). Pairs recorded before this rule keep working until a write changes them. `unlink` now takes its own `UnlinkToolInput` (xpo-c93b11)
 
-- One attribution rule across the web UI: when an agent acted on behalf of a person, their name renders with a dashed underline and reveals the agent on hover/focus (and to screen readers); direct actions render plain. Applies to the issue Activity timeline (events and comments), Merge view comments, Dashboard activity feed, Timeline, Inbox change summary and the sidebar assignee via a shared `ActorName` component. Replaces the spelled-out "Claude Code on behalf of Name" comment headers, and the Inbox now shows the principal instead of the raw agent (xpo-a9560c)
+- One attribution rule across the web UI: when an agent acted on behalf of a person, their name renders with a dashed underline and reveals the agent on hover/focus (and to screen readers); direct actions render plain. Applies to the issue Activity timeline (events and comments), Merge view comments, Dashboard activity feed, Timeline, Inbox change summary and the sidebar assignee via a shared `ActorName` component. Replaces the spelled-out "Claude Code on behalf of Name" comment headers, and the Inbox now shows the principal instead of the raw agent (xpo-a9560c, xpo-6e0026)
 
 ### Fixed
 
