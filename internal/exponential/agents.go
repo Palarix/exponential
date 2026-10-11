@@ -394,6 +394,8 @@ Keep the set small — reuse existing labels before inventing new ones.
 
 Use the ` + "`link`" + ` tool to express relationships. Supported types: ` + "`blocks`" + `, ` + "`blocked_by`" + `,
 ` + "`depends_on`" + `, ` + "`dependency_of`" + `, ` + "`duplicates`" + `, ` + "`duplicated_by`" + `, ` + "`relates_to`" + `.
+Two issues can have at most one link, so pick the most specific kind. Linking an already-linked
+pair fails; pass ` + "`overwrite: true`" + ` to replace the existing link.
 When a task spawns follow-up work, link the new issue back to the originating one.
 
 ### Backlog Review

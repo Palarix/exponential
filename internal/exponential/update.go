@@ -49,7 +49,7 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 
 	payload.Labels = normalizeLabels(payload.Labels, t.Config)
 
-	if err := normalizeUpdateDependencies(id, payload.Dependencies); err != nil {
+	if err := normalizeUpdateDependencies(id, payload.Dependencies, targetIssue.Links); err != nil {
 		return nil, nil, err
 	}
 
@@ -335,22 +335,47 @@ func ParseUpdateContent(content string, original *model.Issue) (*model.UpdatePay
 }
 
 // normalizeUpdateDependencies stamps the owning issue's ID onto every
-// dependency, clears the derived flag, and rejects self-links and duplicate
-// (target, kind) pairs.
-func normalizeUpdateDependencies(id string, deps []model.Dependency) error {
-	seen := make(map[model.Dependency]bool, len(deps))
+// dependency, clears the derived flag, and rejects self-links and more than
+// one link to the same issue. current is the issue's existing combined link
+// set: a target whose links are unchanged from it passes even if it has
+// several, so pairs recorded before the one-link rule don't block unrelated
+// edits.
+func normalizeUpdateDependencies(id string, deps, current []model.Dependency) error {
 	for i := range deps {
 		deps[i].SourceID = id
 		deps[i].Derived = false
 		if deps[i].TargetID == id {
 			return fmt.Errorf("cannot link an issue to itself")
 		}
-		if seen[deps[i]] {
-			return fmt.Errorf("duplicate link %s %s", deps[i].Kind, deps[i].TargetID)
+	}
+	return checkOneLinkPerPair(id, deps, current)
+}
+
+// checkOneLinkPerPair rejects deps that hold more than one link to the same
+// target, unless that target's kinds are exactly the ones in current.
+func checkOneLinkPerPair(id string, deps, current []model.Dependency) error {
+	want := kindsByTarget(deps)
+	have := kindsByTarget(current)
+	for _, d := range deps {
+		kinds := want[d.TargetID]
+		if len(kinds) < 2 || reflect.DeepEqual(kinds, have[d.TargetID]) {
+			continue
 		}
-		seen[deps[i]] = true
+		return fmt.Errorf("only one link is allowed between two issues: %s would have %s to %s", id, strings.Join(kinds, ", "), d.TargetID)
 	}
 	return nil
+}
+
+// kindsByTarget groups link kinds by target ID, sorted for comparison.
+func kindsByTarget(deps []model.Dependency) map[string][]string {
+	out := make(map[string][]string)
+	for _, d := range deps {
+		out[d.TargetID] = append(out[d.TargetID], string(d.Kind))
+	}
+	for _, kinds := range out {
+		sort.Strings(kinds)
+	}
+	return out
 }
 
 // reconcileLinks splits the desired relationship set for issue into the rows

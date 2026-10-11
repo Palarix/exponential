@@ -819,6 +819,38 @@ func TestLinkRejectsInverseOfExisting(t *testing.T) {
 	}
 }
 
+func TestLinkRefusesSecondKindUnlessOverwrite(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A"})
+	_, b, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "B"})
+	if _, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: a.ID, Target: b.ID, Type: "blocks"}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "relates_to"})
+	if err == nil || !strings.Contains(err.Error(), "set overwrite to replace it") {
+		t.Fatalf("expected conflict error, got %v", err)
+	}
+
+	res, out, err := ts.link(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "relates_to", Overwrite: true})
+	if err != nil {
+		t.Fatalf("overwrite failed: %v", err)
+	}
+	if len(out.Replaced) != 1 || out.Replaced[0].Kind != "blocked_by" || out.Replaced[0].Target != a.ID {
+		t.Errorf("replaced = %+v, want blocked_by %s", out.Replaced, a.ID)
+	}
+	if text := res.Content[0].(*mcp.TextContent).Text; !strings.Contains(text, "(replaced blocked_by)") {
+		t.Errorf("text = %q", text)
+	}
+	_, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: a.ID})
+	if len(show.Dependencies) != 1 || show.Dependencies[0].Kind != "relates_to" {
+		t.Errorf("A deps = %+v, want only relates_to", show.Dependencies)
+	}
+}
+
 func TestLinkKeepsDerivedLinksOnSource(t *testing.T) {
 	ts, cleanup := setup(t)
 	defer cleanup()
@@ -851,7 +883,7 @@ func TestUnlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, res, err := ts.unlink(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"})
+	_, res, err := ts.unlink(ctx, nil, jsonio.UnlinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"})
 	if err != nil {
 		t.Fatalf("unlink failed: %v", err)
 	}
@@ -863,7 +895,7 @@ func TestUnlink(t *testing.T) {
 		t.Errorf("A deps = %+v, want none", show.Dependencies)
 	}
 
-	if _, _, err := ts.unlink(ctx, nil, jsonio.LinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"}); err == nil {
+	if _, _, err := ts.unlink(ctx, nil, jsonio.UnlinkToolInput{Source: b.ID, Target: a.ID, Type: "blocked_by"}); err == nil {
 		t.Error("expected error unlinking a missing link")
 	}
 }

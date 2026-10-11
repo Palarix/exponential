@@ -1,6 +1,8 @@
 package jsonio
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/model"
@@ -124,9 +126,40 @@ type MergeOutput struct {
 }
 
 type LinkOutput struct {
+	Source   string    `json:"source"`
+	Target   string    `json:"target"`
+	Kind     string    `json:"kind"`
+	Replaced []LinkRef `json:"replaced,omitempty"`
+}
+
+// LinkRef is a link that `link` with overwrite removed, as seen from the source.
+type LinkRef struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
 	Kind   string `json:"kind"`
+}
+
+// NewLinkOutput builds the output for an added link and the links it replaced.
+func NewLinkOutput(added model.Dependency, replaced []model.Dependency) LinkOutput {
+	out := LinkOutput{Source: added.SourceID, Target: added.TargetID, Kind: string(added.Kind)}
+	for _, r := range replaced {
+		out.Replaced = append(out.Replaced, LinkRef{Source: r.SourceID, Target: r.TargetID, Kind: string(r.Kind)})
+	}
+	return out
+}
+
+// LinkSummary is the one-line text result for a link, e.g.
+// "Linked xpo-a relates_to xpo-b (replaced blocks)".
+func (o LinkOutput) LinkSummary() string {
+	s := fmt.Sprintf("Linked %s %s %s", o.Source, o.Kind, o.Target)
+	if len(o.Replaced) > 0 {
+		kinds := make([]string, len(o.Replaced))
+		for i, r := range o.Replaced {
+			kinds[i] = r.Kind
+		}
+		s += fmt.Sprintf(" (replaced %s)", strings.Join(kinds, ", "))
+	}
+	return s
 }
 
 type SpecOutput struct {

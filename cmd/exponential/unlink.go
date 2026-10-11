@@ -28,7 +28,7 @@ var unlinkCmd = &cobra.Command{
 			if err != nil {
 				exitJSONError(err)
 			}
-			var input jsonio.LinkToolInput
+			var input jsonio.UnlinkToolInput
 			if err := jsonio.DecodeStrict(content, &input); err != nil {
 				exitJSONError(err)
 			}

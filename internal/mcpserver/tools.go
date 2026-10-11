@@ -18,6 +18,7 @@ import (
 
 const linkToolDescription = "Add a relationship (blocks, depends_on, relates_to, …) between two existing issues. " +
 	"Links are bidirectional: A blocks B also shows on B as blocked_by A (derived: true), whichever side stores it. " +
+	"Two issues can have at most one link: linking an already-linked pair fails unless `overwrite` is true, which replaces the existing link. " +
 	"Only blocked_by (stored on either side) prevents `start`; all other kinds are informational."
 
 const mergeToolDescription = "Merge an issue's branch into the default branch (squash by default), record a MERGE event, and close the issue. " +
@@ -255,44 +256,19 @@ func (t *toolset) comment(ctx context.Context, req *mcp.CallToolRequest, in json
 }
 
 func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in jsonio.LinkToolInput) (*mcp.CallToolResult, jsonio.LinkOutput, error) {
-	if in.Source == "" || in.Target == "" {
-		return nil, jsonio.LinkOutput{}, fmt.Errorf("'source' and 'target' are required")
-	}
-	kind := model.NormalizeDependencyKind(in.Type)
-	if kind == "" {
-		return nil, jsonio.LinkOutput{}, fmt.Errorf("invalid link type %q", in.Type)
-	}
-	c := t.clientFor(req)
-	src, err := c.GetIssue(in.Source)
+	added, replaced, _, err := t.clientFor(req).Link(in.Source, in.Target, in.Type, in.Overwrite)
 	if err != nil {
-		return nil, jsonio.LinkOutput{}, fmt.Errorf("source: %w", err)
-	}
-	tgt, err := c.GetIssue(in.Target)
-	if err != nil {
-		return nil, jsonio.LinkOutput{}, fmt.Errorf("target: %w", err)
-	}
-	if src.ID == tgt.ID {
-		return nil, jsonio.LinkOutput{}, fmt.Errorf("cannot link an issue to itself")
-	}
-	for _, dep := range src.Links {
-		if dep.TargetID == tgt.ID && string(dep.Kind) == kind {
-			return nil, jsonio.LinkOutput{}, fmt.Errorf("link %s %s already exists on %s", kind, tgt.ID, src.ID)
-		}
-	}
-	newDeps := append(src.Links, model.Dependency{
-		SourceID: src.ID,
-		TargetID: tgt.ID,
-		Kind:     model.DependencyKind(kind),
-	})
-	if _, err := c.UpdateIssue(src.ID, model.UpdatePayload{Dependencies: newDeps}, "link"); err != nil {
 		return nil, jsonio.LinkOutput{}, err
 	}
-	t.broadcast("UPDATE", src.ID)
-	return textResult(fmt.Sprintf("Linked %s %s %s", src.ID, kind, tgt.ID)),
-		jsonio.LinkOutput{Source: src.ID, Target: tgt.ID, Kind: kind}, nil
+	t.broadcast("UPDATE", added.SourceID)
+	if len(replaced) > 0 {
+		t.broadcast("UPDATE", added.TargetID)
+	}
+	out := jsonio.NewLinkOutput(added, replaced)
+	return textResult(out.LinkSummary()), out, nil
 }
 
-func (t *toolset) unlink(ctx context.Context, req *mcp.CallToolRequest, in jsonio.LinkToolInput) (*mcp.CallToolResult, jsonio.LinkOutput, error) {
+func (t *toolset) unlink(ctx context.Context, req *mcp.CallToolRequest, in jsonio.UnlinkToolInput) (*mcp.CallToolResult, jsonio.LinkOutput, error) {
 	c := t.clientFor(req)
 	dep, _, err := c.Unlink(in.Source, in.Target, in.Type)
 	if err != nil {

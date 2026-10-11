@@ -569,8 +569,8 @@ func TestUpdateIssue_RejectsDuplicateLinks(t *testing.T) {
 			{TargetID: b.ID, Kind: model.DependencyDependsOn},
 		},
 	}, "update")
-	if err == nil || !strings.Contains(err.Error(), "duplicate") {
-		t.Errorf("expected duplicate link error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "only one link") {
+		t.Errorf("expected one-link error, got %v", err)
 	}
 }
 

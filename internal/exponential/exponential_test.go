@@ -411,12 +411,13 @@ func TestAddIssueAutoFillsSourceID(t *testing.T) {
 	defer cleanup()
 
 	target, _ := client.AddIssue(model.CreatePayload{Title: "Target"})
+	other, _ := client.AddIssue(model.CreatePayload{Title: "Other"})
 
 	issue, err := client.AddIssue(model.CreatePayload{
 		Title: "With deps",
 		Dependencies: []model.Dependency{
 			{TargetID: target.ID, Kind: model.DependencyBlocks},
-			{TargetID: target.ID, Kind: model.DependencyBlockedBy},
+			{TargetID: other.ID, Kind: model.DependencyBlockedBy},
 		},
 	})
 	if err != nil {

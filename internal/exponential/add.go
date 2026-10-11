@@ -67,6 +67,9 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 			payload.Dependencies[i].SourceID = id
 		}
 	}
+	if err := checkOneLinkPerPair(id, payload.Dependencies, nil); err != nil {
+		return nil, err
+	}
 
 	// Auto-assign sort_order if not provided — append at end of target status group
 	if payload.SortOrder == "" {

@@ -20,7 +20,7 @@ type AddInput struct {
 	Assignee    string      `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Labels such as feature, bug, epic"`
 	CycleID     string      `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. Links are bidirectional (A blocks B also means B blocked_by A); only blocked_by gates start, other kinds are informational"`
+	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. At most one link per target issue. Links are bidirectional (A blocks B also means B blocked_by A); only blocked_by gates start, other kinds are informational"`
 }
 
 type UpdateInput struct {
@@ -33,7 +33,7 @@ type UpdateInput struct {
 	Assignee    *string     `json:"assignee,omitempty"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
 	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the issue's full relationship set, including derived links stored on the other issue (as returned by show); a link left out is removed from whichever side stores it; pass [] to remove all links. Only blocked_by gates start; other kinds are informational"`
+	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the issue's full relationship set, including derived links stored on the other issue (as returned by show); a link left out is removed from whichever side stores it; pass [] to remove all links. At most one link per target issue: to change a link's kind, send the set with the new kind in place of the old. Only blocked_by gates start; other kinds are informational"`
 }
 
 type CommentInput struct {
@@ -208,6 +208,13 @@ type MergeToolInput struct {
 }
 
 type LinkToolInput struct {
+	Source    string `json:"source" jsonschema:"Source issue ID"`
+	Target    string `json:"target" jsonschema:"Target issue ID"`
+	Type      string `json:"type" jsonschema:"Relationship type: blocks, blocked_by, depends_on, dependency_of, duplicates, duplicated_by, relates_to"`
+	Overwrite bool   `json:"overwrite,omitempty" jsonschema:"Replace an existing link of a different kind between the two issues (whichever side stores it). Without it, linking an already-linked pair fails"`
+}
+
+type UnlinkToolInput struct {
 	Source string `json:"source" jsonschema:"Source issue ID"`
 	Target string `json:"target" jsonschema:"Target issue ID"`
 	Type   string `json:"type" jsonschema:"Relationship type: blocks, blocked_by, depends_on, dependency_of, duplicates, duplicated_by, relates_to"`

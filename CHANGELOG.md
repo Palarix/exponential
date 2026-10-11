@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `overwrite` for the MCP `link` tool (`--overwrite` / `"overwrite": true` in the CLI): replaces an existing link of a different kind between two issues, whichever side stores it; the output lists what was replaced (`replaced`, and e.g. `Linked xpo-a relates_to xpo-b (replaced blocks)`) (xpo-c93b11)
+
 ### Changed
+
+- Two issues can have at most one link between them. `link` on an already-linked pair fails unless `overwrite` is set, and `add`/`update` reject a `links` set with two entries for the same issue (create previously had no duplicate check). Pairs recorded before this rule keep working until a write changes them. `unlink` now takes its own `UnlinkToolInput` (xpo-c93b11)
 
 - One attribution rule across the web UI: when an agent acted on behalf of a person, their name renders with a dashed underline and reveals the agent on hover/focus (and to screen readers); direct actions render plain. Applies to the issue Activity timeline (events and comments), Merge view comments, Dashboard activity feed, Timeline, Inbox change summary and the sidebar assignee via a shared `ActorName` component. Replaces the spelled-out "Claude Code on behalf of Name" comment headers, and the Inbox now shows the principal instead of the raw agent (xpo-a9560c)
 
@@ -17,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP `merge` records the MERGE event and DONE transition as the agent acting on behalf of the user (`created_by` agent, `on_behalf_of` principal) instead of as the configured user; `MergeIssue` and `ResolveReviewIssue` now sync the client identity to the transport (xpo-40ab84)
 - The issue-detail artifact list shows the principal with the dashed-underline agent attribution instead of the raw agent identity; artifacts now carry `on_behalf_of` from their latest write in the HTTP API and CLI/MCP JSON output (xpo-61ff1e)
 - The Dependencies view shows each `relates_to` link once (table row and graph edge) instead of twice; its derived inverse is now deduplicated as an undirected pair. A `relates_to` between two issues that also share a blocking/duplicate link is hidden as redundant, and cycle detection only considers `blocked_by`/`depends_on` edges, so relates_to no longer produces false cycle warnings (xpo-2fc583)
+- `xpo link`, `xpo link --json` and the MCP `link` tool share one `Client.Link` helper and return identical "already exists" and self-link errors (xpo-f94753, fixed by xpo-c93b11)
 
 ## [1.3.0] — 2026-10-09
 
