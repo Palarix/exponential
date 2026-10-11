@@ -48,6 +48,14 @@ const INVERSE_KINDS: Record<string, string> = {
   duplicates: 'duplicated_by',
 };
 
+// Undirected kinds, mapped to the kind they dedupe under.
+const SYMMETRIC_KINDS: Record<string, string> = {
+  relates_to: 'relates_to',
+  related: 'relates_to',
+};
+
+const BLOCKER_KINDS = new Set(['blocked_by', 'depends_on']);
+
 const elk = new ELK();
 
 const KIND_DISPLAY: Record<string, string> = {
@@ -73,12 +81,16 @@ export function collectEdges(issues: Issue[]): RawEdge[] {
       const target = resolveIssue(issues, dep.target_id);
       if (!target) continue;
 
+      const symmetricKind = SYMMETRIC_KINDS[dep.kind];
       const canonKind = INVERSE_KINDS[dep.kind] ?? dep.kind;
-      const isInverse = canonKind !== dep.kind;
+      // A derived symmetric row mirrors a stored one, so flip it back to the stored direction.
+      const isInverse = symmetricKind ? !!dep.derived : canonKind !== dep.kind;
       const sourceId = isInverse ? target.id : issue.id;
       const targetId = isInverse ? issue.id : target.id;
 
-      const key = `${sourceId}->${targetId}:${canonKind}`;
+      const key = symmetricKind
+        ? `${[sourceId, targetId].sort().join('<->')}:${symmetricKind}`
+        : `${sourceId}->${targetId}:${canonKind}`;
       if (seen.has(key)) continue;
       seen.add(key);
 
@@ -86,7 +98,10 @@ export function collectEdges(issues: Issue[]): RawEdge[] {
     }
   }
 
-  return edges;
+  // A relates_to is redundant when the same pair already has a stronger, directed link.
+  const pairKey = (e: RawEdge) => [e.sourceId, e.targetId].sort().join('<->');
+  const directedPairs = new Set(edges.filter(e => !SYMMETRIC_KINDS[e.kind]).map(pairKey));
+  return edges.filter(e => !SYMMETRIC_KINDS[e.kind] || !directedPairs.has(pairKey(e)));
 }
 
 export function isResolved(e: RawEdge, issueMap: Map<string, Issue>): boolean {
@@ -104,12 +119,11 @@ export function isResolved(e: RawEdge, issueMap: Map<string, Issue>): boolean {
 
 export function computeStats(issues: Issue[]): DepStats {
   const edges = collectEdges(issues);
-  const blockerKinds = new Set(['blocked_by', 'depends_on']);
   let resolved = 0;
   let total = 0;
   const issueMap = new Map(issues.map(i => [i.id, i]));
   for (const e of edges) {
-    if (!blockerKinds.has(e.kind)) continue;
+    if (!BLOCKER_KINDS.has(e.kind)) continue;
     total++;
     if (isResolved(e, issueMap)) resolved++;
   }
@@ -138,10 +152,13 @@ function findConnectedComponent(focusId: string, edges: RawEdge[]): Set<string> 
   return visited;
 }
 
-function detectCycles(edges: RawEdge[], nodeIds: Set<string>): Set<string> {
+export function detectCycles(edges: RawEdge[], nodeIds: Set<string>): Set<string> {
   const adj = new Map<string, string[]>();
   for (const id of nodeIds) adj.set(id, []);
-  for (const e of edges) adj.get(e.sourceId)?.push(e.targetId);
+  // Only blocker edges carry an ordering; other kinds can't form a dependency cycle.
+  for (const e of edges) {
+    if (BLOCKER_KINDS.has(e.kind)) adj.get(e.sourceId)?.push(e.targetId);
+  }
 
   const cycleNodes = new Set<string>();
   const WHITE = 0, GRAY = 1, BLACK = 2;
@@ -179,8 +196,7 @@ function edgeKey(sourceId: string, targetId: string): string {
 }
 
 function computeCriticalPath(edges: RawEdge[], issueMap: Map<string, Issue>): Set<string> {
-  const blockerKinds = new Set(['blocked_by', 'depends_on']);
-  const blockerEdges = edges.filter(e => blockerKinds.has(e.kind));
+  const blockerEdges = edges.filter(e => BLOCKER_KINDS.has(e.kind));
 
   const adj = new Map<string, { targetId: string; key: string }[]>();
   const inDegree = new Map<string, number>();

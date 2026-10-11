@@ -4,6 +4,7 @@ import {
   collectEdges,
   isResolved,
   computeStats,
+  detectCycles,
   type RawEdge,
 } from "./useDepGraph";
 import { makeIssue } from "../../test-utils";
@@ -113,6 +114,90 @@ describe("collectEdges", () => {
     expect(edges[0].kind).toBe("blocked_by");
   });
 
+  it("emits one relates_to edge for the stored row and its derived inverse", () => {
+    const issues = [
+      makeIssue({
+        id: "a",
+        dependencies: [{ source_id: "a", target_id: "b", kind: "relates_to" }],
+      }),
+      makeIssue({
+        id: "b",
+        dependencies: [{ source_id: "b", target_id: "a", kind: "relates_to", derived: true }],
+      }),
+    ];
+    const edges = collectEdges(issues);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ sourceId: "a", targetId: "b", kind: "relates_to" });
+  });
+
+  it("keeps the stored direction when the derived relates_to row comes first", () => {
+    const issues = [
+      makeIssue({
+        id: "b",
+        dependencies: [{ source_id: "b", target_id: "a", kind: "relates_to", derived: true }],
+      }),
+      makeIssue({
+        id: "a",
+        dependencies: [{ source_id: "a", target_id: "b", kind: "relates_to" }],
+      }),
+    ];
+    const edges = collectEdges(issues);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ sourceId: "a", targetId: "b", kind: "relates_to" });
+  });
+
+  it("emits one edge when a legacy related row pairs with a relates_to row", () => {
+    const issues = [
+      makeIssue({
+        id: "a",
+        dependencies: [{ source_id: "a", target_id: "b", kind: "related" }],
+      }),
+      makeIssue({
+        id: "b",
+        dependencies: [{ source_id: "b", target_id: "a", kind: "relates_to", derived: true }],
+      }),
+    ];
+    expect(collectEdges(issues)).toHaveLength(1);
+  });
+
+  it("hides a relates_to link when the same pair has a blocking link", () => {
+    const issues = [
+      makeIssue({
+        id: "a",
+        dependencies: [
+          { source_id: "a", target_id: "b", kind: "depends_on" },
+          { source_id: "a", target_id: "b", kind: "relates_to", derived: true },
+        ],
+      }),
+      makeIssue({
+        id: "b",
+        dependencies: [
+          { source_id: "b", target_id: "a", kind: "relates_to" },
+          { source_id: "b", target_id: "a", kind: "dependency_of", derived: true },
+        ],
+      }),
+    ];
+    const edges = collectEdges(issues);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ sourceId: "a", targetId: "b", kind: "depends_on" });
+  });
+
+  it("hides a relates_to link stored in the same direction as a blocks link", () => {
+    const issues = [
+      makeIssue({
+        id: "a",
+        dependencies: [
+          { source_id: "a", target_id: "b", kind: "relates_to" },
+          { source_id: "a", target_id: "b", kind: "blocks" },
+        ],
+      }),
+      makeIssue({ id: "b" }),
+    ];
+    const edges = collectEdges(issues);
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toMatchObject({ sourceId: "b", targetId: "a", kind: "blocked_by" });
+  });
+
   it("skips edges referencing unknown issues", () => {
     const issues = [
       makeIssue({
@@ -121,6 +206,35 @@ describe("collectEdges", () => {
       }),
     ];
     expect(collectEdges(issues)).toEqual([]);
+  });
+});
+
+describe("detectCycles", () => {
+  const edge = (sourceId: string, targetId: string, kind: string): RawEdge =>
+    ({ sourceId, targetId, kind, originalKind: kind });
+
+  it("flags a cycle of blocker edges", () => {
+    const cycles = detectCycles(
+      [edge("a", "b", "blocked_by"), edge("b", "a", "depends_on")],
+      new Set(["a", "b"]),
+    );
+    expect([...cycles].sort()).toEqual(["a", "b"]);
+  });
+
+  it("ignores relates_to edges when looking for cycles", () => {
+    const cycles = detectCycles(
+      [edge("a", "b", "depends_on"), edge("b", "a", "relates_to")],
+      new Set(["a", "b"]),
+    );
+    expect(cycles.size).toBe(0);
+  });
+
+  it("does not treat a ring of relates_to edges as a cycle", () => {
+    const cycles = detectCycles(
+      [edge("a", "b", "relates_to"), edge("b", "c", "relates_to"), edge("c", "a", "relates_to")],
+      new Set(["a", "b", "c"]),
+    );
+    expect(cycles.size).toBe(0);
   });
 });
 
@@ -217,6 +331,20 @@ describe("computeStats", () => {
     const stats = computeStats(issues);
     expect(stats.total).toBe(0);
     expect(stats.resolved).toBe(0);
+  });
+
+  it("does not count a relates_to link or its derived inverse", () => {
+    const issues = [
+      makeIssue({
+        id: "a",
+        dependencies: [{ source_id: "a", target_id: "b", kind: "relates_to" }],
+      }),
+      makeIssue({
+        id: "b",
+        dependencies: [{ source_id: "b", target_id: "a", kind: "relates_to", derived: true }],
+      }),
+    ];
+    expect(computeStats(issues)).toEqual({ resolved: 0, total: 0 });
   });
 
   it("returns zeros for issues with no dependencies", () => {
