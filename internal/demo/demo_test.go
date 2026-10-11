@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/identity"
 	"github.com/palarix/exponential/internal/model"
 )
 
@@ -132,4 +135,64 @@ func splitLines(data []byte) [][]byte {
 		lines = append(lines, data[start:])
 	}
 	return lines
+}
+
+func TestGenerateAttributesAgentWorkToHumans(t *testing.T) {
+	dir := t.TempDir()
+	if err := Generate(dir); err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".xpo", "issues.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var events []model.Event
+	for _, line := range splitLines(data) {
+		if len(line) == 0 {
+			continue
+		}
+		var evt model.Event
+		if err := json.Unmarshal(line, &evt); err != nil {
+			t.Fatalf("invalid JSONL line: %v", err)
+		}
+		events = append(events, evt)
+	}
+
+	agentEvents := 0
+	for _, e := range events {
+		if !identity.IsAgent(e.CreatedBy) {
+			continue
+		}
+		agentEvents++
+		if e.OnBehalfOf == "" || identity.IsAgent(e.OnBehalfOf) {
+			t.Errorf("agent event %s %s by %q has no human principal (on_behalf_of %q)", e.ID, e.Type, e.CreatedBy, e.OnBehalfOf)
+		}
+	}
+	if agentEvents == 0 {
+		t.Error("expected the demo to contain agent-authored events")
+	}
+
+	viaCount := 0
+	for id, iss := range exponential.ProjectIssues(events) {
+		if identity.IsAgent(iss.Assignee) {
+			t.Errorf("issue %s is assigned to agent %q", id, iss.Assignee)
+		}
+		if iss.AssigneeVia != "" {
+			viaCount++
+			if !identity.IsAgent(iss.AssigneeVia) {
+				t.Errorf("issue %s has non-agent assignee_via %q", id, iss.AssigneeVia)
+			}
+		}
+	}
+	if viaCount == 0 {
+		t.Error("expected agent-worked issues to carry assignee_via")
+	}
+
+	cfg, err := os.ReadFile(filepath.Join(dir, ".xpo", "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(cfg), "agent@") {
+		t.Error("config.yaml contributors include an agent identity")
+	}
 }

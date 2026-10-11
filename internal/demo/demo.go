@@ -12,9 +12,10 @@ import (
 )
 
 type persona struct {
-	Name  string
-	Email string
-	Role  string
+	Name      string
+	Email     string
+	Role      string
+	Principal int // for an agent, the persona it works on behalf of; -1 for a human
 }
 
 func (p persona) Identity() string {
@@ -22,12 +23,12 @@ func (p persona) Identity() string {
 }
 
 var personas = []persona{
-	{Name: "Sarah Chen", Email: "sarah@upurreats.com", Role: "Founder / CTO"},
-	{Name: "Jake Morrison", Email: "jake@upurreats.com", Role: "Full-Stack Engineer"},
-	{Name: "Luna Garcia", Email: "luna@upurreats.com", Role: "Designer / Product"},
-	{Name: "Claude", Email: "agent@claude.ai", Role: "AI Agent"},
-	{Name: "Devin", Email: "agent@devin.ai", Role: "AI Agent"},
-	{Name: "Whiskers", Email: "agent@upurreats.local", Role: "AI Agent"},
+	{Name: "Sarah Chen", Email: "sarah@upurreats.com", Role: "Founder / CTO", Principal: -1},
+	{Name: "Jake Morrison", Email: "jake@upurreats.com", Role: "Full-Stack Engineer", Principal: -1},
+	{Name: "Luna Garcia", Email: "luna@upurreats.com", Role: "Designer / Product", Principal: -1},
+	{Name: "Claude", Email: "agent@claude.ai", Role: "AI Agent", Principal: pSarah},
+	{Name: "Devin", Email: "agent@devin.ai", Role: "AI Agent", Principal: pJake},
+	{Name: "Whiskers", Email: "agent@upurreats.local", Role: "AI Agent", Principal: pLuna},
 }
 
 const (
@@ -70,6 +71,29 @@ type seedEvent struct {
 	TargetRef string
 }
 
+func (p persona) isAgent() bool {
+	return p.Principal >= 0
+}
+
+// principalFor returns the human persona that owns work done by actor: the
+// actor itself for a human, the persona it works for for an agent.
+func principalFor(actor int) int {
+	if personas[actor].isAgent() {
+		return personas[actor].Principal
+	}
+	return actor
+}
+
+// attribute sets who authored an event. An agent always acts on behalf of a
+// person, so its events carry that person as OnBehalfOf.
+func attribute(evt model.Event, actor, principal int) model.Event {
+	evt.CreatedBy = personas[actor].Identity()
+	if personas[actor].isAgent() {
+		evt.OnBehalfOf = personas[principal].Identity()
+	}
+	return evt
+}
+
 func Generate(outputDir string) error {
 	xpoDir := filepath.Join(outputDir, ".xpo")
 	if err := os.MkdirAll(xpoDir, 0755); err != nil {
@@ -82,12 +106,14 @@ func Generate(outputDir string) error {
 	issues := allIssues()
 	events := allEvents()
 
-	// Assign real IDs to issue refs
+	// Assign real IDs to issue refs, and the person who owns each issue
 	idMap := make(map[string]string)
+	principalMap := make(map[string]int)
 	counter := 0
 	for _, iss := range issues {
 		counter++
 		idMap[iss.Ref] = fmt.Sprintf("upe-%06x", counter)
+		principalMap[iss.Ref] = principalFor(iss.Actor)
 	}
 
 	// Build model events
@@ -104,10 +130,7 @@ func Generate(outputDir string) error {
 		if status == "" {
 			status = "BACKLOG"
 		}
-		assignee := ""
-		if iss.Actor >= 0 && iss.Actor < len(personas) {
-			assignee = personas[iss.Actor].Identity()
-		}
+		principal := principalMap[iss.Ref]
 
 		payload := model.CreatePayload{
 			Title:       iss.Title,
@@ -116,19 +139,17 @@ func Generate(outputDir string) error {
 			ParentID:    parentID,
 			Estimate:    iss.Estimate,
 			Labels:      iss.Labels,
-			Assignee:    assignee,
+			Assignee:    personas[principal].Identity(),
 		}
 
 		ts := anchor.Add(time.Duration(iss.Offset) * time.Hour)
-		actor := personas[iss.Actor]
 
-		modelEvents = append(modelEvents, model.Event{
+		modelEvents = append(modelEvents, attribute(model.Event{
 			ID:        issueID,
 			Type:      model.EventTypeCreate,
 			Payload:   payload,
 			CreatedAt: ts,
-			CreatedBy: actor.Identity(),
-		})
+		}, iss.Actor, principal))
 	}
 
 	// Timeline events
@@ -139,24 +160,23 @@ func Generate(outputDir string) error {
 			continue
 		}
 		ts := anchor.Add(time.Duration(ev.Offset) * time.Hour)
-		actor := personas[ev.Actor]
+		principal := principalMap[ev.Ref]
 
 		switch ev.Kind {
 		case evStatus:
 			status := ev.Status
-			modelEvents = append(modelEvents, model.Event{
+			modelEvents = append(modelEvents, attribute(model.Event{
 				ID:   issueID,
 				Type: model.EventTypeUpdate,
 				Payload: model.UpdatePayload{
 					Status: &status,
 				},
 				CreatedAt: ts,
-				CreatedBy: actor.Identity(),
-			})
+			}, ev.Actor, principal))
 
 		case evComment:
 			commentCounter++
-			modelEvents = append(modelEvents, model.Event{
+			modelEvents = append(modelEvents, attribute(model.Event{
 				ID:   issueID,
 				Type: model.EventTypeComment,
 				Payload: model.CommentPayload{
@@ -164,8 +184,7 @@ func Generate(outputDir string) error {
 					Text: ev.Text,
 				},
 				CreatedAt: ts,
-				CreatedBy: actor.Identity(),
-			})
+			}, ev.Actor, principal))
 
 		case evLink:
 			targetID, ok := idMap[ev.TargetRef]
@@ -176,7 +195,7 @@ func Generate(outputDir string) error {
 			if kind == "" {
 				continue
 			}
-			modelEvents = append(modelEvents, model.Event{
+			modelEvents = append(modelEvents, attribute(model.Event{
 				ID:   issueID,
 				Type: model.EventTypeUpdate,
 				Payload: model.UpdatePayload{
@@ -185,8 +204,7 @@ func Generate(outputDir string) error {
 					},
 				},
 				CreatedAt: ts,
-				CreatedBy: actor.Identity(),
-			})
+			}, ev.Actor, principal))
 		}
 	}
 
@@ -333,6 +351,9 @@ cycles:
 contributors:
 `
 	for _, p := range personas {
+		if p.isAgent() {
+			continue
+		}
 		cfg += fmt.Sprintf("    - \"%s <%s>\"\n", p.Name, p.Email)
 	}
 
