@@ -1,3 +1,5 @@
+import { statusIconClass } from './status-icon-utils';
+
 interface StatusIconProps {
   status: string;
   size?: number;
@@ -15,11 +17,12 @@ interface StatusIconProps {
  */
 export default function StatusIcon({ status, size = 16, className = '', isInferred }: StatusIconProps) {
   const s = status.toUpperCase();
+  const cls = statusIconClass(className);
 
   switch (s) {
     case 'BACKLOG':
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle
             cx="8" cy="8" r="6.5"
             stroke="var(--color-status-backlog)"
@@ -32,7 +35,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
 
     case 'PLANNED':
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle
             cx="8" cy="8" r="6.5"
             stroke="var(--color-status-planned)"
@@ -45,7 +48,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
     case 'DOING':
       if (isInferred) {
         return (
-          <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+          <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
             <circle
               cx="8" cy="8" r="6.5"
               stroke="var(--color-status-doing)"
@@ -62,7 +65,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
         );
       }
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle
             cx="8" cy="8" r="6.5"
             stroke="var(--color-status-doing)"
@@ -78,7 +81,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
 
     case 'BLOCKED':
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle
             cx="8" cy="8" r="7"
             fill="var(--color-status-blocked)"
@@ -94,7 +97,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
 
     case 'DONE':
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle
             cx="8" cy="8" r="7"
             fill="var(--color-status-done)"
@@ -112,7 +115,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
 
     case 'CANCELED':
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle cx="8" cy="8" r="7" fill="var(--color-status-canceled)" />
           <line x1="5" y1="8" x2="11" y2="8" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
@@ -120,7 +123,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
 
     case 'DUPLICATE':
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle cx="8" cy="8" r="7" fill="var(--color-status-duplicate)" />
           <line x1="5.5" y1="10.5" x2="10.5" y2="5.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
           <circle cx="6" cy="6" r="1.2" fill="white" />
@@ -130,7 +133,7 @@ export default function StatusIcon({ status, size = 16, className = '', isInferr
 
     default:
       return (
-        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
+        <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={cls}>
           <circle
             cx="8" cy="8" r="6.5"
             stroke="var(--color-text-muted)"

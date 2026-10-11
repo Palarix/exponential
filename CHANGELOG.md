@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Status icons in the issue sidebar's Relations card no longer shrink next to long titles; `StatusIcon` now always applies `shrink-0`, which fixes every flex-row call site (xpo-334821)
+
 ## [1.3.0] — 2026-10-09
 
 ### Added
