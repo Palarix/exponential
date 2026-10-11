@@ -3,11 +3,11 @@ import { viewContentClass, viewInnerClass } from "./view-container-utils";
 
 describe("viewContentClass", () => {
   it("uses the scroll-stable utility when scrolling", () => {
-    expect(viewContentClass(true)).toBe("flex-1 min-h-0 scroll-stable");
+    expect(viewContentClass(true)).toBe("relative flex-1 min-h-0 scroll-stable");
   });
 
   it("clips overflow when not scrolling", () => {
-    expect(viewContentClass(false)).toBe("flex-1 min-h-0 overflow-hidden");
+    expect(viewContentClass(false)).toBe("relative flex-1 min-h-0 overflow-hidden");
   });
 
   it("never emits Tailwind overflow-y utilities", () => {

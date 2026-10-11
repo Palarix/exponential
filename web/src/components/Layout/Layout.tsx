@@ -18,7 +18,7 @@ export default function Layout({
   const [statusSlot, setStatusSlot] = useState<HTMLDivElement | null>(null);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-chrome)]">
+    <div className="relative flex h-screen overflow-hidden bg-[var(--color-chrome)]">
       <Sidebar {...sidebar} />
 
       {/* Main */}

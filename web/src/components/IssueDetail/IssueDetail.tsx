@@ -331,6 +331,9 @@ export default function IssueDetail({
     <ViewContainer
       header={banner}
       contentRef={scrollRef}
+      // Size container: the sticky PropertySidebar caps itself at 100cqh,
+      // the pane's visible height.
+      contentClassName="[container-type:size]"
       maxWidth="detail"
       innerClassName="flex min-h-full"
       topBar={

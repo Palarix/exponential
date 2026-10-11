@@ -188,28 +188,32 @@ body {
   background: var(--color-surface);
 }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* Global scrollbar look. Layered as base so utilities (scrollbar-none) can
+   override it; unlayered rules would beat every Tailwind utility. */
+@layer base {
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-thumb {
-  background: var(--color-border-overlay);
-  border-radius: 3px;
-}
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-border-overlay);
+    border-radius: 3px;
+  }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
-}
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
 
-@supports (scrollbar-color: auto) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border-overlay) transparent;
+  @supports (scrollbar-color: auto) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-border-overlay) transparent;
+    }
   }
 }
 
@@ -224,6 +228,22 @@ body {
 @utility scroll-stable {
   overflow-y: scroll;
   scrollbar-gutter: stable both-edges;
+}
+
+/* Scrollable without a drawn scrollbar, for panes that sit beside another
+   scroller (the issue detail PropertySidebar). Pair with fade-bottom so
+   overflow stays discoverable. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Fades the element's bottom edge to signal more content below. The mask is
+   applied to the scroller's box, so it stays pinned to the visible bottom. */
+@utility fade-bottom {
+  mask-image: linear-gradient(to bottom, black calc(100% - 3rem), transparent);
 }
 
 /* ========================================

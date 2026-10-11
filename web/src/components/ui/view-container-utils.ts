@@ -6,7 +6,7 @@ const MAX_WIDTH_CLASS: Record<ViewMaxWidth, string> = {
 };
 
 export function viewContentClass(scroll: boolean): string {
-  return `flex-1 min-h-0 ${scroll ? "scroll-stable" : "overflow-hidden"}`;
+  return `relative flex-1 min-h-0 ${scroll ? "scroll-stable" : "overflow-hidden"}`;
 }
 
 export function viewInnerClass(maxWidth: ViewMaxWidth | undefined): string | null {

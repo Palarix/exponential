@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The issue detail view shows a single scrollbar on devices with classic scrollbars, instead of three. The page no longer scrolls: `Layout` and `ViewContainer`'s scroller are `relative`, so `ActorName`'s `sr-only` text can't extend the document. The property sidebar is capped to the pane's height (`100cqh`) instead of the viewport. It hides its scrollbar and fades its bottom edge while more content is below. The global scrollbar styles moved into `@layer base` so utilities can override them (xpo-fe51ab)
 - Status icons in the issue sidebar's Relations card no longer shrink next to long titles; `StatusIcon` now always applies `shrink-0`, which fixes every flex-row call site (xpo-334821)
 - MCP `merge` records the MERGE event and DONE transition as the agent acting on behalf of the user (`created_by` agent, `on_behalf_of` principal) instead of as the configured user; `MergeIssue` and `ResolveReviewIssue` now sync the client identity to the transport (xpo-40ab84)
 - The issue-detail artifact list shows the principal with the dashed-underline agent attribution instead of the raw agent identity; artifacts now carry `on_behalf_of` from their latest write in the HTTP API and CLI/MCP JSON output (xpo-61ff1e)

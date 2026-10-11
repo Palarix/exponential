@@ -5,8 +5,10 @@ import { useDeleteIssue, useStartWork, type IssuePatch } from "../../api/mutatio
 import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
+import { cn } from "../../utils/cn";
 import { formatRelativeTime } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
+import { useScrollFade } from "../../hooks/useScrollFade";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
@@ -221,8 +223,15 @@ export default function PropertySidebar({
 
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === issue.status);
 
+  // The sidebar scrolls on its own but hides its bar so it doesn't sit next
+  // to the pane's; the bottom fade marks content below the fold.
+  const [scrollRef, fadeBottom] = useScrollFade<HTMLDivElement>();
+
   return (
-    <div className="w-80 shrink-0 sticky top-0 self-start max-h-screen scroll-stable pt-12">
+    <div
+      ref={scrollRef}
+      className={cn("w-80 shrink-0 sticky top-0 self-start max-h-[100cqh] overflow-y-auto scrollbar-none pt-12", fadeBottom && "fade-bottom")}
+    >
       <div className="px-5 pb-5 space-y-3">
         {/* Start Work button */}
         {(issue.status === "BACKLOG" || issue.status === "PLANNED") && (
