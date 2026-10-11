@@ -59,6 +59,7 @@ func (c *Client) IssueIDFromBranch(branch string) (*model.Issue, error) {
 // or by inferring from the current branch. If the issue has no BranchStats
 // from remote detection, it fills them from the local branch.
 func (c *Client) ResolveReviewIssue(idOrEmpty string) (*model.Issue, error) {
+	c.syncLocal()
 	if idOrEmpty != "" {
 		issue, err := c.Transport.GetIssue(idOrEmpty)
 		if err != nil {

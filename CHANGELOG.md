@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Status icons in the issue sidebar's Relations card no longer shrink next to long titles; `StatusIcon` now always applies `shrink-0`, which fixes every flex-row call site (xpo-334821)
+- MCP `merge` records the MERGE event and DONE transition as the agent acting on behalf of the user (`created_by` agent, `on_behalf_of` principal) instead of as the configured user; `MergeIssue` and `ResolveReviewIssue` now sync the client identity to the transport (xpo-40ab84)
 
 ## [1.3.0] — 2026-10-09
 

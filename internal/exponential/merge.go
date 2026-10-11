@@ -37,6 +37,9 @@ func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) 
 	if c.local == nil {
 		return nil, ErrLocalOnly
 	}
+	// MCP builds a fresh Client per request, so the agent identity and
+	// principal must reach the transport before any event is stamped.
+	c.syncLocal()
 
 	issue, err := c.Transport.GetIssue(id)
 	if err != nil {

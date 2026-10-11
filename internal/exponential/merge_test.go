@@ -1080,3 +1080,74 @@ func TestHubCleanForMerge_ModifiedConflicting(t *testing.T) {
 		t.Errorf("error should list the conflicting file, got: %v", err)
 	}
 }
+
+// mergeEvents returns the MERGE event and the DONE transition recorded for id.
+func mergeEvents(t *testing.T, id string) (merge, done model.Event) {
+	t.Helper()
+	events, err := storage.ReadEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundMerge, foundDone bool
+	for _, evt := range events {
+		if evt.ID != id {
+			continue
+		}
+		switch evt.Type {
+		case model.EventTypeMerge:
+			merge, foundMerge = evt, true
+		case model.EventTypeUpdate:
+			// After JSON roundtrip the payload may be a map
+			if p, ok := evt.Payload.(model.UpdatePayload); ok && p.Status != nil && *p.Status == string(model.StatusDone) {
+				done, foundDone = evt, true
+			} else if m, ok := evt.Payload.(map[string]interface{}); ok && m["status"] == string(model.StatusDone) {
+				done, foundDone = evt, true
+			}
+		}
+	}
+	if !foundMerge || !foundDone {
+		t.Fatalf("missing events: merge=%v done=%v", foundMerge, foundDone)
+	}
+	return merge, done
+}
+
+// An MCP client is fresh per request, so merge must propagate the agent
+// identity and principal itself rather than rely on an earlier call.
+func TestMergeIssue_AgentOnBehalfOfPrincipal(t *testing.T) {
+	_, client := setupMergeRepo(t, "test-agent01", nil)
+	client.UserOverride = "claude-code/2.1.295 <agent@mcp>"
+	client.OnBehalfOf = "Nicolas <nic@example.com>"
+
+	if _, err := client.MergeIssue("test-agent01", MergeOptions{Strategy: MergeStrategySquash, KeepBranch: true}); err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+
+	merge, done := mergeEvents(t, "test-agent01")
+	for name, evt := range map[string]model.Event{"MERGE": merge, "DONE": done} {
+		if evt.CreatedBy != "claude-code/2.1.295 <agent@mcp>" {
+			t.Errorf("%s created_by = %q, want the agent", name, evt.CreatedBy)
+		}
+		if evt.OnBehalfOf != "Nicolas <nic@example.com>" {
+			t.Errorf("%s on_behalf_of = %q, want the principal", name, evt.OnBehalfOf)
+		}
+	}
+}
+
+func TestMergeIssue_DirectUserHasNoOnBehalfOf(t *testing.T) {
+	_, client := setupMergeRepo(t, "test-human01", nil)
+	user := client.GetUser()
+
+	if _, err := client.MergeIssue("test-human01", MergeOptions{Strategy: MergeStrategySquash, KeepBranch: true}); err != nil {
+		t.Fatalf("MergeIssue failed: %v", err)
+	}
+
+	merge, done := mergeEvents(t, "test-human01")
+	for name, evt := range map[string]model.Event{"MERGE": merge, "DONE": done} {
+		if evt.CreatedBy != user {
+			t.Errorf("%s created_by = %q, want %q", name, evt.CreatedBy, user)
+		}
+		if evt.OnBehalfOf != "" {
+			t.Errorf("%s on_behalf_of = %q, want empty", name, evt.OnBehalfOf)
+		}
+	}
+}
