@@ -9,7 +9,6 @@ import {
   agentDisplayName,
   agentTooltip,
   resolveAssignee,
-  agentCommentAuthor,
   commentAuthor,
   formatShortDate,
   formatTriage,
@@ -84,17 +83,6 @@ describe("agentDisplayName", () => {
 describe("agentTooltip", () => {
   it("reads '<agent> for <principal>'", () => {
     expect(agentTooltip("claude-code/2.1.263 <agent@mcp>", "Alice <a@x.com>")).toBe("Claude Code for Alice");
-  });
-});
-
-describe("agentCommentAuthor", () => {
-  it("names the agent on behalf of the principal", () => {
-    expect(agentCommentAuthor("claude-code/2.1.263 <agent@mcp>", "Nicolas Bettenburg <nic@x.com>"))
-      .toBe("Claude Code on behalf of Nicolas Bettenburg");
-  });
-
-  it("accepts the already-shortened names the activity feeds pass", () => {
-    expect(agentCommentAuthor("Claude Code", "Nicolas Bettenburg")).toBe("Claude Code on behalf of Nicolas Bettenburg");
   });
 });
 
@@ -423,10 +411,11 @@ describe("fuzzyScore", () => {
 });
 
 describe("commentAuthor", () => {
-  it("shows an agent comment as the principal, naming the agent", () => {
+  it("shows an agent comment as the principal, with the agent as via", () => {
     expect(commentAuthor("claude-code/2.1.263 <agent@mcp>", "Nicolas Bettenburg <nic@x.com>")).toEqual({
       identity: "Nicolas Bettenburg <nic@x.com>",
-      name: "Claude Code on behalf of Nicolas Bettenburg",
+      name: "Nicolas Bettenburg",
+      via: "claude-code/2.1.263 <agent@mcp>",
     });
   });
 

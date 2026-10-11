@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { TimelineEntry, Issue } from "../../api/client";
-import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentCommentAuthor } from "../../utils/format";
-import Tooltip from "../ui/Tooltip";
-import { TopBar, IconButton, Heading, Text, SearchInput, ViewContainer } from "../ui";
+import { shortName, formatRelativeTime, displayActor, resolveAssignee } from "../../utils/format";
+import { ActorName, TopBar, IconButton, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { useCommitDetail, useIssueList, useTimeline } from "../../api/queries";
 import { useIssueClick } from "../../app/hooks";
@@ -176,17 +175,13 @@ function describeIssueEvent(
 ): EventDescription | null {
   const p = evt.payload || {};
   const name = (
-    <Tooltip content={via ? `${via} for ${who}` : ""}><span className="font-medium text-[var(--color-text-primary)]">{who}</span></Tooltip>
+    <ActorName name={who} via={via} className="font-medium text-[var(--color-text-primary)]" />
   );
   switch (evt.event_type) {
     case "CREATE":
       return { before: <>{name} created</> };
-    case "COMMENT": {
-      const author = via
-        ? <span className="font-medium text-[var(--color-text-primary)]">{agentCommentAuthor(via, who)}</span>
-        : name;
-      return { before: <>{author} commented on</> };
-    }
+    case "COMMENT":
+      return { before: <>{name} commented on</> };
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return { before: <>{name} merged</>, after: strategy || undefined };

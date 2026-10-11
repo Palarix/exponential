@@ -4,18 +4,16 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { useIssueHistory } from "../../api/queries";
-import { Avatar, LabelBadge, StatusIcon, Text } from "../ui";
+import { ActorName, Avatar, LabelBadge, StatusIcon, Text } from "../ui";
 import { Triangle, ChevronDown } from "lucide-react";
 import {
   formatRelativeTime,
   linkifyIssueIds,
   activityActor,
   commentAuthor,
-  agentTooltip,
   resolveAssignee,
   shortName,
 } from "../../utils/format";
-import Tooltip from "../ui/Tooltip";
 
 type ActivityEntry =
   | {
@@ -30,6 +28,7 @@ type ActivityEntry =
       kind: "comment";
       actor: string;
       author: string;
+      via?: string;
       text: string;
       time: string;
     };
@@ -179,6 +178,7 @@ export default function ActivityTimeline({
           kind: "comment",
           actor: author.identity,
           author: author.name,
+          via: author.via,
           text: String(p.text || ""),
           time: evt.created_at,
         });
@@ -230,12 +230,10 @@ export default function ActivityTimeline({
                 key={`sys-${i}`}
                 className="flex items-center gap-2 px-4 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
               >
-                <Tooltip content={entry.via ? agentTooltip(entry.via, entry.actor) : ""}>
-                  <span className="flex items-center gap-2">
-                    <Avatar name={entry.actor} size="sm" />
-                    <span>{entry.author}</span>
-                  </span>
-                </Tooltip>
+                <span className="flex items-center gap-2">
+                  <Avatar name={entry.actor} size="sm" />
+                  <ActorName name={entry.author} via={entry.via} />
+                </span>
                 {entry.content}
                 <span>·</span>
                 <span>{formatRelativeTime(entry.time)}</span>
@@ -252,7 +250,7 @@ export default function ActivityTimeline({
                 <span className="flex items-center gap-3">
                   <Avatar name={entry.actor} size="sm" />
                   <Text weight="medium" color="primary">
-                    {entry.author}
+                    <ActorName name={entry.author} via={entry.via} />
                   </Text>
                 </span>
                 <Text>

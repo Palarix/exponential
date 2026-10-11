@@ -28,12 +28,6 @@ export function agentTooltip(via: string, principal: string): string {
   return `${agentDisplayName(via)} for ${shortName(principal)}`;
 }
 
-// Comments are the one place the agent is named up front: who wrote the
-// words matters.
-export function agentCommentAuthor(via: string, principal: string): string {
-  return `${agentDisplayName(via)} on behalf of ${shortName(principal)}`;
-}
-
 // Mirrors identity.ResolveAssignment: the person an assignment belongs to,
 // even when the raw value written was an agent identity.
 export function resolveAssignee(raw: string, createdBy: string, onBehalfOf?: string): string {
@@ -75,14 +69,10 @@ export function activityActor(createdBy: string, onBehalfOf?: string): ActivityA
   return { identity: createdBy, name: shortName(createdBy) };
 }
 
-// A comment header: the principal's avatar, and the agent named up front
-// ("Claude Code on behalf of Nicolas") when an agent wrote it.
-export function commentAuthor(createdBy: string, onBehalfOf?: string): { identity: string; name: string } {
-  const actor = activityActor(createdBy, onBehalfOf);
-  return {
-    identity: actor.identity,
-    name: actor.via ? agentCommentAuthor(actor.via, actor.identity) : actor.name,
-  };
+// A comment header follows the same principal-first rule as every other
+// actor: the principal's avatar and name, with the agent as via.
+export function commentAuthor(createdBy: string, onBehalfOf?: string): ActivityActor {
+  return activityActor(createdBy, onBehalfOf);
 }
 
 export function formatRelativeTime(dateStr: string): string {

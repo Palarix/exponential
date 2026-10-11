@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { Text } from "../ui";
+import { ActorName, Text } from "../ui";
 import type { ActivityEvent, Issue } from "../../api/client";
-import { shortName, formatRelativeTime, displayActor, resolveAssignee, agentCommentAuthor } from "../../utils/format";
-import Tooltip from "../ui/Tooltip";
+import { shortName, formatRelativeTime, displayActor, resolveAssignee } from "../../utils/format";
 import {
   Plus,
   MessageSquareMore,
@@ -87,17 +86,13 @@ function describeActivity(
 ): { icon: ActIconKey; sentence: ReactNode } | null {
   const p = evt.payload || {};
   const name = (
-    <Tooltip content={via ? `${via} for ${who}` : ""}><span className="text-[var(--color-text-primary)] mr-1">{who}</span></Tooltip>
+    <ActorName name={who} via={via} className="text-[var(--color-text-primary)] mr-1" />
   );
   switch (evt.type) {
     case "CREATE":
       return { icon: "create", sentence: <>{name} created</> };
-    case "COMMENT": {
-      const author = via
-        ? <span className="text-[var(--color-text-primary)] mr-1">{agentCommentAuthor(via, who)}</span>
-        : name;
-      return { icon: "comment", sentence: <>{author} commented on</> };
-    }
+    case "COMMENT":
+      return { icon: "comment", sentence: <>{name} commented on</> };
     case "MERGE": {
       const strategy = p.strategy ? ` via ${String(p.strategy)}` : "";
       return {

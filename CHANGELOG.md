@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- One attribution rule across the web UI: when an agent acted on behalf of a person, their name renders with a dashed underline and reveals the agent on hover/focus (and to screen readers); direct actions render plain. Applies to the issue Activity timeline (events and comments), Merge view comments, Dashboard activity feed, Timeline, Inbox change summary and the sidebar assignee via a shared `ActorName` component. Replaces the spelled-out "Claude Code on behalf of Name" comment headers, and the Inbox now shows the principal instead of the raw agent (xpo-a9560c)
+
 ### Fixed
 
 - Status icons in the issue sidebar's Relations card no longer shrink next to long titles; `StatusIcon` now always applies `shrink-0`, which fixes every flex-row call site (xpo-334821)

@@ -2,10 +2,10 @@ import { useState, useMemo, useCallback, useContext, useRef } from "react";
 import type { Issue } from "../../api/client";
 import { useCycles } from "../../api/queries";
 import { useDeleteIssue, useStartWork, type IssuePatch } from "../../api/mutations";
-import { Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
+import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
 import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
-import { formatRelativeTime, shortName } from "../../utils/format";
+import { formatRelativeTime } from "../../utils/format";
 import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { isTerminal } from "../../constants";
@@ -461,9 +461,16 @@ export default function PropertySidebar({
                   ) : (
                     <UserRound className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   )}
-                  <span className="text-sm text-[var(--color-text-primary)] truncate">
-                    {issue.assignee ? shortName(issue.assignee) : "No assignee"}
-                  </span>
+                  {issue.assignee ? (
+                    <ActorName
+                      name={issue.assignee}
+                      via={issue.assignee_via}
+                      focusable={false}
+                      className="text-sm text-[var(--color-text-primary)] truncate"
+                    />
+                  ) : (
+                    <span className="text-sm text-[var(--color-text-primary)] truncate">No assignee</span>
+                  )}
                 </Button>
                 {openPopover === "assignee" && (
                   <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>

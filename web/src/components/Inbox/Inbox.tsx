@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react
 import { isEditableTarget } from "../../utils/keyboard";
 import type { Issue } from "../../api/client";
 import {
+  ActorName,
   StatusIcon,
   LabelBadge,
   TopBar,
@@ -143,7 +144,7 @@ export default function Inbox() {
   const userEmail = user?.email?.toLowerCase().trim() || "";
 
   const changeSummary = useMemo(() => {
-    if (!selectedGroup) return [];
+    if (!selectedGroup) return { actor: null, parts: [] };
     const unreadEvents = selectedGroup.events.filter(
       e => new Date(e.created_at).getTime() > lastReadTime
     );
@@ -272,13 +273,20 @@ export default function Inbox() {
                 onNavigate={navigateIssue}
                 prefix={prefix}
                 contributors={contributors}
-                banner={changeSummary.length > 0 ? (
+                banner={changeSummary.actor || changeSummary.parts.length > 0 ? (
                   <div className="flex items-center gap-2 px-5 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] shrink-0">
                     <svg className="w-4 h-4 text-[var(--color-accent-primary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                     </svg>
                     <Text size="xs" color="secondary">
-                      {changeSummary.join(" · ")}
+                      {changeSummary.actor && (
+                        <>
+                          <ActorName name={changeSummary.actor.principal} via={changeSummary.actor.via} />
+                          {changeSummary.actor.isYou && " (You)"}
+                          {changeSummary.parts.length > 0 && " · "}
+                        </>
+                      )}
+                      {changeSummary.parts.join(" · ")}
                     </Text>
                   </div>
                 ) : undefined}

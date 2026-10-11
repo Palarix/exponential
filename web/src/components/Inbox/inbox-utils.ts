@@ -39,16 +39,29 @@ const STATUS_LABEL: Record<string, string> = {
   DONE: "completed",
 };
 
-export function agentLabel(evt: InboxItem, userEmail: string): string | null {
-  if (!evt.on_behalf_of) return null;
-  const principalEmail = extractEmail(evt.on_behalf_of);
-  if (principalEmail && principalEmail === userEmail) {
-    return `${shortName(evt.created_by)} (You)`;
-  }
-  return shortName(evt.created_by);
+export interface SummaryActor {
+  principal: string;
+  via: string;
+  isYou: boolean;
 }
 
-export function buildChangeSummary(events: InboxItem[], userEmail: string): string[] {
+// The person an agent acted for, principal-first like every other actor.
+export function summaryActor(evt: InboxItem, userEmail: string): SummaryActor | null {
+  if (!evt.on_behalf_of) return null;
+  const principalEmail = extractEmail(evt.on_behalf_of);
+  return {
+    principal: shortName(evt.on_behalf_of),
+    via: evt.created_by,
+    isYou: !!principalEmail && principalEmail === userEmail,
+  };
+}
+
+export interface ChangeSummary {
+  actor: SummaryActor | null;
+  parts: string[];
+}
+
+export function buildChangeSummary(events: InboxItem[], userEmail: string): ChangeSummary {
   const parts: string[] = [];
   let commentCount = 0;
   const statusChanges: string[] = [];
@@ -56,10 +69,10 @@ export function buildChangeSummary(events: InboxItem[], userEmail: string): stri
   let wasMerged = false;
   let wasCreated = false;
   let otherUpdates = 0;
-  let actor: string | null = null;
+  let actor: SummaryActor | null = null;
 
   for (const evt of events) {
-    if (!actor) actor = agentLabel(evt, userEmail);
+    if (!actor) actor = summaryActor(evt, userEmail);
     const p = evt.payload || {};
     switch (evt.type) {
       case "COMMENT":
@@ -91,12 +104,11 @@ export function buildChangeSummary(events: InboxItem[], userEmail: string): stri
     }
   }
 
-  if (actor) parts.push(actor);
   if (wasCreated) parts.push("Issue created");
   for (const s of statusChanges) parts.push(`Status ${s}`);
   if (wasMerged) parts.push("Merged");
   if (assigneeChange) parts.push(assigneeChange.charAt(0).toUpperCase() + assigneeChange.slice(1));
   if (commentCount > 0) parts.push(`${commentCount} new comment${commentCount !== 1 ? "s" : ""}`);
   if (otherUpdates > 0) parts.push(`${otherUpdates} other update${otherUpdates !== 1 ? "s" : ""}`);
-  return parts;
+  return { actor, parts };
 }

@@ -38,7 +38,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { StatusIcon, Avatar, Text, TopBar, ViewContainer } from "../ui";
+import { ActorName, StatusIcon, Avatar, Text, TopBar, ViewContainer } from "../ui";
 import Modal from "../ui/Modal";
 import { commentAuthor, formatRelativeTime } from "../../utils/format";
 import { useSpinOnce, useSpinner } from "../../hooks/useSpinner";
@@ -1070,7 +1070,7 @@ function ConversationTab({
               <div key={c.id} className="px-5 py-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Avatar name={author.identity} size="sm" />
-                  <Text weight="medium" color="primary">{author.name}</Text>
+                  <Text weight="medium" color="primary"><ActorName name={author.name} via={author.via} /></Text>
                   <Text size="xs">
                     {formatRelativeTime(c.created_at)}
                   </Text>

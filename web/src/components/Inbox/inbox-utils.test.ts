@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { InboxItem } from "../../api/types";
-import { groupByIssue, agentLabel, buildChangeSummary } from "./inbox-utils";
+import { groupByIssue, summaryActor, buildChangeSummary } from "./inbox-utils";
 
 function makeItem(overrides: Partial<InboxItem> = {}): InboxItem {
   return {
@@ -59,25 +59,33 @@ describe("groupByIssue", () => {
   });
 });
 
-describe("agentLabel", () => {
+describe("summaryActor", () => {
   it("returns null when no on_behalf_of", () => {
-    expect(agentLabel(makeItem(), "alice@example.com")).toBeNull();
+    expect(summaryActor(makeItem(), "alice@example.com")).toBeNull();
   });
 
-  it("returns agent name with (You) when acting on behalf of user", () => {
+  it("returns the principal with the agent as via, marking the viewer", () => {
     const item = makeItem({
-      created_by: "Bot <bot@system.local>",
+      created_by: "claude-code/2.1.294 <agent@mcp>",
       on_behalf_of: "Alice <alice@example.com>",
     });
-    expect(agentLabel(item, "alice@example.com")).toBe("Bot (You)");
+    expect(summaryActor(item, "alice@example.com")).toEqual({
+      principal: "Alice",
+      via: "claude-code/2.1.294 <agent@mcp>",
+      isYou: true,
+    });
   });
 
-  it("returns agent name without (You) for other principals", () => {
+  it("does not mark other principals as the viewer", () => {
     const item = makeItem({
-      created_by: "Bot <bot@system.local>",
+      created_by: "claude-code/2.1.294 <agent@mcp>",
       on_behalf_of: "Bob <bob@example.com>",
     });
-    expect(agentLabel(item, "alice@example.com")).toBe("Bot");
+    expect(summaryActor(item, "alice@example.com")).toEqual({
+      principal: "Bob",
+      via: "claude-code/2.1.294 <agent@mcp>",
+      isYou: false,
+    });
   });
 });
 
@@ -87,22 +95,22 @@ describe("buildChangeSummary", () => {
       makeItem({ type: "COMMENT" }),
       makeItem({ type: "COMMENT" }),
     ];
-    const parts = buildChangeSummary(events, "me@test.com");
+    const { parts } = buildChangeSummary(events, "me@test.com");
     expect(parts).toContain("2 new comments");
   });
 
   it("reports single comment without plural", () => {
-    const parts = buildChangeSummary([makeItem({ type: "COMMENT" })], "me@test.com");
+    const { parts } = buildChangeSummary([makeItem({ type: "COMMENT" })], "me@test.com");
     expect(parts).toContain("1 new comment");
   });
 
   it("reports issue creation", () => {
-    const parts = buildChangeSummary([makeItem({ type: "CREATE" })], "me@test.com");
+    const { parts } = buildChangeSummary([makeItem({ type: "CREATE" })], "me@test.com");
     expect(parts).toContain("Issue created");
   });
 
   it("reports merge", () => {
-    const parts = buildChangeSummary([makeItem({ type: "MERGE" })], "me@test.com");
+    const { parts } = buildChangeSummary([makeItem({ type: "MERGE" })], "me@test.com");
     expect(parts).toContain("Merged");
   });
 
@@ -110,7 +118,7 @@ describe("buildChangeSummary", () => {
     const events = [
       makeItem({ type: "UPDATE", payload: { status: "DONE" } }),
     ];
-    const parts = buildChangeSummary(events, "me@test.com");
+    const { parts } = buildChangeSummary(events, "me@test.com");
     expect(parts).toContain("Status completed");
   });
 
@@ -118,7 +126,7 @@ describe("buildChangeSummary", () => {
     const events = [
       makeItem({ type: "UPDATE", payload: { assignee: "Bob <bob@example.com>" } }),
     ];
-    const parts = buildChangeSummary(events, "me@test.com");
+    const { parts } = buildChangeSummary(events, "me@test.com");
     expect(parts).toContain("Reassigned to Bob");
   });
 
@@ -126,7 +134,7 @@ describe("buildChangeSummary", () => {
     const events = [
       makeItem({ type: "UPDATE", payload: { assignee: "" } }),
     ];
-    const parts = buildChangeSummary(events, "me@test.com");
+    const { parts } = buildChangeSummary(events, "me@test.com");
     expect(parts).toContain("Assignee removed");
   });
 
@@ -134,7 +142,7 @@ describe("buildChangeSummary", () => {
     const events = [
       makeItem({ type: "ARTIFACT", payload: { filename: "spec.md", action: "created" } }),
     ];
-    const parts = buildChangeSummary(events, "me@test.com");
+    const { parts } = buildChangeSummary(events, "me@test.com");
     expect(parts).toContain("spec.md created");
   });
 
@@ -143,11 +151,25 @@ describe("buildChangeSummary", () => {
       makeItem({ type: "UPDATE", payload: { title: "changed" } }),
       makeItem({ type: "UPDATE", payload: { description: "changed" } }),
     ];
-    const parts = buildChangeSummary(events, "me@test.com");
+    const { parts } = buildChangeSummary(events, "me@test.com");
     expect(parts).toContain("2 other updates");
   });
 
   it("returns empty for no events", () => {
-    expect(buildChangeSummary([], "me@test.com")).toEqual([]);
+    expect(buildChangeSummary([], "me@test.com")).toEqual({ actor: null, parts: [] });
+  });
+
+  it("returns the first agent-on-behalf actor separately from the parts", () => {
+    const events = [
+      makeItem({ type: "COMMENT" }),
+      makeItem({ type: "COMMENT", created_by: "claude-code/2.1.294 <agent@mcp>", on_behalf_of: "Me <me@test.com>" }),
+    ];
+    const { actor, parts } = buildChangeSummary(events, "me@test.com");
+    expect(actor).toEqual({ principal: "Me", via: "claude-code/2.1.294 <agent@mcp>", isYou: true });
+    expect(parts).toEqual(["2 new comments"]);
+  });
+
+  it("has no actor when nobody acted through an agent", () => {
+    expect(buildChangeSummary([makeItem({ type: "COMMENT" })], "me@test.com").actor).toBeNull();
   });
 });
