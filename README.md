@@ -218,6 +218,8 @@ Add team members' SSH public keys to `.xpo/authorized_keys`. Role-based permissi
 
 Settings live in `.xpo/config.yaml`, created by `xpo init`. Project settings override user-level settings in `~/.config/xpo/config.yaml`. Environment variables prefixed with `XPO_` override both.
 
+An environment variable name is `XPO_` plus the key in upper case, with `.` replaced by `_`. For example, `remote.url` is `XPO_REMOTE_URL` and `chat.model` is `XPO_CHAT_MODEL`. List keys such as `default_labels` and `contributors` take a comma-separated value. Map keys (`labels`, `permissions`) can only be set in a config file.
+
 Highlights: configurable issue ID prefix, estimation scales (fibonacci, exponential, linear, t-shirt), sprint cycles, label colors, contributor lists, automatic parent/child state propagation, and `xpo drive` agent configuration. Run `xpo config` to view or edit.
 
 ## Architecture

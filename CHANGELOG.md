@@ -67,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `XPO_*` environment variables now set every config key, as the README promised. Before, a key without a default, such as `XPO_REMOTE_URL`, was ignored unless a config file already set it. List keys take a comma-separated value. Map keys (`labels`, `permissions`) can still only be set in a config file. (xpo-e81612)
 - Plain issue IDs in descriptions, comments and chat answers were never linked, because the API sends the prefix without the hyphen. (xpo-b83f1c)
 - Agent chat tool calls:
   - **Arguments:** Grep patterns and other tool arguments with escaped quotes are no longer cut off (`\\{\\` instead of the pattern). They are decoded properly, which also fixes drive's spinner detail.

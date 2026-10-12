@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -396,6 +397,30 @@ func UpdateLabel(oldName, newName, color string) error {
 	return os.WriteFile(configPath, out, 0644)
 }
 
+// envBindableKeys returns the dotted mapstructure path of every config
+// field the environment can set: scalars and slices (comma-separated), found
+// by recursing into nested structs. Maps are left out, because one env
+// string cannot express them.
+func envBindableKeys(t reflect.Type, prefix string) []string {
+	var keys []string
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		name, _, _ := strings.Cut(f.Tag.Get("mapstructure"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		path := prefix + name
+		switch f.Type.Kind() {
+		case reflect.Struct:
+			keys = append(keys, envBindableKeys(f.Type, path+".")...)
+		case reflect.Map:
+		default:
+			keys = append(keys, path)
+		}
+	}
+	return keys
+}
+
 // warnOut receives config warnings; tests swap it.
 var warnOut io.Writer = os.Stderr
 
@@ -437,6 +462,13 @@ func LoadConfig() (*Config, error) {
 	v.SetEnvPrefix("XPO")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	// AutomaticEnv only reaches Unmarshal for keys Viper already knows from a
+	// default or a config file, so register every key explicitly.
+	for _, key := range envBindableKeys(reflect.TypeOf(Config{}), "") {
+		if err := v.BindEnv(key); err != nil {
+			return nil, fmt.Errorf("config: bind %s: %w", key, err)
+		}
+	}
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
