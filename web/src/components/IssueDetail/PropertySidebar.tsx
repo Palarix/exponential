@@ -28,6 +28,8 @@ interface PropertySidebarProps {
   onClose: () => void;
   contributors: string[];
   onOpenMerge?: () => void;
+  /** Offer Start Work and Review Changes. False in remote mode (xpo-a60065). */
+  gitActions?: boolean;
 }
 
 export default function PropertySidebar({
@@ -39,6 +41,7 @@ export default function PropertySidebar({
   onClose,
   contributors,
   onOpenMerge,
+  gitActions = false,
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
   const { cycles } = useCycles();
@@ -151,7 +154,7 @@ export default function PropertySidebar({
     >
       <div className="px-5 pb-5 space-y-3">
         {/* Start Work button */}
-        {(issue.status === "BACKLOG" || issue.status === "PLANNED") && (
+        {gitActions && (issue.status === "BACKLOG" || issue.status === "PLANNED") && (
           <button
             onClick={handleStartWork}
             disabled={starting}
@@ -165,7 +168,7 @@ export default function PropertySidebar({
         )}
 
         {/* Merge / Review button */}
-        {issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge && (
+        {gitActions && issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge && (
           <button
             onClick={onOpenMerge}
             className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity"

@@ -28,6 +28,7 @@ export const queryKeys = {
   issueHistory: (issue: IssueRef) => ["issue", issue.id, "history", issue.updated_at],
   artifact: (issue: IssueRef, filename: string) => ["issue", issue.id, "artifact", filename, issue.updated_at],
   worktree: (issue: IssueRef) => ["issue", issue.id, "worktree", issue.status],
+  localMode: ["local", "mode"] as const,
   issueCommits: (issue: IssueRef) => ["issue", issue.id, "commits", headSha(issue)],
   issueDiff: (issue: IssueRef, scope?: "uncommitted") => ["issue", issue.id, "diff", scope ?? "branch", headSha(issue)],
   mergeability: (issue: IssueRef) => ["issue", issue.id, "mergeability", headSha(issue)],

@@ -10,16 +10,18 @@ const issue = makeIssue({
   labels: ["bug"],
 });
 
-function renderSidebar(): string {
+function renderSidebar(target = issue, gitActions?: boolean): string {
   return renderMarkup(
     <PropertySidebar
-      issue={issue}
-      issues={[issue]}
+      issue={target}
+      issues={[target]}
       openPopover={null}
       setOpenPopover={() => {}}
       saveUpdate={() => {}}
       onClose={() => {}}
       contributors={[]}
+      onOpenMerge={() => {}}
+      gitActions={gitActions}
     />,
   );
 }
@@ -35,5 +37,26 @@ describe("PropertySidebar triggers", () => {
 
   it("gives the icon-only labels trigger an accessible name", () => {
     expect(renderSidebar()).toMatch(/<button[^>]*aria-label="Add label"[^>]*aria-haspopup="menu"|<button[^>]*aria-haspopup="menu"[^>]*aria-label="Add label"/);
+  });
+});
+
+describe("PropertySidebar git actions", () => {
+  const started = makeIssue({
+    status: "PLANNED",
+    branch_stats: { branch: "xpo-aaa111-x", head_sha: "abc", commits: 2, files_changed: 1, insertions: 3, deletions: 0, has_uncommitted: false },
+  });
+
+  it("shows Start Work and Review Changes in local mode", () => {
+    const html = renderSidebar(started, true);
+    expect(html).toContain("Start Work");
+    expect(html).toContain("Review Changes");
+  });
+
+  it("hides them in remote mode and while the mode is unknown", () => {
+    for (const mode of [false, undefined]) {
+      const html = renderSidebar(started, mode);
+      expect(html).not.toContain("Start Work");
+      expect(html).not.toContain("Review Changes");
+    }
   });
 });

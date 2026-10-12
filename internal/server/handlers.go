@@ -861,7 +861,16 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, history)
 }
 
+// errGitActionsOnServe explains why xpo serve refuses start and merge: they
+// would run git in the server's own checkout, which nobody works in. Team
+// Mode (xpo-8757a9) moves them to the client.
+const errGitActionsOnServe = "start and merge run on your machine and are not available through xpo serve yet"
+
 func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
+	if s.Headless {
+		respondError(w, http.StatusNotImplemented, errGitActionsOnServe)
+		return
+	}
 	id := r.PathValue("id")
 	if id == "" {
 		respondError(w, http.StatusBadRequest, "issue ID required")
@@ -990,6 +999,13 @@ func (s *Server) handleGetLocalWorktree(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, map[string]string{"path": entry.Path, "branch": entry.Branch})
 }
 
+// handleLocalMode tells the UI whether this board proxies to a remote
+// server. In remote mode the UI hides actions that run git, because the
+// server would run them in its own checkout.
+func (s *Server) handleLocalMode(w http.ResponseWriter, r *http.Request) {
+	respondJSON(w, http.StatusOK, map[string]bool{"remote": s.ProxyURL != ""})
+}
+
 func resolveWorkingDir(branch string) (string, bool) {
 	if dir, ok := exponential.FindWorktreeForBranch(branch); ok {
 		return dir, true
@@ -1072,6 +1088,10 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
+	if s.Headless {
+		respondError(w, http.StatusNotImplemented, errGitActionsOnServe)
+		return
+	}
 	id := r.PathValue("id")
 	if id == "" {
 		respondError(w, http.StatusBadRequest, "issue ID required")

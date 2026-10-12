@@ -377,6 +377,13 @@ export async function mergeIssue(issueId: string, options?: { strategy?: string;
   });
 }
 
+// Answered by the local `xpo board` process (never proxied): whether it
+// proxies to a remote server. In remote mode git actions are hidden, because
+// the server would run them in its own checkout.
+export function fetchLocalMode(): Promise<{ remote: boolean }> {
+  return request(`${API_BASE}/local/mode`);
+}
+
 export interface LocalWorktree {
   path: string;
   branch: string;

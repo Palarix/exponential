@@ -58,6 +58,7 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	// catch-all, so they win. Never exposed by a headless server.
 	if !s.Headless {
 		mux.HandleFunc("GET /api/local/issues/{id}/worktree", s.handleGetLocalWorktree)
+		mux.HandleFunc("GET /api/local/mode", s.handleLocalMode)
 		s.registerChatRoutes(mux)
 	}
 

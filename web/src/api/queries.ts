@@ -3,7 +3,7 @@ import { keepPreviousData, QueryClient, useQuery, useQueryClient } from "@tansta
 import {
   fetchActivity, fetchArtifactContent, fetchCommitDetail, fetchCommitDiff, fetchConfig, fetchCycleProgress, fetchCycles,
   fetchInbox, fetchInboxStatus, fetchInstances, fetchIssueCommits, fetchIssueDiff, fetchIssueHistory, fetchIssues,
-  fetchIssueDrafts, fetchLocalWorktree, fetchMergeability, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
+  fetchIssueDrafts, fetchLocalMode, fetchLocalWorktree, fetchMergeability, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
 } from "./client";
 import type { Issue, InboxStatus, IssueDraft } from "./types";
 import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
@@ -153,6 +153,15 @@ export function useArtifact(issue: Issue, filename: string, enabled = true) {
 export function useFetchArtifact(): (issue: Issue, filename: string) => Promise<string> {
   const qc = useQueryClient();
   return useCallback((issue, filename) => qc.fetchQuery(artifactQuery(issue, filename)), [qc]);
+}
+
+/**
+ * Whether the board may offer actions that run git (Start Work, Review
+ * Changes). False in remote mode, and while the mode is still unknown.
+ */
+export function useGitActions(): boolean {
+  const { data } = useQuery({ queryKey: queryKeys.localMode, queryFn: fetchLocalMode, staleTime: Infinity });
+  return data?.remote === false;
 }
 
 export function useLocalWorktree(issue: Issue) {

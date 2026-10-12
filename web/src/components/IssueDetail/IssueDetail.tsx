@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Issue } from "../../api/client";
-import { useArtifact, useLocalWorktree } from "../../api/queries";
+import { useArtifact, useGitActions, useLocalWorktree } from "../../api/queries";
 import { useAddComment, useUpdateIssues, type IssuePatch } from "../../api/mutations";
 import { StatusIcon, CopyableId, useToast, TopBar, Text, VSCodeIcon, ViewContainer } from "../ui";
 import Tooltip from "../ui/Tooltip";
@@ -70,6 +70,7 @@ export default function IssueDetail({
   const artifact = useArtifact(issue, artifactFile, activeTab !== "details");
   // Re-checked on status changes: `start` creates the worktree, `merge` removes it.
   const worktree = useLocalWorktree(issue);
+  const gitActions = useGitActions();
   const showToast = useToast();
   const commentRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -220,7 +221,7 @@ export default function IssueDetail({
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < totalCount - 1;
 
-  if (mergeViewOpen) {
+  if (mergeViewOpen && gitActions) {
     return (
       <MergeView
         issue={issue}
@@ -517,6 +518,7 @@ export default function IssueDetail({
         onClose={onClose}
         contributors={contributors}
         onOpenMerge={() => setMergeViewOpen(true)}
+        gitActions={gitActions}
       />
     </ViewContainer>
   );

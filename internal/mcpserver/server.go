@@ -35,7 +35,8 @@ func Run(ctx context.Context, cfg *config.Config) error {
 }
 
 // newStdioServer builds the stdio server: the issue tools plus the git
-// tools, which read this machine's checkout and so are stdio-only.
+// tools, which read this machine's checkout and so are stdio-only. start and
+// merge are added in local mode only.
 func newStdioServer(cfg *config.Config) *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "xpo",
@@ -44,6 +45,9 @@ func newStdioServer(cfg *config.Config) *mcp.Server {
 	ts := newToolset(cfg)
 	ts.register(srv)
 	ts.registerGitTools(srv)
+	if cfg.Remote.URL == "" {
+		ts.registerWorkTools(srv)
+	}
 	return srv
 }
 

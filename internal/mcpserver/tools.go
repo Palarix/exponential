@@ -71,15 +71,6 @@ func (t *toolset) register(s *mcp.Server) {
 		Description: unlinkToolDescription,
 	}, t.unlink)
 
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "start",
-		Description: "Start working on an issue: transitions status to DOING and creates a git worktree with a new branch <issue-id>-<slug> off the default branch. Returns the worktree path.",
-	}, t.start)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "merge",
-		Description: mergeToolDescription,
-	}, t.merge)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "spec",
@@ -100,6 +91,22 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "rationale",
 		Description: "Search across specs and walkthroughs for design rationale. Returns matching fragments ranked by relevance (BM25 scoring with title/label boost and proximity bonus). Use this to find prior design decisions before modifying code or writing a new spec.",
 	}, t.rationale)
+}
+
+// registerWorkTools registers start and merge. They run git in this
+// process's checkout, so only a local stdio server offers them: on xpo serve,
+// or with a remote transport, the checkout is not the one the user works in
+// (xpo-a60065, until Team Mode xpo-8757a9).
+func (t *toolset) registerWorkTools(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "start",
+		Description: "Start working on an issue: transitions status to DOING and creates a git worktree with a new branch <issue-id>-<slug> off the default branch. Returns the worktree path.",
+	}, t.start)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "merge",
+		Description: mergeToolDescription,
+	}, t.merge)
 }
 
 // --- Handlers ---

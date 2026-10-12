@@ -124,8 +124,7 @@ func TestEndToEndListsAllTools(t *testing.T) {
 	cfg := &config.Config{Prefix: "e2e-", User: "x", EstimationSystem: "fibonacci", Version: 2}
 	ctx := context.Background()
 	st, ct := mcp.NewInMemoryTransports()
-	srv := mcp.NewServer(&mcp.Implementation{Name: "xpo", Version: "v0"}, nil)
-	newToolset(cfg).register(srv)
+	srv := newStdioServer(cfg)
 	srvSess, _ := srv.Connect(ctx, st, nil)
 	defer srvSess.Close()
 	cli := mcp.NewClient(&mcp.Implementation{Name: "c", Version: "v0"}, nil)
@@ -186,8 +185,7 @@ func TestMergeToolDescriptionRequiresCommit(t *testing.T) {
 	cfg := &config.Config{Prefix: "e2e-", User: "x", EstimationSystem: "fibonacci", Version: 2}
 	ctx := context.Background()
 	st, ct := mcp.NewInMemoryTransports()
-	srv := mcp.NewServer(&mcp.Implementation{Name: "xpo", Version: "v0"}, nil)
-	newToolset(cfg).register(srv)
+	srv := newStdioServer(cfg)
 	srvSess, _ := srv.Connect(ctx, st, nil)
 	defer srvSess.Close()
 	cli := mcp.NewClient(&mcp.Implementation{Name: "c", Version: "v0"}, nil)

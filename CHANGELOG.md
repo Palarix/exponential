@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Remote mode guards: actions that would run git in the server's checkout are hidden or refused until Team Mode (xpo-8757a9).
+  - **Board:** in remote mode, Start Work and Review Changes are hidden. A new local route, `GET /api/local/mode`, tells the UI which mode the board runs in.
+  - **`xpo serve`:** `POST /api/issues/{id}/start` and `/merge` return 501. Its `/mcp` no longer offers the `start` and `merge` tools.
+  - **`xpo mcp`:** with `remote.url` set, it does not offer `start` and `merge`. The CLI commands are unchanged.
+
+  (xpo-a60065)
+
 - Read-only git MCP tools: `git_status`, `git_diff`, `git_log`, `git_show` and `code_history`. The agent chat can now show what an issue changed and which issues touched a file or lines.
   - **Where:** the local `xpo mcp` server only. `xpo serve` does not offer them on `/mcp`. A chat in remote mode gets them once xpo-6dd7a0 lands.
   - **Safety:** xpo builds every git command. The caller gives only an issue ID, a path, a SHA, a line range and a limit. External diff, textconv, fsmonitor and hooks never run, and the tools take no index locks.
