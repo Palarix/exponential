@@ -56,6 +56,9 @@ type Server struct {
 
 	// SSE hub for real-time event notifications.
 	SSEHub *SSEHub
+
+	// Agent chat — set by xpo board; nil disables the chat routes.
+	Chat *ChatService
 }
 
 // requireCapability checks whether the request has the named capability.

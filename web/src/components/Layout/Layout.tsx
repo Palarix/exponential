@@ -1,5 +1,6 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import Sidebar from "./Sidebar";
+import AgentStatusBar from "../Agent/AgentStatusBar";
 import { StatusBarSlotContext } from "../../app/contexts";
 
 interface LayoutProps {
@@ -31,6 +32,7 @@ export default function Layout({
         <div className="flex items-center px-4 py-2 shrink-0 gap-3">
           {/* Views fill this through <StatusBarSlot> */}
           <div ref={setStatusSlot} className="flex-1 min-w-0" />
+          <AgentStatusBar />
           <div className="flex items-center gap-2 text-xs shrink-0">
             <span
               className={`w-2 h-2 rounded-full ${connected ? "bg-[var(--color-success)]" : "bg-[var(--color-error)]"}`}

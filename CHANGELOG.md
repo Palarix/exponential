@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat in `xpo board`:
+  - **Opening it:** an **Agent** button in the status bar (or ⌘J / Ctrl+J) opens a chat popup from any view. The popup sends the open issue as context.
+  - **Agent:** replies come from your local Claude Code (`claude -p`, one process per turn, resumed with `--resume`), running in the project root with your settings. It can read code (Read, Grep, Glob) and use the xpo MCP tools. It cannot run commands or edit files.
+  - **Thread:** replies stream in, and tool calls collapse into a "Worked for N seconds" row.
+  - **Composer:** model (Haiku, Sonnet, Opus) and effort pickers.
+  - **Pills:** minimized chats stay as pills in the status bar.
+  - **Storage:** chats are stored per user in `.xpo/chats/` (git-ignored).
+  - **Routes:** `/api/local/agent` and `/api/local/chats/*`, with an SSE stream per chat. The board answers them in remote mode too, where the agent uses the remote server's `/mcp`.
+  - **Config:** `chat.agent` and `chat.model`.
+
+  The stream-json parser is now shared by drive and chat (xpo-56ae3a)
+
 - Issue drafts: the new issue dialog has a "Save draft" button, and the discard prompt offers "Save draft" too. Drafts are stored per user in `.xpo/drafts/` (git-ignored, outside the event log). A "Drafts" sidebar item with a count badge appears while drafts exist (`g r`). Reopen a draft to keep editing, create the issue from it, or discard it. New `/api/issue-drafts` endpoints (`GET`/`POST`/`PUT`/`DELETE`, `issue.create` capability) and a `draft_changed` SSE event (xpo-758398)
 
 ## [1.4.0] — 2026-10-12

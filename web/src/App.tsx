@@ -4,6 +4,8 @@ import ViewRouter from './components/Layout/ViewRouter';
 import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
 import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
+import AgentChatProvider from './components/Agent/AgentChatProvider';
+import { chatContextFor } from './components/Agent/agent-state-utils';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
 import { useKeyboardShortcuts } from './keyboard';
@@ -132,6 +134,7 @@ function App() {
   });
 
   const labelColors = useMemo(() => effectiveLabelColors(config), [config]);
+  const chatContext = useMemo(() => chatContextFor(route.view, route.issueId, issues), [route.view, route.issueId, issues]);
 
   return (
     <DefaultLabelsContext.Provider value={config.defaultLabels}>
@@ -139,6 +142,7 @@ function App() {
     <LabelColorsContext.Provider value={labelColors}>
     <ViewStateContext.Provider value={viewStateStore}>
     <AppNavContext.Provider value={nav}>
+    <AgentChatProvider context={chatContext}>
       <Layout
         sidebar={{
           activeView: route.view,
@@ -190,6 +194,7 @@ function App() {
         onToggle={() => setShowKeyboardHelp((visible) => !visible)}
         onClose={() => setShowKeyboardHelp(false)}
       />
+    </AgentChatProvider>
     </AppNavContext.Provider>
     </ViewStateContext.Provider>
     </LabelColorsContext.Provider>

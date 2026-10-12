@@ -9,8 +9,11 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/palarix/exponential/internal/chat"
+	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/registry"
 	"github.com/palarix/exponential/internal/server"
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -73,6 +76,12 @@ func runBoard(cmd *cobra.Command, args []string) error {
 		log.Printf("Remote mode: proxying API to %s", cfg.Remote.URL)
 	}
 
+	srv.Chat = newChatService()
+	defer srv.Chat.Runner.Shutdown()
+	if srv.AccessToken != "" && srv.Chat.Status.Available {
+		log.Printf("WARNING: agent chat is on — anyone with the access token can use this machine's Claude Code login and read project code through the agent.")
+	}
+
 	listener, err := srv.Bind()
 	if err != nil {
 		return err
@@ -93,6 +102,7 @@ func runBoard(cmd *cobra.Command, args []string) error {
 	go func() {
 		<-sigCh
 		_ = registry.UnregisterByPID(os.Getpid())
+		srv.Chat.Runner.Shutdown()
 		os.Exit(0)
 	}()
 
@@ -105,6 +115,40 @@ func runBoard(cmd *cobra.Command, args []string) error {
 	}
 
 	return srv.ServeOn(listener)
+}
+
+// newChatService sets up the agent chat: chats in .xpo/chats/, and an agent
+// that runs in the project root and reaches the xpo tools through this
+// binary's stdio MCP server, or the remote server's /mcp in remote mode.
+func newChatService() *server.ChatService {
+	root := storage.HubRoot()
+	store := chat.NewStore(filepath.Join(storage.XpoDir(), "chats"))
+	store.OnCreateDir = func() {
+		exponential.EnsureGitignoreEntryAt(filepath.Join(root, ".gitignore"), ".xpo/chats/")
+	}
+	if err := store.MarkInterrupted(); err != nil {
+		log.Printf("warning: chat store: %v", err)
+	}
+
+	target := chat.MCPTarget{RemoteURL: cfg.Remote.URL, RemoteToken: cfg.Remote.Token}
+	if target.RemoteURL == "" {
+		exe, err := os.Executable()
+		if err != nil {
+			exe = "xpo"
+		}
+		target.Executable = exe
+	}
+
+	return &server.ChatService{
+		Store: store,
+		Runner: chat.NewRunner(chat.RunnerConfig{
+			Store:        store,
+			Dir:          root,
+			MCP:          target,
+			DefaultModel: cfg.Chat.Model,
+		}),
+		Status: chat.CheckAgent(cfg.Chat.Agent, cfg.Chat.Model, exec.LookPath),
+	}
 }
 
 func openBrowser(url string) {

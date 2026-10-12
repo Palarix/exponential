@@ -1,0 +1,74 @@
+// Package chat runs the web board's agent chat: chat sessions stored in
+// .xpo/chats/, one agent CLI process per turn, and a canonical event stream
+// that the UI renders independent of the agent that produced it.
+package chat
+
+import "time"
+
+// Settled event types. The store persists these; replaying them rebuilds a
+// chat thread.
+const (
+	EventUserMessage   = "user_message"
+	EventAssistantText = "assistant_text"
+	EventToolCall      = "tool_call"
+	EventTurnDone      = "turn_done"
+	EventTurnStopped   = "turn_stopped"
+	EventError         = "error"
+)
+
+// Live event types. Subscribers see these while a turn runs; the store does
+// not persist them because the settled events above supersede them.
+const (
+	EventTextDelta = "text_delta"
+	EventThinking  = "thinking"
+	EventToolStart = "tool_start"
+)
+
+// Context describes what the user had open when they sent a message.
+type Context struct {
+	View       string `json:"view,omitempty"`
+	IssueID    string `json:"issue_id,omitempty"`
+	IssueTitle string `json:"issue_title,omitempty"`
+}
+
+// Event is one entry in a chat's stream. Seq is set on settled events only
+// and doubles as the SSE event ID.
+type Event struct {
+	Seq  int       `json:"seq,omitempty"`
+	Type string    `json:"type"`
+	Time time.Time `json:"time"`
+
+	Text    string   `json:"text,omitempty"`    // user_message, assistant_text, text_delta
+	Context *Context `json:"context,omitempty"` // user_message
+
+	Name   string `json:"name,omitempty"`   // tool_call, tool_start
+	Arg    string `json:"arg,omitempty"`    // tool_call, tool_start
+	Status string `json:"status,omitempty"` // tool_call: "done"
+
+	DurationMS int64   `json:"duration_ms,omitempty"` // turn_done
+	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done
+	TokensIn   int     `json:"tokens_in,omitempty"`   // turn_done
+	TokensOut  int     `json:"tokens_out,omitempty"`  // turn_done
+
+	Message string `json:"message,omitempty"` // error
+}
+
+// Chat states.
+const (
+	StateIdle        = "idle"
+	StateRunning     = "running"
+	StateInterrupted = "interrupted"
+)
+
+// Meta is a chat's metadata, stored next to its event log.
+type Meta struct {
+	ID              string    `json:"id"`
+	Title           string    `json:"title"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	Agent           string    `json:"agent"`
+	Model           string    `json:"model,omitempty"`
+	Effort          string    `json:"effort,omitempty"`
+	ClaudeSessionID string    `json:"claude_session_id,omitempty"`
+	State           string    `json:"state"`
+}

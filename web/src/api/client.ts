@@ -32,7 +32,7 @@ async function fetchOk(url: string, init?: RequestInit): Promise<Response> {
   return res;
 }
 
-async function request<T = void>(url: string, init?: RequestInit): Promise<T> {
+export async function request<T = void>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetchOk(url, init);
   const text = await res.text();
   if (!text) return undefined as T;

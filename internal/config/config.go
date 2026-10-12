@@ -58,6 +58,7 @@ type Config struct {
 	Remote            RemoteConfig      `mapstructure:"remote" yaml:"remote"`
 	Permissions       PermissionsConfig `mapstructure:"permissions" yaml:"permissions,omitempty"`
 	Drive              DriveConfig       `mapstructure:"drive" yaml:"drive,omitempty"`
+	Chat               ChatConfig        `mapstructure:"chat" yaml:"chat,omitempty"`
 	WorktreeSetup      string            `mapstructure:"worktree_setup" yaml:"worktree_setup,omitempty"`
 	DefaultBranch      string            `mapstructure:"default_branch" yaml:"default_branch,omitempty"`
 }
@@ -68,6 +69,13 @@ type DriveConfig struct {
 	MaxRetries int              `mapstructure:"max_retries" yaml:"max_retries"`
 	TestCmd    string           `mapstructure:"test_cmd" yaml:"test_cmd"`
 	Timeout    string           `mapstructure:"timeout" yaml:"timeout"`
+}
+
+// ChatConfig configures the web board's agent chat. Empty fields use the
+// defaults: agent "claude" and the agent CLI's default model.
+type ChatConfig struct {
+	Agent string `mapstructure:"agent" yaml:"agent,omitempty"`
+	Model string `mapstructure:"model" yaml:"model,omitempty"`
 }
 
 type DriveAgentConfig struct {

@@ -132,7 +132,12 @@ func EnsureGitattributesEntry(entry string) {
 
 // EnsureGitignoreEntry adds an entry to .gitignore if it's not already present.
 func EnsureGitignoreEntry(entry string) {
-	gitignorePath := ".gitignore"
+	EnsureGitignoreEntryAt(".gitignore", entry)
+}
+
+// EnsureGitignoreEntryAt adds an entry to the given .gitignore file if it's
+// not already present.
+func EnsureGitignoreEntryAt(gitignorePath, entry string) {
 	content, err := os.ReadFile(gitignorePath)
 	var contentStr string
 	if err == nil {
