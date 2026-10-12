@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The issue Activity section reads as a timeline: a vertical rail runs through the avatar column and joins consecutive events and comment cards. When an event row wraps, its continuation lines now indent under the name instead of running under the avatar. Comment bodies (new `.prose-activity` class) and the comment box are now 14px instead of 15px (xpo-a1470f)
 - `overwrite` for the MCP `link` tool (`--overwrite` / `"overwrite": true` in the CLI): replaces an existing link of a different kind between two issues, whichever side stores it; the output lists what was replaced (`replaced`, and e.g. `Linked xpo-a relates_to xpo-b (replaced blocks)`) (xpo-c93b11)
 
 ### Changed

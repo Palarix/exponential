@@ -14,6 +14,7 @@ import {
   resolveAssignee,
   shortName,
 } from "../../utils/format";
+import { timelineConnectors } from "./activity-timeline-utils";
 
 type ActivityEntry =
   | {
@@ -32,6 +33,26 @@ type ActivityEntry =
       text: string;
       time: string;
     };
+
+// Timeline rail geometry (px). Spacing between entries matches the old
+// space-y-3 / mt-4 layout; the avatar sits 8px into a py-1.5 text-sm row.
+const SYSTEM_GAP = 12;
+const COMMENT_GAP = 16;
+const AVATAR_TOP = 8;
+const AVATAR_BOTTOM = 24;
+const RAIL_INSET = 2;
+
+// Centered on the avatar column: 1px card border + 16px padding + 8px
+// (half the sm avatar); system rows use pl-[17px] to line up.
+function RailSegment({ style }: { style: React.CSSProperties }) {
+  return (
+    <div
+      aria-hidden
+      className="absolute left-[25px] w-px -translate-x-1/2 bg-[var(--color-border-default)]"
+      style={style}
+    />
+  );
+}
 
 const STATUS_LABELS: Record<string, string> = {
   BACKLOG: "Backlog",
@@ -222,45 +243,59 @@ export default function ActivityTimeline({
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div>
         {entries.map((entry, i) => {
+          const { above, below } = timelineConnectors(i, entries.length);
+
           if (entry.kind === "system") {
+            const gap = i > 0 ? SYSTEM_GAP : 0;
             return (
-              <div
-                key={`sys-${i}`}
-                className="flex items-center gap-2 px-4 py-1.5 flex-wrap text-sm text-[var(--color-text-muted)]"
-              >
-                <span className="flex items-center gap-2">
-                  <Avatar name={entry.actor} size="sm" />
-                  <ActorName name={entry.author} via={entry.via} />
-                </span>
-                {entry.content}
-                <span>·</span>
-                <span>{formatRelativeTime(entry.time)}</span>
+              <div key={`sys-${i}`} className="relative" style={{ paddingTop: gap }}>
+                {above && (
+                  <RailSegment
+                    style={{ top: 0, height: gap + AVATAR_TOP - RAIL_INSET }}
+                  />
+                )}
+                {below && (
+                  <RailSegment
+                    style={{ top: gap + AVATAR_BOTTOM + RAIL_INSET, bottom: 0 }}
+                  />
+                )}
+                <div className="flex items-start gap-2 pl-[17px] pr-4 py-1.5 text-sm text-[var(--color-text-muted)]">
+                  <span className="flex h-5 items-center">
+                    <Avatar name={entry.actor} size="sm" />
+                  </span>
+                  <div className="flex min-w-0 items-center gap-2 flex-wrap">
+                    <ActorName name={entry.author} via={entry.via} />
+                    {entry.content}
+                    <span>·</span>
+                    <span>{formatRelativeTime(entry.time)}</span>
+                  </div>
+                </div>
               </div>
             );
           }
 
           return (
-            <div
-              key={`cmt-${i}`}
-              className="!mt-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <span className="flex items-center gap-3">
-                  <Avatar name={entry.actor} size="sm" />
-                  <Text weight="medium" color="primary">
-                    <ActorName name={entry.author} via={entry.via} />
+            <div key={`cmt-${i}`} className="relative" style={{ paddingTop: COMMENT_GAP }}>
+              {above && <RailSegment style={{ top: 0, height: COMMENT_GAP }} />}
+              <div className="rounded-[var(--radius-lg)] bg-[var(--color-surface-1)] py-3 px-4 border border-[var(--color-border-subtle)]">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="flex items-center gap-3">
+                    <Avatar name={entry.actor} size="sm" />
+                    <Text weight="medium" color="primary">
+                      <ActorName name={entry.author} via={entry.via} />
+                    </Text>
+                  </span>
+                  <Text>
+                    {formatRelativeTime(entry.time)}
                   </Text>
-                </span>
-                <Text>
-                  {formatRelativeTime(entry.time)}
-                </Text>
-              </div>
-              <div className="prose-exponential text-base">
-                <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                  {linkifyIssueIds(entry.text, prefix)}
-                </Markdown>
+                </div>
+                <div className="prose-exponential prose-activity">
+                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                    {linkifyIssueIds(entry.text, prefix)}
+                  </Markdown>
+                </div>
               </div>
             </div>
           );
@@ -275,7 +310,7 @@ export default function ActivityTimeline({
           onChange={(e) => onNewCommentChange(e.target.value)}
           placeholder="Leave a comment..."
           rows={1}
-          className="w-full text-base bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
+          className="w-full text-[0.875rem] bg-transparent text-[var(--color-text-primary)] px-4 py-3 outline-none placeholder:text-[var(--color-text-muted)] resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onAddComment();
           }}

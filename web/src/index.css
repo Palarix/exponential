@@ -256,6 +256,12 @@ body {
   line-height: 1.75;
 }
 
+/* Comment bodies in the issue Activity timeline. 14px sits between the
+   sm (13px) and base (15px) steps; the comment textarea matches it. */
+.prose-exponential.prose-activity {
+  font-size: 0.875rem;
+}
+
 .prose-exponential p {
   margin: 0.875em 0;
 }
