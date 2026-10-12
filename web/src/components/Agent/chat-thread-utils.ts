@@ -168,6 +168,11 @@ const TOOL_VERBS: Record<string, { verb: string; bare?: string }> = {
   "xpo walkthrough": { verb: "Read the walkthrough of" },
   "xpo artifact": { verb: "Read an artifact of" },
   "xpo rationale": { verb: "Searched design notes for", bare: "Searched design notes" },
+  "xpo git_status": { verb: "Checked the git status of" },
+  "xpo git_diff": { verb: "Read the diff of" },
+  "xpo git_log": { verb: "Listed commits of", bare: "Listed commits" },
+  "xpo git_show": { verb: "Read commit" },
+  "xpo code_history": { verb: "Traced the history of" },
 };
 
 /**
@@ -179,6 +184,7 @@ export function toolSummary(name: string, arg: string): { text: string; detail: 
   const key = parts.length === 3 && parts[0] === "mcp" ? `${parts[1]} ${parts[2]}` : name;
   let detail = arg.replace(/\s+/g, " ").trim();
   if (key === "Read" && detail) detail = detail.split("/").pop() ?? detail;
+  if (key === "xpo git_show") detail = detail.slice(0, 12);
   const known = TOOL_VERBS[key];
   if (!known) return { text: key, detail };
   return { text: detail || !known.bare ? known.verb : known.bare, detail };

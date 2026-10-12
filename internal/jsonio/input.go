@@ -207,6 +207,37 @@ type MergeToolInput struct {
 	KeepBranch    bool   `json:"keep_branch,omitempty" jsonschema:"Keep the branch after merge (default: delete)"`
 }
 
+// Read-only git tools. The server builds every git command; these fields are
+// the only caller input.
+
+type GitStatusToolInput struct {
+	ID string `json:"id" jsonschema:"Issue ID (full or unique suffix)"`
+}
+
+type GitDiffToolInput struct {
+	ID   string `json:"id" jsonschema:"Issue ID (full or unique suffix)"`
+	Path string `json:"path,omitempty" jsonschema:"Only this file or directory, relative to the repository root"`
+	Stat bool   `json:"stat,omitempty" jsonschema:"Return per-file insertions and deletions instead of the patch"`
+}
+
+type GitLogToolInput struct {
+	ID    string `json:"id,omitempty" jsonschema:"Issue ID: list only the commits on that issue's branch. Omit to list the default branch"`
+	Path  string `json:"path,omitempty" jsonschema:"Only commits that touch this file or directory, relative to the repository root"`
+	Limit int    `json:"limit,omitempty" jsonschema:"Maximum number of commits (default 20, max 100)"`
+}
+
+type GitShowToolInput struct {
+	SHA  string `json:"sha" jsonschema:"Commit SHA, 4 to 40 hex characters"`
+	Path string `json:"path,omitempty" jsonschema:"Only this file or directory, relative to the repository root"`
+}
+
+type CodeHistoryToolInput struct {
+	Path      string `json:"path" jsonschema:"File, relative to the repository root"`
+	StartLine int    `json:"start_line,omitempty" jsonschema:"First line of the range (1-based). Set with end_line to blame a line range"`
+	EndLine   int    `json:"end_line,omitempty" jsonschema:"Last line of the range (inclusive)"`
+	Limit     int    `json:"limit,omitempty" jsonschema:"Maximum number of commits (default 20, max 100)"`
+}
+
 type LinkToolInput struct {
 	Source    string `json:"source" jsonschema:"Source issue ID"`
 	Target    string `json:"target" jsonschema:"Target issue ID"`

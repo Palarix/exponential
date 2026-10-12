@@ -136,6 +136,20 @@ func TestToolDetail_MCPAddShowsTitleNotDescription(t *testing.T) {
 	}
 }
 
+func TestToolDetail_GitTools(t *testing.T) {
+	cases := map[string]struct{ tool, args, want string }{
+		"diff by issue":   {"mcp__xpo__git_diff", `{"path":"a.go","id":"xpo-1"}`, "xpo-1"},
+		"history by path": {"mcp__xpo__code_history", `{"path":"internal/a.go","start_line":3}`, "internal/a.go"},
+		"show by sha":     {"mcp__xpo__git_show", `{"sha":"abc123def456"}`, "abc123def456"},
+	}
+	for name, c := range cases {
+		p := ClaudeStreamParser{currentTool: c.tool, toolArgBuf: c.args}
+		if got := p.finalToolDetail(); got != c.want {
+			t.Errorf("%s: detail = %q, want %q", name, got, c.want)
+		}
+	}
+}
+
 func TestToolDetail_BashKeepsDescription(t *testing.T) {
 	p := ClaudeStreamParser{currentTool: "Bash", toolArgBuf: `{"command":"make test","description":"Run tests"}`}
 	if got := p.finalToolDetail(); got != "Run tests" {

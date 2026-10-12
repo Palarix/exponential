@@ -24,15 +24,7 @@ import (
 // until stdin is closed (the typical MCP client-disconnect signal),
 // which counts as a clean shutdown.
 func Run(ctx context.Context, cfg *config.Config) error {
-	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "xpo",
-		Version: version.CLIVersion,
-	}, nil)
-
-	ts := newToolset(cfg)
-	ts.register(srv)
-
-	err := srv.Run(ctx, &mcp.StdioTransport{})
+	err := newStdioServer(cfg).Run(ctx, &mcp.StdioTransport{})
 	if isCleanShutdown(err) {
 		return nil
 	}
@@ -40,6 +32,19 @@ func Run(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("mcp server: %w", err)
 	}
 	return nil
+}
+
+// newStdioServer builds the stdio server: the issue tools plus the git
+// tools, which read this machine's checkout and so are stdio-only.
+func newStdioServer(cfg *config.Config) *mcp.Server {
+	srv := mcp.NewServer(&mcp.Implementation{
+		Name:    "xpo",
+		Version: version.CLIVersion,
+	}, nil)
+	ts := newToolset(cfg)
+	ts.register(srv)
+	ts.registerGitTools(srv)
+	return srv
 }
 
 // isCleanShutdown reports whether err represents the MCP client closing

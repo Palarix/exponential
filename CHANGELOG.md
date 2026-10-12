@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Read-only git MCP tools: `git_status`, `git_diff`, `git_log`, `git_show` and `code_history`. The agent chat can now show what an issue changed and which issues touched a file or lines.
+  - **Where:** the local `xpo mcp` server only. `xpo serve` does not offer them on `/mcp`. A chat in remote mode gets them once xpo-6dd7a0 lands.
+  - **Safety:** xpo builds every git command. The caller gives only an issue ID, a path, a SHA, a line range and a limit. External diff, textconv, fsmonitor and hooks never run, and the tools take no index locks.
+  - **Output:** capped at 64 KiB, with `truncated: true` and a marker line.
+  - **Remote mode:** the issue is looked up on the server; git always runs against the local checkout.
+
+  (xpo-a7f115)
+
 - Agent chat: denied and failed tool calls show in the work list.
   - **Marker:** a red × replaces the bullet. The error text shows below the step, clamped to 3 lines. A denied call's text starts with "Denied:".
   - **Header:** the collapsed "Worked for N seconds" line adds "· N failed" in red.

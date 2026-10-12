@@ -206,7 +206,7 @@ func toolResultText(content json.RawMessage) string {
 // where "description" is long body text, not a summary.
 var (
 	toolDetailKeys    = []string{"file_path", "description", "command", "url", "skill", "pattern", "id", "title", "query", "match"}
-	mcpToolDetailKeys = []string{"id", "title", "query", "match", "pattern", "file_path", "url"}
+	mcpToolDetailKeys = []string{"id", "title", "query", "match", "pattern", "file_path", "url", "path", "sha"}
 )
 
 func (p *ClaudeStreamParser) detailKeys() []string {

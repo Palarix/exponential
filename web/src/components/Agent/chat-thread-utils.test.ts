@@ -194,6 +194,15 @@ describe("toolSummary", () => {
     expect(toolSummary("mcp__xpo__comment", "xpo-abc123")).toEqual({ text: "Commented on", detail: "xpo-abc123" });
   });
 
+  it("describes the git tools in words", () => {
+    expect(toolSummary("mcp__xpo__git_status", "xpo-abc123")).toEqual({ text: "Checked the git status of", detail: "xpo-abc123" });
+    expect(toolSummary("mcp__xpo__git_diff", "xpo-abc123")).toEqual({ text: "Read the diff of", detail: "xpo-abc123" });
+    expect(toolSummary("mcp__xpo__git_log", "")).toEqual({ text: "Listed commits", detail: "" });
+    expect(toolSummary("mcp__xpo__git_log", "xpo-abc123")).toEqual({ text: "Listed commits of", detail: "xpo-abc123" });
+    expect(toolSummary("mcp__xpo__git_show", "0123456789abcdef0123456789abcdef01234567")).toEqual({ text: "Read commit", detail: "0123456789ab" });
+    expect(toolSummary("mcp__xpo__code_history", "internal/server/board.go")).toEqual({ text: "Traced the history of", detail: "internal/server/board.go" });
+  });
+
   it("falls back to the tool name", () => {
     expect(toolSummary("mcp__other__thing", "x")).toEqual({ text: "other thing", detail: "x" });
     expect(toolSummary("WebFetch", "https://a.b")).toEqual({ text: "WebFetch", detail: "https://a.b" });
