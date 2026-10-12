@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-10-12
+
 ### Added
 
+- README section "Upgrading from 1.3.x": the one-link-per-pair rule for `link`, and refreshing agent instructions with `xpo init` / `xpo doctor --fix` (xpo-4659c8)
 - Board cards: the assignee avatar is now an assignee picker button. Unassigned cards show a muted dashed placeholder avatar. Press `a` on a focused card to open the picker (xpo-5afd82)
 - Backlog rows: the assignee avatar is now an assignee picker button, like the status, priority and estimate cells. Unassigned rows show a muted dashed placeholder avatar instead of nothing, so the column stays aligned. Press `a` on a focused row to open the picker (xpo-dcd4f6)
 - The issue Activity section reads as a timeline: a vertical rail runs through the avatar column and joins consecutive events and comment cards. When an event row wraps, its continuation lines now indent under the name instead of running under the avatar. Comment bodies (new `.prose-activity` class) and the comment box are now 14px instead of 15px (xpo-a1470f)

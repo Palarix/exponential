@@ -167,6 +167,14 @@ docker build -t xpo:latest .
 docker run -v /path/to/repo:/data -p 8080:8080 xpo:latest
 ```
 
+## Upgrading from 1.3.x
+
+1.4.0 has no migration steps, but one behavior change can affect scripts and integrations.
+
+**1. At most one link between two issues** (xpo-c93b11). `xpo link`, `xpo link --json` and the MCP `link` tool now fail on a pair that is already linked with a different kind, unless you pass `--overwrite` (MCP/JSON: `"overwrite": true`) to replace the existing link. `add` and `update` reject a `links` set that has two entries for the same issue. Pairs recorded with more than one link before 1.4.0 keep working until a write changes them.
+
+**2. Refresh the agent instructions.** The skill text now explains the one-link rule. Run `xpo init` or `xpo doctor --fix` in each project to pick it up. `xpo doctor` reports the integrations as out of date until you do.
+
 ## Upgrading from 1.2.x
 
 1.3.0 contains breaking changes. Read this before upgrading.
