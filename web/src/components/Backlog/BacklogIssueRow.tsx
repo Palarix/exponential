@@ -14,6 +14,7 @@ import {
   PriorityPicker,
   LabelPicker,
   EstimatePicker,
+  AssigneePicker,
   SubProgress,
 } from "../ui";
 import { ChevronRight, Paperclip } from "lucide-react";
@@ -22,8 +23,9 @@ import { isTerminal } from "../../constants";
 import { IssueRowDnd } from "./DndComponents";
 import type { TreeGuide, HierarchyMode } from "./useBacklogRows";
 import { nodeIndicator } from "./backlog-row-utils";
+import { popoverTriggerProps } from "../../utils/popover-trigger";
 
-type PopoverType = "status" | "labels" | "estimate" | "priority";
+type PopoverType = "status" | "labels" | "estimate" | "priority" | "assignee";
 
 interface Props {
   issue: Issue;
@@ -50,6 +52,7 @@ interface Props {
   dragBatchCount: number;
   popoverType: PopoverType | null;
   allKnownLabels: string[];
+  knownPeople: string[];
   cycleNumber?: number;
   onIssueClick?: (issue: Issue) => void;
   onToggleNode: (id: string) => void;
@@ -59,6 +62,7 @@ interface Props {
   onQuickStatus: (issueId: string, status: string) => void;
   onQuickPriority: (issueId: string, priority: number) => void;
   onQuickEstimate: (issueId: string, estimate: number) => void;
+  onQuickAssignee: (issueId: string, assignee: string | null) => void;
   onQuickLabelToggle: (issue: Issue, label: string) => void;
   canCreateLabels?: boolean;
 }
@@ -88,6 +92,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   dragBatchCount,
   popoverType,
   allKnownLabels,
+  knownPeople,
   cycleNumber,
   onIssueClick,
   onToggleNode,
@@ -97,6 +102,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   onQuickStatus,
   onQuickPriority,
   onQuickEstimate,
+  onQuickAssignee,
   onQuickLabelToggle,
   canCreateLabels,
 }: Props) {
@@ -367,9 +373,42 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 </Popover>
               )}
             </div>
-            {issue.assignee && (
-              <Avatar name={issue.assignee} size="sm" />
-            )}
+            <div
+              className="relative shrink-0"
+              ref={popoverType === "assignee" ? popoverAnchorRef : undefined}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() =>
+                  popoverType === "assignee"
+                    ? onClosePopover()
+                    : onOpenPopover(rowIndex, "assignee")
+                }
+                aria-label={`${issue.assignee ? issue.assignee.split(" <")[0] : "No assignee"}, change assignee`}
+                {...popoverTriggerProps("assignee", popoverType)}
+                className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors"
+              >
+                {issue.assignee ? (
+                  <Avatar name={issue.assignee} size="sm" />
+                ) : (
+                  <span className="flex opacity-50">
+                    <Avatar size="sm" />
+                  </span>
+                )}
+              </button>
+              {popoverType === "assignee" && (
+                <Popover anchorRef={popoverAnchorRef} onClose={onClosePopover}>
+                  <PopoverPanel>
+                    <AssigneePicker
+                      people={knownPeople}
+                      current={issue.assignee}
+                      onSelect={(p) => onQuickAssignee(issue.id, p)}
+                      onClose={onClosePopover}
+                    />
+                  </PopoverPanel>
+                </Popover>
+              )}
+            </div>
             <span className="text-xs text-[var(--color-text-muted)] tabular-nums shrink-0 w-16 text-right">
               {formatShortDate(issue.created_at)}
             </span>

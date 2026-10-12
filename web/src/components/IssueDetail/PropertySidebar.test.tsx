@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
 import PropertySidebar from "./PropertySidebar";
-import { popoverTriggerProps } from "./popover-trigger";
 
 const issue = makeIssue({
   estimate: 2,
@@ -36,13 +35,5 @@ describe("PropertySidebar triggers", () => {
 
   it("gives the icon-only labels trigger an accessible name", () => {
     expect(renderSidebar()).toMatch(/<button[^>]*aria-label="Add label"[^>]*aria-haspopup="menu"|<button[^>]*aria-haspopup="menu"[^>]*aria-label="Add label"/);
-  });
-});
-
-describe("popoverTriggerProps", () => {
-  it("reports expanded only for the open popover", () => {
-    expect(popoverTriggerProps("status", "status")).toEqual({ "aria-haspopup": "menu", "aria-expanded": true });
-    expect(popoverTriggerProps("status", "priority")).toEqual({ "aria-haspopup": "menu", "aria-expanded": false });
-    expect(popoverTriggerProps("status", null)).toEqual({ "aria-haspopup": "menu", "aria-expanded": false });
   });
 });

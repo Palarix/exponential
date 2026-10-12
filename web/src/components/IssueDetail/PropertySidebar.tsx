@@ -15,7 +15,7 @@ import { collectKnownPeople } from "../../utils/issues";
 import { PriorityIcon } from "./icons";
 import { RelationsAddPopover, RelationsCard } from "./Relations";
 import { relationshipsLabel } from "./relation-utils";
-import { popoverTriggerProps } from "./popover-trigger";
+import { popoverTriggerProps } from "../../utils/popover-trigger";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 

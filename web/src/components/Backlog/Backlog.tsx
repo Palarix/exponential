@@ -49,7 +49,7 @@ import { useAllLabels } from "../../hooks/useLabels";
 import { toggleLabel, splitLabels } from "../../utils/labels";
 import { computeAppendKey, SORT_CODEC, SORT_OPTIONS, SORT_STATE_KEY } from "../../utils/sort";
 import { isTerminal } from "../../constants";
-import { buildChildrenByParent } from "../../utils/issues";
+import { buildChildrenByParent, collectKnownPeople } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
 import { FILTERS_CODEC, hasActiveFilters, matchesFilters, matchesSearch } from "./filters";
 import FilterChips from "./FilterChips";
@@ -205,7 +205,7 @@ export default function Backlog() {
   const showToast = useToast();
   const [openPopover, setOpenPopover] = useState<{
     rowIndex: number;
-    type: "status" | "estimate" | "labels" | "priority";
+    type: "status" | "estimate" | "labels" | "priority" | "assignee";
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     issueId: string;
@@ -383,6 +383,15 @@ export default function Backlog() {
     },
     [updateIssue, showToast],
   );
+  const handleQuickAssignee = useCallback(
+    (issueId: string, assignee: string | null) => {
+      setOpenPopover(null);
+      updateIssue(issueId, { assignee: assignee ?? "" }, {
+        onSuccess: () => showToast(assignee ? `Assigned to ${assignee.split(" <")[0]}` : "Assignee removed"),
+      });
+    },
+    [updateIssue, showToast],
+  );
   const handleQuickPriority = useCallback(
     (issueId: string, priority: number) => {
       setOpenPopover(null);
@@ -403,6 +412,7 @@ export default function Backlog() {
   );
 
   const allKnownLabels = useAllLabels(issues);
+  const knownPeople = useMemo(() => collectKnownPeople(issues, contributors), [issues, contributors]);
 
   const startInlineCreate = useCallback(
     (status: string) => {
@@ -1196,7 +1206,7 @@ export default function Backlog() {
   }, []);
 
   const handleOpenPopover = useCallback(
-    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority") => {
+    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority" | "assignee") => {
       setOpenPopover({ rowIndex, type });
     },
     [],
@@ -1334,6 +1344,11 @@ export default function Backlog() {
           setOpenPopover({ rowIndex: ri, type: "priority" });
           return;
         }
+        if (e.key === "a") {
+          e.preventDefault();
+          setOpenPopover({ rowIndex: ri, type: "assignee" });
+          return;
+        }
       }
     }, [showToast]);
 
@@ -1347,7 +1362,7 @@ export default function Backlog() {
         ["Escape", "Close menu"], ["j", "Next issue"],
         ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
         ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
-        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"],
       ].map(([key, label]) => ({
         id: `backlog.${key}`, key, label,
         group: "Backlog",
@@ -1698,6 +1713,7 @@ export default function Backlog() {
                                 dragBatchCount={activeId === issue.id ? dragBatchRef.current.length : 0}
                                 popoverType={openPopover?.rowIndex === i ? openPopover.type : null}
                                 allKnownLabels={allKnownLabels}
+                                knownPeople={knownPeople}
                                 cycleNumber={cycleMap.get(issue.cycle_id || "")}
                                 onIssueClick={onIssueClick}
                                 onToggleNode={toggleNode}
@@ -1707,6 +1723,7 @@ export default function Backlog() {
                                 onQuickStatus={handleQuickStatus}
                                 onQuickPriority={handleQuickPriority}
                                 onQuickEstimate={handleQuickEstimate}
+                                onQuickAssignee={handleQuickAssignee}
                                 onQuickLabelToggle={handleQuickLabelToggle}
                                 canCreateLabels
                               />
