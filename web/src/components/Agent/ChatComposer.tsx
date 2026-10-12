@@ -18,6 +18,8 @@ interface ChatComposerProps {
   onPrefsChange(prefs: ChatPrefs): void;
   onSend(text: string): Promise<boolean>;
   onStop(): void;
+  /** The full-page variant: a centered column and a taller input. */
+  wide?: boolean;
 }
 
 export default function ChatComposer({
@@ -30,6 +32,7 @@ export default function ChatComposer({
   onPrefsChange,
   onSend,
   onStop,
+  wide,
 }: ChatComposerProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -56,7 +59,7 @@ export default function ChatComposer({
   };
 
   return (
-    <div className="px-3 pb-3">
+    <div className={wide ? "w-full max-w-3xl mx-auto px-4 pb-6" : "px-3 pb-3"}>
       {contextIssue && (
         <div className="flex items-center gap-2 px-3 py-1.5 mb-1 text-xs min-w-0">
           <span className="font-mono text-[var(--color-text-muted)] shrink-0">{contextIssue.id}</span>
@@ -84,7 +87,7 @@ export default function ChatComposer({
               void send();
             }
           }}
-          className="block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
+          className={`block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none ${wide ? "min-h-16" : ""}`}
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5">
           <InlineDropdown

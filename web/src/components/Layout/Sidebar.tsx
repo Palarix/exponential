@@ -17,8 +17,10 @@ import {
   Tag,
   Clock,
   FilePen,
+  MousePointer2,
   User as UserIcon,
 } from "lucide-react";
+import { useAgentChat } from "../Agent/agent-context";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { VIEWS, type ViewDef, type ViewId } from "../../views";
 
@@ -33,6 +35,7 @@ const VIEW_ICONS: Record<ViewId, ReactNode> = {
   "my-issues": <UserIcon size={16} />,
   inbox: <Bell size={16} />,
   drafts: <FilePen size={16} />,
+  agent: <MousePointer2 size={16} />,
 };
 
 interface SidebarProps {
@@ -219,6 +222,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const instances = useInstances();
   const user = useUser();
+  const agentAvailable = !!useAgentChat().status?.available;
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem("exponential-sidebar-collapsed") === "true"; } catch { return false; }
   });
@@ -230,8 +234,14 @@ export default function Sidebar({
     });
   };
 
-  const visible = (v: ViewDef) =>
-    v.requires === "cycles" ? cyclesEnabled : v.requires === "drafts" ? draftCount > 0 : true;
+  const visible = (v: ViewDef) => {
+    switch (v.requires) {
+      case "cycles": return cyclesEnabled;
+      case "drafts": return draftCount > 0;
+      case "agent": return agentAvailable;
+      default: return true;
+    }
+  };
   const badges: Partial<Record<ViewId, number>> = { inbox: inboxUnread, drafts: draftCount };
   const renderItem = (v: ViewDef) => (
     <NavItem

@@ -107,7 +107,8 @@ func (p *ClaudeStreamParser) handleStreamEvent(event json.RawMessage, cb StreamC
 		done := StreamEvent{Kind: StreamToolDone}
 		if p.currentTool != "" {
 			done.Text = p.currentTool
-			done.ToolArg = p.extractToolDetail()
+			// The input is complete now: decode it properly.
+			done.ToolArg = p.finalToolDetail()
 		}
 		p.currentTool = ""
 		p.toolArgBuf = ""
@@ -115,9 +116,20 @@ func (p *ClaudeStreamParser) handleStreamEvent(event json.RawMessage, cb StreamC
 	}
 }
 
-// toolDetailKeys are the argument keys shown next to a tool name, in order of
-// preference. The last group covers Grep/Glob and the xpo MCP tools.
-var toolDetailKeys = []string{"file_path", "description", "command", "url", "skill", "pattern", "title", "id", "query", "match"}
+// toolDetailKeys are the argument keys shown next to a built-in tool's name,
+// in order of preference. mcpToolDetailKeys are for MCP tools such as xpo's,
+// where "description" is long body text, not a summary.
+var (
+	toolDetailKeys    = []string{"file_path", "description", "command", "url", "skill", "pattern", "id", "title", "query", "match"}
+	mcpToolDetailKeys = []string{"id", "title", "query", "match", "pattern", "file_path", "url"}
+)
+
+func (p *ClaudeStreamParser) detailKeys() []string {
+	if strings.HasPrefix(p.currentTool, "mcp__") {
+		return mcpToolDetailKeys
+	}
+	return toolDetailKeys
+}
 
 // extractToolDetail extracts meaningful detail from the partially-accumulated
 // tool argument JSON. Because input_json_delta arrives in chunks, the buffer
@@ -128,7 +140,7 @@ func (p *ClaudeStreamParser) extractToolDetail() string {
 	case "ToolSearch":
 		return ""
 	}
-	for _, key := range toolDetailKeys {
+	for _, key := range p.detailKeys() {
 		if v := extractJSONStringValue(p.toolArgBuf, key); v != "" {
 			return v
 		}
@@ -136,8 +148,27 @@ func (p *ClaudeStreamParser) extractToolDetail() string {
 	return ""
 }
 
+// finalToolDetail picks the detail from the complete tool input, decoded as
+// JSON. It falls back to the partial-input scan if the input is not an object.
+func (p *ClaudeStreamParser) finalToolDetail() string {
+	if p.currentTool == "ToolSearch" {
+		return ""
+	}
+	var input map[string]any
+	if err := json.Unmarshal([]byte(p.toolArgBuf), &input); err != nil {
+		return p.extractToolDetail()
+	}
+	for _, key := range p.detailKeys() {
+		if v, ok := input[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // extractJSONStringValue pulls the value for a given key from a (possibly
-// incomplete) JSON string using simple substring matching.
+// incomplete) JSON string using substring matching. The value ends at the
+// first unescaped quote, and its JSON escapes are decoded.
 func extractJSONStringValue(buf, key string) string {
 	needle := `"` + key + `": "`
 	idx := strings.Index(buf, needle)
@@ -152,12 +183,31 @@ func extractJSONStringValue(buf, key string) string {
 	if start >= len(buf) {
 		return ""
 	}
-	end := strings.Index(buf[start:], `"`)
-	if end < 0 {
-		// Value still streaming in — return what we have so far
-		return buf[start:]
+	raw := buf[start:] // value still streaming in: use what we have so far
+	escaped := false
+	for i := 0; i < len(raw); i++ {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if raw[i] == '\\' {
+			escaped = true
+			continue
+		}
+		if raw[i] == '"' {
+			raw = raw[:i]
+			escaped = false
+			break
+		}
 	}
-	return buf[start : start+end]
+	if escaped {
+		raw = raw[:len(raw)-1] // drop a dangling backslash
+	}
+	var decoded string
+	if err := json.Unmarshal([]byte(`"`+raw+`"`), &decoded); err != nil {
+		return raw // e.g. a half-received \u escape
+	}
+	return decoded
 }
 
 // streamMessage is the top-level envelope for stream-json output.

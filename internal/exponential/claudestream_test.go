@@ -92,3 +92,53 @@ func TestClaudeStreamParser_ThinkingBlock(t *testing.T) {
 		t.Fatalf("events = %+v", events)
 	}
 }
+
+func TestExtractJSONStringValue_Escapes(t *testing.T) {
+	cases := []struct{ buf, want string }{
+		{`{"pattern": "\"estimate\":\\s*\\{", "path": "x"}`, `"estimate":\s*\{`},
+		{`{"pattern":"a\"b`, `a"b`},           // still streaming, escaped quote kept
+		{`{"pattern":"tab\there"}`, "tab\there"}, // JSON escape decoded
+		{`{"pattern":"ends with \\"}`, `ends with \`},
+		{`{"pattern":"unfinished \`, `unfinished `}, // dangling backslash dropped
+	}
+	for _, c := range cases {
+		if got := extractJSONStringValue(c.buf, "pattern"); got != c.want {
+			t.Errorf("extractJSONStringValue(%s) = %q, want %q", c.buf, got, c.want)
+		}
+	}
+}
+
+func TestClaudeStreamParser_ToolDoneDecodesFullInput(t *testing.T) {
+	fixture := `{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"Grep"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"pattern\": \"\\\"estimate\\\":\\\\s*\\\\{\", \"output_mode\": \"count\"}"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}`
+	events, _ := parseFixture(t, fixture)
+	last := events[len(events)-1]
+	if last.Kind != StreamToolDone || last.ToolArg != `"estimate":\s*\{` {
+		t.Fatalf("tool done = %+v", last)
+	}
+}
+
+func TestToolDetail_PrefersIDOverTitle(t *testing.T) {
+	p := ClaudeStreamParser{currentTool: "mcp__xpo__update", toolArgBuf: `{"title":"New name","id":"xpo-1"}`}
+	if got := p.extractToolDetail(); got != "xpo-1" {
+		t.Fatalf("detail = %q, want xpo-1", got)
+	}
+}
+
+func TestToolDetail_MCPAddShowsTitleNotDescription(t *testing.T) {
+	p := ClaudeStreamParser{currentTool: "mcp__xpo__add", toolArgBuf: `{"description":"**Story:** long body","title":"Highlight issue IDs"}`}
+	if got := p.finalToolDetail(); got != "Highlight issue IDs" {
+		t.Fatalf("final detail = %q", got)
+	}
+	if got := p.extractToolDetail(); got != "Highlight issue IDs" {
+		t.Fatalf("partial detail = %q", got)
+	}
+}
+
+func TestToolDetail_BashKeepsDescription(t *testing.T) {
+	p := ClaudeStreamParser{currentTool: "Bash", toolArgBuf: `{"command":"make test","description":"Run tests"}`}
+	if got := p.finalToolDetail(); got != "Run tests" {
+		t.Fatalf("detail = %q", got)
+	}
+}

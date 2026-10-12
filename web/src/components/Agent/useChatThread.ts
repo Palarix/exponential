@@ -1,6 +1,7 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { chatStreamURL, fetchChat, type ChatEvent } from "../../api/chat";
+import { ApiError } from "../../api/client";
 import { agentQueryKeys } from "./agent-context";
 import { chatThreadReducer, emptyThread, type ChatThread } from "./chat-thread-utils";
 
@@ -9,10 +10,12 @@ const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "tu
 
 /**
  * Loads a chat's settled events, then follows its SSE stream. A null chatId
- * is a new chat: an empty thread.
+ * is a new chat: an empty thread. `missing` names a chat ID the server does
+ * not know.
  */
-export function useChatThread(chatId: string | null): ChatThread {
+export function useChatThread(chatId: string | null): { thread: ChatThread; missing: string | null } {
   const [thread, dispatch] = useReducer(chatThreadReducer, emptyThread);
+  const [missing, setMissing] = useState<string | null>(null);
   const qc = useQueryClient();
 
   useEffect(() => {
@@ -43,8 +46,9 @@ export function useChatThread(chatId: string | null): ChatThread {
           }
         };
       })
-      .catch(() => {
-        // The chat is gone or the board is down: show the empty thread.
+      .catch((err: unknown) => {
+        // A 404 means the chat is gone; anything else shows the empty thread.
+        if (!cancelled && err instanceof ApiError && err.status === 404) setMissing(chatId);
       });
 
     return () => {
@@ -53,5 +57,5 @@ export function useChatThread(chatId: string | null): ChatThread {
     };
   }, [chatId, qc]);
 
-  return thread;
+  return { thread, missing: missing === chatId ? missing : null };
 }

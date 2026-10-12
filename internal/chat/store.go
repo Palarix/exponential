@@ -18,6 +18,15 @@ import (
 // ErrNotFound is returned for a chat ID with no meta file.
 var ErrNotFound = errors.New("chat not found")
 
+// ErrEmptyTitle is returned by Rename for a blank title.
+var ErrEmptyTitle = errors.New("title is required")
+
+// Retention for Prune: chats are personal scratch, so old ones go.
+const (
+	PruneMaxAge   = 30 * 24 * time.Hour
+	PruneMaxCount = 200
+)
+
 // Store keeps chats as <id>.json (meta) and <id>.jsonl (settled events) in
 // Dir. Chats are personal scratch, so files are private to the user.
 type Store struct {
@@ -182,6 +191,63 @@ func (s *Store) Append(id string, events ...Event) ([]Event, error) {
 	}
 	s.lastSeq[id] = seq
 	return out, nil
+}
+
+// Delete removes a chat's meta and event log.
+func (s *Store) Delete(id string) error {
+	if _, err := s.Meta(id); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.lastSeq, id)
+	if err := os.Remove(s.eventsPath(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.Remove(s.metaPath(id))
+}
+
+// Rename sets a chat's title, cleaned up like a title from the first message.
+func (s *Store) Rename(id, title string) (Meta, error) {
+	title = TitleFrom(title)
+	if title == "" {
+		return Meta{}, ErrEmptyTitle
+	}
+	m, err := s.Meta(id)
+	if err != nil {
+		return Meta{}, err
+	}
+	if m.Title == title {
+		return m, nil
+	}
+	m.Title = title
+	return m, s.SaveMeta(m)
+}
+
+// Prune deletes chats that are not running and were last updated before
+// now-maxAge, then the oldest of the rest beyond maxCount. It returns how
+// many chats it deleted.
+func (s *Store) Prune(maxAge time.Duration, maxCount int, now time.Time) (int, error) {
+	list, err := s.List() // newest first
+	if err != nil {
+		return 0, err
+	}
+	deleted, kept := 0, 0
+	for _, m := range list {
+		if m.State == StateRunning {
+			kept++
+			continue
+		}
+		if now.Sub(m.UpdatedAt) <= maxAge && kept < maxCount {
+			kept++
+			continue
+		}
+		if err := s.Delete(m.ID); err != nil {
+			return deleted, err
+		}
+		deleted++
+	}
+	return deleted, nil
 }
 
 // List returns every chat's meta, most recently updated first.

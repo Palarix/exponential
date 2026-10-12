@@ -476,7 +476,8 @@ export function MenuItem({
         </span>
       )}
       <span className={cn("flex-1 text-left min-w-0", truncate && "truncate")}>{label}</span>
-      <span className="ml-auto w-4 flex items-center justify-center shrink-0">
+      {/* At least a checkmark wide; grows for a shortcut or suffix so it never overflows the row. */}
+      <span className="ml-auto min-w-4 flex items-center justify-center shrink-0 whitespace-nowrap">
         {isCheckbox && checked ? (
           <svg className="w-4 h-4 shrink-0 text-[var(--color-accent-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

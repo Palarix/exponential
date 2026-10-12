@@ -243,3 +243,56 @@ func TestChat_NotRegisteredWhenHeadless(t *testing.T) {
 		t.Fatalf("headless server must not serve chats: %d", w.Code)
 	}
 }
+
+func TestChat_Delete(t *testing.T) {
+	s, h := setupChatServer(t, "")
+	m := createChat(t, h)
+	if w := doJSON(t, h, "DELETE", "/api/local/chats/"+m.ID, ""); w.Code != http.StatusNoContent {
+		t.Fatalf("delete: %d %s", w.Code, w.Body.String())
+	}
+	if _, err := s.Chat.Store.Meta(m.ID); err != chat.ErrNotFound {
+		t.Fatalf("chat still stored: %v", err)
+	}
+	if w := doJSON(t, h, "DELETE", "/api/local/chats/"+m.ID, ""); w.Code != http.StatusNotFound {
+		t.Fatalf("second delete: %d", w.Code)
+	}
+}
+
+func TestChat_DeleteStopsRunningTurn(t *testing.T) {
+	s, h := setupChatServer(t, "sleep 30")
+	m := createChat(t, h)
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"x"}`)
+
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- doJSON(t, h, "DELETE", "/api/local/chats/"+m.ID, "") }()
+	select {
+	case w := <-done:
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("delete: %d %s", w.Code, w.Body.String())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("delete of a running chat did not return")
+	}
+	if s.Chat.Runner.Running(m.ID) {
+		t.Fatal("turn still running")
+	}
+	if _, err := s.Chat.Store.Meta(m.ID); err != chat.ErrNotFound {
+		t.Fatalf("the finished turn recreated the chat: %v", err)
+	}
+}
+
+func TestChat_Rename(t *testing.T) {
+	_, h := setupChatServer(t, "")
+	m := createChat(t, h)
+
+	w := doJSON(t, h, "PATCH", "/api/local/chats/"+m.ID, `{"title":"Triage login bugs"}`)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"title":"Triage login bugs"`) {
+		t.Fatalf("rename: %d %s", w.Code, w.Body.String())
+	}
+	if w := doJSON(t, h, "PATCH", "/api/local/chats/"+m.ID, `{"title":"  "}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("empty title: %d", w.Code)
+	}
+	if w := doJSON(t, h, "PATCH", "/api/local/chats/00000000-0000-4000-8000-000000000000", `{"title":"x"}`); w.Code != http.StatusNotFound {
+		t.Fatalf("unknown chat: %d", w.Code)
+	}
+}

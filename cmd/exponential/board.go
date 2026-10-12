@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/palarix/exponential/internal/chat"
 	"github.com/palarix/exponential/internal/exponential"
@@ -128,6 +129,11 @@ func newChatService() *server.ChatService {
 	}
 	if err := store.MarkInterrupted(); err != nil {
 		log.Printf("warning: chat store: %v", err)
+	}
+	if n, err := store.Prune(chat.PruneMaxAge, chat.PruneMaxCount, time.Now()); err != nil {
+		log.Printf("warning: pruning chats: %v", err)
+	} else if n > 0 {
+		log.Printf("Pruned %d old chat(s) from .xpo/chats/", n)
 	}
 
 	target := chat.MCPTarget{RemoteURL: cfg.Remote.URL, RemoteToken: cfg.Remote.Token}

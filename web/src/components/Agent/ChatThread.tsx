@@ -5,13 +5,7 @@ import remarkGfm from "remark-gfm";
 import { ChevronRight, Copy, Check } from "lucide-react";
 import { useConfig } from "../../api/queries";
 import { linkifyIssueIds } from "../../utils/format";
-import { splitTurn, turnSeconds, type ChatStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
-
-/** "mcp__xpo__list" reads as "xpo list"; built-in tools keep their name. */
-function toolLabel(name: string): string {
-  const parts = name.split("__");
-  return parts.length === 3 && parts[0] === "mcp" ? `${parts[1]} ${parts[2]}` : name;
-}
+import { splitTurn, toolSummary, turnSeconds, type ChatStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />;
@@ -40,11 +34,17 @@ function WorkStep({ step }: { step: ChatStep }) {
   if (step.kind === "text") {
     return <div className="text-xs text-[var(--color-text-muted)] whitespace-pre-wrap">{step.text}</div>;
   }
+  const { text, detail } = toolSummary(step.name, step.arg);
+  // Search patterns read best as code; file names and titles as text.
+  const code = step.name === "Grep" || step.name === "Glob";
   return (
-    <div className="flex items-center gap-2 text-xs min-w-0">
-      {step.done ? <span className="w-3 text-center text-[var(--color-text-muted)]">·</span> : <Spinner />}
-      <span className="text-[var(--color-text-secondary)] shrink-0">{toolLabel(step.name)}</span>
-      {step.arg && <span className="font-mono text-[var(--color-text-muted)] truncate">{step.arg}</span>}
+    <div className="flex items-center gap-1.5 text-xs min-w-0" title={step.arg || undefined}>
+      {/* Only the detail may shrink: a shrinking bullet slot would misalign the rows. */}
+      <span className="w-3 shrink-0 flex justify-center">
+        {step.done ? <span className="text-[var(--color-text-muted)]">·</span> : <Spinner />}
+      </span>
+      <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
+      {detail && <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${code ? "font-mono" : ""}`}>{detail}</span>}
     </div>
   );
 }
@@ -132,7 +132,8 @@ function dayLabel(iso: string): string {
   return d.toDateString() === today.toDateString() ? `Today ${time}` : `${d.toLocaleDateString()} ${time}`;
 }
 
-export default function ChatThread({ thread }: { thread: Thread }) {
+/** `wide` centers the thread in a reading column, for the full-page Agent view. */
+export default function ChatThread({ thread, wide }: { thread: Thread; wide?: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -150,11 +151,13 @@ export default function ChatThread({ thread }: { thread: Thread }) {
         const el = e.currentTarget;
         stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
       }}
-      className="flex-1 overflow-y-auto px-4 py-3"
+      className={`flex-1 overflow-y-auto px-4 ${wide ? "py-8" : "py-3"}`}
     >
+      <div className={wide ? "mx-auto max-w-3xl" : undefined}>
       {first && <div className="text-center text-xs text-[var(--color-text-muted)] mb-4">{dayLabel(first.user.time)}</div>}
       <div className="flex flex-col gap-6">
         {thread.turns.map((turn, i) => <Turn key={i} turn={turn} />)}
+      </div>
       </div>
     </div>
   );

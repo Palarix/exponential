@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { chatThreadReducer, emptyThread, isRunning, splitTurn, turnSeconds, type ChatThread } from "./chat-thread-utils";
+import { chatThreadReducer, emptyThread, isRunning, splitTurn, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -148,5 +148,31 @@ describe("turnSeconds", () => {
   it("counts from the user message while running", () => {
     const s = reduce([ev({ type: "user_message", seq: 1, text: "a" })]);
     expect(turnSeconds(s.turns[0], Date.parse(T0) + 3_600)).toBe(3);
+  });
+});
+
+describe("toolSummary", () => {
+  it("describes code tools in words", () => {
+    expect(toolSummary("Read", "/repo/internal/server/board.go")).toEqual({ text: "Read", detail: "board.go" });
+    expect(toolSummary("Grep", '"estimate":\\s*\\{')).toEqual({ text: "Searched the code for", detail: '"estimate":\\s*\\{' });
+    expect(toolSummary("Glob", "**/*.tsx")).toEqual({ text: "Found files matching", detail: "**/*.tsx" });
+  });
+
+  it("describes xpo tools in words", () => {
+    expect(toolSummary("mcp__xpo__list", "")).toEqual({ text: "Listed issues", detail: "" });
+    expect(toolSummary("mcp__xpo__list", "login")).toEqual({ text: "Listed issues matching", detail: "login" });
+    expect(toolSummary("mcp__xpo__show", "xpo-abc123")).toEqual({ text: "Opened", detail: "xpo-abc123" });
+    expect(toolSummary("mcp__xpo__add", "Login times out")).toEqual({ text: "Created issue", detail: "Login times out" });
+    expect(toolSummary("mcp__xpo__update", "xpo-abc123")).toEqual({ text: "Updated", detail: "xpo-abc123" });
+    expect(toolSummary("mcp__xpo__comment", "xpo-abc123")).toEqual({ text: "Commented on", detail: "xpo-abc123" });
+  });
+
+  it("falls back to the tool name", () => {
+    expect(toolSummary("mcp__other__thing", "x")).toEqual({ text: "other thing", detail: "x" });
+    expect(toolSummary("WebFetch", "https://a.b")).toEqual({ text: "WebFetch", detail: "https://a.b" });
+  });
+
+  it("collapses whitespace in long details", () => {
+    expect(toolSummary("Grep", "a\n   b").detail).toBe("a b");
   });
 });

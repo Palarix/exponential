@@ -78,7 +78,19 @@ export const EFFORT_LABELS: Record<ChatEffort, string> = {
 };
 
 export const SUGGESTIONS = [
-  { label: "File a bug", prompt: "Help me file a bug. Ask me what's wrong, then create the issue." },
-  { label: "What's blocking an epic?", prompt: "Which open epics have blocked or stalled sub-issues, and what is blocking them?" },
-  { label: "Summarize my open issues", prompt: "Summarize my open issues by status, and point out anything that looks stale." },
+  {
+    label: "File a bug",
+    description: "Describe the problem and get a well-formed issue",
+    prompt: "Help me file a bug. Ask me what's wrong, then create the issue.",
+  },
+  {
+    label: "What's blocking an epic?",
+    description: "Find blocked or stalled sub-issues across epics",
+    prompt: "Which open epics have blocked or stalled sub-issues, and what is blocking them?",
+  },
+  {
+    label: "Summarize my open issues",
+    description: "Group your issues by status and spot stale work",
+    prompt: "Summarize my open issues by status, and point out anything that looks stale.",
+  },
 ] as const;

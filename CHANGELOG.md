@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent view:
+  - **Opening it:** **Agent** is the first entry in the personal section of the sidebar (`g a`). It opens a full-page chat at `#/agent`, and each chat has its own URL (`#/agent/<id>`).
+  - **Empty state:** a wide composer, suggestion cards, and the 5 most recent chats.
+  - **Header:** a "Title ⌄" switcher lists recent chats. A "⋯" menu (also in the popup) renames chats inline or deletes them after a confirmation. Deleting a running chat stops it first.
+  - **Popup:** a new expand button opens the popup's chat in the Agent view.
+  - **Status bar:** a history button lists recent chats.
+  - **Pruning:** on start, `xpo board` deletes idle chats older than 30 days and keeps at most 200.
+  - **Routes:** `PATCH` (rename) and `DELETE` on `/api/local/chats/{id}`.
+
+  (xpo-c047ce)
+
 - Agent chat in `xpo board`:
   - **Opening it:** an **Agent** button in the status bar (or ⌘J / Ctrl+J) opens a chat popup from any view. The popup sends the open issue as context.
   - **Agent:** replies come from your local Claude Code (`claude -p`, one process per turn, resumed with `--resume`), running in the project root with your settings. It can read code (Read, Grep, Glob) and use the xpo MCP tools. It cannot run commands or edit files.
@@ -22,6 +33,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The stream-json parser is now shared by drive and chat (xpo-56ae3a)
 
 - Issue drafts: the new issue dialog has a "Save draft" button, and the discard prompt offers "Save draft" too. Drafts are stored per user in `.xpo/drafts/` (git-ignored, outside the event log). A "Drafts" sidebar item with a count badge appears while drafts exist (`g r`). Reopen a draft to keep editing, create the issue from it, or discard it. New `/api/issue-drafts` endpoints (`GET`/`POST`/`PUT`/`DELETE`, `issue.create` capability) and a `draft_changed` SSE event (xpo-758398)
+
+### Fixed
+
+- Agent chat tool calls:
+  - **Arguments:** Grep patterns and other tool arguments with escaped quotes are no longer cut off (`\\{\\` instead of the pattern). They are decoded properly, which also fixes drive's spinner detail.
+  - **Readable summaries:** the work list shows tool calls in words, such as "Read board.go", "Searched the code for …", "Listed issues matching …", and "Created issue …".
+  - **Titles:** xpo tools show the issue ID or title instead of the description.
+  - **Alignment:** bullets line up in the narrow popup.
+
+  (xpo-6afc58)
+- Menu items with a suffix (relative times, filter counts, "⌘⌫") no longer overflow their row (xpo-c047ce)
 
 ## [1.4.0] — 2026-10-12
 

@@ -21,6 +21,8 @@ export interface AgentChat {
   close(): void;
   /** Called once the popup's new chat exists on the server. */
   chatCreated(id: string): void;
+  /** Called after a chat is deleted: drops its pill and leaves it if open. */
+  chatDeleted(id: string): void;
 }
 
 export const AgentChatContext = createContext<AgentChat | null>(null);

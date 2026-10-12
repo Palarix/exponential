@@ -6,6 +6,7 @@ const route = (overrides: Partial<Route>): Route => ({
   issueId: null,
   cycleId: null,
   depFocusId: null,
+  chatId: null,
   ...overrides,
 });
 
@@ -19,7 +20,7 @@ describe("VIEWS registry", () => {
 
   it("lists views in sidebar order", () => {
     expect(VIEWS.map((v) => v.id)).toEqual([
-      "dashboard", "backlog", "board", "cycles", "timeline", "labels", "dependencies", "my-issues", "inbox", "drafts",
+      "dashboard", "backlog", "board", "cycles", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts",
     ]);
   });
 
@@ -34,14 +35,18 @@ describe("VIEWS registry", () => {
   it("maps go keys to views", () => {
     expect(VIEW_BY_GO_KEY).toEqual({
       o: "dashboard", i: "backlog", b: "board", n: "inbox", d: "dependencies",
-      l: "labels", c: "cycles", m: "my-issues", t: "timeline", r: "drafts",
+      l: "labels", c: "cycles", m: "my-issues", t: "timeline", r: "drafts", a: "agent",
     });
   });
 
   it("gates cycles on the feature and drafts on having issue drafts", () => {
     expect(Object.fromEntries(VIEWS.filter((v) => v.requires).map((v) => [v.id, v.requires]))).toEqual({
-      cycles: "cycles", drafts: "drafts",
+      cycles: "cycles", drafts: "drafts", agent: "agent",
     });
+  });
+
+  it("puts Agent in the personal section", () => {
+    expect(VIEW_BY_ID.agent.section).toBe("personal");
   });
 });
 
@@ -66,6 +71,11 @@ describe("parseRoute", () => {
     expect(parseRoute("#/cycles/2026-10-05")).toEqual(route({ view: "cycles", cycleId: "2026-10-05" }));
     expect(parseRoute("#/dependencies/xpo-abc123")).toEqual(route({ view: "dependencies", depFocusId: "xpo-abc123" }));
   });
+
+  it("parses agent chat links", () => {
+    expect(parseRoute("#/agent")).toEqual(route({ view: "agent" }));
+    expect(parseRoute("#/agent/3f2a")).toEqual(route({ view: "agent", chatId: "3f2a" }));
+  });
 });
 
 describe("formatRoute", () => {
@@ -83,6 +93,11 @@ describe("formatRoute", () => {
     expect(formatRoute(route({ view: "board", cycleId: "c1" }))).toBe("#/board");
     expect(formatRoute(route({ view: "dependencies", depFocusId: "xpo-2" }))).toBe("#/dependencies/xpo-2");
     expect(formatRoute(route({ view: "labels", depFocusId: "xpo-2" }))).toBe("#/labels");
+  });
+
+  it("only includes the chat on the agent view", () => {
+    expect(formatRoute(route({ view: "agent", chatId: "3f2a" }))).toBe("#/agent/3f2a");
+    expect(formatRoute(route({ view: "board", chatId: "3f2a" }))).toBe("#/board");
   });
 
   it("round-trips every view", () => {

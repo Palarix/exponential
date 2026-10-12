@@ -137,3 +137,38 @@ export function turnSeconds(t: ChatTurn, now: number): number {
   const end = t.endedAt ? Date.parse(t.endedAt) : now;
   return Math.max(0, Math.floor((end - Date.parse(t.user.time)) / 1000));
 }
+
+// Readable verbs for known tools. A tool without a detail uses `bare`.
+const TOOL_VERBS: Record<string, { verb: string; bare?: string }> = {
+  Read: { verb: "Read" },
+  Grep: { verb: "Searched the code for", bare: "Searched the code" },
+  Glob: { verb: "Found files matching", bare: "Listed files" },
+  "xpo list": { verb: "Listed issues matching", bare: "Listed issues" },
+  "xpo show": { verb: "Opened" },
+  "xpo history": { verb: "Read the history of" },
+  "xpo add": { verb: "Created issue" },
+  "xpo update": { verb: "Updated" },
+  "xpo comment": { verb: "Commented on" },
+  "xpo link": { verb: "Linked" },
+  "xpo unlink": { verb: "Unlinked" },
+  "xpo start": { verb: "Started" },
+  "xpo merge": { verb: "Merged" },
+  "xpo spec": { verb: "Read the spec of" },
+  "xpo walkthrough": { verb: "Read the walkthrough of" },
+  "xpo artifact": { verb: "Read an artifact of" },
+  "xpo rationale": { verb: "Searched design notes for", bare: "Searched design notes" },
+};
+
+/**
+ * A tool call in words: "Read board.go", "Listed issues matching login".
+ * MCP names read as "server tool"; unknown tools keep their name.
+ */
+export function toolSummary(name: string, arg: string): { text: string; detail: string } {
+  const parts = name.split("__");
+  const key = parts.length === 3 && parts[0] === "mcp" ? `${parts[1]} ${parts[2]}` : name;
+  let detail = arg.replace(/\s+/g, " ").trim();
+  if (key === "Read" && detail) detail = detail.split("/").pop() ?? detail;
+  const known = TOOL_VERBS[key];
+  if (!known) return { text: key, detail };
+  return { text: detail || !known.bare ? known.verb : known.bare, detail };
+}

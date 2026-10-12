@@ -21,7 +21,7 @@ function safeLocalStorage(): Storage | null {
 }
 
 function sameRoute(a: Route, b: Route): boolean {
-  return a.view === b.view && a.issueId === b.issueId && a.cycleId === b.cycleId && a.depFocusId === b.depFocusId;
+  return a.view === b.view && a.issueId === b.issueId && a.cycleId === b.cycleId && a.depFocusId === b.depFocusId && a.chatId === b.chatId;
 }
 
 function App() {
@@ -63,7 +63,7 @@ function App() {
   const navigate = useCallback((view: ViewId, intent?: NavIntent) => {
     publishedOrderRef.current = null;
     if (intent) intentsRef.current.set(view, intent);
-    setRoute({ view, issueId: null, cycleId: null, depFocusId: null });
+    setRoute({ view, issueId: null, cycleId: null, depFocusId: null, chatId: null });
   }, []);
 
   const nav = useMemo<AppNav>(() => ({
@@ -77,13 +77,18 @@ function App() {
     setCycleId: (cycleId) => setRoute(r => ({ ...r, cycleId })),
     depFocusId: route.depFocusId,
     setDepFocusId: (depFocusId) => setRoute(r => ({ ...r, depFocusId })),
+    chatId: route.chatId,
+    openChatView: (chatId) => {
+      publishedOrderRef.current = null;
+      setRoute({ view: 'agent', issueId: null, cycleId: null, depFocusId: null, chatId });
+    },
     publishNavOrder: (ids) => { publishedOrderRef.current = ids; },
     takeIntent: (view) => {
       const intent = intentsRef.current.get(view);
       intentsRef.current.delete(view);
       return intent;
     },
-  }), [route.view, route.cycleId, route.depFocusId, navigate, openIssue, openNewIssue]);
+  }), [route.view, route.cycleId, route.depFocusId, route.chatId, navigate, openIssue, openNewIssue]);
 
   useEffect(() => {
     const hash = formatRoute(route);

@@ -22,6 +22,10 @@ export interface AppNav {
   setCycleId(cycleId: string | null): void;
   depFocusId: string | null;
   setDepFocusId(issueId: string | null): void;
+  /** The chat shown in the Agent view; null is a new chat. */
+  chatId: string | null;
+  /** Opens the Agent view on a chat, or on a new chat. */
+  openChatView(chatId: string | null): void;
   /** Sets the order IssueDetail's prev/next walks; `navigate` clears it. */
   publishNavOrder(ids: string[]): void;
   /** Returns and forgets the pending intent for `view`. */

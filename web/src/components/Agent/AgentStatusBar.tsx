@@ -1,5 +1,8 @@
-import { MousePointer2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { History, MousePointer2 } from "lucide-react";
+import { Menu, Popover } from "../ui";
 import Tooltip from "../ui/Tooltip";
+import { recentChatItems } from "./recent-chats";
 import { useAgentChat } from "./agent-context";
 import ChatPopup from "./ChatPopup";
 
@@ -12,6 +15,8 @@ const shortcut = navigator.platform.includes("Mac") ? "⌘J" : "Ctrl+J";
 export default function AgentStatusBar() {
   const agent = useAgentChat();
   const { status, chats, pills, popupOpen, chatId } = agent;
+  const historyRef = useRef<HTMLButtonElement>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   if (!status) return null;
 
   const available = status.available;
@@ -50,6 +55,33 @@ export default function AgentStatusBar() {
             </button>
           </span>
         </Tooltip>
+        {available && (
+          <Tooltip content="Recent chats">
+            <button
+              ref={historyRef}
+              type="button"
+              aria-label="Recent chats"
+              onClick={() => setHistoryOpen((o) => !o)}
+              className="flex items-center justify-center w-6 h-6 rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              <History className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+        )}
+        {historyOpen && (
+          <Popover anchorRef={historyRef} placement="bottom-end" onClose={() => setHistoryOpen(false)}>
+            <Menu onClose={() => setHistoryOpen(false)} aria-label="Recent chats" className="w-96" maxHeight="24rem">
+              {chats.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-[var(--color-text-muted)]">No chats yet</div>
+              ) : (
+                recentChatItems(chats, popupOpen ? chatId : null, (id) => {
+                  setHistoryOpen(false);
+                  agent.openChat(id);
+                })
+              )}
+            </Menu>
+          </Popover>
+        )}
       </div>
       {popupOpen && available && <ChatPopup />}
     </>

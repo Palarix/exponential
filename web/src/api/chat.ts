@@ -99,3 +99,15 @@ export function cancelChat(id: string): Promise<void> {
 export function chatStreamURL(id: string): string {
   return `${BASE}/chats/${encodeURIComponent(id)}/stream`;
 }
+
+export function renameChat(id: string, title: string): Promise<ChatMeta> {
+  return request(`${BASE}/chats/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+
+export function deleteChat(id: string): Promise<void> {
+  return request(`${BASE}/chats/${encodeURIComponent(id)}`, { method: "DELETE" });
+}

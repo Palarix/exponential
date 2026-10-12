@@ -29,6 +29,8 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/local/chats", s.handleListChats)
 	mux.HandleFunc("POST /api/local/chats", s.handleCreateChat)
 	mux.HandleFunc("GET /api/local/chats/{id}", s.handleGetChat)
+	mux.HandleFunc("PATCH /api/local/chats/{id}", s.handleRenameChat)
+	mux.HandleFunc("DELETE /api/local/chats/{id}", s.handleDeleteChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/messages", s.handleSendChatMessage)
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
 	mux.HandleFunc("GET /api/local/chats/{id}/stream", s.handleChatStream)
@@ -71,6 +73,35 @@ func (s *Server) handleGetChat(w http.ResponseWriter, r *http.Request) {
 		"events":  events,
 		"running": s.Chat.Runner.Running(id),
 	})
+}
+
+func (s *Server) handleRenameChat(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Title string `json:"title"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	meta, err := s.Chat.Store.Rename(r.PathValue("id"), req.Title)
+	if s.respondChatError(w, err) {
+		return
+	}
+	respondJSON(w, http.StatusOK, meta)
+}
+
+// handleDeleteChat stops the chat's running turn first, so no turn writes to
+// the log after it is gone.
+func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.Chat.Store.Meta(id); s.respondChatError(w, err) {
+		return
+	}
+	s.Chat.Runner.CancelAndWait(id)
+	if err := s.Chat.Store.Delete(id); s.respondChatError(w, err) {
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type sendChatRequest struct {
@@ -196,6 +227,8 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		return false
 	case errors.Is(err, chat.ErrNotFound):
 		respondError(w, http.StatusNotFound, "chat not found")
+	case errors.Is(err, chat.ErrEmptyTitle):
+		respondError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, chat.ErrBusy):
 		respondError(w, http.StatusConflict, err.Error())
 	default:

@@ -265,3 +265,21 @@ func TestRunner_UnknownChat(t *testing.T) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }
+
+func TestRunner_CancelAndWait(t *testing.T) {
+	r, store, _ := newTestRunner(t, `sleep 30`)
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "x"})
+
+	done := make(chan struct{})
+	go func() { r.CancelAndWait(m.ID); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("CancelAndWait did not return")
+	}
+	if r.Running(m.ID) {
+		t.Fatal("turn still running after CancelAndWait")
+	}
+	r.CancelAndWait(m.ID) // no turn: returns at once
+}

@@ -165,3 +165,112 @@ func repeat(s string, n int) string {
 	}
 	return out
 }
+
+func TestStore_Delete(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	s.Append(m.ID, Event{Type: EventUserMessage})
+
+	if err := s.Delete(m.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Get(m.ID); err != ErrNotFound {
+		t.Fatalf("Get after Delete: err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir, m.ID+".jsonl")); !os.IsNotExist(err) {
+		t.Fatalf("event log still exists: %v", err)
+	}
+	if err := s.Delete(m.ID); err != ErrNotFound {
+		t.Fatalf("second Delete: err = %v, want ErrNotFound", err)
+	}
+	if err := s.Delete("../x"); err != ErrNotFound {
+		t.Fatalf("invalid id: err = %v", err)
+	}
+}
+
+func TestStore_DeleteResetsSequenceCache(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	s.Append(m.ID, Event{Type: EventUserMessage})
+	s.Delete(m.ID)
+	if _, ok := s.lastSeq[m.ID]; ok {
+		t.Fatal("Delete must forget the cached seq")
+	}
+}
+
+func TestStore_Rename(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+
+	got, err := s.Rename(m.ID, "  Login bug triage  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "Login bug triage" {
+		t.Fatalf("title = %q", got.Title)
+	}
+	stored, _ := s.Meta(m.ID)
+	if stored.Title != "Login bug triage" {
+		t.Fatalf("stored title = %q", stored.Title)
+	}
+	if _, err := s.Rename(m.ID, "   "); err != ErrEmptyTitle {
+		t.Fatalf("empty title: err = %v", err)
+	}
+	if _, err := s.Rename("00000000-0000-4000-8000-000000000000", "x"); err != ErrNotFound {
+		t.Fatalf("unknown chat: err = %v", err)
+	}
+}
+
+func TestStore_Prune(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().UTC()
+	mk := func(age time.Duration, state string) Meta {
+		m, _ := s.Create()
+		m.UpdatedAt = now.Add(-age)
+		m.State = state
+		s.SaveMeta(m)
+		return m
+	}
+	fresh := mk(time.Hour, StateIdle)
+	old := mk(40*24*time.Hour, StateIdle)
+	oldInterrupted := mk(40*24*time.Hour, StateInterrupted)
+	oldRunning := mk(40*24*time.Hour, StateRunning)
+
+	n, err := s.Prune(30*24*time.Hour, 200, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("pruned %d, want 2", n)
+	}
+	for _, m := range []Meta{old, oldInterrupted} {
+		if _, err := s.Meta(m.ID); err != ErrNotFound {
+			t.Errorf("%s not pruned", m.ID)
+		}
+	}
+	for _, m := range []Meta{fresh, oldRunning} {
+		if _, err := s.Meta(m.ID); err != nil {
+			t.Errorf("%s pruned: %v", m.ID, err)
+		}
+	}
+}
+
+func TestStore_PruneKeepsMaxCount(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().UTC()
+	var ids []string
+	for i := range 5 {
+		m, _ := s.Create()
+		m.UpdatedAt = now.Add(-time.Duration(i) * time.Minute) // ids[0] newest
+		s.SaveMeta(m)
+		ids = append(ids, m.ID)
+	}
+	n, _ := s.Prune(30*24*time.Hour, 3, now)
+	if n != 2 {
+		t.Fatalf("pruned %d, want 2", n)
+	}
+	list, _ := s.List()
+	if len(list) != 3 || list[0].ID != ids[0] || list[2].ID != ids[2] {
+		t.Fatalf("kept %+v", list)
+	}
+}

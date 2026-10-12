@@ -76,6 +76,10 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       setChatId(id);
       setPills((p) => addPill(p, id));
     },
+    chatDeleted: (id) => {
+      setPills((p) => removePill(p, id));
+      if (chatId === id) setChatId(null);
+    },
   }), [status, chats, popupOpen, chatId, visiblePills, context, prefs, setPrefs]);
 
   useKeyboardShortcuts({

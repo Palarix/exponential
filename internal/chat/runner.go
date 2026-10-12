@@ -48,6 +48,7 @@ type turn struct {
 	mu      sync.Mutex
 	cmd     *exec.Cmd
 	stopped bool
+	done    chan struct{} // closed when the turn has finished
 }
 
 // NewRunner returns a runner for cfg.
@@ -70,7 +71,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		r.mu.Unlock()
 		return ErrBusy
 	}
-	t := &turn{}
+	t := &turn{done: make(chan struct{})}
 	r.turns[id] = t
 	r.wg.Add(1)
 	r.mu.Unlock()
@@ -115,6 +116,19 @@ func (r *Runner) Cancel(id string) bool {
 		killProcessGroup(t.cmd)
 	}
 	return true
+}
+
+// CancelAndWait stops a chat's running turn, if any, and waits until it has
+// finished writing its events.
+func (r *Runner) CancelAndWait(id string) {
+	r.mu.Lock()
+	t, ok := r.turns[id]
+	r.mu.Unlock()
+	if !ok {
+		return
+	}
+	r.Cancel(id)
+	<-t.done
 }
 
 // Wait blocks until no turn is running.
@@ -183,7 +197,10 @@ func (r *Runner) live(id string, e Event) {
 
 func (r *Runner) finish(id string) {
 	r.mu.Lock()
-	delete(r.turns, id)
+	if t, ok := r.turns[id]; ok {
+		close(t.done)
+		delete(r.turns, id)
+	}
 	r.mu.Unlock()
 	r.wg.Done()
 }
