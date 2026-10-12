@@ -8,6 +8,7 @@ export { default as Card } from './Card';
 export { default as Badge, LabelBadge, LabelIndicator, StatusBadge } from './Badge';
 export { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from './BadgeContexts';
 export { default as Modal, ModalFooter } from './Modal';
+export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as Progress, ProgressRing } from './Progress';
 export { default as StatusIcon } from './StatusIcon';
 export { default as ActorName } from './ActorName';

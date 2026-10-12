@@ -16,6 +16,7 @@ import {
   PanelLeft,
   Tag,
   Clock,
+  FilePen,
   User as UserIcon,
 } from "lucide-react";
 import { useKeyboardShortcuts } from "../../keyboard";
@@ -31,6 +32,7 @@ const VIEW_ICONS: Record<ViewId, ReactNode> = {
   dependencies: <Link size={16} />,
   "my-issues": <UserIcon size={16} />,
   inbox: <Bell size={16} />,
+  drafts: <FilePen size={16} />,
 };
 
 interface SidebarProps {
@@ -40,6 +42,7 @@ interface SidebarProps {
   onNewIssue: () => void;
   cyclesEnabled: boolean;
   inboxUnread: number;
+  draftCount: number;
 }
 
 function ProjectSelector({
@@ -212,6 +215,7 @@ export default function Sidebar({
   onNewIssue,
   cyclesEnabled,
   inboxUnread,
+  draftCount,
 }: SidebarProps) {
   const instances = useInstances();
   const user = useUser();
@@ -226,14 +230,16 @@ export default function Sidebar({
     });
   };
 
-  const visible = (v: ViewDef) => v.requires !== "cycles" || cyclesEnabled;
+  const visible = (v: ViewDef) =>
+    v.requires === "cycles" ? cyclesEnabled : v.requires === "drafts" ? draftCount > 0 : true;
+  const badges: Partial<Record<ViewId, number>> = { inbox: inboxUnread, drafts: draftCount };
   const renderItem = (v: ViewDef) => (
     <NavItem
       key={v.id}
       item={{ label: v.navLabel, icon: VIEW_ICONS[v.id] }}
       isActive={activeView === v.id}
       onClick={() => onViewChange(v.id)}
-      badge={v.id === "inbox" ? inboxUnread : undefined}
+      badge={badges[v.id]}
       collapsed={collapsed}
     />
   );

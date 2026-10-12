@@ -65,6 +65,28 @@ type CreatePayload struct {
 	Labels       []string     `json:"labels,omitempty"`
 }
 
+// IssueDraft is an unfinished new issue saved from the web UI. It lives in
+// .xpo/drafts/<id>.json, outside the event log, and has no issue ID.
+type IssueDraft struct {
+	ID        string            `json:"id"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	CreatedBy string            `json:"created_by"`
+	Payload   IssueDraftPayload `json:"payload"`
+}
+
+// IssueDraftPayload mirrors the fields of the new-issue modal.
+type IssueDraftPayload struct {
+	Title            string   `json:"title"`
+	Description      string   `json:"description,omitempty"`
+	Labels           []string `json:"labels,omitempty"`
+	AdditionalLabels []string `json:"additional_labels,omitempty"`
+	Status           string   `json:"status,omitempty"`
+	Estimate         int      `json:"estimate,omitempty"`
+	ParentID         string   `json:"parent_id,omitempty"`
+	Assignee         string   `json:"assignee,omitempty"`
+}
+
 type CommentPayload struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`

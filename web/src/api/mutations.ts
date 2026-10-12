@@ -1,8 +1,9 @@
 import { useCallback } from "react";
 import { useMutation, useQueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
-  addCommentOptions, addLabelOptions, createIssueOptions, deleteIssueOptions, deleteLabelOptions, mergeIssueOptions,
-  startWorkOptions, updateIssuesOptions, updateLabelOptions, type IssuePatch,
+  addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions,
+  deleteIssueOptions, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
+  updateLabelOptions, type IssuePatch,
 } from "./mutation-options";
 import { ApiError } from "./client";
 import type { Issue } from "./types";
@@ -44,6 +45,31 @@ export function useUpdateIssue() {
 export function useCreateIssue() {
   const qc = useQueryClient();
   return useMutation(useWithErrorToast(createIssueOptions(qc)));
+}
+
+export function useCreateIssueFromDraft() {
+  const qc = useQueryClient();
+  return useMutation(useWithErrorToast(createIssueFromDraftOptions(qc)));
+}
+
+/** A 404 means another tab deleted the draft; the update never recreates it. */
+export function useSaveIssueDraft() {
+  const qc = useQueryClient();
+  const showToast = useToast();
+  return useMutation({
+    ...saveIssueDraftOptions(qc),
+    onError: (err) => {
+      const message = err instanceof ApiError && err.status === 404
+        ? "This draft no longer exists"
+        : `Couldn't save draft: ${err.message}`;
+      showToast(message, { variant: "error" });
+    },
+  });
+}
+
+export function useDeleteIssueDraft() {
+  const qc = useQueryClient();
+  return useMutation(useWithErrorToast(deleteIssueDraftOptions(qc)));
 }
 
 export function useDeleteIssue() {

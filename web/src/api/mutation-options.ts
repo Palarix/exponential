@@ -1,10 +1,11 @@
 import type { MutationOptions, QueryClient } from "@tanstack/react-query";
 import {
-  addConfigLabel, addDraft, createIssue, deleteConfigLabel, mergeIssue, startWork, updateConfigLabel,
+  addConfigLabel, addDraft, createIssue, createIssueDraft, deleteConfigLabel, deleteIssueDraft, mergeIssue, startWork,
+  updateConfigLabel, updateIssueDraft,
 } from "./client";
 import { queryKeys } from "./query-keys";
 import { applyIssuePatches, removeLabel, renameLabel, withConfigLabels, type IssuePatch, type RawConfig } from "./query-utils";
-import type { Issue } from "./types";
+import type { Issue, IssueDraft, IssueDraftPayload } from "./types";
 
 export type { IssuePatch };
 
@@ -17,10 +18,14 @@ export interface MutationApi {
   addConfigLabel: typeof addConfigLabel;
   updateConfigLabel: typeof updateConfigLabel;
   deleteConfigLabel: typeof deleteConfigLabel;
+  createIssueDraft: typeof createIssueDraft;
+  updateIssueDraft: typeof updateIssueDraft;
+  deleteIssueDraft: typeof deleteIssueDraft;
 }
 
 const clientApi: MutationApi = {
   addDraft, createIssue, startWork, mergeIssue, addConfigLabel, updateConfigLabel, deleteConfigLabel,
+  createIssueDraft, updateIssueDraft, deleteIssueDraft,
 };
 
 /** Shared by every mutation that changes issues, so a burst of them refetches once. */
@@ -73,13 +78,61 @@ export function updateIssuesOptions(
 
 export type CreateIssuePayload = Parameters<typeof createIssue>[0];
 
+interface CreateIssueVars {
+  issue: CreateIssuePayload;
+  update?: Partial<Issue>;
+}
+
 /** Creates an issue, then applies fields the CREATE draft can't carry (status, estimate). */
+async function createWithUpdate(api: MutationApi, { issue, update }: CreateIssueVars): Promise<string> {
+  const issueId = await api.createIssue(issue);
+  if (update && Object.keys(update).length > 0) await api.addDraft(issueId, "UPDATE", update);
+  return issueId;
+}
+
 export function createIssueOptions(qc: QueryClient, api: MutationApi = clientApi) {
-  return issueMutation(qc, async ({ issue, update }: { issue: CreateIssuePayload; update?: Partial<Issue> }) => {
-    const issueId = await api.createIssue(issue);
-    if (update && Object.keys(update).length > 0) await api.addDraft(issueId, "UPDATE", update);
-    return issueId;
-  });
+  return issueMutation(qc, (vars: CreateIssueVars) => createWithUpdate(api, vars));
+}
+
+/**
+ * Creates an issue from an issue draft, then deletes the draft. A failed
+ * delete does not fail the mutation: the issue exists, and retrying would
+ * duplicate it. The caller reports `draftDeleted: false` instead.
+ */
+export function createIssueFromDraftOptions(
+  qc: QueryClient,
+  api: MutationApi = clientApi,
+): MutationOptions<{ issueId: string; draftDeleted: boolean }, Error, CreateIssueVars & { draftId: string }> {
+  return {
+    mutationKey: ISSUES_MUTATION_KEY,
+    mutationFn: async ({ draftId, ...vars }) => {
+      const issueId = await createWithUpdate(api, vars);
+      const draftDeleted = await api.deleteIssueDraft(draftId).then(() => true, () => false);
+      return { issueId, draftDeleted };
+    },
+    onSettled: async () => {
+      await invalidateIssuesWhenIdle(qc);
+      await qc.invalidateQueries({ queryKey: queryKeys.issueDrafts });
+    },
+  };
+}
+
+/** Creates an issue draft, or replaces the payload of `draftId`. */
+export function saveIssueDraftOptions(
+  qc: QueryClient,
+  api: MutationApi = clientApi,
+): MutationOptions<IssueDraft, Error, { draftId?: string; payload: IssueDraftPayload }> {
+  return {
+    mutationFn: ({ draftId, payload }) => (draftId ? api.updateIssueDraft(draftId, payload) : api.createIssueDraft(payload)),
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.issueDrafts }),
+  };
+}
+
+export function deleteIssueDraftOptions(qc: QueryClient, api: MutationApi = clientApi): MutationOptions<void, Error, string> {
+  return {
+    mutationFn: (draftId) => api.deleteIssueDraft(draftId),
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.issueDrafts }),
+  };
 }
 
 export function deleteIssueOptions(qc: QueryClient, api: MutationApi = clientApi) {

@@ -1,16 +1,16 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useCreateIssue } from "../../api/mutations";
-import type { Issue } from "../../api/client";
+import { useCreateIssue, useCreateIssueFromDraft, useDeleteIssueDraft, useSaveIssueDraft } from "../../api/mutations";
+import type { Issue, IssueDraft } from "../../api/client";
 import { computeAppendKey } from "../../utils/sort";
-import { Modal, Button, LabelBadge, LabelPicker, Avatar, Popover, PopoverPanel, StatusIcon, InlineDropdown } from "../ui";
+import { Modal, Button, ConfirmDialog, LabelBadge, LabelPicker, Avatar, Popover, PopoverPanel, StatusIcon, InlineDropdown } from "../ui";
 import { ChevronDown, Folder, UserRound, Tag } from "lucide-react";
 import type { DropdownOption } from "../ui";
 import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
 import MarkdownEditor from "../MarkdownEditor";
 import { useAllLabels } from "../../hooks/useLabels";
-import { useKeyboardShortcuts } from "../../keyboard";
+import { EMPTY_ISSUE_FORM, draftPayloadFromForm, formFromDraftPayload, formHasContent, formsEqual, type IssueForm } from "./issue-form";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "BACKLOG", label: "Backlog", icon: <StatusIcon status="BACKLOG" size={14} /> },
@@ -29,29 +29,40 @@ const ESTIMATE_OPTIONS: DropdownOption[] = [
 
 interface NewIssueModalProps {
   isOpen: boolean;
+  /** The issue draft to edit. The form state is read once, so remount to switch drafts. */
+  draft?: IssueDraft | null;
   onClose: () => void;
-  onCreated: () => void;
+  /** `draftDeleted` is false when the issue exists but its draft could not be deleted. */
+  onCreated: (result: { draftDeleted: boolean }) => void;
+  onDraftSaved: () => void;
   issues: Issue[];
   contributors: string[];
 }
 
-export default function NewIssueModal({ isOpen, onClose, onCreated, issues, contributors }: NewIssueModalProps) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [labels, setLabels] = useState<string[]>(["feature"]);
-  const [status, setStatus] = useState("BACKLOG");
-  const [estimate, setEstimate] = useState("0");
-  const { mutate: createIssue, isPending: saving } = useCreateIssue();
+export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated, onDraftSaved, issues, contributors }: NewIssueModalProps) {
+  const [baseline] = useState<IssueForm>(() => (draft ? formFromDraftPayload(draft.payload) : EMPTY_ISSUE_FORM));
+  const [form, setForm] = useState<IssueForm>(baseline);
+  const { title, description, labels, status, estimate, parentId, assignee, additionalLabels } = form;
+  const setField = <K extends keyof IssueForm>(key: K) => (value: IssueForm[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const setTitle = setField("title");
+  const setDescription = setField("description");
+  const setStatus = setField("status");
+  const setEstimate = setField("estimate");
+  const setParentId = setField("parentId");
+  const setAssignee = setField("assignee");
+
+  const { mutate: createIssue, isPending: creatingIssue } = useCreateIssue();
+  const { mutate: createFromDraft, isPending: creatingFromDraft } = useCreateIssueFromDraft();
+  const { mutate: saveDraft, isPending: savingDraft } = useSaveIssueDraft();
+  const { mutate: deleteDraft, isPending: deletingDraft } = useDeleteIssueDraft();
+  const saving = creatingIssue || creatingFromDraft;
   const [labelOpen, setLabelOpen] = useState(false);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirm, setConfirm] = useState<"close" | "delete" | null>(null);
   const labelBtnRef = useRef<HTMLButtonElement>(null);
   const labelMenuRef = useRef<HTMLDivElement>(null);
   const [labelPos, setLabelPos] = useState({ top: 0, left: 0 });
 
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [parentId, setParentId] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [additionalLabels, setAdditionalLabels] = useState<string[]>([]);
+  const [moreOpen, setMoreOpen] = useState(() => !!(baseline.parentId || baseline.assignee || baseline.additionalLabels.length));
   const [morePopover, setMorePopover] = useState<"parent" | "assignee" | "labels" | null>(null);
   const morePopoverAnchorRef = useRef<HTMLDivElement>(null);
   const [parentSearch, setParentSearch] = useState("");
@@ -71,8 +82,10 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
     return issues.filter((i) => !i.parent_id && !isTerminal(i.status) && (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q)));
   }, [issues, parentSearch]);
 
-  const selectLabel = (l: string) => { setLabels([l]); setLabelOpen(false); };
-  const toggleAdditionalLabel = (l: string) => { setAdditionalLabels((prev) => prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]); };
+  const selectLabel = (l: string) => { setField("labels")([l]); setLabelOpen(false); };
+  const toggleAdditionalLabel = (l: string) => {
+    setForm((f) => ({ ...f, additionalLabels: f.additionalLabels.includes(l) ? f.additionalLabels.filter((x) => x !== l) : [...f.additionalLabels, l] }));
+  };
 
   useEffect(() => {
     if (!labelOpen) return;
@@ -88,36 +101,28 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
     setLabelOpen(!labelOpen);
   };
 
-  const hasContent = title.trim() !== "" || description.trim() !== "";
-
-  const resetForm = () => {
-    setTitle(""); setDescription(""); setLabels(["feature"]); setStatus("BACKLOG"); setEstimate("0"); setParentId(""); setAssignee(""); setAdditionalLabels([]); setMoreOpen(false); setConfirmDiscard(false);
-  };
+  const hasContent = formHasContent(form);
+  // A new form is worth keeping once it has text; a reopened draft once it differs from the saved version.
+  const isDirty = draft ? !formsEqual(form, baseline) : hasContent;
 
   const handleClose = () => {
-    if (confirmDiscard) { setConfirmDiscard(false); return; }
-    if (!hasContent) { resetForm(); onClose(); return; }
-    setConfirmDiscard(true);
+    if (confirm) { setConfirm(null); return; }
+    if (!isDirty) { onClose(); return; }
+    setConfirm("close");
   };
 
-  const handleDiscard = () => { resetForm(); onClose(); };
-  const handleCancelDiscard = useCallback(() => setConfirmDiscard(false), []);
-
-  useKeyboardShortcuts({
-    scope: "new-issue.confirm-discard",
-    priority: "overlay",
-    enabled: confirmDiscard,
-    shortcuts: [{
-      id: "new-issue.confirm-discard.cancel",
-      key: "Escape",
-      label: "Cancel discard",
-      showInHelp: false,
-      allowInEditable: true,
-      run: () => setConfirmDiscard(false),
-    }],
-  });
-
   const canCreate = title.trim() && labels.length > 0;
+  const canSaveDraft = hasContent && !savingDraft;
+
+  const handleSaveDraft = () => {
+    if (!canSaveDraft) return;
+    saveDraft({ draftId: draft?.id, payload: draftPayloadFromForm(form) }, { onSuccess: onDraftSaved });
+  };
+
+  const handleDeleteDraft = () => {
+    if (!draft) return;
+    deleteDraft(draft.id, { onSuccess: onClose });
+  };
 
   const handleCreate = () => {
     if (!canCreate) return;
@@ -127,18 +132,12 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
     if (status !== "BACKLOG") update.status = status;
     const estimateNum = parseInt(estimate, 10);
     if (estimateNum > 0) update.estimate = estimateNum;
-    createIssue(
-      {
-        issue: { title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, sort_order: sortOrder },
-        update,
-      },
-      {
-        onSuccess: () => {
-          resetForm();
-          onCreated();
-        },
-      },
-    );
+    const vars = {
+      issue: { title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, sort_order: sortOrder },
+      update,
+    };
+    if (draft) createFromDraft({ ...vars, draftId: draft.id }, { onSuccess: onCreated });
+    else createIssue(vars, { onSuccess: () => onCreated({ draftDeleted: true }) });
   };
 
   const handleModalKeyDown = (e: React.KeyboardEvent) => {
@@ -146,7 +145,7 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="New Issue" size="2xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title={draft ? "Edit Draft" : "New Issue"} size="2xl">
       <div className="space-y-4 relative" onKeyDown={handleModalKeyDown}>
         <div className="flex items-center gap-2">
           <div>
@@ -228,23 +227,35 @@ export default function NewIssueModal({ isOpen, onClose, onCreated, issues, cont
             </div>
           )}
         </div>
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2">
+          {draft && <Button variant="ghost" size="sm" onClick={() => setConfirm("delete")}>Discard draft</Button>}
+          <div className="flex-1" />
           <Button variant="ghost" size="sm" onClick={handleClose}>Cancel</Button>
+          <Button variant="secondary" size="sm" onClick={handleSaveDraft} disabled={!canSaveDraft} loading={savingDraft}>Save draft</Button>
           <Button size="sm" onClick={handleCreate} disabled={!canCreate || saving} loading={saving}>Create Issue</Button>
         </div>
-        {confirmDiscard && createPortal(
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/30" onClick={handleCancelDiscard} aria-hidden="true" />
-            <div role="alertdialog" aria-labelledby="discard-title" aria-describedby="discard-desc" className="relative bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] p-5 max-w-sm w-full">
-              <h3 id="discard-title" className="text-sm font-semibold text-[var(--color-text-primary)]">Discard this issue?</h3>
-              <p id="discard-desc" className="text-sm text-[var(--color-text-secondary)] mt-3">Your issue draft has unsaved changes.</p>
-              <div className="flex items-center justify-end gap-2 mt-4">
-                <Button variant="ghost" size="sm" onClick={handleCancelDiscard}>Cancel</Button>
-                <Button variant="danger" size="sm" onClick={handleDiscard}>Discard</Button>
-              </div>
-            </div>
-          </div>,
-          document.body,
+        {confirm === "close" && (
+          <ConfirmDialog
+            scope="new-issue.confirm-discard"
+            title={draft ? "Discard changes?" : "Discard this issue?"}
+            description={draft ? "Your changes to this draft are not saved." : "Your issue has unsaved changes."}
+            onCancel={() => setConfirm(null)}
+          >
+            <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button variant="secondary" size="sm" onClick={handleSaveDraft} disabled={!canSaveDraft} loading={savingDraft}>Save draft</Button>
+            <Button variant="danger" size="sm" onClick={onClose}>Discard</Button>
+          </ConfirmDialog>
+        )}
+        {confirm === "delete" && (
+          <ConfirmDialog
+            scope="new-issue.confirm-delete-draft"
+            title="Discard this draft?"
+            description="The draft will be deleted. This cannot be undone."
+            onCancel={() => setConfirm(null)}
+          >
+            <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button variant="danger" size="sm" onClick={handleDeleteDraft} loading={deletingDraft}>Discard draft</Button>
+          </ConfirmDialog>
         )}
       </div>
     </Modal>

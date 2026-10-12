@@ -124,6 +124,12 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		handleCap("POST /api/issues/{id}/merge", "issue.merge", s.handleMergeIssue)
 		handleCap("POST /api/issues/{id}/start", "issue.start", s.handleStartWork)
 		handleCap("POST /api/inbox/read", "issue.read", s.handleInboxRead)
+
+		// Issue drafts (unrelated to POST /api/draft above)
+		handleCap("GET /api/issue-drafts", "issue.create", s.handleListIssueDrafts)
+		handleCap("POST /api/issue-drafts", "issue.create", s.handleCreateIssueDraft)
+		handleCap("PUT /api/issue-drafts/{id}", "issue.create", s.handleUpdateIssueDraft)
+		handleCap("DELETE /api/issue-drafts/{id}", "issue.create", s.handleDeleteIssueDraft)
 	}
 
 	// MCP endpoint (when configured)

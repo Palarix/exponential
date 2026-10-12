@@ -1,8 +1,8 @@
-import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile } from './types';
+import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload } from './types';
 
 const API_BASE = '/api';
 
-export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile };
+export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload };
 
 export class ApiError extends Error {
   status: number;
@@ -62,6 +62,31 @@ export async function createIssue(payload: { title: string; description?: string
     body: JSON.stringify({ issue_id: '', type: 'CREATE', payload }),
   });
   return data.issue_id;
+}
+
+// Issue drafts: unfinished new issues. Unrelated to the /api/draft write endpoint above.
+export async function fetchIssueDrafts(): Promise<IssueDraft[]> {
+  return request(`${API_BASE}/issue-drafts`);
+}
+
+export async function createIssueDraft(payload: IssueDraftPayload): Promise<IssueDraft> {
+  return request(`${API_BASE}/issue-drafts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateIssueDraft(draftId: string, payload: IssueDraftPayload): Promise<IssueDraft> {
+  return request(`${API_BASE}/issue-drafts/${encodeURIComponent(draftId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteIssueDraft(draftId: string): Promise<void> {
+  return request(`${API_BASE}/issue-drafts/${encodeURIComponent(draftId)}`, { method: 'DELETE' });
 }
 
 export interface HistoryEvent {

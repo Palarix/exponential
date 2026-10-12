@@ -3,9 +3,9 @@ import { keepPreviousData, QueryClient, useQuery, useQueryClient } from "@tansta
 import {
   fetchActivity, fetchArtifactContent, fetchCommitDetail, fetchCommitDiff, fetchConfig, fetchCycleProgress, fetchCycles,
   fetchInbox, fetchInboxStatus, fetchInstances, fetchIssueCommits, fetchIssueDiff, fetchIssueHistory, fetchIssues,
-  fetchLocalWorktree, fetchMergeability, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
+  fetchIssueDrafts, fetchLocalWorktree, fetchMergeability, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
 } from "./client";
-import type { Issue, InboxStatus } from "./types";
+import type { Issue, InboxStatus, IssueDraft } from "./types";
 import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
 import { invalidateOnServerEvent, queryKeys } from "./query-keys";
 import { useToast } from "../components/ui/ToastContext";
@@ -52,6 +52,12 @@ export function useInbox() {
     unread: status.data?.unread ?? 0,
   };
 }
+
+/** The current user's issue drafts, or `[]` while loading or without access. */
+export function useIssueDrafts(): IssueDraft[] {
+  return useQuery({ queryKey: queryKeys.issueDrafts, queryFn: fetchIssueDrafts }).data ?? EMPTY_DRAFTS;
+}
+const EMPTY_DRAFTS: IssueDraft[] = [];
 
 export function useMarkInboxRead(): () => Promise<void> {
   const qc = useQueryClient();

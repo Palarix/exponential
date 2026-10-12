@@ -144,3 +144,39 @@ func TestBroadcastEvent_NilHub(t *testing.T) {
 	// Should not panic
 	s.broadcastEvent("UPDATE", "test-123")
 }
+
+func TestHandleSSE_StreamsDraftChanged(t *testing.T) {
+	s := setupTestServer(t)
+	s.SSEHub = NewSSEHub()
+	srv := httptest.NewServer(s.SetupRoutes())
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/events", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /api/events: %v", err)
+	}
+	defer resp.Body.Close()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		s.SSEHub.Broadcast(SSEEvent{Type: "draft_changed", IssueID: "draft-0123abcd"})
+	}()
+
+	scanner := bufio.NewScanner(resp.Body)
+	var event string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if name, ok := strings.CutPrefix(line, "event: "); ok {
+			event = name
+		}
+		if strings.Contains(line, "draft-0123abcd") {
+			break
+		}
+	}
+	if event != "draft_changed" {
+		t.Errorf("expected draft_changed event, got %q", event)
+	}
+}

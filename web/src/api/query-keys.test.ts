@@ -57,6 +57,7 @@ describe("invalidateOnServerEvent", () => {
       queryKeys.metrics, queryKeys.activity, queryKeys.timeline(100),
       queryKeys.user, queryKeys.config, queryKeys.instances,
       queryKeys.issueHistory(makeIssue({ id: "x" })),
+      queryKeys.issueDrafts,
     ];
     for (const k of keys) qc.setQueryData(k, "data");
     return qc;
@@ -66,7 +67,7 @@ describe("invalidateOnServerEvent", () => {
   it("invalidates everything server events can change", async () => {
     const qc = seeded();
     await invalidateOnServerEvent(qc);
-    for (const k of [queryKeys.issues, queryKeys.inboxStatus, queryKeys.cycleProgress("c1"), queryKeys.metrics, queryKeys.activity, queryKeys.timeline(100)]) {
+    for (const k of [queryKeys.issues, queryKeys.inboxStatus, queryKeys.cycleProgress("c1"), queryKeys.metrics, queryKeys.activity, queryKeys.timeline(100), queryKeys.issueDrafts]) {
       expect(invalidated(qc, k), JSON.stringify(k)).toBe(true);
     }
   });

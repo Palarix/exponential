@@ -108,6 +108,26 @@ export interface InboxItem {
   on_behalf_of?: string;
 }
 
+/** Fields of the new-issue modal, saved as an issue draft (`.xpo/drafts/`). */
+export interface IssueDraftPayload {
+  title: string;
+  description?: string;
+  labels?: string[];
+  additional_labels?: string[];
+  status?: string;
+  estimate?: number;
+  parent_id?: string;
+  assignee?: string;
+}
+
+export interface IssueDraft {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  payload: IssueDraftPayload;
+}
+
 export interface InboxStatus {
   last_read: string;
   unread: number;

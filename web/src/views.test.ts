@@ -19,7 +19,7 @@ describe("VIEWS registry", () => {
 
   it("lists views in sidebar order", () => {
     expect(VIEWS.map((v) => v.id)).toEqual([
-      "dashboard", "backlog", "board", "cycles", "timeline", "labels", "dependencies", "my-issues", "inbox",
+      "dashboard", "backlog", "board", "cycles", "timeline", "labels", "dependencies", "my-issues", "inbox", "drafts",
     ]);
   });
 
@@ -34,12 +34,14 @@ describe("VIEWS registry", () => {
   it("maps go keys to views", () => {
     expect(VIEW_BY_GO_KEY).toEqual({
       o: "dashboard", i: "backlog", b: "board", n: "inbox", d: "dependencies",
-      l: "labels", c: "cycles", m: "my-issues", t: "timeline",
+      l: "labels", c: "cycles", m: "my-issues", t: "timeline", r: "drafts",
     });
   });
 
-  it("only cycles requires the cycles feature", () => {
-    expect(VIEWS.filter((v) => v.requires).map((v) => v.id)).toEqual(["cycles"]);
+  it("gates cycles on the feature and drafts on having issue drafts", () => {
+    expect(Object.fromEntries(VIEWS.filter((v) => v.requires).map((v) => [v.id, v.requires]))).toEqual({
+      cycles: "cycles", drafts: "drafts",
+    });
   });
 });
 
@@ -49,6 +51,7 @@ describe("parseRoute", () => {
     expect(parseRoute("#/board")).toEqual(route({ view: "board" }));
     expect(parseRoute("#/my-issues")).toEqual(route({ view: "my-issues" }));
     expect(parseRoute("#timeline")).toEqual(route({ view: "timeline" }));
+    expect(parseRoute("#/drafts")).toEqual(route({ view: "drafts" }));
   });
 
   it("falls back to dashboard for empty or unknown routes", () => {

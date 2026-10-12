@@ -7,7 +7,8 @@ export type ViewId =
   | "dependencies"
   | "labels"
   | "my-issues"
-  | "timeline";
+  | "timeline"
+  | "drafts";
 
 export interface ViewDef {
   id: ViewId;
@@ -21,8 +22,8 @@ export interface ViewDef {
   goKey: string;
   /** Sidebar section; `personal` views render below the divider. */
   section: "main" | "personal";
-  /** Hidden from the sidebar unless the feature is enabled. */
-  requires?: "cycles";
+  /** Hidden from the sidebar unless cycles are enabled, or issue drafts exist. */
+  requires?: "cycles" | "drafts";
 }
 
 /** The single source of view metadata, in sidebar order. */
@@ -36,6 +37,7 @@ export const VIEWS: readonly ViewDef[] = [
   { id: "dependencies", route: "dependencies", title: "Dependencies", navLabel: "Dependencies", goKey: "d", section: "main" },
   { id: "my-issues", route: "my-issues", title: "My Issues", navLabel: "My Issues", goKey: "m", section: "personal" },
   { id: "inbox", route: "inbox", title: "Inbox", navLabel: "Notifications", goKey: "n", section: "personal" },
+  { id: "drafts", route: "drafts", title: "Drafts", navLabel: "Drafts", goKey: "r", section: "personal", requires: "drafts" },
 ];
 
 export const VIEW_BY_ID = Object.fromEntries(VIEWS.map((v) => [v.id, v])) as Record<ViewId, ViewDef>;

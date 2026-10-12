@@ -23,6 +23,7 @@ export const queryKeys = {
   timelineAll: ["timeline"],
   timeline: (limit: number) => ["timeline", limit],
   instances: ["instances"],
+  issueDrafts: ["issue-drafts"],
   commitDetail: (sha: string) => ["commit", sha],
   issueHistory: (issue: IssueRef) => ["issue", issue.id, "history", issue.updated_at],
   artifact: (issue: IssueRef, filename: string) => ["issue", issue.id, "artifact", filename, issue.updated_at],
@@ -41,6 +42,7 @@ export const SSE_INVALIDATED_KEYS = [
   queryKeys.metrics,
   queryKeys.activity,
   queryKeys.timelineAll,
+  queryKeys.issueDrafts,
 ] as const;
 
 export function invalidateOnServerEvent(qc: QueryClient): Promise<void> {

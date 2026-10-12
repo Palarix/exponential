@@ -2,6 +2,7 @@ import { createContext } from "react";
 import type { ViewId } from "../views";
 import type { BacklogFilters } from "../components/Backlog/filters";
 import type { ViewStateStore } from "./view-state-utils";
+import type { IssueDraft } from "../api/types";
 
 /** One-shot payload handed to the target view of a `navigate` call. */
 export interface NavIntent {
@@ -15,6 +16,8 @@ export interface AppNav {
   openIssue(issueId: string): void;
   closeIssue(): void;
   newIssue(): void;
+  /** Opens the new-issue modal filled from an issue draft. */
+  openDraft(draft: IssueDraft): void;
   cycleId: string | null;
   setCycleId(cycleId: string | null): void;
   depFocusId: string | null;

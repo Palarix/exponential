@@ -102,6 +102,8 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 				eventName = "issue_commented"
 			case "REFRESH":
 				eventName = "refresh"
+			case "draft_changed":
+				eventName = "draft_changed"
 			}
 			fmt.Fprintf(w, "event: %s\ndata: {\"issue_id\":%q,\"type\":%q,\"timestamp\":%q}\n\n",
 				eventName, evt.IssueID, evt.Type, time.Now().UTC().Format(time.RFC3339))

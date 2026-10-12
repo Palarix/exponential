@@ -24,6 +24,7 @@ export function useSSE({ onEvent }: SSEOptions) {
       es.addEventListener("issue_merged", handleEvent);
       es.addEventListener("issue_commented", handleEvent);
       es.addEventListener("refresh", handleEvent);
+      es.addEventListener("draft_changed", handleEvent);
 
       es.onerror = () => {
         es?.close();

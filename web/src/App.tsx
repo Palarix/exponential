@@ -7,7 +7,8 @@ import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
 import { useKeyboardShortcuts } from './keyboard';
-import { useConfig, useInbox, useInvalidateOnServerEvent, useIssueList, useIssues } from './api/queries';
+import { useConfig, useInbox, useInvalidateOnServerEvent, useIssueDrafts, useIssueList, useIssues } from './api/queries';
+import type { IssueDraft } from './api/types';
 import { effectiveLabelColors } from './api/query-utils';
 import { AppNavContext, ViewStateContext, type AppNav, type NavIntent } from './app/contexts';
 import { createViewStateStore } from './app/view-state-utils';
@@ -34,6 +35,12 @@ function App() {
   const [viewStateStore] = useState(() => createViewStateStore(safeLocalStorage()));
 
   const [showNewIssue, setShowNewIssue] = useState(false);
+  // Each open remounts the modal, so its form starts from the draft (or empty).
+  const [newIssueSession, setNewIssueSession] = useState<{ key: number; draft: IssueDraft | null }>({ key: 0, draft: null });
+  const openNewIssue = useCallback((draft: IssueDraft | null = null) => {
+    setNewIssueSession(s => ({ key: s.key + 1, draft }));
+    setShowNewIssue(true);
+  }, []);
   const [showPalette, setShowPalette] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
@@ -41,6 +48,7 @@ function App() {
   const issues = useIssueList();
   const config = useConfig();
   const { unread: inboxUnread } = useInbox();
+  const draftCount = useIssueDrafts().length;
   const showToast = useToast();
 
   useSSE({ onEvent: useInvalidateOnServerEvent() });
@@ -61,7 +69,8 @@ function App() {
     navigate,
     openIssue,
     closeIssue: () => setRoute(r => ({ ...r, issueId: null })),
-    newIssue: () => setShowNewIssue(true),
+    newIssue: () => openNewIssue(),
+    openDraft: (draft) => openNewIssue(draft),
     cycleId: route.cycleId,
     setCycleId: (cycleId) => setRoute(r => ({ ...r, cycleId })),
     depFocusId: route.depFocusId,
@@ -72,7 +81,7 @@ function App() {
       intentsRef.current.delete(view);
       return intent;
     },
-  }), [route.view, route.cycleId, route.depFocusId, navigate, openIssue]);
+  }), [route.view, route.cycleId, route.depFocusId, navigate, openIssue, openNewIssue]);
 
   useEffect(() => {
     const hash = formatRoute(route);
@@ -111,7 +120,7 @@ function App() {
     priority: 'global',
     enabled: !showPalette && !showNewIssue,
     shortcuts: [
-      { id: 'issue.create', key: 'c', label: 'Create new issue', group: 'Global', run: () => setShowNewIssue(true) },
+      { id: 'issue.create', key: 'c', label: 'Create new issue', group: 'Global', run: () => openNewIssue() },
       ...Object.entries(VIEW_BY_GO_KEY).map(([key, target]) => ({
         id: `navigate.${target}`,
         key: ['g', key] as const,
@@ -135,9 +144,10 @@ function App() {
           activeView: route.view,
           onViewChange: navigate,
           onSearch: () => setShowPalette(true),
-          onNewIssue: () => setShowNewIssue(true),
+          onNewIssue: () => openNewIssue(),
           cyclesEnabled: config.cyclesEnabled,
           inboxUnread,
+          draftCount,
         }}
         version={config.version}
         connected={!issuesQuery.isError}
@@ -150,11 +160,18 @@ function App() {
       </Layout>
 
       <NewIssueModal
+        key={newIssueSession.key}
+        draft={newIssueSession.draft}
         isOpen={showNewIssue}
         onClose={() => setShowNewIssue(false)}
-        onCreated={() => {
+        onCreated={({ draftDeleted }) => {
           setShowNewIssue(false);
-          showToast("Issue created");
+          if (draftDeleted) showToast("Issue created");
+          else showToast("Issue created, but its draft could not be deleted", { variant: "error" });
+        }}
+        onDraftSaved={() => {
+          setShowNewIssue(false);
+          showToast("Draft saved");
         }}
         issues={issues}
         contributors={config.contributors}
@@ -166,7 +183,7 @@ function App() {
         issues={issues}
         onIssueSelect={(issue) => openIssue(issue.id)}
         onViewChange={navigate}
-        onNewIssue={() => setShowNewIssue(true)}
+        onNewIssue={() => openNewIssue()}
       />
       <KeyboardHelp
         isOpen={showKeyboardHelp}

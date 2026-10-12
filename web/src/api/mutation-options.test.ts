@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
-  addCommentOptions, addLabelOptions, createIssueOptions, deleteIssueOptions, deleteLabelOptions, mergeIssueOptions,
-  startWorkOptions, updateIssuesOptions, updateLabelOptions, type MutationApi,
+  addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions, deleteIssueOptions,
+  deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions, updateLabelOptions,
+  type MutationApi,
 } from "./mutation-options";
 import { queryKeys } from "./query-keys";
 import type { RawConfig } from "./query-utils";
@@ -25,6 +26,9 @@ function fakeApi(): MutationApi {
     addConfigLabel: vi.fn().mockResolvedValue(undefined),
     updateConfigLabel: vi.fn().mockResolvedValue(undefined),
     deleteConfigLabel: vi.fn().mockResolvedValue(undefined),
+    createIssueDraft: vi.fn().mockResolvedValue({ id: "draft-00000001" }),
+    updateIssueDraft: vi.fn().mockResolvedValue({ id: "draft-00000001" }),
+    deleteIssueDraft: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -127,6 +131,51 @@ describe("createIssueOptions", () => {
     await run(createIssueOptions(qc, api), { issue: { title: "T" }, update: {} });
     await run(createIssueOptions(qc, api), { issue: { title: "T" } });
     expect(api.addDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe("issue draft mutations", () => {
+  const payload = { title: "T", labels: ["feature"] };
+
+  it("saveIssueDraft creates a new draft when there is no id", async () => {
+    await run(saveIssueDraftOptions(qc, api), { payload });
+    expect(api.createIssueDraft).toHaveBeenCalledWith(payload);
+    expect(api.updateIssueDraft).not.toHaveBeenCalled();
+    expect(invalidated).toEqual([[...queryKeys.issueDrafts]]);
+  });
+
+  it("saveIssueDraft updates the same draft when an id is given", async () => {
+    await run(saveIssueDraftOptions(qc, api), { draftId: "draft-00000001", payload });
+    expect(api.updateIssueDraft).toHaveBeenCalledWith("draft-00000001", payload);
+    expect(api.createIssueDraft).not.toHaveBeenCalled();
+  });
+
+  it("deleteIssueDraft deletes and refetches the drafts", async () => {
+    await run(deleteIssueDraftOptions(qc, api), "draft-00000001");
+    expect(api.deleteIssueDraft).toHaveBeenCalledWith("draft-00000001");
+    expect(invalidated).toEqual([[...queryKeys.issueDrafts]]);
+  });
+
+  it("createIssueFromDraft creates the issue, then deletes the draft", async () => {
+    const res = await run(createIssueFromDraftOptions(qc, api), {
+      issue: { title: "T" }, update: { status: "PLANNED" }, draftId: "draft-00000001",
+    });
+    expect(res).toEqual({ issueId: "xpo-new111", draftDeleted: true });
+    expect(api.addDraft).toHaveBeenCalledWith("xpo-new111", "UPDATE", { status: "PLANNED" });
+    expect(api.deleteIssueDraft).toHaveBeenCalledWith("draft-00000001");
+    expect(invalidated).toEqual([[...queryKeys.issues], [...queryKeys.issueDrafts]]);
+  });
+
+  it("createIssueFromDraft still resolves when the draft delete fails", async () => {
+    vi.mocked(api.deleteIssueDraft).mockRejectedValue(new Error("gone"));
+    const res = await run(createIssueFromDraftOptions(qc, api), { issue: { title: "T" }, draftId: "draft-00000001" });
+    expect(res).toEqual({ issueId: "xpo-new111", draftDeleted: false });
+  });
+
+  it("createIssueFromDraft keeps the draft when the create fails", async () => {
+    vi.mocked(api.createIssue).mockRejectedValue(new Error("bad parent"));
+    await expect(run(createIssueFromDraftOptions(qc, api), { issue: { title: "T" }, draftId: "draft-00000001" })).rejects.toThrow("bad parent");
+    expect(api.deleteIssueDraft).not.toHaveBeenCalled();
   });
 });
 
