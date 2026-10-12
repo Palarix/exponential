@@ -21,6 +21,7 @@ export { default as PriorityPicker } from './PriorityPicker';
 export { default as EstimateBadge } from './EstimateBadge';
 export { default as EstimatePicker } from './EstimatePicker';
 export { default as CyclePicker } from './CyclePicker';
+export { default as AssigneePicker } from './AssigneePicker';
 export { Menu, MenuItem, SubMenuTrigger, MenuDivider, MenuLabel, MenuFilter } from './Menu';
 export { SubMenu } from './SubMenu';
 export { default as ContextMenu } from './ContextMenu';

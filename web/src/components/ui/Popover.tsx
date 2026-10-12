@@ -91,6 +91,8 @@ export function PopoverPanel({ children, className }: { children: ReactNode; cla
   return (
     <div className={cn(
       "min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1",
+      // A bare Menu brings its own even inset; don't stack the panel's on top of it.
+      "has-[>[role=menu]]:py-0",
       className,
     )}>
       {children}

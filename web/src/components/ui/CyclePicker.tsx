@@ -9,9 +9,11 @@ interface CyclePickerProps {
   /** Called with the chosen cycle ID, or "" for "No cycle". */
   onSelect: (cycleId: string) => void;
   onClose?: () => void;
+  /** Accessible name for the menu. */
+  ariaLabel?: string;
 }
 
-export default function CyclePicker({ cycles, current, onSelect, onClose }: CyclePickerProps) {
+export default function CyclePicker({ cycles, current, onSelect, onClose, ariaLabel = "Change cycle" }: CyclePickerProps) {
   const [filterText, setFilterText] = useState("");
   const visible = useMemo(() => filterCycles(cycles, filterText), [cycles, filterText]);
   const hasQuery = filterText.trim().length > 0;
@@ -20,13 +22,13 @@ export default function CyclePicker({ cycles, current, onSelect, onClose }: Cycl
 
   if (cycles.length === 0) {
     return (
-      <Menu onClose={onClose} bare autoFocus={false}>
+      <Menu onClose={onClose} aria-label={ariaLabel} bare autoFocus={false}>
         <MenuLabel>Cycles not configured</MenuLabel>
       </Menu>
     );
   }
   return (
-    <Menu onClose={onClose} bare autoFocus={false} maxHeight="18rem">
+    <Menu onClose={onClose} aria-label={ariaLabel} bare autoFocus={false} maxHeight="18rem">
       <MenuFilter value={filterText} onChange={setFilterText} placeholder="Move to cycle..." />
       {current && !hasQuery && (
         <MenuItem label="No cycle" onClick={() => select("")} />
@@ -35,6 +37,7 @@ export default function CyclePicker({ cycles, current, onSelect, onClose }: Cycl
         <MenuItem
           key={c.id}
           label={cycleLabel(c)}
+          radio
           checked={c.id === current}
           onClick={() => select(c.id)}
         />

@@ -6,16 +6,19 @@ interface StatusPickerProps {
   current: string;
   onSelect: (status: string) => void;
   onClose?: () => void;
+  /** Accessible name for the menu. */
+  ariaLabel?: string;
 }
 
-export default function StatusPicker({ current, onSelect, onClose }: StatusPickerProps) {
+export default function StatusPicker({ current, onSelect, onClose, ariaLabel = "Change status" }: StatusPickerProps) {
   return (
-    <Menu onClose={onClose} bare>
+    <Menu onClose={onClose} aria-label={ariaLabel} bare>
       {STATUS_OPTIONS.map((opt, i) => (
         <MenuItem
           key={opt.value}
           label={opt.label}
           icon={<StatusIcon status={opt.value} size={14} />}
+          radio
           checked={opt.value === current}
           shortcut={String(i + 1)}
           onClick={() => { onSelect(opt.value); onClose?.(); }}

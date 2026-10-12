@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useContext, useRef } from "react";
 import type { Issue } from "../../api/client";
 import { useCycles } from "../../api/queries";
 import { useDeleteIssue, useStartWork, type IssuePatch } from "../../api/mutations";
-import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
+import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
 import { Flag, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { cn } from "../../utils/cn";
@@ -15,16 +15,15 @@ import { collectKnownPeople } from "../../utils/issues";
 import { PriorityIcon } from "./icons";
 import { RelationsAddPopover, RelationsCard } from "./Relations";
 import { relationshipsLabel } from "./relation-utils";
+import { popoverTriggerProps } from "./popover-trigger";
 import { Triangle as EstimateIcon } from "lucide-react";
-import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 
 interface PropertySidebarProps {
   issue: Issue;
   issues: Issue[];
   openPopover: string | null;
   setOpenPopover: (v: string | null) => void;
-  popoverIndex: number;
-  setPopoverIndex: (v: number) => void;
   saveUpdate: (patch: Partial<Issue>, alsoUpdate?: IssuePatch[]) => void;
   onClose: () => void;
   contributors: string[];
@@ -36,15 +35,12 @@ export default function PropertySidebar({
   issues,
   openPopover,
   setOpenPopover,
-  popoverIndex,
-  setPopoverIndex,
   saveUpdate,
   onClose,
   contributors,
   onOpenMerge,
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
-  const [assigneeSearch, setAssigneeSearch] = useState("");
   const { cycles } = useCycles();
   const defaultLabels = useContext(DefaultLabelsContext);
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
@@ -138,12 +134,7 @@ export default function PropertySidebar({
     [saveUpdate],
   );
 
-  const knownPeople = useMemo(() => {
-    const all = collectKnownPeople(issues, contributors);
-    const q = assigneeSearch.toLowerCase();
-    if (!q) return all;
-    return all.filter(p => p.toLowerCase().includes(q));
-  }, [issues, contributors, assigneeSearch]);
+  const knownPeople = useMemo(() => collectKnownPeople(issues, contributors), [issues, contributors]);
 
   const allKnownLabels = useAllLabels(issues);
 
@@ -194,6 +185,7 @@ export default function PropertySidebar({
                 <Button
                   variant="ghost"
                   size="sm"
+                  {...popoverTriggerProps("status", openPopover)}
                   onClick={() => setOpenPopover(openPopover === "status" ? null : "status")}
                   className="w-full justify-start"
                 >
@@ -205,29 +197,7 @@ export default function PropertySidebar({
                 {openPopover === "status" && (
                   <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverPanel>
-                      <PopoverHeader>Change status...</PopoverHeader>
-                      {STATUS_OPTIONS.map((opt, i) => {
-                        const isCurrent = opt.value === issue.status;
-                        const isFocused = i === popoverIndex;
-                        return (
-                          <button
-                            key={opt.value}
-                            onClick={() => handleStatusChange(opt.value)}
-                            onMouseEnter={() => setPopoverIndex(i)}
-                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                          >
-                            <StatusIcon status={opt.value} size={16} />
-                            <span>{opt.label}</span>
-                            {isCurrent ? (
-                              <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : (
-                              <span className="ml-auto text-xs text-[var(--color-text-muted)]">{i + 1}</span>
-                            )}
-                          </button>
-                        );
-                      })}
+                      <StatusPicker current={issue.status} onSelect={handleStatusChange} onClose={() => setOpenPopover(null)} />
                     </PopoverPanel>
                   </Popover>
                 )}
@@ -240,6 +210,7 @@ export default function PropertySidebar({
                 <Button
                   variant="ghost"
                   size="sm"
+                  {...popoverTriggerProps("estimate", openPopover)}
                   onClick={() => setOpenPopover(openPopover === "estimate" ? null : "estimate")}
                   className="w-full justify-start"
                 >
@@ -253,26 +224,7 @@ export default function PropertySidebar({
                 {openPopover === "estimate" && (
                   <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverPanel>
-                      <PopoverHeader>Change estimate to...</PopoverHeader>
-                      {ESTIMATE_OPTIONS.map((est, i) => {
-                        const isCurrent = est === (issue.estimate || 0);
-                        const isFocused = i === popoverIndex;
-                        return (
-                          <button
-                            key={est}
-                            onClick={() => handleEstimateChange(est)}
-                            onMouseEnter={() => setPopoverIndex(i)}
-                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                          >
-                            <span>{est === 0 ? "No estimate" : `${est} Point${est !== 1 ? "s" : ""}`}</span>
-                            {isCurrent && (
-                              <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                        );
-                      })}
+                      <EstimatePicker current={issue.estimate || 0} onSelect={handleEstimateChange} onClose={() => setOpenPopover(null)} />
                     </PopoverPanel>
                   </Popover>
                 )}
@@ -285,6 +237,7 @@ export default function PropertySidebar({
                 <Button
                   variant="ghost"
                   size="sm"
+                  {...popoverTriggerProps("priority", openPopover)}
                   onClick={() => setOpenPopover(openPopover === "priority" ? null : "priority")}
                   className="w-full justify-start"
                 >
@@ -296,27 +249,7 @@ export default function PropertySidebar({
                 {openPopover === "priority" && (
                   <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverPanel>
-                      <PopoverHeader>Set priority...</PopoverHeader>
-                      {PRIORITY_OPTIONS.map((opt, i) => {
-                        const isCurrent = opt.value === (issue.priority || 0);
-                        const isFocused = i === popoverIndex;
-                        return (
-                          <button
-                            key={opt.value}
-                            onClick={() => handlePriorityChange(opt.value)}
-                            onMouseEnter={() => setPopoverIndex(i)}
-                            className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors ${isFocused ? "bg-[var(--color-hover-surface-2)]" : ""} ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}
-                          >
-                            <PriorityIcon priority={opt.value} />
-                            <span>{opt.label}</span>
-                            {isCurrent && (
-                              <svg className="w-4 h-4 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                        );
-                      })}
+                      <PriorityPicker current={issue.priority || 0} onSelect={handlePriorityChange} onClose={() => setOpenPopover(null)} />
                     </PopoverPanel>
                   </Popover>
                 )}
@@ -329,6 +262,7 @@ export default function PropertySidebar({
                 <Button
                   variant="ghost"
                   size="sm"
+                  {...popoverTriggerProps("relations", openPopover)}
                   onClick={() => setOpenPopover(openPopover === "relations" ? null : "relations")}
                   className="w-full justify-start"
                 >
@@ -355,10 +289,8 @@ export default function PropertySidebar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setOpenPopover(openPopover === "assignee" ? null : "assignee");
-                    setAssigneeSearch("");
-                  }}
+                  {...popoverTriggerProps("assignee", openPopover)}
+                  onClick={() => setOpenPopover(openPopover === "assignee" ? null : "assignee")}
                   className="w-full justify-start"
                 >
                   {issue.assignee ? (
@@ -380,34 +312,12 @@ export default function PropertySidebar({
                 {openPopover === "assignee" && (
                   <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                     <PopoverPanel>
-                      <div className="px-3 py-2">
-                        <input autoFocus value={assigneeSearch} onChange={(e) => setAssigneeSearch(e.target.value)} placeholder="Search people..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
-                      </div>
-                      <div className="border-t border-[var(--color-border-subtle)]" />
-                      <div className="max-h-60 scroll-stable">
-                        {issue.assignee && (
-                          <button onClick={() => handleAssigneeChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
-                            Remove assignee
-                          </button>
-                        )}
-                        {knownPeople.map((person) => {
-                          const isCurrent = person === issue.assignee;
-                          return (
-                            <button key={person} onClick={() => handleAssigneeChange(person)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-2)] ${isCurrent ? "text-[var(--color-accent-primary)]" : "text-[var(--color-text-primary)]"}`}>
-                              <Avatar name={person} size="sm" />
-                              <span className="truncate">{person.split(" <")[0]}</span>
-                              {isCurrent && (
-                                <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                        {knownPeople.length === 0 && (
-                          <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching people</div>
-                        )}
-                      </div>
+                      <AssigneePicker
+                        people={knownPeople}
+                        current={issue.assignee}
+                        onSelect={handleAssigneeChange}
+                        onClose={() => setOpenPopover(null)}
+                      />
                     </PopoverPanel>
                   </Popover>
                 )}
@@ -421,7 +331,8 @@ export default function PropertySidebar({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setOpenPopover(openPopover === "cycle" ? null : "cycle")}
+                    {...popoverTriggerProps("cycle", openPopover)}
+                  onClick={() => setOpenPopover(openPopover === "cycle" ? null : "cycle")}
                     className="w-full justify-start"
                   >
                     <RefreshCw className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
@@ -468,11 +379,9 @@ export default function PropertySidebar({
             )}
             <div className="relative" ref={openPopover === "labels" ? popoverAnchorRef : undefined}>
               <button
-                onClick={() => {
-                  const next = openPopover === "labels" ? null : "labels";
-                  setOpenPopover(next);
-                  if (next) setPopoverIndex(0);
-                }}
+                aria-label="Add label"
+                {...popoverTriggerProps("labels", openPopover)}
+                onClick={() => setOpenPopover(openPopover === "labels" ? null : "labels")}
                 className="w-6 h-6 flex items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

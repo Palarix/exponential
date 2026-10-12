@@ -77,7 +77,7 @@ export function SubMenu({
     const aRect = anchor.getBoundingClientRect();
     const fRect = flyout.getBoundingClientRect();
 
-    const firstItem = flyout.querySelector("[data-menu-index], [role='menuitem'], [role='menuitemcheckbox']") as HTMLElement;
+    const firstItem = flyout.querySelector("[data-menu-index], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']") as HTMLElement;
     const itemOffset = firstItem ? firstItem.getBoundingClientRect().top - fRect.top : 0;
 
     const { top, left } = computePopoverPosition(

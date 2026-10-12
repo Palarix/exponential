@@ -383,7 +383,11 @@ export function Menu({
       className={cn(
         "outline-none",
         !bare && "min-w-64 p-2 bg-[var(--color-surface-2)] border border-[var(--color-border-elevated)] rounded-[var(--radius-xl)] shadow-[var(--shadow-popover)]",
-        maxHeight && "scroll-stable px-0",
+        // Bare menus sit inside a host panel; inset the rounded rows from its edges.
+        bare && "p-1",
+        // Framed menus use the stable gutter as their side inset; bare menus already
+        // have p-1, so a reserved gutter on both edges would double it.
+        maxHeight && (bare ? "overflow-y-auto" : "scroll-stable px-0"),
         className,
       )}
     >
@@ -400,6 +404,8 @@ interface MenuItemProps extends MenuItemInternalProps {
   shortcut?: string;
   disabled?: boolean;
   checked?: boolean;
+  /** One choice among exclusive options: announced as a radio rather than a checkbox. */
+  radio?: boolean;
   active?: boolean;
   destructive?: boolean;
   onClick?: () => void;
@@ -414,6 +420,7 @@ export function MenuItem({
   shortcut,
   disabled,
   checked,
+  radio,
   active,
   destructive,
   onClick,
@@ -441,7 +448,7 @@ export function MenuItem({
 
   return (
     <button
-      role={isCheckbox ? "menuitemcheckbox" : "menuitem"}
+      role={isCheckbox ? (radio ? "menuitemradio" : "menuitemcheckbox") : "menuitem"}
       aria-checked={isCheckbox ? checked : undefined}
       aria-disabled={disabled || undefined}
       data-menu-index={_menuIndex}
@@ -456,7 +463,9 @@ export function MenuItem({
             ? "bg-[var(--color-hover-surface-4)] text-[var(--color-text-primary)]"
             : destructive
               ? "text-[var(--color-error)]"
-              : "text-[var(--color-text-secondary)]",
+              : checked
+                ? "text-[var(--color-text-primary)]"
+                : "text-[var(--color-text-secondary)]",
         disabled && "opacity-50 cursor-default",
         !disabled && !_focused && !active && "hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]",
       )}

@@ -16,8 +16,6 @@ import { linkifyIssueIds } from "../../utils/format";
 import { useKeyboardHandler } from "../../keyboard";
 import {
   STATUS_OPTIONS,
-  ESTIMATE_OPTIONS,
-  PRIORITY_OPTIONS,
 } from "../../constants";
 import SubIssuesTable from "./SubIssuesTable";
 import ArtifactList from "./ArtifactList";
@@ -71,7 +69,6 @@ export default function IssueDetail({
   const [newComment, setNewComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [openPopover, setOpenPopover] = useState<string | null>(null);
-  const [popoverIndex, setPopoverIndex] = useState(0);
   const [mergeViewOpen, setMergeViewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("details");
   const artifactFile = activeTab === "spec" ? "spec.md" : "walkthrough.md";
@@ -128,31 +125,6 @@ export default function IssueDetail({
     [issue.id, addComment, settleSave, showToast],
   );
 
-  const handleStatusChange = useCallback(
-    (newStatus: string) => {
-      if (newStatus !== issue.status)
-        saveUpdate({ status: newStatus });
-      else setOpenPopover(null);
-    },
-    [issue.status, saveUpdate],
-  );
-
-  const handleEstimateChange = useCallback(
-    (est: number) => {
-      if (est !== (issue.estimate || 0)) saveUpdate({ estimate: est });
-      else setOpenPopover(null);
-    },
-    [issue.estimate, saveUpdate],
-  );
-
-  const handlePriorityChange = useCallback(
-    (pri: number) => {
-      if (pri !== (issue.priority || 0)) saveUpdate({ priority: pri });
-      else setOpenPopover(null);
-    },
-    [issue.priority, saveUpdate],
-  );
-
   const handleKeyboard = useCallback((e: KeyboardEvent) => {
       if (isEditableTarget(e)) return;
       if (e.key === "Escape") {
@@ -162,70 +134,15 @@ export default function IssueDetail({
         return;
       }
       if (e.metaKey || e.ctrlKey) return;
-      if (openPopover) {
-        if (openPopover === "labels" || openPopover === "cycle") return;
-        const len =
-          openPopover === "status"
-            ? STATUS_OPTIONS.length
-            : openPopover === "estimate"
-              ? ESTIMATE_OPTIONS.length
-              : openPopover === "priority"
-                ? PRIORITY_OPTIONS.length
-                : 0;
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setPopoverIndex((i) => Math.min(i + 1, len - 1));
-          return;
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setPopoverIndex((i) => Math.max(i - 1, 0));
-          return;
-        }
-        if (e.key === "Enter") {
-          e.preventDefault();
-          if (openPopover === "status")
-            handleStatusChange(STATUS_OPTIONS[popoverIndex].value);
-          else if (openPopover === "estimate")
-            handleEstimateChange(ESTIMATE_OPTIONS[popoverIndex]);
-          else if (openPopover === "priority")
-            handlePriorityChange(PRIORITY_OPTIONS[popoverIndex].value);
-          return;
-        }
-        if (openPopover === "status") {
-          const num = parseInt(e.key);
-          if (num >= 1 && num <= 5 && STATUS_OPTIONS[num - 1]) {
-            handleStatusChange(STATUS_OPTIONS[num - 1].value);
-            return;
-          }
-        }
-        return;
-      }
+      // An open popover is a Menu, which owns its own navigation.
+      if (openPopover) return;
       if (e.key === "ArrowLeft" || e.key === "k") onNavigate("prev");
       if (e.key === "ArrowRight" || e.key === "j") onNavigate("next");
-      if (e.key === "s") {
-        setOpenPopover("status");
-        setPopoverIndex(
-          STATUS_OPTIONS.findIndex((o) => o.value === issue.status),
-        );
-      }
-      if (e.key === "l") {
-        setOpenPopover("labels");
-        setPopoverIndex(0);
-      }
-      if (e.key === "e") {
-        setOpenPopover("estimate");
-        setPopoverIndex(ESTIMATE_OPTIONS.indexOf(issue.estimate || 0));
-      }
-      if (e.key === "p") {
-        setOpenPopover("priority");
-        setPopoverIndex(
-          PRIORITY_OPTIONS.findIndex((o) => o.value === (issue.priority || 0)),
-        );
-      }
-      if (e.key === "a") {
-        setOpenPopover("assignee");
-      }
+      if (e.key === "s") setOpenPopover("status");
+      if (e.key === "l") setOpenPopover("labels");
+      if (e.key === "e") setOpenPopover("estimate");
+      if (e.key === "p") setOpenPopover("priority");
+      if (e.key === "a") setOpenPopover("assignee");
       if (e.key === "m") {
         e.preventDefault();
         commentRef.current?.focus();
@@ -250,14 +167,8 @@ export default function IssueDetail({
     openPopover,
     editingField,
     issue.status,
-    issue.estimate,
-    issue.priority,
     issue.id,
     saveUpdate,
-    handleStatusChange,
-    handleEstimateChange,
-    handlePriorityChange,
-    popoverIndex,
     showToast,
   ]);
 
@@ -266,7 +177,7 @@ export default function IssueDetail({
     priority: openPopover ? "control" : "view",
     handler: handleKeyboard,
     shortcuts: [
-      ["Escape", "Close issue"], ["ArrowDown", "Next option"], ["ArrowUp", "Previous option"], ["Enter", "Confirm option"],
+      ["Escape", "Close issue"],
       ["ArrowLeft", "Previous issue"], ["k", "Previous issue"], ["ArrowRight", "Next issue"], ["j", "Next issue"],
       ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"],
       ["m", "Add comment"], [".", "Copy issue ID"], ["1", "Move to Backlog"], ["2", "Move to Planned"],
@@ -619,8 +530,6 @@ export default function IssueDetail({
         issues={issues}
         openPopover={openPopover}
         setOpenPopover={setOpenPopover}
-        popoverIndex={popoverIndex}
-        setPopoverIndex={setPopoverIndex}
         saveUpdate={saveUpdate}
         onClose={onClose}
         contributors={contributors}

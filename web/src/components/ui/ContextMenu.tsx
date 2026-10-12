@@ -8,12 +8,12 @@ import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import CyclePicker from "./CyclePicker";
-import Avatar from "./Avatar";
+import AssigneePicker from "./AssigneePicker";
 import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
-import { collectKnownPeople, filterPeople } from "../../utils/issues";
+import { collectKnownPeople } from "../../utils/issues";
 import { useKeyboardShortcuts } from "../../keyboard";
-import { Menu, MenuItem, MenuDivider, MenuFilter, MenuLabel } from "./Menu";
+import { Menu, MenuItem, MenuDivider } from "./Menu";
 import { SubMenu } from "./SubMenu";
 
 interface ContextMenuProps {
@@ -50,28 +50,14 @@ function AssigneePanel({
   onUpdate: (patch: Partial<Issue>) => void;
   onClose: () => void;
 }) {
-  const [filterText, setFilterText] = useState("");
-  const allPeople = useMemo(() => collectKnownPeople(issues, contributors), [issues, contributors]);
-  const people = useMemo(() => filterPeople(allPeople, filterText), [allPeople, filterText]);
-  const hasQuery = filterText.trim().length > 0;
-
+  const people = useMemo(() => collectKnownPeople(issues, contributors), [issues, contributors]);
   return (
-    <Menu onClose={onClose} bare autoFocus={false} maxHeight="18rem">
-      <MenuFilter value={filterText} onChange={setFilterText} placeholder="Set assignee..." />
-      {issue.assignee && !hasQuery && (
-        <MenuItem label="Remove assignee" onClick={() => onUpdate({ assignee: "" })} />
-      )}
-      {people.map(person => (
-        <MenuItem
-          key={person}
-          label={person.split(" <")[0]}
-          icon={<Avatar name={person} size="sm" />}
-          checked={person === issue.assignee}
-          onClick={() => onUpdate({ assignee: person })}
-        />
-      ))}
-      {people.length === 0 && <MenuLabel>No matching people</MenuLabel>}
-    </Menu>
+    <AssigneePicker
+      people={people}
+      current={issue.assignee}
+      onSelect={person => onUpdate({ assignee: person ?? "" })}
+      onClose={onClose}
+    />
   );
 }
 
