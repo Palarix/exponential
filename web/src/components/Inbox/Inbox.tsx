@@ -39,7 +39,7 @@ export default function Inbox() {
   const { items, lastRead } = useInbox();
   const issues = useIssueList();
   const onMarkAllRead = useMarkInboxRead();
-  const { prefix, contributors } = useConfig();
+  const { contributors } = useConfig();
   const [filters, onFiltersChange] = useViewState("exponential-inbox-filters", FILTERS_CODEC);
   const user = useUser();
   const [visibleCount, setVisibleCount] = useState(GROUPS_PER_PAGE);
@@ -271,7 +271,6 @@ export default function Inbox() {
                 totalCount={issueIds.length}
                 onClose={() => setSelectedId(null)}
                 onNavigate={navigateIssue}
-                prefix={prefix}
                 contributors={contributors}
                 banner={changeSummary.actor || changeSummary.parts.length > 0 ? (
                   <div className="flex items-center gap-2 px-5 py-2 border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] shrink-0">

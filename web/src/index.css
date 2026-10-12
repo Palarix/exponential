@@ -123,6 +123,11 @@
   --color-info: #4da6e8;
   --color-info-bg: rgba(77, 166, 232, 0.12);
 
+  /* Issue ID chips — tints of the accent */
+  --color-issue-ref: color-mix(in srgb, var(--color-accent-primary) 45%, white);
+  --color-issue-ref-bg: color-mix(in srgb, var(--color-accent-primary) 18%, transparent);
+  --color-issue-ref-bg-hover: color-mix(in srgb, var(--color-accent-primary) 30%, transparent);
+
   /* Status Colors */
   --color-status-backlog: #777777;
   --color-status-planned: #a0a0a0;
@@ -411,6 +416,52 @@ body {
   color: var(--color-accent-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* Issue ID chips (IssueRef). Listed after `.prose-exponential a` so they win inside prose.
+   Inline-block with a fixed line-height gives every chip the same height whatever
+   its font; 0.875em × 1.6 stays below the surrounding line height, so lines keep
+   their spacing. */
+.issue-ref,
+.prose-exponential .issue-ref {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  line-height: 1.6;
+  color: var(--color-issue-ref);
+  background: var(--color-issue-ref-bg);
+  border-radius: var(--radius-md);
+  padding: 0 0.45em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 120ms;
+}
+
+.issue-ref:hover,
+.prose-exponential .issue-ref:hover {
+  background: var(--color-issue-ref-bg-hover);
+}
+
+/* A Markdown link with its own text, e.g. [the epic](#/issues/…). */
+.issue-ref-label,
+.prose-exponential .issue-ref-label {
+  font-family: inherit;
+}
+
+/* Inside a code span the chip keeps the code's font size. */
+code .issue-ref,
+.prose-exponential code .issue-ref {
+  font-size: inherit;
+  padding: 0 0.3em;
+}
+
+.issue-ref-missing,
+.prose-exponential .issue-ref-missing,
+.issue-ref-missing:hover,
+.prose-exponential .issue-ref-missing:hover {
+  color: var(--color-text-muted);
+  background: var(--color-surface-3);
+  cursor: help;
 }
 
 .prose-exponential blockquote {

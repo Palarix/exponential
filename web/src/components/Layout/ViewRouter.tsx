@@ -65,7 +65,7 @@ function IssueRoute({ issueId, publishedOrder, onIssueChange, onClose }: {
   onClose: () => void;
 }) {
   const issues = useIssueList();
-  const { prefix, contributors } = useConfig();
+  const { contributors } = useConfig();
   const [sortKey] = useViewState(SORT_STATE_KEY, SORT_CODEC);
   const fallbackOrder = useMemo(() => sortIssuesWithinGroups(issues, sortKey).map(i => i.id), [issues, sortKey]);
   const navigationOrder = resolveNavOrder(publishedOrder, fallbackOrder, issueId);
@@ -88,7 +88,6 @@ function IssueRoute({ issueId, publishedOrder, onIssueChange, onClose }: {
       totalCount={navigationOrder.length}
       onClose={onClose}
       onNavigate={navigate}
-      prefix={prefix}
       contributors={contributors}
     />
   );

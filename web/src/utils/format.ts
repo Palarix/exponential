@@ -133,14 +133,6 @@ export function stripMarkdown(text: string): string {
     .trim();
 }
 
-export function linkifyIssueIds(text: string, prefix: string): string {
-  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return text.replace(
-    new RegExp(`\\b(${escaped}[a-f0-9]{6})\\b`, "g"),
-    "[$1](#/issues/$1)",
-  );
-}
-
 export function fuzzyMatch(text: string, query: string): boolean {
   return fuzzyScore(text, query) > 0;
 }

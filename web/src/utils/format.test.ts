@@ -13,7 +13,6 @@ import {
   formatShortDate,
   formatTriage,
   stripMarkdown,
-  linkifyIssueIds,
   fuzzyMatch,
   fuzzyScore,
   formatDuration,
@@ -291,35 +290,6 @@ describe("stripMarkdown", () => {
 
   it("collapses whitespace", () => {
     expect(stripMarkdown("a   b\n\nc")).toBe("a b c");
-  });
-});
-
-describe("linkifyIssueIds", () => {
-  it("wraps issue IDs in markdown links", () => {
-    expect(linkifyIssueIds("see xpo-a1b2c3 for details", "xpo-")).toBe(
-      "see [xpo-a1b2c3](#/issues/xpo-a1b2c3) for details",
-    );
-  });
-
-  it("handles multiple IDs", () => {
-    const result = linkifyIssueIds("xpo-111111 and xpo-222222", "xpo-");
-    expect(result).toBe(
-      "[xpo-111111](#/issues/xpo-111111) and [xpo-222222](#/issues/xpo-222222)",
-    );
-  });
-
-  it("does not match partial IDs (fewer than 6 hex chars)", () => {
-    expect(linkifyIssueIds("xpo-abc", "xpo-")).toBe("xpo-abc");
-  });
-
-  it("does not match non-hex chars", () => {
-    expect(linkifyIssueIds("xpo-ghijkl", "xpo-")).toBe("xpo-ghijkl");
-  });
-
-  it("escapes regex special chars in prefix", () => {
-    expect(linkifyIssueIds("x.o-aabbcc done", "x.o-")).toBe(
-      "[x.o-aabbcc](#/issues/x.o-aabbcc) done",
-    );
   });
 });
 

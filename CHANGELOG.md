@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Issue ID chips: issue IDs show as accent-tinted chips that open the issue on click and show a preview on hover.
+  - **Where:** agent chat answers, your own messages, tool rows, issue descriptions, specs, walkthroughs and comments.
+  - **Code:** IDs in inline code are chips too. IDs in fenced code blocks stay plain text.
+  - **Links:** an ID inside an existing link is not wrapped again. A Markdown link to an issue with its own text keeps that text.
+  - **Unknown IDs:** a gray chip with a "not found" tooltip.
+
+  (xpo-289f40)
+
 - Agent view:
   - **Opening it:** **Agent** is the first entry in the personal section of the sidebar (`g a`). It opens a full-page chat at `#/agent`, and each chat has its own URL (`#/agent/<id>`).
   - **Empty state:** a wide composer, suggestion cards, and the 5 most recent chats.
@@ -36,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Plain issue IDs in descriptions, comments and chat answers were never linked, because the API sends the prefix without the hyphen. (xpo-b83f1c)
 - Agent chat tool calls:
   - **Arguments:** Grep patterns and other tool arguments with escaped quotes are no longer cut off (`\\{\\` instead of the pattern). They are decoded properly, which also fixes drive's spinner detail.
   - **Readable summaries:** the work list shows tool calls in words, such as "Read board.go", "Searched the code for …", "Listed issues matching …", and "Created issue …".

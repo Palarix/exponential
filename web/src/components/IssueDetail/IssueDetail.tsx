@@ -1,7 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import Markdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
 import type { Issue } from "../../api/client";
 import { useArtifact, useLocalWorktree } from "../../api/queries";
 import { useAddComment, useUpdateIssues, type IssuePatch } from "../../api/mutations";
@@ -12,7 +9,7 @@ import { ChevronRight } from "lucide-react";
 import MarkdownEditor from "../MarkdownEditor";
 import { isEditableTarget } from "../../utils/keyboard";
 import { vscodeUrl } from "../../utils/editor";
-import { linkifyIssueIds } from "../../utils/format";
+import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { useKeyboardHandler } from "../../keyboard";
 import {
   STATUS_OPTIONS,
@@ -43,7 +40,6 @@ interface IssueDetailProps {
   totalCount: number;
   onClose: () => void;
   onNavigate: (direction: "prev" | "next") => void;
-  prefix: string;
   contributors: string[];
   banner?: React.ReactNode;
 }
@@ -55,7 +51,6 @@ export default function IssueDetail({
   totalCount,
   onClose,
   onNavigate,
-  prefix,
   contributors,
   banner,
 }: IssueDetailProps) {
@@ -457,14 +452,7 @@ export default function IssueDetail({
                           className="cursor-text min-h-10 prose-exponential"
                         >
                           {issue.description ? (
-                            <Markdown
-                              remarkPlugins={[remarkGfm, remarkBreaks]}
-                            >
-                              {linkifyIssueIds(
-                                issue.description,
-                                prefix,
-                              )}
-                            </Markdown>
+                            <IssueMarkdown>{issue.description}</IssueMarkdown>
                           ) : (
                             <Text as="p" size="base">
                               Add a description...
@@ -491,7 +479,6 @@ export default function IssueDetail({
                       onAddComment={handleAddComment}
                       saving={saving}
                       commentRef={commentRef}
-                      prefix={prefix}
                     />
                   </>
                 )}
@@ -506,11 +493,7 @@ export default function IssueDetail({
                             Loading...
                           </Text>
                         ) : content ? (
-                          <Markdown
-                            remarkPlugins={[remarkGfm, remarkBreaks]}
-                          >
-                            {linkifyIssueIds(content, prefix)}
-                          </Markdown>
+                          <IssueMarkdown>{content}</IssueMarkdown>
                         ) : (
                           <Text as="p">
                             No content.

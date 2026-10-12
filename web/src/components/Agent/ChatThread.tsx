@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
 import { ChevronRight, Copy, Check } from "lucide-react";
-import { useConfig } from "../../api/queries";
-import { linkifyIssueIds } from "../../utils/format";
+import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
+import { IssueRefText } from "../IssueRef/IssueRef";
 import { splitTurn, toolSummary, turnSeconds, type ChatStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function Spinner() {
@@ -22,10 +19,9 @@ function useNow(active: boolean): number {
 }
 
 function AnswerText({ text }: { text: string }) {
-  const { prefix } = useConfig();
   return (
     <div className="prose-exponential prose-activity">
-      <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>{linkifyIssueIds(text, prefix)}</Markdown>
+      <IssueMarkdown>{text}</IssueMarkdown>
     </div>
   );
 }
@@ -44,7 +40,7 @@ function WorkStep({ step }: { step: ChatStep }) {
         {step.done ? <span className="text-[var(--color-text-muted)]">·</span> : <Spinner />}
       </span>
       <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
-      {detail && <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${code ? "font-mono" : ""}`}>{detail}</span>}
+      {detail && <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${code ? "font-mono" : ""}`}><IssueRefText text={detail} /></span>}
     </div>
   );
 }
@@ -80,7 +76,7 @@ function Turn({ turn }: { turn: ChatTurn }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-3)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
-        {turn.user.text}
+        <IssueRefText text={turn.user.text} />
       </div>
 
       {showWork && (

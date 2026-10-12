@@ -1,20 +1,17 @@
 import { Fragment, useState, useMemo } from "react";
-import Markdown from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
 import type { Issue, HistoryEvent } from "../../api/client";
 import { useIssueHistory } from "../../api/queries";
 import { ActorName, Avatar, LabelBadge, StatusIcon, Text } from "../ui";
 import { Triangle, ChevronDown } from "lucide-react";
 import {
   formatRelativeTime,
-  linkifyIssueIds,
   activityActor,
   commentAuthor,
   resolveAssignee,
   shortName,
 } from "../../utils/format";
 import { timelineConnectors } from "./activity-timeline-utils";
+import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 
 type ActivityEntry =
   | {
@@ -174,7 +171,6 @@ export default function ActivityTimeline({
   onAddComment,
   saving,
   commentRef,
-  prefix,
 }: {
   issue: Issue;
   newComment: string;
@@ -182,7 +178,6 @@ export default function ActivityTimeline({
   onAddComment: () => void;
   saving: boolean;
   commentRef: React.RefObject<HTMLTextAreaElement | null>;
-  prefix: string;
 }) {
   const history = useIssueHistory(issue);
   const [sortNewest, setSortNewest] = useState(true);
@@ -292,9 +287,7 @@ export default function ActivityTimeline({
                   </Text>
                 </div>
                 <div className="prose-exponential prose-activity">
-                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
-                    {linkifyIssueIds(entry.text, prefix)}
-                  </Markdown>
+                  <IssueMarkdown>{entry.text}</IssueMarkdown>
                 </div>
               </div>
             </div>

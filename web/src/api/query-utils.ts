@@ -17,7 +17,7 @@ export interface AppConfig {
 export function deriveAppConfig(c: RawConfig | undefined): AppConfig {
   const labels = c?.labels || {};
   return {
-    prefix: c?.prefix ?? "issue-",
+    prefix: c?.prefix ?? "issue",
     version: c?.version || "",
     projectName: c?.name || "",
     configLabels: labels,

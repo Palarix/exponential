@@ -18,7 +18,7 @@ const raw: RawConfig = {
 describe("deriveAppConfig", () => {
   it("uses App's previous defaults before config has loaded", () => {
     expect(deriveAppConfig(undefined)).toEqual({
-      prefix: "issue-",
+      prefix: "issue",
       version: "",
       projectName: "",
       configLabels: {},
