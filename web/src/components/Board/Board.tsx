@@ -15,7 +15,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { generateKeyBetween } from 'fractional-indexing';
 import type { Issue } from '../../api/client';
-import { EmptyState, Popover, PopoverPanel, StatusPicker, EstimatePicker, ContextMenu, StatusIcon } from '../ui';
+import { EmptyState, Popover, PopoverPanel, StatusPicker, EstimatePicker, AssigneePicker, ContextMenu, StatusIcon } from '../ui';
 import { LabelPicker } from '../ui';
 import { Menu, MenuItem, MenuLabel } from '../ui/Menu';
 import { sortGroup } from '../../utils/sort';
@@ -23,7 +23,9 @@ import { useAllLabels } from '../../hooks/useLabels';
 import { toggleLabel } from '../../utils/labels';
 import { isTerminal, isCompleted } from '../../constants';
 import { boardCollision } from './boardCollision';
-import { buildChildrenByParent } from '../../utils/issues';
+import { buildChildrenByParent, collectKnownPeople } from '../../utils/issues';
+import { cardPopoverAnchorSelector, type BoardPopoverType } from './board-popover';
+import { navigableColumnIds, resolveFocusColumn, stepColumn } from './board-nav';
 import { isEditableTarget } from '../../utils/keyboard';
 import { useKeyboardHandler } from '../../keyboard';
 import BoardColumn from './BoardColumn';
@@ -295,20 +297,35 @@ export default function Board() {
   const [focusCol, setFocusCol] = useState(0);
   const [focusCard, setFocusCard] = useState(0);
   const [keyboardNav, setKeyboardNav] = useState(false);
-  const [openPopover, setOpenPopover] = useState<{ issueId: string; type: "status" | "labels" | "estimate" } | null>(null);
+  const [openPopover, setOpenPopover] = useState<{ issueId: string; type: BoardPopoverType } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ issueId: string; x: number; y: number } | null>(null);
 
   const allKnownLabels = useAllLabels(issues);
+  const knownPeople = useMemo(() => collectKnownPeople(issues, contributors), [issues, contributors]);
   const openPopoverRef = useRef(openPopover);
   useEffect(() => { openPopoverRef.current = openPopover; }, [openPopover]);
   const boardRef = useRef<HTMLDivElement>(null);
+  // Quick-edit popovers anchor to their card (the assignee picker to the card's
+  // avatar), whether opened by click or keyboard; the board is only a fallback.
+  const popoverAnchorRef = useRef<HTMLElement | null>(null);
+  const openCardPopover = useCallback((issueId: string, type: BoardPopoverType) => {
+    popoverAnchorRef.current =
+      boardRef.current?.querySelector<HTMLElement>(cardPopoverAnchorSelector(issueId, type)) ?? boardRef.current;
+    setOpenPopover({ issueId, type });
+  }, [setOpenPopover]);
 
+  // Keyboard focus only visits rendered, expanded columns; an empty or vanished
+  // focus column falls back to the first one with cards.
+  const navColIds = useMemo(
+    () => navigableColumnIds(COLUMNS, hiddenColumns, collapsedCols),
+    [hiddenColumns, collapsedCols],
+  );
+  const navFocusCol = resolveFocusColumn(navColIds, focusCol, containers);
   const focusedIssueId = useMemo(() => {
-    if (!keyboardNav) return null;
-    const colId = COLUMNS[focusCol]?.id;
-    const ids = containers[colId] ?? [];
-    return ids[focusCard] ?? null;
-  }, [keyboardNav, focusCol, focusCard, containers]);
+    if (!keyboardNav || navFocusCol < 0) return null;
+    const ids = containers[navColIds[navFocusCol]] ?? [];
+    return ids[Math.min(focusCard, ids.length - 1)] ?? null;
+  }, [keyboardNav, navFocusCol, navColIds, focusCard, containers]);
 
   useEffect(() => {
     if (!keyboardNav) return;
@@ -327,49 +344,30 @@ export default function Board() {
       if (e.metaKey || e.ctrlKey) return;
       if (isDraggingRef.current) return;
 
-      const colId = COLUMNS[focusCol]?.id;
-      const colIds = containers[colId] ?? [];
+      const colIds = navFocusCol < 0 ? [] : containers[navColIds[navFocusCol]] ?? [];
 
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
         setKeyboardNav(true);
-        setFocusCard(i => Math.min(i + 1, colIds.length - 1));
+        setFocusCol(navFocusCol);
+        setFocusCard(i => Math.max(0, Math.min(i + 1, colIds.length - 1)));
         return;
       }
       if (e.key === "ArrowUp" || e.key === "k") {
         e.preventDefault();
         setKeyboardNav(true);
-        setFocusCard(i => Math.max(i - 1, 0));
+        setFocusCol(navFocusCol);
+        setFocusCard(i => Math.max(Math.min(i, colIds.length - 1) - 1, 0));
         return;
       }
-      if (e.key === "ArrowRight") {
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         e.preventDefault();
         setKeyboardNav(true);
-        setFocusCol(i => {
-          for (let n = i + 1; n < COLUMNS.length; n++) {
-            const ids = containers[COLUMNS[n].id] ?? [];
-            if (ids.length > 0 && !collapsedCols.has(COLUMNS[n].id)) {
-              setFocusCard(c => Math.min(c, ids.length - 1));
-              return n;
-            }
-          }
-          return i;
-        });
-        return;
-      }
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setKeyboardNav(true);
-        setFocusCol(i => {
-          for (let n = i - 1; n >= 0; n--) {
-            const ids = containers[COLUMNS[n].id] ?? [];
-            if (ids.length > 0 && !collapsedCols.has(COLUMNS[n].id)) {
-              setFocusCard(c => Math.min(c, ids.length - 1));
-              return n;
-            }
-          }
-          return i;
-        });
+        if (navFocusCol < 0) return;
+        const next = stepColumn(navColIds, navFocusCol, e.key === "ArrowRight" ? 1 : -1, containers);
+        const ids = containers[navColIds[next]] ?? [];
+        setFocusCol(next);
+        setFocusCard(c => Math.min(c, ids.length - 1));
         return;
       }
       if (e.key === "Enter" && focusedIssueId) {
@@ -385,17 +383,22 @@ export default function Board() {
       if (focusedIssueId) {
         if (e.key === "s") {
           e.preventDefault();
-          setOpenPopover({ issueId: focusedIssueId, type: "status" });
+          openCardPopover(focusedIssueId, "status");
           return;
         }
         if (e.key === "l") {
           e.preventDefault();
-          setOpenPopover({ issueId: focusedIssueId, type: "labels" });
+          openCardPopover(focusedIssueId, "labels");
           return;
         }
         if (e.key === "e") {
           e.preventDefault();
-          setOpenPopover({ issueId: focusedIssueId, type: "estimate" });
+          openCardPopover(focusedIssueId, "estimate");
+          return;
+        }
+        if (e.key === "a") {
+          e.preventDefault();
+          openCardPopover(focusedIssueId, "assignee");
           return;
         }
         const col = COLUMNS.find(c => c.shortcut === e.key);
@@ -408,7 +411,7 @@ export default function Board() {
           return;
         }
       }
-    }, [focusCol, containers, focusedIssueId, issuesById, onIssueClick, collapsedCols, handleQuickUpdate, setOpenPopover]);
+    }, [navFocusCol, navColIds, containers, focusedIssueId, issuesById, onIssueClick, handleQuickUpdate, openCardPopover]);
 
   useKeyboardHandler({
     scope: "board",
@@ -418,7 +421,7 @@ export default function Board() {
       ...[
         ["j", "Next card"], ["ArrowDown", "Next card"], ["k", "Previous card"], ["ArrowUp", "Previous card"],
         ["ArrowRight", "Next column"], ["ArrowLeft", "Previous column"], ["Enter", "Open issue"], [".", "Copy issue ID"],
-        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["1", "Move to Backlog"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["a", "Set assignee"], ["1", "Move to Backlog"],
         ["2", "Move to Planned"], ["3", "Move to In Progress"], ["4", "Move to Blocked"], ["5", "Move to Done"],
         ["6", "Move to Canceled"], ["7", "Move to Duplicate"],
       ].map(([key, label]) => ({
@@ -513,6 +516,12 @@ export default function Board() {
               onToggleCollapse={() => toggleCollapse(column.id)}
               onIssueClick={onIssueClick}
               onIssueContextMenu={(issue, x, y) => setContextMenu({ issueId: issue.id, x, y })}
+              openAssigneeId={openPopover?.type === "assignee" ? openPopover.issueId : null}
+              onAssigneeOpen={(issue) =>
+                openPopover?.type === "assignee" && openPopover.issueId === issue.id
+                  ? setOpenPopover(null)
+                  : openCardPopover(issue.id, "assignee")
+              }
             />
           ))}
         </div>
@@ -544,21 +553,33 @@ export default function Board() {
         return (
           <>
             {openPopover.type === "status" && (
-              <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
+              <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                 <PopoverPanel>
                   <StatusPicker current={issue.status} onSelect={v => handleQuickUpdate(issue.id, { status: v })} onClose={() => setOpenPopover(null)} />
                 </PopoverPanel>
               </Popover>
             )}
+            {openPopover.type === "assignee" && (
+              <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
+                <PopoverPanel>
+                  <AssigneePicker
+                    people={knownPeople}
+                    current={issue.assignee}
+                    onSelect={p => handleQuickUpdate(issue.id, { assignee: p ?? "" })}
+                    onClose={() => setOpenPopover(null)}
+                  />
+                </PopoverPanel>
+              </Popover>
+            )}
             {openPopover.type === "estimate" && (
-              <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
+              <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                 <PopoverPanel>
                   <EstimatePicker current={issue.estimate || 0} onSelect={v => handleQuickUpdate(issue.id, { estimate: v })} onClose={() => setOpenPopover(null)} />
                 </PopoverPanel>
               </Popover>
             )}
             {openPopover.type === "labels" && (
-              <Popover anchorRef={boardRef} onClose={() => setOpenPopover(null)}>
+              <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
                 <PopoverPanel>
                   <LabelPicker
                     allLabels={allKnownLabels}

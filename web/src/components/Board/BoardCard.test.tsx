@@ -1,0 +1,59 @@
+import { describe, expect, it } from "vitest";
+import type { ReactElement } from "react";
+import { DndContext } from "@dnd-kit/core";
+import { SortableContext } from "@dnd-kit/sortable";
+import type { Issue } from "../../api/client";
+import { makeIssue } from "../../test-utils";
+import { renderMarkup } from "../../render-markup";
+import { BoardCard, SortableBoardCard } from "./BoardCard";
+
+const meta = { childDone: 0, childTotal: 0 };
+
+function inDnd(el: ReactElement, id: string): string {
+  return renderMarkup(
+    <DndContext>
+      <SortableContext items={[id]}>{el}</SortableContext>
+    </DndContext>,
+  );
+}
+
+function renderCard(issue: Issue, assigneeOpen = false): string {
+  return inDnd(
+    <SortableBoardCard issue={issue} meta={meta} assigneeOpen={assigneeOpen} onAssigneeOpen={() => {}} />,
+    issue.id,
+  );
+}
+
+/** The assignee trigger button's markup, up to its closing tag. */
+function assigneeTrigger(html: string): string {
+  const start = html.search(/<button[^>]*data-assignee-trigger/);
+  expect(start).toBeGreaterThanOrEqual(0);
+  return html.slice(start, html.indexOf("</button>", start));
+}
+
+describe("Board card assignee trigger", () => {
+  it("shows a dashed placeholder trigger when unassigned", () => {
+    const trigger = assigneeTrigger(renderCard(makeIssue()));
+    expect(trigger).toContain('aria-label="No assignee, change assignee"');
+    expect(trigger).toContain('aria-haspopup="menu"');
+    expect(trigger).toContain('aria-expanded="false"');
+    expect(trigger).toContain("border-dashed");
+  });
+
+  it("names the trigger after the assignee", () => {
+    const trigger = assigneeTrigger(renderCard(makeIssue({ assignee: "Alice Smith <alice@x.io>" })));
+    expect(trigger).toContain('aria-label="Alice Smith, change assignee"');
+    expect(trigger).not.toContain("border-dashed");
+  });
+
+  it("marks the trigger expanded while its picker is open", () => {
+    expect(assigneeTrigger(renderCard(makeIssue(), true))).toContain('aria-expanded="true"');
+  });
+
+  it("renders a static avatar on the drag overlay", () => {
+    const issue = makeIssue();
+    const html = inDnd(<BoardCard issue={issue} meta={meta} isOverlay />, issue.id);
+    expect(html).not.toContain("data-assignee-trigger");
+    expect(html).toContain("border-dashed");
+  });
+});

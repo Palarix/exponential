@@ -6,6 +6,7 @@ import { Avatar, BranchBadge, EstimateBadge, Heading, LabelBadge, DefaultLabelsC
 import { RefreshCw, Paperclip } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { splitLabels } from "../../utils/labels";
+import { popoverTriggerProps } from "../../utils/popover-trigger";
 
 export interface CardMeta {
   parentTitle?: string;
@@ -19,12 +20,16 @@ export function SortableBoardCard({
   isFocused,
   onClick,
   onContextMenu,
+  assigneeOpen = false,
+  onAssigneeOpen,
 }: {
   issue: Issue;
   meta: CardMeta;
   isFocused?: boolean;
   onClick?: () => void;
   onContextMenu?: (x: number, y: number) => void;
+  assigneeOpen?: boolean;
+  onAssigneeOpen?: () => void;
 }) {
   const {
     attributes,
@@ -57,7 +62,11 @@ export function SortableBoardCard({
       }}
       className={`px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-2)] border cursor-pointer transition-colors duration-[var(--duration-fast)] ${isFocused ? "border-[var(--color-accent-primary)] ring-1 ring-[var(--color-accent-primary)]" : "border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:bg-[var(--color-hover-surface-2)]"}`}
     >
-      <BoardCardContent issue={issue} meta={meta} />
+      <BoardCardContent
+        issue={issue}
+        meta={meta}
+        assignee={onAssigneeOpen ? { open: assigneeOpen, onOpen: onAssigneeOpen } : undefined}
+      />
     </div>
   );
 }
@@ -80,7 +89,26 @@ export function BoardCard({
   );
 }
 
-function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
+function AssigneeAvatar({ assignee }: { assignee?: string }) {
+  return assignee ? (
+    <Avatar name={assignee} size="sm" />
+  ) : (
+    <span className="flex opacity-50">
+      <Avatar size="sm" />
+    </span>
+  );
+}
+
+function BoardCardContent({
+  issue,
+  meta,
+  assignee,
+}: {
+  issue: Issue;
+  meta: CardMeta;
+  /** Makes the avatar a picker trigger; omitted on the drag overlay. */
+  assignee?: { open: boolean; onOpen: () => void };
+}) {
   const defaultLabels = useContext(DefaultLabelsContext);
   const { primary: primaryLabels, metadata: metaLabels } = splitLabels(issue.labels || [], defaultLabels);
   const hasChildren = meta.childTotal > 0;
@@ -112,7 +140,22 @@ function BoardCardContent({ issue, meta }: { issue: Issue; meta: CardMeta }) {
         )}
         <EstimateBadge value={issue.estimate} />
         {issue.priority > 0 && <PriorityIcon priority={issue.priority} size={14} />}
-        {issue.assignee && <Avatar name={issue.assignee} size="sm" />}
+        {assignee ? (
+          <button
+            data-assignee-trigger
+            onClick={(e) => {
+              e.stopPropagation();
+              assignee.onOpen();
+            }}
+            aria-label={`${issue.assignee ? issue.assignee.split(" <")[0] : "No assignee"}, change assignee`}
+            {...popoverTriggerProps("assignee", assignee.open ? "assignee" : null)}
+            className="w-6 h-6 -m-1 flex items-center justify-center rounded cursor-pointer hover:bg-white/10 transition-colors shrink-0"
+          >
+            <AssigneeAvatar assignee={issue.assignee} />
+          </button>
+        ) : (
+          <AssigneeAvatar assignee={issue.assignee} />
+        )}
       </div>
 
       {/* Title */}

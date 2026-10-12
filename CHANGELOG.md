@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Board cards: the assignee avatar is now an assignee picker button. Unassigned cards show a muted dashed placeholder avatar. Press `a` on a focused card to open the picker (xpo-5afd82)
 - Backlog rows: the assignee avatar is now an assignee picker button, like the status, priority and estimate cells. Unassigned rows show a muted dashed placeholder avatar instead of nothing, so the column stays aligned. Press `a` on a focused row to open the picker (xpo-dcd4f6)
 - The issue Activity section reads as a timeline: a vertical rail runs through the avatar column and joins consecutive events and comment cards. When an event row wraps, its continuation lines now indent under the name instead of running under the avatar. Comment bodies (new `.prose-activity` class) and the comment box are now 14px instead of 15px (xpo-a1470f)
 - `overwrite` for the MCP `link` tool (`--overwrite` / `"overwrite": true` in the CLI): replaces an existing link of a different kind between two issues, whichever side stores it; the output lists what was replaced (`replaced`, and e.g. `Linked xpo-a relates_to xpo-b (replaced blocks)`) (xpo-c93b11)
@@ -29,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Board popovers opened with `s`, `e` and `l` (and the new assignee picker) now anchor to the focused card instead of the board's top-left corner (xpo-bfca2d)
+- Board keyboard navigation no longer focuses cards in hidden or collapsed columns. With Backlog hidden, `j` now focuses a visible card and shows the focus ring (xpo-93efdd)
 - Issue detail property popovers are now accessible:
   - **Shared pickers:** status, estimate, priority and assignee use the shared `Menu`-based pickers instead of hand-rolled lists. `Menu` owns their keyboard navigation, so number shortcuts also work for estimate and priority.
   - **ARIA:** every sidebar property trigger exposes `aria-haspopup="menu"` and `aria-expanded`, and each picker menu has an `aria-label`. Single-choice pickers (status, priority, estimate, cycle, assignee) announce their options as `menuitemradio` via a new `MenuItem` `radio` prop. Multi-select menus keep `menuitemcheckbox`.

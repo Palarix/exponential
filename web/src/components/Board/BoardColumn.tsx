@@ -20,6 +20,8 @@ export default function BoardColumn({
   onToggleCollapse,
   onIssueClick,
   onIssueContextMenu,
+  openAssigneeId,
+  onAssigneeOpen,
 }: {
   column: { id: string; label: string; shortcut?: string; isBacklog?: boolean };
   itemIds: string[];
@@ -31,6 +33,9 @@ export default function BoardColumn({
   onToggleCollapse?: () => void;
   onIssueClick?: (issue: Issue) => void;
   onIssueContextMenu?: (issue: Issue, x: number, y: number) => void;
+  /** The card whose assignee picker is open, if any. */
+  openAssigneeId?: string | null;
+  onAssigneeOpen?: (issue: Issue) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${column.id}` });
   const [showAll, setShowAll] = useState(false);
@@ -105,6 +110,8 @@ export default function BoardColumn({
                 isFocused={id === focusedId}
                 onClick={() => onIssueClick?.(issue)}
                 onContextMenu={(x, y) => onIssueContextMenu?.(issue, x, y)}
+                assigneeOpen={openAssigneeId === id}
+                onAssigneeOpen={onAssigneeOpen && (() => onAssigneeOpen(issue))}
               />
             );
           })}
