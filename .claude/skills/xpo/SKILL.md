@@ -116,6 +116,8 @@ the changes to a junior developer:
 
 Write the walkthrough **after** any user-requested corrections are applied, so it reflects the final state.
 
+Follow the **Writing style** section in `references/spec-guide.md`. Re-read the draft against it before calling `walkthrough write`.
+
 ### 9. Complete
 
 **Gate:** do not complete until ALL of the following are true:
