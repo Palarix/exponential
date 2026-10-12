@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Two issues can have at most one link between them. `link` on an already-linked pair fails unless `overwrite` is set, and `add`/`update` reject a `links` set with two entries for the same issue (create previously had no duplicate check). Pairs recorded before this rule keep working until a write changes them. `unlink` now takes its own `UnlinkToolInput` (xpo-c93b11)
 
+- Issue sidebar relations overhaul:
+  - **Relationships button:** the Parent property becomes a flag-icon Relationships button ("No relations" / "N Relationships", where the parent counts as one). It opens a popover menu that replaces the Add relation modal:
+    - Remove parent comes first when the issue has a parent.
+    - Then Parent of…, Sub-issue of…, Related to…, Blocked by…, Blocking… and Duplicate of….
+    - Then More ▸, holding Depends on…, Dependency of… and Duplicated by….
+    - Picking a kind leads to an issue search with one-line titles.
+  - **Relations card:** relations are grouped into per-kind sections worded from the viewed issue ("Blocked by" / "Blocking"). Each linked issue is a chip that shows `×` on hover and a 250 ms preview card (ID, assignee, title, status, priority). Right-click offers Change to ▸ (change a link's kind in place), Remove relation and Copy link. Clicking a chip opens the issue, and a `Waypoints` button on the card opens the dependency graph (xpo-903ca3)
+
 - One attribution rule across the web UI: when an agent acted on behalf of a person, their name renders with a dashed underline and reveals the agent on hover/focus (and to screen readers); direct actions render plain. Applies to the issue Activity timeline (events and comments), Merge view comments, Dashboard activity feed, Timeline, Inbox change summary and the sidebar assignee via a shared `ActorName` component. Replaces the spelled-out "Claude Code on behalf of Name" comment headers, and the Inbox now shows the principal instead of the raw agent (xpo-a9560c, xpo-6e0026)
 
 ### Fixed

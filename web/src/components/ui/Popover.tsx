@@ -62,6 +62,8 @@ export default function Popover({
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as Node;
+      // Submenu flyouts are portaled outside the popover but belong to it.
+      if (target instanceof Element && target.closest("[data-submenu-flyout]")) return;
       if (
         popRef.current && !popRef.current.contains(target) &&
         !(anchorRef.current && anchorRef.current.contains(target))

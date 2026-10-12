@@ -3,7 +3,7 @@ import type { Issue } from "../../api/client";
 import { useCycles } from "../../api/queries";
 import { useDeleteIssue, useStartWork, type IssuePatch } from "../../api/mutations";
 import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, PopoverHeader, LabelPicker, CyclePicker, Text } from "../ui";
-import { Folder, UserRound, RefreshCw, Trash2 } from "lucide-react";
+import { Flag, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { formatRelativeTime } from "../../utils/format";
@@ -13,18 +13,10 @@ import { toggleLabel, splitLabels } from "../../utils/labels";
 import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
 import { PriorityIcon } from "./icons";
+import { RelationsAddPopover, RelationsCard } from "./Relations";
+import { relationshipsLabel } from "./relation-utils";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, ESTIMATE_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
-
-const RELATION_TYPES = [
-  { value: "blocks", label: "Blocks" },
-  { value: "blocked_by", label: "Blocked by" },
-  { value: "depends_on", label: "Depends on" },
-  { value: "dependency_of", label: "Dependency of" },
-  { value: "duplicates", label: "Duplicates" },
-  { value: "duplicated_by", label: "Duplicated by" },
-  { value: "relates_to", label: "Relates to" },
-];
 
 interface PropertySidebarProps {
   issue: Issue;
@@ -52,10 +44,6 @@ export default function PropertySidebar({
   onOpenMerge,
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
-  const [addRelStep, setAddRelStep] = useState<"kind" | "issue" | null>(null);
-  const [addRelKind, setAddRelKind] = useState("");
-  const [addRelSearch, setAddRelSearch] = useState("");
-  const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const { cycles } = useCycles();
   const defaultLabels = useContext(DefaultLabelsContext);
@@ -136,13 +124,6 @@ export default function PropertySidebar({
     [issue.labels, saveUpdate],
   );
 
-  const handleParentChange = useCallback(
-    (parentId: string | null) => {
-      saveUpdate({ parent_id: parentId || "" });
-    },
-    [saveUpdate],
-  );
-
   const handleAssigneeChange = useCallback(
     (assignee: string | null) => {
       saveUpdate({ assignee: assignee || "" });
@@ -157,67 +138,12 @@ export default function PropertySidebar({
     [saveUpdate],
   );
 
-  const handleAddRelation = useCallback(
-    (targetId: string, kind: string) => {
-      const existing = issue.dependencies || [];
-      saveUpdate({
-        dependencies: [...existing, { source_id: issue.id, target_id: targetId, kind }],
-      });
-      setAddRelStep(null);
-      setAddRelKind("");
-      setAddRelSearch("");
-    },
-    [issue.id, issue.dependencies, saveUpdate],
-  );
-
-  const handleRemoveRelation = useCallback(
-    (index: number) => {
-      const existing = issue.dependencies || [];
-      saveUpdate({
-        dependencies: existing.filter((_, i) => i !== index),
-      });
-    },
-    [issue.dependencies, saveUpdate],
-  );
-
-  const relCandidates = useMemo(() => {
-    const linkedIds = new Set((issue.dependencies || []).map(d => d.target_id));
-    const q = addRelSearch.toLowerCase();
-    return issues.filter(i =>
-      i.id !== issue.id &&
-      !linkedIds.has(i.id) &&
-      (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
-    );
-  }, [issues, issue.id, issue.dependencies, addRelSearch]);
-
   const knownPeople = useMemo(() => {
     const all = collectKnownPeople(issues, contributors);
     const q = assigneeSearch.toLowerCase();
     if (!q) return all;
     return all.filter(p => p.toLowerCase().includes(q));
   }, [issues, contributors, assigneeSearch]);
-
-  const parentCandidates = useMemo(() => {
-    const descendants = new Set<string>();
-    const collectDescendants = (id: string) => {
-      for (const i of issues) {
-        if (i.parent_id === id) {
-          descendants.add(i.id);
-          collectDescendants(i.id);
-        }
-      }
-    };
-    collectDescendants(issue.id);
-
-    const q = parentSearch.toLowerCase();
-    return issues.filter(i =>
-      i.id !== issue.id &&
-      !descendants.has(i.id) &&
-      !i.parent_id &&
-      i.status !== 'DONE' &&
-      (!q || i.title.toLowerCase().includes(q) || i.id.toLowerCase().includes(q))
-    );
-  }, [issues, issue.id, parentSearch]);
 
   const allKnownLabels = useAllLabels(issues);
 
@@ -397,58 +323,28 @@ export default function PropertySidebar({
               </div>
             </PropertyRow>
 
-            {/* Parent */}
+            {/* Relationships */}
             <PropertyRow>
-              <div className="relative" ref={openPopover === "parent" ? popoverAnchorRef : undefined}>
+              <div className="relative" ref={openPopover === "relations" ? popoverAnchorRef : undefined}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setOpenPopover(openPopover === "parent" ? null : "parent");
-                    setParentSearch("");
-                  }}
+                  onClick={() => setOpenPopover(openPopover === "relations" ? null : "relations")}
                   className="w-full justify-start"
                 >
-                  <Folder className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                  <Flag className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                   <span className="text-sm text-[var(--color-text-primary)] truncate">
-                    {issue.parent_id
-                      ? (issues.find(i => i.id === issue.parent_id)?.title || issue.parent_id)
-                      : "No parent"}
+                    {relationshipsLabel(issue, issues)}
                   </span>
                 </Button>
-                {openPopover === "parent" && (
-                  <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>
-                    <PopoverPanel>
-                      <div className="px-3 py-2">
-                        <input autoFocus value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Search issues..." className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none" />
-                      </div>
-                      <div className="border-t border-[var(--color-border-subtle)]" />
-                      <div className="max-h-60 scroll-stable">
-                        {issue.parent_id && (
-                          <button onClick={() => handleParentChange(null)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
-                            Remove parent
-                          </button>
-                        )}
-                        {parentCandidates.slice(0, 15).map((candidate) => {
-                          const isCurrent = candidate.id === issue.parent_id;
-                          return (
-                            <button key={candidate.id} onClick={() => handleParentChange(candidate.id)} className={`flex items-center gap-2 w-full px-3 py-2 text-sm transition-colors hover:bg-[var(--color-hover-surface-2)] ${isCurrent ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-primary)]'}`}>
-                              <StatusIcon status={candidate.status} size={12} isInferred={candidate.is_inferred} />
-                              <span className="truncate">{candidate.title}</span>
-                              {isCurrent && (
-                                <svg className="w-4 h-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </button>
-                          );
-                        })}
-                        {parentCandidates.length === 0 && (
-                          <div className="px-3 py-2 text-sm text-[var(--color-text-muted)]">No matching issues</div>
-                        )}
-                      </div>
-                    </PopoverPanel>
-                  </Popover>
+                {openPopover === "relations" && (
+                  <RelationsAddPopover
+                    issue={issue}
+                    issues={issues}
+                    anchorRef={popoverAnchorRef}
+                    onClose={() => setOpenPopover(null)}
+                    saveUpdate={saveUpdate}
+                  />
                 )}
               </div>
             </PropertyRow>
@@ -657,123 +553,7 @@ export default function PropertySidebar({
           <MetaRow label="Updated" value={formatRelativeTime(issue.updated_at)} />
         </div>
 
-        {/* Relations card */}
-        <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
-          <div className="text-xs font-medium text-[var(--color-text-muted)] mb-3">Relations</div>
-          {issue.dependencies && issue.dependencies.length > 0 && (
-            <div className="space-y-1 mb-2">
-              {issue.dependencies.map((dep, i) => {
-                const target = issues.find(t => t.id === dep.target_id) ?? issues.find(t => t.id.endsWith(dep.target_id));
-                return (
-                  <div
-                    key={i}
-                    className="group flex items-center gap-2 text-sm rounded-[var(--radius-sm)] -mx-1 px-1 py-0.5 hover:bg-[var(--color-hover-surface)] cursor-pointer transition-colors"
-                    onClick={() => { window.location.hash = `#/dependencies/${issue.id}`; }}
-                  >
-                    <span className="text-[var(--color-text-muted)] shrink-0">{dep.kind.replace(/_/g, " ")}</span>
-                    {target ? (
-                      <>
-                        <StatusIcon status={target.status} size={12} isInferred={target.is_inferred} />
-                        <span className="text-[var(--color-text-primary)] truncate">{target.title}</span>
-                      </>
-                    ) : (
-                      <span className="text-[var(--color-text-muted)] italic truncate">{dep.target_id} (deleted)</span>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleRemoveRelation(i); }}
-                      className="ml-auto shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <button
-            onClick={() => { setAddRelStep("kind"); setAddRelKind(""); setAddRelSearch(""); }}
-            className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Add relation
-          </button>
-          <Modal
-            isOpen={addRelStep !== null}
-            onClose={() => { setAddRelStep(null); setAddRelKind(""); setAddRelSearch(""); }}
-            title="Add relation"
-            size="2xl"
-          >
-            <div className="space-y-4 min-h-[40vh]">
-              <div className="flex items-center gap-2 flex-wrap">
-                {RELATION_TYPES.map((rt) => (
-                  <button
-                    key={rt.value}
-                    onClick={() => { setAddRelKind(rt.value); setAddRelSearch(""); }}
-                    className={`px-3 py-2 text-sm rounded-[var(--radius-md)] border transition-colors ${addRelKind === rt.value ? "border-[var(--color-accent-primary)] text-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10" : "border-[var(--color-border-default)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-focus)] hover:text-[var(--color-text-primary)]"}`}
-                  >
-                    {rt.label}
-                  </button>
-                ))}
-              </div>
-              {addRelKind && (
-                <>
-                  <input
-                    autoFocus
-                    value={addRelSearch}
-                    onChange={(e) => setAddRelSearch(e.target.value)}
-                    placeholder="Search issues by title or ID..."
-                    className="w-full text-sm bg-[var(--color-surface-1)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2"
-                  />
-                  <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
-                    <div className="flex items-center gap-3 px-3 py-2 text-xs font-medium text-[var(--color-text-muted)] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-1)]">
-                      <span className="w-4" />
-                      <span className="flex-1">Title</span>
-                      <span className="w-24 shrink-0">Labels</span>
-                      <span className="w-12 shrink-0 text-right">Est</span>
-                      <span className="w-8 shrink-0" />
-                    </div>
-                    <div className="max-h-[50vh] scroll-stable">
-                      {relCandidates.slice(0, 30).map((candidate) => (
-                        <button
-                          key={candidate.id}
-                          onClick={() => handleAddRelation(candidate.id, addRelKind)}
-                          className="flex items-center gap-3 w-full px-3 py-2 text-sm text-left hover:bg-[var(--color-hover-surface-2)] transition-colors border-b border-[var(--color-border-subtle)] last:border-b-0"
-                        >
-                          <StatusIcon status={candidate.status} size={14} />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[var(--color-text-primary)] truncate">{candidate.title}</div>
-                            <div className="text-xs text-[var(--color-text-muted)] font-mono">{candidate.id}</div>
-                          </div>
-                          <div className="w-24 shrink-0 flex items-center gap-1 flex-wrap">
-                            {candidate.labels?.slice(0, 2).map(l => <LabelBadge key={l} label={l} />)}
-                          </div>
-                          <span className="w-12 shrink-0 text-right text-xs text-[var(--color-text-muted)] tabular-nums">
-                            {candidate.estimate > 0 ? candidate.estimate : "—"}
-                          </span>
-                          {candidate.assignee ? (
-                            <Avatar name={candidate.assignee} size="sm" />
-                          ) : <span className="w-4 shrink-0" />}
-                        </button>
-                      ))}
-                      {relCandidates.length === 0 && (
-                        <div className="px-3 py-6 text-sm text-[var(--color-text-muted)] text-center">No matching issues</div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-              {!addRelKind && (
-                <div className="text-sm text-[var(--color-text-muted)] text-center py-6">
-                  Select a relationship type above to continue
-                </div>
-              )}
-            </div>
-          </Modal>
-        </div>
+        <RelationsCard issue={issue} issues={issues} saveUpdate={saveUpdate} />
 
         {/* Delete */}
         <div className="pt-2">

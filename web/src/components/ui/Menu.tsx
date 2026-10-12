@@ -404,6 +404,8 @@ interface MenuItemProps extends MenuItemInternalProps {
   destructive?: boolean;
   onClick?: () => void;
   suffix?: ReactNode;
+  /** Keep the label on one line, ending in an ellipsis. */
+  truncate?: boolean;
 }
 
 export function MenuItem({
@@ -416,6 +418,7 @@ export function MenuItem({
   destructive,
   onClick,
   suffix,
+  truncate,
   _menuIndex = 0,
   _focused,
   _onMouseEnter,
@@ -463,7 +466,7 @@ export function MenuItem({
           {icon}
         </span>
       )}
-      <span className="flex-1 text-left min-w-0">{label}</span>
+      <span className={cn("flex-1 text-left min-w-0", truncate && "truncate")}>{label}</span>
       <span className="ml-auto w-4 flex items-center justify-center shrink-0">
         {isCheckbox && checked ? (
           <svg className="w-4 h-4 shrink-0 text-[var(--color-accent-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
