@@ -33,12 +33,20 @@ type AgentStats struct {
 type StreamEventKind int
 
 const (
-	StreamText      StreamEventKind = iota // Partial text output
-	StreamThinking                         // Agent is reasoning
-	StreamToolStart                        // Agent started using a tool
-	StreamToolDone                         // Tool execution completed
-	StreamStatus                           // Status update (e.g. "requesting")
-	StreamSession                          // Session started; Text holds the session ID
+	StreamText       StreamEventKind = iota // Partial text output
+	StreamThinking                          // Agent is reasoning
+	StreamToolStart                         // Agent started using a tool
+	StreamToolDone                          // Tool execution completed
+	StreamStatus                            // Status update (e.g. "requesting")
+	StreamSession                           // Session started; Text holds the session ID
+	StreamToolResult                        // Tool result arrived; ToolID, ToolStatus and ToolMessage are set
+)
+
+// Tool call outcomes, set on StreamToolResult events.
+const (
+	ToolStatusDone   = "done"
+	ToolStatusError  = "error"
+	ToolStatusDenied = "denied"
 )
 
 // StreamEvent is a progress update emitted during streaming execution.
@@ -46,6 +54,10 @@ type StreamEvent struct {
 	Kind    StreamEventKind
 	Text    string // text delta, tool name, status message, or session ID
 	ToolArg string // tool description or command (StreamToolStart, StreamToolDone)
+
+	ToolID      string // tool use ID (StreamToolStart, StreamToolDone, StreamToolResult)
+	ToolStatus  string // ToolStatusDone, ToolStatusError or ToolStatusDenied (StreamToolResult)
+	ToolMessage string // error or denial text (StreamToolResult)
 }
 
 // StreamCallback receives progress events during streaming execution.

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: denied and failed tool calls show in the work list.
+  - **Marker:** a red × replaces the bullet. The error text shows below the step, clamped to 3 lines. A denied call's text starts with "Denied:".
+  - **Header:** the collapsed "Worked for N seconds" line adds "· N failed" in red.
+  - **Timing:** a step keeps its spinner until the tool result arrives, not only until Claude finishes writing the tool input.
+  - **Events:** `tool_call` and `tool_start` carry `tool_id`. `tool_call` has `status` `done`, `error` or `denied`, and a `message`.
+
+  (xpo-8673f4)
+
 - Issue ID chips: issue IDs show as accent-tinted chips that open the issue on click and show a preview on hover.
   - **Where:** agent chat answers, your own messages, tool rows, issue descriptions, specs, walkthroughs and comments.
   - **Code:** IDs in inline code are chips too. IDs in fenced code blocks stay plain text.

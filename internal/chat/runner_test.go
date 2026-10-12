@@ -283,3 +283,65 @@ func TestRunner_CancelAndWait(t *testing.T) {
 	}
 	r.CancelAndWait(m.ID) // no turn: returns at once
 }
+
+// toolResultsFixture has two parallel Read calls whose results arrive in
+// reverse order, the second one denied, then a Bash call that never gets a
+// result before the turn ends.
+const toolResultsFixture = `{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t-a","name":"Read"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"file_path\":\"a.go\"}"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"t-b","name":"Read"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"file_path\":\"/etc/hosts\"}"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":1}}
+{"type":"system","subtype":"permission_denied","tool_use_id":"t-b"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"not granted","is_error":true,"tool_use_id":"t-b"}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"package a","tool_use_id":"t-a"}]}}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"t-c","name":"Bash"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"result","subtype":"success","result":"ok","session_id":"s","duration_ms":1,"usage":{}}
+`
+
+func TestRunner_ToolCallsSettleWithResults(t *testing.T) {
+	r, store, dir := newTestRunner(t, `cat "$(dirname "$0")/tools.jsonl"`)
+	os.WriteFile(filepath.Join(dir, "tools.jsonl"), []byte(toolResultsFixture), 0o644)
+	m, _ := store.Create()
+	ch, unsubscribe := r.Subscribe(m.ID)
+	defer unsubscribe()
+
+	r.Send(m.ID, SendRequest{Text: "x"})
+	r.Wait()
+
+	_, events, _ := store.Get(m.ID)
+	var calls []Event
+	for _, e := range events {
+		if e.Type == EventToolCall {
+			calls = append(calls, e)
+		}
+	}
+	want := []struct{ id, arg, status, msg string }{
+		{"t-b", "/etc/hosts", "denied", "not granted"},
+		{"t-a", "a.go", "done", ""},
+		{"t-c", "", "done", ""}, // no result before the turn ended
+	}
+	if len(calls) != len(want) {
+		t.Fatalf("tool calls = %+v", calls)
+	}
+	for i, w := range want {
+		c := calls[i]
+		if c.ToolID != w.id || c.Arg != w.arg || c.Status != w.status || c.Message != w.msg {
+			t.Errorf("call %d = %+v, want %+v", i, c, w)
+		}
+	}
+
+	for {
+		select {
+		case e := <-ch:
+			if e.Type == EventToolStart && e.ToolID == "" {
+				t.Errorf("tool_start without tool_id: %+v", e)
+			}
+			continue
+		default:
+		}
+		break
+	}
+}

@@ -1,8 +1,8 @@
-import type { ChatContext, ChatEvent } from "../../api/chat";
+import type { ChatContext, ChatEvent, ToolCallStatus } from "../../api/chat";
 
 export type ChatStep =
   | { kind: "text"; text: string; live: boolean }
-  | { kind: "tool"; name: string; arg: string; done: boolean };
+  | { kind: "tool"; id?: string; name: string; arg: string; done: boolean; status?: ToolCallStatus; message?: string };
 
 export interface ChatTurn {
   user: { text: string; context?: ChatContext; time: string };
@@ -71,15 +71,15 @@ function applyToTurn(t: ChatTurn, e: ChatEvent): ChatTurn {
     }
     case "tool_start": {
       const name = e.name ?? "";
-      if (last?.kind === "tool" && !last.done && last.name === name) {
-        return { ...t, thinking: false, steps: [...steps.slice(0, -1), { ...last, arg: e.arg || last.arg }] };
+      const i = e.tool_id ? openToolIndex(steps, e) : last?.kind === "tool" && !last.done && last.name === name ? steps.length - 1 : -1;
+      if (i >= 0) {
+        return { ...t, thinking: false, steps: steps.map((s, j) => (j === i && s.kind === "tool" ? { ...s, arg: e.arg || s.arg } : s)) };
       }
-      return { ...t, thinking: false, steps: [...steps, { kind: "tool", name, arg: e.arg ?? "", done: false }] };
+      return { ...t, thinking: false, steps: [...steps, { kind: "tool", id: e.tool_id, name, arg: e.arg ?? "", done: false }] };
     }
     case "tool_call": {
-      const name = e.name ?? "";
-      const i = lastIndexWhere(steps, (s) => s.kind === "tool" && !s.done && s.name === name);
-      const step: ChatStep = { kind: "tool", name, arg: e.arg ?? "", done: true };
+      const i = openToolIndex(steps, e);
+      const step: ChatStep = { kind: "tool", id: e.tool_id, name: e.name ?? "", arg: e.arg ?? "", done: true, status: e.status, message: e.message };
       if (i < 0) return { ...t, steps: [...steps, step] };
       return { ...t, steps: steps.map((s, j) => (j === i ? step : s)) };
     }
@@ -103,6 +103,12 @@ function finish(t: ChatTurn, e: ChatEvent, status: ChatTurn["status"]): ChatTurn
     endedAt: e.time,
     steps: t.steps.map((s) => (s.kind === "tool" && !s.done ? { ...s, done: true } : s.kind === "text" && s.live ? { ...s, live: false } : s)),
   };
+}
+
+/** The open tool step an event belongs to: by tool ID, or by name for chats saved without IDs. */
+function openToolIndex(steps: ChatStep[], e: ChatEvent): number {
+  if (e.tool_id) return lastIndexWhere(steps, (s) => s.kind === "tool" && s.id === e.tool_id);
+  return lastIndexWhere(steps, (s) => s.kind === "tool" && !s.done && s.name === (e.name ?? ""));
 }
 
 function lastIndexWhere<T>(items: T[], pred: (item: T) => boolean): number {
@@ -129,6 +135,11 @@ export function isRunning(state: ChatThread): boolean {
 export function splitTurn(t: ChatTurn): { work: ChatStep[]; answer: ChatStep[] } {
   const lastTool = lastIndexWhere(t.steps, (s) => s.kind === "tool");
   return { work: t.steps.slice(0, lastTool + 1), answer: t.steps.slice(lastTool + 1) };
+}
+
+/** Tool calls of the turn that failed or that Claude Code denied. */
+export function failedToolCount(t: ChatTurn): number {
+  return t.steps.filter((s) => s.kind === "tool" && (s.status === "error" || s.status === "denied")).length;
 }
 
 /** Whole seconds the turn ran: the reported duration, or the time since the user message. */

@@ -30,13 +30,19 @@ export interface ChatEvent {
   context?: ChatContext;
   name?: string;
   arg?: string;
-  status?: string;
+  /** tool_start, tool_call; missing in chats saved before tool results. */
+  tool_id?: string;
+  /** tool_call: the outcome. */
+  status?: ToolCallStatus;
   duration_ms?: number;
   cost_usd?: number;
   tokens_in?: number;
   tokens_out?: number;
+  /** error; tool_call: the error or denial text. */
   message?: string;
 }
+
+export type ToolCallStatus = "done" | "error" | "denied";
 
 export interface ChatMeta {
   id: string;

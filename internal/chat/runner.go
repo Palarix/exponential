@@ -268,6 +268,20 @@ func (r *Runner) run(id string, meta Meta, prompt string, t *turn) {
 		}
 	}
 
+	// A tool call settles when its result arrives. pending holds the calls
+	// whose input is complete but whose result has not arrived yet.
+	pending := map[string]Event{}
+	var pendingOrder []string
+	settlePending := func() {
+		for _, toolID := range pendingOrder {
+			if call, ok := pending[toolID]; ok {
+				r.settle(id, call)
+			}
+		}
+		clear(pending)
+		pendingOrder = nil
+	}
+
 	var parser exponential.ClaudeStreamParser
 	var result *exponential.ClaudeTurnResult
 	sc := bufio.NewScanner(stdout)
@@ -284,13 +298,28 @@ func (r *Runner) run(id string, meta Meta, prompt string, t *turn) {
 				r.live(id, Event{Type: EventThinking})
 			case exponential.StreamToolStart:
 				flushText()
-				r.live(id, Event{Type: EventToolStart, Name: ev.Text, Arg: ev.ToolArg})
+				r.live(id, Event{Type: EventToolStart, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID})
 			case exponential.StreamToolDone:
 				if ev.Text == "" {
 					flushText() // end of a text or thinking block
 					return
 				}
-				r.settle(id, Event{Type: EventToolCall, Name: ev.Text, Arg: ev.ToolArg, Status: "done"})
+				call := Event{Type: EventToolCall, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID, Status: exponential.ToolStatusDone}
+				if ev.ToolID == "" {
+					r.settle(id, call) // no ID to match a result to
+					return
+				}
+				pending[ev.ToolID] = call
+				pendingOrder = append(pendingOrder, ev.ToolID)
+			case exponential.StreamToolResult:
+				call, ok := pending[ev.ToolID]
+				if !ok {
+					return
+				}
+				delete(pending, ev.ToolID)
+				call.Status = ev.ToolStatus
+				call.Message = ev.ToolMessage
+				r.settle(id, call)
 			}
 		})
 		if res != nil {
@@ -302,6 +331,7 @@ func (r *Runner) run(id string, meta Meta, prompt string, t *turn) {
 	}
 	waitErr := cmd.Wait()
 	flushText()
+	settlePending()
 
 	t.mu.Lock()
 	stopped := t.stopped

@@ -142,3 +142,65 @@ func TestToolDetail_BashKeepsDescription(t *testing.T) {
 		t.Fatalf("detail = %q", got)
 	}
 }
+
+// toolResultFixture is a trimmed transcript with three tool calls: a Read
+// that Claude Code denies, a Bash that fails, and a Grep that succeeds.
+const toolResultFixture = `{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_read","name":"Read"}}}
+{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"file_path\":\"/etc/hosts\"}"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"system","subtype":"permission_denied","tool_name":"Read","tool_use_id":"toolu_read","message":"Claude requested permissions to read from /etc/hosts, but you haven't granted it yet."}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"Claude requested permissions to read from /etc/hosts, but you haven't granted it yet.","is_error":true,"tool_use_id":"toolu_read"}]},"parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_bash","name":"Bash"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":[{"type":"text","text":"Error: Exit code 2\nls: /nope: No such file"}],"is_error":true,"tool_use_id":"toolu_bash"}]},"parent_tool_use_id":null}
+{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_grep","name":"Grep"}}}
+{"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"3 matches","tool_use_id":"toolu_grep"}]},"parent_tool_use_id":null}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"boom","is_error":true,"tool_use_id":"toolu_sub"}]},"parent_tool_use_id":"toolu_task"}`
+
+func TestClaudeStreamParser_ToolIDOnStartAndDone(t *testing.T) {
+	events, _ := parseFixture(t, toolResultFixture)
+	for _, ev := range events[:3] {
+		if ev.ToolID != "toolu_read" {
+			t.Errorf("event %+v: ToolID = %q, want toolu_read", ev, ev.ToolID)
+		}
+	}
+}
+
+func TestClaudeStreamParser_ToolResults(t *testing.T) {
+	events, _ := parseFixture(t, toolResultFixture)
+	var results []StreamEvent
+	for _, ev := range events {
+		if ev.Kind == StreamToolResult {
+			results = append(results, ev)
+		}
+	}
+	want := []StreamEvent{
+		{Kind: StreamToolResult, ToolID: "toolu_read", ToolStatus: ToolStatusDenied, ToolMessage: "Claude requested permissions to read from /etc/hosts, but you haven't granted it yet."},
+		{Kind: StreamToolResult, ToolID: "toolu_bash", ToolStatus: ToolStatusError, ToolMessage: "Exit code 2\nls: /nope: No such file"},
+		{Kind: StreamToolResult, ToolID: "toolu_grep", ToolStatus: ToolStatusDone},
+	}
+	if len(results) != len(want) {
+		t.Fatalf("got %d results, want %d (subagent result must be skipped): %+v", len(results), len(want), results)
+	}
+	for i := range want {
+		if results[i] != want[i] {
+			t.Errorf("result %d = %+v, want %+v", i, results[i], want[i])
+		}
+	}
+}
+
+func TestClaudeStreamParser_DeniedFromResultMeta(t *testing.T) {
+	events, _ := parseFixture(t, `{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"no","is_error":true,"tool_use_id":"t1"}]},"tool_result_meta":[{"id":"t1","non_execution_kind":"user-rejected"}]}`)
+	if len(events) != 1 || events[0].ToolStatus != ToolStatusDenied {
+		t.Fatalf("events = %+v", events)
+	}
+}
+
+func TestToolResultText_Truncates(t *testing.T) {
+	long := strings.Repeat("é", 600)
+	got := toolResultText([]byte(`"` + long + `"`))
+	if n := len([]rune(got)); n != 501 || !strings.HasSuffix(got, "…") {
+		t.Errorf("len = %d, suffix %q", n, got[len(got)-3:])
+	}
+}

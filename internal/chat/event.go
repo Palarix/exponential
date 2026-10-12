@@ -41,16 +41,17 @@ type Event struct {
 	Text    string   `json:"text,omitempty"`    // user_message, assistant_text, text_delta
 	Context *Context `json:"context,omitempty"` // user_message
 
-	Name   string `json:"name,omitempty"`   // tool_call, tool_start
-	Arg    string `json:"arg,omitempty"`    // tool_call, tool_start
-	Status string `json:"status,omitempty"` // tool_call: "done"
+	Name   string `json:"name,omitempty"`    // tool_call, tool_start
+	Arg    string `json:"arg,omitempty"`     // tool_call, tool_start
+	ToolID string `json:"tool_id,omitempty"` // tool_call, tool_start; empty in chats saved before tool results
+	Status string `json:"status,omitempty"`  // tool_call: "done", "error" or "denied"
 
 	DurationMS int64   `json:"duration_ms,omitempty"` // turn_done
 	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done
 	TokensIn   int     `json:"tokens_in,omitempty"`   // turn_done
 	TokensOut  int     `json:"tokens_out,omitempty"`  // turn_done
 
-	Message string `json:"message,omitempty"` // error
+	Message string `json:"message,omitempty"` // error; tool_call: the error or denial text
 }
 
 // Chat states.

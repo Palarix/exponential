@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronRight, Copy, Check } from "lucide-react";
+import { ChevronRight, Copy, Check, X } from "lucide-react";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
-import { splitTurn, toolSummary, turnSeconds, type ChatStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { failedToolCount, splitTurn, toolSummary, turnSeconds, type ChatStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />;
@@ -33,14 +33,29 @@ function WorkStep({ step }: { step: ChatStep }) {
   const { text, detail } = toolSummary(step.name, step.arg);
   // Search patterns read best as code; file names and titles as text.
   const code = step.name === "Grep" || step.name === "Glob";
+  const failed = step.status === "error" || step.status === "denied";
+  const message = step.status === "denied" ? `Denied: ${step.message ?? ""}`.trim() : step.message;
   return (
-    <div className="flex items-center gap-1.5 text-xs min-w-0" title={step.arg || undefined}>
-      {/* Only the detail may shrink: a shrinking bullet slot would misalign the rows. */}
-      <span className="w-3 shrink-0 flex justify-center">
-        {step.done ? <span className="text-[var(--color-text-muted)]">·</span> : <Spinner />}
-      </span>
-      <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
-      {detail && <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${code ? "font-mono" : ""}`}><IssueRefText text={detail} /></span>}
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <div className="flex items-center gap-1.5 text-xs min-w-0" title={step.arg || undefined}>
+        {/* Only the detail may shrink: a shrinking bullet slot would misalign the rows. */}
+        <span className="w-3 shrink-0 flex justify-center">
+          {failed ? (
+            <X className="w-3 h-3 text-[var(--color-error)]" aria-label={step.status === "denied" ? "Denied" : "Failed"} />
+          ) : step.done ? (
+            <span className="text-[var(--color-text-muted)]">·</span>
+          ) : (
+            <Spinner />
+          )}
+        </span>
+        <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
+        {detail && <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${code ? "font-mono" : ""}`}><IssueRefText text={detail} /></span>}
+      </div>
+      {failed && message && (
+        <div className="ml-[18px] text-xs text-[var(--color-error)] whitespace-pre-wrap break-words line-clamp-3" title={message}>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
@@ -71,6 +86,7 @@ function Turn({ turn }: { turn: ChatTurn }) {
   const { work, answer } = splitTurn(turn);
   const answerText = answer.map((s) => (s.kind === "text" ? s.text : "")).join("\n\n").trim();
   const seconds = turnSeconds(turn, now);
+  const failed = failedToolCount(turn);
   const showWork = work.length > 0 || (running && answer.length === 0);
 
   return (
@@ -91,6 +107,7 @@ function Turn({ turn }: { turn: ChatTurn }) {
             <span>
               {running ? (turn.thinking ? "Thinking" : "Working") + ` for ${seconds}s` : `Worked for ${seconds} second${seconds === 1 ? "" : "s"}`}
             </span>
+            {failed > 0 && <span className="text-[var(--color-error)]">· {failed} failed</span>}
             {work.length > 0 && <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />}
           </button>
           {expanded && (

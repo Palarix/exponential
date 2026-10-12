@@ -18,8 +18,10 @@ type ClaudeTurnResult struct {
 // the tool block in progress, so use one parser per turn. Drive and the web
 // chat both use it.
 type ClaudeStreamParser struct {
-	currentTool string
-	toolArgBuf  string
+	currentTool   string
+	currentToolID string
+	toolArgBuf    string
+	denied        map[string]bool // tool use IDs that Claude Code denied
 }
 
 // Parse handles one output line, calling cb for each progress event. It
@@ -43,9 +45,19 @@ func (p *ClaudeStreamParser) Parse(line []byte, cb StreamCallback) *ClaudeTurnRe
 			}
 		case "status":
 			cb(StreamEvent{Kind: StreamStatus, Text: msg.Status})
+		case "permission_denied":
+			if p.denied == nil {
+				p.denied = map[string]bool{}
+			}
+			p.denied[msg.ToolUseID] = true
 		}
 	case "stream_event":
 		p.handleStreamEvent(msg.Event, cb)
+	case "user":
+		// Results of a subagent's own tools are not steps of this turn.
+		if msg.ParentToolUseID == "" {
+			p.handleToolResults(msg, cb)
+		}
 	case "result":
 		return &ClaudeTurnResult{
 			AgentResult: AgentResult{
@@ -72,6 +84,7 @@ func (p *ClaudeStreamParser) handleStreamEvent(event json.RawMessage, cb StreamC
 	case "content_block_start":
 		var block struct {
 			Type string `json:"type"`
+			ID   string `json:"id"`
 			Name string `json:"name"`
 		}
 		if err := json.Unmarshal(ev.ContentBlock, &block); err != nil {
@@ -82,8 +95,9 @@ func (p *ClaudeStreamParser) handleStreamEvent(event json.RawMessage, cb StreamC
 			cb(StreamEvent{Kind: StreamThinking})
 		case "tool_use":
 			p.currentTool = block.Name
+			p.currentToolID = block.ID
 			p.toolArgBuf = ""
-			cb(StreamEvent{Kind: StreamToolStart, Text: block.Name})
+			cb(StreamEvent{Kind: StreamToolStart, Text: block.Name, ToolID: block.ID})
 		}
 	case "content_block_delta":
 		var delta struct {
@@ -100,20 +114,91 @@ func (p *ClaudeStreamParser) handleStreamEvent(event json.RawMessage, cb StreamC
 		if delta.Type == "input_json_delta" {
 			p.toolArgBuf += delta.PartialJSON
 			if detail := p.extractToolDetail(); detail != "" {
-				cb(StreamEvent{Kind: StreamToolStart, Text: p.currentTool, ToolArg: detail})
+				cb(StreamEvent{Kind: StreamToolStart, Text: p.currentTool, ToolArg: detail, ToolID: p.currentToolID})
 			}
 		}
 	case "content_block_stop":
 		done := StreamEvent{Kind: StreamToolDone}
 		if p.currentTool != "" {
 			done.Text = p.currentTool
+			done.ToolID = p.currentToolID
 			// The input is complete now: decode it properly.
 			done.ToolArg = p.finalToolDetail()
 		}
 		p.currentTool = ""
+		p.currentToolID = ""
 		p.toolArgBuf = ""
 		cb(done)
 	}
+}
+
+// handleToolResults emits one StreamToolResult per tool_result block of a
+// `user` message.
+func (p *ClaudeStreamParser) handleToolResults(msg streamMessage, cb StreamCallback) {
+	var body struct {
+		Content []struct {
+			Type      string          `json:"type"`
+			ToolUseID string          `json:"tool_use_id"`
+			IsError   bool            `json:"is_error"`
+			Content   json.RawMessage `json:"content"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(msg.Message, &body); err != nil {
+		return
+	}
+	rejected := map[string]bool{}
+	for _, m := range msg.ToolResultMeta {
+		if m.NonExecutionKind == "user-rejected" {
+			rejected[m.ID] = true
+		}
+	}
+	for _, block := range body.Content {
+		if block.Type != "tool_result" {
+			continue
+		}
+		ev := StreamEvent{Kind: StreamToolResult, ToolID: block.ToolUseID, ToolStatus: ToolStatusDone}
+		switch {
+		case p.denied[block.ToolUseID] || rejected[block.ToolUseID]:
+			ev.ToolStatus = ToolStatusDenied
+		case block.IsError:
+			ev.ToolStatus = ToolStatusError
+		}
+		if ev.ToolStatus != ToolStatusDone {
+			ev.ToolMessage = toolResultText(block.Content)
+		}
+		cb(ev)
+	}
+}
+
+// maxToolMessage caps the error text kept for a failed tool call, in runes.
+const maxToolMessage = 500
+
+// toolResultText turns tool_result content (a string, or an array of content
+// blocks) into a short message: the text blocks joined, without Claude Code's
+// "Error: " prefix, cut to maxToolMessage runes.
+func toolResultText(content json.RawMessage) string {
+	var text string
+	if err := json.Unmarshal(content, &text); err != nil {
+		var blocks []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(content, &blocks); err != nil {
+			return ""
+		}
+		var parts []string
+		for _, b := range blocks {
+			if b.Type == "text" && b.Text != "" {
+				parts = append(parts, b.Text)
+			}
+		}
+		text = strings.Join(parts, "\n")
+	}
+	text = strings.TrimPrefix(strings.TrimSpace(text), "Error: ")
+	if r := []rune(text); len(r) > maxToolMessage {
+		text = string(r[:maxToolMessage]) + "…"
+	}
+	return text
 }
 
 // toolDetailKeys are the argument keys shown next to a built-in tool's name,
@@ -222,6 +307,17 @@ type streamMessage struct {
 	DurationMS   int             `json:"duration_ms,omitempty"`
 	TotalCostUSD float64         `json:"total_cost_usd,omitempty"`
 	Usage        claudeUsage     `json:"usage,omitempty"`
+
+	ToolUseID       string           `json:"tool_use_id,omitempty"`        // system/permission_denied
+	ParentToolUseID string           `json:"parent_tool_use_id,omitempty"` // user: set inside a subagent
+	Message         json.RawMessage  `json:"message,omitempty"`            // user: the tool results
+	ToolResultMeta  []toolResultMeta `json:"tool_result_meta,omitempty"`   // user
+}
+
+// toolResultMeta is Claude Code's note on how a tool result came about.
+type toolResultMeta struct {
+	ID               string `json:"id"`
+	NonExecutionKind string `json:"non_execution_kind"`
 }
 
 // streamEvent represents the inner event of a stream_event message.

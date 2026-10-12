@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { chatThreadReducer, emptyThread, isRunning, splitTurn, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
+import { chatThreadReducer, emptyThread, failedToolCount, isRunning, splitTurn, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -51,7 +51,34 @@ describe("chatThreadReducer", () => {
     expect(s.turns[0].steps).toEqual([{ kind: "tool", name: "mcp__xpo__list", arg: "login", done: false }]);
 
     s = reduce([ev({ type: "tool_call", seq: 2, name: "mcp__xpo__list", arg: "login", status: "done" })], s);
-    expect(s.turns[0].steps).toEqual([{ kind: "tool", name: "mcp__xpo__list", arg: "login", done: true }]);
+    expect(s.turns[0].steps).toEqual([{ kind: "tool", name: "mcp__xpo__list", arg: "login", done: true, status: "done" }]);
+  });
+
+  it("matches parallel calls of one tool by ID", () => {
+    let s = reduce([
+      ev({ type: "user_message", seq: 1, text: "hi" }),
+      ev({ type: "tool_start", name: "Read", tool_id: "t-a", arg: "a.go" }),
+      ev({ type: "tool_start", name: "Read", tool_id: "t-b" }),
+      ev({ type: "tool_start", name: "Read", tool_id: "t-b", arg: "/etc/hosts" }),
+    ]);
+    expect(s.turns[0].steps.map((x) => x.kind === "tool" && x.arg)).toEqual(["a.go", "/etc/hosts"]);
+
+    s = reduce([ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "t-b", arg: "/etc/hosts", status: "denied", message: "not granted" })], s);
+    expect(s.turns[0].steps).toEqual([
+      { kind: "tool", id: "t-a", name: "Read", arg: "a.go", done: false },
+      { kind: "tool", id: "t-b", name: "Read", arg: "/etc/hosts", done: true, status: "denied", message: "not granted" },
+    ]);
+  });
+
+  it("counts failed and denied tool calls", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "hi" }),
+      ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "a", status: "denied", message: "no" }),
+      ev({ type: "tool_call", seq: 3, name: "Bash", tool_id: "b", status: "error", message: "exit 1" }),
+      ev({ type: "tool_call", seq: 4, name: "Grep", tool_id: "c", status: "done" }),
+      ev({ type: "tool_call", seq: 5, name: "Glob", status: "done" }), // saved before tool results
+    ]);
+    expect(failedToolCount(s.turns[0])).toBe(2);
   });
 
   it("adds a settled tool call without a live start (replay)", () => {
