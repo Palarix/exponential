@@ -1,4 +1,4 @@
-import type { ApprovalOutcome, ChatContext, ChatEvent, ToolCallStatus } from "../../api/chat";
+import type { ApprovalOutcome, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
 
 /** An approval card on a tool step. No decision means it waits for the user. */
 export interface StepApproval {
@@ -30,8 +30,18 @@ export interface ChatTurn {
   error?: string;
 }
 
+/** The chat entered or left Work Mode after `at` turns. */
+export interface ModeDivider {
+  at: number;
+  mode: ChatMode;
+  issueId?: string;
+  /** Why, when the board changed the mode on its own. */
+  message?: string;
+}
+
 export interface ChatThread {
   turns: ChatTurn[];
+  dividers: ModeDivider[];
   /** Highest settled `seq` seen; settled events at or below it are replays. */
   lastSeq: number;
 }
@@ -43,7 +53,18 @@ export type ChatThreadAction =
   | { type: "approval_expired"; id: string }
   | { type: "reset" };
 
-export const emptyThread: ChatThread = { turns: [], lastSeq: 0 };
+export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0 };
+
+/** Nothing to show yet: no turn and no divider. */
+export function isEmptyThread(state: ChatThread): boolean {
+  return state.turns.length === 0 && state.dividers.length === 0;
+}
+
+/** A divider in words. */
+export function modeDividerText(d: ModeDivider): string {
+  if (d.message) return d.message;
+  return d.mode === "work" ? `Work Mode on ${d.issueId ?? "an issue"}` : "Back to Chat Mode";
+}
 
 /** Folds settled and live chat events into turns. */
 export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): ChatThread {
@@ -69,6 +90,10 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
       thinking: false,
     };
     return { ...state, turns: [...state.turns, turn] };
+  }
+  if (e.type === "mode_changed") {
+    const divider: ModeDivider = { at: state.turns.length, mode: e.mode ?? "chat", issueId: e.issue_id, message: e.message };
+    return { ...state, dividers: [...state.dividers, divider] };
   }
 
   return updateLast(state, (t) => applyToTurn(t, e));
@@ -240,7 +265,7 @@ const TOOL_VERBS: Record<string, ToolVerbs> = {
   "xpo comment": { verb: "Commented on", action: "Comment on" },
   "xpo link": { verb: "Linked", action: "Link" },
   "xpo unlink": { verb: "Unlinked", action: "Unlink" },
-  "xpo start": { verb: "Started", action: "Start work on" },
+  "xpo start": { verb: "Started", action: "Enter Work Mode on" },
   "xpo merge": { verb: "Merged", action: "Merge" },
   "xpo spec": { verb: "Read the spec of", action: "Read the spec of" },
   "xpo walkthrough": { verb: "Read the walkthrough of", action: "Read the walkthrough of" },

@@ -18,6 +18,10 @@ const (
 	// An approval card opened, and its decision.
 	EventApprovalRequested = "approval_requested"
 	EventApprovalResolved  = "approval_resolved"
+
+	// The chat entered or left Work Mode, between turns. The UI draws a
+	// divider. Message, when set, says why.
+	EventModeChanged = "mode_changed"
 )
 
 // Live event types. Subscribers see these while a turn runs; the store does
@@ -54,12 +58,15 @@ type Event struct {
 	Input      string `json:"input,omitempty"`       // approval_requested: the full tool input as JSON
 	Decision   string `json:"decision,omitempty"`    // approval_resolved: a Decision value
 
+	Mode    string `json:"mode,omitempty"`     // mode_changed: the new mode
+	IssueID string `json:"issue_id,omitempty"` // mode_changed: the issue entered or left
+
 	DurationMS int64   `json:"duration_ms,omitempty"` // turn_done
 	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done
 	TokensIn   int     `json:"tokens_in,omitempty"`   // turn_done
 	TokensOut  int     `json:"tokens_out,omitempty"`  // turn_done
 
-	Message string `json:"message,omitempty"` // error; tool_call: the error or denial text
+	Message string `json:"message,omitempty"` // error, mode_changed: the reason; tool_call: the error or denial text
 }
 
 // Chat states.
@@ -91,6 +98,13 @@ type Meta struct {
 	// Every later turn gets them, because the agents forget session
 	// permissions when a turn's process exits.
 	Grants []string `json:"grants,omitempty"`
+
+	// Mode is ModeChat or ModeWork; empty is Chat Mode. Work is the bound
+	// issue in Work Mode. WorkedIssues lists every issue the chat entered
+	// Work Mode on, oldest first.
+	Mode         string       `json:"mode,omitempty"`
+	Work         *WorkBinding `json:"work,omitempty"`
+	WorkedIssues []string     `json:"worked_issues,omitempty"`
 
 	// Waiting is set in chat lists while an approval card waits for the
 	// user. It is never stored.

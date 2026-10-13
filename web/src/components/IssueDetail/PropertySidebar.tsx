@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useContext, useRef } from "react";
 import type { Issue } from "../../api/client";
 import { useCycles } from "../../api/queries";
-import { useDeleteIssue, useStartWork, type IssuePatch } from "../../api/mutations";
+import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
+import { useStartWorkChat } from "../Agent/useWorkMode";
 import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
 import { Flag, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
@@ -53,10 +54,20 @@ export default function PropertySidebar({
     children: { id: string; title: string; status: string }[];
   } | null>(null);
 
-  const { mutate: startWork, isPending: starting } = useStartWork();
+  const { startWork, starting, canChat } = useStartWorkChat();
   const { mutate: deleteIssue } = useDeleteIssue();
 
+  // Start Work opens a new chat in Work Mode on the issue (xpo-00f0e5).
+  // Continue Work does the same for an issue already DOING, without starting
+  // it again, so closing that chat never strands the issue.
   const handleStartWork = useCallback(() => startWork(issue.id), [issue.id, startWork]);
+  const workAction = !gitActions
+    ? null
+    : issue.status === "BACKLOG" || issue.status === "PLANNED"
+      ? "Start Work"
+      : issue.status === "DOING" && issue.branch_stats && canChat
+        ? "Continue Work"
+        : null;
 
   const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
 
@@ -154,7 +165,7 @@ export default function PropertySidebar({
     >
       <div className="px-5 pb-5 space-y-3">
         {/* Start Work button */}
-        {gitActions && (issue.status === "BACKLOG" || issue.status === "PLANNED") && (
+        {workAction && (
           <button
             onClick={handleStartWork}
             disabled={starting}
@@ -163,7 +174,7 @@ export default function PropertySidebar({
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
             </svg>
-            {starting ? "Starting..." : "Start Work"}
+            {starting ? "Starting..." : workAction}
           </button>
         )}
 

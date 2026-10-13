@@ -6,13 +6,15 @@ import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
+import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
+import { useWorkMode } from "./useWorkMode";
 
 const headerButton = "p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]";
 
 export default function ChatPopup() {
   const agent = useAgentChat();
-  const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated } = agent;
+  const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft } = agent;
   const { openChatView } = useAppNav();
   const { thread, running, send, stop, expireApproval } = useChatSession(chatId, chatCreated);
   const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
@@ -20,7 +22,8 @@ export default function ChatPopup() {
   const meta = chats.find((c) => c.id === chatId);
   const issueId = context.issue_id && context.issue_id !== dismissedIssue ? context.issue_id : undefined;
   const sendText = (text: string) => send(text, issueId ? context : { view: context.view });
-  const empty = thread.turns.length === 0;
+  const empty = isEmptyThread(thread);
+  const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
 
   return (
     <div
@@ -91,10 +94,15 @@ export default function ChatPopup() {
         onDismissContext={() => setDismissedIssue(context.issue_id ?? null)}
         status={agent.status}
         prefs={prefsFor(chatId)}
-        providerLocked={!empty}
+        providerLocked={thread.turns.length > 0}
         onPrefsChange={(next) => setPrefsFor(chatId, next)}
         onSend={sendText}
         onStop={stop}
+        work={work}
+        onLeaveWork={onLeaveWork}
+        onOpenIssue={onOpenIssue}
+        draft={draftFor(chatId)}
+        onDraftUsed={() => chatId && clearDraft(chatId)}
       />
     </div>
   );

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ChevronRight, Copy, Check, X } from "lucide-react";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
-import { approvalOutcomeLabel, collapsedFailureNote, failedSteps, failureReason, isFailed, pendingApprovals, splitTurn, stepSummary, turnSeconds, type ChatStep, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { approvalOutcomeLabel, collapsedFailureNote, failedSteps, failureReason, isFailed, modeDividerText, pendingApprovals, splitTurn, stepSummary, turnSeconds, type ChatStep, type ModeDivider, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />;
@@ -205,6 +205,19 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
   );
 }
 
+/** A line across the thread where the chat entered or left Work Mode. */
+function Divider({ divider }: { divider: ModeDivider }) {
+  return (
+    <div role="separator" className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
+      <span className="h-px flex-1 bg-[var(--color-border-subtle)]" />
+      <span className="shrink min-w-0 text-center">
+        <IssueRefText text={modeDividerText(divider)} />
+      </span>
+      <span className="h-px flex-1 bg-[var(--color-border-subtle)]" />
+    </div>
+  );
+}
+
 function dayLabel(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
@@ -250,7 +263,13 @@ export default function ChatThread({
       <div className={wide ? "mx-auto max-w-[46rem]" : undefined}>
       {first && <div className="text-center text-xs text-[var(--color-text-muted)] mb-4">{dayLabel(first.user.time)}</div>}
       <div className="flex flex-col gap-6">
-        {thread.turns.map((turn, i) => <Turn key={i} turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} />)}
+        {thread.turns.map((turn, i) => (
+          <Fragment key={i}>
+            {thread.dividers.filter((d) => d.at === i).map((d, j) => <Divider key={`d${j}`} divider={d} />)}
+            <Turn turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} />
+          </Fragment>
+        ))}
+        {thread.dividers.filter((d) => d.at >= thread.turns.length).map((d, j) => <Divider key={`end${j}`} divider={d} />)}
       </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
+import { AgentChatContext, type AgentChat } from "../Agent/agent-context";
 import PropertySidebar from "./PropertySidebar";
 
 const issue = makeIssue({
@@ -10,8 +11,12 @@ const issue = makeIssue({
   labels: ["bug"],
 });
 
-function renderSidebar(target = issue, gitActions?: boolean): string {
+// An agent chat whose agent CLI is available; the sidebar reads only status.
+const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] } } as unknown as AgentChat;
+
+function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null): string {
   return renderMarkup(
+    <AgentChatContext.Provider value={agent}>
     <PropertySidebar
       issue={target}
       issues={[target]}
@@ -22,7 +27,8 @@ function renderSidebar(target = issue, gitActions?: boolean): string {
       contributors={[]}
       onOpenMerge={() => {}}
       gitActions={gitActions}
-    />,
+    />
+    </AgentChatContext.Provider>,
   );
 }
 
@@ -58,5 +64,19 @@ describe("PropertySidebar git actions", () => {
       expect(html).not.toContain("Start Work");
       expect(html).not.toContain("Review Changes");
     }
+  });
+
+  const doing = makeIssue({ ...started, status: "DOING" });
+
+  it("offers Continue Work on a DOING issue with a branch when the agent is available", () => {
+    const html = renderSidebar(doing, true, agentAvailable);
+    expect(html).toContain("Continue Work");
+    expect(html).not.toContain("Start Work");
+  });
+
+  it("hides Continue Work without an agent, in remote mode, or without a branch", () => {
+    expect(renderSidebar(doing, true)).not.toContain("Continue Work");
+    expect(renderSidebar(doing, false, agentAvailable)).not.toContain("Continue Work");
+    expect(renderSidebar(makeIssue({ status: "DOING" }), true, agentAvailable)).not.toContain("Continue Work");
   });
 });

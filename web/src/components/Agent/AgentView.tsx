@@ -11,7 +11,9 @@ import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
 import { chatStateIcon, recentChatItems } from "./recent-chats";
+import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
+import { useWorkMode } from "./useWorkMode";
 
 const SUGGESTION_ICONS = [<Bug key="bug" size={16} />, <Workflow key="epic" size={16} />, <ListChecks key="list" size={16} />];
 
@@ -86,6 +88,8 @@ export default function AgentView() {
   const { chatId, openChatView } = useAppNav();
   const { projectName } = useConfig();
   const { thread, missing, running, send, stop, expireApproval } = useChatSession(chatId, (id) => openChatView(id));
+  const meta = agent.chats.find((c) => c.id === chatId);
+  const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
 
   if (!agent.status) return null;
   if (!agent.status.available) {
@@ -105,8 +109,7 @@ export default function AgentView() {
     );
   }
 
-  const meta = agent.chats.find((c) => c.id === chatId);
-  const empty = thread.turns.length === 0;
+  const empty = isEmptyThread(thread);
   const sendText = (text: string) => send(text, { view: "Agent" });
   const composer = (
     <ChatComposer
@@ -116,10 +119,15 @@ export default function AgentView() {
       onDismissContext={() => {}}
       status={agent.status}
       prefs={agent.prefsFor(chatId)}
-      providerLocked={!empty}
+      providerLocked={thread.turns.length > 0}
       onPrefsChange={(next) => agent.setPrefsFor(chatId, next)}
       onSend={sendText}
       onStop={stop}
+      work={work}
+      onLeaveWork={onLeaveWork}
+      onOpenIssue={onOpenIssue}
+      draft={agent.draftFor(chatId)}
+      onDraftUsed={() => chatId && agent.clearDraft(chatId)}
     />
   );
 

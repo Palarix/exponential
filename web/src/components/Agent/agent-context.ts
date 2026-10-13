@@ -17,7 +17,12 @@ export interface AgentChat {
   /** Records a pick in a chat's composer and remembers it for new chats. */
   setPrefsFor(chatId: string | null, prefs: ChatPrefs): void;
   openNew(): void;
-  openChat(id: string): void;
+  /** Opens a chat in the popup; a draft prefills its composer. */
+  openChat(id: string, draft?: string): void;
+  /** The text waiting to prefill a chat's composer. */
+  draftFor(chatId: string | null): string | undefined;
+  /** Called once a draft is in the composer. */
+  clearDraft(chatId: string): void;
   toggle(): void;
   minimize(): void;
   close(): void;
@@ -33,6 +38,11 @@ export function useAgentChat(): AgentChat {
   const ctx = useContext(AgentChatContext);
   if (!ctx) throw new Error("useAgentChat requires AgentChatProvider");
   return ctx;
+}
+
+/** The agent chat, or null outside AgentChatProvider. */
+export function useOptionalAgentChat(): AgentChat | null {
+  return useContext(AgentChatContext);
 }
 
 export const agentQueryKeys = {

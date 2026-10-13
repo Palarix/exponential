@@ -29,6 +29,13 @@ type RunnerConfig struct {
 	DefaultProvider string  // used when a message names none; "claude" when empty
 	DefaultModel    string  // chat.model from config; used for the default provider when a chat has no model
 	Learner         Learner // told which model each finished turn ran; optional
+
+	// CanWork allows Work Mode. False in remote mode, where start and merge
+	// run on the server (xpo-a60065).
+	CanWork bool
+	// ResolveWork returns an issue's full ID and worktree, once the agent's
+	// start call on it succeeded. The ID may be a unique suffix.
+	ResolveWork func(issueID string) (WorkBinding, error)
 }
 
 // Learner learns which model a picked model ID resolved to. The Catalog is
@@ -111,6 +118,13 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	r.wg.Add(1)
 	r.mu.Unlock()
 
+	// Read the meta again: BindWork may have changed it before the turn was
+	// registered, and no mode change can happen from here on.
+	if meta, err = r.cfg.Store.Meta(id); err != nil {
+		r.finish(id)
+		return err
+	}
+	notice := checkWorktree(&meta)
 	if meta.Title == "" {
 		meta.Title = TitleFrom(req.Text)
 	}
@@ -126,9 +140,13 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		r.finish(id)
 		return err
 	}
+	if notice != nil {
+		r.settle(id, *notice)
+	}
 	r.settle(id, Event{Type: EventUserMessage, Text: req.Text, Context: req.Context})
 
-	go r.run(id, meta, driver, buildPrompt(req.Text, req.Context), t)
+	profile := r.profileFor(meta)
+	go r.run(id, meta, driver, profile, buildPrompt(req.Text, req.Context, profile), t)
 	return nil
 }
 
@@ -240,21 +258,30 @@ func (r *Runner) finish(id string) {
 	r.wg.Done()
 }
 
-func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn) {
+func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, prompt string, t *turn) {
 	defer r.finish(id)
 
 	sessionID := meta.SessionID
 	var resolved *TurnResult // set when the turn finished
+	modes := &modeTools{profile: profile}
 	defer func() {
-		if m, err := r.cfg.Store.Meta(id); err == nil {
+		r.mu.Lock()
+		m, err := r.cfg.Store.Meta(id)
+		var notice *Event
+		if err == nil {
 			m.State = StateIdle
 			m.SessionID = sessionID
 			if resolved != nil && resolved.Model != "" {
 				m.ResolvedModel = resolved.Model
 				m.ContextWindow = resolved.ContextWindow
 			}
+			notice = modes.apply(r, &m)
 			m.UpdatedAt = time.Now().UTC()
 			_ = r.cfg.Store.SaveMeta(m)
+		}
+		r.mu.Unlock()
+		if notice != nil {
+			r.settle(id, *notice)
 		}
 	}()
 
@@ -294,8 +321,9 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 		SessionID: sessionID,
 		Model:     model,
 		Effort:    meta.Effort,
-		Dir:       r.cfg.Dir,
+		Dir:       profile.Dir,
 		MCP:       r.cfg.MCP,
+		Profile:   profile,
 		Approve:   r.approver(id, t),
 		Grants:    meta.Grants,
 	}, func(ev exponential.StreamEvent) {
@@ -334,6 +362,7 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 			}
 			call.Message = ev.ToolMessage
 			r.settle(id, call)
+			modes.observe(call)
 		}
 	})
 	flushText()

@@ -23,8 +23,9 @@ type TurnInput struct {
 	SessionID string // the agent's own session or thread ID; empty for a new chat
 	Model     string
 	Effort    string
-	Dir       string // working directory: the project root
+	Dir       string // working directory: the project root, or the worktree in Work Mode
 	MCP       MCPTarget
+	Profile   Profile // the turn's tools and rules
 
 	// Approve asks the user about a tool call the agent wants to run. Nil
 	// denies every request.

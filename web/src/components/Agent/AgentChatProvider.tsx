@@ -17,6 +17,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const [chatId, setChatId] = useState<string | null>(null);
   const [pills, setPills] = useState(() => loadPills(storage));
   const [savedPrefs, setPrefsState] = useState(() => loadPrefs(storage));
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const status = useQuery({ queryKey: agentQueryKeys.status, queryFn: fetchAgentStatus, staleTime: Infinity }).data;
   // Picks made in open chats, by chat ID. They last until the next reload,
@@ -63,10 +64,18 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     prefsFor,
     setPrefsFor,
     openNew: () => { setChatId(null); setPopupOpen(true); },
-    openChat: (id) => {
+    openChat: (id, draft) => {
+      if (draft) setDrafts((d) => ({ ...d, [id]: draft }));
       setChatId(id);
       setPopupOpen(true);
     },
+    draftFor: (id) => (id ? drafts[id] : undefined),
+    clearDraft: (id) => setDrafts((d) => {
+      if (!(id in d)) return d;
+      const next = { ...d };
+      delete next[id];
+      return next;
+    }),
     toggle: () => setPopupOpen((open) => !open),
     minimize: () => setPopupOpen(false),
     close: () => {
@@ -82,7 +91,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       setPills((p) => removePill(p, id));
       if (chatId === id) setChatId(null);
     },
-  }), [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor]);
+  }), [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor, drafts]);
 
   useKeyboardShortcuts({
     scope: "global.agent",

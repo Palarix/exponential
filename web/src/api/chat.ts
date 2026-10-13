@@ -19,6 +19,7 @@ export type ChatEventType =
   | "error"
   | "approval_requested"
   | "approval_resolved"
+  | "mode_changed"
   | "text_delta"
   | "thinking"
   | "tool_start";
@@ -48,7 +49,14 @@ export interface ChatEvent {
   input?: string;
   /** approval_resolved. */
   decision?: ApprovalOutcome;
+  /** mode_changed: the new mode. */
+  mode?: ChatMode;
+  /** mode_changed: the issue entered or left. */
+  issue_id?: string;
 }
+
+/** Chat Mode reads the repo and changes issues; Work Mode implements one issue in its worktree. */
+export type ChatMode = "chat" | "work";
 
 export type ToolCallStatus = "done" | "error" | "denied";
 
@@ -69,6 +77,12 @@ export interface ChatMeta {
   state: "idle" | "running" | "interrupted";
   /** An approval card waits for the user. */
   waiting?: boolean;
+  /** Missing means Chat Mode. */
+  mode?: ChatMode;
+  /** The issue a chat in Work Mode works on. */
+  work?: { issue_id: string; worktree: string };
+  /** Every issue the chat entered Work Mode on. */
+  worked_issues?: string[];
 }
 
 /** A model the composer offers; "" means the provider's default. */
@@ -161,4 +175,17 @@ export function renameChat(id: string, title: string): Promise<ChatMeta> {
 
 export function deleteChat(id: string): Promise<void> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/**
+ * Start Work in Work Mode: opens the chat in Work Mode on the issue, or
+ * starts the issue and creates one. `created` is false for an existing chat.
+ */
+export function startWorkChat(issueId: string): Promise<{ chat: ChatMeta; created: boolean }> {
+  return request(`${BASE}/issues/${encodeURIComponent(issueId)}/work-chat`, { method: "POST" });
+}
+
+/** Puts a chat back in Chat Mode without a merge. The issue and its worktree stay. */
+export function leaveWork(chatId: string): Promise<ChatMeta> {
+  return request(`${BASE}/chats/${encodeURIComponent(chatId)}/leave-work`, { method: "POST" });
 }

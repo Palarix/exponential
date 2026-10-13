@@ -10,16 +10,26 @@ import (
 //go:embed prompt.md
 var systemPrompt string
 
-// codeAccess tells each agent how it can read the project's code. Both are
-// read-only: Claude through its tool allow-list, Codex through its sandbox.
-var codeAccess = map[string]string{
-	ProviderClaude: "You can read and search the project's code with Read, Grep, and Glob. You cannot edit files or run commands.",
-	ProviderCodex:  "You can read and search the project's code with read-only shell commands such as `rg`, `sed -n` and `git log`. The sandbox blocks writes and network access, so you cannot edit files.",
+// codeAccess tells each agent how it can reach the project's code in each
+// mode: Claude through its tool lists, Codex through its sandbox. The system
+// prompt describes both modes, so it stays the same when the mode changes.
+var codeAccess = map[string]map[string]string{
+	ProviderClaude: {
+		ModeChat: "You can read and search the code with Read, Grep, and Glob. You cannot edit files or run commands.",
+		ModeWork: "You can read, edit, and write files, and run shell commands with Bash. Keep every change inside the worktree: an edit outside it asks the user.",
+	},
+	ProviderCodex: {
+		ModeChat: "You can read and search the code with read-only shell commands such as `rg`, `sed -n` and `git log`. The sandbox blocks writes and network access, so you cannot edit files.",
+		ModeWork: "You can edit files and run commands in the worktree. The sandbox blocks writes outside it.",
+	},
 }
 
 // systemPromptFor returns the chat system prompt for a provider.
 func systemPromptFor(provider string) string {
-	return strings.ReplaceAll(systemPrompt, "{{code_access}}", codeAccess[provider])
+	return strings.NewReplacer(
+		"{{chat_access}}", codeAccess[provider][ModeChat],
+		"{{work_access}}", codeAccess[provider][ModeWork],
+	).Replace(systemPrompt)
 }
 
 // turnOptions are the per-turn inputs to the claude command line. The prompt
@@ -30,15 +40,13 @@ type turnOptions struct {
 	Model         string
 	Effort        string
 	Grants        []string // rules the user allowed for the whole chat
+	Profile       Profile  // the turn's tools and rules
 }
 
-// chatSettings makes `merge` ask before it runs, although the xpo wildcard
-// allows it: an ask rule wins over an allow rule.
-const chatSettings = `{"permissions":{"ask":["mcp__xpo__merge"]}}`
-
-// claudeArgs builds the `claude` arguments for one chat turn. The agent gets
-// the read-only code tools plus the xpo MCP tools. A call outside the allow
-// list arrives as a control_request on stdout, and the driver asks the user.
+// claudeArgs builds the `claude` arguments for one chat turn. The profile
+// picks the code tools, the allow, ask and deny rules. A call outside the
+// allow list arrives as a control_request on stdout, and the driver asks the
+// user.
 // The prompt goes over stdin as a stream-json message, so a message that
 // starts with "-" never parses as a flag.
 func claudeArgs(o turnOptions) []string {
@@ -49,11 +57,16 @@ func claudeArgs(o turnOptions) []string {
 		"--permission-prompt-tool", "stdio",
 		"--verbose",
 		"--include-partial-messages",
-		"--tools", "Read,Grep,Glob",
-		"--settings", chatSettings,
-		"--allowedTools", "mcp__xpo__*",
+		"--tools", o.Profile.claudeTools(),
+		"--settings", o.Profile.claudeSettings(),
+		"--allowedTools",
 	}
+	args = append(args, o.Profile.claudeAllowed()...)
 	args = append(args, o.Grants...)
+	if denied := o.Profile.claudeDisallowed(); len(denied) > 0 {
+		args = append(args, "--disallowedTools")
+		args = append(args, denied...)
+	}
 	args = append(args,
 		"--mcp-config", o.MCPConfigPath,
 		"--strict-mcp-config",
@@ -94,13 +107,17 @@ func mcpConfig(t MCPTarget) ([]byte, error) {
 	return json.Marshal(map[string]any{"mcpServers": map[string]any{"xpo": server}})
 }
 
-// buildPrompt prefixes the user's text with what they had open in the UI.
-func buildPrompt(text string, c *Context) string {
-	if c == nil || (c.View == "" && c.IssueID == "") {
-		return text
-	}
+// buildPrompt prefixes the user's text with the turn's mode and what they
+// had open in the UI.
+func buildPrompt(text string, c *Context, p Profile) string {
 	var b strings.Builder
 	b.WriteString("<xpo-context>\n")
+	for _, line := range p.contextLines() {
+		b.WriteString(line + "\n")
+	}
+	if c == nil {
+		c = &Context{}
+	}
 	if c.View != "" {
 		fmt.Fprintf(&b, "view: %s\n", c.View)
 	}

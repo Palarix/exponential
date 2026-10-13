@@ -42,6 +42,7 @@ func (d *ClaudeDriver) Turn(ctx context.Context, in TurnInput, emit exponential.
 		Model:         in.Model,
 		Effort:        in.Effort,
 		Grants:        in.Grants,
+		Profile:       in.Profile,
 	})...)
 	cmd.Dir = in.Dir
 	stderr := &tailBuffer{max: 4096}

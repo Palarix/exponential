@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Square, X } from "lucide-react";
 import type { AgentStatus } from "../../api/chat";
 import type { ChatPrefs } from "./agent-state-utils";
-import ComposerPickers from "./ComposerPickers";
+import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
 
 interface ChatComposerProps {
   running: boolean;
@@ -21,6 +21,13 @@ interface ChatComposerProps {
   onStop(): void;
   /** The full-page variant: a centered column and a taller input. */
   wide?: boolean;
+  /** Set in Work Mode. */
+  work?: WorkModeInfo;
+  onLeaveWork?(): void;
+  onOpenIssue?(issueId: string): void;
+  /** Text to put in the input, such as Start Work's first message. onDraftUsed runs once it is in. */
+  draft?: string;
+  onDraftUsed?(): void;
 }
 
 export default function ChatComposer({
@@ -36,12 +43,29 @@ export default function ChatComposer({
   onSend,
   onStop,
   wide,
+  work,
+  onLeaveWork,
+  onOpenIssue,
+  draft,
+  onDraftUsed,
 }: ChatComposerProps) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(draft ?? "");
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => inputRef.current?.focus(), []);
+
+  // A draft fills the input but sends nothing: the user can add to it first.
+  const [shownDraft, setShownDraft] = useState(draft);
+  if (draft !== shownDraft) {
+    setShownDraft(draft);
+    if (draft) setText(draft);
+  }
+  useEffect(() => {
+    if (!draft) return;
+    inputRef.current?.focus();
+    onDraftUsed?.();
+  }, [draft, onDraftUsed]);
 
   // Grow with the text, up to about eight lines.
   useEffect(() => {
@@ -93,7 +117,16 @@ export default function ChatComposer({
           className={`block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none ${wide ? "min-h-16" : ""}`}
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 min-w-0">
-          <ComposerPickers status={status} prefs={prefs} providerLocked={providerLocked} onPrefsChange={onPrefsChange} />
+          <ComposerPickers
+            status={status}
+            prefs={prefs}
+            providerLocked={providerLocked}
+            onPrefsChange={onPrefsChange}
+            work={work}
+            running={running}
+            onLeaveWork={onLeaveWork}
+            onOpenIssue={onOpenIssue}
+          />
           {running ? (
             <button
               type="button"

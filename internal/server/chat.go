@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/palarix/exponential/internal/chat"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/model"
 )
 
 // ChatService is the board's agent chat. The board runs the agent on the
@@ -19,6 +22,13 @@ type ChatService struct {
 	Store   *chat.Store
 	Runner  *chat.Runner
 	Catalog *chat.Catalog
+
+	// StartWork starts an issue and returns its worktree, for Start Work
+	// in Work Mode. Nil runs the same code as the start endpoint.
+	StartWork func(issueID string) (worktree string, err error)
+	// FindWorktree returns the worktree of an issue already DOING, for
+	// Continue Work. Nil looks it up in git.
+	FindWorktree func(issueID string) (worktree string, ok bool)
 }
 
 func (s *Server) registerChatRoutes(mux *http.ServeMux) {
@@ -35,6 +45,8 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
 	mux.HandleFunc("GET /api/local/chats/{id}/stream", s.handleChatStream)
+	mux.HandleFunc("POST /api/local/chats/{id}/leave-work", s.handleLeaveWork)
+	mux.HandleFunc("POST /api/local/issues/{id}/work-chat", s.handleWorkChat)
 }
 
 func (s *Server) handleAgentStatus(w http.ResponseWriter, r *http.Request) {
@@ -239,6 +251,101 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleWorkChat is Start Work and Continue Work in Work Mode. It opens
+// the chat in Work Mode on the issue when one exists. Otherwise it binds a
+// new chat to the issue's worktree: the existing one for a DOING issue, or
+// a new one from starting the issue. The chat gets no message: the UI
+// prefills the composer.
+func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if m, ok := s.Chat.Runner.WorkChat(id); ok {
+		respondJSON(w, http.StatusOK, map[string]any{"chat": m, "created": false})
+		return
+	}
+	if !s.Chat.Runner.CanWork() {
+		s.respondChatError(w, chat.ErrWorkUnavailable)
+		return
+	}
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
+		return
+	}
+	issue, ok := issues[id]
+	if !ok {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("issue %s not found", id))
+		return
+	}
+
+	var worktree string
+	if issue.Status == model.StatusDoing {
+		find := s.Chat.FindWorktree
+		if find == nil {
+			find = findIssueWorktree
+		}
+		if worktree, ok = find(id); !ok {
+			respondError(w, http.StatusConflict, fmt.Sprintf("%s is in progress but has no worktree here", id))
+			return
+		}
+	} else {
+		start := s.Chat.StartWork
+		if start == nil {
+			start = s.startWorktree
+		}
+		if worktree, err = start(id); err != nil {
+			respondError(w, http.StatusConflict, err.Error())
+			return
+		}
+		s.broadcastEvent("UPDATE", id)
+	}
+
+	// The issue stays started when a step below fails; Start Work again
+	// retries the chat.
+	created, err := s.Chat.Store.Create()
+	if s.respondChatError(w, err) {
+		return
+	}
+	if _, err := s.Chat.Store.Rename(created.ID, id+" "+issue.Title); s.respondChatError(w, err) {
+		return
+	}
+	m, err := s.Chat.Runner.BindWork(created.ID, chat.WorkBinding{IssueID: id, Worktree: worktree})
+	if err != nil {
+		_ = s.Chat.Store.Delete(created.ID)
+		s.respondChatError(w, err)
+		return
+	}
+	respondJSON(w, http.StatusCreated, map[string]any{"chat": m, "created": true})
+}
+
+// findIssueWorktree returns the absolute path of an issue's git worktree.
+func findIssueWorktree(id string) (string, bool) {
+	wt, ok := exponential.FindWorktreeForIssue(id)
+	if !ok {
+		return "", false
+	}
+	path, err := filepath.Abs(wt.Path)
+	return path, err == nil
+}
+
+// startWorktree starts an issue like the start endpoint and returns its
+// worktree.
+func (s *Server) startWorktree(id string) (string, error) {
+	_, worktree, _, err := s.startIssue(id, false)
+	if err == nil && worktree == "" {
+		err = errors.New("work mode needs a git repository")
+	}
+	return worktree, err
+}
+
+// handleLeaveWork puts a chat back in Chat Mode without a merge.
+func (s *Server) handleLeaveWork(w http.ResponseWriter, r *http.Request) {
+	m, err := s.Chat.Runner.LeaveWork(r.PathValue("id"))
+	if s.respondChatError(w, err) {
+		return
+	}
+	respondJSON(w, http.StatusOK, m)
+}
+
 // respondChatError writes the response for a chat error and reports whether
 // there was one.
 func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
@@ -251,7 +358,9 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		respondError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, chat.ErrEmptyTitle), errors.Is(err, chat.ErrBadDecision):
 		respondError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked):
+	case errors.Is(err, chat.ErrWorkUnavailable):
+		respondError(w, http.StatusNotImplemented, err.Error())
+	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, err.Error())

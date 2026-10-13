@@ -878,14 +878,7 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	force := r.URL.Query().Get("force") == "true"
-
-	// Serialize the check-and-transition to prevent claim races.
-	s.mu.Lock()
-	client := exponential.NewClient(s.Config)
-	client.Collapse = true
-	branch, _, msgs, err := client.StartWork(id, force)
-	s.mu.Unlock()
-
+	branch, _, msgs, err := s.startIssue(id, force)
 	if err != nil {
 		respondError(w, http.StatusConflict, err.Error())
 		return
@@ -898,6 +891,16 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 		"branch":   branch,
 		"messages": msgs,
 	})
+}
+
+// startIssue starts an issue: DOING, and its worktree in a git repo. The
+// check-and-transition is serialized to prevent claim races.
+func (s *Server) startIssue(id string, force bool) (branch, worktree string, msgs []string, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	client := exponential.NewClient(s.Config)
+	client.Collapse = true
+	return client.StartWork(id, force)
 }
 
 func (s *Server) resolveIssueBranch(w http.ResponseWriter, r *http.Request) (*model.Issue, string, bool) {

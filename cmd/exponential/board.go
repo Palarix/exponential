@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -122,6 +123,8 @@ func runBoard(cmd *cobra.Command, args []string) error {
 // newChatService sets up the agent chat: chats in .xpo/chats/, and an agent
 // that runs in the project root and reaches the xpo tools through this
 // binary's stdio MCP server, or the remote server's /mcp in remote mode.
+// Work Mode runs the agent in an issue's worktree; remote mode has none
+// until Team Mode (xpo-a60065).
 func newChatService() *server.ChatService {
 	root := storage.HubRoot()
 	store := chat.NewStore(filepath.Join(storage.XpoDir(), "chats"))
@@ -170,9 +173,29 @@ func newChatService() *server.ChatService {
 			DefaultProvider: st.DefaultProvider,
 			DefaultModel:    cfg.Chat.Model,
 			Learner:         catalog,
+			CanWork:         target.RemoteURL == "",
+			ResolveWork:     resolveWork,
 		}),
 		Catalog: catalog,
 	}
+}
+
+// resolveWork finds an issue's full ID and worktree, after the chat agent
+// started it with its own MCP server process.
+func resolveWork(ref string) (chat.WorkBinding, error) {
+	issue, err := exponential.NewClient(cfg).Transport.GetIssue(ref)
+	if err != nil {
+		return chat.WorkBinding{}, err
+	}
+	wt, ok := exponential.FindWorktreeForIssue(issue.ID)
+	if !ok {
+		return chat.WorkBinding{}, fmt.Errorf("%s has no worktree", issue.ID)
+	}
+	path, err := filepath.Abs(wt.Path)
+	if err != nil {
+		return chat.WorkBinding{}, err
+	}
+	return chat.WorkBinding{IssueID: issue.ID, Worktree: path}, nil
 }
 
 // loadCodexModels fills in Codex's model list. Until it answers, or when it

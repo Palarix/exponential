@@ -17,7 +17,7 @@ func flagValue(args []string, flag string) string {
 }
 
 func TestClaudeArgs_Baseline(t *testing.T) {
-	args := claudeArgs(turnOptions{MCPConfigPath: "/tmp/mcp.json"})
+	args := claudeArgs(turnOptions{MCPConfigPath: "/tmp/mcp.json", Profile: ChatProfile("/repo", true)})
 
 	// The prompt goes over stdin: a message that starts with "-" must not
 	// parse as a flag.
@@ -45,14 +45,6 @@ func TestClaudeArgs_Baseline(t *testing.T) {
 			t.Errorf("%s = %q, want %q", flag, got, want)
 		}
 	}
-	var settings struct {
-		Permissions struct {
-			Ask []string `json:"ask"`
-		} `json:"permissions"`
-	}
-	if err := json.Unmarshal([]byte(flagValue(args, "--settings")), &settings); err != nil || !slices.Equal(settings.Permissions.Ask, []string{"mcp__xpo__merge"}) {
-		t.Errorf("--settings = %q, want merge to ask (%v)", flagValue(args, "--settings"), err)
-	}
 	for _, flag := range []string{"--verbose", "--include-partial-messages", "--strict-mcp-config"} {
 		if !slices.Contains(args, flag) {
 			t.Errorf("missing %s", flag)
@@ -73,7 +65,7 @@ func TestClaudeArgs_ResumeModelEffort(t *testing.T) {
 }
 
 func TestClaudeArgs_GrantsFollowTheAllowList(t *testing.T) {
-	args := claudeArgs(turnOptions{MCPConfigPath: "m", Grants: []string{"Bash(echo hi *)", "mcp__xpo__merge"}})
+	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: ChatProfile("/repo", true), Grants: []string{"Bash(echo hi *)", "mcp__xpo__merge"}})
 	i := slices.Index(args, "--allowedTools")
 	if i < 0 || !slices.Equal(args[i+1:i+4], []string{"mcp__xpo__*", "Bash(echo hi *)", "mcp__xpo__merge"}) {
 		t.Fatalf("args = %v, want the grants as extra --allowedTools values", args)
@@ -84,16 +76,18 @@ func TestClaudeArgs_GrantsFollowTheAllowList(t *testing.T) {
 }
 
 func TestBuildPrompt(t *testing.T) {
-	if got := buildPrompt("hi", nil); got != "hi" {
+	chat := ChatProfile("/repo", true)
+	if got, want := buildPrompt("hi", nil, chat), "<xpo-context>\nmode: chat\n</xpo-context>\n\nhi"; got != want {
 		t.Errorf("no context: %q", got)
 	}
-	if got := buildPrompt("hi", &Context{}); got != "hi" {
-		t.Errorf("empty context: %q", got)
-	}
-	got := buildPrompt("fix this", &Context{View: "board", IssueID: "xpo-1", IssueTitle: "Login <times> out"})
-	want := "<xpo-context>\nview: board\nopen issue: xpo-1 \"Login <times> out\"\n</xpo-context>\n\nfix this"
+	got := buildPrompt("fix this", &Context{View: "board", IssueID: "xpo-1", IssueTitle: "Login <times> out"}, chat)
+	want := "<xpo-context>\nmode: chat\nview: board\nopen issue: xpo-1 \"Login <times> out\"\n</xpo-context>\n\nfix this"
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
+	}
+	got = buildPrompt("go", nil, WorkProfile("xpo-1", "/wt"))
+	if want := "<xpo-context>\nmode: work on xpo-1\nworktree: /wt\n</xpo-context>\n\ngo"; got != want {
+		t.Errorf("work: %q", got)
 	}
 }
 
@@ -139,7 +133,7 @@ func TestMCPConfig_Remote(t *testing.T) {
 func TestSystemPromptFor(t *testing.T) {
 	for _, p := range []string{ProviderClaude, ProviderCodex} {
 		got := systemPromptFor(p)
-		if strings.Contains(got, "{{") || !strings.Contains(got, codeAccess[p]) {
+		if strings.Contains(got, "{{") || !strings.Contains(got, codeAccess[p][ModeChat]) || !strings.Contains(got, codeAccess[p][ModeWork]) {
 			t.Errorf("%s prompt = %q", p, got)
 		}
 	}

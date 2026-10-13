@@ -21,9 +21,9 @@ import (
 const codexTokenEnv = "XPO_MCP_BEARER_TOKEN"
 
 // CodexDriver runs a turn on `codex app-server`, one process per turn,
-// speaking its JSON-RPC protocol over stdio. The thread runs in Codex's
-// read-only sandbox and never asks for command approval; the xpo MCP tools
-// are pre-approved. Approval requests it sends anyway go to the user.
+// speaking its JSON-RPC protocol over stdio. The turn's profile picks the
+// sandbox, the approval policy, and which xpo MCP tools ask or are disabled;
+// the others are pre-approved. Approval requests go to the user.
 type CodexDriver struct {
 	Binary string // "codex" when empty
 	// InterruptGrace is how long a cancelled turn may take to stop after
@@ -41,8 +41,8 @@ func (d *CodexDriver) binary() string {
 // codexArgs starts app-server with the xpo MCP server: this binary's stdio
 // server in local mode, or the remote server's /mcp in remote mode. The
 // whole xpo table is replaced, so an xpo entry in a Codex config file
-// cannot mix in.
-func codexArgs(t MCPTarget) []string {
+// cannot mix in. The profile disables tools and makes others ask.
+func codexArgs(t MCPTarget, p Profile) []string {
 	server := map[string]any{"default_tools_approval_mode": "approve"}
 	if t.RemoteURL != "" {
 		server["url"] = strings.TrimSuffix(t.RemoteURL, "/") + "/mcp"
@@ -58,6 +58,12 @@ func codexArgs(t MCPTarget) []string {
 		if v, ok := server[key]; ok {
 			args = append(args, "-c", "mcp_servers.xpo."+key+"="+tomlValue(v))
 		}
+	}
+	if denied := p.deniedTools(); len(denied) > 0 {
+		args = append(args, "-c", "mcp_servers.xpo.disabled_tools="+tomlValue(denied))
+	}
+	for _, tool := range p.askTools() {
+		args = append(args, "-c", "mcp_servers.xpo.tools."+tool+".approval_mode="+tomlValue("prompt"))
 	}
 	return args
 }
@@ -75,7 +81,7 @@ func (d *CodexDriver) Turn(ctx context.Context, in TurnInput, emit exponential.S
 	if grace == 0 {
 		grace = 3 * time.Second
 	}
-	p, err := startCodex(d.binary(), codexArgs(in.MCP), in.Dir, in.MCP.RemoteToken)
+	p, err := startCodex(d.binary(), codexArgs(in.MCP, in.Profile), in.Dir, in.MCP.RemoteToken)
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +218,8 @@ func (t *codexTurn) handle(line []byte) (*TurnResult, bool) {
 		t.p.notify("initialized")
 		params := map[string]any{
 			"cwd":                   t.in.Dir,
-			"sandbox":               "read-only",
-			"approvalPolicy":        "never",
+			"sandbox":               t.in.Profile.codexSandbox(),
+			"approvalPolicy":        t.in.Profile.codexApprovalPolicy(),
 			"developerInstructions": systemPromptFor(ProviderCodex),
 		}
 		method := "thread/start"

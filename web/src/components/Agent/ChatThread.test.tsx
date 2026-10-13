@@ -50,3 +50,25 @@ describe("ChatThread work list", () => {
     expect(html).toContain('aria-expanded="false"');
   });
 });
+
+describe("ChatThread mode dividers", () => {
+  it("draws dividers between turns, in order", () => {
+    const html = render(
+      <ChatThread
+        thread={thread([
+          { type: "mode_changed", seq: 1, mode: "work", issue_id: "xpo-1" },
+          { type: "user_message", seq: 2, text: "Let's implement xpo-1." },
+          { type: "turn_done", seq: 3, duration_ms: 1000 },
+          { type: "mode_changed", seq: 4, mode: "chat", issue_id: "xpo-1" },
+        ])}
+      />,
+    );
+    const work = html.indexOf("Work Mode on");
+    const message = html.indexOf("Let&#x27;s implement xpo-1.");
+    const back = html.indexOf("Back to Chat Mode");
+    expect(work).toBeGreaterThan(-1);
+    expect(html.match(/role="separator"/g)).toHaveLength(2);
+    expect(work).toBeLessThan(message);
+    expect(message).toBeLessThan(back);
+  });
+});

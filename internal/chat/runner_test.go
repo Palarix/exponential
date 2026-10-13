@@ -26,8 +26,9 @@ const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42","m
 {"type":"result","subtype":"success","result":"You have 1 open issue.","session_id":"sess-42","duration_ms":800,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":7},"modelUsage":{"claude-haiku-5-5":{"contextWindow":200000}}}
 `
 
-// fakeClaude writes a shell script that records its args and the first
-// stdin line (the stream-json user message) in dir, then runs body.
+// fakeClaude writes a shell script that records its args, its working
+// directory and the first stdin line (the stream-json user message) in dir,
+// then runs body.
 func fakeClaude(t *testing.T, dir, body string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -36,6 +37,7 @@ func fakeClaude(t *testing.T, dir, body string) string {
 	script := filepath.Join(dir, "claude")
 	content := "#!/bin/sh\n" +
 		`for a in "$@"; do printf '%s\n' "$a"; done > "` + dir + `/args.txt"` + "\n" +
+		`pwd -P > "` + dir + `/pwd.txt"` + "\n" +
 		`IFS= read -r line; printf '%s\n' "$line" > "` + dir + `/stdin.txt"` + "\n" +
 		body + "\n"
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {

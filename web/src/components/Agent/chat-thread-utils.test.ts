@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { approvalArgs, approvalOutcomeLabel, approvalTitle, chatThreadReducer, collapsedFailureNote, failedSteps, failureReason, stepSummary, emptyThread, isRunning, pendingApprovals, splitTurn, toolLabel, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
+import { approvalArgs, approvalOutcomeLabel, approvalTitle, chatThreadReducer, isEmptyThread, modeDividerText, collapsedFailureNote, failedSteps, failureReason, stepSummary, emptyThread, isRunning, pendingApprovals, splitTurn, toolLabel, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -319,7 +319,6 @@ describe("failedToolCount with approvals", () => {
 describe("approvalTitle", () => {
   it("says what the call will do", () => {
     expect(approvalTitle("mcp__xpo__merge", "upe-1")).toEqual({ action: "Merge", detail: "upe-1" });
-    expect(approvalTitle("mcp__xpo__start", "upe-1")).toEqual({ action: "Start work on", detail: "upe-1" });
     expect(approvalTitle("Edit", "/repo/main.go")).toEqual({ action: "Edit", detail: "main.go" });
     expect(approvalTitle("Read", "/etc/hosts")).toEqual({ action: "Read", detail: "hosts" });
   });
@@ -435,5 +434,42 @@ describe("collapsedFailureNote", () => {
     expect(collapsedFailureNote(failing, false)).toBe("2 failed");
     expect(collapsedFailureNote(failing, true)).toBeNull();
     expect(collapsedFailureNote(clean, false)).toBeNull();
+  });
+});
+
+describe("mode dividers", () => {
+  it("records a divider before the first turn, as Start Work makes it", () => {
+    const s = reduce([ev({ type: "mode_changed", seq: 1, mode: "work", issue_id: "xpo-1" })]);
+    expect(s.turns).toHaveLength(0);
+    expect(s.dividers).toEqual([{ at: 0, mode: "work", issueId: "xpo-1", message: undefined }]);
+    expect(isEmptyThread(s)).toBe(false);
+    expect(isEmptyThread(emptyThread)).toBe(true);
+  });
+
+  it("records a divider after a finished turn without changing the turn", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "merge it" }),
+      ev({ type: "turn_done", seq: 2, duration_ms: 1000 }),
+      ev({ type: "mode_changed", seq: 3, mode: "chat", issue_id: "xpo-1" }),
+    ]);
+    expect(s.turns[0].status).toBe("done");
+    expect(s.dividers).toEqual([{ at: 1, mode: "chat", issueId: "xpo-1", message: undefined }]);
+  });
+
+  it("ignores a replayed divider", () => {
+    const e = ev({ type: "mode_changed", seq: 1, mode: "work", issue_id: "xpo-1" });
+    expect(reduce([e, e]).dividers).toHaveLength(1);
+  });
+
+  it("words each divider", () => {
+    expect(modeDividerText({ at: 0, mode: "work", issueId: "xpo-1" })).toBe("Work Mode on xpo-1");
+    expect(modeDividerText({ at: 0, mode: "chat", issueId: "xpo-1" })).toBe("Back to Chat Mode");
+    expect(modeDividerText({ at: 0, mode: "chat", issueId: "xpo-1", message: "The worktree of xpo-1 is gone." })).toBe("The worktree of xpo-1 is gone.");
+  });
+});
+
+describe("start approval", () => {
+  it("asks to enter Work Mode", () => {
+    expect(approvalTitle("mcp__xpo__start", "xpo-1")).toEqual({ action: "Enter Work Mode on", detail: "xpo-1" });
   });
 });

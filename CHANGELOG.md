@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: Chat Mode and Work Mode in one chat. A chat can now implement an issue in its worktree without starting a second session, and the conversation carries over.
+  - **Chat Mode:** the default. The agent reads the repo and changes issues. `merge` is denied, and `start` asks first: the card reads "Enter Work Mode on xpo-…?".
+  - **Work Mode:** the agent runs in the issue's worktree. Read, Edit, Write and Bash run there without a card; Edit or Write outside the worktree, and `merge`, ask first.
+  - **Start Work:** opens a new chat in Work Mode, titled "<issue ID> <issue title>". The first message is prefilled but not sent. If a chat is already working on the issue, Start Work opens that chat.
+  - **Continue Work:** on an in-progress issue, opens its Work Mode chat, or creates one on the existing worktree without changing the issue.
+  - **Composer:** the "Read-only" badge is now a mode segment: "Chat", or "Work · xpo-…" with "Go to issue" and "Exit work mode". Exit work mode keeps the worktree, and the issue stays in progress.
+  - **Transcript:** a divider marks each switch. After a successful `merge`, the chat goes back to Chat Mode on its own.
+  - **Codex:** read-only sandbox in Chat Mode, workspace-write in Work Mode. The approval policy is now `on-request`, so `start` and `merge` ask instead of failing.
+  - **Remote mode:** Work Mode is unavailable, and the agent cannot call `start`.
+  - **API:** `POST /api/local/issues/{id}/work-chat`, `POST /api/local/chats/{id}/leave-work`; chats include `mode`, `work` and `worked_issues`.
+
+  (xpo-00f0e5)
+
 - Agent chat: approval cards. The agent asks before a tool call runs, and the chat shows a card with "Deny", "Allow for this chat" and "Allow".
   - **First use:** `merge` in a chat now asks before it runs, instead of running silently.
   - **Claude Code:** turns run with `--permission-prompt-tool stdio`; the prompt goes in as a stream-json message and stdin stays open for the answers.

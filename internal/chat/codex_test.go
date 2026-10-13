@@ -183,7 +183,7 @@ func TestCodexDriver_Turn(t *testing.T) {
 
 	sent := sentRequests(t, dir)
 	start := params(sent["thread/start"][0])
-	if start["sandbox"] != "read-only" || start["approvalPolicy"] != "never" || start["cwd"] != dir {
+	if start["sandbox"] != "read-only" || start["approvalPolicy"] != "on-request" || start["cwd"] != dir {
 		t.Errorf("thread/start params = %v", start)
 	}
 	if instr := start["developerInstructions"].(string); !strings.Contains(instr, "xpo") || !strings.Contains(instr, "shell commands") || strings.Contains(instr, "Glob") {
@@ -206,6 +206,30 @@ func TestCodexDriver_Turn(t *testing.T) {
 		if !strings.Contains(string(args), a) {
 			t.Errorf("args missing %q:\n%s", a, args)
 		}
+	}
+}
+
+// In Work Mode the thread runs in the worktree, may write there, and merge
+// asks before it runs.
+func TestCodexDriver_WorkProfile(t *testing.T) {
+	r, store, dir := newCodexRunner(t, "")
+	r.cfg.CanWork = true
+	wt := filepath.Join(dir, "wt")
+	os.Mkdir(wt, 0o755)
+	m, _ := store.Create()
+	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-1", Worktree: wt}); err != nil {
+		t.Fatal(err)
+	}
+	r.Send(m.ID, SendRequest{Text: "go", Provider: "codex"})
+	r.Wait()
+
+	start := params(sentRequests(t, dir)["thread/start"][0])
+	if start["cwd"] != wt || start["sandbox"] != "workspace-write" || start["approvalPolicy"] != "on-request" {
+		t.Errorf("thread/start params = %v", start)
+	}
+	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
+	if !strings.Contains(string(args), `mcp_servers.xpo.tools.merge.approval_mode="prompt"`) || strings.Contains(string(args), "disabled_tools") {
+		t.Errorf("args = %s, want merge to ask and nothing disabled", args)
 	}
 }
 
@@ -249,7 +273,7 @@ func TestCodexDriver_SecondTurnResumesThread(t *testing.T) {
 		t.Fatalf("second turn sent %v", sent)
 	}
 	resume := params(sent["thread/resume"][0])
-	if resume["threadId"] != "thr-1" || resume["sandbox"] != "read-only" || resume["approvalPolicy"] != "never" {
+	if resume["threadId"] != "thr-1" || resume["sandbox"] != "read-only" || resume["approvalPolicy"] != "on-request" {
 		t.Errorf("thread/resume params = %v", resume)
 	}
 	turn := params(sent["turn/start"][0])

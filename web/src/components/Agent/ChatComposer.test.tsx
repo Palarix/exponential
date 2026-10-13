@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 import type { AgentStatus } from "../../api/chat";
 import { renderMarkup } from "../../render-markup";
@@ -24,7 +25,7 @@ const codex = {
 };
 const both: AgentStatus = { available: true, default_provider: "claude", providers: [claude, codex] };
 
-function renderComposer(status: AgentStatus, prefs: ChatPrefs, providerLocked = false): string {
+function renderComposer(status: AgentStatus, prefs: ChatPrefs, providerLocked = false, extra: Partial<ComponentProps<typeof ChatComposer>> = {}): string {
   return renderMarkup(
     <ChatComposer
       running={false}
@@ -36,6 +37,7 @@ function renderComposer(status: AgentStatus, prefs: ChatPrefs, providerLocked = 
       onPrefsChange={() => {}}
       onSend={async () => true}
       onStop={() => {}}
+      {...extra}
     />,
   );
 }
@@ -74,12 +76,41 @@ describe("ChatComposer pickers", () => {
     expect(trigger(html, "Claude Opus 5.5")).not.toMatch(disabledAttr);
   });
 
-  it("shows a read-only badge that explains where code changes happen", () => {
+  it("shows Chat Mode as a label with no menu, and says how to enter Work Mode", () => {
     const html = renderComposer(both, { provider: "claude", model: "", effort: "" });
-    const badge = html.match(/<span[^>]*title="[^"]*"[^>]*>(?:(?!<\/span>\s*<\/span>).)*Read-only/)?.[0];
+    const badge = html.match(/<span[^>]*title="[^"]*"[^>]*>(?:(?!<\/span>\s*<\/span>).)*>Chat</)?.[0];
     expect(badge).toBeDefined();
-    expect(badge).toContain("lucide-lock");
-    expect(badge).toMatch(/title="Chat can read code and change issues\. Code changes happen in work sessions\."/);
+    expect(badge).toMatch(/title="Ask the agent to start an issue, or use Start Work on an issue\."/);
+    expect(html).not.toContain("Read-only");
+    expect(html).not.toContain('aria-label="Mode"');
+  });
+
+  it("shows Work Mode with the issue, its title as a tooltip, and a menu", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, {
+      work: { issueId: "xpo-1", title: "Fix login" },
+      onLeaveWork: () => {},
+      onOpenIssue: () => {},
+    });
+    const mode = trigger(html, "Work · xpo-1");
+    expect(mode).toBeDefined();
+    expect(mode).toContain('aria-label="Mode"');
+    expect(mode).toContain('title="xpo-1 Fix login"');
+    expect(mode).not.toMatch(disabledAttr);
+  });
+
+  it("disables the mode segment while a turn runs", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, {
+      running: true,
+      work: { issueId: "xpo-1" },
+      onLeaveWork: () => {},
+      onOpenIssue: () => {},
+    });
+    expect(trigger(html, "Work · xpo-1")).toMatch(disabledAttr);
+  });
+
+  it("prefills the draft", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, false, { draft: "Let's implement xpo-1." });
+    expect(html).toMatch(/<textarea[^>]*>Let&#x27;s implement xpo-1\.<\/textarea>/);
   });
 
   it("separates the segments with rules", () => {

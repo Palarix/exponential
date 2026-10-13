@@ -6,7 +6,8 @@ import { agentQueryKeys, useAgentChat } from "./agent-context";
 import { isRunning } from "./chat-thread-utils";
 import { useChatThread } from "./useChatThread";
 
-function errorMessage(err: unknown): string {
+/** The error text of a failed API call: its JSON `error`, or its message. */
+export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     try {
       return (JSON.parse(err.body) as { error?: string }).error ?? err.message;
