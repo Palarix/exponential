@@ -21,6 +21,8 @@ type AddInput struct {
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Labels such as feature, bug, epic"`
 	CycleID     string      `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
 	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. At most one link per target issue. Links are bidirectional (A blocks B also means B blocked_by A); only blocked_by gates start, other kinds are informational"`
+	Before      string      `json:"before,omitempty" jsonschema:"Place the new issue directly above this issue ID in the manual order. Mutually exclusive with after"`
+	After       string      `json:"after,omitempty" jsonschema:"Place the new issue directly below this issue ID in the manual order. Mutually exclusive with before"`
 }
 
 type UpdateInput struct {
@@ -34,6 +36,8 @@ type UpdateInput struct {
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
 	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
 	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the issue's full relationship set, including derived links stored on the other issue (as returned by show); a link left out is removed from whichever side stores it; pass [] to remove all links. At most one link per target issue: to change a link's kind, send the set with the new kind in place of the old. Only blocked_by gates start; other kinds are informational"`
+	Before      string      `json:"before,omitempty" jsonschema:"Move the issue directly above this issue ID in the manual order. Mutually exclusive with after"`
+	After       string      `json:"after,omitempty" jsonschema:"Move the issue directly below this issue ID in the manual order. Mutually exclusive with before"`
 }
 
 type CommentInput struct {
@@ -46,6 +50,13 @@ type LinkInput struct {
 }
 
 // --- Validation and conversion helpers ---
+
+func validatePosition(before, after string) error {
+	if before != "" && after != "" {
+		return fmt.Errorf("'before' and 'after' are mutually exclusive")
+	}
+	return nil
+}
 
 func DecodeStrict(content string, dst interface{}) error {
 	dec := json.NewDecoder(strings.NewReader(content))
@@ -93,6 +104,9 @@ func (in AddInput) ToCreatePayload() (model.CreatePayload, error) {
 	if in.Title == "" {
 		return model.CreatePayload{}, fmt.Errorf("'title' is required")
 	}
+	if err := validatePosition(in.Before, in.After); err != nil {
+		return model.CreatePayload{}, err
+	}
 	if in.Status != "" {
 		if err := ValidateStatus(in.Status); err != nil {
 			return model.CreatePayload{}, err
@@ -117,6 +131,9 @@ func (in AddInput) ToCreatePayload() (model.CreatePayload, error) {
 }
 
 func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
+	if err := validatePosition(in.Before, in.After); err != nil {
+		return model.UpdatePayload{}, err
+	}
 	if in.Status != nil {
 		if err := ValidateStatus(*in.Status); err != nil {
 			return model.UpdatePayload{}, err
@@ -143,7 +160,7 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 func UpdatePayloadEmpty(p model.UpdatePayload) bool {
 	return p.Title == nil && p.Description == nil && p.Status == nil &&
 		p.ParentID == nil && p.Estimate == nil && p.Priority == nil &&
-		p.Assignee == nil && p.CycleID == nil && p.Labels == nil && p.Dependencies == nil
+		p.Assignee == nil && p.CycleID == nil && p.Labels == nil && p.Dependencies == nil && p.SortOrder == nil
 }
 
 // --- MCP tool parameter types (add ID or other tool-specific fields) ---

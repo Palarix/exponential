@@ -344,3 +344,24 @@ func TestToArtifactEntriesOnBehalfOf(t *testing.T) {
 		t.Errorf("human-written artifact should omit on_behalf_of: %s", got)
 	}
 }
+
+func TestAddInputBeforeAndAfterRejected(t *testing.T) {
+	_, err := AddInput{Title: "x", Before: "a", After: "b"}.ToCreatePayload()
+	if err == nil {
+		t.Fatal("expected error when both before and after are set")
+	}
+}
+
+func TestUpdateInputBeforeAndAfterRejected(t *testing.T) {
+	_, err := UpdateInput{Before: "a", After: "b"}.ToUpdatePayload()
+	if err == nil {
+		t.Fatal("expected error when both before and after are set")
+	}
+}
+
+func TestUpdatePayloadEmptyCountsSortOrder(t *testing.T) {
+	key := "a0"
+	if UpdatePayloadEmpty(model.UpdatePayload{SortOrder: &key}) {
+		t.Error("payload with sort_order reported empty")
+	}
+}

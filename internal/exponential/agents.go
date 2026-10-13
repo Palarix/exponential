@@ -430,8 +430,8 @@ may use different naming conventions). The table uses the base tool names.
 |---|---|
 | ` + "`list`" + ` | List or search issues; use ` + "`match`" + ` for free-text search |
 | ` + "`show`" + ` | Read one issue with details, dependencies, and comments |
-| ` + "`add`" + ` | Create a new issue |
-| ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE) |
+| ` + "`add`" + ` | Create a new issue. Set ` + "`before`" + ` or ` + "`after`" + ` to an issue ID to place it directly above or below that issue |
+| ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE). Reorder with ` + "`before`" + ` or ` + "`after`" + ` set to an issue ID |
 | ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree. Returns the worktree path |
 | ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed in the worktree first. Call it without a ` + "`strategy`" + ` unless the user asks for one |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |

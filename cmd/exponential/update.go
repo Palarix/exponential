@@ -24,6 +24,8 @@ var (
 	updateCycleFlag    string
 	updateDescFlag     string
 	updateJSONFlag     bool
+	updateBeforeFlag   string
+	updateAfterFlag    string
 )
 
 var updateCmd = &cobra.Command{
@@ -50,7 +52,7 @@ var updateCmd = &cobra.Command{
 			if err != nil {
 				exitJSONError(err)
 			}
-			if jsonio.UpdatePayloadEmpty(payload) {
+			if jsonio.UpdatePayloadEmpty(payload) && input.Before == "" && input.After == "" {
 				exitJSONError(fmt.Errorf("no fields set: provide at least one field to update"))
 			}
 			if err := client.ValidateUpdatePayload(&payload); err != nil {
@@ -60,9 +62,19 @@ var updateCmd = &cobra.Command{
 			if err != nil {
 				exitJSONError(err)
 			}
+			pos, err := client.PositionKey(issue.ID, input.Before, input.After)
+			if err != nil {
+				exitJSONError(err)
+			}
+			if pos != nil {
+				payload.SortOrder = &pos.Key
+			}
 			msgs, err := client.UpdateIssue(issue.ID, payload, "update")
 			if err != nil {
 				exitJSONError(err)
+			}
+			if len(msgs) == 0 && pos != nil {
+				msgs = []string{pos.Unchanged(issue.ID)}
 			}
 			out := jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}
 			enc := json.NewEncoder(os.Stdout)
@@ -86,7 +98,8 @@ var updateCmd = &cobra.Command{
 		hasFlags := cmd.Flags().Changed("status") || cmd.Flags().Changed("parent") ||
 			cmd.Flags().Changed("sp") || cmd.Flags().Changed("desc") ||
 			cmd.Flags().Changed("label") || cmd.Flags().Changed("assignee") ||
-			cmd.Flags().Changed("cycle")
+			cmd.Flags().Changed("cycle") || cmd.Flags().Changed("before") ||
+			cmd.Flags().Changed("after")
 
 		// Auto-detect piped stdin when no flags were passed: treat as --desc.
 		if !hasFlags && isStdinPiped() {
@@ -127,10 +140,27 @@ var updateCmd = &cobra.Command{
 				payload.CycleID = &resolved
 			}
 
-			msgs, err := client.UpdateIssue(id, payload, "update")
+			issue, err := client.GetIssue(id)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
+			}
+			pos, err := client.PositionKey(issue.ID, updateBeforeFlag, updateAfterFlag)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			if pos != nil {
+				payload.SortOrder = &pos.Key
+			}
+
+			msgs, err := client.UpdateIssue(issue.ID, payload, "update")
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			if len(msgs) == 0 && pos != nil {
+				msgs = []string{pos.Unchanged(issue.ID)}
 			}
 			for _, msg := range msgs {
 				fmt.Println(msg)
@@ -345,6 +375,8 @@ func init() {
 	updateCmd.Flags().StringSliceVar(&updateLabelFlag, "label", nil, "Labels")
 	updateCmd.Flags().StringVar(&updateAssigneeFlag, "assignee", "", "Assignee")
 	updateCmd.Flags().StringVar(&updateCycleFlag, "cycle", "", "Assign to cycle (current, next, none, or YYYY-MM-DD)")
+	updateCmd.Flags().StringVar(&updateBeforeFlag, "before", "", "Move the issue directly above this issue")
+	updateCmd.Flags().StringVar(&updateAfterFlag, "after", "", "Move the issue directly below this issue")
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 
 	rootCmd.AddCommand(updateCmd)

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- MCP `add`/`update` take `before` or `after` (an issue ID) to place an issue directly above or below another issue in the manual order, so agents can reorder the board. The CLI gets the same as `xpo add`/`xpo update --before/--after` and in `--json` payloads. An issue already in place is left alone ("X is already after Y"). (xpo-61232d)
+
 - Agent chat: issues show the chats that worked on them.
   - **Chat pill:** backlog rows and board cards show a chat pill with the chat count. Its icon shape gives the most urgent state: a dot for waiting on your approval, three dots for running, a warning for interrupted. A click opens the chat in Work Mode on the issue, or a searchable list of the issue's chats.
   - **Issue details:** a "k chats" row below Relations opens the same list.

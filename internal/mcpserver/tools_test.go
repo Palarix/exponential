@@ -905,3 +905,133 @@ func TestMergeToolDocumentsDefaultStrategy(t *testing.T) {
 		t.Errorf("merge description must tell agents to omit strategy: %q", mergeToolDescription)
 	}
 }
+
+func listOrder(t *testing.T, ts *toolset, status string) []string {
+	t.Helper()
+	_, res, err := ts.list(context.Background(), nil, jsonio.ListToolInput{Status: jsonio.FlexStrings{status}})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	var ids []string
+	for _, i := range res.Issues {
+		ids = append(ids, i.ID)
+	}
+	return ids
+}
+
+func TestUpdatePositionOnly(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "a"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "b"})
+	_, c, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "c"})
+
+	if _, _, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{
+		ID: c.ID, UpdateInput: jsonio.UpdateInput{Before: a.ID},
+	}); err != nil {
+		t.Fatalf("update before failed: %v", err)
+	}
+	if got := strings.Join(listOrder(t, ts, "BACKLOG"), ","); got != strings.Join([]string{c.ID, a.ID, b.ID}, ",") {
+		t.Errorf("after before: got %s", got)
+	}
+
+	if _, _, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{
+		ID: c.ID, UpdateInput: jsonio.UpdateInput{After: b.ID},
+	}); err != nil {
+		t.Fatalf("update after failed: %v", err)
+	}
+	if got := strings.Join(listOrder(t, ts, "BACKLOG"), ","); got != strings.Join([]string{a.ID, b.ID, c.ID}, ",") {
+		t.Errorf("after after: got %s", got)
+	}
+}
+
+func TestUpdatePositionAlreadyInPlace(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "a"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "b"})
+
+	_, res, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{
+		ID: b.ID, UpdateInput: jsonio.UpdateInput{After: a.ID},
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	want := b.ID + " is already after " + a.ID
+	if len(res.Messages) != 1 || res.Messages[0] != want {
+		t.Errorf("messages: got %v want [%s]", res.Messages, want)
+	}
+}
+
+func TestUpdateStatusWithPositionKeepsPosition(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "a", Status: "PLANNED"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "b", Status: "PLANNED"})
+	_, x, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x"})
+
+	planned := "PLANNED"
+	if _, _, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{
+		ID: x.ID, UpdateInput: jsonio.UpdateInput{Status: &planned, Before: b.ID},
+	}); err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if got := strings.Join(listOrder(t, ts, "PLANNED"), ","); got != strings.Join([]string{a.ID, x.ID, b.ID}, ",") {
+		t.Errorf("got %s", got)
+	}
+}
+
+func TestUpdatePositionErrors(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "a"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "b"})
+
+	cases := map[string]jsonio.UpdateInput{
+		"self":    {After: a.ID},
+		"missing": {Before: "test-nope00"},
+		"both":    {Before: b.ID, After: b.ID},
+	}
+	for name, in := range cases {
+		if _, _, err := ts.update(context.Background(), nil, jsonio.UpdateToolInput{ID: a.ID, UpdateInput: in}); err == nil {
+			t.Errorf("%s: expected error", name)
+		}
+	}
+}
+
+func TestAddWithPosition(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "a"})
+	_, b, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "b"})
+
+	_, x, err := ts.add(context.Background(), nil, jsonio.AddInput{Title: "x", After: a.ID})
+	if err != nil {
+		t.Fatalf("add after failed: %v", err)
+	}
+	_, y, err := ts.add(context.Background(), nil, jsonio.AddInput{Title: "y", Before: a.ID})
+	if err != nil {
+		t.Fatalf("add before failed: %v", err)
+	}
+	want := strings.Join([]string{y.ID, a.ID, x.ID, b.ID}, ",")
+	if got := strings.Join(listOrder(t, ts, "BACKLOG"), ","); got != want {
+		t.Errorf("got %s want %s", got, want)
+	}
+
+	if _, _, err := ts.add(context.Background(), nil, jsonio.AddInput{Title: "z", After: "test-nope00"}); err == nil {
+		t.Error("expected error for missing target")
+	}
+}
+
+func TestAddUpdateDescriptionsMentionPosition(t *testing.T) {
+	for _, d := range []string{addToolDescription, updateToolDescription} {
+		if !strings.Contains(d, "before") || !strings.Contains(d, "after") {
+			t.Errorf("description does not mention before/after: %q", d)
+		}
+	}
+}

@@ -71,6 +71,24 @@ func TestMCPToolsRef_MergeRequiresCommit(t *testing.T) {
 	t.Fatal("mcp-tools reference has no merge row")
 }
 
+func TestMCPToolsRef_AddUpdateMentionPosition(t *testing.T) {
+	ref := GenerateMCPToolsRef()
+	for _, tool := range []string{"add", "update"} {
+		found := false
+		for _, line := range strings.Split(ref, "\n") {
+			if strings.HasPrefix(line, "| `"+tool+"`") {
+				found = true
+				if !strings.Contains(line, "`before`") || !strings.Contains(line, "`after`") {
+					t.Errorf("%s row must mention before/after: %s", tool, line)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("mcp-tools reference has no %s row", tool)
+		}
+	}
+}
+
 // --- Marker ---
 
 func TestWrapSkillFile_RoundTrip(t *testing.T) {

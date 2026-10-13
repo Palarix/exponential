@@ -24,6 +24,8 @@ var (
 	addAssigneeFlag string
 	addCycleFlag    string
 	addJSONFlag     bool
+	addBeforeFlag   string
+	addAfterFlag    string
 )
 
 var addCmd = &cobra.Command{
@@ -50,6 +52,13 @@ var addCmd = &cobra.Command{
 			}
 			if err := client.ValidateCreatePayload(&payload); err != nil {
 				exitJSONError(err)
+			}
+			pos, err := client.PositionKey("", input.Before, input.After)
+			if err != nil {
+				exitJSONError(err)
+			}
+			if pos != nil {
+				payload.SortOrder = pos.Key
 			}
 			if !addForceFlag {
 				if dupes, derr := client.CheckDuplicates(payload.Title); derr == nil && len(dupes) > 0 {
@@ -137,6 +146,15 @@ var addCmd = &cobra.Command{
 			Labels:      addLabelFlag,
 		}
 
+		pos, err := client.PositionKey("", addBeforeFlag, addAfterFlag)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		if pos != nil {
+			payload.SortOrder = pos.Key
+		}
+
 		issue, err := client.AddIssue(payload)
 		if err != nil {
 			fmt.Printf("Error adding issue: %v\n", err)
@@ -171,6 +189,8 @@ func init() {
 	addCmd.Flags().StringSliceVar(&addLabelFlag, "label", nil, "Labels (can be specified multiple times)")
 	addCmd.Flags().StringVar(&addAssigneeFlag, "assignee", "", "Issue assignee")
 	addCmd.Flags().StringVar(&addCycleFlag, "cycle", "", "Assign to cycle (current, next, or YYYY-MM-DD)")
+	addCmd.Flags().StringVar(&addBeforeFlag, "before", "", "Place the new issue directly above this issue")
+	addCmd.Flags().StringVar(&addAfterFlag, "after", "", "Place the new issue directly below this issue")
 	addCmd.Flags().BoolVar(&addJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
 	rootCmd.AddCommand(addCmd)
 }

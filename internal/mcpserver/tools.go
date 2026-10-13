@@ -30,6 +30,12 @@ const unlinkToolDescription = "Remove one relationship between two issues, the c
 	"Links are bidirectional, so `unlink { B, A, blocked_by }` also removes `A blocks B` stored on A. " +
 	"A link to a deleted issue can be removed by its ID."
 
+const addToolDescription = "Create a new issue. Set status, labels, parent, story_points, links etc. in one call. " +
+	"Set `before` or `after` to another issue ID to place the new issue directly above or below it in the manual order."
+
+const updateToolDescription = "Patch fields on an existing issue. Use this to transition status (BACKLOG/PLANNED/DOING/BLOCKED/DONE) instead of separate start/done tools. " +
+	"To reorder, set `before` or `after` to another issue ID: the issue moves directly above or below it in the manual order."
+
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list",
@@ -48,12 +54,12 @@ func (t *toolset) register(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "add",
-		Description: "Create a new issue. Set status, labels, parent, story_points, links etc. in one call.",
+		Description: addToolDescription,
 	}, t.add)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update",
-		Description: "Patch fields on an existing issue. Use this to transition status (BACKLOG/PLANNED/DOING/BLOCKED/DONE) instead of separate start/done tools.",
+		Description: updateToolDescription,
 	}, t.update)
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -207,6 +213,13 @@ func (t *toolset) add(ctx context.Context, req *mcp.CallToolRequest, in jsonio.A
 	if err := c.ValidateCreatePayload(&payload); err != nil {
 		return nil, jsonio.AddOutput{}, err
 	}
+	pos, err := c.PositionKey("", in.Before, in.After)
+	if err != nil {
+		return nil, jsonio.AddOutput{}, err
+	}
+	if pos != nil {
+		payload.SortOrder = pos.Key
+	}
 	issue, err := c.AddIssue(payload)
 	if err != nil {
 		return nil, jsonio.AddOutput{}, err
@@ -224,7 +237,7 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in jsoni
 	if err != nil {
 		return nil, jsonio.UpdateOutput{}, err
 	}
-	if jsonio.UpdatePayloadEmpty(payload) {
+	if jsonio.UpdatePayloadEmpty(payload) && in.Before == "" && in.After == "" {
 		return nil, jsonio.UpdateOutput{}, fmt.Errorf("no fields set: provide at least one field to update")
 	}
 	c := t.clientFor(req)
@@ -235,9 +248,19 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in jsoni
 	if err := c.ValidateUpdatePayload(&payload); err != nil {
 		return nil, jsonio.UpdateOutput{}, err
 	}
+	pos, err := c.PositionKey(issue.ID, in.Before, in.After)
+	if err != nil {
+		return nil, jsonio.UpdateOutput{}, err
+	}
+	if pos != nil {
+		payload.SortOrder = &pos.Key
+	}
 	msgs, err := c.UpdateIssue(issue.ID, payload, "update")
 	if err != nil {
 		return nil, jsonio.UpdateOutput{}, err
+	}
+	if len(msgs) == 0 && pos != nil {
+		msgs = []string{pos.Unchanged(issue.ID)}
 	}
 	t.broadcast("UPDATE", issue.ID)
 	return textResult(strings.Join(msgs, "\n")), jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}, nil
