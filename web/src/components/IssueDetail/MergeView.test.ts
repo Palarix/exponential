@@ -9,7 +9,9 @@ import {
   diffFreshness,
   reuseUnchangedFiles,
   initialDiffScope,
+  mergeViewMode,
 } from "./diff-utils";
+import { makeIssue } from "../../test-utils";
 
 /* ─── parseDiffByFile ─── */
 
@@ -530,5 +532,23 @@ describe("initialDiffScope", () => {
     expect(initialDiffScope({ ...stats, commits: 2 })).toBe("all");
     expect(initialDiffScope({ ...stats, has_uncommitted: false })).toBe("all");
     expect(initialDiffScope(undefined)).toBe("all");
+  });
+});
+
+/* ─── mergeViewMode ─── */
+
+describe("mergeViewMode", () => {
+  const stats = { branch: "b", head_sha: "x", commits: 1, files_changed: 1, insertions: 1, deletions: 0, has_uncommitted: false };
+  it("is merged for a merged DONE issue, even if its branch was kept", () => {
+    expect(mergeViewMode(makeIssue({ status: "DONE", merged: true }))).toBe("merged");
+    expect(mergeViewMode(makeIssue({ status: "DONE", merged: true, branch_stats: stats }))).toBe("merged");
+  });
+  it("is branch while the issue has a branch and is not a merged DONE issue", () => {
+    expect(mergeViewMode(makeIssue({ status: "DOING", branch_stats: stats }))).toBe("branch");
+    expect(mergeViewMode(makeIssue({ status: "DOING", merged: true, branch_stats: stats }))).toBe("branch");
+  });
+  it("is no-branch without a branch and without a merge", () => {
+    expect(mergeViewMode(makeIssue({ status: "DOING" }))).toBe("no-branch");
+    expect(mergeViewMode(makeIssue({ status: "DONE" }))).toBe("no-branch");
   });
 });

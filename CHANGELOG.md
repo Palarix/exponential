@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Merged issues get a "View changes" button that opens a read-only Merged view: the walkthrough, commits, diff and conversation, read from the merge commit, with who merged it and when. `GET /api/issues/{id}/merged` returns the merge's commits and diff, and issues in the API carry `merged: true`. (xpo-64be51)
+
 - MCP `add`/`update` take `before` or `after` (an issue ID) to place an issue directly above or below another issue in the manual order, so agents can reorder the board. The CLI gets the same as `xpo add`/`xpo update --before/--after` and in `--json` payloads. An issue already in place is left alone ("X is already after Y"). (xpo-61232d)
 
 - Agent chat: issues show the chats that worked on them.
@@ -129,6 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Agent chat polish: mode dividers read "Entered Work Mode on xpo-…" and "Entered Chat Mode". The Work Mode segment shows the hammer and the issue ID, without "Work ·". The send and stop buttons are 24px. (xpo-219de9)
 
 ### Fixed
+
+- Merging an issue while its merge view is open (for example from the agent chat) no longer shows a raw `{"error":"no branch found for this issue"}` screen. The view switches to the Merged view in place. An issue without a branch shows a clear "No branch found" screen, and API errors across the UI show their message instead of raw JSON. (xpo-64be51)
 
 - The attachment pill on backlog rows and board cards shows its count again, like the branch, chat and sub-issue pills. (xpo-199a69)
 - Agent chat: an open chat keeps following new output while you're at the bottom, also when a card or code block grows after it renders, the composer grows, or the popup is resized. Only scrolling up stops following; scrolling back to the end resumes it. (xpo-63b755)

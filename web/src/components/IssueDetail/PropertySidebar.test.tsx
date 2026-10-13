@@ -115,6 +115,21 @@ describe("PropertySidebar button priority", () => {
     expect(html.indexOf("Review Changes")).toBeLessThan(html.indexOf("Continue Work"));
   });
 
+  it("offers a secondary View changes button on a merged DONE issue", () => {
+    const merged = makeIssue({ status: "DONE", merged: true });
+    const html = renderSidebar(merged, true);
+    expect(button(html, "View changes")).toBeDefined();
+    expect(button(html, "View changes")).not.toContain("bg-[var(--color-accent-primary)]");
+    expect(button(html, "View changes")).toContain("border-[var(--color-border-default)]");
+    expect(html).not.toContain("Review Changes");
+  });
+
+  it("hides View changes in remote mode, and for issues that weren't merged or aren't DONE", () => {
+    expect(renderSidebar(makeIssue({ status: "DONE", merged: true }), false)).not.toContain("View changes");
+    expect(renderSidebar(makeIssue({ status: "DONE" }), true)).not.toContain("View changes");
+    expect(renderSidebar(makeIssue({ status: "DOING", merged: true }), true)).not.toContain("View changes");
+  });
+
   it("keeps the work button primary without Review Changes", () => {
     const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: { ...stats, files_changed: 0, has_uncommitted: false } }), true, agentAvailable);
     expect(html).not.toContain("Review Changes");

@@ -947,6 +947,28 @@ func (s *Server) handleGetIssueCommits(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, commits)
 }
 
+// handleMergedChanges returns what the issue's latest merge brought into the
+// default branch, read from the merge commit since the branch may be gone.
+func (s *Server) handleMergedChanges(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	issues, err := s.GetProjectedIssues()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to load issues")
+		return
+	}
+	issue, exists := issues[id]
+	if !exists {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("issue %s not found", id))
+		return
+	}
+	changes, err := exponential.GetMergedChanges(issue)
+	if err != nil {
+		respondError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	respondJSON(w, http.StatusOK, changes)
+}
+
 func (s *Server) handleGetCommitDiff(w http.ResponseWriter, r *http.Request) {
 	sha := r.PathValue("sha")
 	if sha == "" {

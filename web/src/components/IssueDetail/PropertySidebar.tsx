@@ -67,6 +67,8 @@ export default function PropertySidebar({
   // it again, so closing that chat never strands the issue.
   const handleStartWork = useCallback(() => startWork(issue.id), [issue.id, startWork]);
   const showReview = !!(gitActions && issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge);
+  // A merged issue's changes, read from its merge commit (xpo-64be51).
+  const showMerged = !!(gitActions && issue.merged && issue.status === "DONE" && onOpenMerge);
   const workAction = !gitActions
     ? null
     : issue.status === "BACKLOG" || issue.status === "PLANNED"
@@ -178,6 +180,17 @@ export default function PropertySidebar({
           >
             <GitMerge size={16} />
             Review Changes
+          </button>
+        )}
+
+        {/* View changes: secondary, since nothing is left to do on a merged issue. */}
+        {showMerged && (
+          <button
+            onClick={onOpenMerge}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
+          >
+            <GitMerge size={16} />
+            View changes
           </button>
         )}
 

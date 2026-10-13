@@ -7,6 +7,7 @@ import {
   parseDiffByFile,
   diffFreshness,
   reuseUnchangedFiles,
+  mergeViewMode,
 } from "./diff-utils";
 import { initialDiffScope, type DiffScope, type FileTreeNode, type SplitLine } from "./diff-utils";
 import Markdown from "react-markdown";
@@ -14,13 +15,14 @@ import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import { ApiError } from "../../api/client";
 import { useAddComment, useMergeIssue } from "../../api/mutations";
-import type { Issue, CommitInfo } from "../../api/client";
+import type { Issue, CommitInfo, MergedChanges } from "../../api/client";
 import {
   useArtifact,
   useCommitDiff,
   useIssueCommits,
   useIssueDiff,
   useMergeability,
+  useMergedChanges,
 } from "../../api/queries";
 import {
   GitCommitVertical,
@@ -177,14 +179,22 @@ export default function MergeView({
   const [blockerDetailOpen, setBlockerDetailOpen] = useState(false);
 
   const bs = issue.branch_stats;
+  // Each mode reads only its own data: a merged issue's branch is usually
+  // gone, and the branch queries would 404 (xpo-64be51).
+  const mode = mergeViewMode(issue);
+  const isBranch = mode === "branch";
+  const isMerged = mode === "merged";
 
-  const commitsQuery = useIssueCommits(issue);
-  const diffQuery = useIssueDiff(issue);
-  const mergeabilityQuery = useMergeability(issue);
-  const walkthroughQuery = useArtifact(issue, "walkthrough.md", !!hasWalkthrough);
+  const commitsQuery = useIssueCommits(issue, isBranch);
+  const diffQuery = useIssueDiff(issue, undefined, false, isBranch);
+  const mergeabilityQuery = useMergeability(issue, isBranch);
+  const mergedQuery = useMergedChanges(issue, isMerged);
+  const walkthroughQuery = useArtifact(issue, "walkthrough.md", !!hasWalkthrough && mode !== "no-branch");
+  // A merged view always shows the merged diff.
+  const scope: DiffScope = isMerged ? "all" : diffScope;
   // Polls only while the uncommitted diff is on screen.
-  const pollUncommitted = diffScope === "uncommitted" && activeTab === "files";
-  const uncommittedQuery = useIssueDiff(issue, "uncommitted", pollUncommitted ? 3000 : false);
+  const pollUncommitted = isBranch && scope === "uncommitted" && activeTab === "files";
+  const uncommittedQuery = useIssueDiff(issue, "uncommitted", pollUncommitted ? 3000 : false, isBranch);
   // When the uncommitted view was last entered; data older than this is shown as refreshing.
   const [enteredAt, setEnteredAt] = useState(0);
   const freshness = diffFreshness({
@@ -195,7 +205,7 @@ export default function MergeView({
 
   // Entering the uncommitted view refetches at once; the 3s poll only covers later changes.
   const showView = (tab: Tab, scope: DiffScope) => {
-    if (tab === "files" && scope === "uncommitted" && !pollUncommitted) {
+    if (isBranch && tab === "files" && scope === "uncommitted" && !pollUncommitted) {
       setEnteredAt(Date.now());
       uncommittedQuery.refetch();
     }
@@ -204,39 +214,54 @@ export default function MergeView({
   };
   const commitDiffQuery = useCommitDiff(issue.id, selectedCommit);
 
-  const commits = commitsQuery.data ?? NO_COMMITS;
-  const diff = diffQuery.data ?? "";
-  const mergeability = mergeabilityQuery.data ?? null;
+  const merged = mergedQuery.data;
+  const commits = (isMerged ? merged?.commits : commitsQuery.data) ?? NO_COMMITS;
+  const diff = (isMerged ? merged?.diff : diffQuery.data) ?? "";
+  // A kept branch's cached mergeability doesn't apply once merged.
+  const mergeability = isBranch ? (mergeabilityQuery.data ?? null) : null;
   const walkthroughContent = walkthroughQuery.data ?? "";
   const uncommittedDiff = uncommittedQuery.data ?? "";
   const uncommittedLoading = uncommittedQuery.isFetching;
   const commitDiffText = commitDiffQuery.data ?? "";
   const commitDiffLoading = commitDiffQuery.isLoading;
 
-  const loading =
-    commitsQuery.isPending ||
-    diffQuery.isPending ||
-    mergeabilityQuery.isPending ||
-    (!!hasWalkthrough && walkthroughQuery.isPending) ||
-    uncommittedQuery.isPending;
+  // Disabled queries stay pending, so only the current mode's queries count.
+  const walkthroughPending = !!hasWalkthrough && walkthroughQuery.isPending;
+  const loading = isMerged
+    ? mergedQuery.isPending || walkthroughPending
+    : isBranch &&
+      (commitsQuery.isPending ||
+        diffQuery.isPending ||
+        mergeabilityQuery.isPending ||
+        walkthroughPending ||
+        uncommittedQuery.isPending);
   // A failed poll keeps the last uncommitted diff instead of replacing the view.
-  const error = firstQueryError([
-    commitsQuery,
-    diffQuery,
-    mergeabilityQuery,
-    !!hasWalkthrough && walkthroughQuery,
-    uncommittedQuery.data === undefined && uncommittedQuery,
-  ]);
+  // A failed merged read has its own screen, below.
+  const error = firstQueryError(
+    isMerged
+      ? [!!hasWalkthrough && walkthroughQuery]
+      : [
+          commitsQuery,
+          diffQuery,
+          mergeabilityQuery,
+          !!hasWalkthrough && walkthroughQuery,
+          uncommittedQuery.data === undefined && uncommittedQuery,
+        ],
+  );
 
   /** Refetches everything; resolves to the first failure's message, or null. */
   const refreshData = () =>
-    Promise.all([
-      commitsQuery.refetch(),
-      diffQuery.refetch(),
-      mergeabilityQuery.refetch(),
-      !!hasWalkthrough && walkthroughQuery.refetch(),
-      uncommittedQuery.refetch(),
-    ]).then(firstQueryError);
+    Promise.all(
+      isMerged
+        ? [mergedQuery.refetch(), !!hasWalkthrough && walkthroughQuery.refetch()]
+        : [
+            commitsQuery.refetch(),
+            diffQuery.refetch(),
+            mergeabilityQuery.refetch(),
+            !!hasWalkthrough && walkthroughQuery.refetch(),
+            uncommittedQuery.refetch(),
+          ],
+    ).then(firstQueryError);
 
   const loadCommitDiff = useCallback((sha: string) => {
     setSelectedCommit((prev) => (prev === sha ? null : sha));
@@ -255,9 +280,9 @@ export default function MergeView({
     useMemo(() => parseDiffByFile(uncommittedDiff), [uncommittedDiff]),
   );
   const activeFileDiffs =
-    diffScope === "uncommitted"
+    scope === "uncommitted"
       ? uncommittedFileDiffs
-      : fileDiffs.size > 0
+      : fileDiffs.size > 0 || isMerged
         ? fileDiffs
         : uncommittedFileDiffs;
   const dirtyFilesSet = useMemo(
@@ -319,11 +344,31 @@ export default function MergeView({
   const hasCommits = (bs?.commits ?? 0) > 0;
   const canMerge = hasCommits && (mergeability?.can_merge ?? true);
 
+  if (mode === "no-branch")
+    return (
+      <EmptyState
+        icon={<AlertTriangle size={24} />}
+        tone="text-amber-500"
+        title="No branch found for this issue"
+        detail="It may have been deleted or renamed."
+        onClose={onClose}
+      />
+    );
   if (loading)
     return (
       <div className="h-full flex items-center justify-center text-sm text-[var(--color-text-muted)]">
         Loading...
       </div>
+    );
+  if (isMerged && mergedQuery.isError)
+    return (
+      <EmptyState
+        icon={<GitMerge size={24} />}
+        tone="text-[var(--color-status-done)]"
+        title="This issue has been merged"
+        detail={`Its changes can't be shown: ${firstQueryError([mergedQuery])}`}
+        onClose={onClose}
+      />
     );
   if (error)
     return (
@@ -338,24 +383,7 @@ export default function MergeView({
       </div>
     );
 
-  if (!bs)
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-4">
-        <div className="flex items-center gap-2 text-green-500">
-          <GitMerge size={24} />
-          <span className="text-sm font-medium">Branch merged</span>
-        </div>
-        <Text as="p">
-          This branch has been merged and is no longer available.
-        </Text>
-        <button
-          onClick={onClose}
-          className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-        >
-          Close
-        </button>
-      </div>
-    );
+  const branchName = (isMerged ? merged?.branch : bs?.branch) ?? issue.id;
 
   return (
     <ViewContainer
@@ -403,147 +431,157 @@ export default function MergeView({
                 <span className="text-[var(--color-text-muted)]">←</span>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] font-mono text-xs truncate">
                   <GitBranch size={12} className="shrink-0" />
-                  <span className="truncate">{bs.branch}</span>
+                  <span className="truncate">{branchName}</span>
                 </span>
               </div>
 
-              {/* Center: mergeability */}
-              <div className="relative flex flex-col items-center">
-                {!canMerge ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (mergeability?.blockers?.some((b) => b.files?.length))
-                        setBlockerDetailOpen(!blockerDetailOpen);
-                    }}
-                    className="flex items-center gap-2 text-sm text-amber-500 hover:text-amber-400 transition-colors"
-                  >
-                    <AlertTriangle size={16} className="shrink-0" />
-                    <span>
-                      {!hasCommits
-                        ? "No commits to merge"
-                        : mergeability?.blockers?.[0]?.message || "Cannot merge"}
-                    </span>
-                  </button>
-                ) : mergeError ? (
-                  <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
-                    <AlertTriangle size={16} />
-                    <span>{mergeError}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-sm text-green-500">
-                    <Check size={16} />
-                    Ready to merge
-                  </div>
-                )}
-                <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                  {!canMerge && !hasCommits && bs.has_uncommitted
-                    ? "Commit your changes to enable merging"
-                    : !canMerge && hasCommits
-                      ? "Resolve blockers to enable merging"
-                      : hasCommits
-                        ? "Merging will close this issue"
-                        : "Nothing to merge yet"}
-                </span>
-                <Modal
-                  isOpen={blockerDetailOpen}
-                  onClose={() => setBlockerDetailOpen(false)}
-                  title="Unable to merge"
-                  size="xl"
-                >
-                  <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                    This branch cannot be merged because the worktree contains
-                    uncommitted or untracked files that would be lost.
-                  </p>
-                  {mergeability?.blockers?.map((b, i) => (
-                    <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
-                      <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
-                        <AlertTriangle size={14} className="shrink-0" />
-                        {b.message}
-                      </div>
-                      {b.files?.length ? (
-                        <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
-                          {b.files.map((f) => (
-                            <li
-                              key={f}
-                              className="text-sm font-mono text-[var(--color-text-muted)]"
-                            >
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
+              {isMerged && merged ? (
+                <>
+                  {/* Center: merged status; the right column stays empty */}
+                  <MergedStatus changes={merged} />
+                  <div />
+                </>
+              ) : (
+                <>
+                {/* Center: mergeability */}
+                <div className="relative flex flex-col items-center">
+                  {!canMerge ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (mergeability?.blockers?.some((b) => b.files?.length))
+                          setBlockerDetailOpen(!blockerDetailOpen);
+                      }}
+                      className="flex items-center gap-2 text-sm text-amber-500 hover:text-amber-400 transition-colors"
+                    >
+                      <AlertTriangle size={16} className="shrink-0" />
+                      <span>
+                        {!hasCommits
+                          ? "No commits to merge"
+                          : mergeability?.blockers?.[0]?.message || "Cannot merge"}
+                      </span>
+                    </button>
+                  ) : mergeError ? (
+                    <div className="flex items-center gap-2 text-sm text-[var(--color-error)]">
+                      <AlertTriangle size={16} />
+                      <span>{mergeError}</span>
                     </div>
-                  ))}
-                  <p className="mt-5 text-sm text-[var(--color-text-muted)]">
-                    Commit, move, or remove these files before merging.
-                  </p>
-                </Modal>
-              </div>
-
-              {/* Right: merge button + strategy */}
-              <div className="flex justify-end items-center">
-                <button
-                  onClick={openConfirm}
-                  disabled={merging || !canMerge}
-                  className="flex items-center h-8 gap-2 px-4 text-sm font-medium rounded-l-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-                >
-                  <GitMerge size={14} />
-                  {merging ? "Merging..." : strategyLabel}
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setStrategyOpen(!strategyOpen)}
-                    className="flex items-center h-8 px-2 rounded-r-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity border-l border-white/20"
-                  >
-                    <ChevronDown size={14} />
-                  </button>
-                  {strategyOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40"
-                        onClick={() => setStrategyOpen(false)}
-                      />
-                      <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] py-1">
-                        {(
-                          [
-                            {
-                              key: "squash",
-                              label: "Squash and merge",
-                              desc: "Single commit on main",
-                            },
-                            {
-                              key: "merge",
-                              label: "Create merge commit",
-                              desc: "Preserves branch history",
-                            },
-                            {
-                              key: "ff",
-                              label: "Fast-forward",
-                              desc: "Linear, no merge commit",
-                            },
-                          ] as const
-                        ).map((opt) => (
-                          <button
-                            key={opt.key}
-                            onClick={() => {
-                              setMergeStrategy(opt.key);
-                              setCommitMessage(defaultCommitMessage(opt.key));
-                              setStrategyOpen(false);
-                            }}
-                            className={`w-full px-3 py-2 text-left hover:bg-[var(--color-hover-surface)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}
-                          >
-                            <div className="text-sm">{opt.label}</div>
-                            <div className="text-xs text-[var(--color-text-muted)]">
-                              {opt.desc}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-sm text-green-500">
+                      <Check size={16} />
+                      Ready to merge
+                    </div>
                   )}
+                  <span className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                    {!canMerge && !hasCommits && bs?.has_uncommitted
+                      ? "Commit your changes to enable merging"
+                      : !canMerge && hasCommits
+                        ? "Resolve blockers to enable merging"
+                        : hasCommits
+                          ? "Merging will close this issue"
+                          : "Nothing to merge yet"}
+                  </span>
+                  <Modal
+                    isOpen={blockerDetailOpen}
+                    onClose={() => setBlockerDetailOpen(false)}
+                    title="Unable to merge"
+                    size="xl"
+                  >
+                    <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                      This branch cannot be merged because the worktree contains
+                      uncommitted or untracked files that would be lost.
+                    </p>
+                    {mergeability?.blockers?.map((b, i) => (
+                      <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
+                        <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
+                          <AlertTriangle size={14} className="shrink-0" />
+                          {b.message}
+                        </div>
+                        {b.files?.length ? (
+                          <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
+                            {b.files.map((f) => (
+                              <li
+                                key={f}
+                                className="text-sm font-mono text-[var(--color-text-muted)]"
+                              >
+                                {f}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                    <p className="mt-5 text-sm text-[var(--color-text-muted)]">
+                      Commit, move, or remove these files before merging.
+                    </p>
+                  </Modal>
+                </div>
+
+                {/* Right: merge button + strategy */}
+                <div className="flex justify-end items-center">
+                  <button
+                    onClick={openConfirm}
+                    disabled={merging || !canMerge}
+                    className="flex items-center h-8 gap-2 px-4 text-sm font-medium rounded-l-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+                  >
+                    <GitMerge size={14} />
+                    {merging ? "Merging..." : strategyLabel}
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setStrategyOpen(!strategyOpen)}
+                      className="flex items-center h-8 px-2 rounded-r-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity border-l border-white/20"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                    {strategyOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setStrategyOpen(false)}
+                        />
+                        <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-lg)] py-1">
+                          {(
+                            [
+                              {
+                                key: "squash",
+                                label: "Squash and merge",
+                                desc: "Single commit on main",
+                              },
+                              {
+                                key: "merge",
+                                label: "Create merge commit",
+                                desc: "Preserves branch history",
+                              },
+                              {
+                                key: "ff",
+                                label: "Fast-forward",
+                                desc: "Linear, no merge commit",
+                              },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.key}
+                              onClick={() => {
+                                setMergeStrategy(opt.key);
+                                setCommitMessage(defaultCommitMessage(opt.key));
+                                setStrategyOpen(false);
+                              }}
+                              className={`w-full px-3 py-2 text-left hover:bg-[var(--color-hover-surface)] transition-colors ${mergeStrategy === opt.key ? "text-[var(--color-accent-primary)]" : ""}`}
+                            >
+                              <div className="text-sm">{opt.label}</div>
+                              <div className="text-xs text-[var(--color-text-muted)]">
+                                {opt.desc}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+              )}
                 </div>
               </div>
+              </>
+              )}
             </div>
           </div>
 
@@ -587,7 +625,7 @@ export default function MergeView({
               </button>
             ))}
             <div className="flex-1" />
-            {activeTab === "files" && (
+            {isBranch && activeTab === "files" && (
               <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
                 <div className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden">
                   <button
@@ -650,7 +688,7 @@ export default function MergeView({
           fileFilter={fileFilter}
           onFilterChange={setFileFilter}
           dirtyFiles={dirtyFilesSet}
-          isEmpty={diffScope === "uncommitted" && activeFileDiffs.size === 0 && !uncommittedLoading}
+          isEmpty={scope === "uncommitted" && activeFileDiffs.size === 0 && !uncommittedLoading}
         />
       )}
       {activeTab === "conversation" && (
@@ -663,8 +701,8 @@ export default function MergeView({
         />
       )}
 
-    {/* ── Merge confirmation dialog ── */}
-    {confirmOpen && (
+    {/* ── Merge confirmation dialog (closes if the issue is merged elsewhere) ── */}
+    {confirmOpen && isBranch && (
       <>
         <div
           className="fixed inset-0 z-50 bg-black/50"
@@ -753,6 +791,57 @@ export default function MergeView({
       </>
     )}
     </ViewContainer>
+  );
+}
+
+/** A full-view message with a way back, for when there are no changes to show. */
+function EmptyState({
+  icon,
+  tone,
+  title,
+  detail,
+  onClose,
+}: {
+  icon: React.ReactNode;
+  tone: string;
+  title: string;
+  detail: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-4 px-8 text-center">
+      <div className={`flex items-center gap-2 ${tone}`}>
+        {icon}
+        <span className="text-sm font-medium">{title}</span>
+      </div>
+      <Text as="p">{detail}</Text>
+      <button
+        onClick={onClose}
+        className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+      >
+        Back to issue
+      </button>
+    </div>
+  );
+}
+
+/** The merged view's status, in place of the mergeability and Merge button. */
+function MergedStatus({ changes }: { changes: MergedChanges }) {
+  const by = commentAuthor(changes.merged_by, changes.merged_on_behalf_of);
+  return (
+    <div className="flex flex-col items-center min-w-0">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-status-done)]">
+        <GitMerge size={16} />
+        Merged
+      </div>
+      <span className="text-xs text-[var(--color-text-muted)] mt-0.5 truncate max-w-full">
+        <span className="font-mono" title={changes.merge_sha}>{changes.merge_sha.slice(0, 7)}</span>
+        {" · "}
+        <ActorName name={by.name} via={by.via} />
+        {" · "}
+        {formatRelativeTime(changes.merged_at)}
+      </span>
+    </div>
   );
 }
 

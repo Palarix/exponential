@@ -10,13 +10,23 @@ export class ApiError extends Error {
   body: string;
 
   constructor(res: Response, body: string) {
-    const msg = body || `${res.status} ${res.statusText}`;
-    super(msg);
+    super(errorMessage(body) ?? (body || `${res.status} ${res.statusText}`));
     this.name = 'ApiError';
     this.status = res.status;
     this.statusText = res.statusText;
     this.body = body;
   }
+}
+
+/** The `error` field of a JSON error body (`{"error": "..."}`), if it has one. */
+function errorMessage(body: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (parsed && typeof parsed === "object" && "error" in parsed && typeof parsed.error === "string") return parsed.error;
+  } catch {
+    // Not JSON: the body is the message.
+  }
+  return undefined;
 }
 
 // fetchOk fetches url and throws ApiError on a non-2xx response. A 401 means
@@ -362,6 +372,23 @@ export interface Mergeability {
 
 export async function fetchMergeability(issueId: string): Promise<Mergeability> {
   return request(`${API_BASE}/issues/${issueId}/mergeability`);
+}
+
+/** What an issue's merge brought into the default branch, read from the merge commit. */
+export interface MergedChanges {
+  merge_sha: string;
+  base_sha: string;
+  branch: string;
+  strategy: string;
+  merged_at: string;
+  merged_by: string;
+  merged_on_behalf_of?: string;
+  commits: CommitInfo[];
+  diff: string;
+}
+
+export async function fetchMergedChanges(issueId: string): Promise<MergedChanges> {
+  return request(`${API_BASE}/issues/${issueId}/merged`);
 }
 
 export async function fetchCommitDiff(issueId: string, sha: string): Promise<string> {

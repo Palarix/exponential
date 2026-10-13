@@ -1,4 +1,16 @@
-import type { BranchStats } from "../../api/types";
+import type { BranchStats, Issue } from "../../api/types";
+
+/**
+ * What the merge view shows: a merged DONE issue's changes from its merge
+ * commit, an issue's branch, or neither. Taken from the issue, so an open view
+ * switches to "merged" in place when the issue is merged elsewhere (xpo-64be51).
+ */
+export type MergeViewMode = "merged" | "branch" | "no-branch";
+
+export function mergeViewMode(issue: Pick<Issue, "status" | "merged" | "branch_stats">): MergeViewMode {
+  if (issue.merged && issue.status === "DONE") return "merged";
+  return issue.branch_stats ? "branch" : "no-branch";
+}
 
 /** The Review Changes file view: the committed branch diff, or the worktree's uncommitted changes. */
 export type DiffScope = "all" | "uncommitted";

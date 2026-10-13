@@ -137,7 +137,12 @@ type DetailedCommit struct {
 
 // ListBranchCommitsDetailed returns commits with author and date info.
 func ListBranchCommitsDetailed(branch, base string) []DetailedCommit {
-	out, err := exec.Command("git", "log", "--format=%H%n%s%n%an%n%aI", base+".."+branch).Output()
+	return listCommitsDetailed(base + ".." + branch)
+}
+
+// listCommitsDetailed runs git log with logArgs (a range and options).
+func listCommitsDetailed(logArgs ...string) []DetailedCommit {
+	out, err := exec.Command("git", append([]string{"log", "--format=%H%n%s%n%an%n%aI"}, logArgs...)...).Output()
 	if err != nil {
 		return nil
 	}

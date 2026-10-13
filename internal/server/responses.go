@@ -28,7 +28,8 @@ type IssueResponse struct {
 	CycleID          string               `json:"cycle_id,omitempty"`
 	EffectiveCycleID string               `json:"effective_cycle_id,omitempty"`
 	BranchStats      *model.BranchStats   `json:"branch_stats,omitempty"`
-	Labels           []string             `json:"labels,omitempty"`
+	Merged           bool                 `json:"merged,omitempty"`
+	Labels         []string             `json:"labels,omitempty"`
 	Dependencies []DependencyResponse `json:"dependencies,omitempty"`
 	Artifacts    []ArtifactResponse   `json:"artifacts,omitempty"`
 	Comments     []CommentResponse    `json:"comments,omitempty"`
@@ -97,6 +98,7 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		CreatedBy:   issue.CreatedBy,
 		UpdatedAt:   issue.UpdatedAt,
 	}
+	_, resp.Merged = exponential.LatestMerge(issue)
 
 	for _, a := range issue.Artifacts {
 		resp.Artifacts = append(resp.Artifacts, ArtifactResponse{

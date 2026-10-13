@@ -3,7 +3,7 @@ import { keepPreviousData, QueryClient, useQuery, useQueryClient } from "@tansta
 import {
   fetchActivity, fetchArtifactContent, fetchCommitDetail, fetchCommitDiff, fetchConfig, fetchCycleProgress, fetchCycles,
   fetchInbox, fetchInboxStatus, fetchInstances, fetchIssueCommits, fetchIssueDiff, fetchIssueHistory, fetchIssues,
-  fetchIssueDrafts, fetchLocalMode, fetchLocalWorktree, fetchMergeability, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
+  fetchIssueDrafts, fetchLocalMode, fetchLocalWorktree, fetchMergeability, fetchMergedChanges, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
 } from "./client";
 import type { Issue, InboxStatus, IssueDraft } from "./types";
 import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
@@ -172,16 +172,22 @@ export function useLocalWorktree(issue: Issue) {
   }).data ?? null;
 }
 
-export function useIssueCommits(issue: Issue) {
-  return useQuery({ queryKey: queryKeys.issueCommits(issue), queryFn: () => fetchIssueCommits(issue.id) });
+// The branch queries take `enabled` so the merge view only reads a branch
+// that exists: without one they 404.
+export function useIssueCommits(issue: Issue, enabled = true) {
+  return useQuery({ queryKey: queryKeys.issueCommits(issue), queryFn: () => fetchIssueCommits(issue.id), enabled });
 }
 
-export function useIssueDiff(issue: Issue, scope?: "uncommitted", refetchInterval: number | false = false) {
-  return useQuery({ queryKey: queryKeys.issueDiff(issue, scope), queryFn: () => fetchIssueDiff(issue.id, scope), refetchInterval });
+export function useIssueDiff(issue: Issue, scope?: "uncommitted", refetchInterval: number | false = false, enabled = true) {
+  return useQuery({ queryKey: queryKeys.issueDiff(issue, scope), queryFn: () => fetchIssueDiff(issue.id, scope), refetchInterval, enabled });
 }
 
-export function useMergeability(issue: Issue) {
-  return useQuery({ queryKey: queryKeys.mergeability(issue), queryFn: () => fetchMergeability(issue.id) });
+export function useMergeability(issue: Issue, enabled = true) {
+  return useQuery({ queryKey: queryKeys.mergeability(issue), queryFn: () => fetchMergeability(issue.id), enabled });
+}
+
+export function useMergedChanges(issue: Issue, enabled: boolean) {
+  return useQuery({ queryKey: queryKeys.mergedChanges(issue), queryFn: () => fetchMergedChanges(issue.id), enabled });
 }
 
 export function useCommitDiff(issueId: string, sha: string | null) {

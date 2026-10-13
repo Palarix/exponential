@@ -32,6 +32,7 @@ export const queryKeys = {
   issueCommits: (issue: IssueRef) => ["issue", issue.id, "commits", headSha(issue)],
   issueDiff: (issue: IssueRef, scope?: "uncommitted") => ["issue", issue.id, "diff", scope ?? "branch", headSha(issue)],
   mergeability: (issue: IssueRef) => ["issue", issue.id, "mergeability", headSha(issue)],
+  mergedChanges: (issue: IssueRef) => ["issue", issue.id, "merged", issue.updated_at],
   commitDiff: (issueId: string, sha: string) => ["issue", issueId, "commit", sha],
 } as const;
 

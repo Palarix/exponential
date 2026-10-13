@@ -32,3 +32,24 @@ describe("API client on 401", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 });
+
+describe("ApiError message", () => {
+  const res = (status: number, statusText = "") => new Response(null, { status, statusText });
+
+  it("uses the error field of a JSON error body, keeping the raw body", () => {
+    const body = '{"error":"no branch found for this issue"}';
+    const err = new ApiError(res(404), body);
+    expect(err.message).toBe("no branch found for this issue");
+    expect(err.body).toBe(body);
+  });
+
+  it("keeps the body for non-JSON bodies and JSON without a string error", () => {
+    expect(new ApiError(res(500), "nope").message).toBe("nope");
+    expect(new ApiError(res(500), '{"error":42}').message).toBe('{"error":42}');
+    expect(new ApiError(res(500), '["x"]').message).toBe('["x"]');
+  });
+
+  it("falls back to the status for an empty body", () => {
+    expect(new ApiError(res(502, "Bad Gateway"), "").message).toBe("502 Bad Gateway");
+  });
+});

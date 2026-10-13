@@ -40,6 +40,8 @@ export interface Issue {
   is_inferred?: boolean;
   is_pending?: boolean;
   branch_stats?: BranchStats;
+  // Set once the issue has a MERGE event.
+  merged?: boolean;
 }
 
 export interface Cycle {
