@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat supports Codex as well as Claude Code, with an agent picker in the composer.
+  - **Detection:** the board finds which of `claude` and `codex` are installed. `chat.agent` sets the default; an unknown or uninstalled agent logs a warning and falls back to the first installed one.
+  - **Codex:** runs through `codex app-server` with a read-only sandbox and approval policy `never`. Answers stream live, tool calls show in the work list, and follow-ups continue the same Codex thread. The xpo MCP tools are pre-approved; in remote mode the token is passed in an environment variable.
+  - **Models:** Codex models and their effort levels come from `model/list` at board start.
+  - **Composer:** the agent picker shows when 2+ agents are installed and locks once a chat has messages. Changing the agent resets model and effort.
+  - **API:** `GET /api/local/agent` lists every provider with its models and efforts. `POST /messages` takes `provider`; sending to a chat that belongs to another agent returns 409.
+  - **Storage:** chat meta stores a generic `session_id`. Chats saved with `claude_session_id` still resume.
+
+  (xpo-5b3157)
+
 - Remote mode guards: actions that would run git in the server's checkout are hidden or refused until Team Mode (xpo-8757a9).
   - **Board:** in remote mode, Start Work and Review Changes are hidden. A new local route, `GET /api/local/mode`, tells the UI which mode the board runs in.
   - **`xpo serve`:** `POST /api/issues/{id}/start` and `/merge` return 501. Its `/mcp` no longer offers the `start` and `merge` tools.

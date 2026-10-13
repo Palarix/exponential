@@ -16,9 +16,9 @@ import (
 // viewer's machine, so the chat routes live under /api/local/ and are
 // answered by this process in local and proxy mode alike.
 type ChatService struct {
-	Store  *chat.Store
-	Runner *chat.Runner
-	Status chat.AgentStatus
+	Store   *chat.Store
+	Runner  *chat.Runner
+	Catalog *chat.Catalog
 }
 
 func (s *Server) registerChatRoutes(mux *http.ServeMux) {
@@ -41,7 +41,7 @@ func (s *Server) handleAgentStatus(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, chat.AgentStatus{Reason: "Chat is not enabled on this server."})
 		return
 	}
-	respondJSON(w, http.StatusOK, s.Chat.Status)
+	respondJSON(w, http.StatusOK, s.Chat.Catalog.Status())
 }
 
 func (s *Server) handleListChats(w http.ResponseWriter, r *http.Request) {
@@ -105,15 +105,16 @@ func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request) {
 }
 
 type sendChatRequest struct {
-	Text    string        `json:"text"`
-	Context *chat.Context `json:"context"`
-	Model   string        `json:"model"`
-	Effort  string        `json:"effort"`
+	Text     string        `json:"text"`
+	Context  *chat.Context `json:"context"`
+	Provider string        `json:"provider"` // empty means the default provider
+	Model    string        `json:"model"`
+	Effort   string        `json:"effort"`
 }
 
 func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
-	if !s.Chat.Status.Available {
-		respondError(w, http.StatusServiceUnavailable, s.Chat.Status.Reason)
+	if st := s.Chat.Catalog.Status(); !st.Available {
+		respondError(w, http.StatusServiceUnavailable, st.Reason)
 		return
 	}
 	var req sendChatRequest
@@ -121,23 +122,22 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	switch {
-	case strings.TrimSpace(req.Text) == "":
+	if strings.TrimSpace(req.Text) == "" {
 		respondError(w, http.StatusBadRequest, "text is required")
 		return
-	case !chat.ValidModel(req.Model):
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("unknown model %q", req.Model))
-		return
-	case !chat.ValidEffort(req.Effort):
-		respondError(w, http.StatusBadRequest, fmt.Sprintf("unknown effort %q", req.Effort))
+	}
+	provider, err := s.Chat.Catalog.Resolve(req.Provider, req.Model, req.Effort)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	err := s.Chat.Runner.Send(r.PathValue("id"), chat.SendRequest{
-		Text:    req.Text,
-		Context: req.Context,
-		Model:   req.Model,
-		Effort:  req.Effort,
+	err = s.Chat.Runner.Send(r.PathValue("id"), chat.SendRequest{
+		Text:     req.Text,
+		Context:  req.Context,
+		Provider: provider,
+		Model:    req.Model,
+		Effort:   req.Effort,
 	})
 	if s.respondChatError(w, err) {
 		return
@@ -229,7 +229,7 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		respondError(w, http.StatusNotFound, "chat not found")
 	case errors.Is(err, chat.ErrEmptyTitle):
 		respondError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, chat.ErrBusy):
+	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, err.Error())

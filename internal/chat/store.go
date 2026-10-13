@@ -74,7 +74,7 @@ func (s *Store) Create() (Meta, error) {
 		return Meta{}, err
 	}
 	now := time.Now().UTC()
-	m := Meta{ID: uuid.NewString(), CreatedAt: now, UpdatedAt: now, Agent: "claude", State: StateIdle}
+	m := Meta{ID: uuid.NewString(), CreatedAt: now, UpdatedAt: now, State: StateIdle}
 	return m, s.writeMeta(m)
 }
 
@@ -110,7 +110,14 @@ func (s *Store) Meta(id string) (Meta, error) {
 		return Meta{}, err
 	}
 	var m Meta
-	return m, json.Unmarshal(data, &m)
+	if err := json.Unmarshal(data, &m); err != nil {
+		return Meta{}, err
+	}
+	if m.SessionID == "" {
+		m.SessionID = m.ClaudeSessionID
+	}
+	m.ClaudeSessionID = ""
+	return m, nil
 }
 
 // Get returns a chat's meta and settled events, oldest first.

@@ -1,11 +1,9 @@
 package chat
 
 import (
-	"bufio"
+	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -16,21 +14,27 @@ import (
 // ErrBusy is returned when a chat already has a turn running.
 var ErrBusy = errors.New("a reply is already running")
 
+// ErrProviderLocked is returned when a message asks for another provider
+// than the one that holds the chat's session.
+var ErrProviderLocked = errors.New("this chat belongs to another agent; start a new chat to switch")
+
 // RunnerConfig configures how turns are run.
 type RunnerConfig struct {
-	Store        *Store
-	Binary       string // agent CLI; "claude" when empty
-	Dir          string // working directory of the agent: the project root
-	MCP          MCPTarget
-	DefaultModel string // chat.model from config; used when a chat has no model
+	Store           *Store
+	Drivers         map[string]Driver // by provider ID; Claude and Codex when nil
+	Dir             string            // working directory of the agent: the project root
+	MCP             MCPTarget
+	DefaultProvider string // used when a message names none; "claude" when empty
+	DefaultModel    string // chat.model from config; used for the default provider when a chat has no model
 }
 
 // SendRequest is one user message.
 type SendRequest struct {
-	Text    string
-	Context *Context
-	Model   string
-	Effort  string
+	Text     string
+	Context  *Context
+	Provider string // empty means the default provider
+	Model    string
+	Effort   string
 }
 
 // Runner runs chat turns, one agent process per turn, and fans their events
@@ -45,16 +49,21 @@ type Runner struct {
 }
 
 type turn struct {
-	mu      sync.Mutex
-	cmd     *exec.Cmd
-	stopped bool
-	done    chan struct{} // closed when the turn has finished
+	ctx    context.Context
+	cancel context.CancelFunc
+	done   chan struct{} // closed when the turn has finished
 }
 
 // NewRunner returns a runner for cfg.
 func NewRunner(cfg RunnerConfig) *Runner {
-	if cfg.Binary == "" {
-		cfg.Binary = "claude"
+	if cfg.Drivers == nil {
+		cfg.Drivers = map[string]Driver{
+			ProviderClaude: &ClaudeDriver{},
+			ProviderCodex:  &CodexDriver{},
+		}
+	}
+	if cfg.DefaultProvider == "" {
+		cfg.DefaultProvider = ProviderClaude
 	}
 	return &Runner{cfg: cfg, turns: map[string]*turn{}, subs: map[string]map[chan Event]struct{}{}}
 }
@@ -65,13 +74,25 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	if err != nil {
 		return err
 	}
+	provider := req.Provider
+	if provider == "" {
+		provider = r.cfg.DefaultProvider
+	}
+	driver, ok := r.cfg.Drivers[provider]
+	if !ok {
+		return fmt.Errorf("unknown provider %q", provider)
+	}
+	if meta.SessionID != "" && meta.Agent != "" && meta.Agent != provider {
+		return ErrProviderLocked
+	}
 
 	r.mu.Lock()
 	if _, busy := r.turns[id]; busy {
 		r.mu.Unlock()
 		return ErrBusy
 	}
-	t := &turn{done: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	t := &turn{ctx: ctx, cancel: cancel, done: make(chan struct{})}
 	r.turns[id] = t
 	r.wg.Add(1)
 	r.mu.Unlock()
@@ -79,6 +100,10 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	if meta.Title == "" {
 		meta.Title = TitleFrom(req.Text)
 	}
+	if meta.Agent != provider {
+		meta.SessionID = "" // a session belongs to the agent that made it
+	}
+	meta.Agent = provider
 	meta.Model = req.Model
 	meta.Effort = req.Effort
 	meta.State = StateRunning
@@ -89,7 +114,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	}
 	r.settle(id, Event{Type: EventUserMessage, Text: req.Text, Context: req.Context})
 
-	go r.run(id, meta, buildPrompt(req.Text, req.Context), t)
+	go r.run(id, meta, driver, buildPrompt(req.Text, req.Context), t)
 	return nil
 }
 
@@ -109,12 +134,7 @@ func (r *Runner) Cancel(id string) bool {
 	if !ok {
 		return false
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.stopped = true
-	if t.cmd != nil && t.cmd.Process != nil {
-		killProcessGroup(t.cmd)
-	}
+	t.cancel()
 	return true
 }
 
@@ -198,6 +218,7 @@ func (r *Runner) live(id string, e Event) {
 func (r *Runner) finish(id string) {
 	r.mu.Lock()
 	if t, ok := r.turns[id]; ok {
+		t.cancel()
 		close(t.done)
 		delete(r.turns, id)
 	}
@@ -205,60 +226,23 @@ func (r *Runner) finish(id string) {
 	r.wg.Done()
 }
 
-func (r *Runner) run(id string, meta Meta, prompt string, t *turn) {
+func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn) {
 	defer r.finish(id)
 
-	sessionID := meta.ClaudeSessionID
+	sessionID := meta.SessionID
 	defer func() {
 		if m, err := r.cfg.Store.Meta(id); err == nil {
 			m.State = StateIdle
-			m.ClaudeSessionID = sessionID
+			m.SessionID = sessionID
 			m.UpdatedAt = time.Now().UTC()
 			_ = r.cfg.Store.SaveMeta(m)
 		}
 	}()
 
-	mcpPath, err := writeMCPConfig(r.cfg.MCP)
-	if err != nil {
-		r.settle(id, Event{Type: EventError, Message: "write MCP config: " + err.Error()})
-		return
-	}
-	defer os.Remove(mcpPath)
-
 	model := meta.Model
-	if model == "" {
+	if model == "" && meta.Agent == r.cfg.DefaultProvider {
 		model = r.cfg.DefaultModel
 	}
-	cmd := exec.Command(r.cfg.Binary, claudeArgs(turnOptions{
-		MCPConfigPath: mcpPath,
-		SessionID:     sessionID,
-		Model:         model,
-		Effort:        meta.Effort,
-	})...)
-	cmd.Dir = r.cfg.Dir
-	cmd.Stdin = strings.NewReader(prompt)
-	stderr := &tailBuffer{max: 4096}
-	cmd.Stderr = stderr
-	setProcessGroup(cmd)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		r.settle(id, Event{Type: EventError, Message: err.Error()})
-		return
-	}
-
-	t.mu.Lock()
-	if t.stopped {
-		t.mu.Unlock()
-		r.settle(id, Event{Type: EventTurnStopped})
-		return
-	}
-	if err := cmd.Start(); err != nil {
-		t.mu.Unlock()
-		r.settle(id, Event{Type: EventError, Message: fmt.Sprintf("start %s: %v", r.cfg.Binary, err)})
-		return
-	}
-	t.cmd = cmd
-	t.mu.Unlock()
 
 	var text strings.Builder
 	flushText := func() {
@@ -282,67 +266,70 @@ func (r *Runner) run(id string, meta Meta, prompt string, t *turn) {
 		pendingOrder = nil
 	}
 
-	var parser exponential.ClaudeStreamParser
-	var result *exponential.ClaudeTurnResult
-	sc := bufio.NewScanner(stdout)
-	sc.Buffer(make([]byte, 1024*1024), 16*1024*1024)
-	for sc.Scan() {
-		res := parser.Parse(sc.Bytes(), func(ev exponential.StreamEvent) {
-			switch ev.Kind {
-			case exponential.StreamSession:
-				sessionID = ev.Text
-			case exponential.StreamText:
-				text.WriteString(ev.Text)
-				r.live(id, Event{Type: EventTextDelta, Text: ev.Text})
-			case exponential.StreamThinking:
-				r.live(id, Event{Type: EventThinking})
-			case exponential.StreamToolStart:
-				flushText()
-				r.live(id, Event{Type: EventToolStart, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID})
-			case exponential.StreamToolDone:
-				if ev.Text == "" {
-					flushText() // end of a text or thinking block
-					return
-				}
-				call := Event{Type: EventToolCall, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID, Status: exponential.ToolStatusDone}
-				if ev.ToolID == "" {
-					r.settle(id, call) // no ID to match a result to
-					return
-				}
-				pending[ev.ToolID] = call
-				pendingOrder = append(pendingOrder, ev.ToolID)
-			case exponential.StreamToolResult:
-				call, ok := pending[ev.ToolID]
-				if !ok {
-					return
-				}
-				delete(pending, ev.ToolID)
-				call.Status = ev.ToolStatus
-				call.Message = ev.ToolMessage
-				r.settle(id, call)
-			}
-		})
-		if res != nil {
-			result = res
-			if res.SessionID != "" {
-				sessionID = res.SessionID
-			}
-		}
+	if t.ctx.Err() != nil {
+		r.settle(id, Event{Type: EventTurnStopped})
+		return
 	}
-	waitErr := cmd.Wait()
+	result, err := driver.Turn(t.ctx, TurnInput{
+		Prompt:    prompt,
+		SessionID: sessionID,
+		Model:     model,
+		Effort:    meta.Effort,
+		Dir:       r.cfg.Dir,
+		MCP:       r.cfg.MCP,
+	}, func(ev exponential.StreamEvent) {
+		switch ev.Kind {
+		case exponential.StreamSession:
+			sessionID = ev.Text
+		case exponential.StreamText:
+			text.WriteString(ev.Text)
+			r.live(id, Event{Type: EventTextDelta, Text: ev.Text})
+		case exponential.StreamThinking:
+			r.live(id, Event{Type: EventThinking})
+		case exponential.StreamToolStart:
+			flushText()
+			r.live(id, Event{Type: EventToolStart, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID})
+		case exponential.StreamToolDone:
+			if ev.Text == "" {
+				flushText() // end of a text or thinking block
+				return
+			}
+			call := Event{Type: EventToolCall, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID, Status: exponential.ToolStatusDone}
+			if ev.ToolID == "" {
+				r.settle(id, call) // no ID to match a result to
+				return
+			}
+			pending[ev.ToolID] = call
+			pendingOrder = append(pendingOrder, ev.ToolID)
+		case exponential.StreamToolResult:
+			call, ok := pending[ev.ToolID]
+			if !ok {
+				return
+			}
+			delete(pending, ev.ToolID)
+			call.Status = ev.ToolStatus
+			call.Message = ev.ToolMessage
+			r.settle(id, call)
+		}
+	})
 	flushText()
 	settlePending()
-
-	t.mu.Lock()
-	stopped := t.stopped
-	t.mu.Unlock()
+	if result != nil && result.SessionID != "" {
+		sessionID = result.SessionID
+	}
 
 	switch {
-	case stopped:
+	case t.ctx.Err() != nil:
 		r.settle(id, Event{Type: EventTurnStopped})
-	case result != nil && result.IsError:
+	case result == nil:
+		msg := "the agent exited without a reply"
+		if err != nil {
+			msg = err.Error()
+		}
+		r.settle(id, Event{Type: EventError, Message: msg})
+	case result.IsError:
 		r.settle(id, Event{Type: EventError, Message: result.Output})
-	case result != nil:
+	default:
 		r.settle(id, Event{
 			Type:       EventTurnDone,
 			DurationMS: result.Duration.Milliseconds(),
@@ -350,38 +337,7 @@ func (r *Runner) run(id string, meta Meta, prompt string, t *turn) {
 			TokensIn:   result.TokensIn,
 			TokensOut:  result.TokensOut,
 		})
-	default:
-		msg := fmt.Sprintf("%s exited without a reply", r.cfg.Binary)
-		if waitErr != nil {
-			msg = fmt.Sprintf("%s exited: %v", r.cfg.Binary, waitErr)
-		}
-		if tail := strings.TrimSpace(stderr.String()); tail != "" {
-			msg += ": " + tail
-		}
-		r.settle(id, Event{Type: EventError, Message: msg})
 	}
-}
-
-// writeMCPConfig writes the agent's MCP config to a private temp file, so a
-// remote token never shows up in the process list.
-func writeMCPConfig(t MCPTarget) (string, error) {
-	data, err := mcpConfig(t)
-	if err != nil {
-		return "", err
-	}
-	f, err := os.CreateTemp("", "xpo-chat-mcp-*.json")
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	if err := f.Chmod(0o600); err != nil {
-		return "", err
-	}
-	if _, err := f.Write(data); err != nil {
-		os.Remove(f.Name())
-		return "", err
-	}
-	return f.Name(), nil
 }
 
 // tailBuffer keeps the last max bytes written to it.

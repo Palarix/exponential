@@ -213,7 +213,7 @@ func TestClaudeStreamParser_DeniedFromResultMeta(t *testing.T) {
 
 func TestToolResultText_Truncates(t *testing.T) {
 	long := strings.Repeat("é", 600)
-	got := toolResultText([]byte(`"` + long + `"`))
+	got := ToolResultText([]byte(`"` + long + `"`))
 	if n := len([]rune(got)); n != 501 || !strings.HasSuffix(got, "…") {
 		t.Errorf("len = %d, suffix %q", n, got[len(got)-3:])
 	}

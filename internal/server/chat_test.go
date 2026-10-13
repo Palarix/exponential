@@ -40,12 +40,18 @@ func setupChatServer(t *testing.T, body string) (*Server, http.Handler) {
 	os.WriteFile(script, []byte("#!/bin/sh\ncat > /dev/null\n"+body+"\n"), 0o755)
 
 	store := chat.NewStore(filepath.Join(dir, "chats"))
-	runner := chat.NewRunner(chat.RunnerConfig{Store: store, Binary: script, Dir: dir})
+	// Both providers run the fake claude; the driver does not matter here.
+	fake := &chat.ClaudeDriver{Binary: script}
+	runner := chat.NewRunner(chat.RunnerConfig{
+		Store:   store,
+		Drivers: map[string]chat.Driver{chat.ProviderClaude: fake, chat.ProviderCodex: fake},
+		Dir:     dir,
+	})
 	t.Cleanup(runner.Shutdown)
 	s.Chat = &ChatService{
-		Store:  store,
-		Runner: runner,
-		Status: chat.AgentStatus{Available: true, Agent: "claude"},
+		Store:   store,
+		Runner:  runner,
+		Catalog: chat.NewCatalog("", func(name string) (string, error) { return "/usr/bin/" + name, nil }),
 	}
 	return s, s.SetupRoutes()
 }
@@ -145,6 +151,8 @@ func TestChat_SendValidation(t *testing.T) {
 		`{"text":"   "}`,
 		`{"text":"x","model":"gpt-5"}`,
 		`{"text":"x","effort":"ultra"}`,
+		`{"text":"x","provider":"gemini"}`,
+		`{"text":"x","provider":"codex","model":"sonnet"}`,
 		`not json`,
 	} {
 		if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", body); w.Code != http.StatusBadRequest {
@@ -173,7 +181,7 @@ func TestChat_SendWhileRunningIsConflict(t *testing.T) {
 
 func TestChat_SendUnavailable(t *testing.T) {
 	s, h := setupChatServer(t, "")
-	s.Chat.Status = chat.AgentStatus{Available: false, Reason: "no claude"}
+	s.Chat.Catalog = chat.NewCatalog("", func(string) (string, error) { return "", os.ErrNotExist })
 	m := createChat(t, h)
 	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"x"}`); w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("got %d", w.Code)
@@ -294,5 +302,40 @@ func TestChat_Rename(t *testing.T) {
 	}
 	if w := doJSON(t, h, "PATCH", "/api/local/chats/00000000-0000-4000-8000-000000000000", `{"title":"x"}`); w.Code != http.StatusNotFound {
 		t.Fatalf("unknown chat: %d", w.Code)
+	}
+}
+
+func TestChat_AgentStatusListsProviders(t *testing.T) {
+	_, h := setupChatServer(t, "")
+	w := doJSON(t, h, "GET", "/api/local/agent", "")
+	var st chat.AgentStatus
+	json.Unmarshal(w.Body.Bytes(), &st)
+	if !st.Available || st.DefaultProvider != "claude" || len(st.Providers) != 2 || st.Providers[1].ID != "codex" || len(st.Providers[0].Models) != 4 {
+		t.Fatalf("status = %s", w.Body.String())
+	}
+}
+
+func TestChat_SendWithProvider(t *testing.T) {
+	s, h := setupChatServer(t, "")
+	m := createChat(t, h)
+	w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hi","provider":"codex"}`)
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("send: %d %s", w.Code, w.Body.String())
+	}
+	s.Chat.Runner.Wait()
+	meta, _ := s.Chat.Store.Meta(m.ID)
+	if meta.Agent != "codex" {
+		t.Fatalf("agent = %q", meta.Agent)
+	}
+}
+
+func TestChat_SendOtherProviderIsConflict(t *testing.T) {
+	s, h := setupChatServer(t, "")
+	m := createChat(t, h)
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hi","provider":"claude"}`)
+	s.Chat.Runner.Wait()
+	w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"again","provider":"codex"}`)
+	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "new chat") {
+		t.Fatalf("got %d %s", w.Code, w.Body.String())
 	}
 }

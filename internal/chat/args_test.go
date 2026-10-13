@@ -29,7 +29,7 @@ func TestClaudeArgs_Baseline(t *testing.T) {
 		"--tools":                "Read,Grep,Glob",
 		"--allowedTools":         "mcp__xpo__*",
 		"--mcp-config":           "/tmp/mcp.json",
-		"--append-system-prompt": systemPrompt,
+		"--append-system-prompt": systemPromptFor(ProviderClaude),
 	} {
 		if got := flagValue(args, flag); got != want {
 			t.Errorf("%s = %q, want %q", flag, got, want)
@@ -107,23 +107,11 @@ func TestMCPConfig_Remote(t *testing.T) {
 	}
 }
 
-func TestValidModelAndEffort(t *testing.T) {
-	for _, m := range []string{"", "haiku", "sonnet", "opus"} {
-		if !ValidModel(m) {
-			t.Errorf("ValidModel(%q) = false", m)
+func TestSystemPromptFor(t *testing.T) {
+	for _, p := range []string{ProviderClaude, ProviderCodex} {
+		got := systemPromptFor(p)
+		if strings.Contains(got, "{{") || !strings.Contains(got, codeAccess[p]) {
+			t.Errorf("%s prompt = %q", p, got)
 		}
-	}
-	for _, m := range []string{"gpt-5", "opus; rm -rf", "--dangerously-skip-permissions"} {
-		if ValidModel(m) {
-			t.Errorf("ValidModel(%q) = true", m)
-		}
-	}
-	for _, e := range []string{"", "low", "medium", "high", "xhigh", "max"} {
-		if !ValidEffort(e) {
-			t.Errorf("ValidEffort(%q) = false", e)
-		}
-	}
-	if ValidEffort("ultra") {
-		t.Error("ValidEffort(ultra) = true")
 	}
 }

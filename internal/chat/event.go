@@ -67,9 +67,10 @@ type Meta struct {
 	Title           string    `json:"title"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
-	Agent           string    `json:"agent"`
+	Agent           string    `json:"agent"` // provider ID; set by the first message
 	Model           string    `json:"model,omitempty"`
 	Effort          string    `json:"effort,omitempty"`
-	ClaudeSessionID string    `json:"claude_session_id,omitempty"`
+	SessionID       string    `json:"session_id,omitempty"`        // the agent's own session or thread ID
+	ClaudeSessionID string    `json:"claude_session_id,omitempty"` // read only: chats saved before session_id
 	State           string    `json:"state"`
 }

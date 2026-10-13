@@ -55,23 +55,39 @@ export interface ChatMeta {
   state: "idle" | "running" | "interrupted";
 }
 
-export interface AgentStatus {
-  available: boolean;
-  agent: string;
-  model: string;
-  reason?: string;
+/** A model the composer offers; "" means the provider's default. */
+export interface ModelOption {
+  id: string;
+  label: string;
+  /** Effort levels the model supports; "" means the default. */
+  efforts: string[];
 }
 
-export const CHAT_MODELS = ["", "haiku", "sonnet", "opus"] as const;
-export const CHAT_EFFORTS = ["", "low", "medium", "high", "xhigh", "max"] as const;
-export type ChatModel = (typeof CHAT_MODELS)[number];
-export type ChatEffort = (typeof CHAT_EFFORTS)[number];
+/** An agent CLI chat can run, such as Claude Code or Codex. */
+export interface ProviderStatus {
+  id: string;
+  name: string;
+  available: boolean;
+  /** Why the provider is not available. */
+  reason?: string;
+  models: ModelOption[];
+}
+
+export interface AgentStatus {
+  /** At least one provider is available. */
+  available: boolean;
+  default_provider: string;
+  /** Why no provider is available. */
+  reason?: string;
+  providers: ProviderStatus[];
+}
 
 export interface SendChatMessage {
   text: string;
   context?: ChatContext;
-  model: ChatModel;
-  effort: ChatEffort;
+  provider: string;
+  model: string;
+  effort: string;
 }
 
 export function fetchAgentStatus(): Promise<AgentStatus> {

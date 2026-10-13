@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Square, X } from "lucide-react";
-import { CHAT_EFFORTS, CHAT_MODELS } from "../../api/chat";
+import type { AgentStatus } from "../../api/chat";
 import { InlineDropdown } from "../ui";
-import { EFFORT_LABELS, MODEL_LABELS, type ChatPrefs } from "./agent-state-utils";
-
-const modelOptions = CHAT_MODELS.map((m) => ({ value: m, label: MODEL_LABELS[m] }));
-const effortOptions = CHAT_EFFORTS.map((e) => ({ value: e, label: EFFORT_LABELS[e] }));
+import { composerOptions, withModel, withProvider, type ChatPrefs } from "./agent-state-utils";
 
 interface ChatComposerProps {
   running: boolean;
@@ -14,7 +11,11 @@ interface ChatComposerProps {
   /** The open issue, shown as a removable chip; undefined hides it. */
   contextIssue?: { id: string; title?: string };
   onDismissContext(): void;
+  /** The providers and their models; the pickers are empty until it loads. */
+  status: AgentStatus | undefined;
   prefs: ChatPrefs;
+  /** The chat has started: its session belongs to the picked provider. */
+  providerLocked?: boolean;
   onPrefsChange(prefs: ChatPrefs): void;
   onSend(text: string): Promise<boolean>;
   onStop(): void;
@@ -28,7 +29,9 @@ export default function ChatComposer({
   placeholder,
   contextIssue,
   onDismissContext,
+  status,
   prefs,
+  providerLocked,
   onPrefsChange,
   onSend,
   onStop,
@@ -48,6 +51,7 @@ export default function ChatComposer({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, [text]);
 
+  const options = composerOptions(status, prefs);
   const canSend = !running && !sending && !disabled && text.trim() !== "";
   const send = async () => {
     if (!canSend) return;
@@ -89,20 +93,31 @@ export default function ChatComposer({
           }}
           className={`block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none ${wide ? "min-h-16" : ""}`}
         />
-        <div className="flex items-center gap-1 px-1.5 pb-1.5">
+        <div className="flex items-center gap-1 px-1.5 pb-1.5 min-w-0">
+          {options.providers.length > 1 && (
+            <InlineDropdown
+              borderless
+              placeholder="Agent"
+              options={options.providers}
+              value={prefs.provider}
+              disabled={providerLocked}
+              title={providerLocked ? "A chat stays with the agent it started with. Start a new chat to switch." : undefined}
+              onChange={(v) => onPrefsChange(withProvider(prefs, v))}
+            />
+          )}
           <InlineDropdown
             borderless
             placeholder="Model"
-            options={modelOptions}
+            options={options.models}
             value={prefs.model}
-            onChange={(v) => onPrefsChange({ ...prefs, model: v as ChatPrefs["model"] })}
+            onChange={(v) => onPrefsChange(withModel(prefs, v, status))}
           />
           <InlineDropdown
             borderless
             placeholder="Effort"
-            options={effortOptions}
+            options={options.efforts}
             value={prefs.effort}
-            onChange={(v) => onPrefsChange({ ...prefs, effort: v as ChatPrefs["effort"] })}
+            onChange={(v) => onPrefsChange({ ...prefs, effort: v })}
           />
           {running ? (
             <button

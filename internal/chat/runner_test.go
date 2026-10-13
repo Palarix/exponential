@@ -51,10 +51,10 @@ func newTestRunner(t *testing.T, body string) (*Runner, *Store, string) {
 
 	store := NewStore(filepath.Join(dir, "chats"))
 	r := NewRunner(RunnerConfig{
-		Store:  store,
-		Binary: fakeClaude(t, dir, body),
-		Dir:    dir,
-		MCP:    MCPTarget{Executable: "/bin/xpo"},
+		Store:   store,
+		Drivers: map[string]Driver{"claude": &ClaudeDriver{Binary: fakeClaude(t, dir, body)}},
+		Dir:     dir,
+		MCP:     MCPTarget{Executable: "/bin/xpo"},
 	})
 	t.Cleanup(r.Shutdown)
 	return r, store, dir
@@ -88,7 +88,7 @@ func TestRunner_TurnPersistsSettledEvents(t *testing.T) {
 		t.Errorf("turn done = %+v", events[4])
 	}
 
-	if meta.ClaudeSessionID != "sess-42" || meta.State != StateIdle || meta.Title != "how many?" {
+	if meta.SessionID != "sess-42" || meta.State != StateIdle || meta.Title != "how many?" {
 		t.Errorf("meta = %+v", meta)
 	}
 	if meta.Model != "haiku" || meta.Effort != "low" {
@@ -215,7 +215,7 @@ func TestRunner_Cancel(t *testing.T) {
 	if events[len(events)-2].Type != EventAssistantText || events[len(events)-2].Text != "Checking " {
 		t.Errorf("partial text not kept: %+v", events)
 	}
-	if meta.State != StateIdle || meta.ClaudeSessionID != "sess-42" {
+	if meta.State != StateIdle || meta.SessionID != "sess-42" {
 		t.Errorf("meta = %+v", meta)
 	}
 }
@@ -250,6 +250,7 @@ func TestRunner_ProcessFailsWithoutResult(t *testing.T) {
 func TestRunner_DefaultModelFromConfig(t *testing.T) {
 	r, store, dir := newTestRunner(t, `cat "$FIXTURE"`)
 	r.cfg.DefaultModel = "sonnet"
+	r.cfg.DefaultProvider = "claude"
 	m, _ := store.Create()
 	r.Send(m.ID, SendRequest{Text: "x"})
 	r.Wait()
@@ -343,5 +344,70 @@ func TestRunner_ToolCallsSettleWithResults(t *testing.T) {
 		default:
 		}
 		break
+	}
+}
+
+func TestRunner_DefaultModelOnlyForDefaultProvider(t *testing.T) {
+	r, store, dir := newTestRunner(t, `cat "$FIXTURE"`)
+	r.cfg.DefaultModel = "gpt-x"
+	r.cfg.DefaultProvider = "codex"
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "x", Provider: "claude"})
+	r.Wait()
+	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
+	if strings.Contains(string(args), "--model") {
+		t.Fatalf("codex's chat.model passed to claude: %s", args)
+	}
+}
+
+func TestRunner_ProviderDefaultsToConfigured(t *testing.T) {
+	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
+	m, _ := store.Create()
+	if m.Agent != "" {
+		t.Fatalf("new chat agent = %q, want it unset until the first message", m.Agent)
+	}
+	r.Send(m.ID, SendRequest{Text: "x"})
+	r.Wait()
+	meta, _, _ := store.Get(m.ID)
+	if meta.Agent != "claude" {
+		t.Fatalf("agent = %q", meta.Agent)
+	}
+}
+
+func TestRunner_ProviderLockedAfterSession(t *testing.T) {
+	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
+	r.cfg.Drivers["codex"] = r.cfg.Drivers["claude"]
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "one", Provider: "claude"})
+	r.Wait()
+	if err := r.Send(m.ID, SendRequest{Text: "two", Provider: "codex"}); err != ErrProviderLocked {
+		t.Fatalf("err = %v, want ErrProviderLocked", err)
+	}
+	if r.Running(m.ID) {
+		t.Fatal("a turn started for a locked chat")
+	}
+}
+
+func TestRunner_ProviderSwitchBeforeSession(t *testing.T) {
+	r, store, _ := newTestRunner(t, `echo "boom" >&2; exit 1`)
+	r.cfg.Drivers["codex"] = r.cfg.Drivers["claude"]
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "one", Provider: "claude"})
+	r.Wait()
+	if err := r.Send(m.ID, SendRequest{Text: "two", Provider: "codex"}); err != nil {
+		t.Fatalf("err = %v; a chat without a session can change provider", err)
+	}
+	r.Wait()
+	meta, _, _ := store.Get(m.ID)
+	if meta.Agent != "codex" {
+		t.Fatalf("agent = %q", meta.Agent)
+	}
+}
+
+func TestRunner_UnknownProvider(t *testing.T) {
+	r, store, _ := newTestRunner(t, `true`)
+	m, _ := store.Create()
+	if err := r.Send(m.ID, SendRequest{Text: "x", Provider: "gemini"}); err == nil || !strings.Contains(err.Error(), "gemini") {
+		t.Fatalf("err = %v", err)
 	}
 }

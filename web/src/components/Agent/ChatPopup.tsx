@@ -89,7 +89,9 @@ export default function ChatPopup() {
         placeholder={empty ? "Ask about issues, or the code behind them…" : "Reply…"}
         contextIssue={issueId ? { id: issueId, title: context.issue_title } : undefined}
         onDismissContext={() => setDismissedIssue(context.issue_id ?? null)}
+        status={agent.status}
         prefs={prefs}
+        providerLocked={!empty}
         onPrefsChange={setPrefs}
         onSend={sendText}
         onStop={stop}

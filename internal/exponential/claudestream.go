@@ -164,7 +164,7 @@ func (p *ClaudeStreamParser) handleToolResults(msg streamMessage, cb StreamCallb
 			ev.ToolStatus = ToolStatusError
 		}
 		if ev.ToolStatus != ToolStatusDone {
-			ev.ToolMessage = toolResultText(block.Content)
+			ev.ToolMessage = ToolResultText(block.Content)
 		}
 		cb(ev)
 	}
@@ -173,10 +173,10 @@ func (p *ClaudeStreamParser) handleToolResults(msg streamMessage, cb StreamCallb
 // maxToolMessage caps the error text kept for a failed tool call, in runes.
 const maxToolMessage = 500
 
-// toolResultText turns tool_result content (a string, or an array of content
+// ToolResultText turns tool_result content (a string, or an array of content
 // blocks) into a short message: the text blocks joined, without Claude Code's
 // "Error: " prefix, cut to maxToolMessage runes.
-func toolResultText(content json.RawMessage) string {
+func ToolResultText(content json.RawMessage) string {
 	var text string
 	if err := json.Unmarshal(content, &text); err != nil {
 		var blocks []struct {
@@ -208,6 +208,17 @@ var (
 	toolDetailKeys    = []string{"file_path", "description", "command", "url", "skill", "pattern", "id", "title", "query", "match"}
 	mcpToolDetailKeys = []string{"id", "title", "query", "match", "pattern", "file_path", "url", "path", "sha"}
 )
+
+// MCPToolDetail picks the argument shown next to an MCP tool's name from its
+// decoded input, as the Claude stream does for mcp__ tools.
+func MCPToolDetail(input map[string]any) string {
+	for _, key := range mcpToolDetailKeys {
+		if v, ok := input[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
 
 func (p *ClaudeStreamParser) detailKeys() []string {
 	if strings.HasPrefix(p.currentTool, "mcp__") {

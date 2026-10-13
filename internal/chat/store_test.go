@@ -3,6 +3,7 @@ package chat
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -272,5 +273,30 @@ func TestStore_PruneKeepsMaxCount(t *testing.T) {
 	list, _ := s.List()
 	if len(list) != 3 || list[0].ID != ids[0] || list[2].ID != ids[2] {
 		t.Fatalf("kept %+v", list)
+	}
+}
+
+func TestStore_MetaMigratesClaudeSessionID(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	old := `{"id":"` + m.ID + `","title":"old","agent":"claude","claude_session_id":"sess-old","state":"idle"}`
+	if err := os.WriteFile(s.metaPath(m.ID), []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.Meta(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.SessionID != "sess-old" || got.Agent != "claude" {
+		t.Fatalf("meta = %+v", got)
+	}
+
+	if err := s.SaveMeta(got); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(s.metaPath(m.ID))
+	if strings.Contains(string(data), "claude_session_id") || !strings.Contains(string(data), `"session_id": "sess-old"`) {
+		t.Fatalf("saved meta = %s", data)
 	}
 }

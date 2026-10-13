@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/exec"
@@ -79,8 +80,8 @@ func runBoard(cmd *cobra.Command, args []string) error {
 
 	srv.Chat = newChatService()
 	defer srv.Chat.Runner.Shutdown()
-	if srv.AccessToken != "" && srv.Chat.Status.Available {
-		log.Printf("WARNING: agent chat is on — anyone with the access token can use this machine's Claude Code login and read project code through the agent.")
+	if srv.AccessToken != "" && srv.Chat.Catalog.Status().Available {
+		log.Printf("WARNING: agent chat is on — anyone with the access token can use this machine's agent logins (Claude Code, Codex) and read project code through the agent.")
 	}
 
 	listener, err := srv.Bind()
@@ -145,16 +146,41 @@ func newChatService() *server.ChatService {
 		target.Executable = exe
 	}
 
+	catalog := chat.NewCatalog(cfg.Chat.Agent, exec.LookPath)
+	st := catalog.Status()
+	if agent := cfg.Chat.Agent; agent != "" && agent != st.DefaultProvider {
+		log.Printf("warning: chat.agent %q is not installed or not supported; chat defaults to %q", agent, st.DefaultProvider)
+	}
+	for _, p := range st.Providers {
+		if p.ID == chat.ProviderCodex && p.Available {
+			go loadCodexModels(catalog)
+		}
+	}
+
 	return &server.ChatService{
 		Store: store,
 		Runner: chat.NewRunner(chat.RunnerConfig{
-			Store:        store,
-			Dir:          root,
-			MCP:          target,
-			DefaultModel: cfg.Chat.Model,
+			Store:           store,
+			Dir:             root,
+			MCP:             target,
+			DefaultProvider: st.DefaultProvider,
+			DefaultModel:    cfg.Chat.Model,
 		}),
-		Status: chat.CheckAgent(cfg.Chat.Agent, cfg.Chat.Model, exec.LookPath),
+		Catalog: catalog,
 	}
+}
+
+// loadCodexModels fills in Codex's model list. Until it answers, or when it
+// fails, Codex offers only its default model.
+func loadCodexModels(catalog *chat.Catalog) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	models, err := chat.CodexModels(ctx, "codex")
+	if err != nil {
+		log.Printf("warning: listing Codex models: %v", err)
+		return
+	}
+	catalog.SetModels(chat.ProviderCodex, models)
 }
 
 func openBrowser(url string) {

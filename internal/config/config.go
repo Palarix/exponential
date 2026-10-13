@@ -72,8 +72,10 @@ type DriveConfig struct {
 	Timeout    string           `mapstructure:"timeout" yaml:"timeout"`
 }
 
-// ChatConfig configures the web board's agent chat. Empty fields use the
-// defaults: agent "claude" and the agent CLI's default model.
+// ChatConfig configures the web board's agent chat. Agent is the default
+// provider, "claude" or "codex"; when it is empty or not installed, chat
+// uses the first installed one. Model is that provider's default model;
+// empty uses the agent CLI's default.
 type ChatConfig struct {
 	Agent string `mapstructure:"agent" yaml:"agent,omitempty"`
 	Model string `mapstructure:"model" yaml:"model,omitempty"`

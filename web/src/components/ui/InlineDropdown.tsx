@@ -16,6 +16,8 @@ export default function InlineDropdown({
   onChange,
   required,
   borderless,
+  disabled,
+  title,
 }: {
   placeholder: string;
   options: DropdownOption[];
@@ -23,6 +25,9 @@ export default function InlineDropdown({
   onChange: (v: string) => void;
   required?: boolean;
   borderless?: boolean;
+  disabled?: boolean;
+  /** Tooltip on the trigger, for example why it is disabled. */
+  title?: string;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -33,8 +38,10 @@ export default function InlineDropdown({
       <button
         ref={btnRef}
         type="button"
+        disabled={disabled}
+        title={title}
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors ${borderless ? "hover:bg-[var(--color-hover-surface-3)]" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
+        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors disabled:opacity-60 disabled:cursor-default ${borderless ? "hover:bg-[var(--color-hover-surface-3)] disabled:hover:bg-transparent" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
       >
         {selected ? (
           <>

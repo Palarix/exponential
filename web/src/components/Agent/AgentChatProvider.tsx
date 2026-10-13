@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CHAT_EFFORTS, CHAT_MODELS, fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
+import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
-import { addPill, loadPills, loadPrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
+import { addPill, loadPills, loadPrefs, normalizePrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
 
 function safeLocalStorage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -11,19 +11,16 @@ function safeLocalStorage(): Storage | null {
 
 const isMac = navigator.platform.includes("Mac");
 
-/** The allowed value equal to v, or the default "". */
-function pickAllowed<T extends string>(v: string | undefined, allowed: readonly T[]): T {
-  return allowed.find((a) => a === v) ?? ("" as T);
-}
-
 export default function AgentChatProvider({ context, children }: { context: ChatContext; children: ReactNode }) {
   const [storage] = useState(safeLocalStorage);
   const [popupOpen, setPopupOpen] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [pills, setPills] = useState(() => loadPills(storage));
-  const [prefs, setPrefsState] = useState(() => loadPrefs(storage));
+  const [savedPrefs, setPrefsState] = useState(() => loadPrefs(storage));
 
   const status = useQuery({ queryKey: agentQueryKeys.status, queryFn: fetchAgentStatus, staleTime: Infinity }).data;
+  // Saved prefs can name a provider or model that is gone; use the defaults then.
+  const prefs = useMemo(() => normalizePrefs(savedPrefs, status), [savedPrefs, status]);
   const anyPillRunning = (chats: { id: string; state: string }[] | undefined) =>
     !!chats?.some((c) => c.state === "running" && pills.includes(c.id));
   const chatsQuery = useQuery({
@@ -59,9 +56,9 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     setPrefs,
     openNew: () => { setChatId(null); setPopupOpen(true); },
     openChat: (id) => {
-      // An existing chat opens with the model and effort it last used.
+      // An existing chat opens with the agent, model and effort it last used.
       const meta = chats.find((c) => c.id === id);
-      if (meta) setPrefs({ model: pickAllowed(meta.model, CHAT_MODELS), effort: pickAllowed(meta.effort, CHAT_EFFORTS) });
+      if (meta) setPrefs({ provider: meta.agent || prefs.provider, model: meta.model ?? "", effort: meta.effort ?? "" });
       setChatId(id);
       setPopupOpen(true);
     },

@@ -35,7 +35,7 @@ export function useChatSession(chatId: string | null, onCreated: (id: string) =>
         id = (await createChat()).id;
         onCreated(id);
       }
-      await sendChatMessage(id, { text, context, model: prefs.model, effort: prefs.effort });
+      await sendChatMessage(id, { text, context, provider: prefs.provider, model: prefs.model, effort: prefs.effort });
       qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
       return true;
     } catch (err) {

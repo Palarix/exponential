@@ -118,7 +118,9 @@ export default function AgentView() {
       running={running}
       placeholder={empty ? `Ask ${projectName || "xpo"} anything…` : "Reply…"}
       onDismissContext={() => {}}
+      status={agent.status}
       prefs={agent.prefs}
+      providerLocked={!empty}
       onPrefsChange={agent.setPrefs}
       onSend={sendText}
       onStop={stop}

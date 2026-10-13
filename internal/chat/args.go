@@ -4,24 +4,23 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 )
 
 //go:embed prompt.md
 var systemPrompt string
 
-// Models and efforts the composer offers. Empty means "use the default".
-var (
-	models  = []string{"", "haiku", "sonnet", "opus"}
-	efforts = []string{"", "low", "medium", "high", "xhigh", "max"}
-)
+// codeAccess tells each agent how it can read the project's code. Both are
+// read-only: Claude through its tool allow-list, Codex through its sandbox.
+var codeAccess = map[string]string{
+	ProviderClaude: "You can read and search the project's code with Read, Grep, and Glob. You cannot edit files or run commands.",
+	ProviderCodex:  "You can read and search the project's code with read-only shell commands such as `rg`, `sed -n` and `git log`. The sandbox blocks writes and network access, so you cannot edit files.",
+}
 
-// ValidModel reports whether m is a model alias the chat accepts.
-func ValidModel(m string) bool { return slices.Contains(models, m) }
-
-// ValidEffort reports whether e is an effort level the chat accepts.
-func ValidEffort(e string) bool { return slices.Contains(efforts, e) }
+// systemPromptFor returns the chat system prompt for a provider.
+func systemPromptFor(provider string) string {
+	return strings.ReplaceAll(systemPrompt, "{{code_access}}", codeAccess[provider])
+}
 
 // turnOptions are the per-turn inputs to the claude command line. The prompt
 // itself goes over stdin.
@@ -45,7 +44,7 @@ func claudeArgs(o turnOptions) []string {
 		"--allowedTools", "mcp__xpo__*",
 		"--mcp-config", o.MCPConfigPath,
 		"--strict-mcp-config",
-		"--append-system-prompt", systemPrompt,
+		"--append-system-prompt", systemPromptFor(ProviderClaude),
 	}
 	if o.SessionID != "" {
 		args = append(args, "--resume", o.SessionID)
