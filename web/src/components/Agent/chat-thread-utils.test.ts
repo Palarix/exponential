@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { chatThreadReducer, emptyThread, failedToolCount, isRunning, splitTurn, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
+import { approvalArgs, approvalOutcomeLabel, approvalTitle, chatThreadReducer, collapsedFailureNote, failedSteps, failureReason, stepSummary, emptyThread, isRunning, pendingApprovals, splitTurn, toolLabel, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -78,7 +78,7 @@ describe("chatThreadReducer", () => {
       ev({ type: "tool_call", seq: 4, name: "Grep", tool_id: "c", status: "done" }),
       ev({ type: "tool_call", seq: 5, name: "Glob", status: "done" }), // saved before tool results
     ]);
-    expect(failedToolCount(s.turns[0])).toBe(2);
+    expect(failedSteps(s.turns[0]).length).toBe(2);
   });
 
   it("adds a settled tool call without a live start (replay)", () => {
@@ -210,5 +210,230 @@ describe("toolSummary", () => {
 
   it("collapses whitespace in long details", () => {
     expect(toolSummary("Grep", "a\n   b").detail).toBe("a b");
+  });
+});
+
+describe("approvals", () => {
+  const start = [
+    ev({ type: "user_message", seq: 1, text: "merge it" }),
+    ev({ type: "tool_start", name: "mcp__xpo__merge", tool_id: "t1", arg: "xpo-1" }),
+  ];
+  const requested = ev({ type: "approval_requested", seq: 2, approval_id: "a1", name: "mcp__xpo__merge", arg: "xpo-1", tool_id: "t1", input: '{"id":"xpo-1"}' });
+
+  it("attaches a request to its tool step and lists it as pending", () => {
+    const s = reduce([...start, requested]);
+    const turn = s.turns[0];
+    expect(turn.steps).toHaveLength(1);
+    expect(turn.steps[0]).toMatchObject({ kind: "tool", id: "t1", approval: { id: "a1", input: '{"id":"xpo-1"}' } });
+    expect(pendingApprovals(turn).map((st) => st.approval.id)).toEqual(["a1"]);
+  });
+
+  it("records the decision and keeps it when the tool call settles", () => {
+    const s = reduce([
+      ...start,
+      requested,
+      ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "allow" }),
+      ev({ type: "tool_call", seq: 4, name: "mcp__xpo__merge", tool_id: "t1", arg: "xpo-1", status: "done" }),
+    ]);
+    const turn = s.turns[0];
+    expect(turn.steps[0]).toMatchObject({ kind: "tool", done: true, status: "done", approval: { id: "a1", decision: "allow" } });
+    expect(pendingApprovals(turn)).toEqual([]);
+  });
+
+  it("adds a step of its own for a request without a tool ID", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "x" }),
+      ev({ type: "approval_requested", seq: 2, approval_id: "a2", name: "mcp__xpo__merge", arg: "xpo-1" }),
+    ]);
+    expect(s.turns[0].steps).toEqual([
+      { kind: "tool", id: undefined, name: "mcp__xpo__merge", arg: "xpo-1", done: false, approval: { id: "a2", input: undefined } },
+    ]);
+  });
+
+  it("rebuilds a settled request on reload, before its tool call settles", () => {
+    // Settled order on reload: the request settles before the tool call.
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "merge it" }),
+      requested,
+      ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "deny" }),
+      ev({ type: "tool_call", seq: 4, name: "mcp__xpo__merge", tool_id: "t1", arg: "xpo-1", status: "denied", message: "declined" }),
+    ]);
+    expect(s.turns[0].steps).toHaveLength(1);
+    expect(s.turns[0].steps[0]).toMatchObject({ status: "denied", approval: { id: "a1", decision: "deny" } });
+  });
+
+  it("expires open requests when the turn ends or is interrupted", () => {
+    const done = reduce([...start, requested, ev({ type: "turn_stopped", seq: 3 })]);
+    expect(done.turns[0].steps[0]).toMatchObject({ approval: { id: "a1", decision: "expired" } });
+    expect(pendingApprovals(done.turns[0])).toEqual([]);
+
+    const interrupted = chatThreadReducer(reduce([...start, requested]), { type: "interrupted" });
+    expect(interrupted.turns[0].steps[0]).toMatchObject({ approval: { decision: "expired" } });
+  });
+
+  it("keeps a cancelled decision when the turn stops", () => {
+    const s = reduce([
+      ...start,
+      requested,
+      ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "cancelled" }),
+      ev({ type: "turn_stopped", seq: 4 }),
+    ]);
+    expect(s.turns[0].steps[0]).toMatchObject({ approval: { decision: "cancelled" } });
+  });
+
+  it("marks an approval expired on request", () => {
+    const s = chatThreadReducer(reduce([...start, requested]), { type: "approval_expired", id: "a1" });
+    expect(pendingApprovals(s.turns[0])).toEqual([]);
+    expect(s.turns[0].steps[0]).toMatchObject({ approval: { decision: "expired" } });
+  });
+});
+
+describe("approval labels", () => {
+  it("names the tool as the user knows it", () => {
+    expect(toolLabel("mcp__xpo__merge")).toBe("xpo merge");
+    expect(toolLabel("Bash")).toBe("Bash");
+  });
+
+  it("says how a card ended", () => {
+    expect(approvalOutcomeLabel("allow")).toBe("Allowed once");
+    expect(approvalOutcomeLabel("allow_session")).toBe("Allowed for this chat");
+    expect(approvalOutcomeLabel("deny")).toBe("Denied");
+    expect(approvalOutcomeLabel("cancelled")).toBe("Cancelled");
+    expect(approvalOutcomeLabel("expired")).toBe("Expired");
+  });
+});
+
+describe("failedToolCount with approvals", () => {
+  it("does not count calls the user denied", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "x" }),
+      ev({ type: "approval_requested", seq: 2, approval_id: "a1", name: "mcp__xpo__merge", tool_id: "t1" }),
+      ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "deny" }),
+      ev({ type: "tool_call", seq: 4, name: "mcp__xpo__merge", tool_id: "t1", status: "denied", message: "declined" }),
+      ev({ type: "tool_call", seq: 5, name: "Read", tool_id: "t2", status: "error", message: "no such file" }),
+    ]);
+    expect(failedSteps(s.turns[0]).length).toBe(1);
+  });
+});
+
+describe("approvalTitle", () => {
+  it("says what the call will do", () => {
+    expect(approvalTitle("mcp__xpo__merge", "upe-1")).toEqual({ action: "Merge", detail: "upe-1" });
+    expect(approvalTitle("mcp__xpo__start", "upe-1")).toEqual({ action: "Start work on", detail: "upe-1" });
+    expect(approvalTitle("Edit", "/repo/main.go")).toEqual({ action: "Edit", detail: "main.go" });
+    expect(approvalTitle("Read", "/etc/hosts")).toEqual({ action: "Read", detail: "hosts" });
+  });
+
+  it("names a shell command without echoing its description as an object", () => {
+    expect(approvalTitle("Bash", "Write hi into out.txt")).toEqual({ action: "Run a shell command", detail: "Write hi into out.txt" });
+  });
+
+  it("falls back to the tool name", () => {
+    expect(approvalTitle("mcp__xpo__frobnicate", "")).toEqual({ action: "Use xpo frobnicate", detail: "" });
+    expect(approvalTitle("WebFetch", "https://x.dev")).toEqual({ action: "Use WebFetch", detail: "https://x.dev" });
+  });
+});
+
+describe("stepSummary", () => {
+  it("reads a finished call in the past tense", () => {
+    expect(stepSummary({ kind: "tool", name: "mcp__xpo__merge", arg: "upe-1", done: true, status: "done", approval: { id: "a", decision: "allow" } })).toEqual({ text: "Merged", detail: "upe-1" });
+  });
+
+  it("reads a call that never ran as what was asked", () => {
+    for (const decision of ["deny", "cancelled", "expired"] as const) {
+      expect(stepSummary({ kind: "tool", name: "mcp__xpo__merge", arg: "upe-1", done: true, status: "denied", approval: { id: "a", decision } })).toEqual({ text: "Merge", detail: "upe-1" });
+    }
+  });
+});
+
+describe("approvalArgs", () => {
+  it("shows a shell command as code", () => {
+    expect(approvalArgs("Bash", '{"command":"rm -rf build","description":"Clean the build"}', "Clean the build")).toEqual({ command: "rm -rf build", fields: [] });
+  });
+
+  it("lists only the arguments the headline does not show", () => {
+    expect(approvalArgs("mcp__xpo__merge", '{"id":"upe-1"}', "upe-1")).toEqual({ fields: [] });
+    expect(approvalArgs("mcp__xpo__update", '{"id":"upe-1","status":"DONE","priority":2,"labels":["bug","ui"]}', "upe-1")).toEqual({
+      fields: [
+        ["status", "DONE"],
+        ["priority", "2"],
+        ["labels", "bug, ui"],
+      ],
+    });
+  });
+
+  it("drops empty values and survives input that is not JSON", () => {
+    expect(approvalArgs("Edit", '{"file_path":"/r/a.go","old_string":"","replace_all":false}', "/r/a.go")).toEqual({ fields: [["replace_all", "false"]] });
+    expect(approvalArgs("Edit", "not json", "x")).toEqual({ fields: [] });
+    expect(approvalArgs("Edit", undefined, "x")).toEqual({ fields: [] });
+  });
+});
+
+describe("stepSummary for failed calls", () => {
+  it("reads a failed call as what was asked", () => {
+    expect(stepSummary({ kind: "tool", name: "mcp__xpo__merge", arg: "upe-1", done: true, status: "error", approval: { id: "a", decision: "allow" } })).toEqual({ text: "Merge", detail: "upe-1" });
+    expect(stepSummary({ kind: "tool", name: "Grep", arg: "TODO", done: true, status: "error" })).toEqual({ text: "Search the code for", detail: "TODO" });
+    expect(stepSummary({ kind: "tool", name: "mcp__xpo__list", arg: "", done: true, status: "denied" })).toEqual({ text: "List issues", detail: "" });
+    expect(stepSummary({ kind: "tool", name: "Read", arg: "/r/board.go", done: true, status: "error" })).toEqual({ text: "Read", detail: "board.go" });
+  });
+
+  it("keeps the tool name for a failed call of an unknown tool", () => {
+    expect(stepSummary({ kind: "tool", name: "mcp__xpo__frobnicate", arg: "x", done: true, status: "error" })).toEqual({ text: "xpo frobnicate", detail: "x" });
+  });
+
+  it("keeps the past tense for a call that ran", () => {
+    expect(stepSummary({ kind: "tool", name: "Grep", arg: "TODO", done: true, status: "done" })).toEqual({ text: "Searched the code for", detail: "TODO" });
+  });
+});
+
+describe("failedSteps", () => {
+  it("lists the calls that failed, in order, without the ones the user denied", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "x" }),
+      ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "t1", arg: "a.go", status: "error", message: "no such file" }),
+      ev({ type: "approval_requested", seq: 3, approval_id: "a1", name: "mcp__xpo__merge", tool_id: "t2" }),
+      ev({ type: "approval_resolved", seq: 4, approval_id: "a1", decision: "deny" }),
+      ev({ type: "tool_call", seq: 5, name: "mcp__xpo__merge", tool_id: "t2", status: "denied" }),
+      ev({ type: "tool_call", seq: 6, name: "Grep", tool_id: "t3", arg: "x", status: "done" }),
+      ev({ type: "tool_call", seq: 7, name: "mcp__xpo__show", tool_id: "t4", arg: "upe-1", status: "error", message: "not found" }),
+    ]);
+    expect(failedSteps(s.turns[0]).map((st) => st.id)).toEqual(["t1", "t4"]);
+    expect(failedSteps(s.turns[0]).length).toBe(2);
+  });
+});
+
+describe("failureReason", () => {
+  it("labels the reason by outcome", () => {
+    expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error", message: "no such file" })).toEqual({ label: "failed", text: "no such file", more: false });
+    expect(failureReason({ kind: "tool", name: "Bash", arg: "", done: true, status: "denied", message: "not allowed" })).toEqual({ label: "denied", text: "not allowed", more: false });
+  });
+
+  it("keeps the first line and says when there is more", () => {
+    const message = "uncommitted changes — commit or discard before merging:\n  - .gitignore\nDo NOT stash";
+    expect(failureReason({ kind: "tool", name: "mcp__xpo__merge", arg: "", done: true, status: "error", message })).toEqual({
+      label: "failed",
+      text: "uncommitted changes — commit or discard before merging:",
+      more: true,
+    });
+  });
+
+  it("skips blank leading lines and handles a missing message", () => {
+    expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error", message: "\n\n  boom  " })).toEqual({ label: "failed", text: "boom", more: false });
+    expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error" })).toEqual({ label: "failed", text: "", more: false });
+  });
+});
+
+describe("collapsedFailureNote", () => {
+  const failing = reduce([
+    ev({ type: "user_message", seq: 1, text: "x" }),
+    ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "t1", status: "error", message: "boom" }),
+    ev({ type: "tool_call", seq: 3, name: "Grep", tool_id: "t2", status: "error", message: "bad" }),
+  ]).turns[0];
+  const clean = reduce([ev({ type: "user_message", seq: 1, text: "x" }), ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "t1", status: "done" })]).turns[0];
+
+  it("counts failures only while the list is collapsed", () => {
+    expect(collapsedFailureNote(failing, false)).toBe("2 failed");
+    expect(collapsedFailureNote(failing, true)).toBeNull();
+    expect(collapsedFailureNote(clean, false)).toBeNull();
   });
 });

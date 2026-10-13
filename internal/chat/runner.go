@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/palarix/exponential/internal/exponential"
 )
 
@@ -49,16 +51,21 @@ type SendRequest struct {
 type Runner struct {
 	cfg RunnerConfig
 
-	mu    sync.Mutex
-	turns map[string]*turn
-	subs  map[string]map[chan Event]struct{}
-	wg    sync.WaitGroup
+	mu        sync.Mutex
+	turns     map[string]*turn
+	subs      map[string]map[chan Event]struct{}
+	approvals map[string]map[string]chan string // open approval cards: chat ID → approval ID → decision
+	wg        sync.WaitGroup
 }
 
 type turn struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	done   chan struct{} // closed when the turn has finished
+
+	// denied holds the tool use IDs whose approval the user denied. The
+	// agents report such a call as an error; the work list shows it denied.
+	denied sync.Map
 }
 
 // NewRunner returns a runner for cfg.
@@ -72,7 +79,7 @@ func NewRunner(cfg RunnerConfig) *Runner {
 	if cfg.DefaultProvider == "" {
 		cfg.DefaultProvider = ProviderClaude
 	}
-	return &Runner{cfg: cfg, turns: map[string]*turn{}, subs: map[string]map[chan Event]struct{}{}}
+	return &Runner{cfg: cfg, turns: map[string]*turn{}, subs: map[string]map[chan Event]struct{}{}, approvals: map[string]map[string]chan string{}}
 }
 
 // Send records the user message and starts a turn in the background.
@@ -289,6 +296,8 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 		Effort:    meta.Effort,
 		Dir:       r.cfg.Dir,
 		MCP:       r.cfg.MCP,
+		Approve:   r.approver(id, t),
+		Grants:    meta.Grants,
 	}, func(ev exponential.StreamEvent) {
 		switch ev.Kind {
 		case exponential.StreamSession:
@@ -320,6 +329,9 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 			}
 			delete(pending, ev.ToolID)
 			call.Status = ev.ToolStatus
+			if _, denied := t.denied.Load(ev.ToolID); denied && call.Status == exponential.ToolStatusError {
+				call.Status = exponential.ToolStatusDenied
+			}
 			call.Message = ev.ToolMessage
 			r.settle(id, call)
 		}
@@ -354,6 +366,96 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 			TokensOut:  result.TokensOut,
 		})
 	}
+}
+
+// Decide answers an open approval card of a chat.
+func (r *Runner) Decide(chatID, approvalID, decision string) error {
+	switch decision {
+	case DecisionAllow, DecisionAllowSession, DecisionDeny:
+	default:
+		return ErrBadDecision
+	}
+	r.mu.Lock()
+	ch, ok := r.approvals[chatID][approvalID]
+	if ok {
+		delete(r.approvals[chatID], approvalID)
+	}
+	r.mu.Unlock()
+	if !ok {
+		return ErrApprovalNotFound
+	}
+	ch <- decision
+	return nil
+}
+
+// Waiting reports whether a chat has an approval card open.
+func (r *Runner) Waiting(chatID string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.approvals[chatID]) > 0
+}
+
+// approver returns the Approver for a chat's turn. A request that matches a
+// grant is allowed at once. Any other request opens a card and waits for
+// Decide, or for the turn to end.
+func (r *Runner) approver(chatID string, t *turn) Approver {
+	return func(ctx context.Context, req ApprovalRequest) string {
+		if r.granted(chatID, req.Rule) {
+			return DecisionAllow
+		}
+		approvalID := uuid.NewString()
+		ch := make(chan string, 1)
+		r.mu.Lock()
+		if r.approvals[chatID] == nil {
+			r.approvals[chatID] = map[string]chan string{}
+		}
+		r.approvals[chatID][approvalID] = ch
+		r.mu.Unlock()
+		r.settle(chatID, Event{Type: EventApprovalRequested, ApprovalID: approvalID, Name: req.Tool, Arg: req.Detail, Input: req.Input, ToolID: req.ToolID})
+
+		var decision string
+		select {
+		case decision = <-ch:
+		case <-ctx.Done():
+			decision = DecisionCancelled
+		}
+		r.mu.Lock()
+		delete(r.approvals[chatID], approvalID)
+		if len(r.approvals[chatID]) == 0 {
+			delete(r.approvals, chatID)
+		}
+		r.mu.Unlock()
+
+		switch {
+		case decision == DecisionAllowSession:
+			r.grant(chatID, req.Rule)
+		case (decision == DecisionDeny || decision == DecisionCancelled) && req.ToolID != "":
+			t.denied.Store(req.ToolID, true)
+		}
+		r.settle(chatID, Event{Type: EventApprovalResolved, ApprovalID: approvalID, Decision: decision})
+		return decision
+	}
+}
+
+func (r *Runner) granted(chatID, rule string) bool {
+	if rule == "" {
+		return false
+	}
+	m, err := r.cfg.Store.Meta(chatID)
+	return err == nil && slices.Contains(m.Grants, rule)
+}
+
+// grant adds a rule to the chat's grants, for the rest of the chat.
+func (r *Runner) grant(chatID, rule string) {
+	if rule == "" {
+		return
+	}
+	m, err := r.cfg.Store.Meta(chatID)
+	if err != nil || slices.Contains(m.Grants, rule) {
+		return
+	}
+	m.Grants = append(m.Grants, rule)
+	_ = r.cfg.Store.SaveMeta(m)
 }
 
 // tailBuffer keeps the last max bytes written to it.

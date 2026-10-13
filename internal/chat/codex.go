@@ -22,8 +22,8 @@ const codexTokenEnv = "XPO_MCP_BEARER_TOKEN"
 
 // CodexDriver runs a turn on `codex app-server`, one process per turn,
 // speaking its JSON-RPC protocol over stdio. The thread runs in Codex's
-// read-only sandbox and never asks for approval; the xpo MCP tools are
-// pre-approved.
+// read-only sandbox and never asks for command approval; the xpo MCP tools
+// are pre-approved. Approval requests it sends anyway go to the user.
 type CodexDriver struct {
 	Binary string // "codex" when empty
 	// InterruptGrace is how long a cancelled turn may take to stop after
@@ -81,7 +81,13 @@ func (d *CodexDriver) Turn(ctx context.Context, in TurnInput, emit exponential.S
 	}
 	defer p.stop(grace)
 
-	t := &codexTurn{p: p, in: in, emit: emit, usage: map[string][2]int{}, streamed: map[string]bool{}}
+	// Open approval requests end with the turn.
+	approveCtx, endApprovals := context.WithCancel(ctx)
+	t := &codexTurn{p: p, in: in, emit: emit, usage: map[string][2]int{}, streamed: map[string]bool{}, approveCtx: approveCtx}
+	defer func() {
+		endApprovals()
+		t.approvals.Wait()
+	}()
 	t.initID = p.call("initialize", map[string]any{"clientInfo": map[string]string{"name": "xpo", "title": "xpo", "version": "1"}})
 
 	done := ctx.Done()
@@ -121,6 +127,9 @@ type codexTurn struct {
 	window   int               // the latest modelContextWindow
 	usage    map[string][2]int // input and output tokens by turn ID
 	streamed map[string]bool   // agent message items that sent deltas
+
+	approveCtx context.Context // ends when the turn ends
+	approvals  sync.WaitGroup  // approval requests waiting for the user
 }
 
 type rpcMessage struct {
@@ -170,9 +179,18 @@ func (t *codexTurn) handle(line []byte) (*TurnResult, bool) {
 	}
 	switch {
 	case msg.Method != "" && len(msg.ID) > 0:
-		// A server request, such as an approval. Chat never approves
-		// anything, so refuse it and the turn cannot hang on it.
-		t.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "error": map[string]any{"code": -32000, "message": "xpo chat declines all requests"}})
+		// A server request. Approvals go to the user; anything else is
+		// refused, so the turn cannot hang on it.
+		if req, answer, ok := codexApproval(msg.Method, msg.Params); ok {
+			t.approvals.Add(1)
+			go func() {
+				defer t.approvals.Done()
+				result := answer(t.in.approve(t.approveCtx, req))
+				t.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "result": result})
+			}()
+			return nil, false
+		}
+		t.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "error": map[string]any{"code": -32000, "message": "xpo chat declines this request"}})
 		return nil, false
 	case msg.Method != "":
 		return t.notification(msg.Method, msg.Params)
@@ -318,6 +336,59 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 		return res, true
 	}
 	return nil, false
+}
+
+// codexApproval turns an app-server approval request into an
+// ApprovalRequest, and returns how to answer it for a decision. ok is false
+// for requests that are not approvals xpo handles.
+func codexApproval(method string, raw json.RawMessage) (req ApprovalRequest, answer func(decision string) any, ok bool) {
+	var p struct {
+		ItemID    string `json:"itemId"`
+		Command   string `json:"command"`
+		Actions   []struct {
+			Command string `json:"command"`
+		} `json:"commandActions"`
+		Offered    []any  `json:"availableDecisions"`
+		ServerName string `json:"serverName"`
+		Message    string `json:"message"`
+		Meta       struct {
+			Kind   string         `json:"codex_approval_kind"`
+			Params map[string]any `json:"tool_params"`
+		} `json:"_meta"`
+	}
+	if json.Unmarshal(raw, &p) != nil {
+		return req, nil, false
+	}
+	decide := func(decision string) any { return map[string]string{"decision": codexDecision(decision, p.Offered)} }
+	switch method {
+	case "item/commandExecution/requestApproval":
+		name, arg, _ := codexToolName(codexItem{Type: "commandExecution", Command: p.Command, Actions: p.Actions})
+		input, _ := json.Marshal(map[string]string{"command": arg})
+		return ApprovalRequest{Tool: name, Detail: arg, Input: string(input), ToolID: p.ItemID, Rule: name + "(" + arg + ")"}, decide, true
+	case "item/fileChange/requestApproval":
+		return ApprovalRequest{Tool: "Edit", ToolID: p.ItemID, Rule: "Edit"}, decide, true
+	case "mcpServer/elicitation/request":
+		if p.Meta.Kind != "mcp_tool_call" {
+			return req, nil, false
+		}
+		// The tool name is only in the message text. When Codex words it
+		// differently, the card names the server alone.
+		name := "mcp__" + p.ServerName
+		prefix := "Allow the " + p.ServerName + " MCP server to run tool \""
+		if rest, found := strings.CutPrefix(p.Message, prefix); found {
+			if tool, _, closed := strings.Cut(rest, "\""); closed && tool != "" {
+				name += "__" + tool
+			}
+		}
+		input, _ := json.Marshal(p.Meta.Params)
+		return ApprovalRequest{Tool: name, Detail: exponential.MCPToolDetail(p.Meta.Params), Input: string(input), Rule: name}, func(decision string) any {
+			if decision == DecisionAllow || decision == DecisionAllowSession {
+				return map[string]any{"action": "accept", "content": map[string]any{}}
+			}
+			return map[string]any{"action": "decline"}
+		}, true
+	}
+	return req, nil, false
 }
 
 // codexToolName maps a Codex tool item to the name the work list knows,

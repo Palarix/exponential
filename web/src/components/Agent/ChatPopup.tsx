@@ -14,7 +14,7 @@ export default function ChatPopup() {
   const agent = useAgentChat();
   const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated } = agent;
   const { openChatView } = useAppNav();
-  const { thread, running, send, stop } = useChatSession(chatId, chatCreated);
+  const { thread, running, send, stop, expireApproval } = useChatSession(chatId, chatCreated);
   const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
 
   const meta = chats.find((c) => c.id === chatId);
@@ -80,7 +80,7 @@ export default function ChatPopup() {
           </div>
         </div>
       ) : (
-        <ChatThread thread={thread} />
+        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} />
       )}
 
       <ChatComposer

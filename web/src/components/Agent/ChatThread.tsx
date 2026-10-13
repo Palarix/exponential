@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ChevronRight, Copy, Check, X } from "lucide-react";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
-import { failedToolCount, splitTurn, toolSummary, turnSeconds, type ChatStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import ApprovalCard from "./ApprovalCard";
+import { approvalOutcomeLabel, collapsedFailureNote, failedSteps, failureReason, isFailed, pendingApprovals, splitTurn, stepSummary, turnSeconds, type ChatStep, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />;
@@ -26,36 +28,83 @@ function AnswerText({ text }: { text: string }) {
   );
 }
 
+/**
+ * A failed call's reason after its row: the first line in red, cut to the
+ * row. The full message opens in a card on hover, on focus, or on click.
+ */
+function FailureReason({ step }: { step: ToolStep }) {
+  const [open, setOpen] = useState(false);
+  const { label, text, more } = failureReason(step);
+  const full = step.message?.trim();
+  // A fade, not an ellipsis: Safari shows its own tooltip for ellipsis-truncated
+  // text, which would stack on the card.
+  const reason = (
+    <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-left text-[var(--color-error)] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
+      {label}
+      {text && `: ${text}`}
+      {more && " …"}
+    </span>
+  );
+  if (!full) return reason;
+  return (
+    <TooltipPrimitive.Root open={open} onOpenChange={setOpen} delayDuration={150}>
+      <TooltipPrimitive.Trigger asChild>
+        <button type="button" onClick={() => setOpen(true)} className="min-w-0 flex-1 flex rounded-[var(--radius-sm)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--color-border-focus)]">
+          {reason}
+        </button>
+      </TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
+          side="bottom"
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="z-50 max-w-md max-h-64 overflow-auto px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-overlay)] shadow-[var(--shadow-md)] text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap break-words animate-in fade-in-0 zoom-in-95"
+        >
+          <div className="mb-1 font-medium text-[var(--color-error)]">{label === "denied" ? "Denied" : "Failed"}</div>
+          {full}
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
+  );
+}
+
+/** A work-list row. A failed call carries its reason on the row. */
 function WorkStep({ step }: { step: ChatStep }) {
   if (step.kind === "text") {
     return <div className="text-xs text-[var(--color-text-muted)] whitespace-pre-wrap">{step.text}</div>;
   }
-  const { text, detail } = toolSummary(step.name, step.arg);
+  const { text, detail } = stepSummary(step);
   // Search patterns read best as code; file names and titles as text.
   const code = step.name === "Grep" || step.name === "Glob";
-  const failed = step.status === "error" || step.status === "denied";
-  const message = step.status === "denied" ? `Denied: ${step.message ?? ""}`.trim() : step.message;
+  // A call the user denied shows its approval outcome, not a failure.
+  const failed = isFailed(step);
   return (
-    <div className="flex flex-col gap-0.5 min-w-0">
-      <div className="flex items-center gap-1.5 text-xs min-w-0" title={step.arg || undefined}>
-        {/* Only the detail may shrink: a shrinking bullet slot would misalign the rows. */}
-        <span className="w-3 shrink-0 flex justify-center">
-          {failed ? (
-            <X className="w-3 h-3 text-[var(--color-error)]" aria-label={step.status === "denied" ? "Denied" : "Failed"} />
-          ) : step.done ? (
-            <span className="text-[var(--color-text-muted)]">·</span>
-          ) : (
-            <Spinner />
-          )}
+    <div className="flex items-center gap-1.5 text-xs min-w-0" title={failed ? undefined : step.arg || undefined}>
+      {/* The slot keeps its width so the rows stay aligned. */}
+      <span className="w-3 shrink-0 flex justify-center">
+        {failed ? (
+          <X className="w-3 h-3 text-[var(--color-error)]" aria-label={step.status === "denied" ? "Denied" : "Failed"} />
+        ) : step.done ? (
+          <span className="text-[var(--color-text-muted)]">·</span>
+        ) : (
+          <Spinner />
+        )}
+      </span>
+      <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
+      {/* The detail gives way to a failure reason, but keeps a readable minimum. */}
+      {detail && (
+        <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${failed ? "shrink-0 max-w-[40%]" : ""} ${code ? "font-mono" : ""}`}>
+          <IssueRefText text={detail} />
         </span>
-        <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
-        {detail && <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${code ? "font-mono" : ""}`}><IssueRefText text={detail} /></span>}
-      </div>
-      {failed && message && (
-        <div className="ml-[18px] text-xs text-[var(--color-error)] whitespace-pre-wrap break-words line-clamp-3" title={message}>
-          {message}
-        </div>
       )}
+      {step.approval?.decision && (
+        <span className="shrink-0 px-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-3)] text-[11px] text-[var(--color-text-muted)]">
+          {approvalOutcomeLabel(step.approval.decision)}
+        </span>
+      )}
+      {step.approval && !step.approval.decision && <span className="shrink-0 text-[11px] text-[var(--color-warning)]">Waiting for approval</span>}
+      {failed && <FailureReason step={step} />}
     </div>
   );
 }
@@ -79,15 +128,20 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function Turn({ turn }: { turn: ChatTurn }) {
-  const [expanded, setExpanded] = useState(false);
+function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: string | null; onApprovalExpired?: (id: string) => void }) {
+  // A turn with a failed call opens its work list, also when the failure
+  // arrives mid-turn, until the user toggles it.
+  const [toggled, setToggled] = useState<boolean | null>(null);
   const running = turn.status === "running";
   const now = useNow(running);
   const { work, answer } = splitTurn(turn);
   const answerText = answer.map((s) => (s.kind === "text" ? s.text : "")).join("\n\n").trim();
   const seconds = turnSeconds(turn, now);
-  const failed = failedToolCount(turn);
+  const expanded = toggled ?? failedSteps(turn).length > 0;
+  const failureNote = collapsedFailureNote(turn, expanded);
   const showWork = work.length > 0 || (running && answer.length === 0);
+  // Open cards stay visible while the work list is collapsed.
+  const pending = chatId ? pendingApprovals(turn) : [];
 
   return (
     <div className="flex flex-col gap-3">
@@ -99,15 +153,26 @@ function Turn({ turn }: { turn: ChatTurn }) {
         <div>
           <button
             type="button"
-            onClick={() => setExpanded((e) => !e)}
+            onClick={() => setToggled(!expanded)}
+            aria-expanded={work.length > 0 ? expanded : undefined}
             disabled={work.length === 0}
             className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] disabled:hover:text-[var(--color-text-muted)] transition-colors"
           >
-            {running && <Spinner />}
+            {running && pending.length > 0 ? (
+              <span className="w-3 flex justify-center" aria-hidden>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+              </span>
+            ) : (
+              running && <Spinner />
+            )}
             <span>
-              {running ? (turn.thinking ? "Thinking" : "Working") + ` for ${seconds}s` : `Worked for ${seconds} second${seconds === 1 ? "" : "s"}`}
+              {running && pending.length > 0
+                ? "Waiting for your approval"
+                : running
+                  ? `${turn.thinking ? "Thinking" : "Working"} for ${seconds}s`
+                  : `Worked for ${seconds} second${seconds === 1 ? "" : "s"}`}
             </span>
-            {failed > 0 && <span className="text-[var(--color-error)]">· {failed} failed</span>}
+            {failureNote && <span className="text-[var(--color-error)]">· {failureNote}</span>}
             {work.length > 0 && <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />}
           </button>
           {expanded && (
@@ -117,6 +182,8 @@ function Turn({ turn }: { turn: ChatTurn }) {
           )}
         </div>
       )}
+
+      {chatId && pending.map((step) => <ApprovalCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />)}
 
       {answerText && (
         <div className="flex flex-col gap-1">
@@ -145,8 +212,21 @@ function dayLabel(iso: string): string {
   return d.toDateString() === today.toDateString() ? `Today ${time}` : `${d.toLocaleDateString()} ${time}`;
 }
 
-/** `wide` centers the thread in a reading column, for the full-page Agent view. */
-export default function ChatThread({ thread, wide }: { thread: Thread; wide?: boolean }) {
+/**
+ * `wide` centers the thread in a reading column, for the full-page Agent view.
+ * Approval cards need the chat's ID to send decisions.
+ */
+export default function ChatThread({
+  thread,
+  wide,
+  chatId,
+  onApprovalExpired,
+}: {
+  thread: Thread;
+  wide?: boolean;
+  chatId?: string | null;
+  onApprovalExpired?: (id: string) => void;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -166,10 +246,11 @@ export default function ChatThread({ thread, wide }: { thread: Thread; wide?: bo
       }}
       className={`flex-1 overflow-y-auto px-4 ${wide ? "py-8" : "py-3"}`}
     >
-      <div className={wide ? "mx-auto max-w-3xl" : undefined}>
+      {/* The composer's box: its max-w-3xl column minus its px-4, so the thread and the reply box share both edges. */}
+      <div className={wide ? "mx-auto max-w-[46rem]" : undefined}>
       {first && <div className="text-center text-xs text-[var(--color-text-muted)] mb-4">{dayLabel(first.user.time)}</div>}
       <div className="flex flex-col gap-6">
-        {thread.turns.map((turn, i) => <Turn key={i} turn={turn} />)}
+        {thread.turns.map((turn, i) => <Turn key={i} turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} />)}
       </div>
       </div>
     </div>

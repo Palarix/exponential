@@ -25,6 +25,13 @@ type TurnInput struct {
 	Effort    string
 	Dir       string // working directory: the project root
 	MCP       MCPTarget
+
+	// Approve asks the user about a tool call the agent wants to run. Nil
+	// denies every request.
+	Approve Approver
+	// Grants are rules the user allowed for the whole chat. Claude Code gets
+	// them as extra --allowedTools values.
+	Grants []string
 }
 
 // TurnResult is the outcome of a turn the agent finished.

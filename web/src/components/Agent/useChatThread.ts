@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { chatStreamURL, fetchChat, type ChatEvent } from "../../api/chat";
 import { ApiError } from "../../api/client";
@@ -6,14 +6,14 @@ import { agentQueryKeys } from "./agent-context";
 import { chatThreadReducer, emptyThread, type ChatThread } from "./chat-thread-utils";
 
 // Events that change a chat's title or state in the chat list.
-const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "turn_stopped", "error"]);
+const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "turn_stopped", "error", "approval_requested", "approval_resolved"]);
 
 /**
  * Loads a chat's settled events, then follows its SSE stream. A null chatId
  * is a new chat: an empty thread. `missing` names a chat ID the server does
- * not know.
+ * not know. expireApproval marks a card the server no longer has open.
  */
-export function useChatThread(chatId: string | null): { thread: ChatThread; missing: string | null } {
+export function useChatThread(chatId: string | null): { thread: ChatThread; missing: string | null; expireApproval: (id: string) => void } {
   const [thread, dispatch] = useReducer(chatThreadReducer, emptyThread);
   const [missing, setMissing] = useState<string | null>(null);
   const qc = useQueryClient();
@@ -59,5 +59,7 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
     };
   }, [chatId, qc]);
 
-  return { thread, missing: missing === chatId ? missing : null };
+  const expireApproval = useCallback((id: string) => dispatch({ type: "approval_expired", id }), []);
+
+  return { thread, missing: missing === chatId ? missing : null, expireApproval };
 }

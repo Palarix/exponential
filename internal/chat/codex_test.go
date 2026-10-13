@@ -26,7 +26,8 @@ const (
 {"method":"thread/started","params":{"thread":{"id":"thr-1"}}}
 `
 	// The turn includes a stale usage update for the previous turn, which
-	// thread/resume replays, and an approval request the driver must refuse.
+	// thread/resume replays, and a server request the driver does not forward
+	// and must refuse.
 	codexTurnFixture = `{"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-0","tokenUsage":{"total":{"inputTokens":900,"outputTokens":90},"last":{"inputTokens":900,"outputTokens":90}}}}
 {"id":3,"result":{"turn":{"id":"turn-1","status":"inProgress","items":[]}}}
 {"method":"turn/started","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"inProgress"}}}
@@ -39,7 +40,7 @@ const (
 {"method":"item/started","params":{"item":{"type":"commandExecution","id":"exec-1","command":"/bin/zsh -lc 'head -1 go.mod'","cwd":"/repo","status":"inProgress","commandActions":[{"type":"unknown","command":"head -1 go.mod"}],"aggregatedOutput":null,"exitCode":null},"threadId":"thr-1","turnId":"turn-1"}}
 {"method":"item/completed","params":{"item":{"type":"commandExecution","id":"exec-1","command":"/bin/zsh -lc 'head -1 go.mod'","cwd":"/repo","status":"completed","commandActions":[{"type":"unknown","command":"head -1 go.mod"}],"aggregatedOutput":"module x\n","exitCode":0},"threadId":"thr-1","turnId":"turn-1"}}
 {"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-1","tokenUsage":{"total":{"inputTokens":1000,"outputTokens":100},"last":{"inputTokens":100,"outputTokens":10}}}}
-{"id":"srv-1","method":"item/commandExecution/requestApproval","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"exec-2"}}
+{"id":"srv-1","method":"item/permissions/requestApproval","params":{"threadId":"thr-1","turnId":"turn-1","itemId":"exec-2"}}
 {"method":"item/started","params":{"item":{"type":"reasoning","id":"rs-1","summary":[],"content":[]},"threadId":"thr-1","turnId":"turn-1"}}
 {"method":"item/completed","params":{"item":{"type":"reasoning","id":"rs-1","summary":[],"content":[]},"threadId":"thr-1","turnId":"turn-1"}}
 {"method":"item/started","params":{"item":{"type":"commandExecution","id":"exec-2","command":"/bin/zsh -lc 'rg nothing'","status":"inProgress","commandActions":[],"aggregatedOutput":null,"exitCode":null},"threadId":"thr-1","turnId":"turn-1"}}
@@ -197,7 +198,7 @@ func TestCodexDriver_Turn(t *testing.T) {
 		t.Errorf("turn/start input = %s", input)
 	}
 	if len(sent["response"]) != 1 || sent["response"][0]["id"] != "srv-1" || sent["response"][0]["error"] == nil {
-		t.Errorf("approval request answered with %v, want an error response to srv-1", sent["response"])
+		t.Errorf("permissions request answered with %v, want an error response to srv-1", sent["response"])
 	}
 
 	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))

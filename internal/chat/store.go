@@ -86,6 +86,7 @@ func (s *Store) SaveMeta(m Meta) error {
 }
 
 func (s *Store) writeMeta(m Meta) error {
+	m.Waiting = false // live state, never stored
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err

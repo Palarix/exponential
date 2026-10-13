@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { History, MousePointer2 } from "lucide-react";
 import { Menu, Popover } from "../ui";
 import Tooltip from "../ui/Tooltip";
-import { recentChatItems } from "./recent-chats";
+import { chatStateIcon, recentChatItems } from "./recent-chats";
 import { useAgentChat } from "./agent-context";
 import ChatPopup from "./ChatPopup";
 
@@ -34,9 +34,7 @@ export default function AgentStatusBar() {
               onClick={() => (active ? agent.minimize() : agent.openChat(c.id))}
               className={`flex items-center gap-1.5 max-w-48 h-6 px-2.5 rounded-[var(--radius-md)] text-xs transition-colors ${active ? "bg-[var(--color-surface-3)] text-[var(--color-text-primary)]" : "bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]"}`}
             >
-              {c.state === "running" && (
-                <span className="shrink-0 w-2.5 h-2.5 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />
-              )}
+              {chatStateIcon(c, "w-2.5 h-2.5", null)}
               <span className="truncate">{c.title || "New chat"}</span>
             </button>
           );

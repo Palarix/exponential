@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: approval cards. The agent asks before a tool call runs, and the chat shows a card with "Deny", "Allow for this chat" and "Allow".
+  - **First use:** `merge` in a chat now asks before it runs, instead of running silently.
+  - **Claude Code:** turns run with `--permission-prompt-tool stdio`; the prompt goes in as a stream-json message and stdin stays open for the answers.
+  - **Codex:** command, file-change and MCP-tool approval requests are forwarded to the same cards instead of being declined.
+  - **Allow for this chat:** xpo keeps the grant with the chat and passes it to every later turn. It never writes to Claude Code's settings files.
+  - **Card:** one row, "Merge upe-1 via `xpo merge`". A shell call shows its command; other tools show only the arguments the headline does not.
+  - **States:** cancelling a turn resolves its cards as "Cancelled"; a card whose turn ended shows "Expired". Chat lists mark chats waiting for an approval.
+  - **API:** `POST /api/local/chats/{id}/approvals/{approval_id}` with `{decision}`; chat lists include `waiting`.
+  - **Work list:** calls that did not run read as what was asked ("Merge upe-1", not "Merged"). Failed rows end with "failed: <reason>", and the full error opens in a card on hover, focus or click. A turn with a failure opens its work list; collapsed, it shows "· k failed". A call you denied is not counted as a failure.
+  - **Layout:** in the Agent view, the thread and the reply box share the same edges.
+
+  (xpo-7bc86e)
+
 - Agent chat: the composer footer is one row with the model, effort and permissions: `✳ Claude Opus 5.5 ⌄ | Medium · 1M ⌄ | 🔒 Read-only`.
   - **Model:** one menu lists every installed agent's models, grouped by agent, with the Claude and ChatGPT marks. Models show their full names, learned from the model each finished turn actually ran; the default reads "Name (Default)". Fable is added to the Claude list.
   - **Effort:** Medium is pre-selected and there is no "Default effort" option. The trigger also shows the model's context window once known.

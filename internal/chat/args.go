@@ -29,23 +29,36 @@ type turnOptions struct {
 	SessionID     string
 	Model         string
 	Effort        string
+	Grants        []string // rules the user allowed for the whole chat
 }
 
+// chatSettings makes `merge` ask before it runs, although the xpo wildcard
+// allows it: an ask rule wins over an allow rule.
+const chatSettings = `{"permissions":{"ask":["mcp__xpo__merge"]}}`
+
 // claudeArgs builds the `claude` arguments for one chat turn. The agent gets
-// the read-only code tools plus the xpo MCP tools, and nothing else: there is
-// no permission prompt in -p mode, so any other tool call is denied.
+// the read-only code tools plus the xpo MCP tools. A call outside the allow
+// list arrives as a control_request on stdout, and the driver asks the user.
+// The prompt goes over stdin as a stream-json message, so a message that
+// starts with "-" never parses as a flag.
 func claudeArgs(o turnOptions) []string {
 	args := []string{
 		"-p",
 		"--output-format", "stream-json",
+		"--input-format", "stream-json",
+		"--permission-prompt-tool", "stdio",
 		"--verbose",
 		"--include-partial-messages",
 		"--tools", "Read,Grep,Glob",
+		"--settings", chatSettings,
 		"--allowedTools", "mcp__xpo__*",
+	}
+	args = append(args, o.Grants...)
+	args = append(args,
 		"--mcp-config", o.MCPConfigPath,
 		"--strict-mcp-config",
 		"--append-system-prompt", systemPromptFor(ProviderClaude),
-	}
+	)
 	if o.SessionID != "" {
 		args = append(args, "--resume", o.SessionID)
 	}

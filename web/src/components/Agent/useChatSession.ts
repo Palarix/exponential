@@ -23,7 +23,7 @@ function errorMessage(err: unknown): string {
  * through onCreated.
  */
 export function useChatSession(chatId: string | null, onCreated: (id: string) => void) {
-  const { thread, missing } = useChatThread(chatId);
+  const { thread, missing, expireApproval } = useChatThread(chatId);
   const { prefsFor } = useAgentChat();
   const qc = useQueryClient();
   const showToast = useToast();
@@ -49,5 +49,5 @@ export function useChatSession(chatId: string | null, onCreated: (id: string) =>
     if (chatId) cancelChat(chatId).catch(() => {});
   };
 
-  return { thread, missing, running: isRunning(thread), send, stop };
+  return { thread, missing, running: isRunning(thread), send, stop, expireApproval };
 }

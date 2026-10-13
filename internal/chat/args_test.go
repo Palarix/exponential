@@ -35,6 +35,24 @@ func TestClaudeArgs_Baseline(t *testing.T) {
 			t.Errorf("%s = %q, want %q", flag, got, want)
 		}
 	}
+	// Permission requests come back over stdio as control_request lines, so
+	// the prompt goes over stdin as a stream-json message.
+	for flag, want := range map[string]string{
+		"--input-format":           "stream-json",
+		"--permission-prompt-tool": "stdio",
+	} {
+		if got := flagValue(args, flag); got != want {
+			t.Errorf("%s = %q, want %q", flag, got, want)
+		}
+	}
+	var settings struct {
+		Permissions struct {
+			Ask []string `json:"ask"`
+		} `json:"permissions"`
+	}
+	if err := json.Unmarshal([]byte(flagValue(args, "--settings")), &settings); err != nil || !slices.Equal(settings.Permissions.Ask, []string{"mcp__xpo__merge"}) {
+		t.Errorf("--settings = %q, want merge to ask (%v)", flagValue(args, "--settings"), err)
+	}
 	for _, flag := range []string{"--verbose", "--include-partial-messages", "--strict-mcp-config"} {
 		if !slices.Contains(args, flag) {
 			t.Errorf("missing %s", flag)
@@ -51,6 +69,17 @@ func TestClaudeArgs_ResumeModelEffort(t *testing.T) {
 	args := claudeArgs(turnOptions{MCPConfigPath: "m", SessionID: "sess-1", Model: "opus", Effort: "high"})
 	if flagValue(args, "--resume") != "sess-1" || flagValue(args, "--model") != "opus" || flagValue(args, "--effort") != "high" {
 		t.Fatalf("args = %v", args)
+	}
+}
+
+func TestClaudeArgs_GrantsFollowTheAllowList(t *testing.T) {
+	args := claudeArgs(turnOptions{MCPConfigPath: "m", Grants: []string{"Bash(echo hi *)", "mcp__xpo__merge"}})
+	i := slices.Index(args, "--allowedTools")
+	if i < 0 || !slices.Equal(args[i+1:i+4], []string{"mcp__xpo__*", "Bash(echo hi *)", "mcp__xpo__merge"}) {
+		t.Fatalf("args = %v, want the grants as extra --allowedTools values", args)
+	}
+	if !strings.HasPrefix(args[i+4], "--") {
+		t.Errorf("--allowedTools values must end at the next flag: %v", args)
 	}
 }
 

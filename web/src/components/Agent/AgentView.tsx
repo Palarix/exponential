@@ -10,7 +10,7 @@ import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
-import { recentChatItems } from "./recent-chats";
+import { chatStateIcon, recentChatItems } from "./recent-chats";
 import { useChatSession } from "./useChatSession";
 
 const SUGGESTION_ICONS = [<Bug key="bug" size={16} />, <Workflow key="epic" size={16} />, <ListChecks key="list" size={16} />];
@@ -66,11 +66,7 @@ function RecentChatsList({ chats, onOpen }: { chats: ChatMeta[]; onOpen: (id: st
               onClick={() => onOpen(c.id)}
               className="flex items-center gap-3 w-full h-9 px-3 rounded-[var(--radius-md)] text-left hover:bg-[var(--color-hover-surface-2)] transition-colors"
             >
-              {c.state === "running" ? (
-                <span className="shrink-0 w-3.5 h-3.5 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />
-              )}
+              {chatStateIcon(c, "w-3.5 h-3.5", <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />)}
               <span className="flex-1 min-w-0 truncate text-sm text-[var(--color-text-secondary)]">{c.title || "Untitled chat"}</span>
               <span className="shrink-0 whitespace-nowrap text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.updated_at)}</span>
             </button>
@@ -89,7 +85,7 @@ export default function AgentView() {
   const agent = useAgentChat();
   const { chatId, openChatView } = useAppNav();
   const { projectName } = useConfig();
-  const { thread, missing, running, send, stop } = useChatSession(chatId, (id) => openChatView(id));
+  const { thread, missing, running, send, stop, expireApproval } = useChatSession(chatId, (id) => openChatView(id));
 
   if (!agent.status) return null;
   if (!agent.status.available) {
@@ -165,7 +161,7 @@ export default function AgentView() {
         </div>
       ) : (
         <>
-          <ChatThread thread={thread} wide />
+          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} />
           {composer}
         </>
       )}

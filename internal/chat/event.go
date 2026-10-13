@@ -14,6 +14,10 @@ const (
 	EventTurnDone      = "turn_done"
 	EventTurnStopped   = "turn_stopped"
 	EventError         = "error"
+
+	// An approval card opened, and its decision.
+	EventApprovalRequested = "approval_requested"
+	EventApprovalResolved  = "approval_resolved"
 )
 
 // Live event types. Subscribers see these while a turn runs; the store does
@@ -41,10 +45,14 @@ type Event struct {
 	Text    string   `json:"text,omitempty"`    // user_message, assistant_text, text_delta
 	Context *Context `json:"context,omitempty"` // user_message
 
-	Name   string `json:"name,omitempty"`    // tool_call, tool_start
-	Arg    string `json:"arg,omitempty"`     // tool_call, tool_start
-	ToolID string `json:"tool_id,omitempty"` // tool_call, tool_start; empty in chats saved before tool results
+	Name   string `json:"name,omitempty"`    // tool_call, tool_start, approval_requested
+	Arg    string `json:"arg,omitempty"`     // tool_call, tool_start, approval_requested
+	ToolID string `json:"tool_id,omitempty"` // tool_call, tool_start, approval_requested; empty in chats saved before tool results
 	Status string `json:"status,omitempty"`  // tool_call: "done", "error" or "denied"
+
+	ApprovalID string `json:"approval_id,omitempty"` // approval_requested, approval_resolved
+	Input      string `json:"input,omitempty"`       // approval_requested: the full tool input as JSON
+	Decision   string `json:"decision,omitempty"`    // approval_resolved: a Decision value
 
 	DurationMS int64   `json:"duration_ms,omitempty"` // turn_done
 	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done
@@ -78,4 +86,13 @@ type Meta struct {
 	// window in tokens.
 	ResolvedModel string `json:"resolved_model,omitempty"`
 	ContextWindow int    `json:"context_window,omitempty"`
+
+	// Grants are the rules the user allowed with "Allow for this chat".
+	// Every later turn gets them, because the agents forget session
+	// permissions when a turn's process exits.
+	Grants []string `json:"grants,omitempty"`
+
+	// Waiting is set in chat lists while an approval card waits for the
+	// user. It is never stored.
+	Waiting bool `json:"waiting,omitempty"`
 }

@@ -17,6 +17,8 @@ export type ChatEventType =
   | "turn_done"
   | "turn_stopped"
   | "error"
+  | "approval_requested"
+  | "approval_resolved"
   | "text_delta"
   | "thinking"
   | "tool_start";
@@ -40,9 +42,21 @@ export interface ChatEvent {
   tokens_out?: number;
   /** error; tool_call: the error or denial text. */
   message?: string;
+  /** approval_requested, approval_resolved. */
+  approval_id?: string;
+  /** approval_requested: the full tool input as JSON. */
+  input?: string;
+  /** approval_resolved. */
+  decision?: ApprovalOutcome;
 }
 
 export type ToolCallStatus = "done" | "error" | "denied";
+
+/** What the user can answer on an approval card. */
+export type ApprovalDecision = "allow" | "allow_session" | "deny";
+
+/** How an approval card ended: a decision, or the turn ended first. */
+export type ApprovalOutcome = ApprovalDecision | "cancelled";
 
 export interface ChatMeta {
   id: string;
@@ -53,6 +67,8 @@ export interface ChatMeta {
   model?: string;
   effort?: string;
   state: "idle" | "running" | "interrupted";
+  /** An approval card waits for the user. */
+  waiting?: boolean;
 }
 
 /** A model the composer offers; "" means the provider's default. */
@@ -120,6 +136,15 @@ export function sendChatMessage(id: string, msg: SendChatMessage): Promise<void>
 
 export function cancelChat(id: string): Promise<void> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+}
+
+/** Answers an approval card. A 404 means the card is no longer open. */
+export function decideApproval(chatId: string, approvalId: string, decision: ApprovalDecision): Promise<void> {
+  return request(`${BASE}/chats/${encodeURIComponent(chatId)}/approvals/${encodeURIComponent(approvalId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision }),
+  });
 }
 
 export function chatStreamURL(id: string): string {

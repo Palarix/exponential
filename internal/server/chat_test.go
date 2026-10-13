@@ -37,7 +37,8 @@ func setupChatServer(t *testing.T, body string) (*Server, http.Handler) {
 		body = `cat "` + fixture + `"`
 	}
 	script := filepath.Join(dir, "claude")
-	os.WriteFile(script, []byte("#!/bin/sh\ncat > /dev/null\n"+body+"\n"), 0o755)
+	// The driver keeps stdin open for approval answers: read the prompt line only.
+	os.WriteFile(script, []byte("#!/bin/sh\nIFS= read -r prompt\n"+body+"\n"), 0o755)
 
 	store := chat.NewStore(filepath.Join(dir, "chats"))
 	// Both providers run the fake claude; the driver does not matter here.
@@ -341,5 +342,84 @@ func TestChat_SendOtherProviderIsConflict(t *testing.T) {
 	w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"again","provider":"codex"}`)
 	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "new chat") {
 		t.Fatalf("got %d %s", w.Code, w.Body.String())
+	}
+}
+
+const chatMergeRequest = `{"type":"control_request","request_id":"req-1","request":{"subtype":"can_use_tool","tool_name":"mcp__xpo__merge","input":{"id":"xpo-1"},"tool_use_id":"toolu_1"}}`
+
+// waitingChats returns the IDs of chats the list marks as waiting.
+func waitingChats(t *testing.T, h http.Handler) []string {
+	t.Helper()
+	var list []chat.Meta
+	json.Unmarshal(doJSON(t, h, "GET", "/api/local/chats", "").Body.Bytes(), &list)
+	var ids []string
+	for _, m := range list {
+		if m.Waiting {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids
+}
+
+func TestChat_Approval(t *testing.T) {
+	s, h := setupChatServer(t, `printf '%s\n' '`+chatMergeRequest+`'; IFS= read -r answer; cat "$(dirname "$0")/fixture.jsonl"`)
+	m := createChat(t, h)
+	ch, unsubscribe := s.Chat.Runner.Subscribe(m.ID)
+	defer unsubscribe()
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"merge it"}`); w.Code != http.StatusAccepted {
+		t.Fatalf("send: %d %s", w.Code, w.Body.String())
+	}
+
+	var approvalID string
+	timeout := time.After(5 * time.Second)
+	for approvalID == "" {
+		select {
+		case e := <-ch:
+			if e.Type == chat.EventApprovalRequested {
+				approvalID = e.ApprovalID
+			}
+		case <-timeout:
+			t.Fatal("no approval_requested event")
+		}
+	}
+	if got := waitingChats(t, h); len(got) != 1 || got[0] != m.ID {
+		t.Errorf("waiting chats = %v, want [%s]", got, m.ID)
+	}
+
+	path := "/api/local/chats/" + m.ID + "/approvals/" + approvalID
+	if w := doJSON(t, h, "POST", path, `{"decision":"maybe"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("bad decision: %d %s", w.Code, w.Body.String())
+	}
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/approvals/nope", `{"decision":"allow"}`); w.Code != http.StatusNotFound {
+		t.Errorf("unknown approval: %d %s", w.Code, w.Body.String())
+	}
+	if w := doJSON(t, h, "POST", path, `{"decision":"allow"}`); w.Code != http.StatusOK {
+		t.Fatalf("decide: %d %s", w.Code, w.Body.String())
+	}
+	s.Chat.Runner.Wait()
+
+	if w := doJSON(t, h, "POST", path, `{"decision":"allow"}`); w.Code != http.StatusNotFound {
+		t.Errorf("answered approval: %d %s", w.Code, w.Body.String())
+	}
+	if got := waitingChats(t, h); len(got) != 0 {
+		t.Errorf("waiting chats after the decision = %v", got)
+	}
+	_, events, _ := s.Chat.Store.Get(m.ID)
+	var resolved string
+	for _, e := range events {
+		if e.Type == chat.EventApprovalResolved {
+			resolved = e.Decision
+		}
+	}
+	if resolved != chat.DecisionAllow {
+		t.Errorf("resolved decision = %q", resolved)
+	}
+}
+
+func TestChat_ApprovalUnknownChat(t *testing.T) {
+	_, h := setupChatServer(t, "")
+	w := doJSON(t, h, "POST", "/api/local/chats/00000000-0000-0000-0000-000000000000/approvals/x", `{"decision":"allow"}`)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("got %d %s", w.Code, w.Body.String())
 	}
 }

@@ -33,6 +33,7 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/local/chats/{id}", s.handleDeleteChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/messages", s.handleSendChatMessage)
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
+	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
 	mux.HandleFunc("GET /api/local/chats/{id}/stream", s.handleChatStream)
 }
 
@@ -49,6 +50,9 @@ func (s *Server) handleListChats(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	for i := range list {
+		list[i].Waiting = s.Chat.Runner.Waiting(list[i].ID)
 	}
 	respondJSON(w, http.StatusOK, list)
 }
@@ -153,6 +157,22 @@ func (s *Server) handleCancelChat(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// handleDecideApproval answers an open approval card.
+func (s *Server) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Decision string `json:"decision"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	err := s.Chat.Runner.Decide(r.PathValue("id"), r.PathValue("approval"), req.Decision)
+	if s.respondChatError(w, err) {
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 // handleChatStream sends a chat's events as SSE: first the settled events
 // after Last-Event-ID (or ?after=), then live events until the client goes.
 // Settled events carry their Seq as the SSE id, so a reconnecting
@@ -227,7 +247,9 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		return false
 	case errors.Is(err, chat.ErrNotFound):
 		respondError(w, http.StatusNotFound, "chat not found")
-	case errors.Is(err, chat.ErrEmptyTitle):
+	case errors.Is(err, chat.ErrApprovalNotFound):
+		respondError(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, chat.ErrEmptyTitle), errors.Is(err, chat.ErrBadDecision):
 		respondError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked):
 		respondError(w, http.StatusConflict, err.Error())

@@ -254,14 +254,27 @@ func (p *ClaudeStreamParser) extractToolDetail() string {
 // finalToolDetail picks the detail from the complete tool input, decoded as
 // JSON. It falls back to the partial-input scan if the input is not an object.
 func (p *ClaudeStreamParser) finalToolDetail() string {
-	if p.currentTool == "ToolSearch" {
-		return ""
-	}
 	var input map[string]any
 	if err := json.Unmarshal([]byte(p.toolArgBuf), &input); err != nil {
+		if p.currentTool == "ToolSearch" {
+			return ""
+		}
 		return p.extractToolDetail()
 	}
-	for _, key := range p.detailKeys() {
+	return ToolDetail(p.currentTool, input)
+}
+
+// ToolDetail picks the argument shown next to a tool's name from its decoded
+// input: the same detail the stream shows for a finished tool call.
+func ToolDetail(name string, input map[string]any) string {
+	if name == "ToolSearch" {
+		return ""
+	}
+	keys := toolDetailKeys
+	if strings.HasPrefix(name, "mcp__") {
+		keys = mcpToolDetailKeys
+	}
+	for _, key := range keys {
 		if v, ok := input[key].(string); ok && v != "" {
 			return v
 		}

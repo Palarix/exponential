@@ -234,3 +234,22 @@ func TestToolResultText_Truncates(t *testing.T) {
 		t.Errorf("len = %d, suffix %q", n, got[len(got)-3:])
 	}
 }
+
+func TestToolDetail(t *testing.T) {
+	cases := []struct {
+		name  string
+		input map[string]any
+		want  string
+	}{
+		{"Bash", map[string]any{"command": "go test ./...", "description": "Run the tests"}, "Run the tests"},
+		{"Edit", map[string]any{"file_path": "/repo/main.go", "old_string": "a"}, "/repo/main.go"},
+		{"mcp__xpo__merge", map[string]any{"id": "xpo-1", "description": "long body"}, "xpo-1"},
+		{"ToolSearch", map[string]any{"query": "select:Read"}, ""},
+		{"Read", nil, ""},
+	}
+	for _, c := range cases {
+		if got := ToolDetail(c.name, c.input); got != c.want {
+			t.Errorf("ToolDetail(%s) = %q, want %q", c.name, got, c.want)
+		}
+	}
+}

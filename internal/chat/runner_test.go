@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,8 +26,8 @@ const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42","m
 {"type":"result","subtype":"success","result":"You have 1 open issue.","session_id":"sess-42","duration_ms":800,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":7},"modelUsage":{"claude-haiku-5-5":{"contextWindow":200000}}}
 `
 
-// fakeClaude writes a shell script that records its args and stdin in dir,
-// then runs body.
+// fakeClaude writes a shell script that records its args and the first
+// stdin line (the stream-json user message) in dir, then runs body.
 func fakeClaude(t *testing.T, dir, body string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -35,7 +36,7 @@ func fakeClaude(t *testing.T, dir, body string) string {
 	script := filepath.Join(dir, "claude")
 	content := "#!/bin/sh\n" +
 		`for a in "$@"; do printf '%s\n' "$a"; done > "` + dir + `/args.txt"` + "\n" +
-		`cat > "` + dir + `/stdin.txt"` + "\n" +
+		`IFS= read -r line; printf '%s\n' "$line" > "` + dir + `/stdin.txt"` + "\n" +
 		body + "\n"
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
 		t.Fatal(err)
@@ -137,8 +138,18 @@ func TestRunner_TurnPersistsSettledEvents(t *testing.T) {
 	}
 
 	stdin, _ := os.ReadFile(filepath.Join(dir, "stdin.txt"))
-	if !strings.Contains(string(stdin), "open issue: xpo-1") || !strings.HasSuffix(string(stdin), "how many?") {
-		t.Errorf("stdin = %q", stdin)
+	var msg struct {
+		Type    string `json:"type"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(stdin, &msg); err != nil || msg.Type != "user" || msg.Message.Role != "user" {
+		t.Fatalf("stdin is not a stream-json user message: %q (%v)", stdin, err)
+	}
+	if !strings.Contains(msg.Message.Content, "open issue: xpo-1") || !strings.HasSuffix(msg.Message.Content, "how many?") {
+		t.Errorf("prompt = %q", msg.Message.Content)
 	}
 	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
 	if !strings.Contains(string(args), "--model\nhaiku\n") || !strings.Contains(string(args), "--effort\nlow\n") {
