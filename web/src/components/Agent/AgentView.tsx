@@ -119,9 +119,9 @@ export default function AgentView() {
       placeholder={empty ? `Ask ${projectName || "xpo"} anything…` : "Reply…"}
       onDismissContext={() => {}}
       status={agent.status}
-      prefs={agent.prefs}
+      prefs={agent.prefsFor(chatId)}
       providerLocked={!empty}
-      onPrefsChange={agent.setPrefs}
+      onPrefsChange={(next) => agent.setPrefsFor(chatId, next)}
       onSend={sendText}
       onStop={stop}
     />
@@ -144,7 +144,8 @@ export default function AgentView() {
             What do you want to know about {projectName || "this project"}?
           </h1>
           {composer}
-          <div className="w-full max-w-3xl px-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* -mt-6 cancels the composer's bottom padding, so the gap matches the others. */}
+          <div className="w-full max-w-3xl px-4 -mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {SUGGESTIONS.map((s, i) => (
               <button
                 key={s.label}

@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,7 +11,7 @@ import (
 	"time"
 )
 
-const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42"}
+const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42","model":"claude-haiku-5-5"}
 {"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text"}}}
 {"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Checking "}}}
 {"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"issues."}}}
@@ -21,7 +22,7 @@ const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42"}
 {"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text"}}}
 {"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"You have 1 open issue."}}}
 {"type":"stream_event","event":{"type":"content_block_stop","index":0}}
-{"type":"result","subtype":"success","result":"You have 1 open issue.","session_id":"sess-42","duration_ms":800,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":7}}
+{"type":"result","subtype":"success","result":"You have 1 open issue.","session_id":"sess-42","duration_ms":800,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":7},"modelUsage":{"claude-haiku-5-5":{"contextWindow":200000}}}
 `
 
 // fakeClaude writes a shell script that records its args and stdin in dir,
@@ -58,6 +59,46 @@ func newTestRunner(t *testing.T, body string) (*Runner, *Store, string) {
 	})
 	t.Cleanup(r.Shutdown)
 	return r, store, dir
+}
+
+// learned records what the runner teaches the catalog.
+type learned struct{ calls []string }
+
+func (l *learned) Learn(provider, picked, resolved string, window int) {
+	l.calls = append(l.calls, fmt.Sprintf("%s|%s|%s|%d", provider, picked, resolved, window))
+}
+
+func TestRunner_RecordsResolvedModel(t *testing.T) {
+	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
+	l := &learned{}
+	r.cfg.Learner = l
+	m, _ := store.Create()
+
+	if err := r.Send(m.ID, SendRequest{Text: "hi", Model: "haiku"}); err != nil {
+		t.Fatal(err)
+	}
+	r.Wait()
+
+	meta, _ := store.Meta(m.ID)
+	if meta.ResolvedModel != "claude-haiku-5-5" || meta.ContextWindow != 200000 {
+		t.Errorf("meta = %+v, want the resolved model and its context window", meta)
+	}
+	if want := []string{"claude|haiku|claude-haiku-5-5|200000"}; !slices.Equal(l.calls, want) {
+		t.Errorf("learned %v, want %v", l.calls, want)
+	}
+}
+
+func TestRunner_FailedTurnLearnsNothing(t *testing.T) {
+	r, store, _ := newTestRunner(t, `echo '{"type":"system","subtype":"init","session_id":"s","model":"claude-haiku-5-5"}'; echo '{"type":"result","is_error":true,"result":"Not logged in","session_id":"s"}'`)
+	l := &learned{}
+	r.cfg.Learner = l
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "hi"})
+	r.Wait()
+
+	if meta, _ := store.Meta(m.ID); meta.ResolvedModel != "" || len(l.calls) != 0 {
+		t.Errorf("meta = %+v, learned %v; want nothing from a failed turn", meta, l.calls)
+	}
 }
 
 func TestRunner_TurnPersistsSettledEvents(t *testing.T) {

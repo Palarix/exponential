@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: the composer footer is one row with the model, effort and permissions: `✳ Claude Opus 5.5 ⌄ | Medium · 1M ⌄ | 🔒 Read-only`.
+  - **Model:** one menu lists every installed agent's models, grouped by agent, with the Claude and ChatGPT marks. Models show their full names, learned from the model each finished turn actually ran; the default reads "Name (Default)". Fable is added to the Claude list.
+  - **Effort:** Medium is pre-selected and there is no "Default effort" option. The trigger also shows the model's context window once known.
+  - **Read-only badge:** explains that code changes happen in work sessions.
+  - **Per-chat selections:** opening a chat, in the popup or the full-page view, restores the agent, model and effort its last message used. Your last pick is remembered for new chats.
+  - **Polish:** the chat popup is 460px wide. The empty Agent page is spaced evenly. The recent chats popover opens above its button. Scrolling menus have an even inset on every side.
+
+  (xpo-74390c)
+
 - Agent chat supports Codex as well as Claude Code, with an agent picker in the composer.
   - **Detection:** the board finds which of `claude` and `codex` are installed. `chat.agent` sets the default; an unknown or uninstalled agent logs a warning and falls back to the first installed one.
   - **Codex:** runs through `codex app-server` with a read-only sandbox and approval policy `never`. Answers stream live, tool calls show in the work list, and follow-ups continue the same Codex thread. The xpo MCP tools are pre-approved; in remote mode the token is passed in an environment variable.

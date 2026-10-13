@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextIndex, matchShortcut, pointInTriangle } from './menu-utils';
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding } from './menu-utils';
 
 describe('nextIndex', () => {
   const skip = new Set<number>();
@@ -105,5 +105,15 @@ describe('pointInTriangle', () => {
 
   it('returns false for degenerate triangle (collinear)', () => {
     expect(pointInTriangle(1, 1, 0, 0, 2, 2, 4, 4)).toBe(false);
+  });
+});
+
+describe("scrollMenuPadding", () => {
+  it("pads every side of a framed scroll menu to the same inset", () => {
+    // Classic thin scrollbar: the gutter already insets the sides.
+    expect(scrollMenuPadding(11)).toEqual({ block: 11, inline: 0 });
+    // Overlay scrollbars reserve no gutter: pad the sides instead.
+    expect(scrollMenuPadding(0)).toEqual({ block: 8, inline: 8 });
+    expect(scrollMenuPadding(6)).toEqual({ block: 8, inline: 2 });
   });
 });

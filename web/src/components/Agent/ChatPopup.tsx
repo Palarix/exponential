@@ -12,7 +12,7 @@ const headerButton = "p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-mu
 
 export default function ChatPopup() {
   const agent = useAgentChat();
-  const { chatId, chats, context, prefs, setPrefs, chatCreated } = agent;
+  const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated } = agent;
   const { openChatView } = useAppNav();
   const { thread, running, send, stop } = useChatSession(chatId, chatCreated);
   const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export default function ChatPopup() {
           agent.minimize();
         }
       }}
-      className="absolute right-3 bottom-10 z-40 w-[420px] max-w-[calc(100vw-1.5rem)] h-[600px] max-h-[calc(100vh-4rem)] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-overlay)] bg-[var(--color-surface-1)] shadow-[var(--shadow-popover)] overflow-hidden"
+      className="absolute right-3 bottom-10 z-40 w-[460px] max-w-[calc(100vw-1.5rem)] h-[600px] max-h-[calc(100vh-4rem)] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-overlay)] bg-[var(--color-surface-1)] shadow-[var(--shadow-popover)] overflow-hidden"
     >
       <div className="flex items-center gap-1 pl-4 pr-2 h-12 shrink-0">
         <ChatTitleBar
@@ -90,9 +90,9 @@ export default function ChatPopup() {
         contextIssue={issueId ? { id: issueId, title: context.issue_title } : undefined}
         onDismissContext={() => setDismissedIssue(context.issue_id ?? null)}
         status={agent.status}
-        prefs={prefs}
+        prefs={prefsFor(chatId)}
         providerLocked={!empty}
-        onPrefsChange={setPrefs}
+        onPrefsChange={(next) => setPrefsFor(chatId, next)}
         onSend={sendText}
         onStop={stop}
       />

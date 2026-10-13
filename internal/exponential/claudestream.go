@@ -11,6 +11,9 @@ type ClaudeTurnResult struct {
 	AgentResult
 	SessionID string
 	IsError   bool
+
+	Model         string // the model the init line reported
+	ContextWindow int    // that model's context window in tokens; 0 when unknown
 }
 
 // ClaudeStreamParser turns `claude -p --output-format stream-json --verbose
@@ -22,6 +25,7 @@ type ClaudeStreamParser struct {
 	currentToolID string
 	toolArgBuf    string
 	denied        map[string]bool // tool use IDs that Claude Code denied
+	model         string          // from the init line
 }
 
 // Parse handles one output line, calling cb for each progress event. It
@@ -40,6 +44,7 @@ func (p *ClaudeStreamParser) Parse(line []byte, cb StreamCallback) *ClaudeTurnRe
 	case "system":
 		switch msg.Subtype {
 		case "init":
+			p.model = msg.Model
 			if msg.SessionID != "" {
 				cb(StreamEvent{Kind: StreamSession, Text: msg.SessionID})
 			}
@@ -67,8 +72,10 @@ func (p *ClaudeStreamParser) Parse(line []byte, cb StreamCallback) *ClaudeTurnRe
 				TokensOut: msg.Usage.OutputTokens,
 				CostUSD:   msg.TotalCostUSD,
 			},
-			SessionID: msg.SessionID,
-			IsError:   msg.IsError,
+			SessionID:     msg.SessionID,
+			IsError:       msg.IsError,
+			Model:         p.model,
+			ContextWindow: contextWindow(msg.ModelUsage, p.model),
 		}
 	}
 	return nil
@@ -308,21 +315,42 @@ func extractJSONStringValue(buf, key string) string {
 
 // streamMessage is the top-level envelope for stream-json output.
 type streamMessage struct {
-	Type         string          `json:"type"`
-	Subtype      string          `json:"subtype,omitempty"`
-	Status       string          `json:"status,omitempty"`
-	SessionID    string          `json:"session_id,omitempty"`
-	Event        json.RawMessage `json:"event,omitempty"`
-	Result       string          `json:"result,omitempty"`
-	IsError      bool            `json:"is_error,omitempty"`
-	DurationMS   int             `json:"duration_ms,omitempty"`
-	TotalCostUSD float64         `json:"total_cost_usd,omitempty"`
-	Usage        claudeUsage     `json:"usage,omitempty"`
+	Type         string                `json:"type"`
+	Subtype      string                `json:"subtype,omitempty"`
+	Status       string                `json:"status,omitempty"`
+	SessionID    string                `json:"session_id,omitempty"`
+	Event        json.RawMessage       `json:"event,omitempty"`
+	Result       string                `json:"result,omitempty"`
+	IsError      bool                  `json:"is_error,omitempty"`
+	DurationMS   int                   `json:"duration_ms,omitempty"`
+	TotalCostUSD float64               `json:"total_cost_usd,omitempty"`
+	Usage        claudeUsage           `json:"usage,omitempty"`
+	Model        string                `json:"model,omitempty"`      // system/init
+	ModelUsage   map[string]modelUsage `json:"modelUsage,omitempty"` // result
 
 	ToolUseID       string           `json:"tool_use_id,omitempty"`        // system/permission_denied
 	ParentToolUseID string           `json:"parent_tool_use_id,omitempty"` // user: set inside a subagent
 	Message         json.RawMessage  `json:"message,omitempty"`            // user: the tool results
 	ToolResultMeta  []toolResultMeta `json:"tool_result_meta,omitempty"`   // user
+}
+
+// contextWindow returns the context window of model from a result's
+// modelUsage. When model has no entry (the init line can name an alias), it
+// returns the largest window: a subagent on a smaller model also shows up.
+func contextWindow(usage map[string]modelUsage, model string) int {
+	if u, ok := usage[model]; ok {
+		return u.ContextWindow
+	}
+	largest := 0
+	for _, u := range usage {
+		largest = max(largest, u.ContextWindow)
+	}
+	return largest
+}
+
+// modelUsage is one model's entry in a result's modelUsage.
+type modelUsage struct {
+	ContextWindow int `json:"contextWindow"`
 }
 
 // toolResultMeta is Claude Code's note on how a tool result came about.

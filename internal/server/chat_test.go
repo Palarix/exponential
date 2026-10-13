@@ -306,12 +306,16 @@ func TestChat_Rename(t *testing.T) {
 }
 
 func TestChat_AgentStatusListsProviders(t *testing.T) {
-	_, h := setupChatServer(t, "")
+	s, h := setupChatServer(t, "")
+	s.Chat.Catalog.Learn("claude", "", "claude-opus-5-5[1m]", 1000000)
 	w := doJSON(t, h, "GET", "/api/local/agent", "")
 	var st chat.AgentStatus
 	json.Unmarshal(w.Body.Bytes(), &st)
-	if !st.Available || st.DefaultProvider != "claude" || len(st.Providers) != 2 || st.Providers[1].ID != "codex" || len(st.Providers[0].Models) != 4 {
+	if !st.Available || st.DefaultProvider != "claude" || len(st.Providers) != 2 || st.Providers[1].ID != "codex" || len(st.Providers[0].Models) != 5 {
 		t.Fatalf("status = %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"label":"Default model","name":"Claude Opus 5.5","context_window":1000000`) {
+		t.Errorf("status = %s, want the learned name and context window", w.Body.String())
 	}
 }
 

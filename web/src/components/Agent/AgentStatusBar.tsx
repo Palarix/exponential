@@ -68,8 +68,9 @@ export default function AgentStatusBar() {
             </button>
           </Tooltip>
         )}
+        {/* Centered on the button; it flips above, since the status bar sits at the bottom. */}
         {historyOpen && (
-          <Popover anchorRef={historyRef} placement="bottom-end" onClose={() => setHistoryOpen(false)}>
+          <Popover anchorRef={historyRef} placement="bottom-center" onClose={() => setHistoryOpen(false)}>
             <Menu onClose={() => setHistoryOpen(false)} aria-label="Recent chats" className="w-96" maxHeight="24rem">
               {chats.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-[var(--color-text-muted)]">No chats yet</div>

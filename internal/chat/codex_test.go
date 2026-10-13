@@ -22,7 +22,7 @@ const (
 {"method":"account/updated","params":{"authMode":"chatgpt","planType":"plus"}}
 `
 	codexThreadFixture = `{"method":"remoteControl/status/changed","params":{"status":"disabled"}}
-{"id":2,"result":{"thread":{"id":"thr-1","sessionId":"thr-1","model":"gpt-6.1-sol","reasoningEffort":"low"}}}
+{"id":2,"result":{"thread":{"id":"thr-1","sessionId":"thr-1"},"model":"gpt-6.1-sol","reasoningEffort":"low"}}
 {"method":"thread/started","params":{"thread":{"id":"thr-1"}}}
 `
 	// The turn includes a stale usage update for the previous turn, which
@@ -51,7 +51,7 @@ const (
 {"method":"item/started","params":{"item":{"type":"agentMessage","id":"m-2","text":"","phase":"final_answer"},"threadId":"thr-1","turnId":"turn-1"}}
 {"method":"item/agentMessage/delta","params":{"delta":"You have 1 open issue.","itemId":"m-2","threadId":"thr-1","turnId":"turn-1"}}
 {"method":"item/completed","params":{"item":{"type":"agentMessage","id":"m-2","text":"You have 1 open issue.","phase":"final_answer"},"threadId":"thr-1","turnId":"turn-1"}}
-{"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-1","tokenUsage":{"total":{"inputTokens":1200,"outputTokens":120},"last":{"inputTokens":200,"outputTokens":20}}}}
+{"method":"thread/tokenUsage/updated","params":{"threadId":"thr-1","turnId":"turn-1","tokenUsage":{"total":{"inputTokens":1200,"outputTokens":120},"last":{"inputTokens":200,"outputTokens":20},"modelContextWindow":258400}}}
 {"method":"thread/status/changed","params":{"threadId":"thr-1","status":{"type":"idle"}}}
 {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed","error":null,"durationMs":7521}}}
 `
@@ -168,6 +168,9 @@ func TestCodexDriver_Turn(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("events =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
+	}
+	if meta.ResolvedModel != "gpt-6.1-sol" || meta.ContextWindow != 258400 {
+		t.Errorf("resolved = %q, %d; want the thread's model and its context window", meta.ResolvedModel, meta.ContextWindow)
 	}
 	done := events[len(events)-1]
 	if done.TokensIn != 300 || done.TokensOut != 30 || done.DurationMS != 7521 || done.CostUSD != 0 {
@@ -407,9 +410,9 @@ func TestCodexModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []ModelOption{
-		{ID: "", Label: "Default model", Efforts: []string{"", "low", "medium", "high"}},
-		{ID: "gpt-6.1-sol", Label: "GPT-6.1-Sol", Efforts: []string{"", "low", "medium", "high"}},
-		{ID: "gpt-6-astra", Label: "GPT-6-Astra", Efforts: []string{"", "medium", "xhigh"}},
+		{ID: "", Label: "Default model", Name: "GPT-6.1-Sol", Efforts: []string{"low", "medium", "high"}},
+		{ID: "gpt-6.1-sol", Label: "GPT-6.1-Sol", Name: "GPT-6.1-Sol", Efforts: []string{"low", "medium", "high"}},
+		{ID: "gpt-6-astra", Label: "GPT-6-Astra", Name: "GPT-6-Astra", Efforts: []string{"medium", "xhigh"}},
 	}
 	got, _ := json.Marshal(models)
 	exp, _ := json.Marshal(want)

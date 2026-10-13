@@ -36,4 +36,7 @@ type TurnResult struct {
 	CostUSD   float64 // 0 when the agent does not report a price
 	TokensIn  int
 	TokensOut int
+
+	Model         string // the model the agent ran, as it reports it; empty when unknown
+	ContextWindow int    // that model's context window in tokens; 0 when unknown
 }

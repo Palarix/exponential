@@ -27,6 +27,8 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
     const onEvent = (event: ChatEvent) => {
       dispatch({ type: "event", event });
       if (META_EVENTS.has(event.type)) qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
+      // A finished turn teaches the board the model's full name and context window.
+      if (event.type === "turn_done") qc.invalidateQueries({ queryKey: agentQueryKeys.status });
     };
 
     fetchChat(chatId)

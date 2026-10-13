@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Square, X } from "lucide-react";
 import type { AgentStatus } from "../../api/chat";
-import { InlineDropdown } from "../ui";
-import { composerOptions, withModel, withProvider, type ChatPrefs } from "./agent-state-utils";
+import type { ChatPrefs } from "./agent-state-utils";
+import ComposerPickers from "./ComposerPickers";
 
 interface ChatComposerProps {
   running: boolean;
@@ -51,7 +51,6 @@ export default function ChatComposer({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, [text]);
 
-  const options = composerOptions(status, prefs);
   const canSend = !running && !sending && !disabled && text.trim() !== "";
   const send = async () => {
     if (!canSend) return;
@@ -94,31 +93,7 @@ export default function ChatComposer({
           className={`block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none ${wide ? "min-h-16" : ""}`}
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 min-w-0">
-          {options.providers.length > 1 && (
-            <InlineDropdown
-              borderless
-              placeholder="Agent"
-              options={options.providers}
-              value={prefs.provider}
-              disabled={providerLocked}
-              title={providerLocked ? "A chat stays with the agent it started with. Start a new chat to switch." : undefined}
-              onChange={(v) => onPrefsChange(withProvider(prefs, v))}
-            />
-          )}
-          <InlineDropdown
-            borderless
-            placeholder="Model"
-            options={options.models}
-            value={prefs.model}
-            onChange={(v) => onPrefsChange(withModel(prefs, v, status))}
-          />
-          <InlineDropdown
-            borderless
-            placeholder="Effort"
-            options={options.efforts}
-            value={prefs.effort}
-            onChange={(v) => onPrefsChange({ ...prefs, effort: v })}
-          />
+          <ComposerPickers status={status} prefs={prefs} providerLocked={providerLocked} onPrefsChange={onPrefsChange} />
           {running ? (
             <button
               type="button"

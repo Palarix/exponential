@@ -6,13 +6,14 @@ import {
   useCallback,
   useRef,
   useEffect,
+  useLayoutEffect,
   type ReactNode,
   type ReactElement,
 } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useKeyboardHandler } from "../../keyboard";
-import { nextIndex, matchShortcut, pointInTriangle } from "./menu-utils";
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding } from "./menu-utils";
 
 // ─── Internal props injected by Menu via cloneElement ──
 
@@ -139,6 +140,18 @@ export function Menu({
   const safeTriangleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingHover = useRef<number | null>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  // A framed menu that scrolls insets its sides with the scrollbar gutter,
+  // whose width the browser picks. Measure it and pad to an even inset.
+  const scrollFramed = !bare && !!maxHeight;
+  useLayoutEffect(() => {
+    const el = menuContainerRef.current;
+    if (!scrollFramed || !el) return;
+    const style = getComputedStyle(el);
+    const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    const { block, inline } = scrollMenuPadding((el.offsetWidth - el.clientWidth - borders) / 2);
+    el.style.padding = `${block}px ${inline}px`;
+  }, [scrollFramed]);
 
   useEffect(() => {
     const container = menuContainerRef.current;

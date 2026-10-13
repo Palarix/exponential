@@ -24,8 +24,15 @@ type RunnerConfig struct {
 	Drivers         map[string]Driver // by provider ID; Claude and Codex when nil
 	Dir             string            // working directory of the agent: the project root
 	MCP             MCPTarget
-	DefaultProvider string // used when a message names none; "claude" when empty
-	DefaultModel    string // chat.model from config; used for the default provider when a chat has no model
+	DefaultProvider string  // used when a message names none; "claude" when empty
+	DefaultModel    string  // chat.model from config; used for the default provider when a chat has no model
+	Learner         Learner // told which model each finished turn ran; optional
+}
+
+// Learner learns which model a picked model ID resolved to. The Catalog is
+// one.
+type Learner interface {
+	Learn(provider, picked, resolved string, window int)
 }
 
 // SendRequest is one user message.
@@ -230,10 +237,15 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 	defer r.finish(id)
 
 	sessionID := meta.SessionID
+	var resolved *TurnResult // set when the turn finished
 	defer func() {
 		if m, err := r.cfg.Store.Meta(id); err == nil {
 			m.State = StateIdle
 			m.SessionID = sessionID
+			if resolved != nil && resolved.Model != "" {
+				m.ResolvedModel = resolved.Model
+				m.ContextWindow = resolved.ContextWindow
+			}
 			m.UpdatedAt = time.Now().UTC()
 			_ = r.cfg.Store.SaveMeta(m)
 		}
@@ -330,6 +342,10 @@ func (r *Runner) run(id string, meta Meta, driver Driver, prompt string, t *turn
 	case result.IsError:
 		r.settle(id, Event{Type: EventError, Message: result.Output})
 	default:
+		resolved = result
+		if r.cfg.Learner != nil {
+			r.cfg.Learner.Learn(meta.Agent, meta.Model, result.Model, result.ContextWindow)
+		}
 		r.settle(id, Event{
 			Type:       EventTurnDone,
 			DurationMS: result.Duration.Milliseconds(),

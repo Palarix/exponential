@@ -59,6 +59,10 @@ export interface ChatMeta {
 export interface ModelOption {
   id: string;
   label: string;
+  /** The full name, such as "Claude Opus 5.5", once a turn has used the model. */
+  name?: string;
+  /** The context window in tokens, once a turn has used the model. */
+  context_window?: number;
   /** Effort levels the model supports; "" means the default. */
   efforts: string[];
 }

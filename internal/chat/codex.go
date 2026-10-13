@@ -117,6 +117,8 @@ type codexTurn struct {
 	initID, threadReqID, turnReqID int
 	threadID, turnID               string
 
+	model    string            // from the thread response
+	window   int               // the latest modelContextWindow
 	usage    map[string][2]int // input and output tokens by turn ID
 	streamed map[string]bool   // agent message items that sent deltas
 }
@@ -214,9 +216,11 @@ func (t *codexTurn) handle(line []byte) (*TurnResult, bool) {
 			Thread struct {
 				ID string `json:"id"`
 			} `json:"thread"`
+			Model string `json:"model"`
 		}
 		json.Unmarshal(msg.Result, &res)
 		t.threadID = res.Thread.ID
+		t.model = res.Model
 		t.emit(exponential.StreamEvent{Kind: exponential.StreamSession, Text: t.threadID})
 		params := map[string]any{
 			"threadId": t.threadID,
@@ -259,6 +263,7 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 				InputTokens  int `json:"inputTokens"`
 				OutputTokens int `json:"outputTokens"`
 			} `json:"last"`
+			ModelContextWindow int `json:"modelContextWindow"`
 		} `json:"tokenUsage"`
 		Turn struct {
 			ID         string `json:"id"`
@@ -286,6 +291,9 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 		// usage is kept per turn.
 		u := t.usage[p.TurnID]
 		t.usage[p.TurnID] = [2]int{u[0] + p.TokenUsage.Last.InputTokens, u[1] + p.TokenUsage.Last.OutputTokens}
+		if p.TokenUsage.ModelContextWindow > 0 {
+			t.window = p.TokenUsage.ModelContextWindow
+		}
 	case "turn/completed":
 		if t.turnID != "" && p.Turn.ID != t.turnID {
 			return nil, false
@@ -296,6 +304,9 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 			Duration:  time.Duration(p.Turn.DurationMS) * time.Millisecond,
 			TokensIn:  u[0],
 			TokensOut: u[1],
+
+			Model:         t.model,
+			ContextWindow: t.window,
 		}
 		if p.Turn.Status == "failed" {
 			res.IsError = true
@@ -455,13 +466,13 @@ func codexModelOptions(raw json.RawMessage) ([]ModelOption, error) {
 		if label == "" {
 			label = m.ID
 		}
-		efforts := []string{""}
+		var efforts []string
 		for _, e := range m.Efforts {
 			efforts = append(efforts, e.Effort)
 		}
-		opts = append(opts, ModelOption{ID: m.ID, Label: label, Efforts: efforts})
+		opts = append(opts, ModelOption{ID: m.ID, Label: label, Name: label, Efforts: efforts})
 		if m.IsDefault {
-			opts[0] = ModelOption{ID: "", Label: "Default model", Efforts: efforts}
+			opts[0] = ModelOption{ID: "", Label: "Default model", Name: label, Efforts: efforts}
 		}
 	}
 	return opts, nil

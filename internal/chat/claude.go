@@ -85,6 +85,9 @@ func (d *ClaudeDriver) Turn(ctx context.Context, in TurnInput, emit exponential.
 		CostUSD:   result.CostUSD,
 		TokensIn:  result.TokensIn,
 		TokensOut: result.TokensOut,
+
+		Model:         result.Model,
+		ContextWindow: result.ContextWindow,
 	}, nil
 }
 

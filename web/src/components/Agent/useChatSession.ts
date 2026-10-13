@@ -24,12 +24,13 @@ function errorMessage(err: unknown): string {
  */
 export function useChatSession(chatId: string | null, onCreated: (id: string) => void) {
   const { thread, missing } = useChatThread(chatId);
-  const { prefs } = useAgentChat();
+  const { prefsFor } = useAgentChat();
   const qc = useQueryClient();
   const showToast = useToast();
 
   const send = async (text: string, context: ChatContext): Promise<boolean> => {
     try {
+      const prefs = prefsFor(chatId);
       let id = chatId;
       if (!id) {
         id = (await createChat()).id;

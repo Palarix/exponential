@@ -79,6 +79,22 @@ func TestClaudeStreamParser_Result(t *testing.T) {
 	}
 }
 
+func TestClaudeStreamParser_ModelAndContextWindow(t *testing.T) {
+	_, r := parseFixture(t, `{"type":"system","subtype":"init","session_id":"s","model":"claude-opus-5-5[1m]"}
+{"type":"result","subtype":"success","result":"ok","session_id":"s","modelUsage":{"claude-haiku-5-5":{"contextWindow":200000},"claude-opus-5-5[1m]":{"contextWindow":1000000}}}`)
+	if r == nil || r.Model != "claude-opus-5-5[1m]" || r.ContextWindow != 1000000 {
+		t.Fatalf("result = %+v, want the init model and its context window", r)
+	}
+}
+
+func TestClaudeStreamParser_ContextWindowFallsBackToLargest(t *testing.T) {
+	_, r := parseFixture(t, `{"type":"system","subtype":"init","session_id":"s","model":"opus"}
+{"type":"result","subtype":"success","result":"ok","session_id":"s","modelUsage":{"claude-haiku-5-5":{"contextWindow":200000},"claude-opus-5-5":{"contextWindow":1000000}}}`)
+	if r == nil || r.Model != "opus" || r.ContextWindow != 1000000 {
+		t.Fatalf("result = %+v, want the largest context window", r)
+	}
+}
+
 func TestClaudeStreamParser_ErrorResult(t *testing.T) {
 	_, r := parseFixture(t, `{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Not logged in","session_id":"s"}`)
 	if r == nil || !r.IsError || r.Output != "Not logged in" {
@@ -96,7 +112,7 @@ func TestClaudeStreamParser_ThinkingBlock(t *testing.T) {
 func TestExtractJSONStringValue_Escapes(t *testing.T) {
 	cases := []struct{ buf, want string }{
 		{`{"pattern": "\"estimate\":\\s*\\{", "path": "x"}`, `"estimate":\s*\{`},
-		{`{"pattern":"a\"b`, `a"b`},           // still streaming, escaped quote kept
+		{`{"pattern":"a\"b`, `a"b`},              // still streaming, escaped quote kept
 		{`{"pattern":"tab\there"}`, "tab\there"}, // JSON escape decoded
 		{`{"pattern":"ends with \\"}`, `ends with \`},
 		{`{"pattern":"unfinished \`, `unfinished `}, // dangling backslash dropped

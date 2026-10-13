@@ -151,6 +151,10 @@ func newChatService() *server.ChatService {
 	if agent := cfg.Chat.Agent; agent != "" && agent != st.DefaultProvider {
 		log.Printf("warning: chat.agent %q is not installed or not supported; chat defaults to %q", agent, st.DefaultProvider)
 	}
+	// Model names and context windows come from earlier turns.
+	if metas, err := store.List(); err == nil {
+		catalog.LearnFrom(metas)
+	}
 	for _, p := range st.Providers {
 		if p.ID == chat.ProviderCodex && p.Available {
 			go loadCodexModels(catalog)
@@ -165,6 +169,7 @@ func newChatService() *server.ChatService {
 			MCP:             target,
 			DefaultProvider: st.DefaultProvider,
 			DefaultModel:    cfg.Chat.Model,
+			Learner:         catalog,
 		}),
 		Catalog: catalog,
 	}

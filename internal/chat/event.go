@@ -73,4 +73,9 @@ type Meta struct {
 	SessionID       string    `json:"session_id,omitempty"`        // the agent's own session or thread ID
 	ClaudeSessionID string    `json:"claude_session_id,omitempty"` // read only: chats saved before session_id
 	State           string    `json:"state"`
+
+	// The model the agent ran in the last finished turn, and its context
+	// window in tokens.
+	ResolvedModel string `json:"resolved_model,omitempty"`
+	ContextWindow int    `json:"context_window,omitempty"`
 }

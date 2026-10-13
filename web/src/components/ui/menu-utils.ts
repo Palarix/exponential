@@ -48,3 +48,15 @@ export function pointInTriangle(
   const c = 1 - a - b;
   return a >= 0 && b >= 0 && c >= 0;
 }
+
+/** The inset a framed menu keeps on every side, in px (p-2). */
+const MENU_INSET = 8;
+
+/**
+ * Padding for a framed menu that scrolls. Its stable scrollbar gutter, gutter
+ * px wide on each edge, already insets the sides; the browser decides how wide
+ * (0 with overlay scrollbars). Pad so every side ends up with the same inset.
+ */
+export function scrollMenuPadding(gutter: number): { block: number; inline: number } {
+  return { block: Math.max(MENU_INSET, gutter), inline: Math.max(0, MENU_INSET - gutter) };
+}

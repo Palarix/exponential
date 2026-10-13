@@ -12,8 +12,10 @@ export interface AgentChat {
   pills: string[];
   /** What the user has open now. */
   context: ChatContext;
-  prefs: ChatPrefs;
-  setPrefs(prefs: ChatPrefs): void;
+  /** The composer's provider, model and effort for a chat; null is a new chat. */
+  prefsFor(chatId: string | null): ChatPrefs;
+  /** Records a pick in a chat's composer and remembers it for new chats. */
+  setPrefsFor(chatId: string | null, prefs: ChatPrefs): void;
   openNew(): void;
   openChat(id: string): void;
   toggle(): void;

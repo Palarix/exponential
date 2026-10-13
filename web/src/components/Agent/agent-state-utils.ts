@@ -1,4 +1,4 @@
-import type { AgentStatus, ChatContext } from "../../api/chat";
+import type { AgentStatus, ChatContext, ChatMeta } from "../../api/chat";
 import type { DropdownOption } from "../ui";
 import type { Issue } from "../../api/types";
 import { VIEW_BY_ID, type ViewId } from "../../views";
@@ -68,44 +68,102 @@ export function savePrefs(storage: Storage | null, prefs: ChatPrefs): void {
   writeJSON(storage, PREFS_KEY, prefs);
 }
 
+/**
+ * The prefs for a chat's composer: a pick made in this chat, else what the
+ * chat's last message used (saved in its meta), else the remembered prefs.
+ * A new chat, or one with no message yet, uses the remembered prefs.
+ */
+export function chatPrefs(meta: ChatMeta | undefined, picked: ChatPrefs | undefined, saved: ChatPrefs): ChatPrefs {
+  if (picked) return picked;
+  if (!meta?.agent) return saved;
+  return { provider: meta.agent, model: meta.model ?? "", effort: meta.effort ?? "" };
+}
+
 /** Prefs that the provider list allows: unknown values fall back to the defaults. */
 export function normalizePrefs(prefs: ChatPrefs, status: AgentStatus | undefined): ChatPrefs {
   if (!status) return prefs;
   const provider = status.providers.find((p) => p.available && p.id === prefs.provider) ?? status.providers.find((p) => p.id === status.default_provider);
   if (!provider) return { provider: "", model: "", effort: "" };
   const model = provider.models.find((m) => m.id === prefs.model) ?? provider.models.find((m) => m.id === "");
-  const effort = model?.efforts.includes(prefs.effort) ? prefs.effort : "";
+  const effort = pickEffort(prefs.effort, model?.efforts ?? []);
   const next = { provider: provider.id, model: model?.id ?? "", effort };
   return next.provider === prefs.provider && next.model === prefs.model && next.effort === prefs.effort ? prefs : next;
 }
 
-/** Prefs for another provider: its default model and effort. */
+/** The effort to use from a model's levels: the wanted one if offered, else Medium, else the first. */
+function pickEffort(wanted: string, efforts: string[]): string {
+  if (efforts.includes(wanted)) return wanted;
+  return efforts.includes("medium") ? "medium" : (efforts[0] ?? "");
+}
+
+/** Prefs for another provider: its default model. withModel then checks the effort. */
 export function withProvider(prefs: ChatPrefs, provider: string): ChatPrefs {
-  return provider === prefs.provider ? prefs : { provider, model: "", effort: "" };
+  return provider === prefs.provider ? prefs : { ...prefs, provider, model: "" };
 }
 
 /** Prefs for another model, keeping the effort if the model supports it. */
 export function withModel(prefs: ChatPrefs, model: string, status: AgentStatus | undefined): ChatPrefs {
-  const efforts = status?.providers.find((p) => p.id === prefs.provider)?.models.find((m) => m.id === model)?.efforts ?? [""];
-  return { ...prefs, model, effort: efforts.includes(prefs.effort) ? prefs.effort : "" };
+  const efforts = status?.providers.find((p) => p.id === prefs.provider)?.models.find((m) => m.id === model)?.efforts ?? [];
+  return { ...prefs, model, effort: pickEffort(prefs.effort, efforts) };
 }
 
 function effortLabel(effort: string): string {
   return EFFORT_LABELS[effort] ?? effort.charAt(0).toUpperCase() + effort.slice(1);
 }
 
-/** The composer's dropdown options for the picked provider and model. */
-export function composerOptions(status: AgentStatus | undefined, prefs: ChatPrefs): {
-  providers: DropdownOption[];
-  models: DropdownOption[];
+/** One provider's models in the model menu. */
+export interface ModelGroup {
+  provider: string;
+  label: string;
+  /** Another provider's group, once the chat has started. */
+  disabled: boolean;
+  options: DropdownOption[];
+}
+
+/** The model menu's value for a provider's model. */
+export function modelKey(provider: string, model: string): string {
+  return `${provider}/${model}`;
+}
+
+/** Prefs for a model picked from the menu, which may belong to another provider. */
+export function pickModel(prefs: ChatPrefs, key: string, status: AgentStatus | undefined): ChatPrefs {
+  const i = key.indexOf("/");
+  const provider = key.slice(0, i);
+  return withModel(withProvider(prefs, provider), key.slice(i + 1), status);
+}
+
+/** A context window in tokens as "200K" or "1M"; "" when unknown. */
+export function formatContextWindow(tokens: number | undefined): string {
+  if (!tokens) return "";
+  if (tokens >= 1_000_000) return `${Math.round(tokens / 100_000) / 10}M`;
+  return `${Math.round(tokens / 1000)}K`;
+}
+
+/** The composer's picker options and trigger labels for the picked provider and model. */
+export function composerOptions(status: AgentStatus | undefined, prefs: ChatPrefs, providerLocked: boolean): {
+  groups: ModelGroup[];
+  model: string;
+  modelLabel: string;
   efforts: DropdownOption[];
+  effortLabel: string;
 } {
   const provider = status?.providers.find((p) => p.id === prefs.provider);
   const model = provider?.models.find((m) => m.id === prefs.model);
+  const context = formatContextWindow(model?.context_window);
   return {
-    providers: (status?.providers ?? []).filter((p) => p.available).map((p) => ({ value: p.id, label: p.name })),
-    models: (provider?.models ?? []).map((m) => ({ value: m.id, label: m.label })),
+    groups: (status?.providers ?? []).filter((p) => p.available).map((p) => ({
+      provider: p.id,
+      label: p.name,
+      disabled: providerLocked && p.id !== prefs.provider,
+      options: p.models.map((m) => ({
+        value: modelKey(p.id, m.id),
+        label: m.id === "" && m.name ? `${m.name} (Default)` : m.name || m.label,
+      })),
+    })),
+    model: modelKey(prefs.provider, prefs.model),
+    modelLabel: model ? model.name || model.label : "Model",
     efforts: (model?.efforts ?? []).map((e) => ({ value: e, label: effortLabel(e) })),
+    effortLabel: !prefs.effort ? "Effort" : context ? `${effortLabel(prefs.effort)} · ${context}` : effortLabel(prefs.effort),
   };
 }
 
@@ -120,7 +178,6 @@ export function chatContextFor(view: ViewId, issueId: string | null, issues: Iss
 }
 
 const EFFORT_LABELS: Record<string, string> = {
-  "": "Default effort",
   low: "Low",
   medium: "Medium",
   high: "High",

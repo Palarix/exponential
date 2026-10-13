@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
-import { addPill, loadPills, loadPrefs, normalizePrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
+import { addPill, chatPrefs, loadPills, loadPrefs, normalizePrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
 
 function safeLocalStorage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -19,8 +19,9 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const [savedPrefs, setPrefsState] = useState(() => loadPrefs(storage));
 
   const status = useQuery({ queryKey: agentQueryKeys.status, queryFn: fetchAgentStatus, staleTime: Infinity }).data;
-  // Saved prefs can name a provider or model that is gone; use the defaults then.
-  const prefs = useMemo(() => normalizePrefs(savedPrefs, status), [savedPrefs, status]);
+  // Picks made in open chats, by chat ID. They last until the next reload,
+  // when the chat's meta holds what its last message used.
+  const [picked, setPicked] = useState<Record<string, ChatPrefs>>({});
   const anyPillRunning = (chats: { id: string; state: string }[] | undefined) =>
     !!chats?.some((c) => c.state === "running" && pills.includes(c.id));
   const chatsQuery = useQuery({
@@ -40,7 +41,14 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   }, [chatsQuery.isSuccess, chats, pills]);
   useEffect(() => savePills(storage, visiblePills), [storage, visiblePills]);
 
-  const setPrefs = useCallback((next: ChatPrefs) => {
+  // Saved prefs can name a provider or model that is gone; use the defaults then.
+  const prefsFor = useCallback((id: string | null) => {
+    const meta = id ? chats.find((c) => c.id === id) : undefined;
+    return normalizePrefs(chatPrefs(meta, id ? picked[id] : undefined, savedPrefs), status);
+  }, [chats, picked, savedPrefs, status]);
+
+  const setPrefsFor = useCallback((id: string | null, next: ChatPrefs) => {
+    if (id) setPicked((p) => ({ ...p, [id]: next }));
     setPrefsState(next);
     savePrefs(storage, next);
   }, [storage]);
@@ -52,13 +60,10 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     chatId,
     pills: visiblePills,
     context,
-    prefs,
-    setPrefs,
+    prefsFor,
+    setPrefsFor,
     openNew: () => { setChatId(null); setPopupOpen(true); },
     openChat: (id) => {
-      // An existing chat opens with the agent, model and effort it last used.
-      const meta = chats.find((c) => c.id === id);
-      if (meta) setPrefs({ provider: meta.agent || prefs.provider, model: meta.model ?? "", effort: meta.effort ?? "" });
       setChatId(id);
       setPopupOpen(true);
     },
@@ -77,7 +82,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       setPills((p) => removePill(p, id));
       if (chatId === id) setChatId(null);
     },
-  }), [status, chats, popupOpen, chatId, visiblePills, context, prefs, setPrefs]);
+  }), [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor]);
 
   useKeyboardShortcuts({
     scope: "global.agent",

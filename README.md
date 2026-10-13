@@ -82,7 +82,7 @@ To reduce permission prompts in Claude Code, allow-list the tools in `.claude/se
 - Run multiple boards in parallel — the sidebar links to your other live projects
 - Agent chat (`Cmd-J`) — ask about issues and the code behind them, or have the agent file and update issues
 
-Agent chat runs Claude Code (`claude`) or Codex (`codex`) on your machine, whichever is installed. With both installed, the composer has a picker; `chat.agent` in the config sets the default. A chat stays with the agent it started with. Chat agents are read-only: Claude Code gets only Read, Grep and Glob, and Codex runs in its read-only sandbox. Both get the xpo MCP tools.
+Agent chat runs Claude Code (`claude`) or Codex (`codex`) on your machine, whichever is installed. With both installed, the composer's model menu lists both agents' models; `chat.agent` in the config sets the default. After the first turn, the composer shows the model's full name and context window. A chat stays with the agent it started with. Chat agents are read-only: Claude Code gets only Read, Grep and Glob, and Codex runs in its read-only sandbox. Both get the xpo MCP tools.
 
 The server binds to `127.0.0.1` by default and needs no login there. Requests whose `Host` header isn't a loopback name are rejected, so web pages can't reach it through DNS rebinding.
 
