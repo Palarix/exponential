@@ -30,6 +30,8 @@ export interface AgentChat {
   toggle(): void;
   minimize(): void;
   close(): void;
+  /** Hands the popup's chat to the Agent view: closes the popup and drops the chat's pill. */
+  maximize(): void;
   /** Called once the popup's new chat exists on the server. */
   chatCreated(id: string): void;
   /** Called after a chat is deleted: drops its pill and leaves it if open. */

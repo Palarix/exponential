@@ -79,7 +79,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
           aria-label="Open in Agent view"
           onClick={() => {
             openChatView(chatId);
-            agent.minimize();
+            agent.maximize();
           }}
           className={headerButton}
         >

@@ -54,52 +54,57 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     savePrefs(storage, next);
   }, [storage]);
 
-  const value = useMemo<AgentChat>(() => ({
-    status,
-    chats,
-    popupOpen,
-    chatId,
-    pills: visiblePills,
-    context,
-    prefsFor,
-    setPrefsFor,
-    openNew: () => { setChatId(null); setPopupOpen(true); },
-    openChat: (id, draft) => {
-      if (draft) setDrafts((d) => ({ ...d, [id]: draft }));
-      setChatId(id);
-      // Every open chat gets a pill, so minimizing never loses the way back.
-      setPills((p) => addPill(p, id));
-      setPopupOpen(true);
-    },
-    draftFor: (id) => (id ? drafts[id] : undefined),
-    clearDraft: (id) => setDrafts((d) => {
-      if (!(id in d)) return d;
-      const next = { ...d };
-      delete next[id];
-      return next;
-    }),
-    pendingIssueFor: (id) => {
-      const meta = id ? chats.find((c) => c.id === id) : undefined;
-      return pendingContextIssue(viewed, consumedFor(consumed, id), meta?.mode === "work" ? meta.work?.issue_id : undefined);
-    },
-    consumeContext: (id) => setConsumed((c) => consumeContext(c, id, viewed.seq)),
-    toggle: () => setPopupOpen((open) => !open),
-    minimize: () => setPopupOpen(false),
-    close: () => {
+  const value = useMemo<AgentChat>(() => {
+    const closeChat = () => {
       setPopupOpen(false);
       if (chatId) setPills((p) => removePill(p, chatId));
       setChatId(null);
-    },
-    chatCreated: (id) => {
-      setChatId(id);
-      setConsumed((c) => adoptNewChatContext(c, id));
-      setPills((p) => addPill(p, id));
-    },
-    chatDeleted: (id) => {
-      setPills((p) => removePill(p, id));
-      if (chatId === id) setChatId(null);
-    },
-  }), [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor, drafts, viewed, consumed]);
+    };
+    return {
+      status,
+      chats,
+      popupOpen,
+      chatId,
+      pills: visiblePills,
+      context,
+      prefsFor,
+      setPrefsFor,
+      openNew: () => { setChatId(null); setPopupOpen(true); },
+      openChat: (id, draft) => {
+        if (draft) setDrafts((d) => ({ ...d, [id]: draft }));
+        setChatId(id);
+        // Every open chat gets a pill, so minimizing never loses the way back.
+        setPills((p) => addPill(p, id));
+        setPopupOpen(true);
+      },
+      draftFor: (id) => (id ? drafts[id] : undefined),
+      clearDraft: (id) => setDrafts((d) => {
+        if (!(id in d)) return d;
+        const next = { ...d };
+        delete next[id];
+        return next;
+      }),
+      pendingIssueFor: (id) => {
+        const meta = id ? chats.find((c) => c.id === id) : undefined;
+        return pendingContextIssue(viewed, consumedFor(consumed, id), meta?.mode === "work" ? meta.work?.issue_id : undefined);
+      },
+      consumeContext: (id) => setConsumed((c) => consumeContext(c, id, viewed.seq)),
+      toggle: () => setPopupOpen((open) => !open),
+      minimize: () => setPopupOpen(false),
+      close: closeChat,
+      // The Agent view shows the chat now; its dock button brings the pill back.
+      maximize: closeChat,
+      chatCreated: (id) => {
+        setChatId(id);
+        setConsumed((c) => adoptNewChatContext(c, id));
+        setPills((p) => addPill(p, id));
+      },
+      chatDeleted: (id) => {
+        setPills((p) => removePill(p, id));
+        if (chatId === id) setChatId(null);
+      },
+    };
+  }, [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor, drafts, viewed, consumed]);
 
   useKeyboardShortcuts({
     scope: "global.agent",

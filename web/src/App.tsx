@@ -27,7 +27,12 @@ function sameRoute(a: Route, b: Route): boolean {
 function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
   const routeRef = useRef(route);
-  useEffect(() => { routeRef.current = route; }, [route]);
+  // The last route outside the Agent view, where docking a chat returns to.
+  const outsideAgentRef = useRef<Route | null>(route.view === 'agent' ? null : route);
+  useEffect(() => {
+    routeRef.current = route;
+    if (route.view !== 'agent') outsideAgentRef.current = route;
+  }, [route]);
 
   // The active view publishes its visible order into the ref; it's snapshotted
   // into state when an issue opens, so prev/next follows the originating view.
@@ -81,6 +86,10 @@ function App() {
     openChatView: (chatId) => {
       publishedOrderRef.current = null;
       setRoute({ view: 'agent', issueId: null, cycleId: null, depFocusId: null, chatId });
+    },
+    leaveChatView: () => {
+      publishedOrderRef.current = null;
+      setRoute(outsideAgentRef.current ?? parseRoute(''));
     },
     publishNavOrder: (ids) => { publishedOrderRef.current = ids; },
     takeIntent: (view) => {

@@ -1,11 +1,10 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Bug, ChevronDown, ListChecks, MessageSquare, MousePointer2, SquarePen, Workflow } from "lucide-react";
+import { Bug, ChevronDown, Dock, ListChecks, MessageSquare, MousePointer2, SquarePen, Workflow } from "lucide-react";
 import type { ChatMeta } from "../../api/chat";
 import { useConfig } from "../../api/queries";
 import { formatRelativeTime } from "../../utils/format";
 import { useAppNav } from "../../app/hooks";
-import { Button, Menu, MenuDivider, MenuItem, Popover } from "../ui";
-import { useAgentChat } from "./agent-context";
+import { Button, Menu, MenuDivider, MenuItem, Popover } from "../ui";import { useAgentChat } from "./agent-context";
 import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
@@ -85,7 +84,7 @@ function Centered({ children }: { children: ReactNode }) {
 
 export default function AgentView() {
   const agent = useAgentChat();
-  const { chatId, openChatView } = useAppNav();
+  const { chatId, openChatView, leaveChatView } = useAppNav();
   const { projectName } = useConfig();
   const { thread, missing, running, send, stop, expireApproval } = useChatSession(chatId, (id) => openChatView(id));
   const meta = agent.chats.find((c) => c.id === chatId);
@@ -140,6 +139,19 @@ export default function AgentView() {
           title={<ChatSwitcher title={meta?.title || "New chat"} />}
           onDeleted={() => openChatView(null)}
         />
+        {chatId && (
+          <button
+            type="button"
+            aria-label="Dock chat"
+            onClick={() => {
+              agent.openChat(chatId);
+              leaveChatView();
+            }}
+            className="shrink-0 p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]"
+          >
+            <Dock className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {empty && !chatId ? (
