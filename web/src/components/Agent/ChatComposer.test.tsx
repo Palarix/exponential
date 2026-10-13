@@ -91,9 +91,11 @@ describe("ChatComposer pickers", () => {
       onLeaveWork: () => {},
       onOpenIssue: () => {},
     });
-    const mode = trigger(html, "Work · xpo-1");
+    // The hammer says Work Mode; the label is the issue alone.
+    expect(html).not.toContain("Work · ");
+    const mode = trigger(html, "xpo-1");
     expect(mode).toBeDefined();
-    expect(mode).toContain('aria-label="Mode"');
+    expect(mode).toContain('aria-label="Work Mode on xpo-1"');
     expect(mode).toContain('title="xpo-1 Fix login"');
     expect(mode).not.toMatch(disabledAttr);
   });
@@ -105,7 +107,7 @@ describe("ChatComposer pickers", () => {
       onLeaveWork: () => {},
       onOpenIssue: () => {},
     });
-    expect(trigger(html, "Work · xpo-1")).toMatch(disabledAttr);
+    expect(trigger(html, "xpo-1")).toMatch(disabledAttr);
   });
 
   it("prefills the draft", () => {
@@ -116,5 +118,15 @@ describe("ChatComposer pickers", () => {
   it("separates the segments with rules", () => {
     const html = renderComposer(both, { provider: "claude", model: "", effort: "" });
     expect(html.match(/data-segment-rule/g)).toHaveLength(2);
+  });
+});
+
+describe("ChatComposer send button", () => {
+  it("is a 24px circle that does not shrink", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "medium" });
+    const send = html.match(/<button[^>]*aria-label="Send"[^>]*>/)?.[0];
+    expect(send).toMatch(/\bw-6\b/);
+    expect(send).toMatch(/\bh-6\b/);
+    expect(send).toMatch(/\bshrink-0\b/);
   });
 });

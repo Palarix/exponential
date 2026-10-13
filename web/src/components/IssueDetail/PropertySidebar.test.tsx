@@ -11,8 +11,8 @@ const issue = makeIssue({
   labels: ["bug"],
 });
 
-// An agent chat whose agent CLI is available; the sidebar reads only status.
-const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] } } as unknown as AgentChat;
+// An agent chat whose agent CLI is available, with no chats.
+const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] }, chats: [] } as unknown as AgentChat;
 
 function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null): string {
   return renderMarkup(
@@ -78,5 +78,25 @@ describe("PropertySidebar git actions", () => {
     expect(renderSidebar(doing, true)).not.toContain("Continue Work");
     expect(renderSidebar(doing, false, agentAvailable)).not.toContain("Continue Work");
     expect(renderSidebar(makeIssue({ status: "DOING" }), true, agentAvailable)).not.toContain("Continue Work");
+  });
+});
+
+describe("PropertySidebar chats", () => {
+  const withChats = (n: number) =>
+    ({
+      ...agentAvailable,
+      chats: Array.from({ length: n }, (_, i) => ({ id: `c${i}`, title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] })),
+    }) as unknown as AgentChat;
+
+  it("shows a chats button below Relations when chats worked on the issue", () => {
+    const html = renderSidebar(issue, true, withChats(2));
+    const button = html.match(/<button[^>]*>(?:(?!<\/button>).)*2 chats(?:(?!<\/button>).)*<\/button>/)?.[0];
+    expect(button).toBeDefined();
+    expect(button).toContain('aria-haspopup="menu"');
+    expect(renderSidebar(issue, true, withChats(1))).toContain("1 chat<");
+  });
+
+  it("hides it without chats", () => {
+    expect(renderSidebar(issue, true, agentAvailable)).not.toMatch(/\d chats?</);
   });
 });

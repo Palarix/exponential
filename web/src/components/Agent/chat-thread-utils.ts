@@ -63,7 +63,7 @@ export function isEmptyThread(state: ChatThread): boolean {
 /** A divider in words. */
 export function modeDividerText(d: ModeDivider): string {
   if (d.message) return d.message;
-  return d.mode === "work" ? `Work Mode on ${d.issueId ?? "an issue"}` : "Back to Chat Mode";
+  return d.mode === "work" ? `Entered Work Mode on ${d.issueId ?? "an issue"}` : "Entered Chat Mode";
 }
 
 /** Folds settled and live chat events into turns. */

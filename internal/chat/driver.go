@@ -45,6 +45,7 @@ type TurnResult struct {
 	TokensIn  int
 	TokensOut int
 
-	Model         string // the model the agent ran, as it reports it; empty when unknown
-	ContextWindow int    // that model's context window in tokens; 0 when unknown
+	Model         string        // the model the agent ran, as it reports it; empty when unknown
+	ContextWindow int           // that model's context window in tokens; 0 when unknown
+	CacheTTL      time.Duration // TTL of the prompt cache the turn wrote; 0 when none or unknown
 }

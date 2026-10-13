@@ -15,31 +15,37 @@ export function workDraft(issueId: string): string {
   return `Let's implement ${issueId}.`;
 }
 
+/** The first message after a past chat enters Work Mode again. */
+export function continueDraft(issueId: string): string {
+  return `Let's continue with ${issueId}.`;
+}
+
 /**
  * Start Work or Continue Work on an issue: opens the chat in Work Mode on
  * it, or a new one with a prefilled first message. The server starts the
- * issue unless it is DOING already. Without an available agent (canChat
- * false) it only starts the issue.
+ * issue unless it is DOING already. With chatId, that chat enters Work
+ * Mode instead ("Enter work mode" on a past chat). Without an available
+ * agent (canChat false) it only starts the issue.
  */
-export function useStartWorkChat(): { startWork: (issueId: string) => void; starting: boolean; canChat: boolean } {
+export function useStartWorkChat(): { startWork: (issueId: string, chatId?: string) => void; starting: boolean; canChat: boolean } {
   const agent = useOptionalAgentChat();
   const qc = useQueryClient();
   const showToast = useToast();
   const { mutate: startOnly, isPending: startingOnly } = useStartWork();
   const [startingChat, setStartingChat] = useState(false);
 
-  const startWork = (issueId: string) => {
+  const startWork = (issueId: string, chatId?: string) => {
     if (!agent?.status?.available) {
       startOnly(issueId);
       return;
     }
     setStartingChat(true);
-    startWorkChat(issueId)
-      .then(({ chat, created }) => {
+    startWorkChat(issueId, chatId)
+      .then(({ chat, created, resumed }) => {
         qc.invalidateQueries({ queryKey: queryKeys.issues });
         qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
         if (created) agent.chatCreated(chat.id);
-        agent.openChat(chat.id, created ? workDraft(issueId) : undefined);
+        agent.openChat(chat.id, created ? workDraft(issueId) : resumed ? continueDraft(issueId) : undefined);
       })
       .catch((err: unknown) => showToast(errorMessage(err), { variant: "error" }))
       .finally(() => setStartingChat(false));

@@ -169,7 +169,7 @@ export default function AgentView() {
         </div>
       ) : (
         <>
-          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} />
+          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} cacheExpiresAt={meta?.cache_expires_at} />
           {composer}
         </>
       )}

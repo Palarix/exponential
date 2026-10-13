@@ -465,3 +465,67 @@ func TestRunner_UnknownProvider(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// cacheTurns answers the first turn with a 1h cache write and later turns
+// with cache reads only.
+const cacheTurns = `if [ -f seen ]; then
+echo '{"type":"result","subtype":"success","result":"ok","session_id":"s","usage":{"cache_read_input_tokens":900}}'
+else
+touch seen
+echo '{"type":"result","subtype":"success","result":"ok","session_id":"s","usage":{"cache_creation":{"ephemeral_1h_input_tokens":500}}}'
+fi`
+
+func TestRunner_RecordsCacheExpiry(t *testing.T) {
+	r, store, _ := newTestRunner(t, cacheTurns)
+	m, _ := store.Create()
+
+	turn := func() (Meta, Event, time.Time, time.Time) {
+		t.Helper()
+		before := time.Now()
+		if err := r.Send(m.ID, SendRequest{Text: "hi"}); err != nil {
+			t.Fatal(err)
+		}
+		r.Wait()
+		meta, events, _ := store.Get(m.ID)
+		return meta, events[len(events)-1], before, time.Now()
+	}
+	inRange := func(got *time.Time, from, to time.Time, ttl time.Duration) bool {
+		return got != nil && !got.Before(from.Add(ttl).Add(-time.Second)) && !got.After(to.Add(ttl))
+	}
+
+	meta, done, from, to := turn()
+	if done.Type != EventTurnDone || done.CacheTTL != 3600 {
+		t.Fatalf("turn_done = %+v, want cache_ttl 3600", done)
+	}
+	if meta.CacheTTL != 3600 || !inRange(meta.CacheExpiresAt, from, to, time.Hour) {
+		t.Errorf("meta = ttl %d expires %v, want 1h from the turn end", meta.CacheTTL, meta.CacheExpiresAt)
+	}
+
+	// A turn that only reads the cache refreshes the TTL the chat last wrote.
+	meta, done, from, to = turn()
+	if done.CacheTTL != 3600 || !inRange(meta.CacheExpiresAt, from, to, time.Hour) {
+		t.Errorf("second turn: turn_done %+v, expires %v; want 1h kept", done, meta.CacheExpiresAt)
+	}
+}
+
+func TestRunner_CacheExpiryDefaultsToFiveMinutes(t *testing.T) {
+	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
+	m, _ := store.Create()
+	before := time.Now()
+	r.Send(m.ID, SendRequest{Text: "hi"})
+	r.Wait()
+	meta, _ := store.Meta(m.ID)
+	if meta.CacheTTL != 300 || meta.CacheExpiresAt == nil || meta.CacheExpiresAt.Before(before.Add(5*time.Minute).Add(-time.Second)) {
+		t.Errorf("meta = ttl %d expires %v, want 5m", meta.CacheTTL, meta.CacheExpiresAt)
+	}
+}
+
+func TestRunner_FailedTurnKeepsCacheExpiry(t *testing.T) {
+	r, store, _ := newTestRunner(t, `echo '{"type":"result","is_error":true,"result":"Not logged in","session_id":"s"}'`)
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "hi"})
+	r.Wait()
+	if meta, _ := store.Meta(m.ID); meta.CacheExpiresAt != nil {
+		t.Errorf("expires = %v, want none after a failed turn", meta.CacheExpiresAt)
+	}
+}

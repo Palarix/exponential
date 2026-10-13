@@ -177,6 +177,10 @@ func TestCodexDriver_Turn(t *testing.T) {
 	if done.TokensIn != 300 || done.TokensOut != 30 || done.DurationMS != 7521 || done.CostUSD != 0 {
 		t.Errorf("turn done = %+v, want this turn's tokens only (300/30) and 7521ms", done)
 	}
+	// Codex reports no cache TTL; xpo assumes 5 minutes.
+	if done.CacheTTL != 300 || meta.CacheExpiresAt == nil {
+		t.Errorf("cache ttl %d, expires %v; want 300s", done.CacheTTL, meta.CacheExpiresAt)
+	}
 	if meta.Agent != "codex" || meta.SessionID != "thr-1" || meta.State != StateIdle {
 		t.Errorf("meta = %+v", meta)
 	}

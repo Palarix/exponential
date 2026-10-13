@@ -121,6 +121,7 @@ func (d *ClaudeDriver) Turn(ctx context.Context, in TurnInput, emit exponential.
 
 		Model:         result.Model,
 		ContextWindow: result.ContextWindow,
+		CacheTTL:      result.CacheTTL,
 	}, nil
 }
 

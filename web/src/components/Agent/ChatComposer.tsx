@@ -132,9 +132,9 @@ export default function ChatComposer({
               type="button"
               aria-label="Stop"
               onClick={onStop}
-              className="ml-auto w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-surface-4)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-4)] transition-colors"
+              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-surface-4)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-4)] transition-colors"
             >
-              <Square className="w-3 h-3 fill-current" />
+              <Square className="w-2.5 h-2.5 fill-current" />
             </button>
           ) : (
             <button
@@ -142,9 +142,9 @@ export default function ChatComposer({
               aria-label="Send"
               onClick={() => void send()}
               disabled={!canSend}
-              className="ml-auto w-8 h-8 flex items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-accent-primary)] transition-colors"
+              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-accent-primary)] transition-colors"
             >
-              <ArrowUp className="w-4 h-4" />
+              <ArrowUp className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

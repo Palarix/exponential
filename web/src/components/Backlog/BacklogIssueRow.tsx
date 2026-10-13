@@ -1,6 +1,8 @@
 import { memo, useRef } from "react";
 import type { Issue } from "../../api/client";
 import {
+  AttachmentIndicator,
+  indicatorPill,
   Avatar,
   BranchBadge,
   CopyableId,
@@ -17,13 +19,14 @@ import {
   AssigneePicker,
   SubProgress,
 } from "../ui";
-import { ChevronRight, Paperclip } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { isTerminal } from "../../constants";
 import { IssueRowDnd } from "./DndComponents";
 import type { TreeGuide, HierarchyMode } from "./useBacklogRows";
 import { nodeIndicator } from "./backlog-row-utils";
 import { popoverTriggerProps } from "../../utils/popover-trigger";
+import { IssueChatIcon } from "../Agent/IssueChats";
 
 type PopoverType = "status" | "labels" | "estimate" | "priority" | "assignee";
 
@@ -259,21 +262,18 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
                 {dragBatchCount}
               </span>
             )}
-            {hasChildren && (
-              <span className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
-                <SubProgress done={childDone} total={childTotal} />
-                {childDone}/{childTotal}
-              </span>
-            )}
-            {issue.branch_stats && (
-              <BranchBadge stats={issue.branch_stats} />
-            )}
-            {issue.artifacts && issue.artifacts.length > 0 && (
-              <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums shrink-0">
-                <Paperclip size={12} strokeWidth={1.5} />
-                {issue.artifacts.length}
-              </span>
-            )}
+            {/* Indicators share one pill; icons say a thing exists, tooltips have the details. */}
+            <span className="flex items-center gap-1.5 shrink-0 empty:hidden">
+              {hasChildren && (
+                <span className={indicatorPill}>
+                  <SubProgress done={childDone} total={childTotal} size={12} />
+                  {childDone}/{childTotal}
+                </span>
+              )}
+              {issue.branch_stats && <BranchBadge stats={issue.branch_stats} />}
+              <IssueChatIcon issueId={issue.id} />
+              {issue.artifacts && issue.artifacts.length > 0 && <AttachmentIndicator count={issue.artifacts.length} />}
+            </span>
             <div className="flex-1" />
             {issue.is_pending && (
               <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />

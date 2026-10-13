@@ -2,11 +2,13 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useContext } from "react";
 import type { Issue } from "../../api/client";
-import { Avatar, BranchBadge, EstimateBadge, Heading, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress, Text } from "../ui";
-import { RefreshCw, Paperclip } from "lucide-react";
+import { AttachmentIndicator, indicatorPill, Avatar, BranchBadge, EstimateBadge, Heading, LabelBadge, DefaultLabelsContext, PriorityIcon, SubProgress, Text } from "../ui";
+import { RefreshCw } from "lucide-react";
 import { formatShortDate } from "../../utils/format";
 import { splitLabels } from "../../utils/labels";
 import { popoverTriggerProps } from "../../utils/popover-trigger";
+import { IssueChatIcon } from "../Agent/IssueChats";
+import { useIssueChats } from "../Agent/useIssueChats";
 
 export interface CardMeta {
   parentTitle?: string;
@@ -116,7 +118,8 @@ function BoardCardContent({
   const hasBranch = !!issue.branch_stats;
   const cycleId = issue.effective_cycle_id || issue.cycle_id;
   const artifactCount = issue.artifacts?.length ?? 0;
-  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId || artifactCount > 0;
+  const hasChats = useIssueChats(issue.id).state !== null;
+  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId || artifactCount > 0 || hasChats;
   return (
     <>
       {/* NW: ID + parent | NE: pending, priority, assignee */}
@@ -165,19 +168,18 @@ function BoardCardContent({
       {hasBottom && (
         <div className="flex items-center gap-2 mt-2 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
-            {hasChildren && (
-              <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] shrink-0">
-                <SubProgress done={meta.childDone} total={meta.childTotal} />
-                {meta.childDone}/{meta.childTotal}
-              </span>
-            )}
-            {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
-            {artifactCount > 0 && (
-              <span className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums">
-                <Paperclip size={12} strokeWidth={1.5} />
-                {artifactCount}
-              </span>
-            )}
+            {/* Indicators share one pill; icons say a thing exists, tooltips have the details. */}
+            <span className="flex items-center gap-1.5 shrink-0 empty:hidden">
+              {hasChildren && (
+                <span className={indicatorPill}>
+                  <SubProgress done={meta.childDone} total={meta.childTotal} size={12} />
+                  {meta.childDone}/{meta.childTotal}
+                </span>
+              )}
+              {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
+              <IssueChatIcon issueId={issue.id} />
+              {artifactCount > 0 && <AttachmentIndicator count={artifactCount} />}
+            </span>
             {(() => {
               const all = [...metaLabels, ...primaryLabels];
               const extra = Math.max(0, all.length - 2);

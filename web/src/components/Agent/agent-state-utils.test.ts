@@ -3,6 +3,7 @@ import { makeIssue } from "../../test-utils";
 import type { AgentStatus } from "../../api/chat";
 import {
   addPill,
+  chatListPollMs,
   chatContextFor,
   chatPrefs,
   composerOptions,
@@ -255,5 +256,14 @@ describe("chatContextFor", () => {
 
   it("describes only the view without an issue", () => {
     expect(chatContextFor("timeline", null, issues)).toEqual({ view: "Timeline" });
+  });
+});
+
+describe("chatListPollMs", () => {
+  const c = (state: string) => ({ id: state, state });
+  it("polls while any chat runs, pill or not, so issue chat icons stay current", () => {
+    expect(chatListPollMs([c("idle"), c("running")])).toBe(2000);
+    expect(chatListPollMs([c("idle"), c("interrupted")])).toBe(false);
+    expect(chatListPollMs(undefined)).toBe(false);
   });
 });

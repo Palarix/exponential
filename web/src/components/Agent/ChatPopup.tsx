@@ -83,7 +83,7 @@ export default function ChatPopup() {
           </div>
         </div>
       ) : (
-        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} />
+        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} cacheExpiresAt={meta?.cache_expires_at} />
       )}
 
       <ChatComposer

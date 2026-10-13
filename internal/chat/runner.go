@@ -262,7 +262,9 @@ func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, promp
 	defer r.finish(id)
 
 	sessionID := meta.SessionID
-	var resolved *TurnResult // set when the turn finished
+	var resolved *TurnResult   // set when the turn finished
+	var cacheTTL time.Duration // the prompt cache TTL of a finished turn
+	var cacheEnd time.Time     // when that turn finished
 	modes := &modeTools{profile: profile}
 	defer func() {
 		r.mu.Lock()
@@ -274,6 +276,11 @@ func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, promp
 			if resolved != nil && resolved.Model != "" {
 				m.ResolvedModel = resolved.Model
 				m.ContextWindow = resolved.ContextWindow
+			}
+			if cacheTTL > 0 {
+				expires := cacheEnd.Add(cacheTTL).UTC()
+				m.CacheTTL = int(cacheTTL / time.Second)
+				m.CacheExpiresAt = &expires
 			}
 			notice = modes.apply(r, &m)
 			m.UpdatedAt = time.Now().UTC()
@@ -384,6 +391,8 @@ func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, promp
 		r.settle(id, Event{Type: EventError, Message: result.Output})
 	default:
 		resolved = result
+		cacheTTL = turnCacheTTL(result.CacheTTL, meta.CacheTTL)
+		cacheEnd = time.Now()
 		if r.cfg.Learner != nil {
 			r.cfg.Learner.Learn(meta.Agent, meta.Model, result.Model, result.ContextWindow)
 		}
@@ -393,6 +402,7 @@ func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, promp
 			CostUSD:    result.CostUSD,
 			TokensIn:   result.TokensIn,
 			TokensOut:  result.TokensOut,
+			CacheTTL:   int(cacheTTL / time.Second),
 		})
 	}
 }
@@ -508,4 +518,21 @@ func (b *tailBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return string(b.buf)
+}
+
+// defaultCacheTTL is the prompt cache TTL when no agent reported one. It is
+// the shorter of the two TTLs Claude writes.
+const defaultCacheTTL = 5 * time.Minute
+
+// turnCacheTTL returns the prompt cache TTL after a finished turn: the TTL
+// the turn wrote, else the TTL the chat last wrote (a turn that only reads
+// the cache refreshes it), else defaultCacheTTL.
+func turnCacheTTL(wrote time.Duration, lastSeconds int) time.Duration {
+	switch {
+	case wrote > 0:
+		return wrote
+	case lastSeconds > 0:
+		return time.Duration(lastSeconds) * time.Second
+	}
+	return defaultCacheTTL
 }

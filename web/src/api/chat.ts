@@ -83,6 +83,8 @@ export interface ChatMeta {
   work?: { issue_id: string; worktree: string };
   /** Every issue the chat entered Work Mode on. */
   worked_issues?: string[];
+  /** When the prompt cache of the last finished turn expires. */
+  cache_expires_at?: string;
 }
 
 /** A model the composer offers; "" means the provider's default. */
@@ -180,9 +182,15 @@ export function deleteChat(id: string): Promise<void> {
 /**
  * Start Work in Work Mode: opens the chat in Work Mode on the issue, or
  * starts the issue and creates one. `created` is false for an existing chat.
+ * With chatId, binds that chat instead ("Enter work mode"); `resumed` is
+ * then true.
  */
-export function startWorkChat(issueId: string): Promise<{ chat: ChatMeta; created: boolean }> {
-  return request(`${BASE}/issues/${encodeURIComponent(issueId)}/work-chat`, { method: "POST" });
+export function startWorkChat(issueId: string, chatId?: string): Promise<{ chat: ChatMeta; created: boolean; resumed?: boolean }> {
+  return request(`${BASE}/issues/${encodeURIComponent(issueId)}/work-chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(chatId ? { chat_id: chatId } : {}),
+  });
 }
 
 /** Puts a chat back in Chat Mode without a merge. The issue and its worktree stay. */

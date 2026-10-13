@@ -4,7 +4,7 @@ import { ChevronRight, Copy, Check, X } from "lucide-react";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
-import { approvalOutcomeLabel, collapsedFailureNote, failedSteps, failureReason, isFailed, modeDividerText, pendingApprovals, splitTurn, stepSummary, turnSeconds, type ChatStep, type ModeDivider, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { approvalOutcomeLabel, collapsedFailureNote, failedSteps, failureReason, isFailed, isRunning, modeDividerText, pendingApprovals, splitTurn, stepSummary, turnSeconds, type ChatStep, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />;
@@ -206,16 +206,38 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
 }
 
 /** A line across the thread where the chat entered or left Work Mode. */
-function Divider({ divider }: { divider: ModeDivider }) {
+/**
+ * A labeled horizontal rule in the thread. Mode changes are solid; a dashed
+ * rule marks something that is not a mode change, such as a cold cache.
+ */
+function Divider({ text, title, dashed }: { text: string; title?: string; dashed?: boolean }) {
+  const line = dashed
+    ? "flex-1 border-t border-dashed border-[var(--color-border-default)]"
+    : "h-px flex-1 bg-[var(--color-border-subtle)]";
   return (
-    <div role="separator" className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-      <span className="h-px flex-1 bg-[var(--color-border-subtle)]" />
+    <div role="separator" title={title} className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
+      <span className={line} />
       <span className="shrink min-w-0 text-center">
-        <IssueRefText text={modeDividerText(divider)} />
+        <IssueRefText text={text} />
       </span>
-      <span className="h-px flex-1 bg-[var(--color-border-subtle)]" />
+      <span className={line} />
     </div>
   );
+}
+
+/**
+ * Whether the time at has passed. It re-renders when that happens, so a
+ * marker can appear while the user watches.
+ */
+function usePassed(at: string | undefined): boolean {
+  const target = at ? Date.parse(at) : NaN;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (Number.isNaN(target) || now >= target) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, target - Date.now()) + 50);
+    return () => clearTimeout(timer);
+  }, [target, now]);
+  return !Number.isNaN(target) && now >= target;
 }
 
 function dayLabel(iso: string): string {
@@ -234,20 +256,24 @@ export default function ChatThread({
   wide,
   chatId,
   onApprovalExpired,
+  cacheExpiresAt,
 }: {
   thread: Thread;
   wide?: boolean;
   chatId?: string | null;
   onApprovalExpired?: (id: string) => void;
+  /** When the prompt cache of the last finished turn expires. */
+  cacheExpiresAt?: string;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const cold = usePassed(cacheExpiresAt) && thread.turns.length > 0 && !isRunning(thread);
 
-  // Follow new output while the user is at the bottom.
+  // Follow new output, and the cold cache marker, while the user is at the bottom.
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stickRef.current) el.scrollTop = el.scrollHeight;
-  }, [thread]);
+  }, [thread, cold]);
 
   const first = thread.turns[0];
   return (
@@ -265,11 +291,12 @@ export default function ChatThread({
       <div className="flex flex-col gap-6">
         {thread.turns.map((turn, i) => (
           <Fragment key={i}>
-            {thread.dividers.filter((d) => d.at === i).map((d, j) => <Divider key={`d${j}`} divider={d} />)}
+            {thread.dividers.filter((d) => d.at === i).map((d, j) => <Divider key={`d${j}`} text={modeDividerText(d)} />)}
             <Turn turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} />
           </Fragment>
         ))}
-        {thread.dividers.filter((d) => d.at >= thread.turns.length).map((d, j) => <Divider key={`end${j}`} divider={d} />)}
+        {thread.dividers.filter((d) => d.at >= thread.turns.length).map((d, j) => <Divider key={`end${j}`} text={modeDividerText(d)} />)}
+        {cold && <Divider dashed text="Context cache expired" title="Your next message re-sends the whole conversation." />}
       </div>
       </div>
     </div>

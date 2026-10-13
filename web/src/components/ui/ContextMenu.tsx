@@ -9,12 +9,15 @@ import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import CyclePicker from "./CyclePicker";
 import AssigneePicker from "./AssigneePicker";
-import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink } from "lucide-react";
+import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink, MessageSquare } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
 import { collectKnownPeople } from "../../utils/issues";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { Menu, MenuItem, MenuDivider } from "./Menu";
 import { SubMenu } from "./SubMenu";
+import { useOptionalAgentChat } from "../Agent/agent-context";
+import { IssueChatsList } from "../Agent/IssueChats";
+import { useIssueChats } from "../Agent/useIssueChats";
 
 interface ContextMenuProps {
   issue: Issue;
@@ -71,6 +74,8 @@ export default function ContextMenu({
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
   const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
+  const agent = useOptionalAgentChat();
+  const { chats, holder } = useIssueChats(issue.id);
 
   const closeAll = useCallback(() => {
     setConfirmDelete(false);
@@ -184,6 +189,16 @@ export default function ContextMenu({
         <SubMenu label="Cycle" icon={<RefreshCw size={16} />} shortcut="C"
           renderPanel={(close) => <CyclePicker cycles={cycles} current={issue.cycle_id} onSelect={id => handleUpdate({ cycle_id: id })} onClose={close} />}
         />
+        {chats.length > 0 && <MenuDivider />}
+        {holder && agent && (
+          <MenuItem label="Open work chat" icon={<MessageSquare size={16} />} onClick={() => agent.openChat(holder.id)} />
+        )}
+        {chats.length > 0 && (
+          <SubMenu label="Chats" icon={<MessageSquare size={16} />}
+            suffix={<span className="text-xs text-[var(--color-text-muted)] tabular-nums">{chats.length}</span>}
+            renderPanel={() => <IssueChatsList issueId={issue.id} onClose={closeAll} bare />}
+          />
+        )}
         {issue.parent_id && (
           <>
             <MenuDivider />

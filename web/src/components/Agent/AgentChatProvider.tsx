@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
-import { addPill, chatPrefs, loadPills, loadPrefs, normalizePrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
+import { addPill, chatListPollMs, chatPrefs, loadPills, loadPrefs, normalizePrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
 
 function safeLocalStorage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -23,14 +23,12 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   // Picks made in open chats, by chat ID. They last until the next reload,
   // when the chat's meta holds what its last message used.
   const [picked, setPicked] = useState<Record<string, ChatPrefs>>({});
-  const anyPillRunning = (chats: { id: string; state: string }[] | undefined) =>
-    !!chats?.some((c) => c.state === "running" && pills.includes(c.id));
   const chatsQuery = useQuery({
     queryKey: agentQueryKeys.chats,
     queryFn: fetchChats,
     enabled: !!status?.available,
-    // Pills of chats in the background show a spinner; poll while one runs.
-    refetchInterval: (q) => (anyPillRunning(q.state.data) ? 2000 : false),
+    // Pills and issue chat icons show running chats; poll while one runs.
+    refetchInterval: (q) => chatListPollMs(q.state.data),
   });
   const chats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);
 

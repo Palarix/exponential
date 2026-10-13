@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: issues show the chats that worked on them.
+  - **Chat pill:** backlog rows and board cards show a chat pill with the chat count. Its icon shape gives the most urgent state: a dot for waiting on your approval, three dots for running, a warning for interrupted. A click opens the chat in Work Mode on the issue, or a searchable list of the issue's chats.
+  - **Issue details:** a "k chats" row below Relations opens the same list.
+  - **Context menu:** right-click an issue for "Open work chat" and a "Chats" submenu.
+  - **Enter work mode on a past chat:** when no chat is working on the issue, a chat's row actions (right-click, `⋯` or Shift+F10) put it back into Work Mode with its conversation, prefilled with "Let's continue with xpo-…". Continue Work still opens the current work chat or starts a new one.
+  - **Cold cache divider:** a dashed "Context cache expired" divider appears in a chat once its prompt cache has expired, so you know the next message re-sends the whole conversation. Claude's cache lifetime comes from what each turn reports (1h or 5m); Codex assumes 5 minutes.
+  - **API:** `POST /api/local/issues/{id}/work-chat` takes an optional `{"chat_id"}` to enter Work Mode with an existing chat. Chats include `cache_ttl` and `cache_expires_at`; `turn_done` events include `cache_ttl`.
+
+  (xpo-219de9)
+
 - Agent chat: Chat Mode and Work Mode in one chat. A chat can now implement an issue in its worktree without starting a second session, and the conversation carries over.
   - **Chat Mode:** the default. The agent reads the repo and changes issues. `merge` is denied, and `start` asks first: the card reads "Enter Work Mode on xpo-…?".
   - **Work Mode:** the agent runs in the issue's worktree. Read, Edit, Write and Bash run there without a card; Edit or Write outside the worktree, and `merge`, ask first.
@@ -109,6 +119,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The stream-json parser is now shared by drive and chat (xpo-56ae3a)
 
 - Issue drafts: the new issue dialog has a "Save draft" button, and the discard prompt offers "Save draft" too. Drafts are stored per user in `.xpo/drafts/` (git-ignored, outside the event log). A "Drafts" sidebar item with a count badge appears while drafts exist (`g r`). Reopen a draft to keep editing, create the issue from it, or discard it. New `/api/issue-drafts` endpoints (`GET`/`POST`/`PUT`/`DELETE`, `issue.create` capability) and a `draft_changed` SSE event (xpo-758398)
+
+### Changed
+
+- Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch pill shows its commit count and the chat pill its chat count; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9)
+- Agent chat polish: mode dividers read "Entered Work Mode on xpo-…" and "Entered Chat Mode". The Work Mode segment shows the hammer and the issue ID, without "Work ·". The send and stop buttons are 24px. (xpo-219de9)
 
 ### Fixed
 

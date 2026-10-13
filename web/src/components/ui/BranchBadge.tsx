@@ -1,10 +1,16 @@
 import type { BranchStats } from "../../api/types";
 import { GitBranch } from "lucide-react";
+import { indicatorPill } from "./indicator-pill";
 
 interface BranchBadgeProps {
   stats: BranchStats;
 }
 
+/**
+ * A row indicator that the issue has a branch: an icon-only pill. The
+ * commits, files and line changes are in its tooltip; a dot marks
+ * uncommitted changes.
+ */
 export default function BranchBadge({ stats }: BranchBadgeProps) {
   const hasCommits = stats.commits > 0;
   const hasUncommitted = !hasCommits && stats.has_uncommitted;
@@ -15,14 +21,9 @@ export default function BranchBadge({ stats }: BranchBadgeProps) {
     : `${stats.branch} — no commits yet`;
 
   return (
-    <span className="relative inline-flex shrink-0">
-      <span
-        className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-[var(--color-border-label)] text-xs text-[var(--color-text-secondary)] tabular-nums"
-        title={title}
-      >
-        <GitBranch size={12} strokeWidth={1.5} />
-        {stats.commits}
-      </span>
+    <span className={`relative ${indicatorPill}`} title={title}>
+      <GitBranch size={12} strokeWidth={1.75} />
+      {stats.commits}
       {hasUncommitted && (
         <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-500" title="uncommitted changes" />
       )}

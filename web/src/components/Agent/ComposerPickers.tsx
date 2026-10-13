@@ -66,7 +66,7 @@ function Segment({
 }
 
 /**
- * The mode: a plain "Chat" label, or "Work · <issue>" with a menu to open
+ * The mode: a plain "Chat" label, or the hammer and "<issue>" with a menu to open
  * the issue or leave Work Mode. Nothing here enters Work Mode: that starts
  * from Start Work or from asking the agent.
  */
@@ -81,9 +81,9 @@ function ModeSegment({ work, running, onLeaveWork, onOpenIssue }: { work?: WorkM
   }
   return (
     <Segment
-      label={`Work · ${work.issueId}`}
+      label={work.issueId}
       icon={<Hammer className="w-3 h-3 shrink-0" />}
-      ariaLabel="Mode"
+      ariaLabel={`Work Mode on ${work.issueId}`}
       title={work.title ? `${work.issueId} ${work.title}` : work.issueId}
       disabled={running}
       className="shrink-0"

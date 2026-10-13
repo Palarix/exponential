@@ -114,6 +114,22 @@ type claudeUsage struct {
 	OutputTokens             int `json:"output_tokens"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	CacheCreation            struct {
+		Ephemeral1h int `json:"ephemeral_1h_input_tokens"`
+		Ephemeral5m int `json:"ephemeral_5m_input_tokens"`
+	} `json:"cache_creation"`
+}
+
+// CacheTTL returns how long the cache the turn wrote lives: 1h or 5m, or 0
+// when the turn wrote no cache or the agent did not say.
+func (u claudeUsage) CacheTTL() time.Duration {
+	switch {
+	case u.CacheCreation.Ephemeral1h > 0:
+		return time.Hour
+	case u.CacheCreation.Ephemeral5m > 0:
+		return 5 * time.Minute
+	}
+	return 0
 }
 
 func (u claudeUsage) TotalInputTokens() int {

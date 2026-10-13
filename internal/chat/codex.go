@@ -76,6 +76,11 @@ func tomlValue(v any) string {
 }
 
 // Turn implements Driver.
+// codexCacheTTL is the prompt cache TTL Codex turns record. Codex does not
+// report one; OpenAI keeps cached prefixes for 5 to 10 minutes of
+// inactivity, so xpo takes the lower bound.
+const codexCacheTTL = 5 * time.Minute
+
 func (d *CodexDriver) Turn(ctx context.Context, in TurnInput, emit exponential.StreamCallback) (*TurnResult, error) {
 	grace := d.InterruptGrace
 	if grace == 0 {
@@ -331,6 +336,7 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 
 			Model:         t.model,
 			ContextWindow: t.window,
+			CacheTTL:      codexCacheTTL,
 		}
 		if p.Turn.Status == "failed" {
 			res.IsError = true

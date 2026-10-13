@@ -12,8 +12,9 @@ type ClaudeTurnResult struct {
 	SessionID string
 	IsError   bool
 
-	Model         string // the model the init line reported
-	ContextWindow int    // that model's context window in tokens; 0 when unknown
+	Model         string        // the model the init line reported
+	ContextWindow int           // that model's context window in tokens; 0 when unknown
+	CacheTTL      time.Duration // TTL of the cache the turn wrote; 0 when none or unknown
 }
 
 // ClaudeStreamParser turns `claude -p --output-format stream-json --verbose
@@ -76,6 +77,7 @@ func (p *ClaudeStreamParser) Parse(line []byte, cb StreamCallback) *ClaudeTurnRe
 			IsError:       msg.IsError,
 			Model:         p.model,
 			ContextWindow: contextWindow(msg.ModelUsage, p.model),
+			CacheTTL:      msg.Usage.CacheTTL(),
 		}
 	}
 	return nil

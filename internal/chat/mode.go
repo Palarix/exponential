@@ -21,6 +21,10 @@ var ErrIssueHeld = errors.New("another chat is in work mode on this issue")
 // ErrNotInWork is returned by LeaveWork for a chat in Chat Mode.
 var ErrNotInWork = errors.New("this chat is not in work mode")
 
+// ErrWorkingElsewhere refuses to bind a chat that is in Work Mode on
+// another issue.
+var ErrWorkingElsewhere = errors.New("this chat is in work mode on another issue")
+
 // CanWork reports whether chats may enter Work Mode.
 func (r *Runner) CanWork() bool { return r.cfg.CanWork }
 
@@ -66,8 +70,11 @@ func (r *Runner) BindWork(chatID string, b WorkBinding) (Meta, error) {
 // event to settle, or nil when m was already bound to the issue. r.mu must
 // be held, so two chats cannot take the same issue at once.
 func (r *Runner) bindLocked(m *Meta, b WorkBinding) (*Event, error) {
-	if m.Mode == ModeWork && m.Work != nil && m.Work.IssueID == b.IssueID {
-		return nil, nil
+	if m.Mode == ModeWork && m.Work != nil {
+		if m.Work.IssueID == b.IssueID {
+			return nil, nil
+		}
+		return nil, ErrWorkingElsewhere
 	}
 	if holder, ok := r.WorkChat(b.IssueID); ok && holder.ID != m.ID {
 		return nil, ErrIssueHeld

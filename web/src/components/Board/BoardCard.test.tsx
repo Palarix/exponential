@@ -5,6 +5,7 @@ import { SortableContext } from "@dnd-kit/sortable";
 import type { Issue } from "../../api/client";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
+import { AgentChatContext, type AgentChat } from "../Agent/agent-context";
 import { BoardCard, SortableBoardCard } from "./BoardCard";
 
 const meta = { childDone: 0, childTotal: 0 };
@@ -55,5 +56,24 @@ describe("Board card assignee trigger", () => {
     const html = inDnd(<BoardCard issue={issue} meta={meta} isOverlay />, issue.id);
     expect(html).not.toContain("data-assignee-trigger");
     expect(html).toContain("border-dashed");
+  });
+});
+
+describe("Board card chat icon", () => {
+  it("shows the chat icon on an issue a chat worked on, even with nothing else in the footer", () => {
+    const issue = makeIssue({ labels: [] });
+    const agent = {
+      status: { available: true, default_provider: "claude", providers: [] },
+      chats: [
+        { id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] },
+        { id: "c2", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] },
+      ],
+    } as unknown as AgentChat;
+    const html = renderMarkup(
+      <AgentChatContext.Provider value={agent}>
+        <BoardCard issue={issue} meta={meta} />
+      </AgentChatContext.Provider>,
+    );
+    expect(html).toContain(`aria-label="2 chats on ${issue.id}"`);
   });
 });

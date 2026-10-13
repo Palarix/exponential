@@ -3,6 +3,8 @@ import type { Issue } from "../../api/client";
 import { useCycles } from "../../api/queries";
 import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
 import { useStartWorkChat } from "../Agent/useWorkMode";
+import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
+import { chatCount, useIssueChats } from "../Agent/useIssueChats";
 import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
 import { Flag, UserRound, RefreshCw, Trash2 } from "lucide-react";
 import { GitBranch, GitMerge } from "lucide-react";
@@ -55,6 +57,9 @@ export default function PropertySidebar({
   } | null>(null);
 
   const { startWork, starting, canChat } = useStartWorkChat();
+  const issueChats = useIssueChats(issue.id);
+  const chatsRef = useRef<HTMLButtonElement>(null);
+  const [chatsOpen, setChatsOpen] = useState(false);
   const { mutate: deleteIssue } = useDeleteIssue();
 
   // Start Work opens a new chat in Work Mode on the issue (xpo-00f0e5).
@@ -296,6 +301,27 @@ export default function PropertySidebar({
                 )}
               </div>
             </PropertyRow>
+
+            {/* Chats that worked on the issue (xpo-219de9) */}
+            {issueChats.state && (
+              <PropertyRow>
+                <div className="relative">
+                  <Button
+                    ref={chatsRef}
+                    variant="ghost"
+                    size="sm"
+                    aria-haspopup="menu"
+                    aria-expanded={chatsOpen}
+                    onClick={() => setChatsOpen((o) => !o)}
+                    className="w-full justify-start"
+                  >
+                    <IssueChatStateIcon state={issueChats.state} size={16} />
+                    <span className="text-sm text-[var(--color-text-primary)] truncate">{chatCount(issueChats.chats.length)}</span>
+                  </Button>
+                  {chatsOpen && <IssueChatsPopover issueId={issue.id} anchorRef={chatsRef} onClose={() => setChatsOpen(false)} />}
+                </div>
+              </PropertyRow>
+            )}
 
             {/* Assignee */}
             <PropertyRow>

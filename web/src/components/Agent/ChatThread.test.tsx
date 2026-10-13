@@ -63,12 +63,39 @@ describe("ChatThread mode dividers", () => {
         ])}
       />,
     );
-    const work = html.indexOf("Work Mode on");
+    const work = html.indexOf("Entered Work Mode on");
     const message = html.indexOf("Let&#x27;s implement xpo-1.");
-    const back = html.indexOf("Back to Chat Mode");
+    const back = html.indexOf("Entered Chat Mode");
     expect(work).toBeGreaterThan(-1);
     expect(html.match(/role="separator"/g)).toHaveLength(2);
     expect(work).toBeLessThan(message);
     expect(message).toBeLessThan(back);
+  });
+});
+
+describe("ChatThread cold cache marker", () => {
+  const done = thread([
+    { type: "user_message", seq: 1, text: "hi" },
+    { type: "assistant_text", seq: 2, text: "Hello." },
+    { type: "turn_done", seq: 3, duration_ms: 1000 },
+  ]);
+  const marker = "Context cache expired";
+
+  it("shows a divider under the last turn once the cache has expired", () => {
+    const html = render(<ChatThread thread={done} cacheExpiresAt="2026-10-13T10:05:00Z" />);
+    const divider = html.match(/<div role="separator"[^>]*>(?:(?!<div role="separator").)*Context cache expired/)?.[0];
+    expect(divider).toBeDefined();
+    expect(divider).toContain('title="Your next message re-sends the whole conversation."');
+    // Dashed, unlike the solid lines of a mode divider.
+    expect(divider).toContain("border-dashed");
+    expect(html.indexOf(marker)).toBeGreaterThan(html.indexOf("Hello."));
+  });
+
+  it("hides it while the cache is warm, without an expiry, or while a turn runs", () => {
+    const future = new Date(Date.now() + 3600_000).toISOString();
+    expect(render(<ChatThread thread={done} cacheExpiresAt={future} />)).not.toContain(marker);
+    expect(render(<ChatThread thread={done} />)).not.toContain(marker);
+    const running = chatThreadReducer(done, { type: "event", event: { time: T0, type: "user_message", seq: 4, text: "again" } as ChatEvent });
+    expect(render(<ChatThread thread={running} cacheExpiresAt="2026-10-13T10:05:00Z" />)).not.toContain(marker);
   });
 });

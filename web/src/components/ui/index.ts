@@ -1,6 +1,8 @@
 // UI Primitives barrel export
 export { default as Avatar } from './Avatar';
 export { default as BranchBadge } from './BranchBadge';
+export { default as AttachmentIndicator } from './AttachmentIndicator';
+export { indicatorPill } from './indicator-pill';
 export { default as Button } from './Button';
 export { default as IconButton } from './IconButton';
 export { FilterButton } from './FilterButton';

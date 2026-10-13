@@ -65,6 +65,7 @@ type Event struct {
 	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done
 	TokensIn   int     `json:"tokens_in,omitempty"`   // turn_done
 	TokensOut  int     `json:"tokens_out,omitempty"`  // turn_done
+	CacheTTL   int     `json:"cache_ttl,omitempty"`   // turn_done: seconds the prompt cache lives after the turn
 
 	Message string `json:"message,omitempty"` // error, mode_changed: the reason; tool_call: the error or denial text
 }
@@ -105,6 +106,12 @@ type Meta struct {
 	Mode         string       `json:"mode,omitempty"`
 	Work         *WorkBinding `json:"work,omitempty"`
 	WorkedIssues []string     `json:"worked_issues,omitempty"`
+
+	// CacheTTL is the prompt cache TTL in seconds the agent last reported
+	// for this chat. CacheExpiresAt is when the cache of the last finished
+	// turn expires; after it, the next message re-sends the conversation.
+	CacheTTL       int        `json:"cache_ttl,omitempty"`
+	CacheExpiresAt *time.Time `json:"cache_expires_at,omitempty"`
 
 	// Waiting is set in chat lists while an approval card waits for the
 	// user. It is never stored.

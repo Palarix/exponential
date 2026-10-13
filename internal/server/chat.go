@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -254,16 +255,33 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 // handleWorkChat is Start Work and Continue Work in Work Mode. It opens
 // the chat in Work Mode on the issue when one exists. Otherwise it binds a
 // new chat to the issue's worktree: the existing one for a DOING issue, or
-// a new one from starting the issue. The chat gets no message: the UI
-// prefills the composer.
+// a new one from starting the issue. With {"chat_id"} in the body, it
+// binds that chat instead ("Enter work mode" on a past chat). The chat gets
+// no message: the UI prefills the composer.
 func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	var req struct {
+		ChatID string `json:"chat_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 	if m, ok := s.Chat.Runner.WorkChat(id); ok {
+		if req.ChatID != "" && req.ChatID != m.ID {
+			s.respondChatError(w, chat.ErrIssueHeld)
+			return
+		}
 		respondJSON(w, http.StatusOK, map[string]any{"chat": m, "created": false})
 		return
 	}
 	if !s.Chat.Runner.CanWork() {
 		s.respondChatError(w, chat.ErrWorkUnavailable)
+		return
+	}
+	// Check the given chat before the issue starts, so a refusal changes
+	// nothing.
+	if req.ChatID != "" && s.respondChatError(w, s.checkResumable(req.ChatID)) {
 		return
 	}
 	issues, err := s.GetProjectedIssues()
@@ -299,6 +317,16 @@ func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 		s.broadcastEvent("UPDATE", id)
 	}
 
+	binding := chat.WorkBinding{IssueID: id, Worktree: worktree}
+	if req.ChatID != "" {
+		m, err := s.Chat.Runner.BindWork(req.ChatID, binding)
+		if s.respondChatError(w, err) {
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]any{"chat": m, "created": false, "resumed": true})
+		return
+	}
+
 	// The issue stays started when a step below fails; Start Work again
 	// retries the chat.
 	created, err := s.Chat.Store.Create()
@@ -308,13 +336,27 @@ func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.Chat.Store.Rename(created.ID, id+" "+issue.Title); s.respondChatError(w, err) {
 		return
 	}
-	m, err := s.Chat.Runner.BindWork(created.ID, chat.WorkBinding{IssueID: id, Worktree: worktree})
+	m, err := s.Chat.Runner.BindWork(created.ID, binding)
 	if err != nil {
 		_ = s.Chat.Store.Delete(created.ID)
 		s.respondChatError(w, err)
 		return
 	}
 	respondJSON(w, http.StatusCreated, map[string]any{"chat": m, "created": true})
+}
+
+// checkResumable returns why a chat cannot enter Work Mode, or nil.
+func (s *Server) checkResumable(chatID string) error {
+	m, err := s.Chat.Store.Meta(chatID)
+	switch {
+	case err != nil:
+		return err
+	case s.Chat.Runner.Running(chatID):
+		return chat.ErrBusy
+	case m.Mode == chat.ModeWork && m.Work != nil:
+		return chat.ErrWorkingElsewhere
+	}
+	return nil
 }
 
 // findIssueWorktree returns the absolute path of an issue's git worktree.
@@ -360,7 +402,7 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		respondError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, chat.ErrWorkUnavailable):
 		respondError(w, http.StatusNotImplemented, err.Error())
-	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork):
+	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork), errors.Is(err, chat.ErrWorkingElsewhere):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, err.Error())

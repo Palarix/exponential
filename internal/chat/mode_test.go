@@ -232,6 +232,23 @@ func TestRunner_BindWork(t *testing.T) {
 	}
 }
 
+// A chat in Work Mode on one issue cannot be bound to another: that would
+// take the first issue's writer away.
+func TestRunner_BindWorkRefusesChatBoundElsewhere(t *testing.T) {
+	r, store, dir := newModeRunner(t)
+	m, _ := store.Create()
+	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-abc", Worktree: makeWorktree(t, dir, "xpo-abc")}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-def", Worktree: makeWorktree(t, dir, "xpo-def")})
+	if !errors.Is(err, ErrWorkingElsewhere) {
+		t.Fatalf("bind = %v, want ErrWorkingElsewhere", err)
+	}
+	if meta, _ := store.Meta(m.ID); meta.Work == nil || meta.Work.IssueID != "xpo-abc" {
+		t.Errorf("work = %+v, want still on xpo-abc", meta.Work)
+	}
+}
+
 func TestRunner_BindWorkRefusedWithoutWork(t *testing.T) {
 	r, store, dir := newModeRunner(t)
 	r.cfg.CanWork = false

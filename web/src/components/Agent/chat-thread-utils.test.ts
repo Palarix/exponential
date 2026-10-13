@@ -462,8 +462,8 @@ describe("mode dividers", () => {
   });
 
   it("words each divider", () => {
-    expect(modeDividerText({ at: 0, mode: "work", issueId: "xpo-1" })).toBe("Work Mode on xpo-1");
-    expect(modeDividerText({ at: 0, mode: "chat", issueId: "xpo-1" })).toBe("Back to Chat Mode");
+    expect(modeDividerText({ at: 0, mode: "work", issueId: "xpo-1" })).toBe("Entered Work Mode on xpo-1");
+    expect(modeDividerText({ at: 0, mode: "chat", issueId: "xpo-1" })).toBe("Entered Chat Mode");
     expect(modeDividerText({ at: 0, mode: "chat", issueId: "xpo-1", message: "The worktree of xpo-1 is gone." })).toBe("The worktree of xpo-1 is gone.");
   });
 });

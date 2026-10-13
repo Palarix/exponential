@@ -95,6 +95,29 @@ func TestClaudeStreamParser_ContextWindowFallsBackToLargest(t *testing.T) {
 	}
 }
 
+// Claude Code reports the TTL of the cache a turn wrote. Measured with
+// Claude Code 2.1.296: a subscription login writes the 1h cache.
+func TestClaudeStreamParser_CacheTTL(t *testing.T) {
+	cases := []struct {
+		name  string
+		usage string
+		want  time.Duration
+	}{
+		{"1h", `{"cache_creation":{"ephemeral_1h_input_tokens":18395,"ephemeral_5m_input_tokens":0}}`, time.Hour},
+		{"5m", `{"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":200}}`, 5 * time.Minute},
+		{"read only", `{"cache_read_input_tokens":900,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}`, 0},
+		{"no breakdown", `{"input_tokens":3}`, 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, r := parseFixture(t, `{"type":"result","subtype":"success","result":"ok","session_id":"s","usage":`+c.usage+`}`)
+			if r == nil || r.CacheTTL != c.want {
+				t.Fatalf("result = %+v, want CacheTTL %v", r, c.want)
+			}
+		})
+	}
+}
+
 func TestClaudeStreamParser_ErrorResult(t *testing.T) {
 	_, r := parseFixture(t, `{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Not logged in","session_id":"s"}`)
 	if r == nil || !r.IsError || r.Output != "Not logged in" {
