@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ChevronRight, Copy, Check, X } from "lucide-react";
+import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
@@ -265,24 +266,16 @@ export default function ChatThread({
   /** When the prompt cache of the last finished turn expires. */
   cacheExpiresAt?: string;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
+  const { ref: scrollRef, pin } = useStickToBottom<HTMLDivElement>();
   const cold = usePassed(cacheExpiresAt) && thread.turns.length > 0 && !isRunning(thread);
 
   // Follow new output, and the cold cache marker, while the user is at the bottom.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el && stickRef.current) el.scrollTop = el.scrollHeight;
-  }, [thread, cold]);
+  useLayoutEffect(pin, [pin, thread, cold]);
 
   const first = thread.turns[0];
   return (
     <div
       ref={scrollRef}
-      onScroll={(e) => {
-        const el = e.currentTarget;
-        stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-      }}
       className={`flex-1 overflow-y-auto px-4 ${wide ? "py-8" : "py-3"}`}
     >
       {/* The composer's box: its max-w-3xl column minus its px-4, so the thread and the reply box share both edges. */}
