@@ -100,3 +100,24 @@ describe("PropertySidebar chats", () => {
     expect(renderSidebar(issue, true, agentAvailable)).not.toMatch(/\d chats?</);
   });
 });
+
+describe("PropertySidebar button priority", () => {
+  const stats = { branch: "xpo-aaa111-x", head_sha: "abc", commits: 0, files_changed: 1, insertions: 1, deletions: 0, has_uncommitted: true };
+  /** The button whose label is text, up to its closing tag. */
+  const button = (html: string, text: string) => html.match(new RegExp(`<button[^>]*>(?:(?!</button>).)*${text}`))?.[0];
+
+  it("makes Continue Work secondary when Review Changes shows", () => {
+    const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: stats }), true, agentAvailable);
+    expect(button(html, "Review Changes")).toContain("bg-[var(--color-accent-primary)]");
+    expect(button(html, "Continue Work")).not.toContain("bg-[var(--color-accent-primary)]");
+    expect(button(html, "Continue Work")).toContain("border-[var(--color-border-default)]");
+    // The primary action is always the top button.
+    expect(html.indexOf("Review Changes")).toBeLessThan(html.indexOf("Continue Work"));
+  });
+
+  it("keeps the work button primary without Review Changes", () => {
+    const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: { ...stats, files_changed: 0, has_uncommitted: false } }), true, agentAvailable);
+    expect(html).not.toContain("Review Changes");
+    expect(button(html, "Continue Work")).toContain("bg-[var(--color-accent-primary)]");
+  });
+});

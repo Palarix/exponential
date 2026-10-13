@@ -8,6 +8,7 @@ import {
   hasDirtyDescendant,
   diffFreshness,
   reuseUnchangedFiles,
+  initialDiffScope,
 } from "./diff-utils";
 
 /* ─── parseDiffByFile ─── */
@@ -515,5 +516,19 @@ describe("reuseUnchangedFiles", () => {
     expect(reuseUnchangedFiles(undefined, next)).toBe(next);
     const empty = map([]);
     expect(reuseUnchangedFiles(empty, empty)).toBe(empty);
+  });
+});
+
+/* ─── initialDiffScope ─── */
+
+describe("initialDiffScope", () => {
+  const stats = { branch: "b", head_sha: "x", commits: 0, files_changed: 1, insertions: 3, deletions: 0, has_uncommitted: true };
+  it("opens on Uncommitted when nothing is committed but the worktree has changes", () => {
+    expect(initialDiffScope(stats)).toBe("uncommitted");
+  });
+  it("opens on All changes once the branch has commits, or when there is nothing to show", () => {
+    expect(initialDiffScope({ ...stats, commits: 2 })).toBe("all");
+    expect(initialDiffScope({ ...stats, has_uncommitted: false })).toBe("all");
+    expect(initialDiffScope(undefined)).toBe("all");
   });
 });

@@ -148,8 +148,8 @@ func computeBranchStats(branch, base string) *model.BranchStats {
 	return stats
 }
 
-// fillUncommittedStats detects staged and unstaged working-tree changes
-// and populates the stats when the branch has no commits ahead of base.
+// fillUncommittedStats detects staged, unstaged and untracked working-tree
+// changes and populates the stats when the branch has no commits ahead of base.
 // When dir is non-empty, git commands target that directory via -C.
 func fillUncommittedStats(stats *model.BranchStats, dir string) {
 	gitCmd := func(args ...string) *exec.Cmd {
@@ -184,6 +184,14 @@ func fillUncommittedStats(stats *model.BranchStats, dir string) {
 		stats.FilesChanged += unstaged.FilesChanged
 		stats.Insertions += unstaged.Insertions
 		stats.Deletions += unstaged.Deletions
+		stats.HasUncommitted = true
+	}
+
+	// New files git does not track yet are uncommitted changes too; neither
+	// diff above counts them.
+	for _, f := range listUntrackedStats(dir) {
+		stats.FilesChanged++
+		stats.Insertions += f.Insertions
 		stats.HasUncommitted = true
 	}
 }

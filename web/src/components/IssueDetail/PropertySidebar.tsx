@@ -66,6 +66,7 @@ export default function PropertySidebar({
   // Continue Work does the same for an issue already DOING, without starting
   // it again, so closing that chat never strands the issue.
   const handleStartWork = useCallback(() => startWork(issue.id), [issue.id, startWork]);
+  const showReview = !!(gitActions && issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge);
   const workAction = !gitActions
     ? null
     : issue.status === "BACKLOG" || issue.status === "PLANNED"
@@ -169,28 +170,32 @@ export default function PropertySidebar({
       className={cn("w-80 shrink-0 sticky top-0 self-start max-h-[100cqh] overflow-y-auto scrollbar-none pt-12", fadeBottom && "fade-bottom")}
     >
       <div className="px-5 pb-5 space-y-3">
-        {/* Start Work button */}
-        {workAction && (
-          <button
-            onClick={handleStartWork}
-            disabled={starting}
-            className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-            </svg>
-            {starting ? "Starting..." : workAction}
-          </button>
-        )}
-
-        {/* Merge / Review button */}
-        {gitActions && issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge && (
+        {/* Review Changes: the primary action when it shows, so it comes first (xpo-926f0b). */}
+        {showReview && (
           <button
             onClick={onOpenMerge}
             className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity"
           >
             <GitMerge size={16} />
             Review Changes
+          </button>
+        )}
+
+        {/* Start Work button: secondary while Review Changes shows, since reviewing is the next step (xpo-926f0b). */}
+        {workAction && (
+          <button
+            onClick={handleStartWork}
+            disabled={starting}
+            className={`flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-opacity disabled:opacity-50 ${
+              showReview
+                ? "bg-[var(--color-surface-2)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)]"
+                : "bg-[var(--color-accent-primary)] text-white hover:opacity-90"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            {starting ? "Starting..." : workAction}
           </button>
         )}
 

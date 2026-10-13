@@ -8,7 +8,7 @@ import {
   diffFreshness,
   reuseUnchangedFiles,
 } from "./diff-utils";
-import type { FileTreeNode, SplitLine } from "./diff-utils";
+import { initialDiffScope, type DiffScope, type FileTreeNode, type SplitLine } from "./diff-utils";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -140,7 +140,6 @@ interface MergeViewProps {
 }
 
 type Tab = "files" | "commits" | "conversation" | "walkthrough";
-type DiffScope = "all" | "uncommitted";
 
 export default function MergeView({
   issue,
@@ -158,7 +157,7 @@ export default function MergeView({
   // Files tab
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileFilter, setFileFilter] = useState("");
-  const [diffScope, setDiffScope] = useState<DiffScope>("all");
+  const [diffScope, setDiffScope] = useState<DiffScope>(() => initialDiffScope(issue.branch_stats));
 
   // Commits tab
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);

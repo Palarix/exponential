@@ -369,10 +369,19 @@ func ListWorkingTreeAllFilesChanged(dir string) []FileStat {
 		seen[f.Path] = true
 	}
 
-	for _, path := range listUntrackedFiles(dir) {
-		if seen[path] {
-			continue
+	for _, f := range listUntrackedStats(dir) {
+		if !seen[f.Path] {
+			files = append(files, f)
 		}
+	}
+	return files
+}
+
+// listUntrackedStats returns the untracked files (not gitignored, not under
+// .xpo/) as added files, each with its line count as insertions.
+func listUntrackedStats(dir string) []FileStat {
+	var files []FileStat
+	for _, path := range listUntrackedFiles(dir) {
 		fullPath := path
 		if dir != "" {
 			fullPath = filepath.Join(dir, path)
@@ -388,14 +397,7 @@ func ListWorkingTreeAllFilesChanged(dir string) []FileStat {
 				lineCount++
 			}
 		}
-		files = append(files, FileStat{
-			Status:     "A",
-			Path:       path,
-			Insertions: lineCount,
-			Deletions:  0,
-		})
+		files = append(files, FileStat{Status: "A", Path: path, Insertions: lineCount})
 	}
-
 	return files
 }
-

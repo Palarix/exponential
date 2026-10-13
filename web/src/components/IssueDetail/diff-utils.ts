@@ -1,3 +1,17 @@
+import type { BranchStats } from "../../api/types";
+
+/** The Review Changes file view: the committed branch diff, or the worktree's uncommitted changes. */
+export type DiffScope = "all" | "uncommitted";
+
+/**
+ * The scope the Review Changes dialog opens on. With nothing committed but
+ * changes in the worktree, "All changes" would be empty, so it opens on
+ * "Uncommitted" (xpo-926f0b).
+ */
+export function initialDiffScope(stats: BranchStats | undefined): DiffScope {
+  return stats && stats.commits === 0 && stats.has_uncommitted ? "uncommitted" : "all";
+}
+
 export interface FileTreeNode {
   name: string;
   path: string;

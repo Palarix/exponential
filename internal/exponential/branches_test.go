@@ -350,3 +350,56 @@ func runGit(t *testing.T, dir string, args ...string) {
 		t.Fatalf("git %v in %s failed: %v\n%s", args, dir, err, out)
 	}
 }
+
+// initStatsRepo returns a repo with one commit: tracked.txt with one line,
+// and a .gitignore that ignores *.log.
+func initStatsRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	runGit(t, dir, "init", "-b", "main")
+	runGit(t, dir, "config", "user.email", "test@test.com")
+	runGit(t, dir, "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(dir, "tracked.txt"), []byte("one\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.log\n"), 0o644)
+	runGit(t, dir, "add", ".")
+	runGit(t, dir, "commit", "-m", "init")
+	return dir
+}
+
+// A worktree whose only change is a new file has uncommitted changes:
+// Work Mode agents often start by creating files (xpo-926f0b).
+func TestFillUncommittedStats_UntrackedOnly(t *testing.T) {
+	dir := initStatsRepo(t)
+	os.WriteFile(filepath.Join(dir, "new.txt"), []byte("a\nb\nc\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "debug.log"), []byte("ignored\n"), 0o644)
+	os.MkdirAll(filepath.Join(dir, ".xpo"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".xpo", "state"), []byte("x\n"), 0o644)
+
+	var stats model.BranchStats
+	fillUncommittedStats(&stats, dir)
+	if !stats.HasUncommitted || stats.FilesChanged != 1 || stats.Insertions != 3 || stats.Deletions != 0 {
+		t.Errorf("stats = %+v, want 1 uncommitted file with 3 insertions", stats)
+	}
+}
+
+func TestFillUncommittedStats_UntrackedAndEdited(t *testing.T) {
+	dir := initStatsRepo(t)
+	os.WriteFile(filepath.Join(dir, "tracked.txt"), []byte("one\ntwo\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "new.txt"), []byte("no trailing newline"), 0o644)
+
+	var stats model.BranchStats
+	fillUncommittedStats(&stats, dir)
+	if !stats.HasUncommitted || stats.FilesChanged != 2 || stats.Insertions != 2 {
+		t.Errorf("stats = %+v, want 2 files and 2 insertions", stats)
+	}
+}
+
+func TestFillUncommittedStats_Clean(t *testing.T) {
+	dir := initStatsRepo(t)
+	os.WriteFile(filepath.Join(dir, "debug.log"), []byte("ignored\n"), 0o644)
+	var stats model.BranchStats
+	fillUncommittedStats(&stats, dir)
+	if stats.HasUncommitted || stats.FilesChanged != 0 {
+		t.Errorf("stats = %+v, want clean", stats)
+	}
+}
