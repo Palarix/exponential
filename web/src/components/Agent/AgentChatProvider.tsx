@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
-import { addPill, chatListPollMs, chatPrefs, loadPills, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
+import { addPill, adoptNewChatContext, chatListPollMs, chatPrefs, consumeContext, consumedFor, loadPills, nextViewed, pendingContextIssue, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
 
 const isMac = navigator.platform.includes("Mac");
 
@@ -14,6 +14,12 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const [pills, setPills] = useState(() => loadPills(storage));
   const [savedPrefs, setPrefsState] = useState(() => loadPrefs(storage));
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Each issue the user opens becomes pending context for every chat, until
+  // that chat sends or removes it. This outlives the popup, not a reload.
+  const [viewed, setViewed] = useState(() => nextViewed({ seq: 0 }, context.issue_id));
+  const [consumed, setConsumed] = useState<ConsumedContext>({});
+  const nextView = nextViewed(viewed, context.issue_id);
+  if (nextView !== viewed) setViewed(nextView);
 
   const status = useQuery({ queryKey: agentQueryKeys.status, queryFn: fetchAgentStatus, staleTime: Infinity }).data;
   // Picks made in open chats, by chat ID. They last until the next reload,
@@ -72,6 +78,11 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       delete next[id];
       return next;
     }),
+    pendingIssueFor: (id) => {
+      const meta = id ? chats.find((c) => c.id === id) : undefined;
+      return pendingContextIssue(viewed, consumedFor(consumed, id), meta?.mode === "work" ? meta.work?.issue_id : undefined);
+    },
+    consumeContext: (id) => setConsumed((c) => consumeContext(c, id, viewed.seq)),
     toggle: () => setPopupOpen((open) => !open),
     minimize: () => setPopupOpen(false),
     close: () => {
@@ -81,13 +92,14 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     },
     chatCreated: (id) => {
       setChatId(id);
+      setConsumed((c) => adoptNewChatContext(c, id));
       setPills((p) => addPill(p, id));
     },
     chatDeleted: (id) => {
       setPills((p) => removePill(p, id));
       if (chatId === id) setChatId(null);
     },
-  }), [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor, drafts]);
+  }), [status, chats, popupOpen, chatId, visiblePills, context, prefsFor, setPrefsFor, drafts, viewed, consumed]);
 
   useKeyboardShortcuts({
     scope: "global.agent",

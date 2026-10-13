@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MousePointer2, Maximize2, Minus, X } from "lucide-react";
+import { useIssueList } from "../../api/queries";
 import { useAppNav } from "../../app/hooks";
 import { useAgentChat } from "./agent-context";
 import { clampPopupSize, loadPopupSize, popupLeft, safeLocalStorage, savePopupSize, SUGGESTIONS, type PopupSize } from "./agent-state-utils";
@@ -37,16 +38,21 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   });
-  const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft } = agent;
+  const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft, pendingIssueFor, consumeContext } = agent;
   const { openChatView } = useAppNav();
   const { thread, running, send, stop, expireApproval } = useChatSession(chatId, chatCreated);
-  const [dismissedIssue, setDismissedIssue] = useState<string | null>(null);
+  const issues = useIssueList();
 
   const meta = chats.find((c) => c.id === chatId);
-  const issueId = context.issue_id && context.issue_id !== dismissedIssue ? context.issue_id : undefined;
-  const sendText = (text: string) => send(text, issueId ? context : { view: context.view });
-  const empty = isEmptyThread(thread);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
+  // The chip is the context the next message carries; sending uses it up.
+  const issueId = pendingIssueFor(chatId);
+  const issueTitle = issues.find((i) => i.id === issueId)?.title;
+  const sendText = (text: string) => {
+    consumeContext(chatId);
+    return send(text, issueId ? { view: context.view, issue_id: issueId, issue_title: issueTitle } : { view: context.view });
+  };
+  const empty = isEmptyThread(thread);
 
   return (
     <div
@@ -116,8 +122,8 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         running={running}
         disabled={!agent.status?.available}
         placeholder={empty ? "Ask about issues, or the code behind them…" : "Reply…"}
-        contextIssue={issueId ? { id: issueId, title: context.issue_title } : undefined}
-        onDismissContext={() => setDismissedIssue(context.issue_id ?? null)}
+        contextIssue={issueId ? { id: issueId, title: issueTitle } : undefined}
+        onDismissContext={() => consumeContext(chatId)}
         status={agent.status}
         prefs={prefsFor(chatId)}
         providerLocked={thread.turns.length > 0}

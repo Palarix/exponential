@@ -23,6 +23,10 @@ export interface AgentChat {
   draftFor(chatId: string | null): string | undefined;
   /** Called once a draft is in the composer. */
   clearDraft(chatId: string): void;
+  /** The issue a chat's next message carries as context; null is a new chat. */
+  pendingIssueFor(chatId: string | null): string | undefined;
+  /** Clears a chat's pending context, once sent or removed. */
+  consumeContext(chatId: string | null): void;
   toggle(): void;
   minimize(): void;
   close(): void;

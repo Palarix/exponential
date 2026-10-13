@@ -10,6 +10,11 @@ import {
   popupLeft,
   chatListPollMs,
   chatContextFor,
+  adoptNewChatContext,
+  consumeContext,
+  consumedFor,
+  nextViewed,
+  pendingContextIssue,
   chatPrefs,
   composerOptions,
   formatContextWindow,
@@ -317,5 +322,42 @@ describe("popup size storage", () => {
     const s = memory();
     s.setItem("xpo.agent.popupSize", '{"width":"x"}');
     expect(loadPopupSize(s)).toEqual(DEFAULT_POPUP_SIZE);
+  });
+});
+
+describe("context chip", () => {
+  const on = (id?: string) => nextViewed({ seq: 0 }, id);
+  it("adds the viewed issue as pending context once it is opened", () => {
+    expect(pendingContextIssue(on("xpo-1"), undefined, undefined)).toBe("xpo-1");
+    expect(pendingContextIssue(on(undefined), undefined, undefined)).toBeUndefined();
+  });
+  it("clears it once sent or removed, until another issue is opened", () => {
+    const a = on("xpo-1");
+    expect(pendingContextIssue(a, a.seq, undefined)).toBeUndefined();
+    const b = nextViewed(a, "xpo-2");
+    expect(pendingContextIssue(b, a.seq, undefined)).toBe("xpo-2");
+    const back = nextViewed(b, "xpo-1");
+    expect(pendingContextIssue(back, b.seq, undefined)).toBe("xpo-1");
+  });
+  it("keeps the last opened issue on views without one", () => {
+    const a = on("xpo-1");
+    expect(nextViewed(a, undefined)).toBe(a);
+    expect(nextViewed(a, "xpo-1")).toBe(a);
+  });
+  it("never adds the issue a Work Mode chat is bound to", () => {
+    expect(pendingContextIssue(on("xpo-1"), undefined, "xpo-1")).toBeUndefined();
+    expect(pendingContextIssue(on("xpo-2"), undefined, "xpo-1")).toBe("xpo-2");
+  });
+  it("records what each chat consumed, with null as the new chat", () => {
+    let c = consumeContext({}, "a", 1);
+    c = consumeContext(c, null, 2);
+    expect(c).toEqual({ a: 1, "": 2 });
+    expect(consumedFor(c, null)).toBe(2);
+    expect(consumedFor(c, "b")).toBeUndefined();
+  });
+  it("hands the new chat's record to the chat once it exists", () => {
+    expect(adoptNewChatContext({ "": 2, a: 1 }, "b")).toEqual({ a: 1, b: 2 });
+    const c = { a: 1 };
+    expect(adoptNewChatContext(c, "b")).toBe(c);
   });
 });

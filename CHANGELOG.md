@@ -128,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: the composer's issue chip is now the context the next message carries. Opening an issue adds it as a chip. Sending a message carries it and clears the chip, so later turns carry no issue context. A removed chip stays removed after closing and reopening the popup, until you open an issue again. A Work Mode chat never gets its bound issue as a chip. (xpo-c94d85)
 - Review Changes now shows when a worktree's only changes are new, untracked files. Branch stats count them as uncommitted (files and line insertions; gitignored files and `.xpo/` excluded). The dialog opens on "Uncommitted" when the branch has no commits yet, instead of an empty "All changes". When Review Changes shows, it is the primary, top button, and Start Work or Continue Work turns secondary. (xpo-926f0b)
 - Agent chat: opening an existing chat (Recent chats, Start Work or Continue Work, an issue's chat pill or chats list) now adds its status-bar pill, so minimizing it no longer loses the way back. (xpo-b45049)
 - `XPO_*` environment variables now set every config key, as the README promised. Before, a key without a default, such as `XPO_REMOTE_URL`, was ignored unless a config file already set it. List keys take a comma-separated value. Map keys (`labels`, `permissions`) can still only be set in a config file. (xpo-e81612)

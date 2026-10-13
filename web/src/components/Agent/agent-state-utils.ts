@@ -231,6 +231,48 @@ export function chatContextFor(view: ViewId, issueId: string | null, issues: Iss
   return ctx;
 }
 
+/** The last issue the user opened; seq counts the times they opened one. */
+export interface ViewedIssue {
+  id?: string;
+  seq: number;
+}
+
+/** Opening a different issue counts; views without an issue keep the last one. */
+export function nextViewed(v: ViewedIssue, issueId: string | undefined): ViewedIssue {
+  return issueId && issueId !== v.id ? { id: issueId, seq: v.seq + 1 } : v;
+}
+
+/**
+ * The issue a chat's next message carries as context, shown as the
+ * composer's chip: the last opened issue, until the chat sends or removes
+ * it (consumed is the seq it did so at). A Work Mode chat never gets its
+ * bound issue: the mode names it already.
+ */
+export function pendingContextIssue(viewed: ViewedIssue, consumed: number | undefined, workIssue: string | undefined): string | undefined {
+  return viewed.id && viewed.seq > (consumed ?? 0) && viewed.id !== workIssue ? viewed.id : undefined;
+}
+
+// The new chat, which has no ID yet, keeps its record under this key.
+const NEW_CHAT = "";
+
+/** By chat ID, the viewed issue seq up to which a chat sent or removed its context. */
+export type ConsumedContext = Record<string, number>;
+
+export function consumedFor(c: ConsumedContext, chatId: string | null): number | undefined {
+  return c[chatId ?? NEW_CHAT];
+}
+
+export function consumeContext(c: ConsumedContext, chatId: string | null, seq: number): ConsumedContext {
+  return { ...c, [chatId ?? NEW_CHAT]: seq };
+}
+
+/** Moves the new chat's record to the chat once it exists. */
+export function adoptNewChatContext(c: ConsumedContext, id: string): ConsumedContext {
+  if (!(NEW_CHAT in c)) return c;
+  const { [NEW_CHAT]: seq, ...rest } = c;
+  return { ...rest, [id]: seq };
+}
+
 const EFFORT_LABELS: Record<string, string> = {
   low: "Low",
   medium: "Medium",
