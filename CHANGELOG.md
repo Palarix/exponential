@@ -122,11 +122,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat popup: it opens centered above its status-bar pill, or above the Agent button for a new chat, instead of the bottom-right corner. It is resizable from its top edge, sides and top corners, from 360×400 up to 600×900, and remembers its size. (xpo-b45049)
 - Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch pill shows its commit count and the chat pill its chat count; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9)
 - Agent chat polish: mode dividers read "Entered Work Mode on xpo-…" and "Entered Chat Mode". The Work Mode segment shows the hammer and the issue ID, without "Work ·". The send and stop buttons are 24px. (xpo-219de9)
 
 ### Fixed
 
+- Agent chat: opening an existing chat (Recent chats, Start Work or Continue Work, an issue's chat pill or chats list) now adds its status-bar pill, so minimizing it no longer loses the way back. (xpo-b45049)
 - `XPO_*` environment variables now set every config key, as the README promised. Before, a key without a default, such as `XPO_REMOTE_URL`, was ignored unless a config file already set it. List keys take a comma-separated value. Map keys (`labels`, `permissions`) can still only be set in a config file. (xpo-e81612)
 - Plain issue IDs in descriptions, comments and chat answers were never linked, because the API sends the prefix without the hyphen. (xpo-b83f1c)
 - Agent chat tool calls:

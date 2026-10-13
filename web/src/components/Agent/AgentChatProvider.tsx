@@ -3,11 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
-import { addPill, chatListPollMs, chatPrefs, loadPills, loadPrefs, normalizePrefs, removePill, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
-
-function safeLocalStorage(): Storage | null {
-  try { return window.localStorage; } catch { return null; }
-}
+import { addPill, chatListPollMs, chatPrefs, loadPills, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, type ChatPrefs } from "./agent-state-utils";
 
 const isMac = navigator.platform.includes("Mac");
 
@@ -65,6 +61,8 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     openChat: (id, draft) => {
       if (draft) setDrafts((d) => ({ ...d, [id]: draft }));
       setChatId(id);
+      // Every open chat gets a pill, so minimizing never loses the way back.
+      setPills((p) => addPill(p, id));
       setPopupOpen(true);
     },
     draftFor: (id) => (id ? drafts[id] : undefined),

@@ -5,6 +5,12 @@ import { VIEW_BY_ID, type ViewId } from "../../views";
 
 const PILLS_KEY = "xpo.agent.pills";
 const PREFS_KEY = "xpo.agent.prefs";
+const POPUP_SIZE_KEY = "xpo.agent.popupSize";
+
+/** The browser's localStorage, or null when it is blocked. */
+export function safeLocalStorage(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
+}
 
 function readJSON(storage: Storage | null, key: string): unknown {
   try {
@@ -39,6 +45,46 @@ export function savePills(storage: Storage | null, pills: string[]): void {
  */
 export function chatListPollMs(chats: { state: string }[] | undefined): number | false {
   return chats?.some((c) => c.state === "running") ? 2000 : false;
+}
+
+export interface PopupSize {
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_POPUP_SIZE: PopupSize = { width: 460, height: 600 };
+const MIN_POPUP: PopupSize = { width: 360, height: 400 };
+const MAX_POPUP: PopupSize = { width: 600, height: 900 };
+
+/**
+ * A popup size within 360x400 to 600x900 that also fits the viewport: 12px
+ * margins at the sides, and 64px of height for the status bar and a gap.
+ */
+export function clampPopupSize(size: PopupSize, viewport: PopupSize): PopupSize {
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(v, max));
+  return {
+    width: clamp(size.width, MIN_POPUP.width, Math.min(MAX_POPUP.width, viewport.width - 24)),
+    height: clamp(size.height, MIN_POPUP.height, Math.min(MAX_POPUP.height, viewport.height - 64)),
+  };
+}
+
+/** The popup size the viewer last chose; the default without one. */
+export function loadPopupSize(storage: Storage | null): PopupSize {
+  const v = readJSON(storage, POPUP_SIZE_KEY) as Partial<PopupSize> | null;
+  return v && typeof v.width === "number" && typeof v.height === "number" ? { width: v.width, height: v.height } : DEFAULT_POPUP_SIZE;
+}
+
+export function savePopupSize(storage: Storage | null, size: PopupSize): void {
+  writeJSON(storage, POPUP_SIZE_KEY, size);
+}
+
+/**
+ * The left edge of a popup of width centered over an anchor whose center is
+ * at anchorCenter, kept margin px inside a viewport of viewportWidth.
+ */
+export function popupLeft(anchorCenter: number, width: number, viewportWidth: number, margin = 12): number {
+  const max = viewportWidth - width - margin;
+  return Math.max(margin, Math.min(anchorCenter - width / 2, max));
 }
 
 export function addPill(pills: string[], id: string): string[] {

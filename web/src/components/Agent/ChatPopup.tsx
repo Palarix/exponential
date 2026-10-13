@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MousePointer2, Maximize2, Minus, X } from "lucide-react";
 import { useAppNav } from "../../app/hooks";
 import { useAgentChat } from "./agent-context";
-import { SUGGESTIONS } from "./agent-state-utils";
+import { clampPopupSize, loadPopupSize, popupLeft, safeLocalStorage, savePopupSize, SUGGESTIONS, type PopupSize } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
@@ -12,8 +12,31 @@ import { useWorkMode } from "./useWorkMode";
 
 const headerButton = "p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]";
 
-export default function ChatPopup() {
+/**
+ * The chat popup. It floats centered above anchor(): the open chat's pill,
+ * or the Agent button for a new chat.
+ */
+export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) {
   const agent = useAgentChat();
+  const ref = useRef<HTMLDivElement>(null);
+  const [storage] = useState(safeLocalStorage);
+  const [size, setSize] = useState(() => loadPopupSize(storage));
+
+  // Position after every render, and on resize: pills come and go, and their
+  // widths change with titles. Writing the style directly avoids a re-render.
+  useLayoutEffect(() => {
+    const place = () => {
+      const pop = ref.current;
+      const a = anchor()?.getBoundingClientRect();
+      if (!pop || !a) return;
+      pop.style.left = `${popupLeft(a.left + a.width / 2, pop.offsetWidth, window.innerWidth)}px`;
+      pop.style.bottom = `${window.innerHeight - a.top + 8}px`;
+      pop.style.visibility = "visible";
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  });
   const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft } = agent;
   const { openChatView } = useAppNav();
   const { thread, running, send, stop, expireApproval } = useChatSession(chatId, chatCreated);
@@ -27,16 +50,19 @@ export default function ChatPopup() {
 
   return (
     <div
+      ref={ref}
       role="dialog"
       aria-label="Agent chat"
+      style={{ visibility: "hidden", width: size.width, height: size.height }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.stopPropagation();
           agent.minimize();
         }
       }}
-      className="absolute right-3 bottom-10 z-40 w-[460px] max-w-[calc(100vw-1.5rem)] h-[600px] max-h-[calc(100vh-4rem)] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-overlay)] bg-[var(--color-surface-1)] shadow-[var(--shadow-popover)] overflow-hidden"
+      className="fixed z-40 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-4rem)] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-overlay)] bg-[var(--color-surface-1)] shadow-[var(--shadow-popover)] overflow-hidden"
     >
+      <ResizeHandles size={size} onResize={setSize} onDone={(next) => savePopupSize(storage, next)} />
       <div className="flex items-center gap-1 pl-4 pr-2 h-12 shrink-0">
         <ChatTitleBar
           chat={meta}
@@ -105,5 +131,48 @@ export default function ChatPopup() {
         onDraftUsed={() => chatId && clearDraft(chatId)}
       />
     </div>
+  );
+}
+
+// Each handle grows the popup in its directions: x is -1 (left edge), 1
+// (right edge) or 0; y is 1 for the top edge, 0 otherwise. The popup stays
+// centered on its anchor, so a side drag grows both sides.
+const HANDLES: { x: -1 | 0 | 1; y: 0 | 1; className: string }[] = [
+  { x: 0, y: 1, className: "top-0 inset-x-3 h-1.5 cursor-ns-resize" },
+  { x: -1, y: 0, className: "left-0 inset-y-3 w-1.5 cursor-ew-resize" },
+  { x: 1, y: 0, className: "right-0 inset-y-3 w-1.5 cursor-ew-resize" },
+  { x: -1, y: 1, className: "top-0 left-0 w-3 h-3 cursor-nwse-resize" },
+  { x: 1, y: 1, className: "top-0 right-0 w-3 h-3 cursor-nesw-resize" },
+];
+
+/** Drag handles on the popup's top edge, sides and top corners. */
+function ResizeHandles({ size, onResize, onDone }: { size: PopupSize; onResize(s: PopupSize): void; onDone(s: PopupSize): void }) {
+  const start = (e: ReactPointerEvent<HTMLDivElement>, x: number, y: number) => {
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const from = { x: e.clientX, y: e.clientY, ...size };
+    let next = size;
+    const move = (ev: PointerEvent) => {
+      next = clampPopupSize(
+        { width: from.width + x * 2 * (ev.clientX - from.x), height: from.height - y * (ev.clientY - from.y) },
+        { width: window.innerWidth, height: window.innerHeight },
+      );
+      onResize(next);
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      onDone(next);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+  };
+  return (
+    <>
+      {HANDLES.map((h) => (
+        <div key={h.className} aria-hidden onPointerDown={(e) => start(e, h.x, h.y)} className={`absolute z-10 ${h.className}`} />
+      ))}
+    </>
   );
 }

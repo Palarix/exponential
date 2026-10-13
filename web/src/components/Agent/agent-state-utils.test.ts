@@ -3,6 +3,11 @@ import { makeIssue } from "../../test-utils";
 import type { AgentStatus } from "../../api/chat";
 import {
   addPill,
+  clampPopupSize,
+  loadPopupSize,
+  savePopupSize,
+  DEFAULT_POPUP_SIZE,
+  popupLeft,
   chatListPollMs,
   chatContextFor,
   chatPrefs,
@@ -265,5 +270,52 @@ describe("chatListPollMs", () => {
     expect(chatListPollMs([c("idle"), c("running")])).toBe(2000);
     expect(chatListPollMs([c("idle"), c("interrupted")])).toBe(false);
     expect(chatListPollMs(undefined)).toBe(false);
+  });
+});
+
+describe("popupLeft", () => {
+  // A 460px popup in a 1600px window, 12px from the edges.
+  it("centers the popup over its anchor", () => {
+    expect(popupLeft(800, 460, 1600)).toBe(570);
+  });
+  it("keeps it inside the window near an edge", () => {
+    expect(popupLeft(1580, 460, 1600)).toBe(1128);
+    expect(popupLeft(40, 460, 1600)).toBe(12);
+  });
+  it("pins it to the left margin when the window is narrower than the popup", () => {
+    expect(popupLeft(200, 460, 400)).toBe(12);
+  });
+});
+
+describe("clampPopupSize", () => {
+  const big = { width: 3000, height: 2000 };
+  it("keeps the size between 360x400 and 600x900", () => {
+    expect(clampPopupSize({ width: 100, height: 100 }, big)).toEqual({ width: 360, height: 400 });
+    expect(clampPopupSize({ width: 999, height: 999 }, big)).toEqual({ width: 600, height: 900 });
+    expect(clampPopupSize({ width: 500, height: 700 }, big)).toEqual({ width: 500, height: 700 });
+  });
+  it("never exceeds the window, minus its margins", () => {
+    // 24px of side margins; 64px above and below for the status bar.
+    expect(clampPopupSize({ width: 600, height: 900 }, { width: 500, height: 700 })).toEqual({ width: 476, height: 636 });
+  });
+});
+
+describe("popup size storage", () => {
+  function memory(): Storage {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) } as unknown as Storage;
+  }
+  it("defaults to 460x600 and round-trips a saved size", () => {
+    const s = memory();
+    expect(loadPopupSize(s)).toEqual(DEFAULT_POPUP_SIZE);
+    expect(DEFAULT_POPUP_SIZE).toEqual({ width: 460, height: 600 });
+    savePopupSize(s, { width: 520, height: 800 });
+    expect(loadPopupSize(s)).toEqual({ width: 520, height: 800 });
+    expect(loadPopupSize(null)).toEqual(DEFAULT_POPUP_SIZE);
+  });
+  it("ignores a malformed value", () => {
+    const s = memory();
+    s.setItem("xpo.agent.popupSize", '{"width":"x"}');
+    expect(loadPopupSize(s)).toEqual(DEFAULT_POPUP_SIZE);
   });
 });

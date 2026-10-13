@@ -16,6 +16,8 @@ export default function AgentStatusBar() {
   const agent = useAgentChat();
   const { status, chats, pills, popupOpen, chatId } = agent;
   const historyRef = useRef<HTMLButtonElement>(null);
+  const agentRef = useRef<HTMLButtonElement>(null);
+  const pillRefs = useRef(new Map<string, HTMLButtonElement>());
   const [historyOpen, setHistoryOpen] = useState(false);
   if (!status) return null;
 
@@ -30,6 +32,10 @@ export default function AgentStatusBar() {
           return (
             <button
               key={c.id}
+              ref={(el) => {
+                if (el) pillRefs.current.set(c.id, el);
+                else pillRefs.current.delete(c.id);
+              }}
               type="button"
               onClick={() => (active ? agent.minimize() : agent.openChat(c.id))}
               className={`flex items-center gap-1.5 max-w-48 h-6 px-2.5 rounded-[var(--radius-md)] text-xs transition-colors ${active ? "bg-[var(--color-surface-3)] text-[var(--color-text-primary)]" : "bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]"}`}
@@ -43,6 +49,7 @@ export default function AgentStatusBar() {
           {/* A span keeps the tooltip working while the button is disabled. */}
           <span>
             <button
+              ref={agentRef}
               type="button"
               disabled={!available}
               onClick={() => (popupOpen && chatId === null ? agent.minimize() : agent.openNew())}
@@ -82,7 +89,8 @@ export default function AgentStatusBar() {
           </Popover>
         )}
       </div>
-      {popupOpen && available && <ChatPopup />}
+      {/* The popup floats above the open chat's pill, or the Agent button for a new chat. */}
+      {popupOpen && available && <ChatPopup anchor={() => (chatId ? pillRefs.current.get(chatId) : undefined) ?? agentRef.current} />}
     </>
   );
 }
