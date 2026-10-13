@@ -41,10 +41,11 @@ func askRules(t *testing.T, args []string) []string {
 func TestChatProfile_Claude(t *testing.T) {
 	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: ChatProfile("/repo", true)})
 
-	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob" {
+	// Skill lets the agent load the project's xpo workflow (xpo-a058b4).
+	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob,Skill" {
 		t.Errorf("--tools = %q", got)
 	}
-	if got := flagValues(args, "--allowedTools"); !slices.Equal(got, []string{"mcp__xpo__*"}) {
+	if got := flagValues(args, "--allowedTools"); !slices.Equal(got, []string{"mcp__xpo__*", "Skill"}) {
 		t.Errorf("--allowedTools = %v", got)
 	}
 	// A deny rule holds in every permission mode, so no later permission
@@ -70,14 +71,14 @@ func TestWorkProfile_Claude(t *testing.T) {
 	wt := t.TempDir()
 	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: WorkProfile("xpo-1", wt)})
 
-	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob,Edit,Write,Bash" {
+	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob,Edit,Write,Bash,Skill" {
 		t.Errorf("--tools = %q", got)
 	}
 	allowed := flagValues(args, "--allowedTools")
 	// "//" starts an absolute path in a Claude Code rule; an Edit rule also
 	// covers Write. Measured with Claude Code 2.1.296.
 	real, _ := filepath.EvalSymlinks(wt)
-	for _, want := range []string{"mcp__xpo__*", "Bash", "Edit(/" + real + "/**)"} {
+	for _, want := range []string{"mcp__xpo__*", "Skill", "Bash", "Edit(/" + real + "/**)"} {
 		if !slices.Contains(allowed, want) {
 			t.Errorf("--allowedTools = %v, missing %q", allowed, want)
 		}

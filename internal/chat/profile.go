@@ -73,11 +73,12 @@ func mcpNames(tools []string) []string {
 	return out
 }
 
+// Skill, in both modes, lets the agent load the project's xpo workflow.
 func (p Profile) claudeTools() string {
 	if p.work() {
-		return "Read,Grep,Glob,Edit,Write,Bash"
+		return "Read,Grep,Glob,Edit,Write,Bash,Skill"
 	}
-	return "Read,Grep,Glob"
+	return "Read,Grep,Glob,Skill"
 }
 
 // claudeSettings holds the ask rules. An ask rule wins over the xpo
@@ -88,12 +89,13 @@ func (p Profile) claudeSettings() string {
 	return string(data)
 }
 
-// claudeAllowed is the allow list. In Work Mode, edits inside the worktree
+// claudeAllowed is the allow list. Loading a skill only adds instructions,
+// so it never asks. In Work Mode, edits inside the worktree
 // and every Bash command run without a card. "//" starts an absolute path in
 // a Claude Code rule, and an Edit rule covers Write too. The rule is added
 // for the resolved path as well, so a symlinked worktree matches either way.
 func (p Profile) claudeAllowed() []string {
-	allowed := []string{"mcp__xpo__*"}
+	allowed := []string{"mcp__xpo__*", "Skill"}
 	if !p.work() {
 		return allowed
 	}

@@ -185,6 +185,11 @@ describe("toolSummary", () => {
     expect(toolSummary("Glob", "**/*.tsx")).toEqual({ text: "Found files matching", detail: "**/*.tsx" });
   });
 
+  it("names the skill the agent loaded", () => {
+    expect(toolSummary("Skill", "xpo")).toEqual({ text: "Loaded the skill", detail: "xpo" });
+    expect(approvalTitle("Skill", "xpo")).toEqual({ action: "Load the skill", detail: "xpo" });
+  });
+
   it("describes xpo tools in words", () => {
     expect(toolSummary("mcp__xpo__list", "")).toEqual({ text: "Listed issues", detail: "" });
     expect(toolSummary("mcp__xpo__list", "login")).toEqual({ text: "Listed issues matching", detail: "login" });

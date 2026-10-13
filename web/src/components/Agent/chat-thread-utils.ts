@@ -257,6 +257,7 @@ const TOOL_VERBS: Record<string, ToolVerbs> = {
   Read: { verb: "Read", action: "Read" },
   Grep: { verb: "Searched the code for", bare: "Searched the code", action: "Search the code for", bareAction: "Search the code" },
   Glob: { verb: "Found files matching", bare: "Listed files", action: "Find files matching", bareAction: "List files" },
+  Skill: { verb: "Loaded the skill", action: "Load the skill" },
   "xpo list": { verb: "Listed issues matching", bare: "Listed issues", action: "List issues matching", bareAction: "List issues" },
   "xpo show": { verb: "Opened", action: "Open" },
   "xpo history": { verb: "Read the history of", action: "Read the history of" },
