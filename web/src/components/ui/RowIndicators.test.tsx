@@ -32,12 +32,12 @@ describe("BranchBadge", () => {
 });
 
 describe("AttachmentIndicator", () => {
-  it("is a paperclip pill with the count in its tooltip", () => {
+  it("is a paperclip pill with the count, also in its tooltip", () => {
     const html = renderMarkup(<AttachmentIndicator count={2} />);
     expect(html).toContain("lucide-paperclip");
     expect(html).toContain('title="2 attachments"');
     expect(html).toContain("rounded-full");
-    expect(html).not.toMatch(/<\/svg>\d/);
+    expect(html).toMatch(/<\/svg>2<\/span>/);
     expect(renderMarkup(<AttachmentIndicator count={1} />)).toContain('title="1 attachment"');
   });
 });

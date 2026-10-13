@@ -1,7 +1,7 @@
 import { Paperclip } from "lucide-react";
 import { indicatorPill } from "./indicator-pill";
 
-/** A row indicator that the issue has attachments; the count is in its tooltip. */
+/** A row indicator with the issue's attachment count. */
 export default function AttachmentIndicator({ count }: { count: number }) {
   return (
     <span
@@ -9,6 +9,7 @@ export default function AttachmentIndicator({ count }: { count: number }) {
       title={`${count} ${count === 1 ? "attachment" : "attachments"}`}
     >
       <Paperclip size={12} strokeWidth={1.75} />
+      {count}
     </span>
   );
 }

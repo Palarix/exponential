@@ -128,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The attachment pill on backlog rows and board cards shows its count again, like the branch, chat and sub-issue pills. (xpo-199a69)
 - Agent chat: an open chat keeps following new output while you're at the bottom, also when a card or code block grows after it renders, the composer grows, or the popup is resized. Only scrolling up stops following; scrolling back to the end resumes it. (xpo-63b755)
 - Agent chat: the agent can now load skills, in Chat Mode and Work Mode, without an approval card. Its prompt tells it to load the `xpo` skill before planning or changing anything, so Work Mode follows the project's workflow: spec, handoff, and a stop for review. A skill load shows as "Loaded the skill xpo". (xpo-a058b4)
 - Agent chat: maximizing a chat popup into the Agent view now removes its pill from the status bar. A dock button at the right of the Agent view's header puts the chat back in the status bar as a popup and returns to the view you were on before. (xpo-b204f1)
