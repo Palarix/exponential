@@ -11,13 +11,13 @@ export function ActivityValue({ children }: { children: React.ReactNode }) {
   return <span className={HOVER}>{children}</span>;
 }
 
-// Chips are inline text, not flex boxes, so the label sits on the row's
-// baseline. Only the icon is centered on the text: an inline-flex chip with
-// align-middle centers the whole chip and drops its label below the line.
-// lift adds an optical correction for icons whose ink is not centered in the
-// box (see EstimateChip).
+// Chips are flex items in the system row, which centers them on the row's
+// text; the chip in turn centers its icon on its label. lift adds an optical
+// correction for icons whose ink is not centered in the box (see EstimateChip).
+const CHIP = `inline-flex items-center ${HOVER}`;
+
 function ChipIcon({ children, lift }: { children: React.ReactNode; lift?: string }) {
-  return <span className={`mr-1 inline-block align-middle [&>svg]:block ${lift ?? ""}`}>{children}</span>;
+  return <span className={`mr-1 [&>svg]:block ${lift ?? ""}`}>{children}</span>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -30,7 +30,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function StatusChip({ status }: { status: string }) {
   return (
-    <span className={HOVER}>
+    <span className={CHIP}>
       <ChipIcon>
         <StatusIcon status={status} size={12} />
       </ChipIcon>
@@ -41,9 +41,9 @@ export function StatusChip({ status }: { status: string }) {
 
 export function EstimateChip({ points }: { points: number }) {
   return (
-    <span className={HOVER}>
-      {/* Lucide's triangle base hangs 1.5px below the baseline when centered. */}
-      <ChipIcon lift="relative -top-[1.5px]">
+    <span className={CHIP}>
+      {/* Lucide's triangle sits 0.25px low when centered on the label. */}
+      <ChipIcon lift="relative -top-[0.25px]">
         <Triangle className="w-3 h-3" />
       </ChipIcon>
       {points} {points === 1 ? "Point" : "Points"}
@@ -53,7 +53,7 @@ export function EstimateChip({ points }: { points: number }) {
 
 export function PriorityChip({ priority }: { priority: number }) {
   return (
-    <span className={HOVER}>
+    <span className={CHIP}>
       <ChipIcon>
         <PriorityIcon priority={priority} size={12} />
       </ChipIcon>

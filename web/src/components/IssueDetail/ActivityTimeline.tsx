@@ -147,8 +147,9 @@ export default function ActivityTimeline({
                   <span className="flex h-5 items-center">
                     <Avatar name={entry.actor} size="sm" />
                   </span>
-                  {/* One run of text, so parts are separated by word spaces and long rows wrap like a sentence. */}
-                  <div data-activity="system" className="min-w-0 leading-5">
+                  {/* Text runs and chips are flex items centered on one line; the gap
+                      stands in for the word spaces flex drops, and long rows wrap. */}
+                  <div data-activity="system" className="flex min-w-0 flex-wrap items-center gap-x-1 leading-5">
                     <ActivityValue>
                       <ActorName name={entry.author} via={entry.via} />
                     </ActivityValue>{" "}

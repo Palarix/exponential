@@ -59,8 +59,6 @@ describe("ActivityTimeline system rows", () => {
     );
     // Hoverable parts show a pointer cursor.
     expect(row).toMatch(/<span class="[^"]*cursor-pointer[^"]*"><span[^>]*>Alice Smith<\/span><\/span>/);
-    // Chips are inline text, not flex boxes, so their label shares the row's baseline.
-    expect(row).not.toMatch(/class="[^"]*inline-flex[^"]*"><svg/);
     // Each value's chip carries the hover highlight; its wrapped icon comes first.
     const html = row.replace(/<!-- -->/g, "");
     for (const value of ["3 Points", "High"]) {
@@ -68,11 +66,23 @@ describe("ActivityTimeline system rows", () => {
     }
   });
 
-  it("flows as text without a flex gap", () => {
+  // Bug xpo-d3578a: inline chips sat off the row's text line, so the row and
+  // its chips are flex boxes that center their items.
+  it("centers chips and text in a wrapping flex row", () => {
     const row = systemRow(render([update]));
-    const containerClass = row.match(/^<div class="([^"]*)"/)?.[1] ?? "";
-    expect(containerClass).not.toMatch(/\bflex\b/);
-    expect(containerClass).not.toMatch(/\bgap-/);
+    const containerClass = row.match(/^<div[^>]* class="([^"]*)"/)?.[1] ?? "";
+    for (const cls of ["flex", "flex-wrap", "items-center", "gap-x-1"]) {
+      expect(containerClass.split(" ")).toContain(cls);
+    }
+    const html = row.replace(/<!-- -->/g, "");
+    for (const value of ["3 Points", "High"]) {
+      const chipClass = html.match(new RegExp(`<span class="([^"]*)"><span[^>]*><svg[\\s\\S]*?</svg></span>${value}</span>`))?.[1] ?? "";
+      expect(chipClass.split(" ")).toEqual(expect.arrayContaining(["inline-flex", "items-center"]));
+    }
+  });
+
+  it("reads as one sentence", () => {
+    const row = systemRow(render([update]));
     const text = row.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
     const [sentence, time] = text.split(" · ");
     expect(sentence).toBe("Alice Smith set estimate to 3 Points and set priority to High");

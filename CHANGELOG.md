@@ -139,6 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Issue activity: status, estimate and priority chips now line up with the row's text. The row and its chips use flex centering instead of baseline-aligned inline text. (xpo-d3578a)
 - Agent chat: `xpo spec`, `xpo walkthrough` and `xpo artifact` calls always read "Read the … of" and showed no issue, also for writes. Tool details for MCP tools now include the call's `operation` and `issue_id` ("write xpo-1"), for Claude, Codex and approval cards, and the chat words them "Wrote the spec of xpo-1". (xpo-855e28)
 - Agent chat: Work Mode no longer asks for approval every time the agent edits its issue's spec or walkthrough. Claude may now edit files in the bound issue's `.xpo/artifacts/<issue>/` folder without a card. Other issues' artifacts and everything else outside the worktree still ask. (xpo-2c724e)
 
