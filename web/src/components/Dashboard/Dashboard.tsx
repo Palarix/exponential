@@ -1,6 +1,6 @@
 import { useContext, useMemo, useState } from "react";
 import type { AttentionItem } from "../../api/client";
-import { Avatar, Card, CopyableId, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, SubProgress, Text, TopBar, ViewContainer } from "../ui";
+import { Avatar, Card, CountBadge, EmptyState, Heading, LabelColorsContext, PriorityIcon, StatusIcon, Text, TopBar, ViewContainer } from "../ui";
 // @ts-expect-error kept for future dashboard personalization
 import { formatTriage } from "../../utils/format"; // eslint-disable-line
 import { formatDuration, shortName } from "../../utils/format";
@@ -10,6 +10,7 @@ import { SECTION_ICONS } from "./sectionIcons";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
+import EpicRow from "./EpicRow";
 import { useActivity, useIssueList, useMetrics } from "../../api/queries";
 import { useAppNav, useIssueClick } from "../../app/hooks";
 import DistributionSection, { type DistFilter, type DistRow } from "./DistributionSection";
@@ -449,18 +450,7 @@ export default function Dashboard() {
           <div className="py-2">
             {metrics.epics.map((ep) => {
               const issue = issues.find((i) => i.id === ep.issue_id);
-              return (
-                <button key={ep.issue_id} onClick={() => issue && onIssueClick?.(issue)} className="flex items-center gap-3 w-full px-5 py-2 text-left transition-colors hover:bg-[var(--color-hover-surface)]">
-                  <StatusIcon status={issue?.status || "PLANNED"} size={14} isInferred={issue?.is_inferred} />
-                  <span className="text-sm text-[var(--color-text-primary)] truncate">{ep.title}</span>
-                  <CopyableId id={ep.issue_id} className="text-xs shrink-0 tabular-nums" />
-                  {ep.stale && <span className="text-xs uppercase tracking-wider font-medium px-2 py-1 rounded border shrink-0 text-[var(--color-warning)] border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10">STALE</span>}
-                  <span className="ml-auto flex items-center gap-2 text-xs text-[var(--color-text-muted)] shrink-0">
-                    <SubProgress done={ep.children_done} total={ep.children_total} />
-                    {ep.children_done}/{ep.children_total}
-                  </span>
-                </button>
-              );
+              return <EpicRow key={ep.issue_id} epic={ep} issue={issue} onOpen={() => issue && onIssueClick?.(issue)} />;
             })}
           </div>
         )}

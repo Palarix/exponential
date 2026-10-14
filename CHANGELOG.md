@@ -141,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Markdown: rendered checklist items now wrap like the editor. Wrapped lines line up with the first line of text instead of the checkbox, and the checkbox sits at the editor's height. (xpo-d4e6e4)
 - Issue activity: status, estimate and priority chips now line up with the row's text. The row and its chips use flex centering instead of baseline-aligned inline text. (xpo-d3578a)
+- Dashboard: Active Epics rows no longer nest the copyable issue ID button inside the row button, which was invalid HTML and logged a React error on every Dashboard load. Clicking the row still opens the epic; clicking the ID copies it. (xpo-66c6a4)
 - Agent chat: `xpo spec`, `xpo walkthrough` and `xpo artifact` calls always read "Read the … of" and showed no issue, also for writes. Tool details for MCP tools now include the call's `operation` and `issue_id` ("write xpo-1"), for Claude, Codex and approval cards, and the chat words them "Wrote the spec of xpo-1". (xpo-855e28)
 - Agent chat: Work Mode no longer asks for approval every time the agent edits its issue's spec or walkthrough. Claude may now edit files in the bound issue's `.xpo/artifacts/<issue>/` folder without a card. Other issues' artifacts and everything else outside the worktree still ask. (xpo-2c724e)
 
