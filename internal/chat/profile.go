@@ -24,6 +24,7 @@ type WorkBinding struct {
 type Profile struct {
 	Mode    string
 	Dir     string // the agent's working directory
+	Root    string // Work Mode: the project root, where .xpo/artifacts lives
 	IssueID string // Work Mode: the bound issue
 	// CanWork lets a Chat Mode turn call start, behind an approval card.
 	// False in remote mode, where start runs on the server (xpo-a60065).
@@ -36,9 +37,10 @@ func ChatProfile(root string, canWork bool) Profile {
 	return Profile{Mode: ModeChat, Dir: root, CanWork: canWork}
 }
 
-// WorkProfile implements issueID in worktree. merge asks.
-func WorkProfile(issueID, worktree string) Profile {
-	return Profile{Mode: ModeWork, Dir: worktree, IssueID: issueID}
+// WorkProfile implements issueID in worktree. root is the project root that
+// holds the issue's artifacts. merge asks.
+func WorkProfile(issueID, worktree, root string) Profile {
+	return Profile{Mode: ModeWork, Dir: worktree, Root: root, IssueID: issueID}
 }
 
 func (p Profile) work() bool { return p.Mode == ModeWork }
@@ -90,20 +92,32 @@ func (p Profile) claudeSettings() string {
 }
 
 // claudeAllowed is the allow list. Loading a skill only adds instructions,
-// so it never asks. In Work Mode, edits inside the worktree
-// and every Bash command run without a card. "//" starts an absolute path in
-// a Claude Code rule, and an Edit rule covers Write too. The rule is added
-// for the resolved path as well, so a symlinked worktree matches either way.
+// so it never asks. In Work Mode, edits inside the worktree, edits to the
+// bound issue's artifacts (the spec tool hands out spec.md's path, outside
+// the worktree), and every Bash command run without a card. "//" starts an
+// absolute path in a Claude Code rule, and an Edit rule covers Write too.
 func (p Profile) claudeAllowed() []string {
 	allowed := []string{"mcp__xpo__*", "Skill"}
 	if !p.work() {
 		return allowed
 	}
-	allowed = append(allowed, "Bash", "Edit(/"+p.Dir+"/**)")
-	if real, err := filepath.EvalSymlinks(p.Dir); err == nil && real != p.Dir {
-		allowed = append(allowed, "Edit(/"+real+"/**)")
+	allowed = append(allowed, "Bash")
+	allowed = append(allowed, editRules(p.Dir, "")...)
+	if p.Root != "" && p.IssueID != "" {
+		allowed = append(allowed, editRules(p.Root, filepath.Join(".xpo", "artifacts", p.IssueID))...)
 	}
 	return allowed
+}
+
+// editRules allows edits under base/sub. The rule is added for the resolved
+// base as well, so a symlinked dir matches either way. Only base is resolved:
+// sub may not exist yet, such as an issue's artifacts before its first spec.
+func editRules(base, sub string) []string {
+	rules := []string{"Edit(/" + filepath.Join(base, sub) + "/**)"}
+	if real, err := filepath.EvalSymlinks(base); err == nil && real != base {
+		rules = append(rules, "Edit(/"+filepath.Join(real, sub)+"/**)")
+	}
+	return rules
 }
 
 func (p Profile) claudeDisallowed() []string { return mcpNames(p.deniedTools()) }

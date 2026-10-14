@@ -135,6 +135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: Work Mode no longer asks for approval every time the agent edits its issue's spec or walkthrough. Claude may now edit files in the bound issue's `.xpo/artifacts/<issue>/` folder without a card. Other issues' artifacts and everything else outside the worktree still ask. (xpo-2c724e)
+
 - Issue activity timeline: every field change is described, cleared values read as words, and rows read as muted sentences. (xpo-ca763f)
   - **New descriptions:** priority ("set priority to High" / "cleared the priority"), parent ("set parent to [issue]" / "removed the parent issue") and cycle ("added this issue to Cycle 12" / "removed this issue from its cycle").
   - **Cleared values:** a cleared estimate reads "cleared the estimate" instead of "set estimate to 0 Points". Removing the assignee reads "removed the assignee"; before, such an event had no text. Removing all labels reads "removed all labels" on the web and in the CLI.

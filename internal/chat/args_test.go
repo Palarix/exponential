@@ -85,7 +85,7 @@ func TestBuildPrompt(t *testing.T) {
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
 	}
-	got = buildPrompt("go", nil, WorkProfile("xpo-1", "/wt"))
+	got = buildPrompt("go", nil, WorkProfile("xpo-1", "/wt", "/repo"))
 	if want := "<xpo-context>\nmode: work on xpo-1\nworktree: /wt\n</xpo-context>\n\ngo"; got != want {
 		t.Errorf("work: %q", got)
 	}

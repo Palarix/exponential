@@ -31,7 +31,7 @@ func (r *Runner) CanWork() bool { return r.cfg.CanWork }
 // profileFor builds the turn's profile from the chat's mode.
 func (r *Runner) profileFor(m Meta) Profile {
 	if m.Mode == ModeWork && m.Work != nil {
-		return WorkProfile(m.Work.IssueID, m.Work.Worktree)
+		return WorkProfile(m.Work.IssueID, m.Work.Worktree, r.cfg.Dir)
 	}
 	return ChatProfile(r.cfg.Dir, r.cfg.CanWork)
 }

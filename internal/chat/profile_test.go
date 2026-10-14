@@ -69,7 +69,7 @@ func TestChatProfile_ClaudeWithoutWork(t *testing.T) {
 
 func TestWorkProfile_Claude(t *testing.T) {
 	wt := t.TempDir()
-	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: WorkProfile("xpo-1", wt)})
+	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: WorkProfile("xpo-1", wt, "/repo")})
 
 	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob,Edit,Write,Bash,Skill" {
 		t.Errorf("--tools = %q", got)
@@ -98,10 +98,47 @@ func TestWorkProfile_EditRuleForSymlinkedPath(t *testing.T) {
 		t.Skip(err)
 	}
 	resolved, _ := filepath.EvalSymlinks(real)
-	allowed := WorkProfile("xpo-1", link).claudeAllowed()
+	allowed := WorkProfile("xpo-1", link, "/repo").claudeAllowed()
 	for _, want := range []string{"Edit(/" + link + "/**)", "Edit(/" + resolved + "/**)"} {
 		if !slices.Contains(allowed, want) {
 			t.Errorf("allowed = %v, missing %q", allowed, want)
+		}
+	}
+}
+
+// The spec tool hands the agent the spec's path, outside the worktree. Edits
+// to the bound issue's own artifacts run without a card (xpo-2c724e).
+func TestWorkProfile_EditRuleForIssueArtifacts(t *testing.T) {
+	root := t.TempDir()
+	resolved, _ := filepath.EvalSymlinks(root)
+	allowed := WorkProfile("xpo-1", filepath.Join(root, ".xpo", "worktrees", "x"), root).claudeAllowed()
+	for _, want := range []string{
+		"Edit(/" + root + "/.xpo/artifacts/xpo-1/**)",
+		"Edit(/" + resolved + "/.xpo/artifacts/xpo-1/**)",
+	} {
+		if !slices.Contains(allowed, want) {
+			t.Errorf("allowed = %v, missing %q", allowed, want)
+		}
+	}
+	for _, rule := range allowed {
+		if strings.HasSuffix(rule, "/.xpo/**)") || strings.HasSuffix(rule, "/.xpo/artifacts/**)") {
+			t.Errorf("allowed = %v, %q covers more than the issue's artifacts", allowed, rule)
+		}
+	}
+}
+
+func TestWorkProfile_NoArtifactRuleWithoutRoot(t *testing.T) {
+	for _, rule := range WorkProfile("xpo-1", "/wt", "").claudeAllowed() {
+		if strings.Contains(rule, ".xpo/artifacts") {
+			t.Errorf("rule %q without a root", rule)
+		}
+	}
+}
+
+func TestChatProfile_NoArtifactRule(t *testing.T) {
+	for _, rule := range ChatProfile("/repo", true).claudeAllowed() {
+		if strings.HasPrefix(rule, "Edit(") {
+			t.Errorf("chat mode allows %q", rule)
 		}
 	}
 }
@@ -110,7 +147,7 @@ func TestProfile_Dir(t *testing.T) {
 	if got := ChatProfile("/repo", true).Dir; got != "/repo" {
 		t.Errorf("chat dir = %q", got)
 	}
-	if got := WorkProfile("xpo-1", "/repo/.xpo/worktrees/x").Dir; got != "/repo/.xpo/worktrees/x" {
+	if got := WorkProfile("xpo-1", "/repo/.xpo/worktrees/x", "/repo").Dir; got != "/repo/.xpo/worktrees/x" {
 		t.Errorf("work dir = %q", got)
 	}
 }
@@ -125,7 +162,7 @@ func TestProfile_Codex(t *testing.T) {
 	}{
 		{"chat", ChatProfile("/repo", true), "read-only", "on-request", []string{"merge"}, []string{"start"}},
 		{"chat remote", ChatProfile("/repo", false), "read-only", "on-request", []string{"start", "merge"}, nil},
-		{"work", WorkProfile("xpo-1", "/wt"), "workspace-write", "on-request", nil, []string{"merge"}},
+		{"work", WorkProfile("xpo-1", "/wt", "/repo"), "workspace-write", "on-request", nil, []string{"merge"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -158,7 +195,7 @@ func TestModeContext(t *testing.T) {
 	if got := ChatProfile("/repo", true).contextLines(); !slices.Equal(got, []string{"mode: chat"}) {
 		t.Errorf("chat = %v", got)
 	}
-	got := WorkProfile("xpo-1", "/wt").contextLines()
+	got := WorkProfile("xpo-1", "/wt", "/repo").contextLines()
 	if !slices.Equal(got, []string{"mode: work on xpo-1", "worktree: /wt"}) {
 		t.Errorf("work = %v", got)
 	}
