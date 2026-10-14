@@ -75,7 +75,11 @@ func describeUpdate(payload interface{}) string {
 		fragments = append(fragments, fmt.Sprintf("changed status to %s", *p.Status))
 	}
 	if p.Estimate != nil {
-		fragments = append(fragments, fmt.Sprintf("set estimate to %d", *p.Estimate))
+		if *p.Estimate == 0 {
+			fragments = append(fragments, "cleared estimate")
+		} else {
+			fragments = append(fragments, fmt.Sprintf("set estimate to %d", *p.Estimate))
+		}
 	}
 	if p.Title != nil {
 		fragments = append(fragments, "updated the title")
@@ -84,13 +88,21 @@ func describeUpdate(payload interface{}) string {
 		fragments = append(fragments, "updated the description")
 	}
 	if p.Assignee != nil {
-		fragments = append(fragments, fmt.Sprintf("assigned to %s", ExtractName(*p.Assignee)))
+		if *p.Assignee == "" {
+			fragments = append(fragments, "unassigned")
+		} else {
+			fragments = append(fragments, fmt.Sprintf("assigned to %s", ExtractName(*p.Assignee)))
+		}
 	}
 	if len(p.Labels) > 0 {
 		fragments = append(fragments, fmt.Sprintf("updated labels to [%s]", strings.Join(p.Labels, ", ")))
 	}
 	if p.Priority != nil {
-		fragments = append(fragments, fmt.Sprintf("set priority to %d", *p.Priority))
+		if *p.Priority == 0 {
+			fragments = append(fragments, "cleared priority")
+		} else {
+			fragments = append(fragments, fmt.Sprintf("set priority to %d", *p.Priority))
+		}
 	}
 	if p.ParentID != nil {
 		if *p.ParentID == "" {

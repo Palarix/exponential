@@ -41,3 +41,28 @@ func TestUpdateJSONNullParentClears(t *testing.T) {
 		t.Errorf("parent after null: got %q want empty", got)
 	}
 }
+
+// Bug xpo-bbfcf9: `update --json` ignored an explicit null on scalar fields.
+func TestUpdateJSONNullScalarFieldsClear(t *testing.T) {
+	dir := setupProject(t)
+	defer os.RemoveAll(dir)
+	c := addIssueCLI(t, dir, "C")
+
+	if out, code := runXPOStdin(t, dir, `{"assignee":"Alice <alice@example.com>","story_points":3}`, "update", c, "--json"); code != 0 {
+		t.Fatalf("set fields failed: %s", out)
+	}
+	if out, code := runXPOStdin(t, dir, `{"assignee":null,"story_points":null}`, "update", c, "--json"); code != 0 {
+		t.Fatalf("clear with null failed: %s", out)
+	}
+	out, _, code := runXPO(t, dir, "show", c, "--json")
+	if code != 0 {
+		t.Fatalf("show failed: %s", out)
+	}
+	var res jsonio.ShowOutput
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("unexpected show output: %s", out)
+	}
+	if res.Assignee != "" || res.StoryPoints != 0 {
+		t.Errorf("fields not cleared: assignee=%q story_points=%d", res.Assignee, res.StoryPoints)
+	}
+}

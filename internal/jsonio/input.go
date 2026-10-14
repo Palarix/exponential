@@ -30,11 +30,11 @@ type UpdateInput struct {
 	Description *string     `json:"description,omitempty" jsonschema:"Replace the issue description"`
 	Status      *string     `json:"status,omitempty" jsonschema:"New status: BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, or DUPLICATE"`
 	Parent      *string     `json:"parent,omitempty" jsonschema:"Parent issue ID. Pass null or \"\" to remove the parent and make the issue top-level"`
-	StoryPoints *int        `json:"story_points,omitempty"`
-	Priority    *int        `json:"priority,omitempty"`
-	Assignee    *string     `json:"assignee,omitempty"`
+	StoryPoints *int        `json:"story_points,omitempty" jsonschema:"Effort estimate in story points. Pass null or 0 to clear"`
+	Priority    *int        `json:"priority,omitempty" jsonschema:"Priority: 0=None, 1=Urgent, 2=High, 3=Medium, 4=Low. Pass null or 0 to clear"`
+	Assignee    *string     `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format. Pass null or \"\" to unassign"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
-	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
+	CycleID     *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to. Pass null or \"\" to remove the issue from its cycle"`
 	Links       []LinkInput `json:"links,omitempty" jsonschema:"Replace the issue's full relationship set, including derived links stored on the other issue (as returned by show); a link left out is removed from whichever side stores it; pass [] to remove all links. At most one link per target issue: to change a link's kind, send the set with the new kind in place of the old. Only blocked_by gates start; other kinds are informational"`
 	Before      string      `json:"before,omitempty" jsonschema:"Move the issue directly above this issue ID in the manual order. Mutually exclusive with after"`
 	After       string      `json:"after,omitempty" jsonschema:"Move the issue directly below this issue ID in the manual order. Mutually exclusive with before"`
@@ -157,10 +157,24 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 	}, nil
 }
 
+// nullClears maps each scalar field where an explicit null means "clear" to a
+// setter for its cleared value. description, labels and links are left out on
+// purpose: null keeps meaning "unchanged" there, so a client that sends null
+// for every unused field cannot erase content. They clear with "" or [].
+var nullClears = map[string]func(*UpdateInput){
+	"parent":       func(in *UpdateInput) { in.Parent = ptr("") },
+	"assignee":     func(in *UpdateInput) { in.Assignee = ptr("") },
+	"cycle_id":     func(in *UpdateInput) { in.CycleID = ptr("") },
+	"priority":     func(in *UpdateInput) { in.Priority = ptr(0) },
+	"story_points": func(in *UpdateInput) { in.StoryPoints = ptr(0) },
+}
+
+func ptr[T any](v T) *T { return &v }
+
 // ApplyExplicitNulls marks fields the raw JSON object sets to null as
 // "clear". encoding/json decodes both an omitted field and an explicit null to
 // a nil pointer, so the decoded UpdateInput alone cannot tell them apart.
-// Only `parent` is handled: null clears it, like "".
+// Only the fields in nullClears are affected.
 func ApplyExplicitNulls(raw []byte, in *UpdateInput) error {
 	if len(raw) == 0 {
 		return nil
@@ -169,9 +183,10 @@ func ApplyExplicitNulls(raw []byte, in *UpdateInput) error {
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return fmt.Errorf("invalid JSON payload: %w", err)
 	}
-	if v, ok := fields["parent"]; ok && strings.TrimSpace(string(v)) == "null" {
-		empty := ""
-		in.Parent = &empty
+	for name, v := range fields {
+		if clear, ok := nullClears[name]; ok && strings.TrimSpace(string(v)) == "null" {
+			clear(in)
+		}
 	}
 	return nil
 }

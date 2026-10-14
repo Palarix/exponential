@@ -435,3 +435,51 @@ func TestUpdateInputParentIDTrimmed(t *testing.T) {
 		t.Errorf("ParentID: got %v, want xpo-abc123", got.ParentID)
 	}
 }
+
+// Bug xpo-bbfcf9: null on a scalar field clears it.
+func TestApplyExplicitNullsClearsScalarFields(t *testing.T) {
+	var in UpdateInput
+	raw := `{"assignee":null,"cycle_id":null,"priority":null,"story_points":null}`
+	if err := DecodeStrict(raw, &in); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyExplicitNulls([]byte(raw), &in); err != nil {
+		t.Fatalf("ApplyExplicitNulls failed: %v", err)
+	}
+	got, err := in.ToUpdatePayload()
+	if err != nil {
+		t.Fatalf("ToUpdatePayload failed: %v", err)
+	}
+	if got.Assignee == nil || *got.Assignee != "" {
+		t.Errorf("Assignee: got %v, want pointer to empty string", got.Assignee)
+	}
+	if got.CycleID == nil || *got.CycleID != "" {
+		t.Errorf("CycleID: got %v, want pointer to empty string", got.CycleID)
+	}
+	if got.Priority == nil || *got.Priority != 0 {
+		t.Errorf("Priority: got %v, want pointer to 0", got.Priority)
+	}
+	if got.Estimate == nil || *got.Estimate != 0 {
+		t.Errorf("Estimate: got %v, want pointer to 0", got.Estimate)
+	}
+}
+
+// Bug xpo-bbfcf9: null on description, labels and links keeps meaning
+// "unchanged", so a client that sends null for unused fields erases nothing.
+func TestApplyExplicitNullsLeavesContentFields(t *testing.T) {
+	var in UpdateInput
+	raw := `{"description":null,"labels":null,"links":null}`
+	if err := DecodeStrict(raw, &in); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyExplicitNulls([]byte(raw), &in); err != nil {
+		t.Fatalf("ApplyExplicitNulls failed: %v", err)
+	}
+	got, err := in.ToUpdatePayload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !UpdatePayloadEmpty(got) {
+		t.Errorf("expected empty payload, got %+v", got)
+	}
+}

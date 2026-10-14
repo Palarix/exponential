@@ -297,3 +297,23 @@ func TestRenderTimeline_CommentMarkdown(t *testing.T) {
 		t.Error("should contain rendered markdown text")
 	}
 }
+
+// Bug xpo-bbfcf9: cleared values printed as "assigned to ", "set priority to
+// 0" and "set estimate to 0".
+func TestDescribeEvent_UpdateClearedScalarFields(t *testing.T) {
+	empty, zero := "", 0
+	cases := []struct {
+		payload model.UpdatePayload
+		want    string
+	}{
+		{model.UpdatePayload{Assignee: &empty}, "unassigned"},
+		{model.UpdatePayload{Priority: &zero}, "cleared priority"},
+		{model.UpdatePayload{Estimate: &zero}, "cleared estimate"},
+	}
+	for _, tc := range cases {
+		got := DescribeEvent(model.Event{Type: model.EventTypeUpdate, Payload: tc.payload})
+		if got != tc.want {
+			t.Errorf("got %q want %q", got, tc.want)
+		}
+	}
+}

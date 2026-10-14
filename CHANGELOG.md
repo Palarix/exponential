@@ -133,6 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- MCP `update` and `xpo update --json` clear `assignee`, `cycle_id`, `priority` and `story_points` when the field is `null`, like `parent`. They used to fail with "no fields set", or leave the field unchanged when another field was set. `null` on `description`, `labels` and `links` still means "unchanged"; clear those with `""` or `[]`. Each nullable field's schema description says how to clear it, and the CLI timeline says "unassigned", "cleared priority" and "cleared estimate". (xpo-bbfcf9)
+
 - MCP `update` and `xpo update --json` can clear an issue's parent. `parent: null` now clears it instead of failing with "no fields set". A literal quoted empty string (`"\"\""`) is treated as `""` instead of failing with `issue "" not found`. The `parent` schema description explains how to clear it. (xpo-328824)
 
 - Agent chat: after you allow the agent's `start`, the chat continues in Work Mode on its own. You no longer have to send "go" to get it working. The continued turn shows no user message, just the "Entered Work Mode on …" divider; a new `turn_continued` chat event opens it. (xpo-ad6069)
