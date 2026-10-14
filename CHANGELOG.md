@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: chat chips in the status bar and the recent-chats lists show a status dot: yellow while an approval waits, red when interrupted, blue for a finished reply you have not seen. The spinner stays for running chats. A reply counts as seen only while its chat is shown and the window has focus; the blue dot clears 1.5s after you come back. This replaces the yellow shield icon. (xpo-f2d4c8)
+
 - Merged issues get a "View changes" button that opens a read-only Merged view: the walkthrough, commits, diff and conversation, read from the merge commit, with who merged it and when. `GET /api/issues/{id}/merged` returns the merge's commits and diff, and issues in the API carry `merged: true`. (xpo-64be51)
 
 - MCP `add`/`update` take `before` or `after` (an issue ID) to place an issue directly above or below another issue in the manual order, so agents can reorder the board. The CLI gets the same as `xpo add`/`xpo update --before/--after` and in `--json` payloads. An issue already in place is left alone ("X is already after Y"). (xpo-61232d)

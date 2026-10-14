@@ -6,6 +6,7 @@ import { VIEW_BY_ID, type ViewId } from "../../views";
 const PILLS_KEY = "xpo.agent.pills";
 const PREFS_KEY = "xpo.agent.prefs";
 const POPUP_SIZE_KEY = "xpo.agent.popupSize";
+const SEEN_KEY = "xpo.agent.seen";
 
 /** The browser's localStorage, or null when it is blocked. */
 export function safeLocalStorage(): Storage | null {
@@ -45,6 +46,50 @@ export function savePills(storage: Storage | null, pills: string[]): void {
  */
 export function chatListPollMs(chats: { state: string }[] | undefined): number | false {
   return chats?.some((c) => c.state === "running") ? 2000 : false;
+}
+
+/** By chat ID, the chat's updated_at when the viewer last watched it. */
+export type SeenChats = Record<string, string>;
+
+export function loadSeen(storage: Storage | null): SeenChats {
+  const value = readJSON(storage, SEEN_KEY);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((e): e is [string, string] => typeof e[1] === "string"));
+}
+
+export function saveSeen(storage: Storage | null, seen: SeenChats): void {
+  writeJSON(storage, SEEN_KEY, seen);
+}
+
+export function markSeen(seen: SeenChats, id: string, updatedAt: string): SeenChats {
+  return seen[id] === updatedAt ? seen : { ...seen, [id]: updatedAt };
+}
+
+/** Drops the records of chats that are gone. */
+export function pruneSeen(seen: SeenChats, ids: string[]): SeenChats {
+  const known = new Set(ids);
+  const gone = Object.keys(seen).filter((id) => !known.has(id));
+  if (gone.length === 0) return seen;
+  const next = { ...seen };
+  for (const id of gone) delete next[id];
+  return next;
+}
+
+/** What a chat's chip shows, most urgent first. */
+export type ChatIndicator = "waiting" | "running" | "interrupted" | "unseen" | "idle";
+
+/**
+ * A chat's indicator. It is unseen when it changed after the viewer last
+ * watched it; a chat never watched in this browser counts as seen, so old
+ * chats do not all light up. Times compare as dates: Go's fractional
+ * seconds vary in length, so text order is wrong.
+ */
+export function chatIndicator(c: ChatMeta, seen: SeenChats): ChatIndicator {
+  if (c.waiting) return "waiting";
+  if (c.state === "running") return "running";
+  if (c.state === "interrupted") return "interrupted";
+  const at = seen[c.id];
+  return at !== undefined && Date.parse(c.updated_at) > Date.parse(at) ? "unseen" : "idle";
 }
 
 export interface PopupSize {

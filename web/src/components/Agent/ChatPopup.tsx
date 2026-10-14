@@ -9,6 +9,7 @@ import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
 import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
+import { useMarkSeen } from "./useMarkSeen";
 import { useWorkMode } from "./useWorkMode";
 
 const headerButton = "p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]";
@@ -44,6 +45,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
   const issues = useIssueList();
 
   const meta = chats.find((c) => c.id === chatId);
+  useMarkSeen(meta);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
   // The chip is the context the next message carries; sending uses it up.
   const issueId = pendingIssueFor(chatId);

@@ -14,7 +14,7 @@ const shortcut = navigator.platform.includes("Mac") ? "⌘J" : "Ctrl+J";
  */
 export default function AgentStatusBar() {
   const agent = useAgentChat();
-  const { status, chats, pills, popupOpen, chatId } = agent;
+  const { status, chats, pills, seen, popupOpen, chatId } = agent;
   const historyRef = useRef<HTMLButtonElement>(null);
   const agentRef = useRef<HTMLButtonElement>(null);
   const pillRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -40,7 +40,7 @@ export default function AgentStatusBar() {
               onClick={() => (active ? agent.minimize() : agent.openChat(c.id))}
               className={`flex items-center gap-1.5 max-w-48 h-6 px-2.5 rounded-[var(--radius-md)] text-xs transition-colors ${active ? "bg-[var(--color-surface-3)] text-[var(--color-text-primary)]" : "bg-[var(--color-surface-2)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]"}`}
             >
-              {chatStateIcon(c, "w-2.5 h-2.5", null)}
+              {chatStateIcon(c, seen, "w-2.5 h-2.5", null)}
               <span className="truncate">{c.title || "New chat"}</span>
             </button>
           );
@@ -80,7 +80,7 @@ export default function AgentStatusBar() {
               {chats.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-[var(--color-text-muted)]">No chats yet</div>
               ) : (
-                recentChatItems(chats, popupOpen ? chatId : null, (id) => {
+                recentChatItems(chats, seen, popupOpen ? chatId : null, (id) => {
                   setHistoryOpen(false);
                   agent.openChat(id);
                 })

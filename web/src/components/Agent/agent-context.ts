@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { AgentStatus, ChatContext, ChatMeta } from "../../api/chat";
-import type { ChatPrefs } from "./agent-state-utils";
+import type { ChatPrefs, SeenChats } from "./agent-state-utils";
 
 export interface AgentChat {
   status: AgentStatus | undefined;
@@ -10,6 +10,10 @@ export interface AgentChat {
   /** The chat in the popup; null is a new chat that does not exist yet. */
   chatId: string | null;
   pills: string[];
+  /** When the viewer last watched each chat, for the unseen-reply dot. */
+  seen: SeenChats;
+  /** Records that the viewer watched a chat at its updated_at. */
+  markSeen(chatId: string, updatedAt: string): void;
   /** What the user has open now. */
   context: ChatContext;
   /** The composer's provider, model and effort for a chat; null is a new chat. */

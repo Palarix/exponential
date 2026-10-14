@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeIssue } from "../../test-utils";
-import type { AgentStatus } from "../../api/chat";
+import type { AgentStatus, ChatMeta } from "../../api/chat";
 import {
   addPill,
   clampPopupSize,
@@ -28,6 +28,11 @@ import {
   savePrefs,
   withModel,
   withProvider,
+  chatIndicator,
+  loadSeen,
+  markSeen,
+  pruneSeen,
+  saveSeen,
 } from "./agent-state-utils";
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
@@ -359,5 +364,54 @@ describe("context chip", () => {
     expect(adoptNewChatContext({ "": 2, a: 1 }, "b")).toEqual({ a: 1, b: 2 });
     const c = { a: 1 };
     expect(adoptNewChatContext(c, "b")).toBe(c);
+  });
+});
+
+describe("chat indicator", () => {
+  const T1 = "2026-10-14T10:00:00.5Z";
+  const T2 = "2026-10-14T10:00:00.25Z"; // earlier, though it sorts later as text
+  const T3 = "2026-10-14T10:05:00Z";
+  const chat = (over: Partial<ChatMeta> = {}): ChatMeta => ({
+    id: "c1", title: "", created_at: T2, updated_at: T1, agent: "claude", state: "idle", ...over,
+  });
+
+  it("ranks waiting, running, interrupted, unseen, idle", () => {
+    const seen = { c1: T2 };
+    expect(chatIndicator(chat({ waiting: true, state: "running" }), seen)).toBe("waiting");
+    expect(chatIndicator(chat({ state: "running" }), seen)).toBe("running");
+    expect(chatIndicator(chat({ state: "interrupted" }), seen)).toBe("interrupted");
+    expect(chatIndicator(chat(), seen)).toBe("unseen");
+    expect(chatIndicator(chat(), { c1: T1 })).toBe("idle");
+  });
+  it("compares times, not text", () => {
+    expect(chatIndicator(chat({ updated_at: T2 }), { c1: T1 })).toBe("idle");
+    expect(chatIndicator(chat({ updated_at: T3 }), { c1: T1 })).toBe("unseen");
+  });
+  it("counts a chat without a record as seen", () => {
+    expect(chatIndicator(chat(), {})).toBe("idle");
+  });
+});
+
+describe("seen chats", () => {
+  it("round-trips through storage", () => {
+    const s = memoryStorage();
+    saveSeen(s, { a: "t1" });
+    expect(loadSeen(s)).toEqual({ a: "t1" });
+  });
+  it("loads nothing from bad or blocked storage", () => {
+    expect(loadSeen(memoryStorage({ "xpo.agent.seen": "[1]" }))).toEqual({});
+    expect(loadSeen(memoryStorage({ "xpo.agent.seen": '{"a":1,"b":"t"}' }))).toEqual({ b: "t" });
+    expect(loadSeen(throwing)).toEqual({});
+    expect(() => saveSeen(throwing, {})).not.toThrow();
+  });
+  it("marks a chat seen, keeping the same object when nothing changes", () => {
+    const s = markSeen({}, "a", "t1");
+    expect(s).toEqual({ a: "t1" });
+    expect(markSeen(s, "a", "t1")).toBe(s);
+  });
+  it("prunes chats that are gone, keeping the same object when none are", () => {
+    const s = { a: "t1", b: "t2" };
+    expect(pruneSeen(s, ["a"])).toEqual({ a: "t1" });
+    expect(pruneSeen(s, ["a", "b", "c"])).toBe(s);
   });
 });

@@ -11,6 +11,8 @@ function render(chatId: string | null): string {
   const agent = {
     status: { available: true, default_provider: "claude", providers: [] },
     chats: [chat],
+    seen: {},
+    markSeen: () => {},
     prefsFor: () => ({ provider: "", model: "", effort: "" }),
     draftFor: () => undefined,
   } as unknown as AgentChat;

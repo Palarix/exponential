@@ -12,13 +12,14 @@ import ChatTitleBar from "./ChatTitleBar";
 import { chatStateIcon, recentChatItems } from "./recent-chats";
 import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
+import { useMarkSeen } from "./useMarkSeen";
 import { useWorkMode } from "./useWorkMode";
 
 const SUGGESTION_ICONS = [<Bug key="bug" size={16} />, <Workflow key="epic" size={16} />, <ListChecks key="list" size={16} />];
 
 /** The header title: opens a menu with "New chat" and the recent chats. */
 function ChatSwitcher({ title }: { title: string }) {
-  const { chats } = useAgentChat();
+  const { chats, seen } = useAgentChat();
   const { chatId, openChatView } = useAppNav();
   const btnRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -43,7 +44,7 @@ function ChatSwitcher({ title }: { title: string }) {
           <Menu onClose={() => setOpen(false)} aria-label="Chats" className="surface-ai w-96" maxHeight="24rem">
             <MenuItem label="New chat" icon={<SquarePen size={14} />} onClick={() => pick(null)} />
             {chats.length > 0 && <MenuDivider />}
-            {recentChatItems(chats, chatId, pick)}
+            {recentChatItems(chats, seen, chatId, pick)}
           </Menu>
         </Popover>
       )}
@@ -55,6 +56,7 @@ const HOME_RECENT_LIMIT = 5;
 
 /** The newest chats under the suggestion cards on the empty Agent view. */
 function RecentChatsList({ chats, onOpen }: { chats: ChatMeta[]; onOpen: (id: string) => void }) {
+  const { seen } = useAgentChat();
   if (chats.length === 0) return null;
   return (
     <div className="w-full max-w-3xl px-4">
@@ -67,7 +69,7 @@ function RecentChatsList({ chats, onOpen }: { chats: ChatMeta[]; onOpen: (id: st
               onClick={() => onOpen(c.id)}
               className="flex items-center gap-3 w-full h-9 px-3 rounded-[var(--radius-md)] text-left hover:bg-[var(--color-hover-surface-ai-1)] transition-colors"
             >
-              {chatStateIcon(c, "w-3.5 h-3.5", <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />)}
+              {chatStateIcon(c, seen, "w-3.5 h-3.5", <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />)}
               <span className="flex-1 min-w-0 truncate text-sm text-[var(--color-text-secondary)]">{c.title || "Untitled chat"}</span>
               <span className="shrink-0 whitespace-nowrap text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.updated_at)}</span>
             </button>
@@ -88,6 +90,7 @@ export default function AgentView() {
   const { projectName } = useConfig();
   const { thread, missing, running, send, stop, expireApproval } = useChatSession(chatId, (id) => openChatView(id));
   const meta = agent.chats.find((c) => c.id === chatId);
+  useMarkSeen(meta);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
 
   if (!agent.status) return null;
