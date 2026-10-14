@@ -151,11 +151,11 @@ Grab the latest release from [GitHub Releases](https://github.com/palarix/expone
 go install github.com/palarix/exponential/cmd/exponential@latest
 ```
 
-Requires Go 1.25+. Builds the CLI without the embedded web UI. For the full build, build from source.
+Requires Go 1.26+. Builds the CLI without the embedded web UI. For the full build, build from source.
 
 ### From source
 
-Requires Go 1.25+ and [bun](https://bun.sh).
+Requires Go 1.26+ and [bun](https://bun.sh).
 
 ```bash
 git clone https://github.com/palarix/exponential.git

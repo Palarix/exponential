@@ -16,13 +16,15 @@ export default defineConfig({
     css: { include: [/index\.css/] },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          'vendor-markdown': ['react-markdown', 'remark-gfm', 'remark-breaks'],
-          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-          'vendor-editor': ['@tiptap/react', '@tiptap/starter-kit', 'tiptap-markdown', '@tiptap/extension-task-list', '@tiptap/extension-task-item'],
-          'vendor-charts': ['recharts'],
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-markdown', test: /node_modules[\\/](react-markdown|remark-|micromark|mdast-|hast-|unified|unist-)/ },
+            { name: 'vendor-dnd', test: /node_modules[\\/]@dnd-kit[\\/]/ },
+            { name: 'vendor-editor', test: /node_modules[\\/](@tiptap[\\/]|tiptap-markdown|prosemirror-|markdown-it)/ },
+            { name: 'vendor-charts', test: /node_modules[\\/](recharts|d3-|victory-vendor)/ },
+          ],
         },
       },
     },
