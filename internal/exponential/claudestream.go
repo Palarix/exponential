@@ -215,25 +215,37 @@ func ToolResultText(content json.RawMessage) string {
 // where "description" is long body text, not a summary.
 var (
 	toolDetailKeys    = []string{"file_path", "description", "command", "url", "skill", "pattern", "id", "title", "query", "match"}
-	mcpToolDetailKeys = []string{"id", "title", "query", "match", "pattern", "file_path", "url", "path", "sha"}
+	mcpToolDetailKeys = []string{"id", "issue_id", "title", "query", "match", "pattern", "file_path", "url", "path", "sha"}
 )
 
 // MCPToolDetail picks the argument shown next to an MCP tool's name from its
 // decoded input, as the Claude stream does for mcp__ tools.
 func MCPToolDetail(input map[string]any) string {
-	for _, key := range mcpToolDetailKeys {
-		if v, ok := input[key].(string); ok && v != "" {
-			return v
-		}
-	}
-	return ""
+	return mcpDetail(func(key string) string {
+		v, _ := input[key].(string)
+		return v
+	})
 }
 
-func (p *ClaudeStreamParser) detailKeys() []string {
-	if strings.HasPrefix(p.currentTool, "mcp__") {
-		return mcpToolDetailKeys
+// mcpDetail is an MCP tool's first detail key, after the operation of tools
+// that take one, such as xpo's spec tool: "write xpo-1". The board's chat
+// reads the operation to pick the verb.
+func mcpDetail(get func(key string) string) string {
+	detail := ""
+	for _, key := range mcpToolDetailKeys {
+		if v := get(key); v != "" {
+			detail = v
+			break
+		}
 	}
-	return toolDetailKeys
+	op := get("operation")
+	if op == "" {
+		return detail
+	}
+	if detail == "" {
+		return op
+	}
+	return op + " " + detail
 }
 
 // extractToolDetail extracts meaningful detail from the partially-accumulated
@@ -245,7 +257,10 @@ func (p *ClaudeStreamParser) extractToolDetail() string {
 	case "ToolSearch":
 		return ""
 	}
-	for _, key := range p.detailKeys() {
+	if strings.HasPrefix(p.currentTool, "mcp__") {
+		return mcpDetail(func(key string) string { return extractJSONStringValue(p.toolArgBuf, key) })
+	}
+	for _, key := range toolDetailKeys {
 		if v := extractJSONStringValue(p.toolArgBuf, key); v != "" {
 			return v
 		}
@@ -272,11 +287,10 @@ func ToolDetail(name string, input map[string]any) string {
 	if name == "ToolSearch" {
 		return ""
 	}
-	keys := toolDetailKeys
 	if strings.HasPrefix(name, "mcp__") {
-		keys = mcpToolDetailKeys
+		return MCPToolDetail(input)
 	}
-	for _, key := range keys {
+	for _, key := range toolDetailKeys {
 		if v, ok := input[key].(string); ok && v != "" {
 			return v
 		}

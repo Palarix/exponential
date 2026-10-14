@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { ChatEvent } from "../../api/chat";
 import { renderMarkup } from "../../render-markup";
-import ChatThread from "./ChatThread";
-import { chatThreadReducer, emptyThread } from "./chat-thread-utils";
+import ChatThread, { ToolTimeline } from "./ChatThread";
+import { chatThreadReducer, emptyThread, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-13T10:00:00Z";
 
@@ -17,37 +17,125 @@ function thread(events: Partial<ChatEvent>[]) {
   return events.reduce((s, e) => chatThreadReducer(s, { type: "event", event: { time: T0, ...e } as ChatEvent }), emptyThread);
 }
 
-describe("ChatThread work list", () => {
-  it("opens the work list of a turn with a failed call", () => {
-    const html = render(
-      <ChatThread
-        thread={thread([
-          { type: "user_message", seq: 1, text: "merge it" },
-          { type: "tool_call", seq: 2, name: "mcp__xpo__merge", tool_id: "t1", arg: "upe-1", status: "error", message: "no branch found" },
-          { type: "tool_call", seq: 3, name: "mcp__xpo__show", tool_id: "t2", arg: "upe-1", status: "done" },
-          { type: "assistant_text", seq: 4, text: "It failed." },
-          { type: "turn_done", seq: 5, duration_ms: 3000 },
-        ])}
-      />,
-    );
-    expect(html).toContain("failed: no branch found");
-    expect(html).toContain("Opened");
-    expect(html).toContain('aria-expanded="true"');
+describe("ChatThread turn layout", () => {
+  const finished = thread([
+    { type: "user_message", seq: 1, text: "go" },
+    { type: "assistant_text", seq: 2, text: "Let me look." },
+    { type: "tool_call", seq: 3, name: "Read", tool_id: "t1", arg: "/r/board.go", status: "done" },
+    { type: "tool_call", seq: 4, name: "mcp__xpo__merge", tool_id: "t2", arg: "upe-1", status: "error", message: "no branch" },
+    { type: "assistant_text", seq: 5, text: "Now the tests." },
+    { type: "tool_call", seq: 6, name: "Bash", tool_id: "t3", arg: "Run the tests", status: "done" },
+    { type: "assistant_text", seq: 7, text: "All done." },
+    { type: "turn_done", seq: 8, duration_ms: 84_000 },
+  ]);
+
+  it("shows narration as messages with a line for each group of calls between them", () => {
+    const html = render(<ChatThread thread={finished} />);
+    const order = ["Let me look.", "2 actions", "Now the tests.", "1 action", "All done."].map((t) => html.indexOf(t));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+    expect(html).not.toContain("Worked for");
   });
 
-  it("keeps the work list of a clean turn collapsed", () => {
-    const html = render(
-      <ChatThread
-        thread={thread([
-          { type: "user_message", seq: 1, text: "show it" },
-          { type: "tool_call", seq: 2, name: "mcp__xpo__show", tool_id: "t2", arg: "upe-1", status: "done" },
-          { type: "assistant_text", seq: 3, text: "Here." },
-          { type: "turn_done", seq: 4, duration_ms: 1000 },
-        ])}
-      />,
-    );
-    expect(html).not.toContain("Opened");
-    expect(html).toContain('aria-expanded="false"');
+  it("keeps a group with failures collapsed and counts them", () => {
+    const html = render(<ChatThread thread={finished} />);
+    expect(html.match(/aria-expanded="false"/g)).toHaveLength(2);
+    expect(html).toContain("1 failed");
+    expect(html).not.toContain("failed: no branch");
+    expect(html.match(/lucide-chevron-right/g)).toHaveLength(2);
+  });
+
+  it("shows the total time of a finished turn under its last message", () => {
+    const html = render(<ChatThread thread={finished} />);
+    expect(html).toContain(">1m 24s<");
+    expect(html.indexOf(">1m 24s<")).toBeGreaterThan(html.indexOf("All done."));
+  });
+});
+
+describe("ChatThread live turn", () => {
+  const running = thread([
+    { type: "user_message", seq: 1, text: "go" },
+    { type: "tool_call", seq: 2, name: "Read", tool_id: "t1", arg: "/r/board.go", status: "done" },
+    { type: "assistant_text", seq: 3, text: "Searching next." },
+    { type: "tool_start", name: "Grep", tool_id: "t2", arg: "TODO" },
+  ]);
+
+  it("shows the current call of the active group with the timer", () => {
+    const html = render(<ChatThread thread={running} />);
+    const line = html.match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0];
+    expect(line).toBeDefined();
+    expect(line).toContain('aria-label="Searched the code for"');
+    expect(line).toContain("TODO");
+    expect(line).toMatch(/>(\d+m )?\d+s<|>\d+m</);
+    // One icon, the call's; the text shimmers instead of a spinner.
+    expect(line).not.toContain("animate-spin");
+    expect(line).toContain("text-shimmer");
+    // The group before the narration is done.
+    expect(html).toContain("1 action");
+  });
+
+  it("has nothing to expand while the active group has only its current call", () => {
+    const first = thread([{ type: "user_message", seq: 1, text: "go" }, { type: "tool_start", name: "Grep", tool_id: "t1", arg: "TODO" }]);
+    const line = render(<ChatThread thread={first} />).match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0];
+    expect(line).not.toContain("aria-expanded");
+    expect(line).not.toContain("lucide-chevron-right");
+  });
+
+  it("shows the approval wait on the active line", () => {
+    const waiting = chatThreadReducer(running, { type: "event", event: { time: T0, type: "approval_requested", seq: 4, tool_id: "t2", approval_id: "a1", name: "Grep" } as ChatEvent });
+    const html = render(<ChatThread thread={waiting} chatId="c1" />);
+    expect(html.match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0]).toContain("Waiting for your approval");
+  });
+
+  it("shows Thinking while no group is active and nothing streams", () => {
+    const thinking = thread([{ type: "user_message", seq: 1, text: "go" }, { type: "thinking" }]);
+    expect(render(<ChatThread thread={thinking} />)).toContain("Thinking");
+    const fresh = thread([{ type: "user_message", seq: 1, text: "go" }]);
+    expect(render(<ChatThread thread={fresh} />)).toContain("Thinking");
+    const streaming = thread([{ type: "user_message", seq: 1, text: "go" }, { type: "thinking" }, { type: "text_delta", text: "Let me" }]);
+    expect(render(<ChatThread thread={streaming} />)).not.toContain("Thinking");
+    expect(render(<ChatThread thread={running} />)).not.toContain("Thinking");
+  });
+});
+
+describe("ToolTimeline", () => {
+  const steps = thread([
+    { type: "user_message", seq: 1, text: "go" },
+    { type: "tool_call", seq: 2, name: "Read", tool_id: "t1", arg: "/r/board.go", status: "done" },
+    { type: "tool_call", seq: 3, name: "Bash", tool_id: "t2", arg: "Run the tests", status: "done" },
+    { type: "tool_call", seq: 4, name: "WebFetch", tool_id: "t3", arg: "https://a.b", status: "done" },
+    { type: "tool_call", seq: 5, name: "mcp__xpo__merge", tool_id: "t4", arg: "upe-1", status: "error", message: "no branch" },
+  ]).turns[0].steps as ToolStep[];
+
+  it("draws each call as a branch with an icon labelled with its verb", () => {
+    const html = render(<ToolTimeline steps={steps} />);
+    expect(html.match(/data-step="tool"/g)).toHaveLength(4);
+    expect(html).toContain('role="img" aria-label="Read" title="Read"');
+    expect(html).toContain('aria-label="Ran a shell command"');
+    expect(html).not.toContain(">Ran a shell command<");
+    expect(html).toContain("board.go");
+    // An unknown tool keeps its name next to the generic icon.
+    expect(html).toContain('aria-label="WebFetch"');
+    expect(html).toContain(">WebFetch<");
+    // A failed call reads as what was asked, with its reason.
+    expect(html).toContain('aria-label="Merge"');
+    expect(html).toContain("failed: no branch");
+  });
+
+  it("marks a failed call with a red icon only; its text and reason read as normal text", () => {
+    const failed = steps.filter((st) => st.status === "error");
+    const html = render(<ToolTimeline steps={failed} />);
+    expect(html.match(/color-error/g)).toHaveLength(1);
+    expect(html).toMatch(/<span role="img" aria-label="Merge" title="Merge" class="[^"]*color-error/);
+    expect(html).toContain("failed: no branch");
+  });
+
+  it("shows a running call with its icon and shimmering text, not a spinner", () => {
+    const running: ToolStep = { kind: "tool", id: "r", name: "Grep", arg: "TODO", done: false };
+    const html = render(<ToolTimeline steps={[running]} />);
+    expect(html).toContain('aria-label="Searched the code for"');
+    expect(html).toContain("text-shimmer");
+    expect(html).not.toContain("animate-spin");
   });
 });
 

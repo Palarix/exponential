@@ -673,6 +673,27 @@ code .issue-ref,
   animation: scale-in var(--duration-normal) ease-out;
 }
 
+/* A brighter band that sweeps across text, left to right: work in progress,
+   such as the agent chat's active tool call. It runs under reduced motion
+   too: the shimmer is the only sign the agent is still working. */
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+
+.text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-text-muted) 40%,
+    var(--color-text-primary) 50%,
+    var(--color-text-muted) 60%
+  );
+  background-size: 300% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.4s linear infinite;
+}
+
 /* ========================================
    FOCUS STATES
    ======================================== */

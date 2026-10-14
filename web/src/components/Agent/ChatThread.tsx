@@ -1,15 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { ChevronRight, Copy, Check, X } from "lucide-react";
+import { ChevronRight, Copy, Check, Lightbulb } from "lucide-react";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
-import { approvalOutcomeLabel, collapsedFailureNote, failedSteps, failureReason, isFailed, isRunning, modeDividerText, pendingApprovals, splitTurn, stepSummary, turnSeconds, type ChatStep, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
-
-function Spinner() {
-  return <span className="inline-block w-3 h-3 border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin" />;
-}
+import ToolIcon from "./ToolIcon";
+import { approvalOutcomeLabel, failureReason, formatDuration, groupSummary, isFailed, isRunning, modeDividerText, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -30,8 +27,9 @@ function AnswerText({ text }: { text: string }) {
 }
 
 /**
- * A failed call's reason after its row: the first line in red, cut to the
- * row. The full message opens in a card on hover, on focus, or on click.
+ * A failed call's reason after its row: the first line, cut to the row.
+ * Only the row's icon is red: agents fail and recover often. The full
+ * message opens in a card on hover, on focus, or on click.
  */
 function FailureReason({ step }: { step: ToolStep }) {
   const [open, setOpen] = useState(false);
@@ -40,7 +38,7 @@ function FailureReason({ step }: { step: ToolStep }) {
   // A fade, not an ellipsis: Safari shows its own tooltip for ellipsis-truncated
   // text, which would stack on the card.
   const reason = (
-    <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-left text-[var(--color-error)] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
+    <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-left text-[var(--color-text-muted)] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
       {label}
       {text && `: ${text}`}
       {more && " …"}
@@ -62,7 +60,7 @@ function FailureReason({ step }: { step: ToolStep }) {
           collisionPadding={12}
           className="z-50 max-w-md max-h-64 overflow-auto px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-2)] border border-[var(--color-border-ai)] shadow-[var(--shadow-md)] text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap break-words animate-in fade-in-0 zoom-in-95"
         >
-          <div className="mb-1 font-medium text-[var(--color-error)]">{label === "denied" ? "Denied" : "Failed"}</div>
+          <div className="mb-1 font-medium text-[var(--color-text-primary)]">{label === "denied" ? "Denied" : "Failed"}</div>
           {full}
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
@@ -70,35 +68,53 @@ function FailureReason({ step }: { step: ToolStep }) {
   );
 }
 
-/** A work-list row. A failed call carries its reason on the row. */
-function WorkStep({ step }: { step: ChatStep }) {
-  if (step.kind === "text") {
-    return <div className="text-xs text-[var(--color-text-muted)] whitespace-pre-wrap">{step.text}</div>;
-  }
-  const { text, detail } = stepSummary(step);
+// The timeline's rail runs through the middle of each row's first line.
+const RAIL_Y = 11;
+
+/** A group's calls as a timeline: each call branches off one continuous rail. */
+export function ToolTimeline({ steps }: { steps: ToolStep[] }) {
+  return (
+    <ol className="mt-1.5 flex flex-col">
+      {steps.map((step, i) => {
+        // Each row draws its own piece of the rail, from the first row's branch to the last row's.
+        const first = i === 0;
+        const last = i === steps.length - 1;
+        const rail = { top: first ? RAIL_Y : 0, ...(last ? { height: first ? 0 : RAIL_Y } : { bottom: 0 }) };
+        return (
+          <li key={step.id ?? i} data-step="tool" className="relative pl-5 py-[3px] min-w-0">
+            <span className="absolute left-[5px] w-px bg-[var(--color-border-ai)]" style={rail} aria-hidden />
+            <span className="absolute left-[6px] w-2.5 h-px bg-[var(--color-border-ai)]" style={{ top: RAIL_Y }} aria-hidden />
+            <ToolRow step={step} />
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** A tool call: its icon, then what it worked on. A failed call carries its reason on the row. */
+function ToolRow({ step }: { step: ToolStep }) {
+  const { icon, label, name, detail } = stepIcon(step);
   // Search patterns read best as code; file names and titles as text.
   const code = step.name === "Grep" || step.name === "Glob";
   // A call the user denied shows its approval outcome, not a failure.
   const failed = isFailed(step);
+  // A running call's text shimmers.
+  const text = step.done ? "text-[var(--color-text-secondary)]" : "text-shimmer";
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0" title={failed ? undefined : step.arg || undefined}>
       {/* The slot keeps its width so the rows stay aligned. */}
-      <span className="w-3 shrink-0 flex justify-center">
-        {failed ? (
-          <X className="w-3 h-3 text-[var(--color-error)]" aria-label={step.status === "denied" ? "Denied" : "Failed"} />
-        ) : step.done ? (
-          <span className="text-[var(--color-text-muted)]">·</span>
-        ) : (
-          <Spinner />
-        )}
+      <span className="w-3.5 shrink-0 flex justify-center">
+        <ToolIcon icon={icon} label={label} className={failed ? "text-[var(--color-error)]" : "text-[var(--color-text-muted)]"} />
       </span>
-      <span className="text-[var(--color-text-secondary)] shrink-0">{text}</span>
+      {name && <span className={`shrink-0 ${text}`}>{name}</span>}
       {/* The detail gives way to a failure reason, but keeps a readable minimum. */}
       {detail && (
-        <span className={`min-w-0 truncate text-[var(--color-text-muted)] ${failed ? "shrink-0 max-w-[40%]" : ""} ${code ? "font-mono" : ""}`}>
+        <span className={`min-w-0 truncate ${text} ${failed ? "shrink-0 max-w-[40%]" : ""} ${code ? "font-mono" : ""}`}>
           <IssueRefText text={detail} />
         </span>
       )}
+      {!name && !detail && <span className={`shrink-0 ${text}`}>{label}</span>}
       {step.approval?.decision && (
         <span className="shrink-0 px-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-ai-2)] text-[11px] text-[var(--color-text-muted)]">
           {approvalOutcomeLabel(step.approval.decision)}
@@ -106,6 +122,75 @@ function WorkStep({ step }: { step: ChatStep }) {
       )}
       {step.approval && !step.approval.decision && <span className="shrink-0 text-[11px] text-[var(--color-warning)]">Waiting for approval</span>}
       {failed && <FailureReason step={step} />}
+    </div>
+  );
+}
+
+/** What the active group is doing: its latest call, as icon and detail. The text shimmers while it works. */
+function CurrentCall({ step }: { step: ToolStep }) {
+  const { icon, label, name, detail } = stepIcon(step);
+  return (
+    <>
+      <ToolIcon icon={icon} label={label} />
+      <span className="min-w-0 truncate text-shimmer">
+        {name && `${name} `}
+        {detail || (name ? "" : label)}
+      </span>
+    </>
+  );
+}
+
+/**
+ * A group of tool calls on one line. The active group, the turn's latest,
+ * shows its current call and the turn's timer; a finished one counts its
+ * calls. Either expands into the timeline, which leaves out the call the
+ * active line shows.
+ */
+function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; active: boolean; waiting: boolean; seconds: number }) {
+  const [open, setOpen] = useState(false);
+  const summary = groupSummary(steps);
+  const listed = timelineSteps(steps, active);
+  const expandable = listed.length > 0;
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        disabled={!expandable}
+        aria-expanded={expandable ? open : undefined}
+        data-active-group={active || undefined}
+        className="w-full flex items-center gap-1.5 min-w-0 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] disabled:hover:text-[var(--color-text-muted)] transition-colors"
+      >
+        {active && waiting ? (
+          <>
+            <span className="w-3 shrink-0 flex justify-center" aria-hidden>
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
+            </span>
+            <span className="min-w-0 truncate">Waiting for your approval</span>
+          </>
+        ) : active ? (
+          <CurrentCall step={steps[steps.length - 1]} />
+        ) : (
+          <>
+            <span className="shrink-0">{summary.text}</span>
+            {summary.failed && <span className="shrink-0 text-[var(--color-error)]">· {summary.failed}</span>}
+          </>
+        )}
+        {expandable && <ChevronRight className={`w-3 h-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />}
+        {active && <span className="ml-auto shrink-0 pl-2 tabular-nums">{formatDuration(seconds)}</span>}
+      </button>
+      {open && expandable && <ToolTimeline steps={listed} />}
+    </div>
+  );
+}
+
+/** While the agent thinks between groups, before its next message. */
+function ThinkingLine({ seconds }: { seconds: number }) {
+  return (
+    <div data-thinking className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+      <Lightbulb className="w-3.5 h-3.5 shrink-0" aria-hidden />
+      <span className="text-shimmer">Thinking</span>
+      <span className="ml-auto shrink-0 pl-2 tabular-nums">{formatDuration(seconds)}</span>
     </div>
   );
 }
@@ -130,19 +215,16 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: string | null; onApprovalExpired?: (id: string) => void }) {
-  // A turn with a failed call opens its work list, also when the failure
-  // arrives mid-turn, until the user toggles it.
-  const [toggled, setToggled] = useState<boolean | null>(null);
   const running = turn.status === "running";
   const now = useNow(running);
-  const { work, answer } = splitTurn(turn);
-  const answerText = answer.map((s) => (s.kind === "text" ? s.text : "")).join("\n\n").trim();
   const seconds = turnSeconds(turn, now);
-  const expanded = toggled ?? failedSteps(turn).length > 0;
-  const failureNote = collapsedFailureNote(turn, expanded);
-  const showWork = work.length > 0 || (running && answer.length === 0);
-  // Open cards stay visible while the work list is collapsed.
+  const segments = turnSegments(turn);
+  const last = segments[segments.length - 1];
+  // Open cards show under the active group.
   const pending = chatId ? pendingApprovals(turn) : [];
+  // Streaming narration is progress enough; otherwise the agent is thinking.
+  const thinking = running && (!last || (last.kind === "text" && turn.thinking));
+  const lastText = !running && last?.kind === "text" ? last.text.trim() : "";
 
   return (
     <div className="flex flex-col gap-3">
@@ -152,48 +234,16 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
         </div>
       )}
 
-      {showWork && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setToggled(!expanded)}
-            aria-expanded={work.length > 0 ? expanded : undefined}
-            disabled={work.length === 0}
-            className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] disabled:hover:text-[var(--color-text-muted)] transition-colors"
-          >
-            {running && pending.length > 0 ? (
-              <span className="w-3 flex justify-center" aria-hidden>
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
-              </span>
-            ) : (
-              running && <Spinner />
-            )}
-            <span>
-              {running && pending.length > 0
-                ? "Waiting for your approval"
-                : running
-                  ? `${turn.thinking ? "Thinking" : "Working"} for ${seconds}s`
-                  : `Worked for ${seconds} second${seconds === 1 ? "" : "s"}`}
-            </span>
-            {failureNote && <span className="text-[var(--color-error)]">· {failureNote}</span>}
-            {work.length > 0 && <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />}
-          </button>
-          {expanded && (
-            <div className="mt-2 ml-1 pl-3 border-l border-[var(--color-border-ai-subtle)] flex flex-col gap-1.5">
-              {work.map((step, i) => <WorkStep key={i} step={step} />)}
-            </div>
-          )}
-        </div>
+      {segments.map((seg, i) =>
+        seg.kind === "text" ? (
+          seg.text.trim() && <AnswerText key={i} text={seg.text} />
+        ) : (
+          <ToolGroup key={i} steps={seg.steps} active={running && seg === last} waiting={pending.length > 0} seconds={seconds} />
+        ),
       )}
+      {thinking && <ThinkingLine seconds={seconds} />}
 
       {chatId && pending.map((step) => <ApprovalCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />)}
-
-      {answerText && (
-        <div className="flex flex-col gap-1">
-          <AnswerText text={answerText} />
-          {!running && <div><CopyButton text={answerText} /></div>}
-        </div>
-      )}
 
       {turn.status === "stopped" && <div className="text-xs text-[var(--color-text-muted)]">Stopped</div>}
       {turn.status === "interrupted" && (
@@ -202,6 +252,12 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
       {turn.status === "error" && (
         <div className="px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-error-bg)] text-xs text-[var(--color-error)] whitespace-pre-wrap break-words">
           {turn.error}
+        </div>
+      )}
+      {!running && turn.status !== "interrupted" && (
+        <div className="flex items-center min-h-[1.375rem] text-xs text-[var(--color-text-muted)]">
+          {lastText && <CopyButton text={lastText} />}
+          <span className="ml-auto tabular-nums" title="Time the agent worked on this turn">{formatDuration(seconds)}</span>
         </div>
       )}
     </div>

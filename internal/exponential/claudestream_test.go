@@ -189,6 +189,31 @@ func TestToolDetail_GitTools(t *testing.T) {
 	}
 }
 
+func TestToolDetail_ArtifactToolsNameOperationAndIssue(t *testing.T) {
+	cases := map[string]struct{ tool, args, want string }{
+		"spec write":       {"mcp__xpo__spec", `{"operation":"write","issue_id":"xpo-1","content":"# Spec"}`, "write xpo-1"},
+		"walkthrough read": {"mcp__xpo__walkthrough", `{"issue_id":"xpo-1","operation":"read"}`, "read xpo-1"},
+		"artifact list":    {"mcp__xpo__artifact", `{"operation":"list","issue_id":"xpo-1"}`, "list xpo-1"},
+		"no issue":         {"mcp__xpo__spec", `{"operation":"read"}`, "read"},
+	}
+	for name, c := range cases {
+		p := ClaudeStreamParser{currentTool: c.tool, toolArgBuf: c.args}
+		if got := p.finalToolDetail(); got != c.want {
+			t.Errorf("%s: final detail = %q, want %q", name, got, c.want)
+		}
+		if got := p.extractToolDetail(); got != c.want {
+			t.Errorf("%s: partial detail = %q, want %q", name, got, c.want)
+		}
+	}
+	if got := MCPToolDetail(map[string]any{"operation": "add", "issue_id": "xpo-1", "filename": "a.md"}); got != "add xpo-1" {
+		t.Errorf("MCPToolDetail = %q, want %q", got, "add xpo-1")
+	}
+	// Built-in tools have no operation key; a stray one does not change their detail.
+	if got := ToolDetail("Read", map[string]any{"file_path": "/a.go", "operation": "x"}); got != "/a.go" {
+		t.Errorf("ToolDetail(Read) = %q", got)
+	}
+}
+
 func TestToolDetail_BashKeepsDescription(t *testing.T) {
 	p := ClaudeStreamParser{currentTool: "Bash", toolArgBuf: `{"command":"make test","description":"Run tests"}`}
 	if got := p.finalToolDetail(); got != "Run tests" {

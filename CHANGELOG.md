@@ -130,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: a turn shows the agent's work live. Narration is a regular message. The actions between messages collapse into one line: while the agent works, the current action's icon and target with a shimmer and the timer on the right; afterwards "6 actions · 2 failed". Click a line to see its actions on a timeline. Each action shows an icon in place of its verb (tooltip and screen-reader label keep the verb). A Lightbulb line shows while the agent is thinking. Failures no longer expand the list, and a failed action has only a red icon. The turn's total time moves under its last message, replacing the "Worked for …" header. lucide-react is upgraded to 1.57. (xpo-855e28)
 - Agent chat: the chat popup, the composer, approval cards, message bubbles and the menus they open draw on their own monochrome surface scale (`--color-*-ai-*` tokens), a step above the app's, so the chat stands out from the board. The Agent view keeps the app canvas. A `.surface-ai` class puts shared menus and popovers on that scale. (xpo-03fa37)
 - Agent chat popup: it opens centered above its status-bar pill, or above the Agent button for a new chat, instead of the bottom-right corner. It is resizable from its top edge, sides and top corners, from 360×400 up to 600×900, and remembers its size. (xpo-b45049)
 - Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch pill shows its commit count and the chat pill its chat count; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9)
@@ -137,6 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: `xpo spec`, `xpo walkthrough` and `xpo artifact` calls always read "Read the … of" and showed no issue, also for writes. Tool details for MCP tools now include the call's `operation` and `issue_id` ("write xpo-1"), for Claude, Codex and approval cards, and the chat words them "Wrote the spec of xpo-1". (xpo-855e28)
 - Agent chat: Work Mode no longer asks for approval every time the agent edits its issue's spec or walkthrough. Claude may now edit files in the bound issue's `.xpo/artifacts/<issue>/` folder without a card. Other issues' artifacts and everything else outside the worktree still ask. (xpo-2c724e)
 
 - Issue activity timeline: every field change is described, cleared values read as words, and rows read as muted sentences. (xpo-ca763f)

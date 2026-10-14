@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { approvalArgs, approvalOutcomeLabel, approvalTitle, chatThreadReducer, isEmptyThread, modeDividerText, collapsedFailureNote, failedSteps, failureReason, stepSummary, emptyThread, isRunning, pendingApprovals, splitTurn, toolLabel, toolSummary, turnSeconds, type ChatThread } from "./chat-thread-utils";
+import { approvalArgs, approvalOutcomeLabel, approvalTitle, chatThreadReducer, formatDuration, groupSummary, isEmptyThread, modeDividerText, failedSteps, failureReason, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -159,24 +159,69 @@ describe("chatThreadReducer", () => {
   });
 });
 
-describe("splitTurn", () => {
-  it("shows the text after the last tool as the answer", () => {
+describe("turnSegments", () => {
+  it("splits a turn into messages and groups of tool calls, in order", () => {
     const s = reduce([
       ev({ type: "user_message", seq: 1, text: "a" }),
       ev({ type: "assistant_text", seq: 2, text: "Let me check." }),
-      ev({ type: "tool_call", seq: 3, name: "Read", arg: "x", status: "done" }),
-      ev({ type: "assistant_text", seq: 4, text: "Found it." }),
+      ev({ type: "tool_call", seq: 3, name: "Read", tool_id: "r", arg: "x", status: "done" }),
+      ev({ type: "tool_call", seq: 4, name: "Grep", tool_id: "g", arg: "y", status: "done" }),
+      ev({ type: "assistant_text", seq: 5, text: "Now the tests." }),
+      ev({ type: "tool_call", seq: 6, name: "Bash", tool_id: "b", arg: "z", status: "done" }),
+      ev({ type: "assistant_text", seq: 7, text: "Found it." }),
     ]);
-    const { work, answer } = splitTurn(s.turns[0]);
-    expect(work.map((w) => w.kind)).toEqual(["text", "tool"]);
-    expect(answer.map((a) => a.kind === "text" && a.text)).toEqual(["Found it."]);
+    const segs = turnSegments(s.turns[0]);
+    expect(segs.map((g) => (g.kind === "text" ? g.text : g.steps.map((st) => st.id).join(",")))).toEqual(["Let me check.", "r,g", "Now the tests.", "b", "Found it."]);
   });
 
-  it("puts everything in the answer when no tool ran", () => {
-    const s = reduce([ev({ type: "user_message", seq: 1, text: "a" }), ev({ type: "assistant_text", seq: 2, text: "Hi" })]);
-    const { work, answer } = splitTurn(s.turns[0]);
-    expect(work).toEqual([]);
-    expect(answer).toHaveLength(1);
+  it("joins text steps that follow each other into one message", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "a" }),
+      ev({ type: "assistant_text", seq: 2, text: "One." }),
+      ev({ type: "text_delta", text: "Tw" }),
+    ]);
+    expect(turnSegments(s.turns[0])).toEqual([{ kind: "text", text: "One.\n\nTw", live: true }]);
+  });
+
+  it("has no segments before the agent says or does anything", () => {
+    expect(turnSegments(reduce([ev({ type: "user_message", seq: 1, text: "a" })]).turns[0])).toEqual([]);
+  });
+});
+
+describe("groupSummary", () => {
+  const call = (status: ToolStep["status"]): ToolStep => ({ kind: "tool", name: "Read", arg: "", done: true, status });
+
+  it("counts the calls, and the failed ones", () => {
+    expect(groupSummary([call("done")])).toEqual({ text: "1 action", failed: null });
+    expect(groupSummary([call("done"), call("error"), call("denied")])).toEqual({ text: "3 actions", failed: "2 failed" });
+  });
+
+  it("does not count a call the user denied as failed", () => {
+    expect(groupSummary([{ ...call("denied"), approval: { id: "a", decision: "deny" } }]).failed).toBeNull();
+  });
+});
+
+describe("timelineSteps", () => {
+  const a: ToolStep = { kind: "tool", id: "a", name: "Read", arg: "", done: true, status: "done" };
+  const b: ToolStep = { kind: "tool", id: "b", name: "Grep", arg: "", done: false };
+
+  it("lists every call of a finished group", () => {
+    expect(timelineSteps([a, b], false)).toEqual([a, b]);
+  });
+
+  it("leaves out the call the active line shows", () => {
+    expect(timelineSteps([a, b], true)).toEqual([a]);
+    expect(timelineSteps([b], true)).toEqual([]);
+  });
+});
+
+describe("formatDuration", () => {
+  it("reads seconds, then minutes and seconds", () => {
+    expect(formatDuration(0)).toBe("0s");
+    expect(formatDuration(12)).toBe("12s");
+    expect(formatDuration(60)).toBe("1m");
+    expect(formatDuration(84)).toBe("1m 24s");
+    expect(formatDuration(3725)).toBe("62m 5s");
   });
 });
 
@@ -222,6 +267,25 @@ describe("toolSummary", () => {
     expect(toolSummary("mcp__xpo__code_history", "internal/server/board.go")).toEqual({ text: "Traced the history of", detail: "internal/server/board.go" });
   });
 
+  it("names the operation of the spec, walkthrough and artifact tools", () => {
+    expect(toolSummary("mcp__xpo__spec", "write xpo-1")).toEqual({ text: "Wrote the spec of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__spec", "read xpo-1")).toEqual({ text: "Read the spec of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__walkthrough", "write xpo-1")).toEqual({ text: "Wrote the walkthrough of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__walkthrough", "delete xpo-1")).toEqual({ text: "Deleted the walkthrough of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__artifact", "add xpo-1")).toEqual({ text: "Added an artifact to", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__artifact", "list xpo-1")).toEqual({ text: "Listed the artifacts of", detail: "xpo-1" });
+    expect(approvalTitle("mcp__xpo__spec", "write xpo-1")).toEqual({ action: "Write the spec of", detail: "xpo-1" });
+    expect(approvalTitle("mcp__xpo__artifact", "delete xpo-1")).toEqual({ action: "Delete an artifact of", detail: "xpo-1" });
+    expect(stepSummary({ kind: "tool", name: "mcp__xpo__spec", arg: "write xpo-1", done: true, status: "error" })).toEqual({ text: "Write the spec of", detail: "xpo-1" });
+  });
+
+  it("keeps the old wording for chats saved without an operation", () => {
+    expect(toolSummary("mcp__xpo__spec", "xpo-1")).toEqual({ text: "Read the spec of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__artifact", "")).toEqual({ text: "Read an artifact of", detail: "" });
+    // Only these tools carry an operation: another tool's first word stays.
+    expect(toolSummary("mcp__xpo__add", "write docs")).toEqual({ text: "Created issue", detail: "write docs" });
+  });
+
   it("falls back to the tool name", () => {
     expect(toolSummary("mcp__other__thing", "x")).toEqual({ text: "other thing", detail: "x" });
     expect(toolSummary("WebFetch", "https://a.b")).toEqual({ text: "WebFetch", detail: "https://a.b" });
@@ -229,6 +293,47 @@ describe("toolSummary", () => {
 
   it("collapses whitespace in long details", () => {
     expect(toolSummary("Grep", "a\n   b").detail).toBe("a b");
+  });
+});
+
+describe("stepIcon", () => {
+  const tool = (name: string, arg = "", extra: Partial<ToolStep> = {}): ToolStep => ({ kind: "tool", name, arg, done: true, status: "done", ...extra });
+
+  it("gives every known tool an icon, labelled with its verb", () => {
+    // Mostly one icon per kind of action (look, change, search); some xpo tools keep their own.
+    const icons: [string, ToolIconId][] = [
+      ["Read", "read"], ["mcp__xpo__show", "read"], ["mcp__xpo__history", "read"], ["mcp__xpo__git_log", "read"], ["mcp__xpo__git_show", "read"], ["mcp__xpo__code_history", "read"],
+      ["Edit", "edit"], ["Write", "edit"], ["mcp__xpo__update", "edit"],
+      ["Grep", "search"], ["Glob", "search"], ["mcp__xpo__list", "search"], ["mcp__xpo__rationale", "search"],
+      ["Bash", "shell"], ["Skill", "skill"], ["mcp__xpo__start", "start"], ["mcp__xpo__merge", "merge"],
+      ["mcp__xpo__add", "add"], ["mcp__xpo__comment", "comment"], ["mcp__xpo__link", "link"], ["mcp__xpo__unlink", "unlink"],
+      ["mcp__xpo__artifact", "artifact"], ["mcp__xpo__git_status", "git_status"], ["mcp__xpo__git_diff", "git_diff"],
+      ["mcp__xpo__spec", "spec"], ["mcp__xpo__walkthrough", "walkthrough"],
+    ];
+    for (const [name, icon] of icons) {
+      const got = stepIcon(tool(name, "x"));
+      expect(got.icon, name).toBe(icon);
+      expect(got.name, name).toBeUndefined();
+    }
+    expect(stepIcon(tool("Read", "/r/board.go"))).toEqual({ icon: "read", label: "Read", detail: "board.go" });
+    expect(stepIcon(tool("Grep", "TODO"))).toEqual({ icon: "search", label: "Searched the code for", detail: "TODO" });
+    expect(stepIcon(tool("mcp__xpo__list"))).toEqual({ icon: "search", label: "Listed issues", detail: "" });
+  });
+
+  it("labels a shell call with its verb, not the tool name", () => {
+    expect(stepIcon(tool("Bash", "Run the tests"))).toEqual({ icon: "shell", label: "Ran a shell command", detail: "Run the tests" });
+    expect(toolSummary("Bash", "Run the tests")).toEqual({ text: "Ran a shell command", detail: "Run the tests" });
+  });
+
+  it("labels a call that did not run with what was asked", () => {
+    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { status: "error" }))).toEqual({ icon: "merge", label: "Merge", detail: "upe-1" });
+    expect(stepIcon(tool("Bash", "rm", { status: "denied" }))).toEqual({ icon: "shell", label: "Run a shell command", detail: "rm" });
+    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { approval: { id: "a", decision: "deny" } })).label).toBe("Merge");
+  });
+
+  it("gives unknown tools a generic icon and their name", () => {
+    expect(stepIcon(tool("WebFetch", "https://a.b"))).toEqual({ icon: "tool", label: "WebFetch", name: "WebFetch", detail: "https://a.b" });
+    expect(stepIcon(tool("mcp__other__thing", "x", { status: "error" }))).toEqual({ icon: "tool", label: "other thing", name: "other thing", detail: "x" });
   });
 });
 
@@ -438,21 +543,6 @@ describe("failureReason", () => {
   it("skips blank leading lines and handles a missing message", () => {
     expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error", message: "\n\n  boom  " })).toEqual({ label: "failed", text: "boom", more: false });
     expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error" })).toEqual({ label: "failed", text: "", more: false });
-  });
-});
-
-describe("collapsedFailureNote", () => {
-  const failing = reduce([
-    ev({ type: "user_message", seq: 1, text: "x" }),
-    ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "t1", status: "error", message: "boom" }),
-    ev({ type: "tool_call", seq: 3, name: "Grep", tool_id: "t2", status: "error", message: "bad" }),
-  ]).turns[0];
-  const clean = reduce([ev({ type: "user_message", seq: 1, text: "x" }), ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "t1", status: "done" })]).turns[0];
-
-  it("counts failures only while the list is collapsed", () => {
-    expect(collapsedFailureNote(failing, false)).toBe("2 failed");
-    expect(collapsedFailureNote(failing, true)).toBeNull();
-    expect(collapsedFailureNote(clean, false)).toBeNull();
   });
 });
 

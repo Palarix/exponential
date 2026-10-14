@@ -206,24 +206,48 @@ export function isRunning(state: ChatThread): boolean {
   return state.turns[state.turns.length - 1]?.status === "running";
 }
 
-/**
- * Splits a turn into the work (steps up to and including the last tool call,
- * shown collapsed) and the answer (the text after it).
- */
-export function splitTurn(t: ChatTurn): { work: ChatStep[]; answer: ChatStep[] } {
-  const lastTool = lastIndexWhere(t.steps, (s) => s.kind === "tool");
-  return { work: t.steps.slice(0, lastTool + 1), answer: t.steps.slice(lastTool + 1) };
+/** A run of text steps, shown as a message, or a run of tool calls, shown as one line. */
+export type TurnSegment = { kind: "text"; text: string; live: boolean } | { kind: "tools"; steps: ToolStep[] };
+
+/** Splits a turn into messages and the groups of tool calls between them, in order. */
+export function turnSegments(t: ChatTurn): TurnSegment[] {
+  const segs: TurnSegment[] = [];
+  for (const step of t.steps) {
+    const last = segs[segs.length - 1];
+    if (step.kind === "tool") {
+      if (last?.kind === "tools") last.steps.push(step);
+      else segs.push({ kind: "tools", steps: [step] });
+    } else if (last?.kind === "text") {
+      segs[segs.length - 1] = { kind: "text", text: `${last.text}\n\n${step.text}`, live: step.live };
+    } else {
+      segs.push({ kind: "text", text: step.text, live: step.live });
+    }
+  }
+  return segs;
+}
+
+/** A finished group's line: "3 actions", and "2 failed" when calls failed. */
+export function groupSummary(steps: ToolStep[]): { text: string; failed: string | null } {
+  const n = steps.filter(isFailed).length;
+  return { text: `${steps.length} action${steps.length === 1 ? "" : "s"}`, failed: n > 0 ? `${n} failed` : null };
+}
+
+/** The calls a group's timeline lists: the active group's line already shows its latest. */
+export function timelineSteps(steps: ToolStep[], active: boolean): ToolStep[] {
+  return active ? steps.slice(0, -1) : steps;
+}
+
+/** "12s", "1m", "1m 24s". */
+export function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m === 0) return `${s}s`;
+  return s === 0 ? `${m}m` : `${m}m ${s}s`;
 }
 
 /** Tool calls of the turn that failed or that the agent's rules denied. A call the user denied on a card is not a failure. */
 export function failedSteps(t: ChatTurn): ToolStep[] {
   return t.steps.filter((s): s is ToolStep => s.kind === "tool" && isFailed(s));
-}
-
-/** "2 failed" next to a collapsed work list; nothing when expanded, where the rows say it. */
-export function collapsedFailureNote(t: ChatTurn, expanded: boolean): string | null {
-  const n = failedSteps(t).length;
-  return !expanded && n > 0 ? `${n} failed` : null;
 }
 
 /** The call failed, or the agent's rules denied it. */
@@ -246,40 +270,66 @@ export function turnSeconds(t: ChatTurn, now: number): number {
 
 // Readable verbs for known tools: `verb` for a call that ran, `action` for
 // one that was only asked for (an approval card, a failed or denied call).
-// A tool without a detail uses `bare` / `bareAction`.
+// A tool without a detail uses `bare` / `bareAction`. `icon` stands in for the
+// verb on a work-list row; ToolIcon draws it.
+// Icons group tools by what they do: `read` looks at something known, `edit`
+// changes something, `search` finds things. A few xpo tools keep their own.
+export type ToolIconId = "read" | "edit" | "search" | "shell" | "skill" | "add" | "comment" | "link" | "unlink" | "artifact" | "git_status" | "git_diff" | "spec" | "walkthrough" | "start" | "merge" | "tool";
+
 interface ToolVerbs {
+  icon: ToolIconId;
   verb: string;
   bare?: string;
   action: string;
   bareAction?: string;
+  /** Verbs per operation, for tools whose detail starts with one: "write xpo-1". */
+  ops?: Record<string, { verb: string; action: string }>;
+}
+
+function fileOps(thing: string): ToolVerbs["ops"] {
+  return {
+    read: { verb: `Read the ${thing} of`, action: `Read the ${thing} of` },
+    write: { verb: `Wrote the ${thing} of`, action: `Write the ${thing} of` },
+    delete: { verb: `Deleted the ${thing} of`, action: `Delete the ${thing} of` },
+  };
 }
 const TOOL_VERBS: Record<string, ToolVerbs> = {
-  Bash: { verb: "Ran a shell command", action: "Run a shell command" },
-  Edit: { verb: "Edited", action: "Edit" },
-  Write: { verb: "Wrote", action: "Write" },
-  Read: { verb: "Read", action: "Read" },
-  Grep: { verb: "Searched the code for", bare: "Searched the code", action: "Search the code for", bareAction: "Search the code" },
-  Glob: { verb: "Found files matching", bare: "Listed files", action: "Find files matching", bareAction: "List files" },
-  Skill: { verb: "Loaded the skill", action: "Load the skill" },
-  "xpo list": { verb: "Listed issues matching", bare: "Listed issues", action: "List issues matching", bareAction: "List issues" },
-  "xpo show": { verb: "Opened", action: "Open" },
-  "xpo history": { verb: "Read the history of", action: "Read the history of" },
-  "xpo add": { verb: "Created issue", action: "Create issue" },
-  "xpo update": { verb: "Updated", action: "Update" },
-  "xpo comment": { verb: "Commented on", action: "Comment on" },
-  "xpo link": { verb: "Linked", action: "Link" },
-  "xpo unlink": { verb: "Unlinked", action: "Unlink" },
-  "xpo start": { verb: "Started", action: "Enter Work Mode on" },
-  "xpo merge": { verb: "Merged", action: "Merge" },
-  "xpo spec": { verb: "Read the spec of", action: "Read the spec of" },
-  "xpo walkthrough": { verb: "Read the walkthrough of", action: "Read the walkthrough of" },
-  "xpo artifact": { verb: "Read an artifact of", action: "Read an artifact of" },
-  "xpo rationale": { verb: "Searched design notes for", bare: "Searched design notes", action: "Search design notes for", bareAction: "Search design notes" },
-  "xpo git_status": { verb: "Checked the git status of", action: "Check the git status of" },
-  "xpo git_diff": { verb: "Read the diff of", action: "Read the diff of" },
-  "xpo git_log": { verb: "Listed commits of", bare: "Listed commits", action: "List commits of", bareAction: "List commits" },
-  "xpo git_show": { verb: "Read commit", action: "Read commit" },
-  "xpo code_history": { verb: "Traced the history of", action: "Trace the history of" },
+  Bash: { icon: "shell", verb: "Ran a shell command", action: "Run a shell command" },
+  Edit: { icon: "edit", verb: "Edited", action: "Edit" },
+  Write: { icon: "edit", verb: "Wrote", action: "Write" },
+  Read: { icon: "read", verb: "Read", action: "Read" },
+  Grep: { icon: "search", verb: "Searched the code for", bare: "Searched the code", action: "Search the code for", bareAction: "Search the code" },
+  Glob: { icon: "search", verb: "Found files matching", bare: "Listed files", action: "Find files matching", bareAction: "List files" },
+  Skill: { icon: "skill", verb: "Loaded the skill", action: "Load the skill" },
+  "xpo list": { icon: "search", verb: "Listed issues matching", bare: "Listed issues", action: "List issues matching", bareAction: "List issues" },
+  "xpo show": { icon: "read", verb: "Opened", action: "Open" },
+  "xpo history": { icon: "read", verb: "Read the history of", action: "Read the history of" },
+  "xpo add": { icon: "add", verb: "Created issue", action: "Create issue" },
+  "xpo update": { icon: "edit", verb: "Updated", action: "Update" },
+  "xpo comment": { icon: "comment", verb: "Commented on", action: "Comment on" },
+  "xpo link": { icon: "link", verb: "Linked", action: "Link" },
+  "xpo unlink": { icon: "unlink", verb: "Unlinked", action: "Unlink" },
+  "xpo start": { icon: "start", verb: "Started", action: "Enter Work Mode on" },
+  "xpo merge": { icon: "merge", verb: "Merged", action: "Merge" },
+  "xpo spec": { icon: "spec", verb: "Read the spec of", action: "Read the spec of", ops: fileOps("spec") },
+  "xpo walkthrough": { icon: "walkthrough", verb: "Read the walkthrough of", action: "Read the walkthrough of", ops: fileOps("walkthrough") },
+  "xpo artifact": {
+    icon: "artifact",
+    verb: "Read an artifact of",
+    action: "Read an artifact of",
+    ops: {
+      read: { verb: "Read an artifact of", action: "Read an artifact of" },
+      add: { verb: "Added an artifact to", action: "Add an artifact to" },
+      delete: { verb: "Deleted an artifact of", action: "Delete an artifact of" },
+      list: { verb: "Listed the artifacts of", action: "List the artifacts of" },
+    },
+  },
+  "xpo rationale": { icon: "search", verb: "Searched design notes for", bare: "Searched design notes", action: "Search design notes for", bareAction: "Search design notes" },
+  "xpo git_status": { icon: "git_status", verb: "Checked the git status of", action: "Check the git status of" },
+  "xpo git_diff": { icon: "git_diff", verb: "Read the diff of", action: "Read the diff of" },
+  "xpo git_log": { icon: "read", verb: "Listed commits of", bare: "Listed commits", action: "List commits of", bareAction: "List commits" },
+  "xpo git_show": { icon: "read", verb: "Read commit", action: "Read commit" },
+  "xpo code_history": { icon: "read", verb: "Traced the history of", action: "Trace the history of" },
 };
 
 /** The detail shown next to a tool's verb: file names, not paths; short SHAs. */
@@ -290,11 +340,24 @@ function toolDetail(key: string, arg: string): string {
   return detail;
 }
 
+/**
+ * A known tool's verbs for this call, and its arg without the operation. A
+ * chat saved before details named the operation keeps the default verbs.
+ */
+function callVerbs(key: string, arg: string): { known?: ToolVerbs; arg: string } {
+  const known = TOOL_VERBS[key];
+  const m = /^(\w+)(?:\s+([\s\S]*))?$/.exec(arg.trim());
+  const op = m && known?.ops?.[m[1]];
+  if (!op) return { known, arg };
+  return { known: { icon: known.icon, ...op }, arg: m[2] ?? "" };
+}
+
 export function toolSummary(name: string, arg: string): { text: string; detail: string } {
   const key = toolLabel(name);
-  const detail = toolDetail(key, arg);
-  const known = TOOL_VERBS[key];
-  if (!known || key === "Bash") return { text: key, detail };
+  const call = callVerbs(key, arg);
+  const detail = toolDetail(key, call.arg);
+  const known = call.known;
+  if (!known) return { text: key, detail };
   return { text: detail || !known.bare ? known.verb : known.bare, detail };
 }
 
@@ -320,8 +383,9 @@ export function approvalOutcomeLabel(decision: NonNullable<StepApproval["decisio
 /** What a call that has not run would do: "Merge upe-1", "Edit main.go". Unknown tools read "Use <tool>". */
 export function approvalTitle(name: string, arg: string): { action: string; detail: string } {
   const key = toolLabel(name);
-  const detail = toolDetail(key, arg);
-  const known = TOOL_VERBS[key];
+  const call = callVerbs(key, arg);
+  const detail = toolDetail(key, call.arg);
+  const known = call.known;
   if (!known) return { action: `Use ${key}`, detail };
   return { action: detail || !known.bareAction ? known.action : known.bareAction, detail };
 }
@@ -337,6 +401,18 @@ export function stepSummary(step: ToolStep): { text: string; detail: string } {
   if (!TOOL_VERBS[key]) return { text: key, detail: toolDetail(key, step.arg) };
   const { action, detail } = approvalTitle(step.name, step.arg);
   return { text: action, detail };
+}
+
+/**
+ * A work-list row's icon. `label` is the row's verb, for the icon's tooltip
+ * and accessible name. An unknown tool gets the generic icon, and its `name`
+ * is shown on the row.
+ */
+export function stepIcon(step: ToolStep): { icon: ToolIconId; label: string; name?: string; detail: string } {
+  const { text, detail } = stepSummary(step);
+  const known = TOOL_VERBS[toolLabel(step.name)];
+  if (!known) return { icon: "tool", label: text, name: text, detail };
+  return { icon: known.icon, label: text, detail };
 }
 
 function argText(v: unknown): string {
