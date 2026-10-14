@@ -301,10 +301,29 @@ func TestToolDetail(t *testing.T) {
 		{"WebSearch", map[string]any{"query": "go 1.26 release notes"}, "go 1.26 release notes"},
 		{"WebFetch", map[string]any{"url": "https://go.dev", "prompt": "summarize"}, "https://go.dev"},
 		{"Read", nil, ""},
+		// AskUserQuestion shows its first question (xpo-447687).
+		{"AskUserQuestion", map[string]any{"questions": []any{
+			map[string]any{"question": "Which color?", "header": "Color", "options": []any{map[string]any{"label": "Red", "description": "Warm"}}},
+			map[string]any{"question": "Which pets?"},
+		}}, "Which color?"},
+		{"AskUserQuestion", map[string]any{"questions": []any{}}, ""},
 	}
 	for _, c := range cases {
 		if got := ToolDetail(c.name, c.input); got != c.want {
 			t.Errorf("ToolDetail(%s) = %q, want %q", c.name, got, c.want)
 		}
+	}
+}
+
+// While the input streams in, an option's description must not become the
+// detail of an AskUserQuestion step.
+func TestToolDetail_AskUserQuestionPartial(t *testing.T) {
+	p := ClaudeStreamParser{currentTool: "AskUserQuestion", toolArgBuf: `{"questions":[{"options":[{"label":"Red","description":"Warm"}],"question":"Which col`}
+	if got := p.extractToolDetail(); got != "Which col" {
+		t.Errorf("partial detail = %q, want the question so far", got)
+	}
+	p.toolArgBuf = `{"questions":[{"options":[{"label":"Red","description":"Warm"}`
+	if got := p.extractToolDetail(); got != "" {
+		t.Errorf("partial detail = %q, want none before the question arrives", got)
 	}
 }

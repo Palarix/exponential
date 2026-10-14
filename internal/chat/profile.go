@@ -81,8 +81,9 @@ func mcpNames(tools []string) []string {
 // Work Mode also keeps a task list and starts subagents. A subagent gets only
 // the turn's tools, and its permission asks reach the user as cards.
 // "Agent" is the subagent tool; Claude Code 2.1.300 also accepts "Task".
+// Both modes ask the user with AskUserQuestion (xpo-447687).
 var (
-	claudeLookupTools = []string{"WebSearch", "WebFetch", "LSP"}
+	claudeSharedTools = []string{"WebSearch", "WebFetch", "LSP", ToolAskUserQuestion}
 	claudeWorkTools   = []string{"TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "Agent"}
 )
 
@@ -93,7 +94,7 @@ func (p Profile) claudeTools() string {
 		tools = append(tools, "Edit", "Write", "Bash")
 	}
 	tools = append(tools, "Skill")
-	tools = append(tools, claudeLookupTools...)
+	tools = append(tools, claudeSharedTools...)
 	if p.work() {
 		tools = append(tools, claudeWorkTools...)
 	}
@@ -111,6 +112,8 @@ func (p Profile) claudeSettings() string {
 
 // claudeAllowed is the allow list. Loading a skill only adds instructions,
 // so it never asks. WebSearch only sends a query, and LSP only reads code.
+// AskUserQuestion is never on it: allowed, Claude Code runs it without
+// asking xpo, and the user never sees the question card.
 // In Work Mode, the task list, subagents, edits inside the worktree, edits
 // to the bound issue's artifacts (the spec tool hands out spec.md's path,
 // outside the worktree), and every Bash command run without a card. "//"

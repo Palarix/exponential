@@ -457,8 +457,9 @@ func parseClaudeControlRequest(line []byte) (claudeControlRequest, bool) {
 	return cr.claudeControlRequest, true
 }
 
-// answerClaudeControlRequest asks the user about a can_use_tool request and
-// returns the control_response line. Other requests get an error.
+// answerClaudeControlRequest asks the user about a can_use_tool request, an
+// AskUserQuestion call included, and returns the control_response line.
+// Other requests get an error.
 func answerClaudeControlRequest(ctx context.Context, in SessionInput, cr claudeControlRequest) []byte {
 	if cr.Request.Subtype != "can_use_tool" {
 		return claudeControlError(cr.RequestID, "xpo chat does not handle "+cr.Request.Subtype+" requests")

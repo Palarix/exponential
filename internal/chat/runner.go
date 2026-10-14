@@ -74,10 +74,10 @@ type Runner struct {
 	turns     map[string]*turn
 	sessions  map[string]*liveSession
 	subs      map[string]map[chan Event]struct{}
-	approvals map[string]map[string]chan string // open approval cards: chat ID → approval ID → decision
-	closing   bool                              // Shutdown began: no turn continues on its own
-	wg        sync.WaitGroup                    // running turns
-	closers   []chan struct{}                   // sessions being closed; each closes when done
+	approvals map[string]map[string]openCard // open approval cards: chat ID → approval ID → card
+	closing   bool                           // Shutdown began: no turn continues on its own
+	wg        sync.WaitGroup                 // running turns
+	closers   []chan struct{}                // sessions being closed; each closes when done
 	stopReap  chan struct{}
 	stopOnce  sync.Once
 }
@@ -132,7 +132,7 @@ func NewRunner(cfg RunnerConfig) *Runner {
 		turns:     map[string]*turn{},
 		sessions:  map[string]*liveSession{},
 		subs:      map[string]map[chan Event]struct{}{},
-		approvals: map[string]map[string]chan string{},
+		approvals: map[string]map[string]openCard{},
 		stopReap:  make(chan struct{}),
 	}
 	go r.reap()
@@ -583,27 +583,56 @@ func (r *Runner) handOverLocked(id string) *turn {
 	return next
 }
 
-// Decide answers an open approval card of a chat.
+// openCard is an approval or question card that waits for the user.
+type openCard struct {
+	reply    chan Verdict
+	question bool // an AskUserQuestion card
+}
+
+// Decide answers an open card of a chat: allow, allow_session or deny on an
+// approval card, deny (skip) on a question card.
 func (r *Runner) Decide(chatID, approvalID, decision string) error {
 	switch decision {
 	case DecisionAllow, DecisionAllowSession, DecisionDeny:
 	default:
 		return ErrBadDecision
 	}
-	r.mu.Lock()
-	ch, ok := r.approvals[chatID][approvalID]
-	if ok {
-		delete(r.approvals[chatID], approvalID)
+	return r.reply(chatID, approvalID, Verdict{Decision: decision})
+}
+
+// Answer answers an open question card with an answer to each question,
+// keyed by question text.
+func (r *Runner) Answer(chatID, approvalID string, answers map[string]string) error {
+	if len(answers) == 0 {
+		return ErrBadDecision
 	}
-	r.mu.Unlock()
+	for _, a := range answers {
+		if strings.TrimSpace(a) == "" {
+			return ErrBadDecision
+		}
+	}
+	return r.reply(chatID, approvalID, Verdict{Decision: DecisionAnswer, Answers: answers})
+}
+
+// reply sends v to an open card, if the card takes it. A question card
+// takes an answer or a skip: allowing it would answer nothing.
+func (r *Runner) reply(chatID, approvalID string, v Verdict) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	card, ok := r.approvals[chatID][approvalID]
 	if !ok {
 		return ErrApprovalNotFound
 	}
-	ch <- decision
+	takes := v.Decision == DecisionDeny || card.question == (v.Decision == DecisionAnswer)
+	if !takes {
+		return ErrBadDecision
+	}
+	delete(r.approvals[chatID], approvalID)
+	card.reply <- v // buffered: never blocks
 	return nil
 }
 
-// Waiting reports whether a chat has an approval card open.
+// Waiting reports whether a chat has an approval or question card open.
 func (r *Runner) Waiting(chatID string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -611,22 +640,23 @@ func (r *Runner) Waiting(chatID string) bool {
 }
 
 // approver returns the Approver for a chat's session. A request that
-// matches a grant is allowed at once. Any other request opens a card and
+// matches a grant is allowed at once; a question is never granted. Any other request opens a card and
 // waits for Decide, for the turn to be stopped, or for the agent to end
 // the request.
 func (r *Runner) approver(chatID string) Approver {
-	return func(ctx context.Context, req ApprovalRequest) string {
-		if r.granted(chatID, req.Rule) {
-			return DecisionAllow
+	return func(ctx context.Context, req ApprovalRequest) Verdict {
+		question := req.Tool == ToolAskUserQuestion
+		if !question && r.granted(chatID, req.Rule) {
+			return Verdict{Decision: DecisionAllow}
 		}
 		approvalID := uuid.NewString()
-		ch := make(chan string, 1)
+		ch := make(chan Verdict, 1)
 		r.mu.Lock()
 		t := r.turns[chatID]
 		if r.approvals[chatID] == nil {
-			r.approvals[chatID] = map[string]chan string{}
+			r.approvals[chatID] = map[string]openCard{}
 		}
-		r.approvals[chatID][approvalID] = ch
+		r.approvals[chatID][approvalID] = openCard{reply: ch, question: question}
 		r.mu.Unlock()
 		var stopped <-chan struct{}
 		if t != nil {
@@ -634,14 +664,15 @@ func (r *Runner) approver(chatID string) Approver {
 		}
 		r.settle(chatID, Event{Type: EventApprovalRequested, ApprovalID: approvalID, Name: req.Tool, Arg: req.Detail, Input: req.Input, ToolID: req.ToolID})
 
-		var decision string
+		var v Verdict
 		select {
-		case decision = <-ch:
+		case v = <-ch:
 		case <-ctx.Done():
-			decision = DecisionCancelled
+			v.Decision = DecisionCancelled
 		case <-stopped:
-			decision = DecisionCancelled
+			v.Decision = DecisionCancelled
 		}
+		decision := v.Decision
 		r.mu.Lock()
 		delete(r.approvals[chatID], approvalID)
 		if len(r.approvals[chatID]) == 0 {
@@ -655,8 +686,8 @@ func (r *Runner) approver(chatID string) Approver {
 		case (decision == DecisionDeny || decision == DecisionCancelled) && req.ToolID != "" && t != nil:
 			t.denied.Store(req.ToolID, true)
 		}
-		r.settle(chatID, Event{Type: EventApprovalResolved, ApprovalID: approvalID, Decision: decision})
-		return decision
+		r.settle(chatID, Event{Type: EventApprovalResolved, ApprovalID: approvalID, Decision: decision, Answers: v.Answers})
+		return v
 	}
 }
 

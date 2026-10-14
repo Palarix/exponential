@@ -52,6 +52,8 @@ export interface ChatEvent {
   input?: string;
   /** approval_resolved. */
   decision?: ApprovalOutcome;
+  /** approval_resolved: a question card's answers, by question text. */
+  answers?: Record<string, string>;
   /** mode_changed: the new mode. */
   mode?: ChatMode;
   /** mode_changed: the issue entered or left; turn_continued: the issue worked on. */
@@ -75,8 +77,8 @@ export type ToolCallStatus = "done" | "error" | "denied";
 /** What the user can answer on an approval card. */
 export type ApprovalDecision = "allow" | "allow_session" | "deny";
 
-/** How an approval card ended: a decision, or the turn ended first. */
-export type ApprovalOutcome = ApprovalDecision | "cancelled";
+/** How an approval or question card ended: a decision, answers, or the turn ended first. */
+export type ApprovalOutcome = ApprovalDecision | "answer" | "cancelled";
 
 export interface ChatMeta {
   id: string;
@@ -177,6 +179,15 @@ export function decideApproval(chatId: string, approvalId: string, decision: App
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ decision }),
+  });
+}
+
+/** Answers a question card, by question text. A 404 means the card is no longer open. Skip with decideApproval(…, "deny"). */
+export function answerQuestion(chatId: string, approvalId: string, answers: Record<string, string>): Promise<void> {
+  return request(`${BASE}/chats/${encodeURIComponent(chatId)}/approvals/${encodeURIComponent(approvalId)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision: "answer", answers }),
   });
 }
 

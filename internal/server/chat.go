@@ -191,16 +191,24 @@ func (s *Server) handleStopBackground(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// handleDecideApproval answers an open approval card.
+// handleDecideApproval answers an open approval or question card. A
+// question card takes "answer" with the answers, keyed by question text.
 func (s *Server) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Decision string `json:"decision"`
+		Decision string            `json:"decision"`
+		Answers  map[string]string `json:"answers"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	err := s.Chat.Runner.Decide(r.PathValue("id"), r.PathValue("approval"), req.Decision)
+	chatID, approvalID := r.PathValue("id"), r.PathValue("approval")
+	var err error
+	if req.Decision == chat.DecisionAnswer {
+		err = s.Chat.Runner.Answer(chatID, approvalID, req.Answers)
+	} else {
+		err = s.Chat.Runner.Decide(chatID, approvalID, req.Decision)
+	}
 	if s.respondChatError(w, err) {
 		return
 	}

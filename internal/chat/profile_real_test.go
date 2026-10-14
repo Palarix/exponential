@@ -51,11 +51,11 @@ func TestRealAgents_ChatProfile(t *testing.T) {
 					Dir:     p.Dir,
 					MCP:     MCPTarget{Executable: xpo},
 					Profile: p,
-					Approve: func(_ context.Context, req ApprovalRequest) string {
+					Approve: func(_ context.Context, req ApprovalRequest) Verdict {
 						mu.Lock()
 						asked = append(asked, req)
 						mu.Unlock()
-						return DecisionDeny
+						return Verdict{Decision: DecisionDeny}
 					},
 				}, buildPrompt(prompt, nil, p), func(ev exponential.StreamEvent) {
 					if ev.Kind == exponential.StreamToolDone && ev.Text != "" {

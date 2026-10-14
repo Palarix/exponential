@@ -418,6 +418,47 @@ func TestChat_Approval(t *testing.T) {
 	}
 }
 
+const chatQuestionRequest = `{"type":"control_request","request_id":"req-1","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Which color?","header":"Color","options":[{"label":"Red","description":"Warm"}],"multiSelect":false}]},"tool_use_id":"toolu_1"}}`
+
+func TestChat_QuestionAnswer(t *testing.T) {
+	s, h := setupChatServer(t, `printf '%s\n' '`+chatQuestionRequest+`'; IFS= read -r answer; cat "$(dirname "$0")/fixture.jsonl"`)
+	m := createChat(t, h)
+	ch, unsubscribe := s.Chat.Runner.Subscribe(m.ID)
+	defer unsubscribe()
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"ask me"}`)
+
+	var approvalID string
+	timeout := time.After(5 * time.Second)
+	for approvalID == "" {
+		select {
+		case e := <-ch:
+			if e.Type == chat.EventApprovalRequested {
+				approvalID = e.ApprovalID
+			}
+		case <-timeout:
+			t.Fatal("no approval_requested event")
+		}
+	}
+	if got := waitingChats(t, h); len(got) != 1 {
+		t.Errorf("waiting chats = %v, want the chat with the open question", got)
+	}
+	path := "/api/local/chats/" + m.ID + "/approvals/" + approvalID
+	if w := doJSON(t, h, "POST", path, `{"decision":"answer","answers":{}}`); w.Code != http.StatusBadRequest {
+		t.Errorf("empty answers: %d %s", w.Code, w.Body.String())
+	}
+	if w := doJSON(t, h, "POST", path, `{"decision":"answer","answers":{"Which color?":"Red"}}`); w.Code != http.StatusOK {
+		t.Fatalf("answer: %d %s", w.Code, w.Body.String())
+	}
+	s.Chat.Runner.Wait()
+
+	_, events, _ := s.Chat.Store.Get(m.ID)
+	for _, e := range events {
+		if e.Type == chat.EventApprovalResolved && (e.Decision != chat.DecisionAnswer || e.Answers["Which color?"] != "Red") {
+			t.Errorf("approval_resolved = %+v", e)
+		}
+	}
+}
+
 func TestChat_ApprovalUnknownChat(t *testing.T) {
 	_, h := setupChatServer(t, "")
 	w := doJSON(t, h, "POST", "/api/local/chats/00000000-0000-0000-0000-000000000000/approvals/x", `{"decision":"allow"}`)

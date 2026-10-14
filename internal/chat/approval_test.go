@@ -17,6 +17,9 @@ const claudeBashRequest = `{"type":"control_request","request_id":"req-1","reque
 // MCP tools come without suggestions.
 const claudeMergeRequest = `{"type":"control_request","request_id":"req-2","request":{"subtype":"can_use_tool","tool_name":"mcp__xpo__merge","input":{"id":"xpo-1"},"tool_use_id":"toolu_2"}}`
 
+// An AskUserQuestion call as Claude Code 2.1.300 prints it.
+const claudeQuestionRequest = `{"type":"control_request","request_id":"req-3","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","display_name":"AskUserQuestion","input":{"questions":[{"question":"Which color?","header":"Color","options":[{"label":"Red","description":"Warm"},{"label":"Blue","description":"Cool"}],"multiSelect":false},{"question":"Which pets?","header":"Pets","options":[{"label":"Cat","description":"Cat"},{"label":"Dog","description":"Dog"}],"multiSelect":true}]},"tool_use_id":"toolu_3","requires_user_interaction":true}}`
+
 const claudeResultLine = `{"type":"result","subtype":"success","result":"done","session_id":"sess-42","duration_ms":10,"usage":{"input_tokens":1,"output_tokens":1}}`
 
 func parseControlRequest(t *testing.T, line string) claudeControlRequest {
@@ -66,7 +69,7 @@ func decodeResponse(t *testing.T, data []byte) map[string]any {
 func TestClaudePermissionResponse(t *testing.T) {
 	cr := parseControlRequest(t, claudeBashRequest)
 
-	allow := decodeResponse(t, claudePermissionResponse(cr, DecisionAllow))
+	allow := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionAllow}))
 	if allow["behavior"] != "allow" || allow["request_id"] != "req-1" || allow["updatedPermissions"] != nil {
 		t.Errorf("allow = %v", allow)
 	}
@@ -74,7 +77,7 @@ func TestClaudePermissionResponse(t *testing.T) {
 		t.Errorf("allow must echo the input unchanged: %v", allow["updatedInput"])
 	}
 
-	session := decodeResponse(t, claudePermissionResponse(cr, DecisionAllowSession))
+	session := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionAllowSession}))
 	perms, _ := session["updatedPermissions"].([]any)
 	if session["behavior"] != "allow" || len(perms) != 2 {
 		t.Fatalf("allow_session = %v", session)
@@ -86,16 +89,121 @@ func TestClaudePermissionResponse(t *testing.T) {
 	}
 
 	for _, d := range []string{DecisionDeny, DecisionCancelled} {
-		deny := decodeResponse(t, claudePermissionResponse(cr, d))
+		deny := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: d}))
 		if deny["behavior"] != "deny" || deny["message"] == "" || deny["updatedInput"] != nil {
 			t.Errorf("%s = %v", d, deny)
 		}
 	}
 }
 
+// An answer goes back as an allow whose input carries the answers, keyed by
+// question text (measured with Claude Code 2.1.300).
+func TestClaudePermissionResponse_Answer(t *testing.T) {
+	cr := parseControlRequest(t, claudeQuestionRequest)
+	answers := map[string]string{"Which color?": "Green", "Which pets?": "Cat, Dog"}
+	resp := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionAnswer, Answers: answers}))
+	if resp["behavior"] != "allow" || resp["updatedPermissions"] != nil {
+		t.Fatalf("answer = %v", resp)
+	}
+	in, _ := resp["updatedInput"].(map[string]any)
+	if qs, _ := in["questions"].([]any); len(qs) != 2 {
+		t.Errorf("updatedInput must keep the questions: %v", in)
+	}
+	got, _ := in["answers"].(map[string]any)
+	if len(got) != 2 || got["Which color?"] != "Green" || got["Which pets?"] != "Cat, Dog" {
+		t.Errorf("answers = %v", in["answers"])
+	}
+}
+
+func TestClaudePermissionResponse_SkipQuestion(t *testing.T) {
+	cr := parseControlRequest(t, claudeQuestionRequest)
+	resp := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionDeny}))
+	if resp["behavior"] != "deny" || resp["message"] != "The user skipped the questions without answering." {
+		t.Errorf("skip = %v", resp)
+	}
+	resp = decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionCancelled}))
+	if resp["message"] != "The user cancelled the turn." {
+		t.Errorf("cancel = %v", resp)
+	}
+}
+
+func TestRunner_QuestionAnswer(t *testing.T) {
+	r, store, dir := newApprovalRunner(t, claudeQuestionRequest)
+	m, _ := store.Create()
+	ch, unsubscribe := r.Subscribe(m.ID)
+	defer unsubscribe()
+	r.Send(m.ID, SendRequest{Text: "ask me"})
+
+	req := waitForEvent(t, ch, EventApprovalRequested)
+	if req.Name != ToolAskUserQuestion || req.ToolID != "toolu_3" || req.Arg != "Which color?" || !strings.Contains(req.Input, `"multiSelect":true`) {
+		t.Errorf("approval_requested = %+v", req)
+	}
+	if !r.Waiting(m.ID) {
+		t.Error("Waiting = false while a question is open")
+	}
+	// A question takes answers or a skip, never an allow: a grant would let
+	// Claude Code run the tool without asking, and there would be no answer.
+	for _, d := range []string{DecisionAllow, DecisionAllowSession} {
+		if err := r.Decide(m.ID, req.ApprovalID, d); !errors.Is(err, ErrBadDecision) {
+			t.Errorf("Decide(%s) on a question = %v, want ErrBadDecision", d, err)
+		}
+	}
+	for _, bad := range []map[string]string{nil, {}, {"Which color?": "  "}} {
+		if err := r.Answer(m.ID, req.ApprovalID, bad); !errors.Is(err, ErrBadDecision) {
+			t.Errorf("Answer(%v) = %v, want ErrBadDecision", bad, err)
+		}
+	}
+	answers := map[string]string{"Which color?": "Red", "Which pets?": "Cat, Dog"}
+	if err := r.Answer(m.ID, req.ApprovalID, answers); err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, r)
+
+	resps := recordedResponses(t, dir)
+	if len(resps) != 1 || resps[0]["behavior"] != "allow" {
+		t.Fatalf("responses = %v", resps)
+	}
+	if in, _ := resps[0]["updatedInput"].(map[string]any); in["answers"] == nil {
+		t.Errorf("response carries no answers: %v", resps[0])
+	}
+	meta, events, _ := store.Get(m.ID)
+	resolved := eventsOfType(events, EventApprovalResolved)
+	if len(resolved) != 1 || resolved[0].Decision != DecisionAnswer || resolved[0].Answers["Which pets?"] != "Cat, Dog" {
+		t.Errorf("approval_resolved = %+v", resolved)
+	}
+	if len(meta.Grants) != 0 {
+		t.Errorf("an answer added grants %v", meta.Grants)
+	}
+	if err := r.Answer(m.ID, req.ApprovalID, answers); !errors.Is(err, ErrApprovalNotFound) {
+		t.Errorf("second Answer = %v, want ErrApprovalNotFound", err)
+	}
+}
+
+func TestRunner_QuestionSkip(t *testing.T) {
+	r, store, dir := newApprovalRunner(t, claudeQuestionRequest)
+	m, _ := store.Create()
+	ch, unsubscribe := r.Subscribe(m.ID)
+	defer unsubscribe()
+	r.Send(m.ID, SendRequest{Text: "ask me"})
+
+	req := waitForEvent(t, ch, EventApprovalRequested)
+	if err := r.Decide(m.ID, req.ApprovalID, DecisionDeny); err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, r)
+
+	if resps := recordedResponses(t, dir); len(resps) != 1 || resps[0]["behavior"] != "deny" || !strings.Contains(resps[0]["message"].(string), "skipped") {
+		t.Errorf("responses = %v", resps)
+	}
+	_, events, _ := store.Get(m.ID)
+	if resolved := eventsOfType(events, EventApprovalResolved); len(resolved) != 1 || resolved[0].Decision != DecisionDeny || resolved[0].Answers != nil {
+		t.Errorf("approval_resolved = %+v", resolved)
+	}
+}
+
 func TestClaudePermissionResponse_SessionWithoutSuggestions(t *testing.T) {
 	cr := parseControlRequest(t, claudeMergeRequest)
-	resp := decodeResponse(t, claudePermissionResponse(cr, DecisionAllowSession))
+	resp := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionAllowSession}))
 	perms, _ := resp["updatedPermissions"].([]any)
 	if len(perms) != 1 {
 		t.Fatalf("updatedPermissions = %v, want one rule for the tool", resp["updatedPermissions"])
@@ -324,6 +432,12 @@ func TestRunner_DecideErrors(t *testing.T) {
 	}
 	if err := r.Decide(m.ID, "nope", DecisionAllow); !errors.Is(err, ErrApprovalNotFound) {
 		t.Errorf("unknown ID err = %v", err)
+	}
+	if err := r.Answer(m.ID, req.ApprovalID, map[string]string{"q": "a"}); !errors.Is(err, ErrBadDecision) {
+		t.Errorf("answer on an approval card err = %v, want ErrBadDecision", err)
+	}
+	if err := r.Decide(m.ID, req.ApprovalID, DecisionAnswer); !errors.Is(err, ErrBadDecision) {
+		t.Errorf("Decide(answer) err = %v, want ErrBadDecision", err)
 	}
 	if err := r.Decide("other-chat", req.ApprovalID, DecisionAllow); !errors.Is(err, ErrApprovalNotFound) {
 		t.Errorf("other chat err = %v", err)

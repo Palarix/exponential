@@ -15,8 +15,8 @@ var systemPrompt string
 // prompt describes both modes, so it stays the same when the mode changes.
 var codeAccess = map[string]map[string]string{
 	ProviderClaude: {
-		ModeChat: "You can read and search the code with Read, Grep, Glob, and LSP, and search the web with WebSearch. WebFetch asks the user before it fetches a page. You cannot edit files or run commands.",
-		ModeWork: "You can read, edit, and write files, and run shell commands with Bash. Keep every change inside the worktree: an edit outside it asks the user. You can also navigate code with LSP, search the web with WebSearch, track your steps with TaskCreate and TaskUpdate, and hand self-contained work to subagents with Agent. WebFetch asks the user before it fetches a page.",
+		ModeChat: "You can read and search the code with Read, Grep, Glob, and LSP, and search the web with WebSearch. WebFetch asks the user before it fetches a page. You cannot edit files or run commands. To ask the user to choose between options, use AskUserQuestion.",
+		ModeWork: "You can read, edit, and write files, and run shell commands with Bash. Keep every change inside the worktree: an edit outside it asks the user. You can also navigate code with LSP, search the web with WebSearch, track your steps with TaskCreate and TaskUpdate, and hand self-contained work to subagents with Agent. WebFetch asks the user before it fetches a page. To ask the user to choose between options, use AskUserQuestion.",
 	},
 	ProviderCodex: {
 		ModeChat: "You can read and search the code with read-only shell commands such as `rg`, `sed -n` and `git log`. The sandbox blocks writes and network access, so you cannot edit files.",

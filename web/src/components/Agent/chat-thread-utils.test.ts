@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { approvalArgs, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, formatDuration, groupSummary, isEmptyThread, modeDividerText, failedSteps, failureReason, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { approvalArgs, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAnswers, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -201,7 +201,7 @@ describe("turnSegments", () => {
       ev({ type: "assistant_text", seq: 7, text: "Found it." }),
     ]);
     const segs = turnSegments(s.turns[0]);
-    expect(segs.map((g) => (g.kind === "text" ? g.text : g.steps.map((st) => st.id).join(",")))).toEqual(["Let me check.", "r,g", "Now the tests.", "b", "Found it."]);
+    expect(segs.map((g) => (g.kind === "text" ? g.text : g.kind === "tools" ? g.steps.map((st) => st.id).join(",") : g.kind))).toEqual(["Let me check.", "r,g", "Now the tests.", "b", "Found it."]);
   });
 
   it("joins text steps that follow each other into one message", () => {
@@ -362,7 +362,7 @@ describe("stepIcon", () => {
       ["mcp__xpo__spec", "spec"], ["mcp__xpo__walkthrough", "walkthrough"],
       ["WebSearch", "search"], ["WebFetch", "read"], ["LSP", "search"],
       ["TaskCreate", "add"], ["TaskUpdate", "edit"], ["TaskList", "read"], ["TaskGet", "read"],
-      ["Agent", "agent"], ["Task", "agent"],
+      ["Agent", "agent"], ["Task", "agent"], ["AskUserQuestion", "question"],
     ];
     for (const [name, icon] of icons) {
       const got = stepIcon(tool(name, "x"));
@@ -656,5 +656,139 @@ describe("backgroundBanner", () => {
   });
   it("is empty without tasks", () => {
     expect(backgroundBanner([])).toBeUndefined();
+  });
+});
+
+// AskUserQuestion cards (xpo-447687).
+const QUESTIONS_INPUT = JSON.stringify({
+  questions: [
+    { question: "Which color?", header: "Color", options: [{ label: "Red", description: "Warm" }, { label: "Blue", description: "Cool" }], multiSelect: false },
+    { question: "Which pets?", header: "Pets", options: [{ label: "Cat", description: "" }, { label: "Dog", description: "" }, { label: "Fish", description: "" }], multiSelect: true },
+  ],
+});
+
+describe("question cards", () => {
+  const asked = [
+    ev({ type: "user_message", seq: 1, text: "ask me" }),
+    ev({ type: "tool_start", name: "AskUserQuestion", tool_id: "t1", arg: "Which color?" }),
+    ev({ type: "approval_requested", seq: 2, approval_id: "a1", name: "AskUserQuestion", arg: "Which color?", tool_id: "t1", input: QUESTIONS_INPUT }),
+  ];
+  const answers = { "Which color?": "Red", "Which pets?": "Cat, Dog" };
+  const answered = [
+    ...asked,
+    ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "answer", answers }),
+    ev({ type: "tool_call", seq: 4, name: "AskUserQuestion", tool_id: "t1", arg: "Which color?", status: "done" }),
+  ];
+
+  it("records the answers on the step, and keeps them when the call settles", () => {
+    const s = reduce(answered);
+    expect(s.turns[0].steps[0]).toMatchObject({ approval: { id: "a1", decision: "answer", answers } });
+    expect(pendingApprovals(s.turns[0])).toEqual([]);
+    expect(isQuestion(s.turns[0].steps[0] as ToolStep)).toBe(true);
+  });
+
+  it("gives an answered question a segment of its own, in place", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "ask me" }),
+      ev({ type: "tool_call", seq: 2, name: "Read", tool_id: "r", arg: "x", status: "done" }),
+      ...answered.slice(1).map((e) => (e.seq ? { ...e, seq: e.seq + 1 } : e)),
+      ev({ type: "tool_call", seq: 6, name: "Grep", tool_id: "g", arg: "y", status: "done" }),
+    ]);
+    const kinds = turnSegments(s.turns[0]).map((g) => (g.kind === "tools" ? g.steps.map((st) => st.id).join(",") : g.kind));
+    expect(kinds).toEqual(["r", "question", "g"]);
+  });
+
+  it("keeps an open or skipped question in its group", () => {
+    const open = reduce(asked);
+    expect(turnSegments(open.turns[0]).map((g) => g.kind)).toEqual(["tools"]);
+    const skipped = reduce([...asked, ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "deny" })]);
+    expect(turnSegments(skipped.turns[0]).map((g) => g.kind)).toEqual(["tools"]);
+  });
+
+  it("reads as a question asked, answered or skipped", () => {
+    const step = (decision?: "answer" | "deny"): ToolStep => ({ kind: "tool", id: "t1", name: "AskUserQuestion", arg: "Which color?", done: true, status: decision === "deny" ? "denied" : "done", approval: { id: "a1", decision } });
+    expect(stepSummary(step("answer"))).toEqual({ text: "Asked", detail: "Which color?" });
+    expect(stepSummary(step("deny"))).toEqual({ text: "Ask", detail: "Which color?" });
+    expect(approvalOutcomeLabel("deny", true)).toBe("Skipped");
+    expect(approvalOutcomeLabel("answer", true)).toBe("Answered");
+    expect(approvalOutcomeLabel("deny")).toBe("Denied");
+    expect(failedSteps(reduce([...asked, ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "deny" }), ev({ type: "tool_call", seq: 4, name: "AskUserQuestion", tool_id: "t1", status: "denied" })]).turns[0])).toEqual([]);
+  });
+});
+
+describe("parseQuestions", () => {
+  it("reads the questions of an AskUserQuestion input", () => {
+    const qs = parseQuestions(QUESTIONS_INPUT);
+    expect(qs).toHaveLength(2);
+    expect(qs[0]).toEqual({ question: "Which color?", header: "Color", options: [{ label: "Red", description: "Warm" }, { label: "Blue", description: "Cool" }], multiSelect: false });
+    expect(qs[1].multiSelect).toBe(true);
+  });
+
+  it("tolerates missing fields and bad input", () => {
+    expect(parseQuestions(undefined)).toEqual([]);
+    expect(parseQuestions("not json")).toEqual([]);
+    expect(parseQuestions('{"questions":"x"}')).toEqual([]);
+    expect(parseQuestions('{"questions":[{"question":"Why?"},{"header":"no text"}]}')).toEqual([{ question: "Why?", header: "", options: [], multiSelect: false }]);
+  });
+});
+
+describe("question picks", () => {
+  const qs = parseQuestions(QUESTIONS_INPUT);
+
+  it("needs an answer to every question", () => {
+    let picks = emptyPicks(qs);
+    expect(questionAnswers(qs, picks)).toBeNull();
+    picks = pickOption(picks, qs, 0, "Red");
+    expect(questionAnswers(qs, picks)).toBeNull();
+    picks = pickOption(picks, qs, 1, "Dog");
+    expect(questionAnswers(qs, picks)).toEqual({ "Which color?": "Red", "Which pets?": "Dog" });
+  });
+
+  it("takes one option for a single-select question", () => {
+    let picks = pickOption(emptyPicks(qs), qs, 0, "Red");
+    picks = pickOption(picks, qs, 0, "Blue");
+    expect(picks[0]).toEqual({ picked: ["Blue"], other: null });
+  });
+
+  it("toggles options of a multi-select question, and keeps the option order", () => {
+    let picks = emptyPicks(qs);
+    for (const label of ["Fish", "Cat", "Dog"]) picks = pickOption(picks, qs, 1, label);
+    picks = pickOption(picks, qs, 1, "Dog");
+    expect(picks[1].picked).toEqual(["Fish", "Cat"]);
+    picks = pickOption(picks, qs, 0, "Red");
+    expect(questionAnswers(qs, picks)?.["Which pets?"]).toBe("Cat, Fish");
+  });
+
+  it("opens the free-text field only on Other, in place of the option for a single-select question", () => {
+    let picks = pickOption(emptyPicks(qs), qs, 0, "Red");
+    expect(picks[0].other).toBeNull();
+    picks = toggleOther(picks, qs, 0);
+    expect(picks[0]).toEqual({ picked: [], other: "" });
+    picks = setOtherText(picks, 0, "  Teal ");
+    picks = pickOption(picks, qs, 1, "Cat");
+    expect(questionAnswers(qs, picks)?.["Which color?"]).toBe("Teal");
+    // Picking an option again closes the field.
+    picks = pickOption(picks, qs, 0, "Blue");
+    expect(picks[0]).toEqual({ picked: ["Blue"], other: null });
+  });
+
+  it("adds free text after the options of a multi-select question", () => {
+    let picks = pickOption(emptyPicks(qs), qs, 0, "Red");
+    picks = pickOption(picks, qs, 1, "Cat");
+    picks = toggleOther(picks, qs, 1);
+    expect(questionAnswers(qs, picks)?.["Which pets?"]).toBe("Cat");
+    picks = setOtherText(picks, 1, "a parrot");
+    expect(questionAnswers(qs, picks)?.["Which pets?"]).toBe("Cat, a parrot");
+    picks = toggleOther(picks, qs, 1);
+    expect(picks[1]).toEqual({ picked: ["Cat"], other: null });
+  });
+
+  it("opens the field at once for a question without options", () => {
+    const open = parseQuestions('{"questions":[{"question":"Why?"}]}');
+    let picks = emptyPicks(open);
+    expect(picks[0]).toEqual({ picked: [], other: "" });
+    expect(questionAnswers(open, picks)).toBeNull();
+    picks = setOtherText(picks, 0, "Because");
+    expect(questionAnswers(open, picks)).toEqual({ "Why?": "Because" });
   });
 });

@@ -5,8 +5,9 @@ import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
+import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
-import { approvalOutcomeLabel, failureReason, formatDuration, groupSummary, isFailed, isRunning, modeDividerText, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { approvalOutcomeLabel, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -117,10 +118,10 @@ function ToolRow({ step }: { step: ToolStep }) {
       {!name && !detail && <span className={`shrink-0 ${text}`}>{label}</span>}
       {step.approval?.decision && (
         <span className="shrink-0 px-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-ai-2)] text-[11px] text-[var(--color-text-muted)]">
-          {approvalOutcomeLabel(step.approval.decision)}
+          {approvalOutcomeLabel(step.approval.decision, isQuestion(step))}
         </span>
       )}
-      {step.approval && !step.approval.decision && <span className="shrink-0 text-[11px] text-[var(--color-warning)]">Waiting for approval</span>}
+      {step.approval && !step.approval.decision && <span className="shrink-0 text-[11px] text-[var(--color-warning)]">{isQuestion(step) ? "Waiting for an answer" : "Waiting for approval"}</span>}
       {failed && <FailureReason step={step} />}
     </div>
   );
@@ -146,7 +147,7 @@ function CurrentCall({ step }: { step: ToolStep }) {
  * calls. Either expands into the timeline, which leaves out the call the
  * active line shows.
  */
-function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; active: boolean; waiting: boolean; seconds: number }) {
+function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; active: boolean; waiting: "approval" | "answer" | null; seconds: number }) {
   const [open, setOpen] = useState(false);
   const summary = groupSummary(steps);
   const listed = timelineSteps(steps, active);
@@ -166,7 +167,7 @@ function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; act
             <span className="w-3 shrink-0 flex justify-center" aria-hidden>
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning)]" />
             </span>
-            <span className="min-w-0 truncate">Waiting for your approval</span>
+            <span className="min-w-0 truncate">Waiting for your {waiting}</span>
           </>
         ) : active ? (
           <CurrentCall step={steps[steps.length - 1]} />
@@ -180,6 +181,24 @@ function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; act
         {active && <span className="ml-auto shrink-0 pl-2 tabular-nums">{formatDuration(seconds)}</span>}
       </button>
       {open && expandable && <ToolTimeline steps={listed} />}
+    </div>
+  );
+}
+
+/** An answered question in the thread: each question, with the user's answer under it. */
+function AnsweredQuestion({ step }: { step: ToolStep }) {
+  const answers = step.approval?.answers ?? {};
+  const asked = parseQuestions(step.approval?.input).map((q) => q.question);
+  // A question the input no longer names still shows with its answer.
+  const shown = asked.length > 0 ? asked : Object.keys(answers);
+  return (
+    <div data-answered-question className="flex flex-col gap-2 pl-3 border-l-2 border-[var(--color-border-ai)] min-w-0">
+      {shown.map((q) => (
+        <div key={q} className="min-w-0">
+          <div className="text-xs text-[var(--color-text-muted)] break-words">{q}</div>
+          <div className="text-sm text-[var(--color-text-primary)] break-words">{answers[q] ?? "No answer"}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -222,8 +241,10 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
   const last = segments[segments.length - 1];
   // Open cards show under the active group.
   const pending = chatId ? pendingApprovals(turn) : [];
-  // Streaming narration is progress enough; otherwise the agent is thinking.
-  const thinking = running && (!last || (last.kind === "text" && turn.thinking));
+  const waiting = pending.length === 0 ? null : pending.some(isQuestion) ? "answer" : "approval";
+  // Streaming narration is progress enough; otherwise the agent is thinking,
+  // as it is right after the user answers a question.
+  const thinking = running && (!last || last.kind === "question" || (last.kind === "text" && turn.thinking));
   const lastText = !running && last?.kind === "text" ? last.text.trim() : "";
 
   return (
@@ -243,13 +264,22 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
           seg.text.trim() && <AnswerText key={i} text={seg.text} />
+        ) : seg.kind === "question" ? (
+          <AnsweredQuestion key={i} step={seg.step} />
         ) : (
-          <ToolGroup key={i} steps={seg.steps} active={running && seg === last} waiting={pending.length > 0} seconds={seconds} />
+          <ToolGroup key={i} steps={seg.steps} active={running && seg === last} waiting={waiting} seconds={seconds} />
         ),
       )}
       {thinking && <ThinkingLine seconds={seconds} />}
 
-      {chatId && pending.map((step) => <ApprovalCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />)}
+      {chatId &&
+        pending.map((step) =>
+          isQuestion(step) ? (
+            <QuestionCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />
+          ) : (
+            <ApprovalCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />
+          ),
+        )}
 
       {turn.status === "stopped" && <div className="text-xs text-[var(--color-text-muted)]">Stopped</div>}
       {turn.status === "interrupted" && (

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: Claude can ask you questions with `AskUserQuestion`, in both modes. The chat shows a question card: each question with its options (one pick or several), and "Other…" for a free-text answer. Send returns the answers to the agent, and Skip tells it you skipped. The thread keeps each question with your answer. `POST /api/local/chats/{id}/approvals/{approval}` takes `{"decision":"answer","answers":{…}}`, and `approval_resolved` events carry `answers`. Claude only; Codex follows in xpo-eafa9b. (xpo-447687)
+
 - Agent chat: Claude gets more built-in tools. Both modes get WebSearch, WebFetch and LSP. Work Mode also gets the task list (TaskCreate, TaskUpdate, TaskList, TaskGet) and subagents (Agent). WebFetch asks before every fetch, and the other new tools run without a card. Codex turns get live web search in both modes. The transcript shows a verb and icon for each new tool, with a new bot icon for subagents. (xpo-80bf05)
 
 - Agent chat: the browser tab's favicon gets a dot when a chat needs you: amber while any chat waits on an approval, blue when a reply finished while the tab was hidden. The blue dot clears when you return to the tab. The chat list now keeps polling in hidden tabs. (xpo-bbcab4)

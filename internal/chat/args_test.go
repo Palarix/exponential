@@ -148,10 +148,10 @@ func TestSystemPromptFor(t *testing.T) {
 		}
 	}
 	// Claude's access lines name the web tools, and that WebFetch asks
-	// (xpo-80bf05).
+	// (xpo-80bf05), and AskUserQuestion (xpo-447687).
 	for _, mode := range []string{ModeChat, ModeWork} {
 		line := codeAccess[ProviderClaude][mode]
-		for _, want := range []string{"WebSearch", "WebFetch", "LSP"} {
+		for _, want := range []string{"WebSearch", "WebFetch", "LSP", "AskUserQuestion"} {
 			if !strings.Contains(line, want) {
 				t.Errorf("claude %s access %q is missing %s", mode, line, want)
 			}

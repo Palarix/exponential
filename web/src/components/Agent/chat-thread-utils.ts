@@ -1,10 +1,12 @@
 import type { ApprovalOutcome, BackgroundTask, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
 
-/** An approval card on a tool step. No decision means it waits for the user. */
+/** An approval or question card on a tool step. No decision means it waits for the user. */
 export interface StepApproval {
   id: string;
   input?: string;
   decision?: ApprovalOutcome | "expired";
+  /** A question card's answers, by question text. */
+  answers?: Record<string, string>;
 }
 
 export interface ToolStep {
@@ -161,7 +163,7 @@ function applyToTurn(t: ChatTurn, e: ChatEvent): ChatTurn {
       return { ...t, steps: steps.map((s, j) => (j === i && s.kind === "tool" ? { ...s, arg: s.arg || (e.arg ?? ""), approval } : s)) };
     }
     case "approval_resolved":
-      return e.approval_id && e.decision ? updateApproval(t, e.approval_id, e.decision) : t;
+      return e.approval_id && e.decision ? updateApproval(t, e.approval_id, e.decision, e.answers) : t;
     case "turn_done":
       return finish(t, e, "done");
     case "turn_stopped":
@@ -189,12 +191,12 @@ function expireApprovals(steps: ChatStep[]): ChatStep[] {
   return steps.map((s) => (s.kind === "tool" && s.approval && !s.approval.decision ? { ...s, approval: { ...s.approval, decision: "expired" } } : s));
 }
 
-function updateApproval(t: ChatTurn, id: string, decision: NonNullable<StepApproval["decision"]>): ChatTurn {
+function updateApproval(t: ChatTurn, id: string, decision: NonNullable<StepApproval["decision"]>, answers?: Record<string, string>): ChatTurn {
   const i = t.steps.findIndex((s) => s.kind === "tool" && s.approval?.id === id);
   if (i < 0) return t;
   return {
     ...t,
-    steps: t.steps.map((s, j) => (j === i && s.kind === "tool" && s.approval ? { ...s, approval: { ...s.approval, decision } } : s)),
+    steps: t.steps.map((s, j) => (j === i && s.kind === "tool" && s.approval ? { ...s, approval: { ...s.approval, decision, ...(answers && { answers }) } } : s)),
   };
 }
 
@@ -226,15 +228,20 @@ export function isRunning(state: ChatThread): boolean {
   return state.turns[state.turns.length - 1]?.status === "running";
 }
 
-/** A run of text steps, shown as a message, or a run of tool calls, shown as one line. */
-export type TurnSegment = { kind: "text"; text: string; live: boolean } | { kind: "tools"; steps: ToolStep[] };
+/**
+ * A run of text steps, shown as a message; a run of tool calls, shown as one
+ * line; or an answered question, shown with its answers.
+ */
+export type TurnSegment = { kind: "text"; text: string; live: boolean } | { kind: "tools"; steps: ToolStep[] } | { kind: "question"; step: ToolStep };
 
 /** Splits a turn into messages and the groups of tool calls between them, in order. */
 export function turnSegments(t: ChatTurn): TurnSegment[] {
   const segs: TurnSegment[] = [];
   for (const step of t.steps) {
     const last = segs[segs.length - 1];
-    if (step.kind === "tool") {
+    if (step.kind === "tool" && step.approval?.decision === "answer") {
+      segs.push({ kind: "question", step });
+    } else if (step.kind === "tool") {
       if (last?.kind === "tools") last.steps.push(step);
       else segs.push({ kind: "tools", steps: [step] });
     } else if (last?.kind === "text") {
@@ -294,7 +301,7 @@ export function turnSeconds(t: ChatTurn, now: number): number {
 // verb on a work-list row; ToolIcon draws it.
 // Icons group tools by what they do: `read` looks at something known, `edit`
 // changes something, `search` finds things. A few xpo tools keep their own.
-export type ToolIconId = "read" | "edit" | "search" | "shell" | "skill" | "add" | "comment" | "link" | "unlink" | "artifact" | "git_status" | "git_diff" | "spec" | "walkthrough" | "start" | "merge" | "agent" | "tool";
+export type ToolIconId = "read" | "edit" | "search" | "shell" | "skill" | "add" | "comment" | "link" | "unlink" | "artifact" | "git_status" | "git_diff" | "spec" | "walkthrough" | "start" | "merge" | "agent" | "question" | "tool";
 
 interface ToolVerbs {
   icon: ToolIconId;
@@ -333,6 +340,7 @@ const TOOL_VERBS: Record<string, ToolVerbs> = {
   TaskGet: { icon: "read", verb: "Read to-do", bare: "Read a to-do", action: "Read to-do", bareAction: "Read a to-do" },
   Agent: AGENT_VERBS,
   Task: AGENT_VERBS,
+  AskUserQuestion: { icon: "question", verb: "Asked", bare: "Asked a question", action: "Ask", bareAction: "Ask a question" },
   "xpo list": { icon: "search", verb: "Listed issues matching", bare: "Listed issues", action: "List issues matching", bareAction: "List issues" },
   "xpo show": { icon: "read", verb: "Opened", action: "Open" },
   "xpo history": { icon: "read", verb: "Read the history of", action: "Read the history of" },
@@ -403,13 +411,112 @@ const APPROVAL_OUTCOMES: Record<NonNullable<StepApproval["decision"]>, string> =
   allow: "Allowed once",
   allow_session: "Allowed for this chat",
   deny: "Denied",
+  answer: "Answered",
   cancelled: "Cancelled",
   expired: "Expired",
 };
 
-/** How an approval card ended, in words. */
-export function approvalOutcomeLabel(decision: NonNullable<StepApproval["decision"]>): string {
-  return APPROVAL_OUTCOMES[decision];
+/** How an approval card ended, in words. A question card the user denied was skipped. */
+export function approvalOutcomeLabel(decision: NonNullable<StepApproval["decision"]>, question = false): string {
+  return question && decision === "deny" ? "Skipped" : APPROVAL_OUTCOMES[decision];
+}
+
+/** The step is an AskUserQuestion call: its card asks questions, not for approval. */
+export function isQuestion(step: ToolStep): boolean {
+  return step.name === "AskUserQuestion";
+}
+
+export interface QuestionOption {
+  label: string;
+  description: string;
+}
+
+/** One question of an AskUserQuestion call. */
+export interface Question {
+  question: string;
+  header: string;
+  options: QuestionOption[];
+  multiSelect: boolean;
+}
+
+function str(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+/** The questions of an AskUserQuestion input. Questions without text are left out. */
+export function parseQuestions(input: string | undefined): Question[] {
+  let raw: unknown;
+  try {
+    raw = (JSON.parse(input ?? "") as { questions?: unknown })?.questions;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+  const out: Question[] = [];
+  for (const q of raw as Record<string, unknown>[]) {
+    const question = str(q?.question);
+    if (!question) continue;
+    const options = Array.isArray(q.options) ? (q.options as Record<string, unknown>[]).map((o) => ({ label: str(o?.label), description: str(o?.description) })).filter((o) => o.label) : [];
+    out.push({ question, header: str(q.header), options, multiSelect: q.multiSelect === true });
+  }
+  return out;
+}
+
+/**
+ * What the user picked for one question: option labels, and the free text.
+ * other is null while the field is closed; it opens on "Other…", and at
+ * once for a question without options.
+ */
+export interface QuestionPick {
+  picked: string[];
+  other: string | null;
+}
+
+export function emptyPicks(questions: Question[]): QuestionPick[] {
+  return questions.map((q) => ({ picked: [], other: q.options.length === 0 ? "" : null }));
+}
+
+function updatePick(picks: QuestionPick[], i: number, fn: (p: QuestionPick) => QuestionPick): QuestionPick[] {
+  return picks.map((p, j) => (j === i ? fn(p) : p));
+}
+
+/** Picks an option: the only one of a single-select question, which closes Other; toggled for a multi-select one. */
+export function pickOption(picks: QuestionPick[], questions: Question[], i: number, label: string): QuestionPick[] {
+  return updatePick(picks, i, (p) => {
+    if (!questions[i].multiSelect) return { picked: [label], other: null };
+    return { ...p, picked: p.picked.includes(label) ? p.picked.filter((l) => l !== label) : [...p.picked, label] };
+  });
+}
+
+/** Opens or closes the free-text field. For a single-select question it replaces the option. */
+export function toggleOther(picks: QuestionPick[], questions: Question[], i: number): QuestionPick[] {
+  return updatePick(picks, i, (p) => {
+    if (p.other !== null) return { ...p, other: null };
+    return { picked: questions[i].multiSelect ? p.picked : [], other: "" };
+  });
+}
+
+export function setOtherText(picks: QuestionPick[], i: number, text: string): QuestionPick[] {
+  return updatePick(picks, i, (p) => ({ ...p, other: text }));
+}
+
+/**
+ * The answers by question text, as Claude Code's own picker writes them: the
+ * picked labels in option order, then the free text, joined with ", ". Null
+ * until every question has an answer, and without questions.
+ */
+export function questionAnswers(questions: Question[], picks: QuestionPick[]): Record<string, string> | null {
+  if (questions.length === 0) return null;
+  const answers: Record<string, string> = {};
+  for (const [i, q] of questions.entries()) {
+    const p = picks[i];
+    const labels = q.options.map((o) => o.label).filter((l) => p?.picked.includes(l));
+    const other = p?.other?.trim();
+    const answer = [...labels, ...(other ? [other] : [])].join(", ");
+    if (!answer) return null;
+    answers[q.question] = answer;
+  }
+  return answers;
 }
 
 /** What a call that has not run would do: "Merge upe-1", "Edit main.go". Unknown tools read "Use <tool>". */

@@ -1,4 +1,4 @@
-import { BookOpen, Bot, Eye, FileDiff, FileSliders, FileTerminal, GitPullRequest, Link, MessageCircleText, Paperclip, Pen, Play, Plus, Search, SquareDot, SquareTerminal, Unlink, Wrench, type LucideIcon } from "lucide-react";
+import { BookOpen, Bot, Eye, FileDiff, FileSliders, FileTerminal, GitPullRequest, Link, MessageCircleQuestionMark, MessageCircleText, Paperclip, Pen, Play, Plus, Search, SquareDot, SquareTerminal, Unlink, Wrench, type LucideIcon } from "lucide-react";
 import type { ToolIconId } from "./chat-thread-utils";
 
 const ICONS: Record<ToolIconId, LucideIcon> = {
@@ -19,6 +19,7 @@ const ICONS: Record<ToolIconId, LucideIcon> = {
   start: Play,
   merge: GitPullRequest,
   agent: Bot,
+  question: MessageCircleQuestionMark,
   tool: Wrench,
 };
 

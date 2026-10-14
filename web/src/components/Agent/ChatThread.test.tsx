@@ -87,6 +87,18 @@ describe("ChatThread live turn", () => {
     expect(html.match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0]).toContain("Waiting for your approval");
   });
 
+  it("shows a question card, and the answer wait on the active line", () => {
+    const input = JSON.stringify({ questions: [{ question: "Which color?", header: "Color", options: [{ label: "Red", description: "Warm" }], multiSelect: false }] });
+    const asking = chatThreadReducer(
+      chatThreadReducer(running, { type: "event", event: { time: T0, type: "tool_start", tool_id: "t3", name: "AskUserQuestion", arg: "Which color?" } as ChatEvent }),
+      { type: "event", event: { time: T0, type: "approval_requested", seq: 4, tool_id: "t3", approval_id: "a1", name: "AskUserQuestion", arg: "Which color?", input } as ChatEvent },
+    );
+    const html = render(<ChatThread thread={asking} chatId="c1" />);
+    expect(html.match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0]).toContain("Waiting for your answer");
+    expect(html).toContain('aria-label="Question"');
+    expect(html).not.toContain('aria-label="Approval needed"');
+  });
+
   it("shows Thinking while no group is active and nothing streams", () => {
     const thinking = thread([{ type: "user_message", seq: 1, text: "go" }, { type: "thinking" }]);
     expect(render(<ChatThread thread={thinking} />)).toContain("Thinking");
@@ -95,6 +107,34 @@ describe("ChatThread live turn", () => {
     const streaming = thread([{ type: "user_message", seq: 1, text: "go" }, { type: "thinking" }, { type: "text_delta", text: "Let me" }]);
     expect(render(<ChatThread thread={streaming} />)).not.toContain("Thinking");
     expect(render(<ChatThread thread={running} />)).not.toContain("Thinking");
+  });
+});
+
+describe("ChatThread answered question", () => {
+  const input = JSON.stringify({
+    questions: [
+      { question: "Which color?", header: "Color", options: [{ label: "Red", description: "Warm" }], multiSelect: false },
+      { question: "Which pets?", header: "Pets", options: [{ label: "Cat", description: "" }], multiSelect: true },
+    ],
+  });
+  const answered = thread([
+    { type: "user_message", seq: 1, text: "ask me" },
+    { type: "assistant_text", seq: 2, text: "Let me ask." },
+    { type: "approval_requested", seq: 3, approval_id: "a1", name: "AskUserQuestion", arg: "Which color?", tool_id: "t1", input },
+    { type: "approval_resolved", seq: 4, approval_id: "a1", decision: "answer", answers: { "Which color?": "Teal", "Which pets?": "Cat, a parrot" } },
+    { type: "tool_call", seq: 5, name: "AskUserQuestion", tool_id: "t1", arg: "Which color?", status: "done" },
+    { type: "assistant_text", seq: 6, text: "Teal it is." },
+    { type: "turn_done", seq: 7, duration_ms: 1000 },
+  ]);
+
+  it("shows each question with its answer, in place", () => {
+    const html = render(<ChatThread thread={answered} chatId="c1" />);
+    const order = ["Let me ask.", "Which color?", "Teal", "Which pets?", "Cat, a parrot", "Teal it is."].map((t) => html.indexOf(t));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+    // No card and no collapsed action line for it.
+    expect(html).not.toContain('aria-label="Question"');
+    expect(html).not.toContain("1 action");
   });
 });
 

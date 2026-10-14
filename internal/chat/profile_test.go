@@ -27,10 +27,10 @@ func flagValues(args []string, flag string) []string {
 
 // The built-in tools of each mode (xpo-80bf05). Chat Mode adds the web and
 // LSP tools to the read-only ones; Work Mode adds editing, Bash, the task
-// list, and subagents.
+// list, and subagents. Both modes ask the user questions (xpo-447687).
 const (
-	chatTools = "Read,Grep,Glob,Skill,WebSearch,WebFetch,LSP"
-	workTools = "Read,Grep,Glob,Edit,Write,Bash,Skill,WebSearch,WebFetch,LSP,TaskCreate,TaskUpdate,TaskList,TaskGet,Agent"
+	chatTools = "Read,Grep,Glob,Skill,WebSearch,WebFetch,LSP,AskUserQuestion"
+	workTools = "Read,Grep,Glob,Edit,Write,Bash,Skill,WebSearch,WebFetch,LSP,AskUserQuestion,TaskCreate,TaskUpdate,TaskList,TaskGet,Agent"
 )
 
 func askRules(t *testing.T, args []string) []string {
@@ -109,6 +109,20 @@ func TestProfile_WebFetchNeverAllowed(t *testing.T) {
 		}
 		if !slices.Contains(askRules(t, args), "WebFetch") {
 			t.Errorf("%s: WebFetch does not ask", p.Mode)
+		}
+	}
+}
+
+// AskUserQuestion must reach the user as a card. On the allow list, Claude
+// Code runs it without asking, and there is no answer to return.
+func TestProfile_AskUserQuestionNeverAllowed(t *testing.T) {
+	for _, p := range []Profile{ChatProfile("/repo", true), ChatProfile("/repo", false), WorkProfile("xpo-1", "/wt", "/repo")} {
+		args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: p})
+		if !slices.Contains(strings.Split(flagValue(args, "--tools"), ","), ToolAskUserQuestion) {
+			t.Errorf("%s: --tools = %q, missing AskUserQuestion", p.Mode, flagValue(args, "--tools"))
+		}
+		if allowed := flagValues(args, "--allowedTools"); slices.ContainsFunc(allowed, func(r string) bool { return strings.HasPrefix(r, ToolAskUserQuestion) }) {
+			t.Errorf("%s: --allowedTools = %v allows AskUserQuestion", p.Mode, allowed)
 		}
 	}
 }

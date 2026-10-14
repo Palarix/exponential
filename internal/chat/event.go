@@ -67,9 +67,10 @@ type Event struct {
 	ToolID string `json:"tool_id,omitempty"` // tool_call, tool_start, approval_requested; empty in chats saved before tool results
 	Status string `json:"status,omitempty"`  // tool_call: "done", "error" or "denied"
 
-	ApprovalID string `json:"approval_id,omitempty"` // approval_requested, approval_resolved
-	Input      string `json:"input,omitempty"`       // approval_requested: the full tool input as JSON
-	Decision   string `json:"decision,omitempty"`    // approval_resolved: a Decision value
+	ApprovalID string            `json:"approval_id,omitempty"` // approval_requested, approval_resolved
+	Input      string            `json:"input,omitempty"`       // approval_requested: the full tool input as JSON
+	Decision   string            `json:"decision,omitempty"`    // approval_resolved: a Decision value
+	Answers    map[string]string `json:"answers,omitempty"`     // approval_resolved: the answers to a question card, by question text
 
 	Mode    string `json:"mode,omitempty"`     // mode_changed: the new mode
 	IssueID string `json:"issue_id,omitempty"` // mode_changed: the issue entered or left; turn_continued

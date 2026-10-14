@@ -323,7 +323,7 @@ func (s *codexSession) handle(line []byte) {
 			s.approvals.Add(1)
 			go func() {
 				defer s.approvals.Done()
-				result := answer(s.in.approve(ctx, req))
+				result := answer(s.in.approve(ctx, req).Decision)
 				s.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "result": result})
 			}()
 			return

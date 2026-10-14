@@ -8,20 +8,33 @@ import (
 	"github.com/palarix/exponential/internal/exponential"
 )
 
-// Approval decisions. The user picks one of the first three on a card;
+// Approval decisions. The user picks one of the first three on an approval
+// card. A question card takes DecisionAnswer or DecisionDeny (skip).
 // DecisionCancelled resolves the cards of a cancelled or finished turn.
 const (
 	DecisionAllow        = "allow"
 	DecisionAllowSession = "allow_session" // allow, and allow matching calls for the rest of the chat
 	DecisionDeny         = "deny"
+	DecisionAnswer       = "answer"
 	DecisionCancelled    = "cancelled"
 )
+
+// ToolAskUserQuestion is Claude Code's tool for asking the user structured
+// questions. Its approval request shows as a question card.
+const ToolAskUserQuestion = "AskUserQuestion"
 
 // ErrApprovalNotFound is returned for a decision on a card that is not open.
 var ErrApprovalNotFound = errors.New("no open approval request with this ID")
 
-// ErrBadDecision is returned for a decision other than allow, allow_session or deny.
-var ErrBadDecision = errors.New(`decision must be "allow", "allow_session" or "deny"`)
+// ErrBadDecision is returned for a decision the card does not take.
+var ErrBadDecision = errors.New(`decision must be "allow", "allow_session" or "deny" on an approval card, and "answer" with an answer to each question, or "deny", on a question card`)
+
+// Verdict is the user's reply to a card. Answers, keyed by question text,
+// are set for DecisionAnswer only.
+type Verdict struct {
+	Decision string
+	Answers  map[string]string
+}
 
 // ApprovalRequest is an agent asking before a tool call runs.
 type ApprovalRequest struct {
@@ -34,14 +47,14 @@ type ApprovalRequest struct {
 	Rule string
 }
 
-// Approver asks the user and blocks until they decide. It returns one of the
-// Decision values. When ctx ends first it returns DecisionCancelled.
-type Approver func(ctx context.Context, req ApprovalRequest) string
+// Approver asks the user and blocks until they decide. When ctx ends first
+// it returns DecisionCancelled.
+type Approver func(ctx context.Context, req ApprovalRequest) Verdict
 
 // approve calls in.Approve, or denies when the session has no approver.
-func (in SessionInput) approve(ctx context.Context, req ApprovalRequest) string {
+func (in SessionInput) approve(ctx context.Context, req ApprovalRequest) Verdict {
 	if in.Approve == nil {
-		return DecisionDeny
+		return Verdict{Decision: DecisionDeny}
 	}
 	return in.Approve(ctx, req)
 }
@@ -100,23 +113,34 @@ func claudeGrantRule(cr claudeControlRequest) string {
 	return cr.Request.ToolName
 }
 
-// claudePermissionResponse is the control_response line for a decision.
-func claudePermissionResponse(cr claudeControlRequest, decision string) []byte {
+// claudePermissionResponse is the control_response line for a verdict.
+func claudePermissionResponse(cr claudeControlRequest, v Verdict) []byte {
 	var resp map[string]any
-	switch decision {
+	switch v.Decision {
 	case DecisionAllow, DecisionAllowSession:
 		input := cr.Request.Input
 		if len(input) == 0 {
 			input = json.RawMessage("{}")
 		}
 		resp = map[string]any{"behavior": "allow", "updatedInput": input}
-		if decision == DecisionAllowSession {
+		if v.Decision == DecisionAllowSession {
 			resp["updatedPermissions"] = claudeSessionPermissions(cr)
 		}
+	case DecisionAnswer:
+		// Claude Code reads the answers from the input it runs the tool
+		// with, keyed by question text.
+		input := map[string]any{}
+		_ = json.Unmarshal(cr.Request.Input, &input)
+		input["answers"] = v.Answers
+		resp = map[string]any{"behavior": "allow", "updatedInput": input}
 	case DecisionCancelled:
 		resp = map[string]any{"behavior": "deny", "message": "The user cancelled the turn."}
 	default:
-		resp = map[string]any{"behavior": "deny", "message": "The user declined this tool call."}
+		msg := "The user declined this tool call."
+		if cr.Request.ToolName == ToolAskUserQuestion {
+			msg = "The user skipped the questions without answering."
+		}
+		resp = map[string]any{"behavior": "deny", "message": msg}
 	}
 	return claudeControlResponse(cr.RequestID, resp)
 }

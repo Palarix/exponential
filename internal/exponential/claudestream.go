@@ -257,6 +257,9 @@ func (p *ClaudeStreamParser) extractToolDetail() string {
 	switch p.currentTool {
 	case "ToolSearch":
 		return ""
+	case "AskUserQuestion":
+		// Its options have descriptions: only the question text will do.
+		return extractJSONStringValue(p.toolArgBuf, "question")
 	}
 	if strings.HasPrefix(p.currentTool, "mcp__") {
 		return mcpDetail(func(key string) string { return extractJSONStringValue(p.toolArgBuf, key) })
@@ -285,8 +288,11 @@ func (p *ClaudeStreamParser) finalToolDetail() string {
 // ToolDetail picks the argument shown next to a tool's name from its decoded
 // input: the same detail the stream shows for a finished tool call.
 func ToolDetail(name string, input map[string]any) string {
-	if name == "ToolSearch" {
+	switch name {
+	case "ToolSearch":
 		return ""
+	case "AskUserQuestion":
+		return firstQuestion(input)
 	}
 	if strings.HasPrefix(name, "mcp__") {
 		return MCPToolDetail(input)
@@ -297,6 +303,17 @@ func ToolDetail(name string, input map[string]any) string {
 		}
 	}
 	return ""
+}
+
+// firstQuestion is the text of an AskUserQuestion call's first question.
+func firstQuestion(input map[string]any) string {
+	qs, _ := input["questions"].([]any)
+	if len(qs) == 0 {
+		return ""
+	}
+	q, _ := qs[0].(map[string]any)
+	text, _ := q["question"].(string)
+	return text
 }
 
 // extractJSONStringValue pulls the value for a given key from a (possibly
