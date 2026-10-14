@@ -60,7 +60,7 @@ function FailureReason({ step }: { step: ToolStep }) {
           align="start"
           sideOffset={6}
           collisionPadding={12}
-          className="z-50 max-w-md max-h-64 overflow-auto px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-3)] border border-[var(--color-border-overlay)] shadow-[var(--shadow-md)] text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap break-words animate-in fade-in-0 zoom-in-95"
+          className="z-50 max-w-md max-h-64 overflow-auto px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-2)] border border-[var(--color-border-ai)] shadow-[var(--shadow-md)] text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap break-words animate-in fade-in-0 zoom-in-95"
         >
           <div className="mb-1 font-medium text-[var(--color-error)]">{label === "denied" ? "Denied" : "Failed"}</div>
           {full}
@@ -100,7 +100,7 @@ function WorkStep({ step }: { step: ChatStep }) {
         </span>
       )}
       {step.approval?.decision && (
-        <span className="shrink-0 px-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-3)] text-[11px] text-[var(--color-text-muted)]">
+        <span className="shrink-0 px-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-ai-2)] text-[11px] text-[var(--color-text-muted)]">
           {approvalOutcomeLabel(step.approval.decision)}
         </span>
       )}
@@ -122,7 +122,7 @@ function CopyButton({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1500);
         }).catch(() => {});
       }}
-      className="p-1 -ml-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)] transition-colors"
+      className="p-1 -ml-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)] transition-colors"
     >
       {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
@@ -146,7 +146,7 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-3)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+      <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
         <IssueRefText text={turn.user.text} />
       </div>
 
@@ -177,7 +177,7 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
             {work.length > 0 && <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`} />}
           </button>
           {expanded && (
-            <div className="mt-2 ml-1 pl-3 border-l border-[var(--color-border-subtle)] flex flex-col gap-1.5">
+            <div className="mt-2 ml-1 pl-3 border-l border-[var(--color-border-ai-subtle)] flex flex-col gap-1.5">
               {work.map((step, i) => <WorkStep key={i} step={step} />)}
             </div>
           )}
@@ -213,8 +213,8 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
  */
 function Divider({ text, title, dashed }: { text: string; title?: string; dashed?: boolean }) {
   const line = dashed
-    ? "flex-1 border-t border-dashed border-[var(--color-border-default)]"
-    : "h-px flex-1 bg-[var(--color-border-subtle)]";
+    ? "flex-1 border-t border-dashed border-[var(--color-border-ai)]"
+    : "h-px flex-1 bg-[var(--color-border-ai-subtle)]";
   return (
     <div role="separator" title={title} className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
       <span className={line} />

@@ -100,6 +100,20 @@
   --color-border-control: #404040; /* checkboxes, toggles        */
   --color-border-focus: rgba(94, 106, 210, 0.5);
 
+  /* AI surface — the agent chat's own layer scale, each step a tad above
+     its app counterpart so the chat lifts off the board. No ai-0: the Agent
+     view shows the app canvas. Hover steps up one layer, as above. */
+  --color-surface-ai-1:  #1a1a1a; /* chat popup shell             */
+  --color-surface-ai-2:  #202020; /* cards, composer, menus       */
+  --color-surface-ai-3:  #272727; /* items raised on ai-2         */
+  --color-hover-surface-ai-1:  #202020; /* hover on ai-1 */
+  --color-hover-surface-ai-2:  #272727; /* hover on ai-2 */
+  --color-hover-surface-ai-3:  #2e2e2e; /* hover on ai-3 */
+  --color-border-ai:         #333333; /* popup edge, cards, inputs  */
+  --color-border-ai-subtle:  #242424; /* dividers within AI content */
+  --color-button-ai:         var(--color-accent-primary);       /* primary buttons */
+  --color-button-ai-hover:   var(--color-accent-primary-hover); /* hover on them   */
+
   /* Diff gutter — opaque approximations of add/del tints over --color-surface */
   --color-diff-gutter-add: #0f1a0f;
   --color-diff-gutter-del: #1a0f0f;
@@ -168,6 +182,20 @@
   /* Transitions */
   --duration-fast: 100ms;
   --duration-normal: 150ms;
+}
+
+/* Puts shared primitives (Menu, PopoverPanel, prose) on the AI surface by
+   remapping the app tokens they read. Set on agent roots and on the menus
+   they open, which are portaled outside those roots. */
+.surface-ai {
+  --color-surface-2: var(--color-surface-ai-2);
+  --color-surface-3: var(--color-surface-ai-2);
+  --color-hover-surface-3: var(--color-hover-surface-ai-2);
+  --color-hover-surface-4: var(--color-hover-surface-ai-3);
+  --color-border-elevated: var(--color-border-ai);
+  --color-border-default: var(--color-border-ai);
+  --color-border-overlay: var(--color-border-ai);
+  --color-border-subtle: var(--color-border-ai-subtle);
 }
 
 /* Dependencies view — dimming of nodes/edges outside the focus or hover

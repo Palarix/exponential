@@ -126,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: the chat popup, the composer, approval cards, message bubbles and the menus they open draw on their own monochrome surface scale (`--color-*-ai-*` tokens), a step above the app's, so the chat stands out from the board. The Agent view keeps the app canvas. A `.surface-ai` class puts shared menus and popovers on that scale. (xpo-03fa37)
 - Agent chat popup: it opens centered above its status-bar pill, or above the Agent button for a new chat, instead of the bottom-right corner. It is resizable from its top edge, sides and top corners, from 360×400 up to 600×900, and remembers its size. (xpo-b45049)
 - Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch pill shows its commit count and the chat pill its chat count; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9)
 - Agent chat polish: mode dividers read "Entered Work Mode on xpo-…" and "Entered Chat Mode". The Work Mode segment shows the hammer and the issue ID, without "Work ·". The send and stop buttons are 24px. (xpo-219de9)

@@ -70,7 +70,7 @@ export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarPro
               setDraft(null);
             }
           }}
-          className="flex-1 min-w-0 h-7 px-2 -ml-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-2)] border border-[var(--color-border-focus)] text-sm font-medium text-[var(--color-text-primary)] outline-none"
+          className="flex-1 min-w-0 h-7 px-2 -ml-2 rounded-[var(--radius-sm)] bg-[var(--color-surface-ai-2)] border border-[var(--color-border-focus)] text-sm font-medium text-[var(--color-text-primary)] outline-none"
         />
       ) : (
         <div className="min-w-0 flex">{title}</div>
@@ -82,14 +82,14 @@ export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarPro
           type="button"
           aria-label="Chat actions"
           onClick={() => setMenuOpen((o) => !o)}
-          className="shrink-0 p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]"
+          className="shrink-0 p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]"
         >
           <MoreHorizontal className="w-4 h-4" />
         </button>
       )}
       {chat && menuOpen && (
         <Popover anchorRef={menuBtnRef} onClose={() => setMenuOpen(false)}>
-          <Menu onClose={() => setMenuOpen(false)} aria-label="Chat actions">
+          <Menu onClose={() => setMenuOpen(false)} aria-label="Chat actions" className="surface-ai">
             <MenuItem label="Rename" icon={<Pencil size={14} />} onClick={() => { setMenuOpen(false); setDraft(chat.title); }} />
             <MenuItem label="Delete" icon={<Trash2 size={14} />} destructive onClick={() => { setMenuOpen(false); setConfirmDelete(true); }} />
           </Menu>

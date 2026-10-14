@@ -95,13 +95,13 @@ export default function ChatComposer({
             type="button"
             aria-label="Remove issue context"
             onClick={onDismissContext}
-            className="ml-auto shrink-0 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]"
+            className="ml-auto shrink-0 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]"
           >
             <X className="w-3 h-3" />
           </button>
         </div>
       )}
-      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border-default)] bg-[var(--color-surface-2)] focus-within:border-[var(--color-border-focus)] transition-colors">
+      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-2)] focus-within:border-[var(--color-border-focus)] transition-colors">
         <textarea
           ref={inputRef}
           rows={1}
@@ -132,7 +132,7 @@ export default function ChatComposer({
               type="button"
               aria-label="Stop"
               onClick={onStop}
-              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-surface-4)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-4)] transition-colors"
+              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-surface-ai-3)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-3)] transition-colors"
             >
               <Square className="w-2.5 h-2.5 fill-current" />
             </button>
@@ -142,7 +142,7 @@ export default function ChatComposer({
               aria-label="Send"
               onClick={() => void send()}
               disabled={!canSend}
-              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-accent-primary)] transition-colors"
+              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-button-ai)] text-white hover:bg-[var(--color-button-ai-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-button-ai)] transition-colors"
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>

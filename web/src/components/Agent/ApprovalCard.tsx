@@ -11,9 +11,9 @@ function Spinner() {
 // Footer buttons share the composer's control size.
 const BUTTON = "flex items-center justify-center gap-1.5 h-7 px-2.5 rounded-[var(--radius-md)] text-xs font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none";
 const BUTTON_STYLES: Record<ApprovalDecision, string> = {
-  deny: "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]",
-  allow_session: "border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]",
-  allow: "bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)]",
+  deny: "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-2)]",
+  allow_session: "border border-[var(--color-border-ai)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-2)]",
+  allow: "bg-[var(--color-button-ai)] text-white hover:bg-[var(--color-button-ai-hover)]",
 };
 const BUTTON_LABELS: Record<ApprovalDecision, string> = { deny: "Deny", allow_session: "Allow for this chat", allow: "Allow" };
 
@@ -62,7 +62,7 @@ export default function ApprovalCard({
   );
   const extras = command || fields.length > 0;
   return (
-    <div role="group" aria-label="Approval needed" className="rounded-[var(--radius-lg)] border border-[var(--color-border-default)] bg-[var(--color-surface-2)]">
+    <div role="group" aria-label="Approval needed" className="rounded-[var(--radius-lg)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-2)]">
       {/* The headline and the buttons share a row; the buttons wrap below a long headline. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3 pr-1.5 py-1.5 min-w-0">
         <div className="min-w-0 py-0.5 text-sm text-[var(--color-text-primary)] break-words">
@@ -82,7 +82,7 @@ export default function ApprovalCard({
       {(extras || error) && (
         <div className="px-3 pb-2.5 min-w-0">
           {command && (
-            <pre className="max-h-40 overflow-auto px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-1)] border border-[var(--color-border-subtle)] text-xs font-mono whitespace-pre-wrap break-words text-[var(--color-text-primary)]">
+            <pre className="max-h-40 overflow-auto px-2.5 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-1)] border border-[var(--color-border-ai-subtle)] text-xs font-mono whitespace-pre-wrap break-words text-[var(--color-text-primary)]">
               {command}
             </pre>
           )}

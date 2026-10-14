@@ -33,14 +33,14 @@ function ChatSwitcher({ title }: { title: string }) {
         ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 min-w-0 h-7 px-2 -ml-2 rounded-[var(--radius-md)] text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)] transition-colors"
+        className="flex items-center gap-1.5 min-w-0 h-7 px-2 -ml-2 rounded-[var(--radius-md)] text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)] transition-colors"
       >
         <span className="truncate">{title}</span>
         <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[var(--color-text-muted)]" />
       </button>
       {open && (
         <Popover anchorRef={btnRef} onClose={() => setOpen(false)}>
-          <Menu onClose={() => setOpen(false)} aria-label="Chats" className="w-96" maxHeight="24rem">
+          <Menu onClose={() => setOpen(false)} aria-label="Chats" className="surface-ai w-96" maxHeight="24rem">
             <MenuItem label="New chat" icon={<SquarePen size={14} />} onClick={() => pick(null)} />
             {chats.length > 0 && <MenuDivider />}
             {recentChatItems(chats, chatId, pick)}
@@ -65,7 +65,7 @@ function RecentChatsList({ chats, onOpen }: { chats: ChatMeta[]; onOpen: (id: st
             <button
               type="button"
               onClick={() => onOpen(c.id)}
-              className="flex items-center gap-3 w-full h-9 px-3 rounded-[var(--radius-md)] text-left hover:bg-[var(--color-hover-surface-2)] transition-colors"
+              className="flex items-center gap-3 w-full h-9 px-3 rounded-[var(--radius-md)] text-left hover:bg-[var(--color-hover-surface-ai-1)] transition-colors"
             >
               {chatStateIcon(c, "w-3.5 h-3.5", <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />)}
               <span className="flex-1 min-w-0 truncate text-sm text-[var(--color-text-secondary)]">{c.title || "Untitled chat"}</span>
@@ -131,8 +131,8 @@ export default function AgentView() {
   );
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center h-12 px-6 shrink-0 border-b border-[var(--color-border-subtle)]">
+    <div className="surface-ai h-full flex flex-col">
+      <div className="flex items-center h-12 px-6 shrink-0 border-b border-[var(--color-border-ai-subtle)]">
         <ChatTitleBar
           key={chatId ?? "new"}
           chat={meta}
@@ -147,7 +147,7 @@ export default function AgentView() {
               agent.openChat(chatId);
               leaveChatView();
             }}
-            className="shrink-0 p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]"
+            className="shrink-0 p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]"
           >
             <Dock className="w-4 h-4" />
           </button>
@@ -167,7 +167,7 @@ export default function AgentView() {
                 key={s.label}
                 type="button"
                 onClick={() => void sendText(s.prompt)}
-                className="flex flex-col items-start gap-3 p-4 text-left rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] hover:bg-[var(--color-hover-surface-2)] hover:border-[var(--color-border-default)] transition-colors"
+                className="flex flex-col items-start gap-3 p-4 text-left rounded-[var(--radius-lg)] border border-[var(--color-border-ai-subtle)] hover:bg-[var(--color-hover-surface-ai-1)] hover:border-[var(--color-border-ai)] transition-colors"
               >
                 <span className="text-[var(--color-text-muted)]">{SUGGESTION_ICONS[i]}</span>
                 <span>

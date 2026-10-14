@@ -15,7 +15,7 @@ export interface WorkModeInfo {
 }
 
 function Rule() {
-  return <span data-segment-rule aria-hidden className="w-px h-3.5 shrink-0 bg-[var(--color-border-default)]" />;
+  return <span data-segment-rule aria-hidden className="w-px h-3.5 shrink-0 bg-[var(--color-border-ai)]" />;
 }
 
 /** A compact trigger that opens a menu below it. */
@@ -50,7 +50,7 @@ function Segment({
         title={title}
         disabled={disabled}
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1 h-7 px-1.5 min-w-0 rounded-[var(--radius-md)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)] disabled:opacity-50 disabled:pointer-events-none transition-colors ${className ?? ""}`}
+        className={`flex items-center gap-1 h-7 px-1.5 min-w-0 rounded-[var(--radius-md)] text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-2)] disabled:opacity-50 disabled:pointer-events-none transition-colors ${className ?? ""}`}
       >
         {icon}
         <span className="truncate">{label}</span>
@@ -58,7 +58,7 @@ function Segment({
       </button>
       {open && !disabled && (
         <Popover anchorRef={ref} onClose={close}>
-          <PopoverPanel className="min-w-48">{children(close)}</PopoverPanel>
+          <PopoverPanel className="surface-ai min-w-48">{children(close)}</PopoverPanel>
         </Popover>
       )}
     </>

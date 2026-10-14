@@ -11,7 +11,7 @@ import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
 import { useWorkMode } from "./useWorkMode";
 
-const headerButton = "p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-3)]";
+const headerButton = "p-1.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]";
 
 /**
  * The chat popup. It floats centered above anchor(): the open chat's pill,
@@ -66,7 +66,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
           agent.minimize();
         }
       }}
-      className="fixed z-40 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-4rem)] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-overlay)] bg-[var(--color-surface-1)] shadow-[var(--shadow-popover)] overflow-hidden"
+      className="surface-ai fixed z-40 max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-4rem)] flex flex-col rounded-[var(--radius-xl)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-1)] shadow-[var(--shadow-popover)] overflow-hidden"
     >
       <ResizeHandles size={size} onResize={setSize} onDone={(next) => savePopupSize(storage, next)} />
       <div className="flex items-center gap-1 pl-4 pr-2 h-12 shrink-0">
@@ -107,7 +107,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
                 type="button"
                 disabled={!agent.status?.available}
                 onClick={() => void sendText(s.prompt)}
-                className="px-3 py-1.5 rounded-full border border-[var(--color-border-default)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)] disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 rounded-full border border-[var(--color-border-ai)] text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-ai-1)] hover:text-[var(--color-text-primary)] disabled:opacity-50 transition-colors"
               >
                 {s.label}
               </button>
