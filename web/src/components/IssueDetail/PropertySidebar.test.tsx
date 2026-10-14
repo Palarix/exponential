@@ -140,6 +140,26 @@ describe("PropertySidebar button priority", () => {
     expect(html).not.toContain("Review Changes");
     expect(button(html, "Continue Work")).toContain("bg-[var(--color-accent-primary)]");
   });
+
+  describe("Continue Work with a Work Mode chat", () => {
+    const doing = makeIssue({ status: "DOING", branch_stats: { ...stats, files_changed: 0, has_uncommitted: false } });
+    const withChat = (mode: "work" | undefined) =>
+      ({
+        ...agentAvailable,
+        chats: [{ id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", mode, work: mode ? { issue_id: doing.id, worktree: "/w" } : undefined, worked_issues: [doing.id] }],
+      }) as unknown as AgentChat;
+
+    it("makes Continue Work secondary while a chat is in Work Mode on the issue", () => {
+      const html = renderSidebar(doing, true, withChat("work"));
+      expect(button(html, "Continue Work")).not.toContain("bg-[var(--color-accent-primary)]");
+      expect(button(html, "Continue Work")).toContain("border-[var(--color-border-default)]");
+    });
+
+    it("keeps Continue Work primary once the chat has left Work Mode", () => {
+      const html = renderSidebar(doing, true, withChat(undefined));
+      expect(button(html, "Continue Work")).toContain("bg-[var(--color-accent-primary)]");
+    });
+  });
 });
 
 describe("PropertySidebar Start Work blockers", () => {

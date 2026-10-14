@@ -130,6 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: on a DOING issue, Continue Work renders as a secondary button while a chat is in Work Mode on the issue, and stays primary otherwise. Clicking it works as before. (xpo-374792)
+
 - A `blocked_by` blocker now counts as resolved only when it is DONE. CANCELED and DUPLICATE blockers still block, until you remove the link or point it at another issue.
   - **Board:** Start Work is disabled while any blocker is unresolved. Hovering it shows a tooltip that lists each blocker and its status, with a one-click Remove link for canceled and duplicate blockers.
   - **`start` and drive:** `start` refuses such issues, and the error says to remove the link. Drive skips them.

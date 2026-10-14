@@ -77,6 +77,9 @@ export default function PropertySidebar({
       : issue.status === "DOING" && issue.branch_stats && canChat
         ? "Continue Work"
         : null;
+  // Secondary while reviewing is the next step (xpo-926f0b), or while a chat
+  // already works on the issue in Work Mode (xpo-374792).
+  const workSecondary = showReview || (workAction === "Continue Work" && !!issueChats.holder);
   // Start Work waits for every blocker to be DONE, as the start gate does (xpo-35943d).
   const blockers = useMemo(
     () => (workAction === "Start Work" ? unresolvedBlockers(issue, issues) : []),
@@ -204,14 +207,14 @@ export default function PropertySidebar({
           </button>
         )}
 
-        {/* Start Work button: secondary while Review Changes shows, since reviewing is the next step (xpo-926f0b). */}
+        {/* Start Work / Continue Work button: secondary while Review Changes shows or a chat holds the issue. */}
         {workAction && (() => {
           const button = (
           <button
             onClick={handleStartWork}
             disabled={starting || blockers.length > 0}
             className={`flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-opacity disabled:opacity-50 disabled:pointer-events-none ${
-              showReview
+              workSecondary
                 ? "bg-[var(--color-surface-2)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)]"
                 : "bg-[var(--color-accent-primary)] text-white hover:opacity-90"
             }`}
