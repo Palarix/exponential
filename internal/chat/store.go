@@ -281,6 +281,30 @@ func (s *Store) List() ([]Meta, error) {
 	return list, nil
 }
 
+// StopOrphans stops the agents a previous board process left running, for
+// example after a crash, and forgets them. It returns how many it stopped.
+func (s *Store) StopOrphans() (int, error) {
+	list, err := s.List()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, m := range list {
+		if m.AgentPID == 0 {
+			continue
+		}
+		if m.AgentStarted != nil && stopOrphan(m.AgentPID, *m.AgentStarted) {
+			n++
+		}
+		m.AgentPID = 0
+		m.AgentStarted = nil
+		if err := s.SaveMeta(m); err != nil {
+			return n, err
+		}
+	}
+	return n, nil
+}
+
 // MarkInterrupted flags chats left running by a previous board process.
 func (s *Store) MarkInterrupted() error {
 	list, err := s.List()

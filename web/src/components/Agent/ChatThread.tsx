@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { ChevronRight, Copy, Check, Lightbulb } from "lucide-react";
+import { Bot, ChevronRight, Copy, Check, Lightbulb } from "lucide-react";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
@@ -228,7 +228,13 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
 
   return (
     <div className="flex flex-col gap-3">
-      {!turn.continued && (
+      {turn.byAgent && (
+        <div data-agent-turn className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] min-w-0">
+          <Bot className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{turn.user.text || "The agent continued on its own"}</span>
+        </div>
+      )}
+      {!turn.continued && !turn.byAgent && (
         <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
           <IssueRefText text={turn.user.text} />
         </div>

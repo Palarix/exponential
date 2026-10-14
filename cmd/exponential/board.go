@@ -131,6 +131,13 @@ func newChatService() *server.ChatService {
 	store.OnCreateDir = func() {
 		exponential.EnsureGitignoreEntryAt(filepath.Join(root, ".gitignore"), ".xpo/chats/")
 	}
+	// A board that crashed left its agents running; stop them before any
+	// chat resumes their sessions.
+	if n, err := store.StopOrphans(); err != nil {
+		log.Printf("warning: chat store: %v", err)
+	} else if n > 0 {
+		log.Printf("Stopped %d agent(s) a previous board left running", n)
+	}
 	if err := store.MarkInterrupted(); err != nil {
 		log.Printf("warning: chat store: %v", err)
 	}

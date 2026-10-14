@@ -41,7 +41,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
   });
   const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft, pendingIssueFor, consumeContext } = agent;
   const { openChatView } = useAppNav();
-  const { thread, running, send, stop, expireApproval } = useChatSession(chatId, chatCreated);
+  const { thread, running, send, stop, expireApproval, background } = useChatSession(chatId, chatCreated);
   const issues = useIssueList();
 
   const meta = chats.find((c) => c.id === chatId);
@@ -122,6 +122,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
 
       <ChatComposer
         running={running}
+        background={background}
         disabled={!agent.status?.available}
         placeholder={empty ? "Ask about issues, or the code behind them…" : "Reply…"}
         contextIssue={issueId ? { id: issueId, title: issueTitle } : undefined}

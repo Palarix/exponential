@@ -182,6 +182,27 @@ describe("ChatThread continued turn", () => {
   });
 });
 
+describe("ChatThread agent turn", () => {
+  it("shows what woke the agent instead of a user bubble", () => {
+    const html = render(
+      <ChatThread
+        thread={thread([
+          { type: "user_message", seq: 1, text: "serve it" },
+          { type: "turn_done", seq: 2, duration_ms: 1000 },
+          { type: "agent_turn", seq: 3, text: "Serve the board finished" },
+          { type: "assistant_text", seq: 4, text: "The server stopped." },
+          { type: "turn_done", seq: 5, duration_ms: 2000 },
+        ])}
+      />,
+    );
+    expect(html.match(/bg-\[var\(--color-surface-ai-2\)\]/g)).toHaveLength(1);
+    const label = html.indexOf("Serve the board finished");
+    expect(label).toBeGreaterThan(-1);
+    expect(label).toBeLessThan(html.indexOf("The server stopped."));
+    expect(html).toContain("data-agent-turn");
+  });
+});
+
 describe("ChatThread cold cache marker", () => {
   const done = thread([
     { type: "user_message", seq: 1, text: "hi" },

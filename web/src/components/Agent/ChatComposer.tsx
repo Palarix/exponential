@@ -1,11 +1,27 @@
 import { useEffect, useRef, useState } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ArrowUp, Square, X } from "lucide-react";
-import type { AgentStatus } from "../../api/chat";
+import type { AgentStatus, BackgroundTask } from "../../api/chat";
 import type { ChatPrefs } from "./agent-state-utils";
 import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
 
+/** The banner for work the agent keeps running between turns. */
+export interface BackgroundBannerInfo {
+  /** Such as "Monitoring" or "2 agents working". */
+  title: string;
+  /** A subagent works, rather than only shells and monitors. */
+  working: boolean;
+  /** Listed in the card the title opens. */
+  tasks: BackgroundTask[];
+  /** Stop was pressed; the tasks have not ended yet. */
+  stopping: boolean;
+  onStop(): void;
+}
+
 interface ChatComposerProps {
   running: boolean;
+  /** Set while the agent runs background tasks. Shown between turns. */
+  background?: BackgroundBannerInfo;
   disabled?: boolean;
   placeholder: string;
   /** The open issue, shown as a removable chip; undefined hides it. */
@@ -30,8 +46,53 @@ interface ChatComposerProps {
   onDraftUsed?(): void;
 }
 
+/** The background tasks, one per line: what each one runs. */
+export function BackgroundTaskList({ tasks }: { tasks: BackgroundTask[] }) {
+  return (
+    <ul className="flex flex-col gap-1">
+      {tasks.map((t) => (
+        <li key={t.id} className="flex gap-2 min-w-0">
+          <span className="shrink-0 text-[var(--color-text-muted)]">{t.kind === "agent" ? "Agent" : "Task"}</span>
+          <span className="min-w-0 break-words text-[var(--color-text-primary)]">{t.description || (t.kind === "agent" ? "Agent" : "Background task")}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The banner's title. Hover, focus or click opens a card with the tasks. */
+function BackgroundTitle({ background }: { background: BackgroundBannerInfo }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <TooltipPrimitive.Root open={open} onOpenChange={setOpen} delayDuration={150}>
+      <TooltipPrimitive.Trigger asChild>
+        <button
+          type="button"
+          aria-label="Show background tasks"
+          onClick={() => setOpen(true)}
+          className="min-w-0 truncate rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--color-border-focus)]"
+        >
+          {background.title}
+        </button>
+      </TooltipPrimitive.Trigger>
+      <TooltipPrimitive.Portal>
+        <TooltipPrimitive.Content
+          side="top"
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="z-50 max-w-sm max-h-64 overflow-auto px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-2)] border border-[var(--color-border-ai)] shadow-[var(--shadow-md)] text-xs leading-relaxed animate-in fade-in-0 zoom-in-95"
+        >
+          <BackgroundTaskList tasks={background.tasks} />
+        </TooltipPrimitive.Content>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
+  );
+}
+
 export default function ChatComposer({
   running,
+  background,
   disabled,
   placeholder,
   contextIssue,
@@ -98,6 +159,21 @@ export default function ChatComposer({
             className="ml-auto shrink-0 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]"
           >
             <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+      {background && !running && (
+        <div className="flex items-center gap-2 pl-3 pr-1 py-1 mb-1 text-xs min-w-0" role="status">
+          <span className={`size-1.5 shrink-0 rounded-full bg-[var(--color-text-secondary)] ${background.working ? "animate-pulse" : ""}`} aria-hidden />
+          <BackgroundTitle background={background} />
+          <button
+            type="button"
+            aria-label="Stop background tasks"
+            onClick={background.onStop}
+            disabled={background.stopping}
+            className="ml-auto shrink-0 px-2 py-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)] disabled:opacity-60 disabled:hover:bg-transparent"
+          >
+            {background.stopping ? "Stopping…" : "Stop"}
           </button>
         </div>
       )}

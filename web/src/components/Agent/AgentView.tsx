@@ -88,7 +88,7 @@ export default function AgentView() {
   const agent = useAgentChat();
   const { chatId, openChatView, leaveChatView } = useAppNav();
   const { projectName } = useConfig();
-  const { thread, missing, running, send, stop, expireApproval } = useChatSession(chatId, (id) => openChatView(id));
+  const { thread, missing, running, send, stop, expireApproval, background } = useChatSession(chatId, (id) => openChatView(id));
   const meta = agent.chats.find((c) => c.id === chatId);
   useMarkSeen(meta);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
@@ -117,6 +117,7 @@ export default function AgentView() {
     <ChatComposer
       wide
       running={running}
+      background={background}
       placeholder={empty ? `Ask ${projectName || "xpo"} anything…` : "Reply…"}
       onDismissContext={() => {}}
       status={agent.status}

@@ -1,4 +1,4 @@
-import type { ApprovalOutcome, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
+import type { ApprovalOutcome, BackgroundTask, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
 
 /** An approval card on a tool step. No decision means it waits for the user. */
 export interface StepApproval {
@@ -24,6 +24,8 @@ export interface ChatTurn {
   user: { text: string; context?: ChatContext; time: string };
   /** The board started this turn after an approved start, with no user message. */
   continued?: boolean;
+  /** The agent started this turn on its own; user.text says what woke it. */
+  byAgent?: boolean;
   steps: ChatStep[];
   status: "running" | "done" | "stopped" | "error" | "interrupted";
   thinking: boolean;
@@ -46,6 +48,8 @@ export interface ChatThread {
   dividers: ModeDivider[];
   /** Highest settled `seq` seen; settled events at or below it are replays. */
   lastSeq: number;
+  /** Work the agent keeps running between turns. */
+  background: BackgroundTask[];
 }
 
 export type ChatThreadAction =
@@ -53,9 +57,22 @@ export type ChatThreadAction =
   | { type: "interrupted" }
   /** The server no longer knows an open approval, for example after a restart. */
   | { type: "approval_expired"; id: string }
+  /** The background tasks when the chat loaded. */
+  | { type: "background"; tasks: BackgroundTask[] }
   | { type: "reset" };
 
-export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0 };
+export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0, background: [] };
+
+/**
+ * The background banner's title: how many agents work, or how many shells
+ * and monitors run when no agent does. Undefined without tasks.
+ */
+export function backgroundBanner(tasks: BackgroundTask[]): string | undefined {
+  if (tasks.length === 0) return undefined;
+  const agents = tasks.filter((t) => t.kind === "agent").length;
+  if (agents === 0) return `Monitoring ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`;
+  return `${agents} ${agents === 1 ? "agent" : "agents"} working`;
+}
 
 /** Nothing to show yet: no turn and no divider. */
 export function isEmptyThread(state: ChatThread): boolean {
@@ -77,6 +94,7 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
   if (action.type === "approval_expired") {
     return updateLast(state, (t) => updateApproval(t, action.id, "expired"));
   }
+  if (action.type === "background") return { ...state, background: action.tasks };
 
   const e = action.event;
   if (e.seq !== undefined && e.seq > 0) {
@@ -84,7 +102,8 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
     state = { ...state, lastSeq: e.seq };
   }
 
-  if (e.type === "user_message" || e.type === "turn_continued") {
+  if (e.type === "background_tasks") return { ...state, background: e.tasks ?? [] };
+  if (e.type === "user_message" || e.type === "turn_continued" || e.type === "agent_turn") {
     const turn: ChatTurn = {
       user: { text: e.text ?? "", context: e.context, time: e.time },
       steps: [],
@@ -92,6 +111,7 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
       thinking: false,
     };
     if (e.type === "turn_continued") turn.continued = true;
+    if (e.type === "agent_turn") turn.byAgent = true;
     return { ...state, turns: [...state.turns, turn] };
   }
   if (e.type === "mode_changed") {

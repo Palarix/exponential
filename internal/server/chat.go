@@ -44,6 +44,7 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/local/chats/{id}", s.handleDeleteChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/messages", s.handleSendChatMessage)
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
+	mux.HandleFunc("POST /api/local/chats/{id}/background/stop", s.handleStopBackground)
 	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
 	mux.HandleFunc("GET /api/local/chats/{id}/stream", s.handleChatStream)
 	mux.HandleFunc("POST /api/local/chats/{id}/leave-work", s.handleLeaveWork)
@@ -85,10 +86,15 @@ func (s *Server) handleGetChat(w http.ResponseWriter, r *http.Request) {
 	if s.respondChatError(w, err) {
 		return
 	}
+	background := s.Chat.Runner.Background(id)
+	if background == nil {
+		background = []chat.BackgroundTask{}
+	}
 	respondJSON(w, http.StatusOK, map[string]any{
-		"meta":    meta,
-		"events":  events,
-		"running": s.Chat.Runner.Running(id),
+		"meta":       meta,
+		"events":     events,
+		"running":    s.Chat.Runner.Running(id),
+		"background": background,
 	})
 }
 
@@ -107,14 +113,15 @@ func (s *Server) handleRenameChat(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, meta)
 }
 
-// handleDeleteChat stops the chat's running turn first, so no turn writes to
-// the log after it is gone.
+// handleDeleteChat stops the chat's running turn and its agent first, so
+// nothing writes to the log after it is gone.
 func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := s.Chat.Store.Meta(id); s.respondChatError(w, err) {
 		return
 	}
 	s.Chat.Runner.CancelAndWait(id)
+	s.Chat.Runner.StopBackground(id)
 	if err := s.Chat.Store.Delete(id); s.respondChatError(w, err) {
 		return
 	}
@@ -165,6 +172,20 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCancelChat(w http.ResponseWriter, r *http.Request) {
 	if !s.Chat.Runner.Cancel(r.PathValue("id")) {
 		respondError(w, http.StatusConflict, "no reply is running")
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// handleStopBackground stops a chat's agent with its background tasks.
+// The next message starts the agent again and resumes the session.
+func (s *Server) handleStopBackground(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := s.Chat.Store.Meta(id); s.respondChatError(w, err) {
+		return
+	}
+	if !s.Chat.Runner.StopBackground(id) {
+		respondError(w, http.StatusConflict, "no agent is running")
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})

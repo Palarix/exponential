@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { approvalArgs, approvalOutcomeLabel, approvalTitle, chatThreadReducer, formatDuration, groupSummary, isEmptyThread, modeDividerText, failedSteps, failureReason, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { approvalArgs, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, formatDuration, groupSummary, isEmptyThread, modeDividerText, failedSteps, failureReason, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -35,6 +35,36 @@ describe("chatThreadReducer", () => {
     expect(s.turns[1].status).toBe("running");
     expect(s.dividers).toEqual([{ at: 1, mode: "work", issueId: "xpo-1", message: undefined }]);
     expect(isRunning(s)).toBe(true);
+  });
+
+  it("starts a running turn with no user message when the agent starts one", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "serve it" }),
+      ev({ type: "turn_done", seq: 2, duration_ms: 1000 }),
+      ev({ type: "agent_turn", seq: 3, text: "Serve the board finished" }),
+      ev({ type: "assistant_text", seq: 4, text: "The server stopped." }),
+    ]);
+    expect(s.turns).toHaveLength(2);
+    expect(s.turns[1].byAgent).toBe(true);
+    expect(s.turns[1].user.text).toBe("Serve the board finished");
+    expect(s.turns[1].status).toBe("running");
+    expect(isRunning(s)).toBe(true);
+  });
+
+  it("tracks the background tasks apart from the turns", () => {
+    const tasks = [{ id: "bg-1", kind: "monitor" as const, description: "Serve the board" }];
+    let s = reduce([
+      ev({ type: "user_message", seq: 1, text: "serve it" }),
+      ev({ type: "background_tasks", tasks }),
+      ev({ type: "turn_done", seq: 2, duration_ms: 1000 }),
+    ]);
+    expect(s.background).toEqual(tasks);
+    expect(isRunning(s)).toBe(false);
+    s = reduce([ev({ type: "background_tasks" })], s);
+    expect(s.background).toEqual([]);
+    s = chatThreadReducer(s, { type: "background", tasks });
+    expect(s.background).toEqual(tasks);
+    expect(chatThreadReducer(s, { type: "reset" }).background).toEqual([]);
   });
 
   it("appends text deltas to one live text step", () => {
@@ -580,5 +610,21 @@ describe("mode dividers", () => {
 describe("start approval", () => {
   it("asks to enter Work Mode", () => {
     expect(approvalTitle("mcp__xpo__start", "xpo-1")).toEqual({ action: "Enter Work Mode on", detail: "xpo-1" });
+  });
+});
+
+describe("backgroundBanner", () => {
+  const monitor = { id: "m", kind: "monitor" as const };
+  const agent = { id: "a", kind: "agent" as const };
+  it("counts the watch loops when no agent works", () => {
+    expect(backgroundBanner([monitor])).toBe("Monitoring 1 task");
+    expect(backgroundBanner([monitor, { ...monitor, id: "n" }])).toBe("Monitoring 2 tasks");
+  });
+  it("counts agents when any agent works", () => {
+    expect(backgroundBanner([agent])).toBe("1 agent working");
+    expect(backgroundBanner([agent, monitor, { ...agent, id: "b" }])).toBe("2 agents working");
+  });
+  it("is empty without tasks", () => {
+    expect(backgroundBanner([])).toBeUndefined();
   });
 });

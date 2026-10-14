@@ -46,8 +46,7 @@ func TestRealAgents_ChatProfile(t *testing.T) {
 				var asked []ApprovalRequest
 				calls := map[string]string{} // tool name → status
 				p := ChatProfile(dir, true)
-				_, err := driver.Turn(ctx, TurnInput{
-					Prompt:  buildPrompt(prompt, nil, p),
+				_, err := runTurn(ctx, t, driver, SessionInput{
 					Model:   models[provider],
 					Dir:     p.Dir,
 					MCP:     MCPTarget{Executable: xpo},
@@ -58,7 +57,7 @@ func TestRealAgents_ChatProfile(t *testing.T) {
 						mu.Unlock()
 						return DecisionDeny
 					},
-				}, func(ev exponential.StreamEvent) {
+				}, buildPrompt(prompt, nil, p), func(ev exponential.StreamEvent) {
 					if ev.Kind == exponential.StreamToolDone && ev.Text != "" {
 						mu.Lock()
 						calls[ev.Text] = "called"

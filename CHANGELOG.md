@@ -139,6 +139,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: a background process the agent started (a dev server, a monitor) no longer keeps the turn running and blocks replies until Stop. Each chat now keeps one agent process (Claude Code or Codex) across turns, and a turn ends when the agent replies.
+  - **Background tasks:** the composer shows "Monitoring N tasks", or "N agents working" for subagents. A card on the title lists the tasks; its Stop button ends the agent with its tasks. The next message resumes the session. `POST /api/local/chats/{id}/background/stop`; `GET /chats/{id}` includes `background`; live `background_tasks` events.
+  - **Agent turns:** when a background task ends and Claude Code replies on its own, the reply shows as its own turn (`agent_turn` event), marked with what woke the agent.
+  - **Stop** interrupts the turn only; background tasks keep running. Model and effort changes apply in place, without restarting the agent.
+  - **Lifecycle:** a mode change restarts the agent ("Entered Chat Mode. Background tasks stopped." when tasks ran). Agents idle for 30 minutes without tasks, deleted chats and board shutdown end their agents. A board that starts stops agents a crashed board left running.
+
+  (xpo-fb4f9b)
 - Markdown: rendered checklist items now wrap like the editor. Wrapped lines line up with the first line of text instead of the checkbox, and the checkbox sits at the editor's height. (xpo-d4e6e4)
 - Issue activity: status, estimate and priority chips now line up with the row's text. The row and its chips use flex centering instead of baseline-aligned inline text. (xpo-d3578a)
 - Dashboard: Active Epics rows no longer nest the copyable issue ID button inside the row button, which was invalid HTML and logged a React error on every Dashboard load. Clicking the row still opens the epic; clicking the ID copies it. (xpo-66c6a4)

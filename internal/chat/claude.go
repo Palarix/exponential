@@ -1,12 +1,11 @@
 package chat
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,9 +15,14 @@ import (
 	"github.com/palarix/exponential/internal/exponential"
 )
 
-// ClaudeDriver runs a turn as one `claude -p` process that streams JSON.
+// ClaudeDriver runs a chat on one `claude -p` process that reads and
+// writes stream-json. The process lives across turns: each user message is
+// one more line on its stdin, and each `result` line ends a turn.
 type ClaudeDriver struct {
 	Binary string // "claude" when empty
+	// StopGrace is how long Close waits after SIGTERM before it kills the
+	// process group. 3s when zero.
+	StopGrace time.Duration
 }
 
 func (d *ClaudeDriver) binary() string {
@@ -28,15 +32,17 @@ func (d *ClaudeDriver) binary() string {
 	return d.Binary
 }
 
-// Turn implements Driver.
-func (d *ClaudeDriver) Turn(ctx context.Context, in TurnInput, emit exponential.StreamCallback) (*TurnResult, error) {
+// controlTimeout bounds how long Send waits for Claude Code to confirm a
+// model or effort switch.
+const controlTimeout = 10 * time.Second
+
+// Open implements Driver.
+func (d *ClaudeDriver) Open(in SessionInput, h SessionHandler) (Session, error) {
 	mcpPath, err := writeMCPConfig(in.MCP)
 	if err != nil {
 		return nil, fmt.Errorf("write MCP config: %w", err)
 	}
-	defer os.Remove(mcpPath)
-
-	cmd := exec.CommandContext(ctx, d.binary(), claudeArgs(turnOptions{
+	cmd := exec.Command(d.binary(), claudeArgs(turnOptions{
 		MCPConfigPath: mcpPath,
 		SessionID:     in.SessionID,
 		Model:         in.Model,
@@ -45,84 +51,383 @@ func (d *ClaudeDriver) Turn(ctx context.Context, in TurnInput, emit exponential.
 		Profile:       in.Profile,
 	})...)
 	cmd.Dir = in.Dir
-	stderr := &tailBuffer{max: 4096}
-	cmd.Stderr = stderr
-	setProcessGroup(cmd)
-	cmd.Cancel = func() error {
-		killProcessGroup(cmd)
-		return nil
-	}
-	cmd.WaitDelay = 5 * time.Second
-	stdout, err := cmd.StdoutPipe()
+	p, err := startAgent(cmd)
 	if err != nil {
+		os.Remove(mcpPath)
 		return nil, err
 	}
-	stdinPipe, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, err
+	grace := d.StopGrace
+	if grace == 0 {
+		grace = 3 * time.Second
 	}
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start %s: %w", d.binary(), err)
+	s := &claudeSession{
+		p: p, in: in, h: h, binary: d.binary(), grace: grace,
+		model: in.Model, effort: in.Effort,
+		tasks:   map[string]BackgroundTask{},
+		control: map[string]chan error{},
+		done:    make(chan struct{}),
 	}
+	s.exitCtx, s.exitCancel = context.WithCancel(context.Background())
+	go s.read(mcpPath)
+	return s, nil
+}
 
-	// Claude Code reads the prompt and the answers to its permission
-	// requests from stdin, and ends once stdin closes.
-	stdin := &lineWriter{w: stdinPipe}
-	stdin.write(claudeUserMessage(in.Prompt))
+// claudeSession is a running `claude` process.
+type claudeSession struct {
+	p      *agentProc
+	in     SessionInput
+	h      SessionHandler
+	binary string
+	grace  time.Duration
+	done   chan struct{} // closed after Exited
 
-	// Open approval requests end with the turn.
-	approveCtx, endApprovals := context.WithCancel(ctx)
-	var approvals sync.WaitGroup
+	// exitCtx ends with the process. Approval requests outside a turn use it.
+	exitCtx    context.Context
+	exitCancel context.CancelFunc
+
+	// Send waits for its control requests; the reader resolves them.
+	ctlMu   sync.Mutex
+	control map[string]chan error // by request ID
+	nextCtl int
+
+	// mu guards the turn state below. The reader holds it while it handles
+	// a line; Send holds it while it starts a turn.
+	mu            sync.Mutex
+	model, effort string // what the session runs now
+	inTurn        bool
+	parser        *exponential.ClaudeStreamParser
+	endApprovals  context.CancelFunc
+	approveCtx    context.Context
+	approvals     sync.WaitGroup
+	tasks         map[string]BackgroundTask // by task ID
+	taskOrder     []string
+	wake          string // why the agent may start a turn next: the last task that ended
+}
+
+func (s *claudeSession) PID() int { return s.p.pid() }
+
+// Send implements Session.
+func (s *claudeSession) Send(prompt, model, effort string) error {
+	select {
+	case <-s.p.waited:
+		return agentExited{s.exitError()}
+	default:
+	}
+	s.mu.Lock()
+	switchModel, switchEffort := model != s.model, effort != s.effort
+	s.mu.Unlock()
+	if switchModel {
+		req := map[string]any{"subtype": "set_model", "model": nil}
+		if model != "" {
+			req["model"] = model
+		}
+		if err := s.controlRequest(req); err != nil {
+			return fmt.Errorf("switch the model to %q: %w", model, err)
+		}
+	}
+	if switchEffort {
+		var level any
+		if effort != "" {
+			level = effort
+		}
+		if err := s.controlRequest(map[string]any{"subtype": "apply_flag_settings", "settings": map[string]any{"effortLevel": level}}); err != nil {
+			return fmt.Errorf("switch the effort to %q: %w", effort, err)
+		}
+	}
+	s.mu.Lock()
+	s.model, s.effort = model, effort
+	if !s.inTurn {
+		s.beginTurn()
+	}
+	s.mu.Unlock()
+	s.p.stdin.write(claudeUserMessage(prompt))
+	return nil
+}
+
+// Interrupt implements Session.
+func (s *claudeSession) Interrupt() {
+	s.ctlMu.Lock()
+	s.nextCtl++
+	id := fmt.Sprintf("xpo-%d", s.nextCtl)
+	s.ctlMu.Unlock()
+	s.p.stdin.write(claudeControlLine(id, map[string]any{"subtype": "interrupt"}))
+}
+
+// Close implements Session.
+func (s *claudeSession) Close() {
+	s.p.stop(s.grace)
+	<-s.done
+}
+
+// controlRequest sends a control request and waits for its response.
+func (s *claudeSession) controlRequest(req map[string]any) error {
+	ch := make(chan error, 1)
+	s.ctlMu.Lock()
+	s.nextCtl++
+	id := fmt.Sprintf("xpo-%d", s.nextCtl)
+	s.control[id] = ch
+	s.ctlMu.Unlock()
 	defer func() {
-		endApprovals()
-		approvals.Wait()
+		s.ctlMu.Lock()
+		delete(s.control, id)
+		s.ctlMu.Unlock()
 	}()
+	s.p.stdin.write(claudeControlLine(id, req))
+	select {
+	case err := <-ch:
+		return err
+	case <-s.p.exited:
+		return fmt.Errorf("%s exited", s.binary)
+	case <-time.After(controlTimeout):
+		return errors.New("no answer from " + s.binary)
+	}
+}
 
-	var parser exponential.ClaudeStreamParser
-	var result *exponential.ClaudeTurnResult
-	sc := bufio.NewScanner(stdout)
-	sc.Buffer(make([]byte, 1024*1024), 16*1024*1024)
-	for sc.Scan() {
-		line := sc.Bytes()
-		if cr, ok := parseClaudeControlRequest(line); ok {
-			approvals.Add(1)
-			go func() {
-				defer approvals.Done()
-				stdin.write(answerClaudeControlRequest(approveCtx, in, cr))
-			}()
-			continue
+// beginTurn resets the turn state. s.mu must be held.
+func (s *claudeSession) beginTurn() {
+	s.inTurn = true
+	s.parser = &exponential.ClaudeStreamParser{}
+	s.approveCtx, s.endApprovals = context.WithCancel(context.Background())
+}
+
+// endTurn ends open approval requests with the turn, and waits until
+// their cards are resolved, so they settle before the turn's end. s.mu must
+// be held.
+func (s *claudeSession) endTurn() {
+	s.inTurn = false
+	if s.endApprovals != nil {
+		s.endApprovals()
+	}
+	s.approvals.Wait()
+}
+
+// read handles the agent's output until it exits.
+func (s *claudeSession) read(mcpPath string) {
+	defer close(s.done)
+	defer os.Remove(mcpPath)
+	for line := range s.p.lines {
+		s.mu.Lock()
+		s.handle(line)
+		s.mu.Unlock()
+	}
+	<-s.p.exited
+	err := s.exitError()
+	s.exitCancel()
+	s.mu.Lock()
+	if s.inTurn {
+		s.endTurn()
+		s.h.TurnEnded(nil, err)
+	}
+	if len(s.tasks) > 0 {
+		clear(s.tasks)
+		s.taskOrder = nil
+		s.h.Tasks(nil)
+	}
+	s.mu.Unlock()
+	s.approvals.Wait()
+	s.h.Exited(err)
+}
+
+// exitError explains why the agent exited.
+func (s *claudeSession) exitError() error {
+	msg := fmt.Sprintf("%s exited without a reply", s.binary)
+	if s.p.waitErr != nil {
+		msg = fmt.Sprintf("%s exited: %v", s.binary, s.p.waitErr)
+	}
+	if tail := strings.TrimSpace(s.p.stderr.String()); tail != "" {
+		msg += ": " + tail
+	}
+	return errors.New(msg)
+}
+
+// claudeLine is the part of an output line the session reads before the
+// stream parser does.
+type claudeLine struct {
+	Type     string `json:"type"`
+	Subtype  string `json:"subtype"`
+	Response struct {
+		Subtype   string `json:"subtype"`
+		RequestID string `json:"request_id"`
+		Error     string `json:"error"`
+	} `json:"response"`
+	TaskID      string          `json:"task_id"`
+	TaskType    string          `json:"task_type"`
+	Description string          `json:"description"`
+	Summary     string          `json:"summary"`
+	Status      string          `json:"status"`
+	Patch       json.RawMessage `json:"patch"`
+	Tasks       []struct {
+		TaskID      string `json:"task_id"`
+		TaskType    string `json:"task_type"`
+		Description string `json:"description"`
+	} `json:"tasks"`
+}
+
+// handle processes one output line. s.mu is held.
+func (s *claudeSession) handle(line []byte) {
+	if cr, ok := parseClaudeControlRequest(line); ok {
+		ctx := s.exitCtx
+		if s.inTurn {
+			ctx = s.approveCtx
 		}
-		if res := parser.Parse(line, emit); res != nil {
-			result = res
-			stdin.close()
+		s.approvals.Add(1)
+		go func() {
+			defer s.approvals.Done()
+			s.p.stdin.write(answerClaudeControlRequest(ctx, s.in, cr))
+		}()
+		return
+	}
+	var msg claudeLine
+	if json.Unmarshal(line, &msg) != nil {
+		return
+	}
+	switch msg.Type {
+	case "control_response":
+		s.resolveControl(msg.Response.RequestID, msg.Response.Subtype, msg.Response.Error)
+		return
+	case "system":
+		if s.handleTask(msg) {
+			return
 		}
 	}
-	stdin.close()
-	waitErr := cmd.Wait()
-
-	if result == nil {
-		msg := fmt.Sprintf("%s exited without a reply", d.binary())
-		if waitErr != nil {
-			msg = fmt.Sprintf("%s exited: %v", d.binary(), waitErr)
-		}
-		if tail := strings.TrimSpace(stderr.String()); tail != "" {
-			msg += ": " + tail
-		}
-		return nil, fmt.Errorf("%s", msg)
+	// Turn content while no turn runs: the agent started one on its own.
+	if !s.inTurn && startsTurn(msg) {
+		s.beginTurn()
+		reason := s.wake
+		s.wake = ""
+		s.h.AgentTurn(reason)
 	}
-	return &TurnResult{
-		SessionID: result.SessionID,
-		IsError:   result.IsError,
-		Output:    result.Output,
-		Duration:  result.Duration,
-		CostUSD:   result.CostUSD,
-		TokensIn:  result.TokensIn,
-		TokensOut: result.TokensOut,
+	if !s.inTurn {
+		return
+	}
+	if res := s.parser.Parse(line, s.h.Stream); res != nil {
+		s.endTurn()
+		s.h.TurnEnded(&TurnResult{
+			SessionID: res.SessionID,
+			IsError:   res.IsError,
+			Output:    res.Output,
+			Duration:  res.Duration,
+			CostUSD:   res.CostUSD,
+			TokensIn:  res.TokensIn,
+			TokensOut: res.TokensOut,
 
-		Model:         result.Model,
-		ContextWindow: result.ContextWindow,
-		CacheTTL:      result.CacheTTL,
-	}, nil
+			Model:         res.Model,
+			ContextWindow: res.ContextWindow,
+			CacheTTL:      res.CacheTTL,
+		}, nil)
+	}
+}
+
+// startsTurn reports whether a line belongs to a turn.
+func startsTurn(msg claudeLine) bool {
+	switch msg.Type {
+	case "assistant", "stream_event", "user":
+		return true
+	case "system":
+		return msg.Subtype == "init"
+	}
+	return false
+}
+
+func (s *claudeSession) resolveControl(id, subtype, errText string) {
+	s.ctlMu.Lock()
+	ch, ok := s.control[id]
+	s.ctlMu.Unlock()
+	if !ok {
+		return
+	}
+	if subtype == "error" {
+		if errText == "" {
+			errText = "refused"
+		}
+		ch <- errors.New(errText)
+		return
+	}
+	ch <- nil
+}
+
+// handleTask tracks background tasks from task_* and
+// background_tasks_changed lines. It reports whether the line was one.
+func (s *claudeSession) handleTask(msg claudeLine) bool {
+	switch msg.Subtype {
+	case "background_tasks_changed":
+		// The roster: Claude Code's own list of live tasks.
+		clear(s.tasks)
+		s.taskOrder = nil
+		for _, t := range msg.Tasks {
+			s.addTask(t.TaskID, t.TaskType, t.Description)
+		}
+	case "task_started":
+		s.addTask(msg.TaskID, msg.TaskType, msg.Description)
+	case "task_updated":
+		var patch struct {
+			Status string `json:"status"`
+		}
+		_ = json.Unmarshal(msg.Patch, &patch)
+		if !terminalTaskStatus(patch.Status) {
+			return true
+		}
+		s.removeTask(msg.TaskID)
+	case "task_notification":
+		desc := s.tasks[msg.TaskID].Description
+		s.removeTask(msg.TaskID)
+		s.wake = msg.Summary
+		if s.wake == "" {
+			s.wake = desc
+		}
+	default:
+		return false
+	}
+	s.h.Tasks(s.taskList())
+	return true
+}
+
+func (s *claudeSession) addTask(id, taskType, desc string) {
+	if id == "" || inertTaskTypes[taskType] {
+		return
+	}
+	kind := TaskAgent
+	if monitorTaskTypes[taskType] {
+		kind = TaskMonitor
+	}
+	if _, ok := s.tasks[id]; !ok {
+		s.taskOrder = append(s.taskOrder, id)
+	}
+	s.tasks[id] = BackgroundTask{ID: id, Kind: kind, Description: desc}
+}
+
+func (s *claudeSession) removeTask(id string) {
+	if _, ok := s.tasks[id]; !ok {
+		return
+	}
+	delete(s.tasks, id)
+	s.taskOrder = removeString(s.taskOrder, id)
+}
+
+func (s *claudeSession) taskList() []BackgroundTask {
+	out := make([]BackgroundTask, 0, len(s.taskOrder))
+	for _, id := range s.taskOrder {
+		out = append(out, s.tasks[id])
+	}
+	return out
+}
+
+func terminalTaskStatus(status string) bool {
+	switch status {
+	case "completed", "failed", "stopped", "cancelled", "killed", "interrupted":
+		return true
+	}
+	return false
+}
+
+func removeString(list []string, s string) []string {
+	out := list[:0]
+	for _, v := range list {
+		if v != s {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // claudeUserMessage is the prompt as a stream-json user message.
@@ -131,6 +436,12 @@ func claudeUserMessage(prompt string) []byte {
 		"type":    "user",
 		"message": map[string]string{"role": "user", "content": prompt},
 	})
+	return data
+}
+
+// claudeControlLine is a control_request from xpo to Claude Code.
+func claudeControlLine(id string, req map[string]any) []byte {
+	data, _ := json.Marshal(map[string]any{"type": "control_request", "request_id": id, "request": req})
 	return data
 }
 
@@ -148,37 +459,11 @@ func parseClaudeControlRequest(line []byte) (claudeControlRequest, bool) {
 
 // answerClaudeControlRequest asks the user about a can_use_tool request and
 // returns the control_response line. Other requests get an error.
-func answerClaudeControlRequest(ctx context.Context, in TurnInput, cr claudeControlRequest) []byte {
+func answerClaudeControlRequest(ctx context.Context, in SessionInput, cr claudeControlRequest) []byte {
 	if cr.Request.Subtype != "can_use_tool" {
 		return claudeControlError(cr.RequestID, "xpo chat does not handle "+cr.Request.Subtype+" requests")
 	}
 	return claudePermissionResponse(cr, in.approve(ctx, claudeApproval(cr)))
-}
-
-// lineWriter writes JSON lines to a pipe from several goroutines, and
-// ignores writes after close.
-type lineWriter struct {
-	mu     sync.Mutex
-	w      io.WriteCloser
-	closed bool
-}
-
-func (l *lineWriter) write(line []byte) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.closed {
-		return
-	}
-	_, _ = l.w.Write(append(line, '\n'))
-}
-
-func (l *lineWriter) close() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if !l.closed {
-		l.closed = true
-		_ = l.w.Close()
-	}
 }
 
 // writeMCPConfig writes the agent's MCP config to a private temp file, so a

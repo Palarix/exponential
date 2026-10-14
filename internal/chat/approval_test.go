@@ -112,8 +112,7 @@ func TestClaudePermissionResponse_SessionWithoutSuggestions(t *testing.T) {
 func approvalBody(dir, request string) string {
 	return `printf '%s\n' '` + request + `'` + "\n" +
 		`IFS= read -r resp; printf '%s\n' "$resp" >> "` + dir + `/responses.txt"` + "\n" +
-		`printf '%s\n' '` + claudeResultLine + `'` + "\n" +
-		`cat > /dev/null`
+		`printf '%s\n' '` + claudeResultLine + `'`
 }
 
 // newApprovalRunner returns a runner whose fake claude asks with request.
@@ -266,20 +265,25 @@ func TestRunner_ApprovalAllowSessionGrantsLaterTurns(t *testing.T) {
 		t.Errorf("responses = %v, want session permissions for this turn", resps)
 	}
 
-	// The next turn passes the grant to Claude Code, and a request that
-	// matches it is allowed without a card.
+	// On the live agent, a request that matches the grant is allowed
+	// without a card.
 	r.Send(m.ID, SendRequest{Text: "again"})
 	waitDone(t, r)
-	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
-	if !strings.Contains(string(args), "\nBash(echo hi *)\n") {
-		t.Errorf("second turn args do not carry the grant:\n%s", args)
-	}
 	_, events, _ := store.Get(m.ID)
 	if n := len(eventsOfType(events, EventApprovalRequested)); n != 1 {
 		t.Errorf("approval_requested events = %d, want 1 (the second request matches the grant)", n)
 	}
 	if resps := recordedResponses(t, dir); len(resps) != 2 || resps[1]["behavior"] != "allow" {
 		t.Errorf("responses = %v", resps)
+	}
+
+	// A new agent process gets the grant on its command line.
+	r.StopBackground(m.ID)
+	r.Send(m.ID, SendRequest{Text: "once more"})
+	waitDone(t, r)
+	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
+	if !strings.Contains(string(args), "\nBash(echo hi *)\n") {
+		t.Errorf("the new agent's args do not carry the grant:\n%s", args)
 	}
 }
 
@@ -379,7 +383,7 @@ func TestCodexDriver_ForwardsApprovals(t *testing.T) {
 	store := NewStore(filepath.Join(dir, "chats"))
 	r := NewRunner(RunnerConfig{
 		Store:   store,
-		Drivers: map[string]Driver{"codex": &CodexDriver{Binary: fakeCodex(t, dir, codexAsk(dir, codexCommandApproval, codexMCPApproval, codexCommandApproval)), InterruptGrace: 200 * time.Millisecond}},
+		Drivers: map[string]Driver{"codex": &CodexDriver{Binary: fakeCodex(t, dir, codexAsk(dir, codexCommandApproval, codexMCPApproval, codexCommandApproval))}},
 		Dir:     dir,
 		MCP:     MCPTarget{Executable: "/bin/xpo"},
 	})
@@ -460,8 +464,7 @@ func TestRunner_DeniedApprovalMarksToolCallDenied(t *testing.T) {
 		`printf '%s\n' '` + claudeMergeRequest + `'` + "\n" +
 		`IFS= read -r resp` + "\n" +
 		`printf '%s\n' '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_2","is_error":true,"content":"The user declined this tool call."}]}}'` + "\n" +
-		`printf '%s\n' '` + claudeResultLine + `'` + "\n" +
-		`cat > /dev/null`
+		`printf '%s\n' '` + claudeResultLine + `'`
 	store := NewStore(filepath.Join(dir, "chats"))
 	r := NewRunner(RunnerConfig{
 		Store:   store,

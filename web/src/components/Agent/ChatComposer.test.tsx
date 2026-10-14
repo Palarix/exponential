@@ -1,8 +1,9 @@
 import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 import type { AgentStatus } from "../../api/chat";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { renderMarkup } from "../../render-markup";
-import ChatComposer from "./ChatComposer";
+import ChatComposer, { BackgroundTaskList } from "./ChatComposer";
 import type { ChatPrefs } from "./agent-state-utils";
 
 const claude = {
@@ -26,7 +27,9 @@ const codex = {
 const both: AgentStatus = { available: true, default_provider: "claude", providers: [claude, codex] };
 
 function renderComposer(status: AgentStatus, prefs: ChatPrefs, providerLocked = false, extra: Partial<ComponentProps<typeof ChatComposer>> = {}): string {
+  // The app wraps everything in a tooltip provider (main.tsx).
   return renderMarkup(
+    <TooltipPrimitive.Provider>
     <ChatComposer
       running={false}
       placeholder="Ask"
@@ -38,7 +41,8 @@ function renderComposer(status: AgentStatus, prefs: ChatPrefs, providerLocked = 
       onSend={async () => true}
       onStop={() => {}}
       {...extra}
-    />,
+    />
+    </TooltipPrimitive.Provider>,
   );
 }
 
@@ -128,5 +132,39 @@ describe("ChatComposer send button", () => {
     expect(send).toMatch(/\bw-6\b/);
     expect(send).toMatch(/\bh-6\b/);
     expect(send).toMatch(/\bshrink-0\b/);
+  });
+});
+
+describe("ChatComposer background banner", () => {
+  const prefs = { provider: "claude", model: "", effort: "" };
+  const tasks = [
+    { id: "a", kind: "monitor" as const, description: "Start vite dev server" },
+    { id: "b", kind: "monitor" as const },
+  ];
+  it("shows the banner with a Stop button while background tasks run", () => {
+    const html = renderComposer(both, prefs, true, { background: { title: "Monitoring 2 tasks", working: false, stopping: false, tasks, onStop: () => {} } });
+    expect(html).toContain("Monitoring 2 tasks");
+    // The title opens a card with the task descriptions.
+    expect(html).toMatch(/<button[^>]*aria-label="Show background tasks"[^>]*>(?:(?!<\/button>).)*Monitoring 2 tasks/);
+    expect(html).toContain('aria-label="Stop background tasks"');
+    expect(html).toMatch(/aria-label="Send"/);
+  });
+  it("shows Stopping… once asked to stop", () => {
+    const html = renderComposer(both, prefs, true, { background: { title: "Monitoring 2 tasks", working: false, stopping: true, tasks, onStop: () => {} } });
+    expect(html).toContain("Stopping…");
+    expect(html.match(/<button[^>]*aria-label="Stop background tasks"[^>]*>/)?.[0]).toMatch(disabledAttr);
+  });
+  it("hides the banner while a turn runs", () => {
+    const html = renderComposer(both, prefs, true, { running: true, background: { title: "Monitoring 2 tasks", working: false, stopping: false, tasks, onStop: () => {} } });
+    expect(html).not.toContain("Monitoring");
+  });
+});
+
+describe("BackgroundTaskList", () => {
+  it("lists each task's description, and names a task without one", () => {
+    const html = renderMarkup(<BackgroundTaskList tasks={[{ id: "a", kind: "monitor", description: "Start vite dev server" }, { id: "b", kind: "agent" }]} />);
+    expect(html).toContain("Start vite dev server");
+    expect(html).toContain("Agent");
+    expect(html.match(/<li/g)).toHaveLength(2);
   });
 });

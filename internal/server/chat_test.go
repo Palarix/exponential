@@ -37,16 +37,18 @@ func setupChatServer(t *testing.T, body string) (*Server, http.Handler) {
 		body = `cat "` + fixture + `"`
 	}
 	script := filepath.Join(dir, "claude")
-	// The driver keeps stdin open for approval answers: read the prompt line only.
-	os.WriteFile(script, []byte("#!/bin/sh\nIFS= read -r prompt\n"+body+"\n"), 0o755)
+	// Like Claude Code, the fake lives across turns: it runs body for each
+	// user message.
+	os.WriteFile(script, []byte("#!/bin/sh\nturn() {\n"+body+"\n:\n}\nwhile IFS= read -r line; do\ncase \"$line\" in *'\"type\":\"user\"'*) turn ;; esac\ndone\n"), 0o755)
 
 	store := chat.NewStore(filepath.Join(dir, "chats"))
 	// Both providers run the fake claude; the driver does not matter here.
 	fake := &chat.ClaudeDriver{Binary: script}
 	runner := chat.NewRunner(chat.RunnerConfig{
-		Store:   store,
-		Drivers: map[string]chat.Driver{chat.ProviderClaude: fake, chat.ProviderCodex: fake},
-		Dir:     dir,
+		Store:          store,
+		Drivers:        map[string]chat.Driver{chat.ProviderClaude: fake, chat.ProviderCodex: fake},
+		Dir:            dir,
+		InterruptGrace: 200 * time.Millisecond,
 	})
 	t.Cleanup(runner.Shutdown)
 	s.Chat = &ChatService{
@@ -421,5 +423,37 @@ func TestChat_ApprovalUnknownChat(t *testing.T) {
 	w := doJSON(t, h, "POST", "/api/local/chats/00000000-0000-0000-0000-000000000000/approvals/x", `{"decision":"allow"}`)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("got %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestChat_BackgroundTasksAndStop(t *testing.T) {
+	s, h := setupChatServer(t, `printf '%s\n' '{"type":"system","subtype":"init","session_id":"sess-9"}'
+printf '%s\n' '{"type":"system","subtype":"background_tasks_changed","tasks":[{"task_id":"bg-1","task_type":"local_bash","description":"Serve the board"}]}'
+printf '%s\n' '{"type":"result","result":"ok","session_id":"sess-9","duration_ms":5}'`)
+	m := createChat(t, h)
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/background/stop", ""); w.Code != http.StatusConflict {
+		t.Fatalf("stop without an agent: %d", w.Code)
+	}
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"serve it"}`)
+	s.Chat.Runner.Wait()
+
+	var got struct {
+		Running    bool                  `json:"running"`
+		Background []chat.BackgroundTask `json:"background"`
+	}
+	json.Unmarshal(doJSON(t, h, "GET", "/api/local/chats/"+m.ID, "").Body.Bytes(), &got)
+	if got.Running || len(got.Background) != 1 || got.Background[0].Kind != chat.TaskMonitor || got.Background[0].Description != "Serve the board" {
+		t.Fatalf("chat = %+v, want a finished turn and one monitor task", got)
+	}
+
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/background/stop", ""); w.Code != http.StatusOK {
+		t.Fatalf("stop: %d %s", w.Code, w.Body.String())
+	}
+	json.Unmarshal(doJSON(t, h, "GET", "/api/local/chats/"+m.ID, "").Body.Bytes(), &got)
+	if got.Background == nil || len(got.Background) != 0 {
+		t.Errorf("background after stop = %v, want []", got.Background)
+	}
+	if w := doJSON(t, h, "POST", "/api/local/chats/missing/background/stop", ""); w.Code != http.StatusNotFound {
+		t.Errorf("unknown chat: %d", w.Code)
 	}
 }

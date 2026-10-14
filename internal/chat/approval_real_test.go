@@ -34,14 +34,13 @@ func TestRealClaude_Approval(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		var reply strings.Builder
-		res, err := (&ClaudeDriver{}).Turn(ctx, TurnInput{
-			Prompt:  prompt,
+		res, err := runTurn(ctx, t, &ClaudeDriver{}, SessionInput{
 			Model:   "haiku",
 			Dir:     work,
 			MCP:     MCPTarget{Executable: "/nonexistent/xpo"},
 			Approve: approve,
 			Grants:  grants,
-		}, func(ev exponential.StreamEvent) {
+		}, prompt, func(ev exponential.StreamEvent) {
 			if ev.Kind == exponential.StreamText {
 				reply.WriteString(ev.Text)
 			}

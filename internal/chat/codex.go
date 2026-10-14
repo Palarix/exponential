@@ -1,12 +1,10 @@
 package chat
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,15 +18,16 @@ import (
 // token to Codex, so the token never shows up in the process list.
 const codexTokenEnv = "XPO_MCP_BEARER_TOKEN"
 
-// CodexDriver runs a turn on `codex app-server`, one process per turn,
-// speaking its JSON-RPC protocol over stdio. The turn's profile picks the
-// sandbox, the approval policy, and which xpo MCP tools ask or are disabled;
-// the others are pre-approved. Approval requests go to the user.
+// CodexDriver runs a chat on one `codex app-server` process and one
+// thread, speaking its JSON-RPC protocol over stdio. The process lives
+// across turns. The session's profile picks the sandbox, the approval
+// policy, and which xpo MCP tools ask or are disabled; the others are
+// pre-approved. Approval requests go to the user.
 type CodexDriver struct {
 	Binary string // "codex" when empty
-	// InterruptGrace is how long a cancelled turn may take to stop after
-	// turn/interrupt before the process is killed. 3s when zero.
-	InterruptGrace time.Duration
+	// StopGrace is how long Close waits after SIGTERM before it kills the
+	// process group. 3s when zero.
+	StopGrace time.Duration
 }
 
 func (d *CodexDriver) binary() string {
@@ -75,72 +74,194 @@ func tomlValue(v any) string {
 	return string(data)
 }
 
-// Turn implements Driver.
 // codexCacheTTL is the prompt cache TTL Codex turns record. Codex does not
 // report one; OpenAI keeps cached prefixes for 5 to 10 minutes of
 // inactivity, so xpo takes the lower bound.
 const codexCacheTTL = 5 * time.Minute
 
-func (d *CodexDriver) Turn(ctx context.Context, in TurnInput, emit exponential.StreamCallback) (*TurnResult, error) {
-	grace := d.InterruptGrace
-	if grace == 0 {
-		grace = 3 * time.Second
-	}
+// Open implements Driver. It starts app-server and its thread; a Send
+// before the thread is ready starts its turn once it is.
+func (d *CodexDriver) Open(in SessionInput, h SessionHandler) (Session, error) {
 	p, err := startCodex(d.binary(), codexArgs(in.MCP, in.Profile), in.Dir, in.MCP.RemoteToken)
 	if err != nil {
 		return nil, err
 	}
-	defer p.stop(grace)
+	grace := d.StopGrace
+	if grace == 0 {
+		grace = 3 * time.Second
+	}
+	s := &codexSession{
+		p: p, in: in, h: h, grace: grace,
+		usage: map[string][2]int{}, streamed: map[string]bool{},
+		commands: map[string]BackgroundTask{}, background: map[string]BackgroundTask{},
+		done: make(chan struct{}),
+	}
+	s.exitCtx, s.exitCancel = context.WithCancel(context.Background())
+	s.mu.Lock()
+	s.initID = p.call("initialize", map[string]any{"clientInfo": map[string]string{"name": "xpo", "title": "xpo", "version": "1"}})
+	s.mu.Unlock()
+	go s.read()
+	return s, nil
+}
 
-	// Open approval requests end with the turn.
-	approveCtx, endApprovals := context.WithCancel(ctx)
-	t := &codexTurn{p: p, in: in, emit: emit, usage: map[string][2]int{}, streamed: map[string]bool{}, approveCtx: approveCtx}
-	defer func() {
-		endApprovals()
-		t.approvals.Wait()
-	}()
-	t.initID = p.call("initialize", map[string]any{"clientInfo": map[string]string{"name": "xpo", "title": "xpo", "version": "1"}})
+// codexSession is a running `codex app-server` with one thread.
+type codexSession struct {
+	p     *codexProc
+	in    SessionInput
+	h     SessionHandler
+	grace time.Duration
+	done  chan struct{} // closed after Exited
 
-	done := ctx.Done()
-	var kill <-chan time.Time
-	for {
-		select {
-		case line, ok := <-p.lines:
-			if !ok {
-				return nil, p.exitError()
-			}
-			if res, finished := t.handle(line); finished {
-				return res, nil
-			}
-		case <-done:
-			done = nil
-			if t.turnID == "" {
-				return nil, ctx.Err()
-			}
-			p.call("turn/interrupt", map[string]string{"threadId": t.threadID, "turnId": t.turnID})
-			kill = time.After(grace)
-		case <-kill:
-			return nil, ctx.Err()
-		}
+	// exitCtx ends with the process. Approval requests outside a turn use it.
+	exitCtx    context.Context
+	exitCancel context.CancelFunc
+	approvals  sync.WaitGroup
+
+	// mu guards everything below. The reader holds it while it handles a
+	// line; Send holds it while it starts a turn.
+	mu                  sync.Mutex
+	initID, threadReqID int
+	turnReqID           int
+	threadID            string
+	ready               bool        // the thread started or resumed
+	failed              bool        // the thread could not start; the session ends
+	queued              *codexInput // a turn sent before the thread was ready
+	inTurn              bool
+	turnID              string
+	approveCtx          context.Context
+	endApprovals        context.CancelFunc
+	model               string                    // from the thread response
+	window              int                       // the latest modelContextWindow
+	usage               map[string][2]int         // input and output tokens by turn ID
+	streamed            map[string]bool           // agent message items that sent deltas
+	commands            map[string]BackgroundTask // commands of the running turn still in progress
+	background          map[string]BackgroundTask // commands that outlived their turn
+	backgroundOrder     []string
+}
+
+// codexInput is one user turn.
+type codexInput struct{ prompt, model, effort string }
+
+func (s *codexSession) PID() int { return s.p.pid() }
+
+// Send implements Session. Codex takes the model and effort on each
+// turn/start, so a switch needs no extra request.
+func (s *codexSession) Send(prompt, model, effort string) error {
+	select {
+	case <-s.p.waited:
+		return agentExited{s.p.exitError()}
+	default:
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failed {
+		return errAgentExited
+	}
+	s.beginTurn()
+	in := &codexInput{prompt, model, effort}
+	if !s.ready {
+		s.queued = in
+		return nil
+	}
+	s.startTurn(in)
+	return nil
+}
+
+// startTurn sends turn/start. s.mu must be held.
+func (s *codexSession) startTurn(in *codexInput) {
+	params := map[string]any{
+		"threadId": s.threadID,
+		"input":    []map[string]any{{"type": "text", "text": in.prompt}},
+	}
+	if in.model != "" {
+		params["model"] = in.model
+	}
+	if in.effort != "" {
+		params["effort"] = in.effort
+	}
+	s.turnReqID = s.p.call("turn/start", params)
+}
+
+// Interrupt implements Session.
+func (s *codexSession) Interrupt() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.inTurn && s.turnID != "" {
+		s.p.call("turn/interrupt", map[string]string{"threadId": s.threadID, "turnId": s.turnID})
 	}
 }
 
-// codexTurn is the state of one turn's JSON-RPC conversation.
-type codexTurn struct {
-	p    *codexProc
-	in   TurnInput
-	emit exponential.StreamCallback
+// Close implements Session.
+func (s *codexSession) Close() {
+	s.p.stop(s.grace)
+	<-s.done
+}
 
-	initID, threadReqID, turnReqID int
-	threadID, turnID               string
+// beginTurn resets the turn state. s.mu must be held.
+func (s *codexSession) beginTurn() {
+	s.inTurn = true
+	s.turnID = ""
+	clear(s.commands)
+	s.approveCtx, s.endApprovals = context.WithCancel(context.Background())
+}
 
-	model    string            // from the thread response
-	window   int               // the latest modelContextWindow
-	usage    map[string][2]int // input and output tokens by turn ID
-	streamed map[string]bool   // agent message items that sent deltas
+// endTurn ends the turn and reports it. s.mu must be held.
+func (s *codexSession) endTurn(res *TurnResult, err error) {
+	s.inTurn = false
+	s.endApprovals()
+	s.approvals.Wait() // their cards settle before the turn's end
+	// Commands still in progress outlive the turn: they are background
+	// tasks now (codex-cli 0.162.1 completes them later, outside a turn).
+	if len(s.commands) > 0 {
+		for id, t := range s.commands {
+			if _, ok := s.background[id]; !ok {
+				s.backgroundOrder = append(s.backgroundOrder, id)
+			}
+			s.background[id] = t
+		}
+		clear(s.commands)
+		s.h.Tasks(s.taskList())
+	}
+	s.h.TurnEnded(res, err)
+}
 
-	approveCtx context.Context // ends when the turn ends
-	approvals  sync.WaitGroup  // approval requests waiting for the user
+func (s *codexSession) taskList() []BackgroundTask {
+	out := make([]BackgroundTask, 0, len(s.backgroundOrder))
+	for _, id := range s.backgroundOrder {
+		out = append(out, s.background[id])
+	}
+	return out
+}
+
+func (s *codexSession) failedResult(msg string) *TurnResult {
+	return &TurnResult{SessionID: s.threadID, IsError: true, Output: msg}
+}
+
+// read handles app-server's output until it exits.
+func (s *codexSession) read() {
+	defer close(s.done)
+	for line := range s.p.lines {
+		s.mu.Lock()
+		s.handle(line)
+		s.mu.Unlock()
+	}
+	err := s.p.exitError()
+	s.exitCancel()
+	s.mu.Lock()
+	if s.inTurn {
+		s.inTurn = false
+		s.endApprovals()
+		s.approvals.Wait()
+		s.h.TurnEnded(nil, err)
+	}
+	if len(s.background) > 0 {
+		clear(s.background)
+		s.backgroundOrder = nil
+		s.h.Tasks(nil)
+	}
+	s.mu.Unlock()
+	s.approvals.Wait()
+	s.h.Exited(err)
 }
 
 type rpcMessage struct {
@@ -181,65 +302,72 @@ type codexItem struct {
 	Query string `json:"query"`
 }
 
-// handle processes one line from app-server. It returns the turn's result
-// and true once the turn has ended.
-func (t *codexTurn) handle(line []byte) (*TurnResult, bool) {
+// handle processes one line from app-server. s.mu is held.
+func (s *codexSession) handle(line []byte) {
 	var msg rpcMessage
 	if json.Unmarshal(line, &msg) != nil {
-		return nil, false
+		return
 	}
 	switch {
 	case msg.Method != "" && len(msg.ID) > 0:
 		// A server request. Approvals go to the user; anything else is
 		// refused, so the turn cannot hang on it.
 		if req, answer, ok := codexApproval(msg.Method, msg.Params); ok {
-			t.approvals.Add(1)
+			ctx := s.exitCtx
+			if s.inTurn {
+				ctx = s.approveCtx
+			}
+			s.approvals.Add(1)
 			go func() {
-				defer t.approvals.Done()
-				result := answer(t.in.approve(t.approveCtx, req))
-				t.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "result": result})
+				defer s.approvals.Done()
+				result := answer(s.in.approve(ctx, req))
+				s.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "result": result})
 			}()
-			return nil, false
+			return
 		}
-		t.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "error": map[string]any{"code": -32000, "message": "xpo chat declines this request"}})
-		return nil, false
+		s.p.send(map[string]any{"jsonrpc": "2.0", "id": msg.ID, "error": map[string]any{"code": -32000, "message": "xpo chat declines this request"}})
+		return
 	case msg.Method != "":
-		return t.notification(msg.Method, msg.Params)
+		s.notification(msg.Method, msg.Params)
+		return
 	}
 
 	var id int
 	if json.Unmarshal(msg.ID, &id) != nil {
-		return nil, false
+		return
 	}
 	var errText string
 	if msg.Error != nil {
 		errText = msg.Error.Message
 	}
 	switch id {
-	case t.initID:
+	case s.initID:
 		if errText != "" {
-			return t.failed("Codex did not start: " + errText), true
+			s.fail("Codex did not start: " + errText)
+			return
 		}
-		t.p.notify("initialized")
+		s.p.notify("initialized")
 		params := map[string]any{
-			"cwd":                   t.in.Dir,
-			"sandbox":               t.in.Profile.codexSandbox(),
-			"approvalPolicy":        t.in.Profile.codexApprovalPolicy(),
+			"cwd":                   s.in.Dir,
+			"sandbox":               s.in.Profile.codexSandbox(),
+			"approvalPolicy":        s.in.Profile.codexApprovalPolicy(),
 			"developerInstructions": systemPromptFor(ProviderCodex),
 		}
 		method := "thread/start"
-		if t.in.SessionID != "" {
+		if s.in.SessionID != "" {
 			method = "thread/resume"
-			params["threadId"] = t.in.SessionID
+			params["threadId"] = s.in.SessionID
 			params["excludeTurns"] = true
 		}
-		t.threadReqID = t.p.call(method, params)
-	case t.threadReqID:
+		s.threadReqID = s.p.call(method, params)
+	case s.threadReqID:
 		if errText != "" {
-			if t.in.SessionID != "" {
-				return t.failed(fmt.Sprintf("Codex could not resume this chat (%s). Start a new chat.", errText)), true
+			if s.in.SessionID != "" {
+				s.fail(fmt.Sprintf("Codex could not resume this chat (%s). Start a new chat.", errText))
+				return
 			}
-			return t.failed("Codex could not start a thread: " + errText), true
+			s.fail("Codex could not start a thread: " + errText)
+			return
 		}
 		var res struct {
 			Thread struct {
@@ -248,23 +376,20 @@ func (t *codexTurn) handle(line []byte) (*TurnResult, bool) {
 			Model string `json:"model"`
 		}
 		json.Unmarshal(msg.Result, &res)
-		t.threadID = res.Thread.ID
-		t.model = res.Model
-		t.emit(exponential.StreamEvent{Kind: exponential.StreamSession, Text: t.threadID})
-		params := map[string]any{
-			"threadId": t.threadID,
-			"input":    []map[string]any{{"type": "text", "text": t.in.Prompt}},
+		s.threadID = res.Thread.ID
+		s.model = res.Model
+		s.ready = true
+		s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamSession, Text: s.threadID})
+		if s.queued != nil {
+			s.startTurn(s.queued)
+			s.queued = nil
 		}
-		if t.in.Model != "" {
-			params["model"] = t.in.Model
-		}
-		if t.in.Effort != "" {
-			params["effort"] = t.in.Effort
-		}
-		t.turnReqID = t.p.call("turn/start", params)
-	case t.turnReqID:
+	case s.turnReqID:
 		if errText != "" {
-			return t.failed("Codex could not start the turn: " + errText), true
+			if s.inTurn {
+				s.endTurn(s.failedResult("Codex could not start the turn: "+errText), nil)
+			}
+			return
 		}
 		var res struct {
 			Turn struct {
@@ -272,16 +397,24 @@ func (t *codexTurn) handle(line []byte) (*TurnResult, bool) {
 			} `json:"turn"`
 		}
 		json.Unmarshal(msg.Result, &res)
-		t.turnID = res.Turn.ID
+		if s.inTurn && s.turnID == "" {
+			s.turnID = res.Turn.ID
+		}
 	}
-	return nil, false
 }
 
-func (t *codexTurn) failed(msg string) *TurnResult {
-	return &TurnResult{SessionID: t.threadID, IsError: true, Output: msg}
+// fail ends the session: the thread could not start. A waiting turn ends
+// with msg. s.mu is held.
+func (s *codexSession) fail(msg string) {
+	s.failed = true
+	if s.inTurn {
+		s.queued = nil
+		s.endTurn(s.failedResult(msg), nil)
+	}
+	s.p.stdin.close()
 }
 
-func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResult, bool) {
+func (s *codexSession) notification(method string, raw json.RawMessage) {
 	var p struct {
 		Item       codexItem `json:"item"`
 		ItemID     string    `json:"itemId"`
@@ -304,38 +437,64 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 		} `json:"turn"`
 	}
 	if json.Unmarshal(raw, &p) != nil {
-		return nil, false
+		return
+	}
+
+	switch method {
+	case "turn/started":
+		switch {
+		case s.inTurn && (s.turnID == "" || s.turnID == p.Turn.ID):
+			s.turnID = p.Turn.ID
+		case !s.inTurn:
+			// Not a turn xpo asked for: the agent started it.
+			s.beginTurn()
+			s.turnID = p.Turn.ID
+			s.h.AgentTurn("")
+		}
+		return
+	case "thread/tokenUsage/updated":
+		// thread/resume replays the last update of the previous turn, so
+		// usage is kept per turn.
+		u := s.usage[p.TurnID]
+		s.usage[p.TurnID] = [2]int{u[0] + p.TokenUsage.Last.InputTokens, u[1] + p.TokenUsage.Last.OutputTokens}
+		if p.TokenUsage.ModelContextWindow > 0 {
+			s.window = p.TokenUsage.ModelContextWindow
+		}
+		return
+	case "item/completed":
+		// A background command that outlived its turn ended.
+		if _, ok := s.background[p.Item.ID]; ok {
+			delete(s.background, p.Item.ID)
+			s.backgroundOrder = removeString(s.backgroundOrder, p.Item.ID)
+			s.h.Tasks(s.taskList())
+			return
+		}
+	}
+	if !s.inTurn || (p.TurnID != "" && s.turnID != "" && p.TurnID != s.turnID) {
+		return
 	}
 
 	switch method {
 	case "item/agentMessage/delta":
-		t.streamed[p.ItemID] = true
-		t.emit(exponential.StreamEvent{Kind: exponential.StreamText, Text: p.Delta})
+		s.streamed[p.ItemID] = true
+		s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamText, Text: p.Delta})
 	case "item/started":
-		t.itemStarted(p.Item)
+		s.itemStarted(p.Item)
 	case "item/completed":
-		t.itemCompleted(p.Item)
-	case "thread/tokenUsage/updated":
-		// thread/resume replays the last update of the previous turn, so
-		// usage is kept per turn.
-		u := t.usage[p.TurnID]
-		t.usage[p.TurnID] = [2]int{u[0] + p.TokenUsage.Last.InputTokens, u[1] + p.TokenUsage.Last.OutputTokens}
-		if p.TokenUsage.ModelContextWindow > 0 {
-			t.window = p.TokenUsage.ModelContextWindow
-		}
+		s.itemCompleted(p.Item)
 	case "turn/completed":
-		if t.turnID != "" && p.Turn.ID != t.turnID {
-			return nil, false
+		if s.turnID != "" && p.Turn.ID != s.turnID {
+			return
 		}
-		u := t.usage[p.Turn.ID]
+		u := s.usage[p.Turn.ID]
 		res := &TurnResult{
-			SessionID: t.threadID,
+			SessionID: s.threadID,
 			Duration:  time.Duration(p.Turn.DurationMS) * time.Millisecond,
 			TokensIn:  u[0],
 			TokensOut: u[1],
 
-			Model:         t.model,
-			ContextWindow: t.window,
+			Model:         s.model,
+			ContextWindow: s.window,
 			CacheTTL:      codexCacheTTL,
 		}
 		if p.Turn.Status == "failed" {
@@ -345,9 +504,8 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 				res.Output = p.Turn.Error.Message
 			}
 		}
-		return res, true
+		s.endTurn(res, nil)
 	}
-	return nil, false
 }
 
 // codexApproval turns an app-server approval request into an
@@ -355,9 +513,9 @@ func (t *codexTurn) notification(method string, raw json.RawMessage) (*TurnResul
 // for requests that are not approvals xpo handles.
 func codexApproval(method string, raw json.RawMessage) (req ApprovalRequest, answer func(decision string) any, ok bool) {
 	var p struct {
-		ItemID    string `json:"itemId"`
-		Command   string `json:"command"`
-		Actions   []struct {
+		ItemID  string `json:"itemId"`
+		Command string `json:"command"`
+		Actions []struct {
 			Command string `json:"command"`
 		} `json:"commandActions"`
 		Offered    []any  `json:"availableDecisions"`
@@ -439,30 +597,34 @@ func unwrapShell(command string) string {
 	return inner
 }
 
-func (t *codexTurn) itemStarted(it codexItem) {
+func (s *codexSession) itemStarted(it codexItem) {
 	if it.Type == "reasoning" {
-		t.emit(exponential.StreamEvent{Kind: exponential.StreamThinking})
+		s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamThinking})
 		return
 	}
 	name, arg, ok := codexToolName(it)
 	if !ok {
 		return
 	}
-	t.emit(exponential.StreamEvent{Kind: exponential.StreamToolStart, Text: name, ToolArg: arg, ToolID: it.ID})
-	t.emit(exponential.StreamEvent{Kind: exponential.StreamToolDone, Text: name, ToolArg: arg, ToolID: it.ID})
+	if it.Type == "commandExecution" {
+		s.commands[it.ID] = BackgroundTask{ID: it.ID, Kind: TaskMonitor, Description: arg}
+	}
+	s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamToolStart, Text: name, ToolArg: arg, ToolID: it.ID})
+	s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamToolDone, Text: name, ToolArg: arg, ToolID: it.ID})
 }
 
-func (t *codexTurn) itemCompleted(it codexItem) {
+func (s *codexSession) itemCompleted(it codexItem) {
 	if it.Type == "agentMessage" {
-		if !t.streamed[it.ID] && it.Text != "" {
-			t.emit(exponential.StreamEvent{Kind: exponential.StreamText, Text: it.Text})
+		if !s.streamed[it.ID] && it.Text != "" {
+			s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamText, Text: it.Text})
 		}
-		t.emit(exponential.StreamEvent{Kind: exponential.StreamToolDone}) // ends the text block
+		s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamToolDone}) // ends the text block
 		return
 	}
 	if _, _, ok := codexToolName(it); !ok {
 		return
 	}
+	delete(s.commands, it.ID)
 	ev := exponential.StreamEvent{Kind: exponential.StreamToolResult, ToolID: it.ID, ToolStatus: exponential.ToolStatusDone}
 	switch {
 	case it.Status == "declined":
@@ -481,7 +643,7 @@ func (t *codexTurn) itemCompleted(it codexItem) {
 			ev.ToolMessage = exponential.ToolResultText(text)
 		}
 	}
-	t.emit(ev)
+	s.h.Stream(ev)
 }
 
 // CodexModels asks `codex app-server` for its models. The first option is
@@ -494,7 +656,13 @@ func CodexModels(ctx context.Context, binary string) ([]ModelOption, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer p.stop(time.Second)
+	defer func() {
+		go func() {
+			for range p.lines { // stop needs the output drained
+			}
+		}()
+		p.stop(time.Second)
+	}()
 
 	initID := p.call("initialize", map[string]any{"clientInfo": map[string]string{"name": "xpo", "title": "xpo", "version": "1"}})
 	listID := -1
@@ -561,13 +729,10 @@ func codexModelOptions(raw json.RawMessage) ([]ModelOption, error) {
 	return opts, nil
 }
 
-// codexProc is a running `codex app-server`: a JSON-RPC writer on its stdin
-// and its stdout lines on a channel.
+// codexProc is a running `codex app-server`: a JSON-RPC writer on its
+// stdin and its stdout lines on a channel.
 type codexProc struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	lines  chan []byte
-	stderr *tailBuffer
+	*agentProc
 
 	mu     sync.Mutex
 	nextID int
@@ -579,29 +744,11 @@ func startCodex(binary string, args []string, dir, token string) (*codexProc, er
 	if token != "" {
 		cmd.Env = append(os.Environ(), codexTokenEnv+"="+token)
 	}
-	p := &codexProc{cmd: cmd, lines: make(chan []byte, 64), stderr: &tailBuffer{max: 4096}}
-	cmd.Stderr = p.stderr
-	setProcessGroup(cmd)
-	var err error
-	if p.stdin, err = cmd.StdinPipe(); err != nil {
-		return nil, err
-	}
-	stdout, err := cmd.StdoutPipe()
+	p, err := startAgent(cmd)
 	if err != nil {
 		return nil, err
 	}
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start %s: %w", binary, err)
-	}
-	go func() {
-		defer close(p.lines)
-		sc := bufio.NewScanner(stdout)
-		sc.Buffer(make([]byte, 1024*1024), 16*1024*1024)
-		for sc.Scan() {
-			p.lines <- append([]byte(nil), sc.Bytes()...)
-		}
-	}()
-	return p, nil
+	return &codexProc{agentProc: p}, nil
 }
 
 func (p *codexProc) send(msg any) {
@@ -609,9 +756,7 @@ func (p *codexProc) send(msg any) {
 	if err != nil {
 		return
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	_, _ = p.stdin.Write(append(data, '\n'))
+	p.stdin.write(data)
 }
 
 // call sends a request and returns its ID.
@@ -628,34 +773,15 @@ func (p *codexProc) notify(method string) {
 	p.send(map[string]any{"jsonrpc": "2.0", "method": method})
 }
 
-// exitError explains why app-server stopped before the turn ended.
+// exitError waits for app-server to exit and explains why it stopped.
 func (p *codexProc) exitError() error {
-	err := p.cmd.Wait()
+	<-p.exited
 	msg := "codex app-server exited without a reply"
-	if err != nil {
-		msg = fmt.Sprintf("codex app-server exited: %v", err)
+	if p.waitErr != nil {
+		msg = fmt.Sprintf("codex app-server exited: %v", p.waitErr)
 	}
 	if tail := strings.TrimSpace(p.stderr.String()); tail != "" {
 		msg += ": " + tail
 	}
 	return errors.New(msg)
-}
-
-// stop closes app-server's stdin and gives it wait to exit, then ends its
-// process group, including MCP servers it started.
-func (p *codexProc) stop(wait time.Duration) {
-	p.stdin.Close()
-	exited := make(chan struct{})
-	go func() {
-		for range p.lines { // drain so the reader goroutine can exit
-		}
-		_ = p.cmd.Wait()
-		close(exited)
-	}()
-	select {
-	case <-exited:
-	case <-time.After(wait):
-	}
-	killProcessGroup(p.cmd)
-	<-exited
 }

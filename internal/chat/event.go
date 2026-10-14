@@ -1,6 +1,7 @@
 // Package chat runs the web board's agent chat: chat sessions stored in
-// .xpo/chats/, one agent CLI process per turn, and a canonical event stream
-// that the UI renders independent of the agent that produced it.
+// .xpo/chats/, one agent CLI process per chat that lives across turns, and
+// a canonical event stream that the UI renders independent of the agent
+// that produced it.
 package chat
 
 import "time"
@@ -26,6 +27,10 @@ const (
 	// The board started a turn with no user message: the agent's start was
 	// approved and the chat continues in Work Mode on IssueID.
 	EventTurnContinued = "turn_continued"
+
+	// The agent started a turn on its own, for example after a background
+	// task ended. Text, when set, says what woke it.
+	EventAgentTurn = "agent_turn"
 )
 
 // Live event types. Subscribers see these while a turn runs; the store does
@@ -34,6 +39,10 @@ const (
 	EventTextDelta = "text_delta"
 	EventThinking  = "thinking"
 	EventToolStart = "tool_start"
+
+	// The agent's live background tasks changed. Tasks is the new list;
+	// empty means none run.
+	EventBackgroundTasks = "background_tasks"
 )
 
 // Context describes what the user had open when they sent a message.
@@ -72,6 +81,8 @@ type Event struct {
 	CacheTTL   int     `json:"cache_ttl,omitempty"`   // turn_done: seconds the prompt cache lives after the turn
 
 	Message string `json:"message,omitempty"` // error, mode_changed: the reason; tool_call: the error or denial text
+
+	Tasks []BackgroundTask `json:"tasks,omitempty"` // background_tasks
 }
 
 // Chat states.
@@ -116,6 +127,12 @@ type Meta struct {
 	// turn expires; after it, the next message re-sends the conversation.
 	CacheTTL       int        `json:"cache_ttl,omitempty"`
 	CacheExpiresAt *time.Time `json:"cache_expires_at,omitempty"`
+
+	// AgentPID and AgentStarted identify the chat's live agent process
+	// while it runs. A board that starts finds the agents a crashed board
+	// left behind by them, and stops them.
+	AgentPID     int        `json:"agent_pid,omitempty"`
+	AgentStarted *time.Time `json:"agent_started,omitempty"`
 
 	// Waiting is set in chat lists while an approval card waits for the
 	// user. It is never stored.

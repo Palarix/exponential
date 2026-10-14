@@ -6,7 +6,7 @@ import { agentQueryKeys } from "./agent-context";
 import { chatThreadReducer, emptyThread, type ChatThread } from "./chat-thread-utils";
 
 // Events that change a chat's title, state or mode in the chat list.
-const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "turn_stopped", "error", "approval_requested", "approval_resolved", "mode_changed", "turn_continued"]);
+const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "turn_stopped", "error", "approval_requested", "approval_resolved", "mode_changed", "turn_continued", "agent_turn"]);
 
 /**
  * Loads a chat's settled events, then follows its SSE stream. A null chatId
@@ -32,10 +32,11 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
     };
 
     fetchChat(chatId)
-      .then(({ events, running }) => {
+      .then(({ events, running, background }) => {
         if (cancelled) return;
         events.forEach((event) => dispatch({ type: "event", event }));
         if (!running) dispatch({ type: "interrupted" });
+        dispatch({ type: "background", tasks: background ?? [] });
         const after = events.length > 0 ? events[events.length - 1].seq ?? 0 : 0;
         // A reconnecting EventSource sends Last-Event-ID, which the server
         // prefers over ?after=, so replays never duplicate.

@@ -26,9 +26,11 @@ const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42","m
 {"type":"result","subtype":"success","result":"You have 1 open issue.","session_id":"sess-42","duration_ms":800,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":7},"modelUsage":{"claude-haiku-5-5":{"contextWindow":200000}}}
 `
 
-// fakeClaude writes a shell script that records its args, its working
-// directory and the first stdin line (the stream-json user message) in dir,
-// then runs body.
+// fakeClaude writes a fake `claude` that lives across turns, like the real
+// one. It records its args, its working directory and each start in dir.
+// For each user message it records the message in stdin.txt and runs body.
+// It records control requests in control.txt and answers them with success,
+// and other lines, such as late permission answers, in other.txt.
 func fakeClaude(t *testing.T, dir, body string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -38,15 +40,27 @@ func fakeClaude(t *testing.T, dir, body string) string {
 	content := "#!/bin/sh\n" +
 		`for a in "$@"; do printf '%s\n' "$a"; done > "` + dir + `/args.txt"` + "\n" +
 		`pwd -P > "` + dir + `/pwd.txt"` + "\n" +
-		`IFS= read -r line; printf '%s\n' "$line" > "` + dir + `/stdin.txt"` + "\n" +
-		body + "\n"
+		`echo start >> "` + dir + `/starts.txt"` + "\n" +
+		"turn() {\n" + body + "\n:\n}\n" +
+		`while IFS= read -r line; do` + "\n" +
+		`  case "$line" in` + "\n" +
+		`  *'"control_request"'*)` + "\n" +
+		`    printf '%s\n' "$line" >> "` + dir + `/control.txt"` + "\n" +
+		`    id=$(printf '%s' "$line" | sed 's/.*"request_id":"\([^"]*\)".*/\1/')` + "\n" +
+		`    printf '{"type":"control_response","response":{"subtype":"success","request_id":"%s"}}\n' "$id" ;;` + "\n" +
+		`  *'"type":"user"'*) printf '%s\n' "$line" > "` + dir + `/stdin.txt"; turn ;;` + "\n" +
+		`  *) printf '%s\n' "$line" >> "` + dir + `/other.txt" ;;` + "\n" +
+		`  esac` + "\n" +
+		`done` + "\n"
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return script
 }
 
-func newTestRunner(t *testing.T, body string) (*Runner, *Store, string) {
+// newTestRunner returns a runner whose fake claude runs body for each turn.
+// opts change the config before the runner starts.
+func newTestRunner(t *testing.T, body string, opts ...func(*RunnerConfig)) (*Runner, *Store, string) {
 	t.Helper()
 	dir := t.TempDir()
 	fixture := filepath.Join(dir, "fixture.jsonl")
@@ -54,14 +68,26 @@ func newTestRunner(t *testing.T, body string) (*Runner, *Store, string) {
 	body = strings.ReplaceAll(body, "$FIXTURE", fixture)
 
 	store := NewStore(filepath.Join(dir, "chats"))
-	r := NewRunner(RunnerConfig{
-		Store:   store,
-		Drivers: map[string]Driver{"claude": &ClaudeDriver{Binary: fakeClaude(t, dir, body)}},
-		Dir:     dir,
-		MCP:     MCPTarget{Executable: "/bin/xpo"},
-	})
+	cfg := RunnerConfig{
+		Store:          store,
+		Drivers:        map[string]Driver{"claude": &ClaudeDriver{Binary: fakeClaude(t, dir, body), StopGrace: time.Second}},
+		Dir:            dir,
+		MCP:            MCPTarget{Executable: "/bin/xpo"},
+		InterruptGrace: 300 * time.Millisecond,
+	}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	r := NewRunner(cfg)
 	t.Cleanup(r.Shutdown)
 	return r, store, dir
+}
+
+// starts counts how often the fake agent in dir started.
+func starts(t *testing.T, dir string) int {
+	t.Helper()
+	data, _ := os.ReadFile(filepath.Join(dir, "starts.txt"))
+	return strings.Count(string(data), "start")
 }
 
 // learned records what the runner teaches the catalog.
@@ -159,7 +185,9 @@ func TestRunner_TurnPersistsSettledEvents(t *testing.T) {
 	}
 }
 
-func TestRunner_SecondTurnResumes(t *testing.T) {
+// The agent lives across turns: the second message goes to the same
+// process.
+func TestRunner_SecondTurnUsesLiveSession(t *testing.T) {
 	r, store, dir := newTestRunner(t, `cat "$FIXTURE"`)
 	m, _ := store.Create()
 	r.Send(m.ID, SendRequest{Text: "one"})
@@ -167,17 +195,44 @@ func TestRunner_SecondTurnResumes(t *testing.T) {
 	r.Send(m.ID, SendRequest{Text: "two"})
 	r.Wait()
 
-	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
-	if !strings.Contains(string(args), "--resume\nsess-42\n") {
-		t.Fatalf("second turn args = %s", args)
+	if n := starts(t, dir); n != 1 {
+		t.Fatalf("agent started %d times, want once", n)
 	}
-	meta, _, _ := store.Get(m.ID)
+	if stdin, _ := os.ReadFile(filepath.Join(dir, "stdin.txt")); !strings.Contains(string(stdin), "two") {
+		t.Errorf("second message = %s", stdin)
+	}
+	meta, events, _ := store.Get(m.ID)
 	if meta.Title != "one" {
 		t.Errorf("title changed to %q", meta.Title)
 	}
+	if n := len(eventsOfType(events, EventTurnDone)); n != 2 {
+		t.Errorf("turn_done events = %d, want 2", n)
+	}
 }
 
-func TestRunner_MCPConfigFileRemovedAfterTurn(t *testing.T) {
+// Once the agent ended, the next message starts it again and resumes the
+// session from disk.
+func TestRunner_ResumesAfterAgentEnds(t *testing.T) {
+	r, store, dir := newTestRunner(t, `cat "$FIXTURE"`)
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "one"})
+	r.Wait()
+	if !r.StopBackground(m.ID) {
+		t.Fatal("StopBackground = false with a live agent")
+	}
+	r.Send(m.ID, SendRequest{Text: "two"})
+	r.Wait()
+
+	if n := starts(t, dir); n != 2 {
+		t.Fatalf("agent started %d times, want twice", n)
+	}
+	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
+	if !strings.Contains(string(args), "--resume\nsess-42\n") {
+		t.Fatalf("second start args = %s", args)
+	}
+}
+
+func TestRunner_MCPConfigFileRemovedWhenAgentEnds(t *testing.T) {
 	r, store, dir := newTestRunner(t, `cat "$FIXTURE"`)
 	m, _ := store.Create()
 	r.Send(m.ID, SendRequest{Text: "x"})
@@ -186,6 +241,10 @@ func TestRunner_MCPConfigFileRemovedAfterTurn(t *testing.T) {
 	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
 	lines := strings.Split(string(args), "\n")
 	path := lines[slices.Index(lines, "--mcp-config")+1]
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("mcp config %s gone while the agent runs (err=%v)", path, err)
+	}
+	r.StopBackground(m.ID)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("mcp config %s still exists (err=%v)", path, err)
 	}

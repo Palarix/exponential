@@ -38,8 +38,8 @@ type ApprovalRequest struct {
 // Decision values. When ctx ends first it returns DecisionCancelled.
 type Approver func(ctx context.Context, req ApprovalRequest) string
 
-// approve calls in.Approve, or denies when the turn has no approver.
-func (in TurnInput) approve(ctx context.Context, req ApprovalRequest) string {
+// approve calls in.Approve, or denies when the session has no approver.
+func (in SessionInput) approve(ctx context.Context, req ApprovalRequest) string {
 	if in.Approve == nil {
 		return DecisionDeny
 	}

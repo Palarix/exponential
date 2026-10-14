@@ -36,6 +36,17 @@ type RunnerConfig struct {
 	// ResolveWork returns an issue's full ID and worktree, once the agent's
 	// start call on it succeeded. The ID may be a unique suffix.
 	ResolveWork func(issueID string) (WorkBinding, error)
+
+	// InterruptGrace is how long a stopped turn may take to end after the
+	// agent was asked to stop. Then the runner closes the agent. 3s when
+	// zero.
+	InterruptGrace time.Duration
+	// IdleTimeout closes an agent that has no turn and no background task
+	// after this long without activity. 30 minutes when zero.
+	IdleTimeout time.Duration
+	// ReapEvery is how often the runner looks for idle agents. 5 minutes
+	// when zero.
+	ReapEvery time.Duration
 }
 
 // Learner learns which model a picked model ID resolved to. The Catalog is
@@ -53,27 +64,47 @@ type SendRequest struct {
 	Effort   string
 }
 
-// Runner runs chat turns, one agent process per turn, and fans their events
-// out to subscribers.
+// Runner runs chat turns and fans their events out to subscribers. Each
+// chat keeps one agent process across turns (a live session), so background
+// tasks the agent starts outlive the turn that started them.
 type Runner struct {
 	cfg RunnerConfig
 
 	mu        sync.Mutex
 	turns     map[string]*turn
+	sessions  map[string]*liveSession
 	subs      map[string]map[chan Event]struct{}
 	approvals map[string]map[string]chan string // open approval cards: chat ID → approval ID → decision
 	closing   bool                              // Shutdown began: no turn continues on its own
-	wg        sync.WaitGroup
+	wg        sync.WaitGroup                    // running turns
+	closers   []chan struct{}                   // sessions being closed; each closes when done
+	stopReap  chan struct{}
+	stopOnce  sync.Once
 }
 
+// turn is one running turn. Its output fields are used by one goroutine at
+// a time: the session's reader, or the goroutine that ends the turn.
 type turn struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	done   chan struct{} // closed when the turn has finished
 
+	byAgent bool         // the agent started the turn on its own
+	ls      *liveSession // the session that runs the turn; set under r.mu
+	ended   bool         // endTurn ran; under r.mu
+
 	// denied holds the tool use IDs whose approval the user denied. The
 	// agents report such a call as an error; the work list shows it denied.
 	denied sync.Map
+
+	meta      Meta // the chat when the turn began
+	sessionID string
+	modes     *modeTools
+	text      strings.Builder
+	// A tool call settles when its result arrives. pending holds the calls
+	// whose input is complete but whose result has not arrived yet.
+	pending      map[string]Event
+	pendingOrder []string
 }
 
 // NewRunner returns a runner for cfg.
@@ -87,7 +118,25 @@ func NewRunner(cfg RunnerConfig) *Runner {
 	if cfg.DefaultProvider == "" {
 		cfg.DefaultProvider = ProviderClaude
 	}
-	return &Runner{cfg: cfg, turns: map[string]*turn{}, subs: map[string]map[chan Event]struct{}{}, approvals: map[string]map[string]chan string{}}
+	if cfg.InterruptGrace == 0 {
+		cfg.InterruptGrace = 3 * time.Second
+	}
+	if cfg.IdleTimeout == 0 {
+		cfg.IdleTimeout = 30 * time.Minute
+	}
+	if cfg.ReapEvery == 0 {
+		cfg.ReapEvery = 5 * time.Minute
+	}
+	r := &Runner{
+		cfg:       cfg,
+		turns:     map[string]*turn{},
+		sessions:  map[string]*liveSession{},
+		subs:      map[string]map[chan Event]struct{}{},
+		approvals: map[string]map[string]chan string{},
+		stopReap:  make(chan struct{}),
+	}
+	go r.reap()
+	return r
 }
 
 // Send records the user message and starts a turn in the background.
@@ -113,10 +162,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		r.mu.Unlock()
 		return ErrBusy
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	t := &turn{ctx: ctx, cancel: cancel, done: make(chan struct{})}
-	r.turns[id] = t
-	r.wg.Add(1)
+	t := r.newTurnLocked(id)
 	r.mu.Unlock()
 
 	// Read the meta again: BindWork may have changed it before the turn was
@@ -142,29 +188,81 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		return err
 	}
 	if notice != nil {
+		r.mu.Lock()
+		old := r.detachLocked(id, notice)
+		r.mu.Unlock()
+		r.closeAsync(old)
 		r.settle(id, *notice)
 	}
 	r.settle(id, Event{Type: EventUserMessage, Text: req.Text, Context: req.Context})
 
 	profile := r.profileFor(meta)
-	go r.run(id, meta, driver, profile, buildPrompt(req.Text, req.Context, profile), t)
+	t.meta = meta
+	t.sessionID = meta.SessionID
+	t.modes = &modeTools{profile: profile}
+	go r.start(id, driver, profile, buildPrompt(req.Text, req.Context, profile), t)
 	return nil
+}
+
+// newTurnLocked registers a turn for a chat. r.mu must be held.
+func (r *Runner) newTurnLocked(id string) *turn {
+	ctx, cancel := context.WithCancel(context.Background())
+	t := &turn{ctx: ctx, cancel: cancel, done: make(chan struct{}), pending: map[string]Event{}}
+	r.turns[id] = t
+	r.wg.Add(1)
+	return t
+}
+
+// model is the model a turn runs: the chat's pick, else chat.model for the
+// default provider.
+func (r *Runner) model(m Meta) string {
+	if m.Model == "" && m.Agent == r.cfg.DefaultProvider {
+		return r.cfg.DefaultModel
+	}
+	return m.Model
+}
+
+// start sends turn t's prompt to the chat's live session, and opens one
+// first when there is none.
+func (r *Runner) start(id string, driver Driver, profile Profile, prompt string, t *turn) {
+	for attempt := 0; ; attempt++ {
+		if t.ctx.Err() != nil {
+			r.endTurn(id, t, nil, nil)
+			return
+		}
+		ls, err := r.session(id, t.meta, driver, profile)
+		if err != nil {
+			r.endTurn(id, t, nil, err)
+			return
+		}
+		r.mu.Lock()
+		t.ls = ls
+		if ls.sessionID != "" {
+			t.sessionID = ls.sessionID
+		}
+		ls.lastActive = time.Now()
+		r.mu.Unlock()
+		if t.ctx.Err() != nil {
+			r.endTurn(id, t, nil, nil)
+			return
+		}
+		err = ls.s.Send(prompt, r.model(t.meta), t.meta.Effort)
+		if errors.Is(err, errAgentExited) && attempt == 0 {
+			// The agent exited since the last turn: start it once more.
+			r.dropSession(id, ls)
+			continue
+		}
+		if err != nil {
+			r.endTurn(id, t, nil, err)
+		}
+		return
+	}
 }
 
 // continuePrompt is the message of the turn the board starts after an
 // approved start put the chat in Work Mode.
 func continuePrompt(issueID string) string {
 	return "Work Mode is on for " + issueID + ". Continue with what the user asked for."
-}
-
-// handOverLocked registers the next turn of a chat in place of t, so no
-// message can start a turn in between. r.mu must be held.
-func (r *Runner) handOverLocked(id string) *turn {
-	ctx, cancel := context.WithCancel(context.Background())
-	next := &turn{ctx: ctx, cancel: cancel, done: make(chan struct{})}
-	r.turns[id] = next
-	r.wg.Add(1)
-	return next
 }
 
 // Running reports whether a chat has a turn in progress.
@@ -176,14 +274,30 @@ func (r *Runner) Running(id string) bool {
 }
 
 // Cancel stops a chat's running turn. It returns false when none is running.
+// The agent is asked to stop the turn; its background tasks keep running.
+// An agent that does not stop within InterruptGrace is closed.
 func (r *Runner) Cancel(id string) bool {
 	r.mu.Lock()
 	t, ok := r.turns[id]
+	var ls *liveSession
+	if ok {
+		ls = t.ls
+	}
 	r.mu.Unlock()
 	if !ok {
 		return false
 	}
 	t.cancel()
+	if ls != nil {
+		ls.s.Interrupt()
+		go func() {
+			select {
+			case <-t.done:
+			case <-time.After(r.cfg.InterruptGrace):
+				r.dropSession(id, ls)
+			}
+		}()
+	}
 	return true
 }
 
@@ -203,17 +317,41 @@ func (r *Runner) CancelAndWait(id string) {
 // Wait blocks until no turn is running.
 func (r *Runner) Wait() { r.wg.Wait() }
 
-// Shutdown stops every running turn and waits for them to end.
+// Shutdown stops every running turn and every agent, and waits for them to
+// end.
 func (r *Runner) Shutdown() {
+	r.stopOnce.Do(func() { close(r.stopReap) })
 	r.mu.Lock()
 	r.closing = true
-	ids := make([]string, 0, len(r.turns))
-	for id := range r.turns {
-		ids = append(ids, id)
+	var turns []*turn
+	for _, t := range r.turns {
+		turns = append(turns, t)
+	}
+	var sessions []*liveSession
+	for id, ls := range r.sessions {
+		sessions = append(sessions, ls)
+		delete(r.sessions, id)
 	}
 	r.mu.Unlock()
-	for _, id := range ids {
-		r.Cancel(id)
+	for _, t := range turns {
+		t.cancel()
+	}
+	for _, ls := range sessions {
+		r.closeAsync(ls)
+	}
+	// Closing a session can end a turn that detaches another one, so wait
+	// until no closer is left.
+	for {
+		r.mu.Lock()
+		closers := r.closers
+		r.closers = nil
+		r.mu.Unlock()
+		if len(closers) == 0 {
+			break
+		}
+		for _, done := range closers {
+			<-done
+		}
 	}
 	r.Wait()
 }
@@ -278,165 +416,171 @@ func (r *Runner) finish(id string, t *turn) {
 	r.wg.Done()
 }
 
-func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, prompt string, t *turn) {
+// stream applies one progress event of the agent to turn t.
+func (r *Runner) stream(id string, t *turn, ev exponential.StreamEvent) {
+	switch ev.Kind {
+	case exponential.StreamSession:
+		t.sessionID = ev.Text
+	case exponential.StreamText:
+		t.text.WriteString(ev.Text)
+		r.live(id, Event{Type: EventTextDelta, Text: ev.Text})
+	case exponential.StreamThinking:
+		r.live(id, Event{Type: EventThinking})
+	case exponential.StreamToolStart:
+		r.flushText(id, t)
+		r.live(id, Event{Type: EventToolStart, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID})
+	case exponential.StreamToolDone:
+		if ev.Text == "" {
+			r.flushText(id, t) // end of a text or thinking block
+			return
+		}
+		call := Event{Type: EventToolCall, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID, Status: exponential.ToolStatusDone}
+		if ev.ToolID == "" {
+			r.settle(id, call) // no ID to match a result to
+			return
+		}
+		t.pending[ev.ToolID] = call
+		t.pendingOrder = append(t.pendingOrder, ev.ToolID)
+	case exponential.StreamToolResult:
+		call, ok := t.pending[ev.ToolID]
+		if !ok {
+			return
+		}
+		delete(t.pending, ev.ToolID)
+		call.Status = ev.ToolStatus
+		if _, denied := t.denied.Load(ev.ToolID); denied && call.Status == exponential.ToolStatusError {
+			call.Status = exponential.ToolStatusDenied
+		}
+		call.Message = ev.ToolMessage
+		r.settle(id, call)
+		t.modes.observe(call)
+	}
+}
+
+func (r *Runner) flushText(id string, t *turn) {
+	if t.text.Len() > 0 {
+		r.settle(id, Event{Type: EventAssistantText, Text: t.text.String()})
+		t.text.Reset()
+	}
+}
+
+// settlePending settles the tool calls that got no result before the turn
+// ended.
+func (r *Runner) settlePending(id string, t *turn) {
+	for _, toolID := range t.pendingOrder {
+		if call, ok := t.pending[toolID]; ok {
+			r.settle(id, call)
+		}
+	}
+	clear(t.pending)
+	t.pendingOrder = nil
+}
+
+// endTurn settles how turn t ended and updates the chat. A nil res means
+// the agent ended without a result; err says why. It runs once per turn.
+func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
+	r.mu.Lock()
+	if t.ended {
+		r.mu.Unlock()
+		return
+	}
+	t.ended = true
+	r.mu.Unlock()
 	defer r.finish(id, t)
 
-	sessionID := meta.SessionID
+	r.flushText(id, t)
+	r.settlePending(id, t)
+	if res != nil && res.SessionID != "" {
+		t.sessionID = res.SessionID
+	}
+
 	var resolved *TurnResult   // set when the turn finished
 	var cacheTTL time.Duration // the prompt cache TTL of a finished turn
 	var cacheEnd time.Time     // when that turn finished
-	modes := &modeTools{profile: profile}
-	defer func() {
-		r.mu.Lock()
-		m, err := r.cfg.Store.Meta(id)
-		var notice *Event
-		var next *turn
-		if err == nil {
-			m.State = StateIdle
-			m.SessionID = sessionID
-			if resolved != nil && resolved.Model != "" {
-				m.ResolvedModel = resolved.Model
-				m.ContextWindow = resolved.ContextWindow
-			}
-			if cacheTTL > 0 {
-				expires := cacheEnd.Add(cacheTTL).UTC()
-				m.CacheTTL = int(cacheTTL / time.Second)
-				m.CacheExpiresAt = &expires
-			}
-			notice = modes.apply(r, &m)
-			// An approved start put the chat in Work Mode: continue there,
-			// unless the turn was stopped or failed.
-			if notice != nil && notice.Mode == ModeWork && resolved != nil && t.ctx.Err() == nil && !r.closing {
-				next = r.handOverLocked(id)
-				m.State = StateRunning
-			}
-			m.UpdatedAt = time.Now().UTC()
-			_ = r.cfg.Store.SaveMeta(m)
-		}
-		r.mu.Unlock()
-		if notice != nil {
-			r.settle(id, *notice)
-		}
-		if next != nil {
-			r.settle(id, Event{Type: EventTurnContinued, IssueID: m.Work.IssueID})
-			p := r.profileFor(m)
-			go r.run(id, m, driver, p, buildPrompt(continuePrompt(m.Work.IssueID), nil, p), next)
-		}
-	}()
-
-	model := meta.Model
-	if model == "" && meta.Agent == r.cfg.DefaultProvider {
-		model = r.cfg.DefaultModel
-	}
-
-	var text strings.Builder
-	flushText := func() {
-		if text.Len() > 0 {
-			r.settle(id, Event{Type: EventAssistantText, Text: text.String()})
-			text.Reset()
-		}
-	}
-
-	// A tool call settles when its result arrives. pending holds the calls
-	// whose input is complete but whose result has not arrived yet.
-	pending := map[string]Event{}
-	var pendingOrder []string
-	settlePending := func() {
-		for _, toolID := range pendingOrder {
-			if call, ok := pending[toolID]; ok {
-				r.settle(id, call)
-			}
-		}
-		clear(pending)
-		pendingOrder = nil
-	}
-
-	if t.ctx.Err() != nil {
-		r.settle(id, Event{Type: EventTurnStopped})
-		return
-	}
-	result, err := driver.Turn(t.ctx, TurnInput{
-		Prompt:    prompt,
-		SessionID: sessionID,
-		Model:     model,
-		Effort:    meta.Effort,
-		Dir:       profile.Dir,
-		MCP:       r.cfg.MCP,
-		Profile:   profile,
-		Approve:   r.approver(id, t),
-		Grants:    meta.Grants,
-	}, func(ev exponential.StreamEvent) {
-		switch ev.Kind {
-		case exponential.StreamSession:
-			sessionID = ev.Text
-		case exponential.StreamText:
-			text.WriteString(ev.Text)
-			r.live(id, Event{Type: EventTextDelta, Text: ev.Text})
-		case exponential.StreamThinking:
-			r.live(id, Event{Type: EventThinking})
-		case exponential.StreamToolStart:
-			flushText()
-			r.live(id, Event{Type: EventToolStart, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID})
-		case exponential.StreamToolDone:
-			if ev.Text == "" {
-				flushText() // end of a text or thinking block
-				return
-			}
-			call := Event{Type: EventToolCall, Name: ev.Text, Arg: ev.ToolArg, ToolID: ev.ToolID, Status: exponential.ToolStatusDone}
-			if ev.ToolID == "" {
-				r.settle(id, call) // no ID to match a result to
-				return
-			}
-			pending[ev.ToolID] = call
-			pendingOrder = append(pendingOrder, ev.ToolID)
-		case exponential.StreamToolResult:
-			call, ok := pending[ev.ToolID]
-			if !ok {
-				return
-			}
-			delete(pending, ev.ToolID)
-			call.Status = ev.ToolStatus
-			if _, denied := t.denied.Load(ev.ToolID); denied && call.Status == exponential.ToolStatusError {
-				call.Status = exponential.ToolStatusDenied
-			}
-			call.Message = ev.ToolMessage
-			r.settle(id, call)
-			modes.observe(call)
-		}
-	})
-	flushText()
-	settlePending()
-	if result != nil && result.SessionID != "" {
-		sessionID = result.SessionID
-	}
-
 	switch {
 	case t.ctx.Err() != nil:
 		r.settle(id, Event{Type: EventTurnStopped})
-	case result == nil:
+	case res == nil:
 		msg := "the agent exited without a reply"
 		if err != nil {
 			msg = err.Error()
 		}
 		r.settle(id, Event{Type: EventError, Message: msg})
-	case result.IsError:
-		r.settle(id, Event{Type: EventError, Message: result.Output})
+	case res.IsError:
+		r.settle(id, Event{Type: EventError, Message: res.Output})
 	default:
-		resolved = result
-		cacheTTL = turnCacheTTL(result.CacheTTL, meta.CacheTTL)
+		resolved = res
+		cacheTTL = turnCacheTTL(res.CacheTTL, t.meta.CacheTTL)
 		cacheEnd = time.Now()
 		if r.cfg.Learner != nil {
-			r.cfg.Learner.Learn(meta.Agent, meta.Model, result.Model, result.ContextWindow)
+			r.cfg.Learner.Learn(t.meta.Agent, t.meta.Model, res.Model, res.ContextWindow)
 		}
 		r.settle(id, Event{
 			Type:       EventTurnDone,
-			DurationMS: result.Duration.Milliseconds(),
-			CostUSD:    result.CostUSD,
-			TokensIn:   result.TokensIn,
-			TokensOut:  result.TokensOut,
+			DurationMS: res.Duration.Milliseconds(),
+			CostUSD:    res.CostUSD,
+			TokensIn:   res.TokensIn,
+			TokensOut:  res.TokensOut,
 			CacheTTL:   int(cacheTTL / time.Second),
 		})
 	}
+
+	r.mu.Lock()
+	if t.ls != nil {
+		t.ls.lastActive = time.Now()
+	}
+	m, merr := r.cfg.Store.Meta(id)
+	var notice *Event
+	var next *turn
+	var old *liveSession
+	if merr == nil {
+		m.State = StateIdle
+		m.SessionID = t.sessionID
+		if resolved != nil && resolved.Model != "" {
+			m.ResolvedModel = resolved.Model
+			m.ContextWindow = resolved.ContextWindow
+		}
+		if cacheTTL > 0 {
+			expires := cacheEnd.Add(cacheTTL).UTC()
+			m.CacheTTL = int(cacheTTL / time.Second)
+			m.CacheExpiresAt = &expires
+		}
+		notice = t.modes.apply(r, &m)
+		if notice != nil {
+			old = r.detachLocked(id, notice)
+		}
+		// An approved start put the chat in Work Mode: continue there,
+		// unless the turn was stopped or failed.
+		if notice != nil && notice.Mode == ModeWork && resolved != nil && t.ctx.Err() == nil && !r.closing {
+			next = r.handOverLocked(id)
+			m.State = StateRunning
+		}
+		m.UpdatedAt = time.Now().UTC()
+		_ = r.cfg.Store.SaveMeta(m)
+	}
+	r.mu.Unlock()
+	r.closeAsync(old)
+	if notice != nil {
+		r.settle(id, *notice)
+	}
+	if next != nil {
+		r.settle(id, Event{Type: EventTurnContinued, IssueID: m.Work.IssueID})
+		p := r.profileFor(m)
+		next.meta = m
+		next.sessionID = m.SessionID
+		next.modes = &modeTools{profile: p}
+		go r.start(id, r.cfg.Drivers[m.Agent], p, buildPrompt(continuePrompt(m.Work.IssueID), nil, p), next)
+	}
+}
+
+// handOverLocked registers the next turn of a chat in place of t, so no
+// message can start a turn in between. r.mu must be held.
+func (r *Runner) handOverLocked(id string) *turn {
+	ctx, cancel := context.WithCancel(context.Background())
+	next := &turn{ctx: ctx, cancel: cancel, done: make(chan struct{}), pending: map[string]Event{}}
+	r.turns[id] = next
+	r.wg.Add(1)
+	return next
 }
 
 // Decide answers an open approval card of a chat.
@@ -466,10 +610,11 @@ func (r *Runner) Waiting(chatID string) bool {
 	return len(r.approvals[chatID]) > 0
 }
 
-// approver returns the Approver for a chat's turn. A request that matches a
-// grant is allowed at once. Any other request opens a card and waits for
-// Decide, or for the turn to end.
-func (r *Runner) approver(chatID string, t *turn) Approver {
+// approver returns the Approver for a chat's session. A request that
+// matches a grant is allowed at once. Any other request opens a card and
+// waits for Decide, for the turn to be stopped, or for the agent to end
+// the request.
+func (r *Runner) approver(chatID string) Approver {
 	return func(ctx context.Context, req ApprovalRequest) string {
 		if r.granted(chatID, req.Rule) {
 			return DecisionAllow
@@ -477,17 +622,24 @@ func (r *Runner) approver(chatID string, t *turn) Approver {
 		approvalID := uuid.NewString()
 		ch := make(chan string, 1)
 		r.mu.Lock()
+		t := r.turns[chatID]
 		if r.approvals[chatID] == nil {
 			r.approvals[chatID] = map[string]chan string{}
 		}
 		r.approvals[chatID][approvalID] = ch
 		r.mu.Unlock()
+		var stopped <-chan struct{}
+		if t != nil {
+			stopped = t.ctx.Done()
+		}
 		r.settle(chatID, Event{Type: EventApprovalRequested, ApprovalID: approvalID, Name: req.Tool, Arg: req.Detail, Input: req.Input, ToolID: req.ToolID})
 
 		var decision string
 		select {
 		case decision = <-ch:
 		case <-ctx.Done():
+			decision = DecisionCancelled
+		case <-stopped:
 			decision = DecisionCancelled
 		}
 		r.mu.Lock()
@@ -500,7 +652,7 @@ func (r *Runner) approver(chatID string, t *turn) Approver {
 		switch {
 		case decision == DecisionAllowSession:
 			r.grant(chatID, req.Rule)
-		case (decision == DecisionDeny || decision == DecisionCancelled) && req.ToolID != "":
+		case (decision == DecisionDeny || decision == DecisionCancelled) && req.ToolID != "" && t != nil:
 			t.denied.Store(req.ToolID, true)
 		}
 		r.settle(chatID, Event{Type: EventApprovalResolved, ApprovalID: approvalID, Decision: decision})

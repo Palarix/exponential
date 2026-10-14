@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/palarix/exponential/internal/exponential"
 )
 
 // Codex app-server output, trimmed from a recorded session (codex-cli
@@ -59,9 +57,10 @@ const (
 )
 
 // fakeCodex writes a fake `codex` that records its args, the token env var
-// and every line it reads in dir, and answers each phase from the files
-// init.jsonl, thread.jsonl and turn.jsonl. After the turn phase it runs
-// after (for example a sleep), then reads stdin until it closes.
+// and every line it reads in dir. It answers initialize and the thread
+// request from init.jsonl and thread.jsonl. It stays alive across turns:
+// each turn/start gets turn.jsonl, with the response ID set to the
+// request's, then runs after (for example a sleep).
 func fakeCodex(t *testing.T, dir, after string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -71,13 +70,22 @@ func fakeCodex(t *testing.T, dir, after string) string {
 	content := "#!/bin/sh\n" +
 		`for a in "$@"; do printf '%s\n' "$a"; done > "` + dir + `/args.txt"` + "\n" +
 		`printf '%s' "$` + codexTokenEnv + `" > "` + dir + `/token.txt"` + "\n" +
-		`for phase in init thread turn; do` + "\n" +
-		`  if [ "$phase" = thread ]; then IFS= read -r line; printf '%s\n' "$line" >> "` + dir + `/stdin.txt"; fi` + "\n" +
-		`  IFS= read -r line || exit 0; printf '%s\n' "$line" >> "` + dir + `/stdin.txt"` + "\n" +
-		`  cat "` + dir + `/$phase.jsonl"` + "\n" +
-		`done` + "\n" +
-		after + "\n" +
-		`cat >> "` + dir + `/stdin.txt"` + "\n"
+		`echo start >> "` + dir + `/starts.txt"` + "\n" +
+		`IFS= read -r line || exit 0; printf '%s\n' "$line" >> "` + dir + `/stdin.txt"` + "\n" +
+		`cat "` + dir + `/init.jsonl"` + "\n" +
+		`IFS= read -r line; printf '%s\n' "$line" >> "` + dir + `/stdin.txt"` + "\n" +
+		`IFS= read -r line || exit 0; printf '%s\n' "$line" >> "` + dir + `/stdin.txt"` + "\n" +
+		`cat "` + dir + `/thread.jsonl"` + "\n" +
+		"after() {\n" + after + "\n:\n}\n" +
+		`while IFS= read -r line; do` + "\n" +
+		`  printf '%s\n' "$line" >> "` + dir + `/stdin.txt"` + "\n" +
+		`  case "$line" in` + "\n" +
+		`  *'"turn/start"'*)` + "\n" +
+		`    id=$(printf '%s' "$line" | sed 's/.*"id":\([0-9]*\).*/\1/')` + "\n" +
+		`    sed "s/^{\"id\":3,/{\"id\":$id,/" "` + dir + `/turn.jsonl"` + "\n" +
+		`    after ;;` + "\n" +
+		`  esac` + "\n" +
+		`done` + "\n"
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -99,10 +107,11 @@ func newCodexRunner(t *testing.T, after string) (*Runner, *Store, string) {
 	writeCodexFixtures(t, dir, codexInitFixture, codexThreadFixture, codexTurnFixture)
 	store := NewStore(filepath.Join(dir, "chats"))
 	r := NewRunner(RunnerConfig{
-		Store:   store,
-		Drivers: map[string]Driver{"codex": &CodexDriver{Binary: fakeCodex(t, dir, after), InterruptGrace: 200 * time.Millisecond}},
-		Dir:     dir,
-		MCP:     MCPTarget{Executable: "/bin/xpo"},
+		Store:          store,
+		Drivers:        map[string]Driver{"codex": &CodexDriver{Binary: fakeCodex(t, dir, after), StopGrace: time.Second}},
+		Dir:            dir,
+		MCP:            MCPTarget{Executable: "/bin/xpo"},
+		InterruptGrace: 200 * time.Millisecond,
 	})
 	t.Cleanup(r.Shutdown)
 	return r, store, dir
@@ -263,11 +272,39 @@ func TestCodexDriver_LiveEvents(t *testing.T) {
 	}
 }
 
-func TestCodexDriver_SecondTurnResumesThread(t *testing.T) {
+// The second turn runs on the same app-server and thread.
+func TestCodexDriver_SecondTurnUsesLiveSession(t *testing.T) {
+	r, store, dir := newCodexRunner(t, "")
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "one", Provider: "codex", Model: "gpt-6.1-sol"})
+	r.Wait()
+	r.Send(m.ID, SendRequest{Text: "two", Provider: "codex", Model: "gpt-6-astra", Effort: "high"})
+	r.Wait()
+
+	if n := starts(t, dir); n != 1 {
+		t.Fatalf("app-server started %d times, want once", n)
+	}
+	sent := sentRequests(t, dir)
+	if len(sent["thread/start"]) != 1 || len(sent["thread/resume"]) != 0 || len(sent["turn/start"]) != 2 {
+		t.Fatalf("sent %v", sent)
+	}
+	// Codex takes the model and effort per turn: the switch is in place.
+	second := params(sent["turn/start"][1])
+	if second["model"] != "gpt-6-astra" || second["effort"] != "high" {
+		t.Errorf("second turn/start params = %v", second)
+	}
+	_, events, _ := store.Get(m.ID)
+	if n := len(eventsOfType(events, EventTurnDone)); n != 2 {
+		t.Errorf("turn_done events = %d, want 2", n)
+	}
+}
+
+func TestCodexDriver_ResumesThreadAfterAgentEnds(t *testing.T) {
 	r, store, dir := newCodexRunner(t, "")
 	m, _ := store.Create()
 	r.Send(m.ID, SendRequest{Text: "one", Provider: "codex"})
 	r.Wait()
+	r.StopBackground(m.ID)
 	os.Remove(filepath.Join(dir, "stdin.txt"))
 	r.Send(m.ID, SendRequest{Text: "two", Provider: "codex"})
 	r.Wait()
@@ -290,11 +327,10 @@ func TestCodexDriver_RemoteTokenOnlyInEnv(t *testing.T) {
 	dir := t.TempDir()
 	writeCodexFixtures(t, dir, codexInitFixture, codexThreadFixture, codexTurnFixture)
 	d := &CodexDriver{Binary: fakeCodex(t, dir, "")}
-	_, err := d.Turn(context.Background(), TurnInput{
-		Prompt: "x",
-		Dir:    dir,
-		MCP:    MCPTarget{RemoteURL: "https://xpo.example.com/", RemoteToken: "s3cret"},
-	}, func(ev exponential.StreamEvent) {})
+	_, err := runTurn(context.Background(), t, d, SessionInput{
+		Dir: dir,
+		MCP: MCPTarget{RemoteURL: "https://xpo.example.com/", RemoteToken: "s3cret"},
+	}, "x", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,6 +374,7 @@ func TestCodexDriver_ResumeFails(t *testing.T) {
 	m, _ := store.Create()
 	r.Send(m.ID, SendRequest{Text: "one", Provider: "codex"})
 	r.Wait()
+	r.StopBackground(m.ID)
 
 	os.WriteFile(filepath.Join(dir, "thread.jsonl"), []byte(`{"id":2,"error":{"code":-32600,"message":"no rollout found for thread id thr-1"}}
 `), 0o644)
@@ -362,7 +399,7 @@ func TestCodexDriver_ExitsEarly(t *testing.T) {
 		t.Skip("fake codex is a shell script")
 	}
 	d := &CodexDriver{Binary: script}
-	res, err := d.Turn(context.Background(), TurnInput{Prompt: "x", Dir: dir}, func(exponential.StreamEvent) {})
+	res, err := runTurn(context.Background(), t, d, SessionInput{Dir: dir}, "x", nil)
 	if res != nil || err == nil || !strings.Contains(err.Error(), "not logged in") {
 		t.Fatalf("res = %+v, err = %v", res, err)
 	}

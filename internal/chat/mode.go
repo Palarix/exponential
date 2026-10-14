@@ -56,10 +56,15 @@ func (r *Runner) BindWork(chatID string, b WorkBinding) (Meta, error) {
 	if err == nil {
 		err = r.cfg.Store.SaveMeta(m)
 	}
+	var old *liveSession
+	if err == nil && notice != nil {
+		old = r.detachLocked(chatID, notice)
+	}
 	r.mu.Unlock()
 	if err != nil {
 		return Meta{}, err
 	}
+	r.closeAsync(old)
 	if notice != nil {
 		r.settle(chatID, *notice)
 	}
@@ -101,14 +106,19 @@ func (r *Runner) LeaveWork(chatID string) (Meta, error) {
 		err = ErrNotInWork
 	}
 	var notice Event
+	var old *liveSession
 	if err == nil {
 		notice = leaveWork(&m, "")
 		err = r.cfg.Store.SaveMeta(m)
+	}
+	if err == nil {
+		old = r.detachLocked(chatID, &notice)
 	}
 	r.mu.Unlock()
 	if err != nil {
 		return Meta{}, err
 	}
+	r.closeAsync(old)
 	r.settle(chatID, notice)
 	return m, nil
 }

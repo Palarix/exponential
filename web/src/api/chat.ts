@@ -21,9 +21,11 @@ export type ChatEventType =
   | "approval_resolved"
   | "mode_changed"
   | "turn_continued"
+  | "agent_turn"
   | "text_delta"
   | "thinking"
-  | "tool_start";
+  | "tool_start"
+  | "background_tasks";
 
 /** One entry of a chat's event stream; `seq` is set on settled events only. */
 export interface ChatEvent {
@@ -54,6 +56,15 @@ export interface ChatEvent {
   mode?: ChatMode;
   /** mode_changed: the issue entered or left; turn_continued: the issue worked on. */
   issue_id?: string;
+  /** background_tasks: the agent's live background tasks; missing means none. */
+  tasks?: BackgroundTask[];
+}
+
+/** Work the agent keeps running between turns: a subagent, or a shell or monitor it watches. */
+export interface BackgroundTask {
+  id: string;
+  kind: "agent" | "monitor";
+  description?: string;
 }
 
 /** Chat Mode reads the repo and changes issues; Work Mode implements one issue in its worktree. */
@@ -135,7 +146,7 @@ export function fetchChats(): Promise<ChatMeta[]> {
   return request(`${BASE}/chats`);
 }
 
-export function fetchChat(id: string): Promise<{ meta: ChatMeta; events: ChatEvent[]; running: boolean }> {
+export function fetchChat(id: string): Promise<{ meta: ChatMeta; events: ChatEvent[]; running: boolean; background?: BackgroundTask[] }> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}`);
 }
 
@@ -153,6 +164,11 @@ export function sendChatMessage(id: string, msg: SendChatMessage): Promise<void>
 
 export function cancelChat(id: string): Promise<void> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+}
+
+/** Stops the chat's agent with its background tasks. The next message starts it again. */
+export function stopBackground(id: string): Promise<void> {
+  return request(`${BASE}/chats/${encodeURIComponent(id)}/background/stop`, { method: "POST" });
 }
 
 /** Answers an approval card. A 404 means the card is no longer open. */
