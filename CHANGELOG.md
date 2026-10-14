@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: chat chips and the recent-chats lists show a red alert circle when a chat's last turn failed. Its tooltip gives the error. It stays until the next turn starts; opening the chat does not clear it. Interrupted chats keep the red dot. Chats include `last_error`. (xpo-c56e70)
+
 - Agent chat: Claude can ask you questions with `AskUserQuestion`, in both modes. The chat shows a question card: each question with its options (one pick or several), and "Other…" for a free-text answer. Send returns the answers to the agent, and Skip tells it you skipped. The thread keeps each question with your answer. `POST /api/local/chats/{id}/approvals/{approval}` takes `{"decision":"answer","answers":{…}}`, and `approval_resolved` events carry `answers`. Claude only; Codex follows in xpo-eafa9b. (xpo-447687)
 
 - Agent chat: Claude gets more built-in tools. Both modes get WebSearch, WebFetch and LSP. Work Mode also gets the task list (TaskCreate, TaskUpdate, TaskList, TaskGet) and subagents (Agent). WebFetch asks before every fetch, and the other new tools run without a card. Codex turns get live web search in both modes. The transcript shows a verb and icon for each new tool, with a new bot icon for subagents. (xpo-80bf05)

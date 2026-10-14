@@ -376,11 +376,12 @@ describe("chat indicator", () => {
     id: "c1", title: "", created_at: T2, updated_at: T1, agent: "claude", state: "idle", ...over,
   });
 
-  it("ranks waiting, running, interrupted, unseen, idle", () => {
+  it("ranks waiting, running, interrupted, failed, unseen, idle", () => {
     const seen = { c1: T2 };
     expect(chatIndicator(chat({ waiting: true, state: "running" }), seen)).toBe("waiting");
-    expect(chatIndicator(chat({ state: "running" }), seen)).toBe("running");
-    expect(chatIndicator(chat({ state: "interrupted" }), seen)).toBe("interrupted");
+    expect(chatIndicator(chat({ state: "running", last_error: "boom" }), seen)).toBe("running");
+    expect(chatIndicator(chat({ state: "interrupted", last_error: "boom" }), seen)).toBe("interrupted");
+    expect(chatIndicator(chat({ last_error: "boom" }), seen)).toBe("failed");
     expect(chatIndicator(chat(), seen)).toBe("unseen");
     expect(chatIndicator(chat(), { c1: T1 })).toBe("idle");
   });
@@ -390,6 +391,9 @@ describe("chat indicator", () => {
   });
   it("counts a chat without a record as seen", () => {
     expect(chatIndicator(chat(), {})).toBe("idle");
+  });
+  it("keeps a failed chat failed once seen", () => {
+    expect(chatIndicator(chat({ last_error: "boom" }), { c1: T3 })).toBe("failed");
   });
 });
 

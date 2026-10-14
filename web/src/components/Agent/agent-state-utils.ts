@@ -76,10 +76,11 @@ export function pruneSeen(seen: SeenChats, ids: string[]): SeenChats {
 }
 
 /** What a chat's chip shows, most urgent first. */
-export type ChatIndicator = "waiting" | "running" | "interrupted" | "unseen" | "idle";
+export type ChatIndicator = "waiting" | "running" | "interrupted" | "failed" | "unseen" | "idle";
 
 /**
- * A chat's indicator. It is unseen when it changed after the viewer last
+ * A chat's indicator. It is failed while its last turn's error stands;
+ * watching the chat does not clear that. It is unseen when it changed after the viewer last
  * watched it; a chat never watched in this browser counts as seen, so old
  * chats do not all light up. Times compare as dates: Go's fractional
  * seconds vary in length, so text order is wrong.
@@ -88,6 +89,7 @@ export function chatIndicator(c: ChatMeta, seen: SeenChats): ChatIndicator {
   if (c.waiting) return "waiting";
   if (c.state === "running") return "running";
   if (c.state === "interrupted") return "interrupted";
+  if (c.last_error) return "failed";
   const at = seen[c.id];
   return at !== undefined && Date.parse(c.updated_at) > Date.parse(at) ? "unseen" : "idle";
 }

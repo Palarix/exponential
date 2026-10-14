@@ -328,7 +328,7 @@ func TestRunner_Cancel(t *testing.T) {
 	if events[len(events)-2].Type != EventAssistantText || events[len(events)-2].Text != "Checking " {
 		t.Errorf("partial text not kept: %+v", events)
 	}
-	if meta.State != StateIdle || meta.SessionID != "sess-42" {
+	if meta.State != StateIdle || meta.SessionID != "sess-42" || meta.LastError != "" {
 		t.Errorf("meta = %+v", meta)
 	}
 }
@@ -338,10 +338,51 @@ func TestRunner_ErrorResult(t *testing.T) {
 	m, _ := store.Create()
 	r.Send(m.ID, SendRequest{Text: "x"})
 	r.Wait()
-	_, events, _ := store.Get(m.ID)
+	meta, events, _ := store.Get(m.ID)
 	last := events[len(events)-1]
 	if last.Type != EventError || last.Message != "Invalid API key" {
 		t.Fatalf("last event = %+v", last)
+	}
+	if meta.LastError != "Invalid API key" {
+		t.Errorf("last error = %q, want the error result", meta.LastError)
+	}
+}
+
+// failOnceBody fails the first turn with an error result and runs then for
+// every later turn.
+func failOnceBody(then string) string {
+	return `if [ -f "$FIXTURE.failed" ]; then ` + then + `; else touch "$FIXTURE.failed"; echo '{"type":"result","is_error":true,"result":"Invalid API key","session_id":"s"}'; fi`
+}
+
+func TestRunner_FinishedTurnClearsLastError(t *testing.T) {
+	r, store, _ := newTestRunner(t, failOnceBody(`cat "$FIXTURE"`))
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "one"})
+	r.Wait()
+	if meta, _ := store.Meta(m.ID); meta.LastError == "" {
+		t.Fatal("last error empty after a failed turn")
+	}
+	r.Send(m.ID, SendRequest{Text: "two"})
+	r.Wait()
+	if meta, _ := store.Meta(m.ID); meta.LastError != "" {
+		t.Errorf("last error = %q after a finished turn, want empty", meta.LastError)
+	}
+}
+
+func TestRunner_TurnStartClearsLastError(t *testing.T) {
+	r, store, _ := newTestRunner(t, failOnceBody(`sleep 30`))
+	m, _ := store.Create()
+	r.Send(m.ID, SendRequest{Text: "one"})
+	r.Wait()
+	r.Send(m.ID, SendRequest{Text: "two"})
+	meta, _ := store.Meta(m.ID)
+	r.Cancel(m.ID)
+	r.Wait()
+	if meta.State != StateRunning || meta.LastError != "" {
+		t.Errorf("meta while running = state %q, last error %q; want running with no error", meta.State, meta.LastError)
+	}
+	if meta, _ := store.Meta(m.ID); meta.LastError != "" {
+		t.Errorf("last error = %q after a stopped turn, want empty", meta.LastError)
 	}
 }
 
@@ -357,6 +398,9 @@ func TestRunner_ProcessFailsWithoutResult(t *testing.T) {
 	}
 	if meta.State != StateIdle {
 		t.Errorf("state = %s", meta.State)
+	}
+	if !strings.Contains(meta.LastError, "not logged in") {
+		t.Errorf("last error = %q, want the exit error", meta.LastError)
 	}
 }
 

@@ -22,6 +22,17 @@ describe("chatStateIcon", () => {
     const html = render(chat({ state: "interrupted" }));
     expect(html).toContain("--color-error");
     expect(html).toContain('aria-label="Interrupted"');
+    expect(html).not.toContain("lucide");
+  });
+  it("shows an error circle with the message for a failed turn", () => {
+    const html = render(chat({ last_error: "Invalid API key" }));
+    expect(html).toContain("--color-error");
+    expect(html).toContain("lucide-circle-alert");
+    expect(html).toContain('aria-label="Last turn failed: Invalid API key"');
+  });
+  it("cuts a long error message in the label", () => {
+    const html = render(chat({ last_error: "x".repeat(300) }));
+    expect(html).toContain(`aria-label="Last turn failed: ${"x".repeat(200)}…"`);
   });
   it("shows a blue dot for a reply not seen yet", () => {
     const html = render(chat({ updated_at: "2026-10-14T10:05:00Z" }), { c1: "2026-10-14T10:00:00Z" });

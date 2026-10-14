@@ -89,6 +89,8 @@ export interface ChatMeta {
   model?: string;
   effort?: string;
   state: "idle" | "running" | "interrupted";
+  /** The error message of the last turn when it failed. */
+  last_error?: string;
   /** An approval card waits for the user. */
   waiting?: boolean;
   /** Missing means Chat Mode. */

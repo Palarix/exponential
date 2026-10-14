@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { MessageSquare } from "lucide-react";
+import { CircleAlert, MessageSquare } from "lucide-react";
 import type { ChatMeta } from "../../api/chat";
 import { formatRelativeTime } from "../../utils/format";
 import { MenuItem } from "../ui";
@@ -14,15 +14,28 @@ const DOTS: Partial<Record<ChatIndicator, { color: string; label: string }>> = {
   unseen: { color: "var(--color-info)", label: "New reply" },
 };
 
+/** How much of a failed turn's error the label shows. */
+const ERROR_LABEL_MAX = 200;
+
 /**
  * A chat's state in a chat list: a dot for waiting, interrupted and an
- * unseen reply, a spinner while running, else idle. size is a Tailwind size
- * class such as "w-3 h-3"; the dot sits centered in it.
+ * unseen reply, an alert circle for a failed turn, a spinner while running,
+ * else idle. size is a Tailwind size class such as "w-3 h-3"; the dot sits
+ * centered in it.
  */
 export function chatStateIcon(c: ChatMeta, seen: SeenChats, size: string, idle: ReactNode): ReactNode {
   const state = chatIndicator(c, seen);
   if (state === "running") {
     return <span className={`shrink-0 inline-block ${size} border-[1.5px] border-[var(--color-text-muted)] border-t-transparent rounded-full animate-spin`} />;
+  }
+  if (state === "failed") {
+    const msg = c.last_error ?? "";
+    const label = `Last turn failed: ${msg.length > ERROR_LABEL_MAX ? `${msg.slice(0, ERROR_LABEL_MAX)}…` : msg}`;
+    return (
+      <span title={label} aria-label={label} role="img" className={`shrink-0 inline-flex items-center justify-center ${size} text-[var(--color-error)]`}>
+        <CircleAlert className="w-full h-full" strokeWidth={2.5} aria-hidden />
+      </span>
+    );
   }
   const dot = DOTS[state];
   if (!dot) return idle;

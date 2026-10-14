@@ -246,6 +246,7 @@ func (h *sessionHandler) AgentTurn(reason string) {
 	t.modes = &modeTools{profile: r.profileFor(m)}
 	h.ls.lastActive = time.Now()
 	m.State = StateRunning
+	m.LastError = ""
 	m.UpdatedAt = time.Now().UTC()
 	_ = r.cfg.Store.SaveMeta(m)
 	r.mu.Unlock()

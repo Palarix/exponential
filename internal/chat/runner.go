@@ -182,6 +182,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	meta.Model = req.Model
 	meta.Effort = req.Effort
 	meta.State = StateRunning
+	meta.LastError = ""
 	meta.UpdatedAt = time.Now().UTC()
 	if err := r.cfg.Store.SaveMeta(meta); err != nil {
 		r.finish(id, t)
@@ -497,6 +498,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 	var resolved *TurnResult   // set when the turn finished
 	var cacheTTL time.Duration // the prompt cache TTL of a finished turn
 	var cacheEnd time.Time     // when that turn finished
+	var failure string         // the error message of a failed turn
 	switch {
 	case t.ctx.Err() != nil:
 		r.settle(id, Event{Type: EventTurnStopped})
@@ -505,8 +507,10 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 		if err != nil {
 			msg = err.Error()
 		}
+		failure = msg
 		r.settle(id, Event{Type: EventError, Message: msg})
 	case res.IsError:
+		failure = res.Output
 		r.settle(id, Event{Type: EventError, Message: res.Output})
 	default:
 		resolved = res
@@ -536,6 +540,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 	if merr == nil {
 		m.State = StateIdle
 		m.SessionID = t.sessionID
+		m.LastError = failure
 		if resolved != nil && resolved.Model != "" {
 			m.ResolvedModel = resolved.Model
 			m.ContextWindow = resolved.ContextWindow

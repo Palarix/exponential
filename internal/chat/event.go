@@ -106,6 +106,10 @@ type Meta struct {
 	ClaudeSessionID string    `json:"claude_session_id,omitempty"` // read only: chats saved before session_id
 	State           string    `json:"state"`
 
+	// LastError is the error message of the last turn when it failed. A
+	// turn clears it when it starts.
+	LastError string `json:"last_error,omitempty"`
+
 	// The model the agent ran in the last finished turn, and its context
 	// window in tokens.
 	ResolvedModel string `json:"resolved_model,omitempty"`
