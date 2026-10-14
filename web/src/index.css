@@ -401,7 +401,8 @@ body {
 
 .prose-exponential li.task-list-item {
   list-style: none;
-  padding-left: 0;
+  /* Hanging indent: wrapped lines align with the first line of text, like the editor */
+  padding-left: calc(14px + 1em);
 }
 
 .prose-exponential li.task-list-item input[type="checkbox"] {
@@ -413,7 +414,9 @@ body {
   background: var(--color-surface);
   position: relative;
   top: 2px;
-  margin-right: 0.5em;
+  /* Hang in the li's left gutter; rehypeTaskListSpacing drops the space after it */
+  margin-left: calc(-14px - 1em);
+  margin-right: 1em;
   cursor: default;
   display: inline-block;
   vertical-align: baseline;

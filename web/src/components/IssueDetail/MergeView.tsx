@@ -13,6 +13,7 @@ import { initialDiffScope, type DiffScope, type FileTreeNode, type SplitLine } f
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
+import { rehypeTaskListSpacing } from "../../utils/rehype-task-list-spacing";
 import { ApiError } from "../../api/client";
 import { useAddComment, useMergeIssue } from "../../api/mutations";
 import type { Issue, CommitInfo, MergedChanges } from "../../api/client";
@@ -665,7 +666,7 @@ export default function MergeView({
       {activeTab === "walkthrough" && (
         <div className="h-full scroll-stable px-8 py-6">
           <div className="prose-exponential text-sm max-w-[52rem] mx-auto">
-            <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+            <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeTaskListSpacing]}>
               {walkthroughContent}
             </Markdown>
           </div>
@@ -1164,7 +1165,7 @@ function ConversationTab({
                   </Text>
                 </div>
                 <div className="prose-exponential text-sm pl-8">
-                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+                  <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeTaskListSpacing]}>
                     {c.text}
                   </Markdown>
                 </div>
