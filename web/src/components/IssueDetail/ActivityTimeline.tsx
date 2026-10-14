@@ -1,16 +1,16 @@
-import { Fragment, useState, useMemo } from "react";
-import type { Issue, HistoryEvent } from "../../api/client";
+import { useState, useMemo } from "react";
+import type { Issue } from "../../api/client";
 import { useIssueHistory } from "../../api/queries";
-import { ActorName, Avatar, LabelBadge, StatusIcon, Text } from "../ui";
-import { Triangle, ChevronDown } from "lucide-react";
+import { ActorName, Avatar, Text } from "../ui";
+import { ChevronDown } from "lucide-react";
 import {
   formatRelativeTime,
   activityActor,
   commentAuthor,
-  resolveAssignee,
-  shortName,
 } from "../../utils/format";
 import { timelineConnectors } from "./activity-timeline-utils";
+import { describeEvent } from "./activity-describe";
+import { ActivityValue } from "./activity-chips";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 
 type ActivityEntry =
@@ -49,119 +49,6 @@ function RailSegment({ style }: { style: React.CSSProperties }) {
       style={style}
     />
   );
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  BACKLOG: "Backlog",
-  PLANNED: "Planned",
-  DOING: "In Progress",
-  BLOCKED: "Blocked",
-  DONE: "Done",
-};
-
-function StatusChip({ status }: { status: string }) {
-  return (
-    <span className="flex items-center gap-1">
-      <StatusIcon status={status} size={12} />
-      <Text weight="medium" color="primary">
-        {STATUS_LABELS[status] || status}
-      </Text>
-    </span>
-  );
-}
-
-function EstimateChip({ points }: { points: number }) {
-  return (
-    <span className="flex items-center gap-1 font-medium text-[var(--color-text-primary)]">
-      <Triangle className="w-3 h-3" />
-      {points} {points === 1 ? "Point" : "Points"}
-    </span>
-  );
-}
-
-function describeEvent(evt: HistoryEvent): React.ReactNode | null {
-  const p = evt.payload || {};
-  switch (evt.type) {
-    case "CREATE":
-      return "created this issue";
-    case "UPDATE": {
-      const fragments: React.ReactNode[] = [];
-      if (p.status)
-        fragments.push(
-          <>
-            changed status to <StatusChip status={String(p.status)} />
-          </>,
-        );
-      if (p.estimate !== undefined)
-        fragments.push(
-          <>
-            set estimate to <EstimateChip points={Number(p.estimate)} />
-          </>,
-        );
-      if (p.title) fragments.push(<>updated the title</>);
-      if (p.description !== undefined)
-        fragments.push(<>updated the description</>);
-      if (p.labels)
-        fragments.push(
-          <>
-            updated labels to{" "}
-            {(p.labels as string[]).map((l) => (
-              <LabelBadge key={l} label={l} />
-            ))}
-          </>,
-        );
-      if (p.assignee)
-        fragments.push(
-          <>
-            assigned to{" "}
-            <Text weight="medium" color="primary">
-              {shortName(resolveAssignee(String(p.assignee), evt.created_by, evt.on_behalf_of))}
-            </Text>
-          </>,
-        );
-      if (fragments.length === 0) return null;
-      return fragments.reduce<React.ReactNode[]>((acc, f, i) => {
-        if (i > 0) acc.push(<span key={`sep-${i}`}> and </span>);
-        acc.push(<Fragment key={`part-${i}`}>{f}</Fragment>);
-        return acc;
-      }, []);
-    }
-    case "DELETE":
-      return "deleted this issue";
-    case "MERGE": {
-      const branch = p.branch ? String(p.branch) : "";
-      const shortBranch =
-        branch.length > 40 ? branch.slice(0, 40) + "…" : branch;
-      return (
-        <>
-          merged{" "}
-          {branch && (
-            <span
-              className="font-mono text-xs text-[var(--color-accent-primary)]"
-              title={branch}
-            >
-              {shortBranch}
-            </span>
-          )}
-          {p.strategy && <> via {String(p.strategy)}</>}
-        </>
-      );
-    }
-    case "ARTIFACT": {
-      const action = String(p.action || "updated");
-      const filename = String(p.filename || "artifact");
-      return (
-        <>
-          {action}{" "}
-          <Text mono size="xs" weight="medium" color="primary">
-            {filename}
-          </Text>
-        </>
-      );
-    }
-    default:
-      return null;
-  }
 }
 
 export default function ActivityTimeline({
@@ -260,11 +147,12 @@ export default function ActivityTimeline({
                   <span className="flex h-5 items-center">
                     <Avatar name={entry.actor} size="sm" />
                   </span>
-                  <div className="flex min-w-0 items-center gap-2 flex-wrap">
-                    <ActorName name={entry.author} via={entry.via} />
-                    {entry.content}
-                    <span>·</span>
-                    <span>{formatRelativeTime(entry.time)}</span>
+                  {/* One run of text, so parts are separated by word spaces and long rows wrap like a sentence. */}
+                  <div data-activity="system" className="min-w-0 leading-5">
+                    <ActivityValue>
+                      <ActorName name={entry.author} via={entry.via} />
+                    </ActivityValue>{" "}
+                    {entry.content} · {formatRelativeTime(entry.time)}
                   </div>
                 </div>
               </div>

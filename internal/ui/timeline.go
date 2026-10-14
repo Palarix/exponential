@@ -76,7 +76,7 @@ func describeUpdate(payload interface{}) string {
 	}
 	if p.Estimate != nil {
 		if *p.Estimate == 0 {
-			fragments = append(fragments, "cleared estimate")
+			fragments = append(fragments, "cleared the estimate")
 		} else {
 			fragments = append(fragments, fmt.Sprintf("set estimate to %d", *p.Estimate))
 		}
@@ -89,33 +89,35 @@ func describeUpdate(payload interface{}) string {
 	}
 	if p.Assignee != nil {
 		if *p.Assignee == "" {
-			fragments = append(fragments, "unassigned")
+			fragments = append(fragments, "removed the assignee")
 		} else {
 			fragments = append(fragments, fmt.Sprintf("assigned to %s", ExtractName(*p.Assignee)))
 		}
 	}
-	if len(p.Labels) > 0 {
+	if p.Labels != nil && len(p.Labels) == 0 {
+		fragments = append(fragments, "removed all labels")
+	} else if len(p.Labels) > 0 {
 		fragments = append(fragments, fmt.Sprintf("updated labels to [%s]", strings.Join(p.Labels, ", ")))
 	}
 	if p.Priority != nil {
 		if *p.Priority == 0 {
-			fragments = append(fragments, "cleared priority")
+			fragments = append(fragments, "cleared the priority")
 		} else {
 			fragments = append(fragments, fmt.Sprintf("set priority to %d", *p.Priority))
 		}
 	}
 	if p.ParentID != nil {
 		if *p.ParentID == "" {
-			fragments = append(fragments, "removed parent")
+			fragments = append(fragments, "removed the parent issue")
 		} else {
 			fragments = append(fragments, fmt.Sprintf("set parent to %s", *p.ParentID))
 		}
 	}
 	if p.CycleID != nil {
 		if *p.CycleID == "" {
-			fragments = append(fragments, "removed from cycle")
+			fragments = append(fragments, "removed this issue from its cycle")
 		} else {
-			fragments = append(fragments, fmt.Sprintf("added to cycle %s", *p.CycleID))
+			fragments = append(fragments, fmt.Sprintf("added this issue to cycle %s", *p.CycleID))
 		}
 	}
 

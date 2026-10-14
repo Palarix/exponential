@@ -133,7 +133,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- MCP `update` and `xpo update --json` clear `assignee`, `cycle_id`, `priority` and `story_points` when the field is `null`, like `parent`. They used to fail with "no fields set", or leave the field unchanged when another field was set. `null` on `description`, `labels` and `links` still means "unchanged"; clear those with `""` or `[]`. Each nullable field's schema description says how to clear it, and the CLI timeline says "unassigned", "cleared priority" and "cleared estimate". (xpo-bbfcf9)
+- Issue activity timeline: every field change is described, cleared values read as words, and rows read as muted sentences. (xpo-ca763f)
+  - **New descriptions:** priority ("set priority to High" / "cleared the priority"), parent ("set parent to [issue]" / "removed the parent issue") and cycle ("added this issue to Cycle 12" / "removed this issue from its cycle").
+  - **Cleared values:** a cleared estimate reads "cleared the estimate" instead of "set estimate to 0 Points". Removing the assignee reads "removed the assignee"; before, such an event had no text. Removing all labels reads "removed all labels" on the web and in the CLI.
+  - **Same wording in the CLI:** `xpo history` uses the same phrases, replacing "unassigned", "removed parent", "removed from cycle" and "added to cycle X".
+  - **Muted rows:** actor names and values stay muted and turn white with a pointer cursor on hover. Comment headers keep the white name.
+  - **Spacing and alignment:** each row is one run of text with normal word spacing instead of 8px gaps, and long rows wrap like a sentence. Chip labels sit on the text baseline, and the estimate triangle no longer hangs below it.
+
+- MCP `update` and `xpo update --json` clear `assignee`, `cycle_id`, `priority` and `story_points` when the field is `null`, like `parent`. They used to fail with "no fields set", or leave the field unchanged when another field was set. `null` on `description`, `labels` and `links` still means "unchanged"; clear those with `""` or `[]`. Each nullable field's schema description says how to clear it, and the CLI timeline describes cleared values in words instead of "assigned to " or "set priority to 0". (xpo-bbfcf9)
 
 - MCP `update` and `xpo update --json` can clear an issue's parent. `parent: null` now clears it instead of failing with "no fields set". A literal quoted empty string (`"\"\""`) is treated as `""` instead of failing with `issue "" not found`. The `parent` schema description explains how to clear it. (xpo-328824)
 

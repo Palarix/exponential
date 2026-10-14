@@ -301,19 +301,43 @@ func TestRenderTimeline_CommentMarkdown(t *testing.T) {
 // Bug xpo-bbfcf9: cleared values printed as "assigned to ", "set priority to
 // 0" and "set estimate to 0".
 func TestDescribeEvent_UpdateClearedScalarFields(t *testing.T) {
-	empty, zero := "", 0
+	empty, zero, cycle := "", 0, "2026-10-12"
 	cases := []struct {
 		payload model.UpdatePayload
 		want    string
 	}{
-		{model.UpdatePayload{Assignee: &empty}, "unassigned"},
-		{model.UpdatePayload{Priority: &zero}, "cleared priority"},
-		{model.UpdatePayload{Estimate: &zero}, "cleared estimate"},
+		{model.UpdatePayload{Assignee: &empty}, "removed the assignee"},
+		{model.UpdatePayload{Priority: &zero}, "cleared the priority"},
+		{model.UpdatePayload{Estimate: &zero}, "cleared the estimate"},
+		{model.UpdatePayload{ParentID: &empty}, "removed the parent issue"},
+		{model.UpdatePayload{CycleID: &empty}, "removed this issue from its cycle"},
+		{model.UpdatePayload{CycleID: &cycle}, "added this issue to cycle 2026-10-12"},
 	}
 	for _, tc := range cases {
 		got := DescribeEvent(model.Event{Type: model.EventTypeUpdate, Payload: tc.payload})
 		if got != tc.want {
 			t.Errorf("got %q want %q", got, tc.want)
 		}
+	}
+}
+
+// Bug xpo-ca763f: clearing all labels (`labels: []`) printed nothing.
+func TestDescribeEvent_UpdateClearedLabels(t *testing.T) {
+	evt := model.Event{
+		Type:    model.EventTypeUpdate,
+		Payload: model.UpdatePayload{Labels: []string{}},
+	}
+	if got := DescribeEvent(evt); got != "removed all labels" {
+		t.Errorf("got %q want %q", got, "removed all labels")
+	}
+
+	// Stored events decode from JSON maps: [] must stay distinct from null.
+	evt.Payload = map[string]interface{}{"labels": []interface{}{}}
+	if got := DescribeEvent(evt); got != "removed all labels" {
+		t.Errorf("map payload: got %q want %q", got, "removed all labels")
+	}
+	evt.Payload = map[string]interface{}{"labels": nil, "title": "x"}
+	if got := DescribeEvent(evt); got != "updated the title" {
+		t.Errorf("null labels: got %q want %q", got, "updated the title")
 	}
 }
