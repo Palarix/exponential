@@ -11,6 +11,7 @@ import {
   PRIMARY_LINK_KINDS,
   MORE_LINK_KINDS,
   relationshipsLabel,
+  unresolvedBlockers,
 } from "./relation-utils";
 import { makeIssue } from "../../test-utils";
 import type { Dependency } from "../../api/types";
@@ -251,5 +252,33 @@ describe("relationshipsLabel", () => {
   it("uses the singular for one", () => {
     const issue = makeIssue({ id: A, dependencies: [{ source_id: A, target_id: B, kind: "blocks" }] });
     expect(relationshipsLabel(issue, [])).toBe("1 Relationship");
+  });
+});
+
+describe("unresolvedBlockers", () => {
+  const blockedBy = (...ids: string[]): Dependency[] => ids.map(id => ({ source_id: A, target_id: id, kind: "blocked_by" }));
+
+  it("returns blocked_by targets that aren't DONE, including CANCELED and DUPLICATE", () => {
+    const issues = [
+      makeIssue({ id: B, status: "PLANNED" }),
+      makeIssue({ id: C, status: "CANCELED" }),
+      makeIssue({ id: D, status: "DUPLICATE" }),
+      makeIssue({ id: "xpo-eee555", status: "DONE" }),
+    ];
+    const issue = makeIssue({ id: A, dependencies: blockedBy(B, C, D, "xpo-eee555") });
+    expect(unresolvedBlockers(issue, issues).map(i => i.id)).toEqual([B, C, D]);
+  });
+
+  it("counts derived blocked_by links and skips missing targets", () => {
+    const issue = makeIssue({
+      id: A,
+      dependencies: [{ source_id: A, target_id: B, kind: "blocked_by", derived: true }, ...blockedBy("xpo-gone99")],
+    });
+    expect(unresolvedBlockers(issue, [makeIssue({ id: B, status: "DOING" })]).map(i => i.id)).toEqual([B]);
+  });
+
+  it("ignores informational links", () => {
+    const deps: Dependency[] = ["relates_to", "depends_on", "blocks", "duplicates"].map(kind => ({ source_id: A, target_id: B, kind }));
+    expect(unresolvedBlockers(makeIssue({ id: A, dependencies: deps }), [makeIssue({ id: B })])).toEqual([]);
   });
 });

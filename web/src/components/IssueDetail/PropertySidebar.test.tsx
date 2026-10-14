@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import type { Issue } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
 import { AgentChatContext, type AgentChat } from "../Agent/agent-context";
-import PropertySidebar from "./PropertySidebar";
+import PropertySidebar, { BlockerList } from "./PropertySidebar";
 
 const issue = makeIssue({
   estimate: 2,
@@ -14,12 +16,14 @@ const issue = makeIssue({
 // An agent chat whose agent CLI is available, with no chats.
 const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] }, chats: [] } as unknown as AgentChat;
 
-function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null): string {
+function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null, others: Issue[] = []): string {
+  // The app wraps everything in a tooltip provider (main.tsx).
   return renderMarkup(
+    <TooltipPrimitive.Provider>
     <AgentChatContext.Provider value={agent}>
     <PropertySidebar
       issue={target}
-      issues={[target]}
+      issues={[target, ...others]}
       openPopover={null}
       setOpenPopover={() => {}}
       saveUpdate={() => {}}
@@ -28,7 +32,8 @@ function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | 
       onOpenMerge={() => {}}
       gitActions={gitActions}
     />
-    </AgentChatContext.Provider>,
+    </AgentChatContext.Provider>
+    </TooltipPrimitive.Provider>,
   );
 }
 
@@ -134,5 +139,54 @@ describe("PropertySidebar button priority", () => {
     const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: { ...stats, files_changed: 0, has_uncommitted: false } }), true, agentAvailable);
     expect(html).not.toContain("Review Changes");
     expect(button(html, "Continue Work")).toContain("bg-[var(--color-accent-primary)]");
+  });
+});
+
+describe("PropertySidebar Start Work blockers", () => {
+  const blockerWith = (status: string, id = "xpo-bbb222") => makeIssue({ id, title: `blocker ${status}`, status });
+  const blockedIssue = (...targets: string[]) =>
+    makeIssue({ status: "PLANNED", dependencies: targets.map(t => ({ source_id: "xpo-aaa111", target_id: t, kind: "blocked_by" })) });
+  const startButton = (html: string) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Start Work/)?.[0];
+
+  for (const status of ["PLANNED", "DOING", "CANCELED", "DUPLICATE"]) {
+    it(`disables Start Work while a ${status} blocker is unresolved`, () => {
+      const html = renderSidebar(blockedIssue("xpo-bbb222"), true, null, [blockerWith(status)]);
+      expect(startButton(html)).toMatch(/disabled=""/);
+    });
+  }
+
+  it("enables Start Work once every blocker is DONE", () => {
+    const html = renderSidebar(blockedIssue("xpo-bbb222"), true, null, [blockerWith("DONE")]);
+    expect(startButton(html)).toBeDefined();
+    expect(startButton(html)).not.toMatch(/disabled=""/);
+  });
+
+  it("doesn't disable Start Work for informational links", () => {
+    const target = makeIssue({
+      status: "PLANNED",
+      dependencies: ["relates_to", "depends_on"].map(kind => ({ source_id: "xpo-aaa111", target_id: "xpo-bbb222", kind })),
+    });
+    expect(startButton(renderSidebar(target, true, null, [blockerWith("PLANNED")]))).not.toMatch(/disabled=""/);
+  });
+});
+
+describe("BlockerList", () => {
+  const render = (blockers: Issue[]) => renderMarkup(<BlockerList blockers={blockers} onRemove={() => {}} />);
+
+  it("names an open blocker without a status note or Remove link", () => {
+    const html = render([makeIssue({ id: "xpo-bbb222", status: "PLANNED" })]);
+    expect(html).toContain("Blocked by xpo-bbb222");
+    expect(html).not.toMatch(/\((canceled|duplicate)\)/);
+    expect(html).not.toContain("Remove link");
+  });
+
+  it("marks CANCELED and DUPLICATE blockers and offers Remove link for each", () => {
+    const html = render([
+      makeIssue({ id: "xpo-bbb222", status: "CANCELED" }),
+      makeIssue({ id: "xpo-ccc333", status: "DUPLICATE" }),
+    ]);
+    expect(html).toContain("Blocked by xpo-bbb222 (canceled)");
+    expect(html).toContain("Blocked by xpo-ccc333 (duplicate)");
+    expect(html.match(/Remove link/g)).toHaveLength(2);
   });
 });

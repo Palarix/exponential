@@ -212,6 +212,35 @@ func TestHasUnresolvedBlockers_Derived(t *testing.T) {
 	}
 }
 
+// drive skips issues whose blocked_by blocker is CANCELED or DUPLICATE, since
+// start refuses them; a terminal depends_on target no longer blocks (xpo-35943d).
+func TestHasUnresolvedBlockers_TerminalBlockers(t *testing.T) {
+	cases := []struct {
+		kind    model.DependencyKind
+		status  string
+		blocked bool
+	}{
+		{model.DependencyBlocks, "DONE", false},
+		{model.DependencyBlocks, "CANCELED", true},
+		{model.DependencyBlocks, "DUPLICATE", true},
+		{model.DependencyDependencyOf, "DONE", false},
+		{model.DependencyDependencyOf, "CANCELED", false},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.kind)+"/"+tc.status, func(t *testing.T) {
+			tr := setupLocalTransport(t)
+			a, b := addLinked(t, tr, tc.kind)
+			if _, err := tr.UpdateIssue(a.ID, model.UpdatePayload{Status: sp(tc.status)}, "update"); err != nil {
+				t.Fatal(err)
+			}
+			c := &Client{Config: tr.Config, Transport: tr, local: tr}
+			if got := hasUnresolvedBlockers(readAllIssues(t)[b.ID], c); got != tc.blocked {
+				t.Errorf("hasUnresolvedBlockers = %v, want %v", got, tc.blocked)
+			}
+		})
+	}
+}
+
 func TestAPIIssueToModel_SplitsDerivedLinks(t *testing.T) {
 	issue := apiIssueToModel(apiIssue{ID: "b", Dependencies: []apiDependency{
 		{SourceID: "b", TargetID: "c", Kind: "depends_on"},

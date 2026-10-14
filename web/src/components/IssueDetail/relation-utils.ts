@@ -73,6 +73,23 @@ export function relationshipsLabel(issue: Issue, issues: Issue[]): string {
   return count === 1 ? "1 Relationship" : `${count} Relationships`;
 }
 
+/**
+ * Blocked-by targets that still block starting the issue. Only DONE resolves
+ * a blocker: a CANCELED or DUPLICATE one is a stale link (xpo-35943d).
+ * Missing targets are skipped, as the start gate does.
+ */
+export function unresolvedBlockers(issue: Issue, issues: Issue[]): Issue[] {
+  const seen = new Set<string>();
+  const blockers: Issue[] = [];
+  for (const d of issue.dependencies || []) {
+    if (d.kind !== "blocked_by" || seen.has(d.target_id)) continue;
+    seen.add(d.target_id);
+    const target = resolve(issues, d.target_id);
+    if (target && target.status !== "DONE") blockers.push(target);
+  }
+  return blockers;
+}
+
 export function addLink(issueId: string, deps: Dependency[], targetId: string, kind: LinkKind): Dependency[] {
   return [...deps, { source_id: issueId, target_id: targetId, kind }];
 }

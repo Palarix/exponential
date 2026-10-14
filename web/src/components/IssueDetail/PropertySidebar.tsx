@@ -6,7 +6,8 @@ import { useStartWorkChat } from "../Agent/useWorkMode";
 import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
 import { chatCount, useIssueChats } from "../Agent/useIssueChats";
 import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
-import { Flag, UserRound, RefreshCw, Trash2 } from "lucide-react";
+import { Flag, UserRound, RefreshCw, Trash2, FlagOff } from "lucide-react";
+import Tooltip from "../ui/Tooltip";
 import { GitBranch, GitMerge } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { formatRelativeTime } from "../../utils/format";
@@ -17,7 +18,7 @@ import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
 import { PriorityIcon } from "./icons";
 import { RelationsAddPopover, RelationsCard } from "./Relations";
-import { relationshipsLabel } from "./relation-utils";
+import { relationshipsLabel, removeLink, unresolvedBlockers } from "./relation-utils";
 import { popoverTriggerProps } from "../../utils/popover-trigger";
 import { Triangle as EstimateIcon } from "lucide-react";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
@@ -76,6 +77,15 @@ export default function PropertySidebar({
       : issue.status === "DOING" && issue.branch_stats && canChat
         ? "Continue Work"
         : null;
+  // Start Work waits for every blocker to be DONE, as the start gate does (xpo-35943d).
+  const blockers = useMemo(
+    () => (workAction === "Start Work" ? unresolvedBlockers(issue, issues) : []),
+    [workAction, issue, issues],
+  );
+  const handleRemoveBlocker = useCallback(
+    (id: string) => saveUpdate({ dependencies: removeLink(issue.dependencies || [], id, "blocked_by") }),
+    [issue.dependencies, saveUpdate],
+  );
 
   const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
 
@@ -195,11 +205,12 @@ export default function PropertySidebar({
         )}
 
         {/* Start Work button: secondary while Review Changes shows, since reviewing is the next step (xpo-926f0b). */}
-        {workAction && (
+        {workAction && (() => {
+          const button = (
           <button
             onClick={handleStartWork}
-            disabled={starting}
-            className={`flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-opacity disabled:opacity-50 ${
+            disabled={starting || blockers.length > 0}
+            className={`flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-opacity disabled:opacity-50 disabled:pointer-events-none ${
               showReview
                 ? "bg-[var(--color-surface-2)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)]"
                 : "bg-[var(--color-accent-primary)] text-white hover:opacity-90"
@@ -210,7 +221,14 @@ export default function PropertySidebar({
             </svg>
             {starting ? "Starting..." : workAction}
           </button>
-        )}
+          );
+          // A disabled button fires no pointer events, so a span triggers the tooltip.
+          return blockers.length > 0 ? (
+            <Tooltip content={<BlockerList blockers={blockers} onRemove={handleRemoveBlocker} />}>
+              <span className="block cursor-not-allowed">{button}</span>
+            </Tooltip>
+          ) : button;
+        })()}
 
         {/* Properties card */}
         <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
@@ -646,6 +664,36 @@ export default function PropertySidebar({
         })()}
       </Modal>
     </div>
+  );
+}
+
+/** Why Start Work is disabled: each unresolved blocker, with Remove link for stale ones (xpo-35943d). */
+export function BlockerList({ blockers, onRemove }: { blockers: Issue[]; onRemove: (id: string) => void }) {
+  return (
+    <ul className="space-y-1 py-0.5">
+      {blockers.map((b) => {
+        const stale = b.status === "CANCELED" || b.status === "DUPLICATE";
+        return (
+          <li key={b.id} className="flex items-center gap-2">
+            <StatusIcon status={b.status} size={12} />
+            <span className="text-[var(--color-text-primary)]">
+              Blocked by {b.id}
+              {stale && ` (${b.status.toLowerCase()})`}
+            </span>
+            {stale && (
+              <button
+                type="button"
+                onClick={() => onRemove(b.id)}
+                className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
+              >
+                <FlagOff size={12} />
+                Remove link
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

@@ -342,39 +342,32 @@ func TestUpdateIssue_MixedRedundantAndNewFields(t *testing.T) {
 	}
 }
 
-func TestUpdateIssue_BlockerCanceled_Unblocks(t *testing.T) {
-	tr := setupLocalTransport(t)
-	blocker, _ := tr.AddIssue(model.CreatePayload{Title: "blocker"})
-	blocked, _ := tr.AddIssue(model.CreatePayload{
-		Title: "blocked",
-		Dependencies: []model.Dependency{
-			{TargetID: blocker.ID, Kind: "blocked_by"},
-		},
-	})
+// A CANCELED or DUPLICATE blocker still blocks: the link is stale and the
+// user must remove it or point it at another issue (xpo-35943d).
+func TestUpdateIssue_BlockerCanceledOrDuplicate_StillBlocks(t *testing.T) {
+	for _, status := range []string{"CANCELED", "DUPLICATE"} {
+		t.Run(status, func(t *testing.T) {
+			tr := setupLocalTransport(t)
+			blocker, _ := tr.AddIssue(model.CreatePayload{Title: "blocker"})
+			blocked, _ := tr.AddIssue(model.CreatePayload{
+				Title: "blocked",
+				Dependencies: []model.Dependency{
+					{TargetID: blocker.ID, Kind: "blocked_by"},
+				},
+			})
 
-	tr.UpdateIssue(blocker.ID, model.UpdatePayload{Status: sp("CANCELED")}, "update")
+			tr.UpdateIssue(blocker.ID, model.UpdatePayload{Status: sp(status)}, "update")
 
-	_, err := tr.UpdateIssue(blocked.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
-	if err != nil {
-		t.Errorf("should allow DOING after blocker is CANCELED, got: %s", err)
-	}
-}
-
-func TestUpdateIssue_BlockerDuplicate_Unblocks(t *testing.T) {
-	tr := setupLocalTransport(t)
-	blocker, _ := tr.AddIssue(model.CreatePayload{Title: "blocker"})
-	blocked, _ := tr.AddIssue(model.CreatePayload{
-		Title: "blocked",
-		Dependencies: []model.Dependency{
-			{TargetID: blocker.ID, Kind: "blocked_by"},
-		},
-	})
-
-	tr.UpdateIssue(blocker.ID, model.UpdatePayload{Status: sp("DUPLICATE")}, "update")
-
-	_, err := tr.UpdateIssue(blocked.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
-	if err != nil {
-		t.Errorf("should allow DOING after blocker is DUPLICATE, got: %s", err)
+			_, err := tr.UpdateIssue(blocked.ID, model.UpdatePayload{Status: sp("DOING")}, "update")
+			if err == nil {
+				t.Fatalf("should refuse DOING while blocker is %s", status)
+			}
+			for _, want := range []string{blocker.ID, strings.ToLower(status), "remove the link"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q should mention %q", err, want)
+				}
+			}
+		})
 	}
 }
 

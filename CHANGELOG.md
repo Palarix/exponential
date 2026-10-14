@@ -130,6 +130,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A `blocked_by` blocker now counts as resolved only when it is DONE. CANCELED and DUPLICATE blockers still block, until you remove the link or point it at another issue.
+  - **Board:** Start Work is disabled while any blocker is unresolved. Hovering it shows a tooltip that lists each blocker and its status, with a one-click Remove link for canceled and duplicate blockers.
+  - **`start` and drive:** `start` refuses such issues, and the error says to remove the link. Drive skips them.
+
+  (xpo-35943d)
+
 - Dependencies upgraded. Frontend: vite 8 (Rolldown; vendor chunks move to `rolldownOptions.output.codeSplitting.groups`), @vitejs/plugin-react 6, eslint 10, fractional-indexing 4, React 19.3, recharts 3.10, tiptap 3.32 and the rest to latest. TypeScript stays on 5.9 (typescript-eslint supports <6.1) and eslint-plugin-react-hooks on 7.0 (xpo-09fa6f). `bun.lock` is regenerated and the unused `web/package-lock.json` is removed. Go: glamour 1.0, MCP go-sdk 1.8, golang.org/x/* and the rest to latest. **Building from source now requires Go 1.26** (required by golang.org/x/*). The README and Dockerfile are updated to match. (xpo-b2ca41)
 - Agent chat: a turn shows the agent's work live. Narration is a regular message. The actions between messages collapse into one line: while the agent works, the current action's icon and target with a shimmer and the timer on the right; afterwards "6 actions · 2 failed". Click a line to see its actions on a timeline. Each action shows an icon in place of its verb (tooltip and screen-reader label keep the verb). A Lightbulb line shows while the agent is thinking. Failures no longer expand the list, and a failed action has only a red icon. The turn's total time moves under its last message, replacing the "Worked for …" header. lucide-react is upgraded to 1.57. (xpo-855e28)
 - Agent chat: the chat popup, the composer, approval cards, message bubbles and the menus they open draw on their own monochrome surface scale (`--color-*-ai-*` tokens), a step above the app's, so the chat stands out from the board. The Agent view keeps the app canvas. A `.surface-ai` class puts shared menus and popovers on that scale. (xpo-03fa37)

@@ -111,9 +111,13 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 			for _, dep := range targetIssue.Links {
 				if dep.Kind == model.DependencyBlockedBy {
 					blocker, bExists := issues[dep.TargetID]
-					if bExists && !model.IsTerminal(blocker.Status) && !blocker.Deleted {
-						return nil, nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
+					if !bExists || blocker.Deleted || model.BlockerResolved(blocker.Status) {
+						continue
 					}
+					if model.IsTerminal(blocker.Status) {
+						return nil, nil, fmt.Errorf("cannot start issue %s: blocked by %s, which is %s; remove the link or point it at another issue", id, blocker.ID, strings.ToLower(string(blocker.Status)))
+					}
+					return nil, nil, fmt.Errorf("cannot start issue %s: blocked by incomplete issue %s", id, blocker.ID)
 				}
 			}
 		}

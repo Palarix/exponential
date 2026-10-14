@@ -920,7 +920,12 @@ func hasUnresolvedBlockers(issue *model.Issue, c *Client) bool {
 		if err != nil {
 			continue
 		}
-		if !model.IsTerminal(blocker.Status) {
+		// blocked_by follows the start gate: only DONE resolves it (xpo-35943d).
+		resolved := model.IsTerminal(blocker.Status)
+		if dep.Kind == model.DependencyBlockedBy {
+			resolved = model.BlockerResolved(blocker.Status)
+		}
+		if !resolved {
 			return true
 		}
 	}

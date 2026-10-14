@@ -6,7 +6,7 @@ export default function Tooltip({
   content,
 }: {
   children: ReactNode;
-  content: string;
+  content: ReactNode;
 }) {
   if (!content) return <>{children}</>;
   return (

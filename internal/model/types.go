@@ -130,6 +130,13 @@ func IsTerminal(s IssueStatus) bool {
 	return s == StatusDone || s == StatusCanceled || s == StatusDuplicate
 }
 
+// BlockerResolved reports whether a blocked_by blocker in status s no longer
+// blocks. Only DONE resolves it: a CANCELED or DUPLICATE blocker means the
+// link is stale and must be removed or pointed at another issue (xpo-35943d).
+func BlockerResolved(s IssueStatus) bool {
+	return s == StatusDone
+}
+
 func IsCompleted(s IssueStatus) bool {
 	return s == StatusDone
 }
