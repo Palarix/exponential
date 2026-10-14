@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: the browser tab's favicon gets a dot when a chat needs you: amber while any chat waits on an approval, blue when a reply finished while the tab was hidden. The blue dot clears when you return to the tab. The chat list now keeps polling in hidden tabs. (xpo-bbcab4)
+
 - Agent chat: chat chips in the status bar and the recent-chats lists show a status dot: yellow while an approval waits, red when interrupted, blue for a finished reply you have not seen. The spinner stays for running chats. A reply counts as seen only while its chat is shown and the window has focus; the blue dot clears 1.5s after you come back. This replaces the yellow shield icon. (xpo-f2d4c8)
 
 - Merged issues get a "View changes" button that opens a read-only Merged view: the walkthrough, commits, diff and conversation, read from the merge commit, with who merged it and when. `GET /api/issues/{id}/merged` returns the merge's commits and diff, and issues in the API carry `merged: true`. (xpo-64be51)

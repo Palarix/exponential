@@ -32,6 +32,8 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     enabled: !!status?.available,
     // Pills and issue chat icons show running chats; poll while one runs.
     refetchInterval: (q) => chatListPollMs(q.state.data),
+    // Keep polling in a hidden tab, so its title and favicon show approvals and replies.
+    refetchIntervalInBackground: true,
   });
   const chats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);
 

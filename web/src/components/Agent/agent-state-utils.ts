@@ -92,6 +92,21 @@ export function chatIndicator(c: ChatMeta, seen: SeenChats): ChatIndicator {
   return at !== undefined && Date.parse(c.updated_at) > Date.parse(at) ? "unseen" : "idle";
 }
 
+/** What the browser tab should flag: an approval waits, or a reply came in while it was hidden. */
+export type TabAttention = "approval" | "output" | "none";
+
+/**
+ * The tab's attention across all chats. Any waiting approval wins. Otherwise,
+ * while the tab is hidden (hiddenSince is when it was hidden), a chat whose turn
+ * ended after that counts as new output.
+ */
+export function tabAttention(chats: ChatMeta[], hiddenSince: string | null): TabAttention {
+  if (chats.some((c) => c.waiting)) return "approval";
+  if (hiddenSince === null) return "none";
+  const since = Date.parse(hiddenSince);
+  return chats.some((c) => c.state !== "running" && Date.parse(c.updated_at) > since) ? "output" : "none";
+}
+
 export interface PopupSize {
   width: number;
   height: number;

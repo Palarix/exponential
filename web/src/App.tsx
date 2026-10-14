@@ -5,6 +5,7 @@ import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
 import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import AgentChatProvider from './components/Agent/AgentChatProvider';
+import TabStatus from './components/Agent/TabStatus';
 import { chatContextFor } from './components/Agent/agent-state-utils';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
@@ -105,11 +106,6 @@ function App() {
   }, [route]);
 
   useEffect(() => {
-    const label = route.issueId || VIEW_BY_ID[route.view].title;
-    document.title = config.projectName ? `${config.projectName} ❯ ${label}` : label;
-  }, [route.view, route.issueId, config.projectName]);
-
-  useEffect(() => {
     const onHashChange = () => {
       const prev = routeRef.current;
       const next = parseRoute(window.location.hash);
@@ -148,6 +144,8 @@ function App() {
   });
 
   const labelColors = useMemo(() => effectiveLabelColors(config), [config]);
+  const tabLabel = route.issueId || VIEW_BY_ID[route.view].title;
+  const tabTitle = config.projectName ? `${config.projectName} ❯ ${tabLabel}` : tabLabel;
   const chatContext = useMemo(() => chatContextFor(route.view, route.issueId, issues), [route.view, route.issueId, issues]);
 
   return (
@@ -157,6 +155,7 @@ function App() {
     <ViewStateContext.Provider value={viewStateStore}>
     <AppNavContext.Provider value={nav}>
     <AgentChatProvider context={chatContext}>
+      <TabStatus title={tabTitle} />
       <Layout
         sidebar={{
           activeView: route.view,

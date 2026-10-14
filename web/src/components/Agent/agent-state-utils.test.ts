@@ -33,6 +33,7 @@ import {
   markSeen,
   pruneSeen,
   saveSeen,
+  tabAttention,
 } from "./agent-state-utils";
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
@@ -415,3 +416,30 @@ describe("seen chats", () => {
     expect(pruneSeen(s, ["a", "b", "c"])).toBe(s);
   });
 });
+
+describe("tab attention", () => {
+  const HIDDEN = "2026-10-14T10:00:00.5Z";
+  const BEFORE = "2026-10-14T10:00:00.25Z"; // earlier, though it sorts later as text
+  const AFTER = "2026-10-14T10:05:00Z";
+  const chat = (over: Partial<ChatMeta> = {}): ChatMeta => ({
+    id: "c1", title: "", created_at: BEFORE, updated_at: BEFORE, agent: "claude", state: "idle", ...over,
+  });
+  it("flags an approval whatever the visibility", () => {
+    expect(tabAttention([chat(), chat({ id: "c2", waiting: true, state: "running" })], null)).toBe("approval");
+    expect(tabAttention([chat({ waiting: true })], HIDDEN)).toBe("approval");
+  });
+  it("ranks an approval above new output", () => {
+    expect(tabAttention([chat({ updated_at: AFTER }), chat({ id: "c2", waiting: true })], HIDDEN)).toBe("approval");
+  });
+  it("flags a turn that ended while the tab was hidden", () => {
+    expect(tabAttention([chat({ updated_at: AFTER })], HIDDEN)).toBe("output");
+    expect(tabAttention([chat({ updated_at: AFTER, state: "interrupted" })], HIDDEN)).toBe("output");
+  });
+  it("ignores output while visible, before hiding, or still running", () => {
+    expect(tabAttention([chat({ updated_at: AFTER })], null)).toBe("none");
+    expect(tabAttention([chat()], HIDDEN)).toBe("none");
+    expect(tabAttention([chat({ updated_at: AFTER, state: "running" })], HIDDEN)).toBe("none");
+    expect(tabAttention([], HIDDEN)).toBe("none");
+  });
+});
+
