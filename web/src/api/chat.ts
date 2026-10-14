@@ -20,6 +20,7 @@ export type ChatEventType =
   | "approval_requested"
   | "approval_resolved"
   | "mode_changed"
+  | "turn_continued"
   | "text_delta"
   | "thinking"
   | "tool_start";
@@ -51,7 +52,7 @@ export interface ChatEvent {
   decision?: ApprovalOutcome;
   /** mode_changed: the new mode. */
   mode?: ChatMode;
-  /** mode_changed: the issue entered or left. */
+  /** mode_changed: the issue entered or left; turn_continued: the issue worked on. */
   issue_id?: string;
 }
 

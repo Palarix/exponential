@@ -133,6 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: after you allow the agent's `start`, the chat continues in Work Mode on its own. You no longer have to send "go" to get it working. The continued turn shows no user message, just the "Entered Work Mode on …" divider; a new `turn_continued` chat event opens it. (xpo-ad6069)
+
 - Merging an issue while its merge view is open (for example from the agent chat) no longer shows a raw `{"error":"no branch found for this issue"}` screen. The view switches to the Merged view in place. An issue without a branch shows a clear "No branch found" screen, and API errors across the UI show their message instead of raw JSON. (xpo-64be51)
 
 - The attachment pill on backlog rows and board cards shows its count again, like the branch, chat and sub-issue pills. (xpo-199a69)

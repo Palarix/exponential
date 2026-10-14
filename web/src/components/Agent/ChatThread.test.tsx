@@ -73,6 +73,27 @@ describe("ChatThread mode dividers", () => {
   });
 });
 
+describe("ChatThread continued turn", () => {
+  it("shows no user bubble for a turn the board continued", () => {
+    const html = render(
+      <ChatThread
+        thread={thread([
+          { type: "user_message", seq: 1, text: "start xpo-1" },
+          { type: "turn_done", seq: 2, duration_ms: 1000 },
+          { type: "mode_changed", seq: 3, mode: "work", issue_id: "xpo-1" },
+          { type: "turn_continued", seq: 4, issue_id: "xpo-1" },
+          { type: "assistant_text", seq: 5, text: "Building the scaffold." },
+          { type: "turn_done", seq: 6, duration_ms: 2000 },
+        ])}
+      />,
+    );
+    expect(html.match(/bg-\[var\(--color-surface-ai-2\)\]/g)).toHaveLength(1);
+    const divider = html.indexOf("Entered Work Mode on");
+    expect(divider).toBeGreaterThan(-1);
+    expect(divider).toBeLessThan(html.indexOf("Building the scaffold."));
+  });
+});
+
 describe("ChatThread cold cache marker", () => {
   const done = thread([
     { type: "user_message", seq: 1, text: "hi" },

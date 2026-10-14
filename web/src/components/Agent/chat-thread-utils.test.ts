@@ -23,6 +23,20 @@ describe("chatThreadReducer", () => {
     expect(s.lastSeq).toBe(1);
   });
 
+  it("starts a running turn with no user message when the board continues", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "start xpo-1" }),
+      ev({ type: "turn_done", seq: 2, duration_ms: 1000 }),
+      ev({ type: "mode_changed", seq: 3, mode: "work", issue_id: "xpo-1" }),
+      ev({ type: "turn_continued", seq: 4, issue_id: "xpo-1" }),
+    ]);
+    expect(s.turns).toHaveLength(2);
+    expect(s.turns[1].continued).toBe(true);
+    expect(s.turns[1].status).toBe("running");
+    expect(s.dividers).toEqual([{ at: 1, mode: "work", issueId: "xpo-1", message: undefined }]);
+    expect(isRunning(s)).toBe(true);
+  });
+
   it("appends text deltas to one live text step", () => {
     const s = reduce([
       ev({ type: "user_message", seq: 1, text: "hi" }),

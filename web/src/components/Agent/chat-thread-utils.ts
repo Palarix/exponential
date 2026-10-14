@@ -22,6 +22,8 @@ export type ChatStep = { kind: "text"; text: string; live: boolean } | ToolStep;
 
 export interface ChatTurn {
   user: { text: string; context?: ChatContext; time: string };
+  /** The board started this turn after an approved start, with no user message. */
+  continued?: boolean;
   steps: ChatStep[];
   status: "running" | "done" | "stopped" | "error" | "interrupted";
   thinking: boolean;
@@ -82,13 +84,14 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
     state = { ...state, lastSeq: e.seq };
   }
 
-  if (e.type === "user_message") {
+  if (e.type === "user_message" || e.type === "turn_continued") {
     const turn: ChatTurn = {
       user: { text: e.text ?? "", context: e.context, time: e.time },
       steps: [],
       status: "running",
       thinking: false,
     };
+    if (e.type === "turn_continued") turn.continued = true;
     return { ...state, turns: [...state.turns, turn] };
   }
   if (e.type === "mode_changed") {

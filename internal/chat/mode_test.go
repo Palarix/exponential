@@ -108,22 +108,38 @@ func TestRunner_StartEntersWorkModeAfterTheTurn(t *testing.T) {
 	if meta.Mode != ModeWork || meta.Work == nil || meta.Work.IssueID != "xpo-abc" || meta.Work.Worktree != wt {
 		t.Fatalf("meta = %+v, want Work Mode on xpo-abc", meta)
 	}
+	if meta.State != StateIdle {
+		t.Errorf("state = %q, want idle after the continued turn", meta.State)
+	}
 	if !slices.Equal(meta.WorkedIssues, []string{"xpo-abc"}) {
 		t.Errorf("worked issues = %v", meta.WorkedIssues)
 	}
-	// The mode changes after the turn: its divider follows turn_done.
-	if n := len(events); n < 2 || events[n-2].Type != EventTurnDone || events[n-1].Type != EventModeChanged {
-		t.Fatalf("events = %+v, want turn_done then mode_changed", events)
+	// The mode changes after the turn, and the board continues in Work Mode
+	// with no user message: turn_done, mode_changed, turn_continued, then
+	// the continued turn.
+	var types []string
+	for _, e := range events {
+		types = append(types, e.Type)
 	}
-	if e := events[len(events)-1]; e.Mode != ModeWork || e.IssueID != "xpo-abc" {
+	i := slices.Index(types, EventModeChanged)
+	if i < 1 || types[i-1] != EventTurnDone || i+1 >= len(types) || types[i+1] != EventTurnContinued {
+		t.Fatalf("events = %v, want turn_done, mode_changed, turn_continued", types)
+	}
+	if e := events[i]; e.Mode != ModeWork || e.IssueID != "xpo-abc" {
 		t.Errorf("mode_changed = %+v", e)
 	}
+	if e := events[i+1]; e.IssueID != "xpo-abc" {
+		t.Errorf("turn_continued = %+v, want issue xpo-abc", e)
+	}
+	if types[len(types)-1] != EventTurnDone {
+		t.Errorf("events = %v, want the continued turn to finish", types)
+	}
+	if n := countType(events, EventUserMessage); n != 1 {
+		t.Errorf("user messages = %d, want 1", n)
+	}
 
-	// The next turn runs in the worktree with the work profile, and resumes
-	// the same session.
-	setTurn(t, dir, turnFixture)
-	r.Send(m.ID, SendRequest{Text: "go"})
-	r.Wait()
+	// The continued turn ran in the worktree with the work profile, and
+	// resumed the same session.
 	args := lastArgs(t, dir)
 	if flagValue(args, "--tools") != "Read,Grep,Glob,Edit,Write,Bash,Skill" || flagValue(args, "--resume") != "sess-7" {
 		t.Errorf("args = %v, want the work profile resuming sess-7", args)
@@ -138,6 +154,71 @@ func TestRunner_StartEntersWorkModeAfterTheTurn(t *testing.T) {
 	}
 }
 
+func countType(events []Event, typ string) int {
+	n := 0
+	for _, e := range events {
+		if e.Type == typ {
+			n++
+		}
+	}
+	return n
+}
+
+func TestRunner_ContinuedTurnHoldsTheChat(t *testing.T) {
+	r, store, dir := newModeRunner(t)
+	makeWorktree(t, dir, "xpo-abc")
+	// The Chat Mode turn starts the issue; the continued Work Mode turn
+	// (the one with Edit) runs until it is stopped.
+	r.cfg.Drivers["claude"] = &ClaudeDriver{Binary: fakeClaude(t, dir, `cat "$(dirname "$0")/turn.jsonl"; if grep -q Edit "$(dirname "$0")/args.txt"; then sleep 5; fi`)}
+	setTurn(t, dir, toolTurn("start", "abc", false))
+	m, _ := store.Create()
+	events, unsubscribe := r.Subscribe(m.ID)
+	defer unsubscribe()
+
+	r.Send(m.ID, SendRequest{Text: "start xpo-abc"})
+	for e := range events {
+		if e.Type == EventTurnContinued {
+			break
+		}
+	}
+	if err := r.Send(m.ID, SendRequest{Text: "hello"}); !errors.Is(err, ErrBusy) {
+		t.Errorf("send during the continued turn = %v, want ErrBusy", err)
+	}
+	if !r.Running(m.ID) {
+		t.Error("the chat is not running during the continued turn")
+	}
+	r.Cancel(m.ID)
+	r.Wait()
+	if meta, _ := store.Meta(m.ID); meta.State != StateIdle {
+		t.Errorf("state = %q, want idle", meta.State)
+	}
+}
+
+func TestRunner_StoppedStartTurnDoesNotContinue(t *testing.T) {
+	r, store, dir := newModeRunner(t)
+	makeWorktree(t, dir, "xpo-abc")
+	// The start call succeeds, then the turn runs on until it is stopped.
+	r.cfg.Drivers["claude"] = &ClaudeDriver{Binary: fakeClaude(t, dir, `head -n 5 "$(dirname "$0")/turn.jsonl"; sleep 5`)}
+	setTurn(t, dir, toolTurn("start", "abc", false))
+	m, _ := store.Create()
+	events, unsubscribe := r.Subscribe(m.ID)
+	defer unsubscribe()
+
+	r.Send(m.ID, SendRequest{Text: "start xpo-abc"})
+	for e := range events {
+		if e.Type == EventToolCall {
+			break
+		}
+	}
+	r.Cancel(m.ID)
+	r.Wait()
+
+	_, stored, _ := store.Get(m.ID)
+	if n := countType(stored, EventTurnContinued); n != 0 {
+		t.Errorf("events = %+v, want no continued turn after a stop", stored)
+	}
+}
+
 func TestRunner_FailedStartKeepsChatMode(t *testing.T) {
 	r, store, dir := newModeRunner(t)
 	makeWorktree(t, dir, "xpo-abc")
@@ -147,8 +228,8 @@ func TestRunner_FailedStartKeepsChatMode(t *testing.T) {
 	r.Wait()
 
 	meta, events, _ := store.Get(m.ID)
-	if meta.Mode == ModeWork || len(modeEvents(events)) != 0 {
-		t.Fatalf("meta = %+v, events = %+v; want Chat Mode", meta, events)
+	if meta.Mode == ModeWork || len(modeEvents(events)) != 0 || countType(events, EventTurnContinued) != 0 {
+		t.Fatalf("meta = %+v, events = %+v; want Chat Mode and no continued turn", meta, events)
 	}
 }
 
@@ -188,6 +269,9 @@ func TestRunner_MergeLeavesWorkMode(t *testing.T) {
 	modes := modeEvents(events)
 	if len(modes) != 2 || modes[1].Mode != ModeChat || modes[1].IssueID != "xpo-abc" {
 		t.Errorf("mode events = %+v", modes)
+	}
+	if countType(events, EventTurnContinued) != 0 {
+		t.Errorf("events = %+v, want no continued turn after a merge", events)
 	}
 }
 

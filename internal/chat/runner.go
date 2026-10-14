@@ -62,6 +62,7 @@ type Runner struct {
 	turns     map[string]*turn
 	subs      map[string]map[chan Event]struct{}
 	approvals map[string]map[string]chan string // open approval cards: chat ID → approval ID → decision
+	closing   bool                              // Shutdown began: no turn continues on its own
 	wg        sync.WaitGroup
 }
 
@@ -121,7 +122,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	// Read the meta again: BindWork may have changed it before the turn was
 	// registered, and no mode change can happen from here on.
 	if meta, err = r.cfg.Store.Meta(id); err != nil {
-		r.finish(id)
+		r.finish(id, t)
 		return err
 	}
 	notice := checkWorktree(&meta)
@@ -137,7 +138,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	meta.State = StateRunning
 	meta.UpdatedAt = time.Now().UTC()
 	if err := r.cfg.Store.SaveMeta(meta); err != nil {
-		r.finish(id)
+		r.finish(id, t)
 		return err
 	}
 	if notice != nil {
@@ -148,6 +149,22 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	profile := r.profileFor(meta)
 	go r.run(id, meta, driver, profile, buildPrompt(req.Text, req.Context, profile), t)
 	return nil
+}
+
+// continuePrompt is the message of the turn the board starts after an
+// approved start put the chat in Work Mode.
+func continuePrompt(issueID string) string {
+	return "Work Mode is on for " + issueID + ". Continue with what the user asked for."
+}
+
+// handOverLocked registers the next turn of a chat in place of t, so no
+// message can start a turn in between. r.mu must be held.
+func (r *Runner) handOverLocked(id string) *turn {
+	ctx, cancel := context.WithCancel(context.Background())
+	next := &turn{ctx: ctx, cancel: cancel, done: make(chan struct{})}
+	r.turns[id] = next
+	r.wg.Add(1)
+	return next
 }
 
 // Running reports whether a chat has a turn in progress.
@@ -189,6 +206,7 @@ func (r *Runner) Wait() { r.wg.Wait() }
 // Shutdown stops every running turn and waits for them to end.
 func (r *Runner) Shutdown() {
 	r.mu.Lock()
+	r.closing = true
 	ids := make([]string, 0, len(r.turns))
 	for id := range r.turns {
 		ids = append(ids, id)
@@ -247,11 +265,13 @@ func (r *Runner) live(id string, e Event) {
 	r.publish(id, e)
 }
 
-func (r *Runner) finish(id string) {
+// finish ends turn t. It leaves the chat registered when t handed it over
+// to a next turn.
+func (r *Runner) finish(id string, t *turn) {
 	r.mu.Lock()
-	if t, ok := r.turns[id]; ok {
-		t.cancel()
-		close(t.done)
+	t.cancel()
+	close(t.done)
+	if r.turns[id] == t {
 		delete(r.turns, id)
 	}
 	r.mu.Unlock()
@@ -259,7 +279,7 @@ func (r *Runner) finish(id string) {
 }
 
 func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, prompt string, t *turn) {
-	defer r.finish(id)
+	defer r.finish(id, t)
 
 	sessionID := meta.SessionID
 	var resolved *TurnResult   // set when the turn finished
@@ -270,6 +290,7 @@ func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, promp
 		r.mu.Lock()
 		m, err := r.cfg.Store.Meta(id)
 		var notice *Event
+		var next *turn
 		if err == nil {
 			m.State = StateIdle
 			m.SessionID = sessionID
@@ -283,12 +304,23 @@ func (r *Runner) run(id string, meta Meta, driver Driver, profile Profile, promp
 				m.CacheExpiresAt = &expires
 			}
 			notice = modes.apply(r, &m)
+			// An approved start put the chat in Work Mode: continue there,
+			// unless the turn was stopped or failed.
+			if notice != nil && notice.Mode == ModeWork && resolved != nil && t.ctx.Err() == nil && !r.closing {
+				next = r.handOverLocked(id)
+				m.State = StateRunning
+			}
 			m.UpdatedAt = time.Now().UTC()
 			_ = r.cfg.Store.SaveMeta(m)
 		}
 		r.mu.Unlock()
 		if notice != nil {
 			r.settle(id, *notice)
+		}
+		if next != nil {
+			r.settle(id, Event{Type: EventTurnContinued, IssueID: m.Work.IssueID})
+			p := r.profileFor(m)
+			go r.run(id, m, driver, p, buildPrompt(continuePrompt(m.Work.IssueID), nil, p), next)
 		}
 	}()
 

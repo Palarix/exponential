@@ -22,6 +22,10 @@ const (
 	// The chat entered or left Work Mode, between turns. The UI draws a
 	// divider. Message, when set, says why.
 	EventModeChanged = "mode_changed"
+
+	// The board started a turn with no user message: the agent's start was
+	// approved and the chat continues in Work Mode on IssueID.
+	EventTurnContinued = "turn_continued"
 )
 
 // Live event types. Subscribers see these while a turn runs; the store does
@@ -59,7 +63,7 @@ type Event struct {
 	Decision   string `json:"decision,omitempty"`    // approval_resolved: a Decision value
 
 	Mode    string `json:"mode,omitempty"`     // mode_changed: the new mode
-	IssueID string `json:"issue_id,omitempty"` // mode_changed: the issue entered or left
+	IssueID string `json:"issue_id,omitempty"` // mode_changed: the issue entered or left; turn_continued
 
 	DurationMS int64   `json:"duration_ms,omitempty"` // turn_done
 	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done

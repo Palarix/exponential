@@ -146,9 +146,11 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
-        <IssueRefText text={turn.user.text} />
-      </div>
+      {!turn.continued && (
+        <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+          <IssueRefText text={turn.user.text} />
+        </div>
+      )}
 
       {showWork && (
         <div>
