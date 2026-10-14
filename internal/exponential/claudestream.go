@@ -211,10 +211,11 @@ func ToolResultText(content json.RawMessage) string {
 }
 
 // toolDetailKeys are the argument keys shown next to a built-in tool's name,
-// in order of preference. mcpToolDetailKeys are for MCP tools such as xpo's,
+// in order of preference. A TaskCreate's subject beats its description, and
+// an LSP call shows its filePath. mcpToolDetailKeys are for MCP tools such as xpo's,
 // where "description" is long body text, not a summary.
 var (
-	toolDetailKeys    = []string{"file_path", "description", "command", "url", "skill", "pattern", "id", "title", "query", "match"}
+	toolDetailKeys    = []string{"file_path", "filePath", "subject", "description", "command", "url", "skill", "pattern", "id", "taskId", "title", "query", "match"}
 	mcpToolDetailKeys = []string{"id", "issue_id", "title", "query", "match", "pattern", "file_path", "url", "path", "sha"}
 )
 

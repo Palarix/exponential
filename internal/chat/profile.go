@@ -3,6 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 )
 
 // Chat modes. A chat starts in Chat Mode; Work Mode implements one issue in
@@ -75,32 +76,52 @@ func mcpNames(tools []string) []string {
 	return out
 }
 
+// Claude Code's built-in tools beyond the code tools (xpo-80bf05). Both
+// modes look things up: WebSearch, WebFetch, and LSP for code navigation.
+// Work Mode also keeps a task list and starts subagents. A subagent gets only
+// the turn's tools, and its permission asks reach the user as cards.
+// "Agent" is the subagent tool; Claude Code 2.1.300 also accepts "Task".
+var (
+	claudeLookupTools = []string{"WebSearch", "WebFetch", "LSP"}
+	claudeWorkTools   = []string{"TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "Agent"}
+)
+
 // Skill, in both modes, lets the agent load the project's xpo workflow.
 func (p Profile) claudeTools() string {
+	tools := []string{"Read", "Grep", "Glob"}
 	if p.work() {
-		return "Read,Grep,Glob,Edit,Write,Bash,Skill"
+		tools = append(tools, "Edit", "Write", "Bash")
 	}
-	return "Read,Grep,Glob,Skill"
+	tools = append(tools, "Skill")
+	tools = append(tools, claudeLookupTools...)
+	if p.work() {
+		tools = append(tools, claudeWorkTools...)
+	}
+	return strings.Join(tools, ",")
 }
 
 // claudeSettings holds the ask rules. An ask rule wins over the xpo
-// wildcard in the allow list.
+// wildcard in the allow list. WebFetch asks in both modes: the model picks
+// the URL, so a fetch can leak data in it or bring back prompt injection.
 func (p Profile) claudeSettings() string {
-	ask := mcpNames(p.askTools())
+	ask := append(mcpNames(p.askTools()), "WebFetch")
 	data, _ := json.Marshal(map[string]any{"permissions": map[string]any{"ask": ask}})
 	return string(data)
 }
 
 // claudeAllowed is the allow list. Loading a skill only adds instructions,
-// so it never asks. In Work Mode, edits inside the worktree, edits to the
-// bound issue's artifacts (the spec tool hands out spec.md's path, outside
-// the worktree), and every Bash command run without a card. "//" starts an
-// absolute path in a Claude Code rule, and an Edit rule covers Write too.
+// so it never asks. WebSearch only sends a query, and LSP only reads code.
+// In Work Mode, the task list, subagents, edits inside the worktree, edits
+// to the bound issue's artifacts (the spec tool hands out spec.md's path,
+// outside the worktree), and every Bash command run without a card. "//"
+// starts an absolute path in a Claude Code rule, and an Edit rule covers
+// Write too.
 func (p Profile) claudeAllowed() []string {
-	allowed := []string{"mcp__xpo__*", "Skill"}
+	allowed := []string{"mcp__xpo__*", "Skill", "WebSearch", "LSP"}
 	if !p.work() {
 		return allowed
 	}
+	allowed = append(allowed, claudeWorkTools...)
 	allowed = append(allowed, "Bash")
 	allowed = append(allowed, editRules(p.Dir, "")...)
 	if p.Root != "" && p.IssueID != "" {

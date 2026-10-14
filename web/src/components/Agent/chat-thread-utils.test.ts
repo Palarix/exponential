@@ -318,7 +318,28 @@ describe("toolSummary", () => {
 
   it("falls back to the tool name", () => {
     expect(toolSummary("mcp__other__thing", "x")).toEqual({ text: "other thing", detail: "x" });
-    expect(toolSummary("WebFetch", "https://a.b")).toEqual({ text: "WebFetch", detail: "https://a.b" });
+    expect(toolSummary("NotebookEdit", "a.ipynb")).toEqual({ text: "NotebookEdit", detail: "a.ipynb" });
+  });
+
+  // The web, LSP, task-list and subagent tools (xpo-80bf05).
+  it("describes the lookup, task and subagent tools in words", () => {
+    expect(toolSummary("WebSearch", "go 1.26 release")).toEqual({ text: "Searched the web for", detail: "go 1.26 release" });
+    expect(toolSummary("WebSearch", "")).toEqual({ text: "Searched the web", detail: "" });
+    expect(toolSummary("WebFetch", "https://go.dev")).toEqual({ text: "Fetched", detail: "https://go.dev" });
+    expect(toolSummary("WebFetch", "")).toEqual({ text: "Fetched a page", detail: "" });
+    expect(toolSummary("LSP", "/repo/internal/chat/profile.go")).toEqual({ text: "Looked up symbols in", detail: "profile.go" });
+    expect(toolSummary("LSP", "")).toEqual({ text: "Looked up symbols", detail: "" });
+    expect(toolSummary("TaskCreate", "Write the tests")).toEqual({ text: "Added the to-do", detail: "Write the tests" });
+    expect(toolSummary("TaskCreate", "")).toEqual({ text: "Added a to-do", detail: "" });
+    expect(toolSummary("TaskUpdate", "3")).toEqual({ text: "Updated to-do", detail: "3" });
+    expect(toolSummary("TaskUpdate", "")).toEqual({ text: "Updated a to-do", detail: "" });
+    expect(toolSummary("TaskList", "")).toEqual({ text: "Listed the to-dos", detail: "" });
+    expect(toolSummary("TaskGet", "3")).toEqual({ text: "Read to-do", detail: "3" });
+    expect(toolSummary("TaskGet", "")).toEqual({ text: "Read a to-do", detail: "" });
+    expect(toolSummary("Agent", "Count files")).toEqual({ text: "Delegated", detail: "Count files" });
+    expect(toolSummary("Agent", "")).toEqual({ text: "Delegated to a subagent", detail: "" });
+    // Older Claude Code versions name the subagent tool Task.
+    expect(toolSummary("Task", "Count files")).toEqual({ text: "Delegated", detail: "Count files" });
   });
 
   it("collapses whitespace in long details", () => {
@@ -339,6 +360,9 @@ describe("stepIcon", () => {
       ["mcp__xpo__add", "add"], ["mcp__xpo__comment", "comment"], ["mcp__xpo__link", "link"], ["mcp__xpo__unlink", "unlink"],
       ["mcp__xpo__artifact", "artifact"], ["mcp__xpo__git_status", "git_status"], ["mcp__xpo__git_diff", "git_diff"],
       ["mcp__xpo__spec", "spec"], ["mcp__xpo__walkthrough", "walkthrough"],
+      ["WebSearch", "search"], ["WebFetch", "read"], ["LSP", "search"],
+      ["TaskCreate", "add"], ["TaskUpdate", "edit"], ["TaskList", "read"], ["TaskGet", "read"],
+      ["Agent", "agent"], ["Task", "agent"],
     ];
     for (const [name, icon] of icons) {
       const got = stepIcon(tool(name, "x"));
@@ -362,7 +386,7 @@ describe("stepIcon", () => {
   });
 
   it("gives unknown tools a generic icon and their name", () => {
-    expect(stepIcon(tool("WebFetch", "https://a.b"))).toEqual({ icon: "tool", label: "WebFetch", name: "WebFetch", detail: "https://a.b" });
+    expect(stepIcon(tool("NotebookEdit", "a.ipynb"))).toEqual({ icon: "tool", label: "NotebookEdit", name: "NotebookEdit", detail: "a.ipynb" });
     expect(stepIcon(tool("mcp__other__thing", "x", { status: "error" }))).toEqual({ icon: "tool", label: "other thing", name: "other thing", detail: "x" });
   });
 });
@@ -483,7 +507,13 @@ describe("approvalTitle", () => {
 
   it("falls back to the tool name", () => {
     expect(approvalTitle("mcp__xpo__frobnicate", "")).toEqual({ action: "Use xpo frobnicate", detail: "" });
-    expect(approvalTitle("WebFetch", "https://x.dev")).toEqual({ action: "Use WebFetch", detail: "https://x.dev" });
+    expect(approvalTitle("NotebookEdit", "a.ipynb")).toEqual({ action: "Use NotebookEdit", detail: "a.ipynb" });
+  });
+
+  // WebFetch asks in both modes (xpo-80bf05).
+  it("names a page fetch", () => {
+    expect(approvalTitle("WebFetch", "https://x.dev")).toEqual({ action: "Fetch", detail: "https://x.dev" });
+    expect(approvalTitle("WebFetch", "")).toEqual({ action: "Fetch a page", detail: "" });
   });
 });
 

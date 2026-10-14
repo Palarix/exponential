@@ -103,7 +103,7 @@ describe("ToolTimeline", () => {
     { type: "user_message", seq: 1, text: "go" },
     { type: "tool_call", seq: 2, name: "Read", tool_id: "t1", arg: "/r/board.go", status: "done" },
     { type: "tool_call", seq: 3, name: "Bash", tool_id: "t2", arg: "Run the tests", status: "done" },
-    { type: "tool_call", seq: 4, name: "WebFetch", tool_id: "t3", arg: "https://a.b", status: "done" },
+    { type: "tool_call", seq: 4, name: "NotebookEdit", tool_id: "t3", arg: "a.ipynb", status: "done" },
     { type: "tool_call", seq: 5, name: "mcp__xpo__merge", tool_id: "t4", arg: "upe-1", status: "error", message: "no branch" },
   ]).turns[0].steps as ToolStep[];
 
@@ -115,8 +115,8 @@ describe("ToolTimeline", () => {
     expect(html).not.toContain(">Ran a shell command<");
     expect(html).toContain("board.go");
     // An unknown tool keeps its name next to the generic icon.
-    expect(html).toContain('aria-label="WebFetch"');
-    expect(html).toContain(">WebFetch<");
+    expect(html).toContain('aria-label="NotebookEdit"');
+    expect(html).toContain(">NotebookEdit<");
     // A failed call reads as what was asked, with its reason.
     expect(html).toContain('aria-label="Merge"');
     expect(html).toContain("failed: no branch");

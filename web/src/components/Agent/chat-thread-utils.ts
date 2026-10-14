@@ -294,7 +294,7 @@ export function turnSeconds(t: ChatTurn, now: number): number {
 // verb on a work-list row; ToolIcon draws it.
 // Icons group tools by what they do: `read` looks at something known, `edit`
 // changes something, `search` finds things. A few xpo tools keep their own.
-export type ToolIconId = "read" | "edit" | "search" | "shell" | "skill" | "add" | "comment" | "link" | "unlink" | "artifact" | "git_status" | "git_diff" | "spec" | "walkthrough" | "start" | "merge" | "tool";
+export type ToolIconId = "read" | "edit" | "search" | "shell" | "skill" | "add" | "comment" | "link" | "unlink" | "artifact" | "git_status" | "git_diff" | "spec" | "walkthrough" | "start" | "merge" | "agent" | "tool";
 
 interface ToolVerbs {
   icon: ToolIconId;
@@ -313,6 +313,9 @@ function fileOps(thing: string): ToolVerbs["ops"] {
     delete: { verb: `Deleted the ${thing} of`, action: `Delete the ${thing} of` },
   };
 }
+// A subagent call. Claude Code names the tool Agent; older versions, Task.
+const AGENT_VERBS: ToolVerbs = { icon: "agent", verb: "Delegated", bare: "Delegated to a subagent", action: "Delegate", bareAction: "Delegate to a subagent" };
+
 const TOOL_VERBS: Record<string, ToolVerbs> = {
   Bash: { icon: "shell", verb: "Ran a shell command", action: "Run a shell command" },
   Edit: { icon: "edit", verb: "Edited", action: "Edit" },
@@ -321,6 +324,15 @@ const TOOL_VERBS: Record<string, ToolVerbs> = {
   Grep: { icon: "search", verb: "Searched the code for", bare: "Searched the code", action: "Search the code for", bareAction: "Search the code" },
   Glob: { icon: "search", verb: "Found files matching", bare: "Listed files", action: "Find files matching", bareAction: "List files" },
   Skill: { icon: "skill", verb: "Loaded the skill", action: "Load the skill" },
+  WebSearch: { icon: "search", verb: "Searched the web for", bare: "Searched the web", action: "Search the web for", bareAction: "Search the web" },
+  WebFetch: { icon: "read", verb: "Fetched", bare: "Fetched a page", action: "Fetch", bareAction: "Fetch a page" },
+  LSP: { icon: "search", verb: "Looked up symbols in", bare: "Looked up symbols", action: "Look up symbols in", bareAction: "Look up symbols" },
+  TaskCreate: { icon: "add", verb: "Added the to-do", bare: "Added a to-do", action: "Add the to-do", bareAction: "Add a to-do" },
+  TaskUpdate: { icon: "edit", verb: "Updated to-do", bare: "Updated a to-do", action: "Update to-do", bareAction: "Update a to-do" },
+  TaskList: { icon: "read", verb: "Listed the to-dos", action: "List the to-dos" },
+  TaskGet: { icon: "read", verb: "Read to-do", bare: "Read a to-do", action: "Read to-do", bareAction: "Read a to-do" },
+  Agent: AGENT_VERBS,
+  Task: AGENT_VERBS,
   "xpo list": { icon: "search", verb: "Listed issues matching", bare: "Listed issues", action: "List issues matching", bareAction: "List issues" },
   "xpo show": { icon: "read", verb: "Opened", action: "Open" },
   "xpo history": { icon: "read", verb: "Read the history of", action: "Read the history of" },
@@ -355,7 +367,7 @@ const TOOL_VERBS: Record<string, ToolVerbs> = {
 /** The detail shown next to a tool's verb: file names, not paths; short SHAs. */
 function toolDetail(key: string, arg: string): string {
   let detail = arg.replace(/\s+/g, " ").trim();
-  if ((key === "Read" || key === "Edit" || key === "Write") && detail) detail = detail.split("/").pop() ?? detail;
+  if ((key === "Read" || key === "Edit" || key === "Write" || key === "LSP") && detail) detail = detail.split("/").pop() ?? detail;
   if (key === "xpo git_show") detail = detail.slice(0, 12);
   return detail;
 }

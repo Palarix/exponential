@@ -25,6 +25,14 @@ func flagValues(args []string, flag string) []string {
 	return out
 }
 
+// The built-in tools of each mode (xpo-80bf05). Chat Mode adds the web and
+// LSP tools to the read-only ones; Work Mode adds editing, Bash, the task
+// list, and subagents.
+const (
+	chatTools = "Read,Grep,Glob,Skill,WebSearch,WebFetch,LSP"
+	workTools = "Read,Grep,Glob,Edit,Write,Bash,Skill,WebSearch,WebFetch,LSP,TaskCreate,TaskUpdate,TaskList,TaskGet,Agent"
+)
+
 func askRules(t *testing.T, args []string) []string {
 	t.Helper()
 	var settings struct {
@@ -42,10 +50,10 @@ func TestChatProfile_Claude(t *testing.T) {
 	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: ChatProfile("/repo", true)})
 
 	// Skill lets the agent load the project's xpo workflow (xpo-a058b4).
-	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob,Skill" {
+	if got := flagValue(args, "--tools"); got != chatTools {
 		t.Errorf("--tools = %q", got)
 	}
-	if got := flagValues(args, "--allowedTools"); !slices.Equal(got, []string{"mcp__xpo__*", "Skill"}) {
+	if got := flagValues(args, "--allowedTools"); !slices.Equal(got, []string{"mcp__xpo__*", "Skill", "WebSearch", "LSP"}) {
 		t.Errorf("--allowedTools = %v", got)
 	}
 	// A deny rule holds in every permission mode, so no later permission
@@ -53,9 +61,10 @@ func TestChatProfile_Claude(t *testing.T) {
 	if got := flagValues(args, "--disallowedTools"); !slices.Equal(got, []string{"mcp__xpo__merge"}) {
 		t.Errorf("--disallowedTools = %v, want merge denied", got)
 	}
-	// start asks: its approval card is the way into Work Mode.
-	if got := askRules(t, args); !slices.Equal(got, []string{"mcp__xpo__start"}) {
-		t.Errorf("ask rules = %v, want start to ask", got)
+	// start asks: its approval card is the way into Work Mode. WebFetch
+	// asks: the model picks the URL.
+	if got := askRules(t, args); !slices.Equal(got, []string{"mcp__xpo__start", "WebFetch"}) {
+		t.Errorf("ask rules = %v, want start and WebFetch to ask", got)
 	}
 }
 
@@ -71,14 +80,14 @@ func TestWorkProfile_Claude(t *testing.T) {
 	wt := t.TempDir()
 	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: WorkProfile("xpo-1", wt, "/repo")})
 
-	if got := flagValue(args, "--tools"); got != "Read,Grep,Glob,Edit,Write,Bash,Skill" {
+	if got := flagValue(args, "--tools"); got != workTools {
 		t.Errorf("--tools = %q", got)
 	}
 	allowed := flagValues(args, "--allowedTools")
 	// "//" starts an absolute path in a Claude Code rule; an Edit rule also
 	// covers Write. Measured with Claude Code 2.1.296.
 	real, _ := filepath.EvalSymlinks(wt)
-	for _, want := range []string{"mcp__xpo__*", "Skill", "Bash", "Edit(/" + real + "/**)"} {
+	for _, want := range []string{"mcp__xpo__*", "Skill", "Bash", "WebSearch", "LSP", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "Agent", "Edit(/" + real + "/**)"} {
 		if !slices.Contains(allowed, want) {
 			t.Errorf("--allowedTools = %v, missing %q", allowed, want)
 		}
@@ -86,8 +95,31 @@ func TestWorkProfile_Claude(t *testing.T) {
 	if slices.Contains(args, "--disallowedTools") {
 		t.Errorf("work profile denies nothing: %v", args)
 	}
-	if got := askRules(t, args); !slices.Equal(got, []string{"mcp__xpo__merge"}) {
-		t.Errorf("ask rules = %v, want merge to ask", got)
+	if got := askRules(t, args); !slices.Equal(got, []string{"mcp__xpo__merge", "WebFetch"}) {
+		t.Errorf("ask rules = %v, want merge and WebFetch to ask", got)
+	}
+}
+
+// WebFetch asks in every mode: an allow rule would skip its card.
+func TestProfile_WebFetchNeverAllowed(t *testing.T) {
+	for _, p := range []Profile{ChatProfile("/repo", true), ChatProfile("/repo", false), WorkProfile("xpo-1", "/wt", "/repo")} {
+		args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: p})
+		if allowed := flagValues(args, "--allowedTools"); slices.ContainsFunc(allowed, func(r string) bool { return strings.HasPrefix(r, "WebFetch") }) {
+			t.Errorf("%s: --allowedTools = %v allows WebFetch", p.Mode, allowed)
+		}
+		if !slices.Contains(askRules(t, args), "WebFetch") {
+			t.Errorf("%s: WebFetch does not ask", p.Mode)
+		}
+	}
+}
+
+// Chat Mode stays read-only: no editing, no shell, no subagents, no task list.
+func TestChatProfile_NoWorkTools(t *testing.T) {
+	tools := strings.Split(ChatProfile("/repo", true).claudeTools(), ",")
+	for _, tool := range []string{"Edit", "Write", "Bash", "Agent", "Task", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet"} {
+		if slices.Contains(tools, tool) {
+			t.Errorf("chat mode has %s", tool)
+		}
 	}
 }
 

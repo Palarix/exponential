@@ -293,6 +293,13 @@ func TestToolDetail(t *testing.T) {
 		{"Edit", map[string]any{"file_path": "/repo/main.go", "old_string": "a"}, "/repo/main.go"},
 		{"mcp__xpo__merge", map[string]any{"id": "xpo-1", "description": "long body"}, "xpo-1"},
 		{"ToolSearch", map[string]any{"query": "select:Read"}, ""},
+		// Inputs measured with Claude Code 2.1.300 (xpo-80bf05).
+		{"TaskCreate", map[string]any{"subject": "Write the tests", "description": "long body"}, "Write the tests"},
+		{"TaskUpdate", map[string]any{"taskId": "3", "status": "completed"}, "3"},
+		{"LSP", map[string]any{"operation": "documentSymbol", "filePath": "/repo/main.go", "line": 1}, "/repo/main.go"},
+		{"Agent", map[string]any{"description": "Count files", "subagent_type": "general-purpose", "prompt": "long"}, "Count files"},
+		{"WebSearch", map[string]any{"query": "go 1.26 release notes"}, "go 1.26 release notes"},
+		{"WebFetch", map[string]any{"url": "https://go.dev", "prompt": "summarize"}, "https://go.dev"},
 		{"Read", nil, ""},
 	}
 	for _, c := range cases {

@@ -64,6 +64,9 @@ func codexArgs(t MCPTarget, p Profile) []string {
 	for _, tool := range p.askTools() {
 		args = append(args, "-c", "mcp_servers.xpo.tools."+tool+".approval_mode="+tomlValue("prompt"))
 	}
+	// Live web search in both modes, like Claude's WebSearch (xpo-80bf05).
+	// It is OpenAI's hosted tool, so the read-only sandbox does not block it.
+	args = append(args, "-c", "web_search="+tomlValue("live"))
 	return args
 }
 

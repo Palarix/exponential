@@ -86,7 +86,7 @@ func TestRunner_NewChatRunsInChatMode(t *testing.T) {
 	r.Wait()
 
 	args := lastArgs(t, dir)
-	if flagValue(args, "--tools") != "Read,Grep,Glob,Skill" || !slices.Contains(flagValues(args, "--disallowedTools"), "mcp__xpo__merge") {
+	if flagValue(args, "--tools") != chatTools || !slices.Contains(flagValues(args, "--disallowedTools"), "mcp__xpo__merge") {
 		t.Errorf("args = %v, want the chat profile", args)
 	}
 	meta, _ := store.Meta(m.ID)
@@ -141,7 +141,7 @@ func TestRunner_StartEntersWorkModeAfterTheTurn(t *testing.T) {
 	// The continued turn ran in the worktree with the work profile, and
 	// resumed the same session.
 	args := lastArgs(t, dir)
-	if flagValue(args, "--tools") != "Read,Grep,Glob,Edit,Write,Bash,Skill" || flagValue(args, "--resume") != "sess-7" {
+	if flagValue(args, "--tools") != workTools || flagValue(args, "--resume") != "sess-7" {
 		t.Errorf("args = %v, want the work profile resuming sess-7", args)
 	}
 	realWT, _ := filepath.EvalSymlinks(wt)
@@ -404,7 +404,7 @@ func TestRunner_MissingWorktreeFallsBackToChatMode(t *testing.T) {
 	if meta.Mode != ModeChat || meta.Work != nil {
 		t.Fatalf("meta = %+v, want Chat Mode", meta)
 	}
-	if flagValue(lastArgs(t, dir), "--tools") != "Read,Grep,Glob,Skill" {
+	if flagValue(lastArgs(t, dir), "--tools") != chatTools {
 		t.Errorf("turn ran with %v, want the chat profile", lastArgs(t, dir))
 	}
 	// The divider comes before the user message of the turn it affects.
@@ -421,7 +421,7 @@ func TestRunner_OldChatWithoutModeIsChatMode(t *testing.T) {
 	store.SaveMeta(m)
 	r.Send(m.ID, SendRequest{Text: "x"})
 	r.Wait()
-	if flagValue(lastArgs(t, dir), "--tools") != "Read,Grep,Glob,Skill" {
+	if flagValue(lastArgs(t, dir), "--tools") != chatTools {
 		t.Errorf("args = %v", lastArgs(t, dir))
 	}
 }

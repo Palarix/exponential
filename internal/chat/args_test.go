@@ -26,7 +26,7 @@ func TestClaudeArgs_Baseline(t *testing.T) {
 	}
 	for flag, want := range map[string]string{
 		"--output-format":        "stream-json",
-		"--tools":                "Read,Grep,Glob,Skill",
+		"--tools":                chatTools,
 		"--allowedTools":         "mcp__xpo__*",
 		"--mcp-config":           "/tmp/mcp.json",
 		"--append-system-prompt": systemPromptFor(ProviderClaude),
@@ -67,10 +67,10 @@ func TestClaudeArgs_ResumeModelEffort(t *testing.T) {
 func TestClaudeArgs_GrantsFollowTheAllowList(t *testing.T) {
 	args := claudeArgs(turnOptions{MCPConfigPath: "m", Profile: ChatProfile("/repo", true), Grants: []string{"Bash(echo hi *)", "mcp__xpo__merge"}})
 	i := slices.Index(args, "--allowedTools")
-	if i < 0 || !slices.Equal(args[i+1:i+5], []string{"mcp__xpo__*", "Skill", "Bash(echo hi *)", "mcp__xpo__merge"}) {
+	if i < 0 || !slices.Equal(args[i+1:i+7], []string{"mcp__xpo__*", "Skill", "WebSearch", "LSP", "Bash(echo hi *)", "mcp__xpo__merge"}) {
 		t.Fatalf("args = %v, want the grants as extra --allowedTools values", args)
 	}
-	if !strings.HasPrefix(args[i+5], "--") {
+	if !strings.HasPrefix(args[i+7], "--") {
 		t.Errorf("--allowedTools values must end at the next flag: %v", args)
 	}
 }
@@ -146,5 +146,18 @@ func TestSystemPromptFor(t *testing.T) {
 				t.Errorf("%s prompt is missing %q", p, want)
 			}
 		}
+	}
+	// Claude's access lines name the web tools, and that WebFetch asks
+	// (xpo-80bf05).
+	for _, mode := range []string{ModeChat, ModeWork} {
+		line := codeAccess[ProviderClaude][mode]
+		for _, want := range []string{"WebSearch", "WebFetch", "LSP"} {
+			if !strings.Contains(line, want) {
+				t.Errorf("claude %s access %q is missing %s", mode, line, want)
+			}
+		}
+	}
+	if line := codeAccess[ProviderClaude][ModeWork]; !strings.Contains(line, "subagents") || !strings.Contains(line, "TaskCreate") {
+		t.Errorf("claude work access %q does not name the task tools and subagents", line)
 	}
 }
