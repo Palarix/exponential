@@ -48,6 +48,9 @@ var updateCmd = &cobra.Command{
 			if err := jsonio.DecodeStrict(content, &input); err != nil {
 				exitJSONError(err)
 			}
+			if err := jsonio.ApplyExplicitNulls([]byte(content), &input); err != nil {
+				exitJSONError(err)
+			}
 			payload, err := input.ToUpdatePayload()
 			if err != nil {
 				exitJSONError(err)

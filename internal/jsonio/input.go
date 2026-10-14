@@ -29,7 +29,7 @@ type UpdateInput struct {
 	Title       *string     `json:"title,omitempty"`
 	Description *string     `json:"description,omitempty" jsonschema:"Replace the issue description"`
 	Status      *string     `json:"status,omitempty" jsonschema:"New status: BACKLOG, PLANNED, DOING, BLOCKED, DONE, CANCELED, or DUPLICATE"`
-	Parent      *string     `json:"parent,omitempty"`
+	Parent      *string     `json:"parent,omitempty" jsonschema:"Parent issue ID. Pass null or \"\" to remove the parent and make the issue top-level"`
 	StoryPoints *int        `json:"story_points,omitempty"`
 	Priority    *int        `json:"priority,omitempty"`
 	Assignee    *string     `json:"assignee,omitempty"`
@@ -147,7 +147,7 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 		Title:        in.Title,
 		Description:  in.Description,
 		Status:       in.Status,
-		ParentID:     in.Parent,
+		ParentID:     normalizeParent(in.Parent),
 		Estimate:     in.StoryPoints,
 		Priority:     in.Priority,
 		Assignee:     in.Assignee,
@@ -155,6 +155,39 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 		Labels:       in.Labels,
 		Dependencies: deps,
 	}, nil
+}
+
+// ApplyExplicitNulls marks fields the raw JSON object sets to null as
+// "clear". encoding/json decodes both an omitted field and an explicit null to
+// a nil pointer, so the decoded UpdateInput alone cannot tell them apart.
+// Only `parent` is handled: null clears it, like "".
+func ApplyExplicitNulls(raw []byte, in *UpdateInput) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return fmt.Errorf("invalid JSON payload: %w", err)
+	}
+	if v, ok := fields["parent"]; ok && strings.TrimSpace(string(v)) == "null" {
+		empty := ""
+		in.Parent = &empty
+	}
+	return nil
+}
+
+// normalizeParent trims the parent ID and treats a quoted empty string, in
+// double or single quotes, as empty. Agents send the literal quotes when they
+// mean "no parent"; no issue ID contains quote characters.
+func normalizeParent(p *string) *string {
+	if p == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*p)
+	if v == `""` || v == "''" {
+		v = ""
+	}
+	return &v
 }
 
 func UpdatePayloadEmpty(p model.UpdatePayload) bool {

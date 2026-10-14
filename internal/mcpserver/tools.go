@@ -233,6 +233,11 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in jsoni
 	if in.ID == "" {
 		return nil, jsonio.UpdateOutput{}, fmt.Errorf("'id' is required")
 	}
+	if req != nil && req.Params != nil {
+		if err := jsonio.ApplyExplicitNulls(req.Params.Arguments, &in.UpdateInput); err != nil {
+			return nil, jsonio.UpdateOutput{}, err
+		}
+	}
 	payload, err := in.UpdateInput.ToUpdatePayload()
 	if err != nil {
 		return nil, jsonio.UpdateOutput{}, err

@@ -365,3 +365,73 @@ func TestUpdatePayloadEmptyCountsSortOrder(t *testing.T) {
 		t.Error("payload with sort_order reported empty")
 	}
 }
+
+// Bug xpo-328824: an explicit `"parent": null` decoded to nil, the same as an
+// omitted field, so agents could not clear a parent.
+func TestApplyExplicitNullsClearsParent(t *testing.T) {
+	var in UpdateInput
+	raw := `{"parent":null}`
+	if err := DecodeStrict(raw, &in); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyExplicitNulls([]byte(raw), &in); err != nil {
+		t.Fatalf("ApplyExplicitNulls failed: %v", err)
+	}
+	got, err := in.ToUpdatePayload()
+	if err != nil {
+		t.Fatalf("ToUpdatePayload failed: %v", err)
+	}
+	if got.ParentID == nil || *got.ParentID != "" {
+		t.Errorf("ParentID: got %v, want pointer to empty string", got.ParentID)
+	}
+}
+
+func TestApplyExplicitNullsLeavesOmittedParent(t *testing.T) {
+	var in UpdateInput
+	raw := `{"title":"x"}`
+	if err := DecodeStrict(raw, &in); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyExplicitNulls([]byte(raw), &in); err != nil {
+		t.Fatalf("ApplyExplicitNulls failed: %v", err)
+	}
+	if in.Parent != nil {
+		t.Errorf("Parent: got %q, want nil", *in.Parent)
+	}
+}
+
+func TestApplyExplicitNullsEmptyArguments(t *testing.T) {
+	var in UpdateInput
+	if err := ApplyExplicitNulls(nil, &in); err != nil {
+		t.Fatalf("ApplyExplicitNulls(nil) failed: %v", err)
+	}
+	if in.Parent != nil {
+		t.Errorf("Parent: got %q, want nil", *in.Parent)
+	}
+}
+
+// Bug xpo-328824: agents send the two-character string `""` when they mean
+// "empty"; it was looked up as an issue ID and failed with `issue "" not found`.
+func TestUpdateInputParentQuotedEmptyMeansClear(t *testing.T) {
+	for _, p := range []string{`""`, `''`, "  ", ` "" `} {
+		in := UpdateInput{Parent: &p}
+		got, err := in.ToUpdatePayload()
+		if err != nil {
+			t.Fatalf("%q: ToUpdatePayload failed: %v", p, err)
+		}
+		if got.ParentID == nil || *got.ParentID != "" {
+			t.Errorf("%q: ParentID got %v, want pointer to empty string", p, got.ParentID)
+		}
+	}
+}
+
+func TestUpdateInputParentIDTrimmed(t *testing.T) {
+	p := " xpo-abc123 "
+	got, err := UpdateInput{Parent: &p}.ToUpdatePayload()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ParentID == nil || *got.ParentID != "xpo-abc123" {
+		t.Errorf("ParentID: got %v, want xpo-abc123", got.ParentID)
+	}
+}
