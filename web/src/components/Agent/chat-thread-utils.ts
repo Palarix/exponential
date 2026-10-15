@@ -702,3 +702,13 @@ export function failureReason(step: ToolStep): { label: string; text: string; mo
     more: first >= 0 && lines.slice(first + 1).some((l) => l !== ""),
   };
 }
+
+/** The indices of the turns that start with a user message: the turn rail's bars. */
+export function userTurns(state: ChatThread): number[] {
+  return state.turns.flatMap((t, i) => (t.continued || t.byAgent ? [] : [i]));
+}
+
+/** The user messages in view: those whose span overlaps it. Returns indices into spans. */
+export function visibleTurns(spans: { top: number; bottom: number }[], viewTop: number, viewBottom: number): number[] {
+  return spans.flatMap(({ top, bottom }, i) => (top < viewBottom && bottom > viewTop ? [i] : []));
+}

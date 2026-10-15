@@ -281,9 +281,42 @@ describe("ChatThread scroller", () => {
   // pulling it left of the composer below.
   it("reserves a symmetric scrollbar gutter so the column stays centered over the composer", () => {
     for (const wide of [true, false]) {
-      const scroller = render(<ChatThread thread={turn} wide={wide} />).match(/^<div class="([^"]*)"/)?.[1] ?? "";
+      const scroller = render(<ChatThread thread={turn} wide={wide} />).match(/<div data-thread-scroller="true" class="([^"]*)"/)?.[1] ?? "";
       expect(scroller).toContain("scroll-stable");
       expect(scroller).not.toMatch(/overflow-y-/);
     }
+  });
+});
+
+describe("ChatThread turn rail", () => {
+  const chat = thread([
+    { type: "user_message", seq: 1, text: "first ask" },
+    { type: "turn_done", seq: 2, duration_ms: 1_000 },
+    { type: "agent_turn", seq: 3, text: "Serve finished" },
+    { type: "turn_done", seq: 4, duration_ms: 1_000 },
+    { type: "user_message", seq: 5, text: "second ask" },
+    { type: "turn_done", seq: 6, duration_ms: 1_000 },
+  ]);
+
+  it("shows one bar per user message in the Agent view", () => {
+    const html = render(<ChatThread thread={chat} wide />);
+    const rail = html.match(/<nav aria-label="Turns".*?<\/nav>/)?.[0] ?? "";
+    expect(rail.match(/<button/g)).toHaveLength(2);
+    expect(rail).toContain('aria-label="Go to message: first ask"');
+    expect(rail).toContain('aria-label="Go to message: second ask"');
+    expect(rail).toContain('data-turn-bar="2"');
+    expect(rail).toMatch(/<button[^>]*class="[^"]*\bh-2\.5/);
+  });
+
+  it("marks each turn so a bar can scroll to it", () => {
+    const html = render(<ChatThread thread={chat} wide />);
+    expect(html.match(/data-turn="\d+"/g)).toEqual(['data-turn="0"', 'data-turn="1"', 'data-turn="2"']);
+    expect(html.match(/data-user-message/g)).toHaveLength(2);
+  });
+
+  it("has no rail in the popup, or with fewer than two user messages", () => {
+    expect(render(<ChatThread thread={chat} />)).not.toContain('aria-label="Turns"');
+    const one = thread([{ type: "user_message", seq: 1, text: "go" }, { type: "turn_done", seq: 2, duration_ms: 1 }]);
+    expect(render(<ChatThread thread={one} wide />)).not.toContain('aria-label="Turns"');
   });
 });

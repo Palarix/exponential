@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeApprovalId, changesChatMeta, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeApprovalId, changesChatMeta, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -959,5 +959,41 @@ describe("changesChatMeta", () => {
   it("leaves the thread alone on a title event", () => {
     const t = reduce([ev({ type: "user_message", text: "hi" })]);
     expect(chatThreadReducer(t, { type: "event", event: ev({ type: "title", text: "Greeting" }) })).toBe(t);
+  });
+});
+
+describe("userTurns", () => {
+  it("lists the turns that start with a user message", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "start xpo-1" }),
+      ev({ type: "turn_done", seq: 2, duration_ms: 1 }),
+      ev({ type: "turn_continued", seq: 3, issue_id: "xpo-1" }),
+      ev({ type: "turn_done", seq: 4, duration_ms: 1 }),
+      ev({ type: "agent_turn", seq: 5, text: "Serve finished" }),
+      ev({ type: "turn_done", seq: 6, duration_ms: 1 }),
+      ev({ type: "user_message", seq: 7, text: "again" }),
+    ]);
+    expect(userTurns(s)).toEqual([0, 3]);
+    expect(userTurns(emptyThread)).toEqual([]);
+  });
+});
+
+describe("visibleTurns", () => {
+  // Three user messages, each 40px tall.
+  const spans = [{ top: 0, bottom: 40 }, { top: 300, bottom: 340 }, { top: 900, bottom: 940 }];
+
+  it("lists the messages that overlap the view", () => {
+    expect(visibleTurns(spans, 0, 200)).toEqual([0]);
+    expect(visibleTurns(spans, 20, 320)).toEqual([0, 1]);
+    expect(visibleTurns(spans, 0, 1200)).toEqual([0, 1, 2]);
+  });
+
+  it("lists none while only the agent's reply is in view", () => {
+    expect(visibleTurns(spans, 40, 300)).toEqual([]);
+    expect(visibleTurns(spans, 400, 800)).toEqual([]);
+  });
+
+  it("lists none without messages", () => {
+    expect(visibleTurns([], 0, 100)).toEqual([]);
   });
 });

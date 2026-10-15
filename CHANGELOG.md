@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: the Agent view shows a turn rail on the thread's left edge, one bar per user message, lined up with the chat title. Hovering magnifies the bars and shows the message; clicking a bar scrolls to it. Bars of messages on screen are highlighted. The chat popup has no rail. (xpo-0e4df5)
+
 - Agent chat: chats get a short, generated title after their first finished reply, in place of the first line of the first message. The chat's own agent writes it in the background: Claude chats use Haiku, Codex chats use Codex's fast model (today `gpt-6-luna`). A title you renamed is never replaced, and chats from before this change keep their titles. Work chats start with the issue title and get no `<id>` prefix. Instead, idle chats in Work Mode show a hammer icon in the chat lists. Chats carry `auto_title` while their title is a placeholder, and the chat stream sends a live `title` event. (xpo-714245)
 
 - Agent chat: an "All chats" page (`#/agent/history`), opened from the Agent view header and the status-bar history menu. It lists every chat in a full-width table.

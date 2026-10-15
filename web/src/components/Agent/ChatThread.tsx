@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { Bot, ChevronRight, Copy, Check, Lightbulb } from "lucide-react";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
@@ -7,7 +7,7 @@ import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
 import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
-import { activeApprovalId, approvalOutcomeLabel, cardsDone, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { activeApprovalId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -234,11 +234,13 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function Turn({
+  index,
   turn,
   chatId,
   onApprovalExpired,
   onCardsDone,
 }: {
+  index: number;
   turn: ChatTurn;
   chatId?: string | null;
   onApprovalExpired?: (id: string) => void;
@@ -267,7 +269,7 @@ function Turn({
   const lastText = !running && last?.kind === "text" ? last.text.trim() : "";
 
   return (
-    <div className="flex flex-col gap-3">
+    <div data-turn={index} className="flex flex-col gap-3">
       {turn.byAgent && (
         <div data-agent-turn className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] min-w-0">
           <Bot className="w-3.5 h-3.5 shrink-0" aria-hidden />
@@ -275,7 +277,7 @@ function Turn({
         </div>
       )}
       {!turn.continued && !turn.byAgent && (
-        <div className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+        <div data-user-message className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
           <IssueRefText text={turn.user.text} />
         </div>
       )}
@@ -361,6 +363,92 @@ function usePassed(at: string | undefined): boolean {
   return !Number.isNaN(target) && now >= target;
 }
 
+// How far below the thread's top a turn lands when a bar scrolls to it.
+const TURN_MARGIN = 16;
+
+/** Where an element sits in the scroller's content, in pixels. */
+function contentSpan(scroller: HTMLElement, el: Element | null): { top: number; bottom: number } {
+  if (!el) return { top: 0, bottom: 0 };
+  const rect = el.getBoundingClientRect();
+  const top = rect.top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+  return { top, bottom: top + rect.height };
+}
+
+/**
+ * One bar per user message on the thread's left edge. Hovering the rail
+ * magnifies the bars, the hovered one most. A bar scrolls to its message;
+ * a bar is highlighted while its message is in view.
+ */
+function TurnRail({ thread, scrollRef }: { thread: Thread; scrollRef: RefObject<HTMLDivElement | null> }) {
+  const turns = userTurns(thread);
+  const [shown, setShown] = useState<number[]>([]);
+  const key = turns.join(",");
+
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller || !key) return;
+    const indices = key.split(",").map(Number);
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const spans = indices.map((i) => contentSpan(scroller, scroller.querySelector(`[data-turn="${i}"] [data-user-message]`)));
+      setShown(visibleTurns(spans, scroller.scrollTop, scroller.scrollTop + scroller.clientHeight).map((t) => indices[t]));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [scrollRef, key]);
+
+  if (turns.length < 2) return null;
+  const jump = (turn: number) => {
+    const scroller = scrollRef.current;
+    if (scroller) scroller.scrollTo({ top: contentSpan(scroller, scroller.querySelector(`[data-turn="${turn}"]`)).top - TURN_MARGIN, behavior: "smooth" });
+  };
+  // left-6 lines the bars up with the chat title in the Agent view's top bar (px-6).
+  return (
+    <nav aria-label="Turns" className="group absolute left-6 top-1/2 -translate-y-1/2 z-10 flex flex-col max-h-[calc(100%-4rem)] py-2">
+      {turns.map((i) => {
+        const text = thread.turns[i].user.text;
+        const current = shown.includes(i);
+        return (
+          <TooltipPrimitive.Root key={i} delayDuration={0}>
+            <TooltipPrimitive.Trigger asChild>
+              <button
+                type="button"
+                data-turn-bar={i}
+                data-current={current || undefined}
+                aria-label={`Go to message: ${text}`}
+                onClick={() => jump(i)}
+                className="group/bar h-2.5 min-h-0 group-hover:h-3.5 group-has-[:focus-visible]:h-3.5 w-12 flex items-center rounded-[var(--radius-sm)] transition-[height] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--color-border-focus)]"
+              >
+                <span
+                  className={`h-0.5 w-3 rounded-full transition-all group-hover:h-[3px] group-has-[:focus-visible]:h-[3px] group-hover:w-6 group-has-[:focus-visible]:w-6 group-hover/bar:w-10 group-hover/bar:bg-[var(--color-text-primary)] group-focus-visible/bar:w-10 group-focus-visible/bar:bg-[var(--color-text-primary)] ${current ? "bg-[var(--color-text-muted)]" : "bg-[var(--color-border-ai)]"}`}
+                />
+              </button>
+            </TooltipPrimitive.Trigger>
+            <TooltipPrimitive.Portal>
+              <TooltipPrimitive.Content
+                side="right"
+                sideOffset={4}
+                collisionPadding={12}
+                className="z-50 max-w-xs truncate px-2 py-1 text-xs leading-snug rounded-[var(--radius-sm)] bg-[var(--color-surface-ai-2)] border border-[var(--color-border-ai)] text-[var(--color-text-secondary)] shadow-[var(--shadow-sm)] animate-in fade-in-0 zoom-in-95"
+              >
+                {text}
+              </TooltipPrimitive.Content>
+            </TooltipPrimitive.Portal>
+          </TooltipPrimitive.Root>
+        );
+      })}
+    </nav>
+  );
+}
+
 function dayLabel(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
@@ -397,8 +485,11 @@ export default function ChatThread({
 
   const first = thread.turns[0];
   return (
+    <div className="relative flex-1 min-h-0 flex flex-col">
+    {wide && <TurnRail thread={thread} scrollRef={scrollRef} />}
     <div
       ref={scrollRef}
+      data-thread-scroller
       className={`flex-1 scroll-stable px-4 ${wide ? "py-8" : "py-3"}`}
     >
       {/* The composer's box: its max-w-3xl column minus its px-4, so the thread and the reply box share both edges. */}
@@ -408,13 +499,14 @@ export default function ChatThread({
         {thread.turns.map((turn, i) => (
           <Fragment key={i}>
             {thread.dividers.filter((d) => d.at === i).map((d, j) => <Divider key={`d${j}`} text={modeDividerText(d)} />)}
-            <Turn turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} onCardsDone={onCardsDone} />
+            <Turn index={i} turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} onCardsDone={onCardsDone} />
           </Fragment>
         ))}
         {thread.dividers.filter((d) => d.at >= thread.turns.length).map((d, j) => <Divider key={`end${j}`} text={modeDividerText(d)} />)}
         {cold && <Divider dashed text="Context cache expired" title="Your next message re-sends the whole conversation." />}
       </div>
       </div>
+    </div>
     </div>
   );
 }
