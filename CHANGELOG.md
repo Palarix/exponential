@@ -153,6 +153,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: the transcript lines up with the reply box again once the thread scrolls. The scrollbar no longer narrows only the right side and pulls the transcript off-center. (xpo-260a28)
+
 - Agent chat: a background process the agent started (a dev server, a monitor) no longer keeps the turn running and blocks replies until Stop. Each chat now keeps one agent process (Claude Code or Codex) across turns, and a turn ends when the agent replies.
   - **Background tasks:** the composer shows "Monitoring N tasks", or "N agents working" for subagents. A card on the title lists the tasks; its Stop button ends the agent with its tasks. The next message resumes the session. `POST /api/local/chats/{id}/background/stop`; `GET /chats/{id}` includes `background`; live `background_tasks` events.
   - **Agent turns:** when a background task ends and Claude Code replies on its own, the reply shows as its own turn (`agent_turn` event), marked with what woke the agent.

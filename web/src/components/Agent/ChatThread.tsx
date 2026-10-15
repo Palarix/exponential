@@ -370,7 +370,7 @@ export default function ChatThread({
   return (
     <div
       ref={scrollRef}
-      className={`flex-1 overflow-y-auto px-4 ${wide ? "py-8" : "py-3"}`}
+      className={`flex-1 scroll-stable px-4 ${wide ? "py-8" : "py-3"}`}
     >
       {/* The composer's box: its max-w-3xl column minus its px-4, so the thread and the reply box share both edges. */}
       <div className={wide ? "mx-auto max-w-[46rem]" : undefined}>

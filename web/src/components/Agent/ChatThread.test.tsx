@@ -269,3 +269,21 @@ describe("ChatThread cold cache marker", () => {
     expect(render(<ChatThread thread={running} cacheExpiresAt="2026-10-13T10:05:00Z" />)).not.toContain(marker);
   });
 });
+
+describe("ChatThread scroller", () => {
+  const turn = thread([
+    { type: "user_message", seq: 1, text: "go" },
+    { type: "assistant_text", seq: 2, text: "Done." },
+    { type: "turn_done", seq: 3, duration_ms: 1_000 },
+  ]);
+
+  // A one-sided scrollbar would narrow the area the reading column centers in,
+  // pulling it left of the composer below.
+  it("reserves a symmetric scrollbar gutter so the column stays centered over the composer", () => {
+    for (const wide of [true, false]) {
+      const scroller = render(<ChatThread thread={turn} wide={wide} />).match(/^<div class="([^"]*)"/)?.[1] ?? "";
+      expect(scroller).toContain("scroll-stable");
+      expect(scroller).not.toMatch(/overflow-y-/);
+    }
+  });
+});
