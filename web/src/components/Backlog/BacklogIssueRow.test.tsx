@@ -79,7 +79,7 @@ describe("BacklogIssueRow chat icon", () => {
   const issue = makeIssue();
   const agent = {
     status: { available: true, default_provider: "claude", providers: [] },
-    chats: [{ id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] }],
+    allChats: [{ id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] }],
   } as unknown as AgentChat;
 
   it("shows the chat icon on an issue a chat worked on", () => {

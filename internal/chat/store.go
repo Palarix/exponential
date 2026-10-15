@@ -21,11 +21,9 @@ var ErrNotFound = errors.New("chat not found")
 // ErrEmptyTitle is returned by Rename for a blank title.
 var ErrEmptyTitle = errors.New("title is required")
 
-// Retention for Prune: chats are personal scratch, so old ones go.
-const (
-	PruneMaxAge   = 30 * 24 * time.Hour
-	PruneMaxCount = 200
-)
+// AutoArchiveAfter is how long a chat stays idle before the board archives
+// it. The board never deletes a chat on its own.
+const AutoArchiveAfter = 30 * 24 * time.Hour
 
 // Store keeps chats as <id>.json (meta) and <id>.jsonl (settled events) in
 // Dir. Chats are personal scratch, so files are private to the user.
@@ -74,7 +72,7 @@ func (s *Store) Create() (Meta, error) {
 		return Meta{}, err
 	}
 	now := time.Now().UTC()
-	m := Meta{ID: uuid.NewString(), CreatedAt: now, UpdatedAt: now, State: StateIdle}
+	m := Meta{ID: uuid.NewString(), CreatedAt: now, UpdatedAt: now, State: StateIdle, Usage: &Usage{}}
 	return m, s.writeMeta(m)
 }
 
@@ -118,7 +116,31 @@ func (s *Store) Meta(id string) (Meta, error) {
 		m.SessionID = m.ClaudeSessionID
 	}
 	m.ClaudeSessionID = ""
+	if m.Usage == nil {
+		if err := s.backfillUsage(&m); err != nil {
+			return Meta{}, err
+		}
+	}
 	return m, nil
+}
+
+// backfillUsage totals the turn_done events of a chat saved before usage
+// totals existed, and saves them, so the log is read once.
+func (s *Store) backfillUsage(m *Meta) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	events, err := s.readEvents(m.ID)
+	if err != nil {
+		return err
+	}
+	u := &Usage{}
+	for _, e := range events {
+		if e.Type == EventTurnDone {
+			u.add(e)
+		}
+	}
+	m.Usage = u
+	return s.writeMeta(*m)
 }
 
 // Get returns a chat's meta and settled events, oldest first.
@@ -232,30 +254,27 @@ func (s *Store) Rename(id, title string) (Meta, error) {
 	return m, s.SaveMeta(m)
 }
 
-// Prune deletes chats that are not running and were last updated before
-// now-maxAge, then the oldest of the rest beyond maxCount. It returns how
-// many chats it deleted.
-func (s *Store) Prune(maxAge time.Duration, maxCount int, now time.Time) (int, error) {
-	list, err := s.List() // newest first
+// AutoArchive archives the chats last updated before now-maxAge. It skips
+// running chats and chats in Work Mode, and keeps updated_at. It returns
+// how many chats it archived.
+func (s *Store) AutoArchive(maxAge time.Duration, now time.Time) (int, error) {
+	list, err := s.List()
 	if err != nil {
 		return 0, err
 	}
-	deleted, kept := 0, 0
+	n := 0
 	for _, m := range list {
-		if m.State == StateRunning {
-			kept++
+		if m.ArchivedAt != nil || m.State == StateRunning || m.Mode == ModeWork || now.Sub(m.UpdatedAt) <= maxAge {
 			continue
 		}
-		if now.Sub(m.UpdatedAt) <= maxAge && kept < maxCount {
-			kept++
-			continue
+		at := now.UTC()
+		m.ArchivedAt = &at
+		if err := s.SaveMeta(m); err != nil {
+			return n, err
 		}
-		if err := s.Delete(m.ID); err != nil {
-			return deleted, err
-		}
-		deleted++
+		n++
 	}
-	return deleted, nil
+	return n, nil
 }
 
 // List returns every chat's meta, most recently updated first.
@@ -322,10 +341,10 @@ func (s *Store) MarkInterrupted() error {
 	return nil
 }
 
-const maxTitleRunes = 60
+const maxTitleRunes = 200
 
 // TitleFrom derives a chat title from the first user message: its first
-// non-empty line, cut to 60 characters.
+// non-empty line, cut to 200 characters. Lists truncate it to fit.
 func TitleFrom(text string) string {
 	line := strings.TrimSpace(text)
 	if i := strings.IndexByte(line, '\n'); i >= 0 {

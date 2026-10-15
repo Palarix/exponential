@@ -93,6 +93,28 @@ const (
 	StateInterrupted = "interrupted"
 )
 
+// Usage is the token and cost totals of a chat's finished turns, as the
+// agent reported them. CostKnown is false while no turn reported a cost:
+// Codex reports none.
+type Usage struct {
+	Turns     int     `json:"turns"`
+	TokensIn  int     `json:"tokens_in"`
+	TokensOut int     `json:"tokens_out"`
+	CostUSD   float64 `json:"cost_usd"`
+	CostKnown bool    `json:"cost_known"`
+}
+
+// add counts one turn_done event.
+func (u *Usage) add(e Event) {
+	u.Turns++
+	u.TokensIn += e.TokensIn
+	u.TokensOut += e.TokensOut
+	u.CostUSD += e.CostUSD
+	if e.CostUSD > 0 {
+		u.CostKnown = true
+	}
+}
+
 // Meta is a chat's metadata, stored next to its event log.
 type Meta struct {
 	ID              string    `json:"id"`
@@ -138,6 +160,14 @@ type Meta struct {
 	// left behind by them, and stops them.
 	AgentPID     int        `json:"agent_pid,omitempty"`
 	AgentStarted *time.Time `json:"agent_started,omitempty"`
+
+	// ArchivedAt is set while the chat is archived: it is out of the active
+	// chat lists and takes no messages.
+	ArchivedAt *time.Time `json:"archived_at,omitempty"`
+
+	// Usage totals the chat's finished turns. Nil only in a meta saved
+	// before totals existed; Store.Meta fills it from the event log.
+	Usage *Usage `json:"usage,omitempty"`
 
 	// Waiting is set in chat lists while an approval card waits for the
 	// user. It is never stored.

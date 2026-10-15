@@ -4,8 +4,10 @@ import type { ChatPrefs, SeenChats } from "./agent-state-utils";
 
 export interface AgentChat {
   status: AgentStatus | undefined;
-  /** All chats, newest first; used for pill titles and states. */
+  /** The active (not archived) chats, newest first; used for pill titles and states. */
   chats: ChatMeta[];
+  /** Every chat, archived ones too, newest first. */
+  allChats: ChatMeta[];
   popupOpen: boolean;
   /** The chat in the popup; null is a new chat that does not exist yet. */
   chatId: string | null;

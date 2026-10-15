@@ -26,6 +26,10 @@ export interface AppNav {
   chatId: string | null;
   /** Opens the Agent view on a chat, or on a new chat. */
   openChatView(chatId: string | null): void;
+  /** The Agent view shows the chat history page; issueId filters it to one issue's chats. */
+  chatHistory: { issueId: string | null } | null;
+  /** Opens the chat history page, optionally filtered to one issue's chats. */
+  openChatHistory(issueId?: string | null): void;
   /** Leaves the Agent view for the view the user was on before it. */
   leaveChatView(): void;
   /** Sets the order IssueDetail's prev/next walks; `navigate` clears it. */

@@ -1,10 +1,13 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Bug, ChevronDown, Dock, ListChecks, MessageSquare, MousePointer2, SquarePen, Workflow } from "lucide-react";
+import { Bug, ChevronDown, Dock, History, ListChecks, MessageSquare, MousePointer2, SquarePen, Workflow } from "lucide-react";
 import type { ChatMeta } from "../../api/chat";
 import { useConfig } from "../../api/queries";
 import { formatRelativeTime } from "../../utils/format";
 import { useAppNav } from "../../app/hooks";
-import { Button, Menu, MenuDivider, MenuItem, Popover } from "../ui";import { useAgentChat } from "./agent-context";
+import { Button, Menu, MenuDivider, MenuItem, Popover } from "../ui";
+import { useAgentChat } from "./agent-context";
+import ArchivedBanner from "./ArchivedBanner";
+import ChatHistory from "./ChatHistory";
 import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
@@ -86,10 +89,10 @@ function Centered({ children }: { children: ReactNode }) {
 
 export default function AgentView() {
   const agent = useAgentChat();
-  const { chatId, openChatView, leaveChatView } = useAppNav();
+  const { chatId, openChatView, leaveChatView, chatHistory, openChatHistory } = useAppNav();
   const { projectName } = useConfig();
   const { thread, missing, running, send, stop, expireApproval, background } = useChatSession(chatId, (id) => openChatView(id));
-  const meta = agent.chats.find((c) => c.id === chatId);
+  const meta = agent.allChats.find((c) => c.id === chatId);
   // Bumped when the last approval card is answered, to hand focus back to the composer.
   const [composerFocus, setComposerFocus] = useState(0);
   useMarkSeen(meta);
@@ -116,7 +119,7 @@ export default function AgentView() {
   const empty = isEmptyThread(thread);
   const sendText = (text: string) => send(text, { view: "Agent" });
   const focusComposer = () => setComposerFocus((n) => n + 1);
-  const composer = (
+  const composer = meta?.archived_at ? <ArchivedBanner chatId={meta.id} wide /> : (
     <ChatComposer
       wide
       running={running}
@@ -138,15 +141,28 @@ export default function AgentView() {
     />
   );
 
+  const allChatsButton = (
+    <Button variant="ghost" size="sm" icon={<History size={14} />} onClick={() => openChatHistory()}>All chats</Button>
+  );
+
+  if (chatHistory) {
+    return (
+      <div className="surface-ai h-full flex flex-col">
+        <ChatHistory issueId={chatHistory.issueId} />
+      </div>
+    );
+  }
+
   return (
     <div className="surface-ai h-full flex flex-col">
-      <div className="flex items-center h-12 px-6 shrink-0 border-b border-[var(--color-border-ai-subtle)]">
+      <div className="flex items-center gap-1 h-12 px-6 shrink-0 border-b border-[var(--color-border-ai-subtle)]">
         <ChatTitleBar
           key={chatId ?? "new"}
           chat={meta}
           title={<ChatSwitcher title={meta?.title || "New chat"} />}
           onDeleted={() => openChatView(null)}
         />
+        {allChatsButton}
         {chatId && (
           <button
             type="button"

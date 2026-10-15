@@ -15,14 +15,14 @@ import type { IssueDraft } from './api/types';
 import { effectiveLabelColors } from './api/query-utils';
 import { AppNavContext, ViewStateContext, type AppNav, type NavIntent } from './app/contexts';
 import { createViewStateStore } from './app/view-state-utils';
-import { VIEW_BY_GO_KEY, VIEW_BY_ID, formatRoute, parseRoute, type Route, type ViewId } from './views';
+import { VIEW_BY_GO_KEY, VIEW_BY_ID, formatRoute, parseRoute, routeTitle, type Route, type ViewId } from './views';
 
 function safeLocalStorage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
 }
 
 function sameRoute(a: Route, b: Route): boolean {
-  return a.view === b.view && a.issueId === b.issueId && a.cycleId === b.cycleId && a.depFocusId === b.depFocusId && a.chatId === b.chatId;
+  return a.view === b.view && a.issueId === b.issueId && a.cycleId === b.cycleId && a.depFocusId === b.depFocusId && a.chatId === b.chatId && a.chatHistory?.issueId === b.chatHistory?.issueId && !a.chatHistory === !b.chatHistory;
 }
 
 function App() {
@@ -69,7 +69,7 @@ function App() {
   const navigate = useCallback((view: ViewId, intent?: NavIntent) => {
     publishedOrderRef.current = null;
     if (intent) intentsRef.current.set(view, intent);
-    setRoute({ view, issueId: null, cycleId: null, depFocusId: null, chatId: null });
+    setRoute({ view, issueId: null, cycleId: null, depFocusId: null, chatId: null, chatHistory: null });
   }, []);
 
   const nav = useMemo<AppNav>(() => ({
@@ -86,7 +86,12 @@ function App() {
     chatId: route.chatId,
     openChatView: (chatId) => {
       publishedOrderRef.current = null;
-      setRoute({ view: 'agent', issueId: null, cycleId: null, depFocusId: null, chatId });
+      setRoute({ view: 'agent', issueId: null, cycleId: null, depFocusId: null, chatId, chatHistory: null });
+    },
+    chatHistory: route.chatHistory,
+    openChatHistory: (issueId = null) => {
+      publishedOrderRef.current = null;
+      setRoute({ view: 'agent', issueId: null, cycleId: null, depFocusId: null, chatId: null, chatHistory: { issueId } });
     },
     leaveChatView: () => {
       publishedOrderRef.current = null;
@@ -98,7 +103,7 @@ function App() {
       intentsRef.current.delete(view);
       return intent;
     },
-  }), [route.view, route.cycleId, route.depFocusId, route.chatId, navigate, openIssue, openNewIssue]);
+  }), [route.view, route.cycleId, route.depFocusId, route.chatId, route.chatHistory, navigate, openIssue, openNewIssue]);
 
   useEffect(() => {
     const hash = formatRoute(route);
@@ -144,7 +149,7 @@ function App() {
   });
 
   const labelColors = useMemo(() => effectiveLabelColors(config), [config]);
-  const tabLabel = route.issueId || VIEW_BY_ID[route.view].title;
+  const tabLabel = routeTitle(route);
   const tabTitle = config.projectName ? `${config.projectName} ❯ ${tabLabel}` : tabLabel;
   const chatContext = useMemo(() => chatContextFor(route.view, route.issueId, issues), [route.view, route.issueId, issues]);
 

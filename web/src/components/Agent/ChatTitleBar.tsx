@@ -1,9 +1,11 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteChat, renameChat, type ChatMeta } from "../../api/chat";
-import { Button, ConfirmDialog, Menu, MenuItem, Popover, useToast } from "../ui";
+import { Button, ConfirmDialog, Menu, MenuItem, MenuLabel, Popover, useToast } from "../ui";
 import { agentQueryKeys, useAgentChat } from "./agent-context";
+import { archiveBlocker } from "./chat-history-utils";
+import { useArchiveChat } from "./useArchiveChat";
 
 interface ChatTitleBarProps {
   /** The chat; undefined for a new chat, which has no menu. */
@@ -14,11 +16,12 @@ interface ChatTitleBarProps {
   onDeleted?: (id: string) => void;
 }
 
-/** A chat title that turns into an input for Rename, plus the "⋯" menu with Rename and Delete. */
+/** A chat title that turns into an input for Rename, plus the "⋯" menu with Rename, Archive and Delete. */
 export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarProps) {
   const { chatDeleted } = useAgentChat();
   const qc = useQueryClient();
   const showToast = useToast();
+  const { archive, unarchive } = useArchiveChat();
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarPro
           autoFocus
           aria-label="Chat title"
           value={draft}
-          maxLength={60}
+          maxLength={200}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={() => setDraft(null)}
           onKeyDown={(e) => {
@@ -91,6 +94,12 @@ export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarPro
         <Popover anchorRef={menuBtnRef} onClose={() => setMenuOpen(false)}>
           <Menu onClose={() => setMenuOpen(false)} aria-label="Chat actions" className="surface-ai">
             <MenuItem label="Rename" icon={<Pencil size={14} />} onClick={() => { setMenuOpen(false); setDraft(chat.title); }} />
+            {chat.archived_at ? (
+              <MenuItem label="Unarchive" icon={<ArchiveRestore size={14} />} onClick={() => { setMenuOpen(false); void unarchive([chat.id]); }} />
+            ) : (
+              <MenuItem label="Archive" icon={<Archive size={14} />} disabled={!!archiveBlocker(chat)} onClick={() => { setMenuOpen(false); void archive([chat.id]); }} />
+            )}
+            {!chat.archived_at && archiveBlocker(chat) && <MenuLabel className="pl-8 normal-case tracking-normal font-normal">{archiveBlocker(chat)}</MenuLabel>}
             <MenuItem label="Delete" icon={<Trash2 size={14} />} destructive onClick={() => { setMenuOpen(false); setConfirmDelete(true); }} />
           </Menu>
         </Popover>

@@ -141,10 +141,10 @@ func newChatService() *server.ChatService {
 	if err := store.MarkInterrupted(); err != nil {
 		log.Printf("warning: chat store: %v", err)
 	}
-	if n, err := store.Prune(chat.PruneMaxAge, chat.PruneMaxCount, time.Now()); err != nil {
-		log.Printf("warning: pruning chats: %v", err)
+	if n, err := store.AutoArchive(chat.AutoArchiveAfter, time.Now()); err != nil {
+		log.Printf("warning: archiving chats: %v", err)
 	} else if n > 0 {
-		log.Printf("Pruned %d old chat(s) from .xpo/chats/", n)
+		log.Printf("Archived %d chat(s) idle for 30 days", n)
 	}
 
 	target := chat.MCPTarget{RemoteURL: cfg.Remote.URL, RemoteToken: cfg.Remote.Token}

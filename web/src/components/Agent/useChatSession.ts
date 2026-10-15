@@ -43,6 +43,9 @@ export function useChatSession(chatId: string | null, onCreated: (id: string) =>
       qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
       return true;
     } catch (err) {
+      // The chat may have changed elsewhere, e.g. archived in another tab:
+      // refresh it, so the view shows why.
+      qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
       showToast(errorMessage(err), { variant: "error" });
       return false;
     }

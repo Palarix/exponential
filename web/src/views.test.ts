@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VIEWS, VIEW_BY_ID, VIEW_BY_GO_KEY, parseRoute, formatRoute, type Route } from "./views";
+import { VIEWS, VIEW_BY_ID, VIEW_BY_GO_KEY, parseRoute, formatRoute, routeTitle, type Route } from "./views";
 
 const route = (overrides: Partial<Route>): Route => ({
   view: "dashboard",
@@ -7,6 +7,7 @@ const route = (overrides: Partial<Route>): Route => ({
   cycleId: null,
   depFocusId: null,
   chatId: null,
+  chatHistory: null,
   ...overrides,
 });
 
@@ -76,6 +77,11 @@ describe("parseRoute", () => {
     expect(parseRoute("#/agent")).toEqual(route({ view: "agent" }));
     expect(parseRoute("#/agent/3f2a")).toEqual(route({ view: "agent", chatId: "3f2a" }));
   });
+
+  it("parses the chat history page, with an issue filter", () => {
+    expect(parseRoute("#/agent/history")).toEqual(route({ view: "agent", chatHistory: { issueId: null } }));
+    expect(parseRoute("#/agent/history?issue=xpo-1")).toEqual(route({ view: "agent", chatHistory: { issueId: "xpo-1" } }));
+  });
 });
 
 describe("formatRoute", () => {
@@ -100,10 +106,24 @@ describe("formatRoute", () => {
     expect(formatRoute(route({ view: "board", chatId: "3f2a" }))).toBe("#/board");
   });
 
+  it("formats the chat history page", () => {
+    expect(formatRoute(route({ view: "agent", chatHistory: { issueId: null } }))).toBe("#/agent/history");
+    expect(formatRoute(route({ view: "agent", chatHistory: { issueId: "xpo-1" } }))).toBe("#/agent/history?issue=xpo-1");
+  });
+
   it("round-trips every view", () => {
     for (const v of VIEWS) {
       const r = route({ view: v.id });
       expect(parseRoute(formatRoute(r))).toEqual(r);
     }
+  });
+});
+
+describe("routeTitle", () => {
+  it("names the view, the open issue, or the chat history page", () => {
+    expect(routeTitle(route({ view: "board" }))).toBe("Board");
+    expect(routeTitle(route({ view: "board", issueId: "xpo-1" }))).toBe("xpo-1");
+    expect(routeTitle(route({ view: "agent" }))).toBe("Agent");
+    expect(routeTitle(route({ view: "agent", chatHistory: { issueId: null } }))).toBe("All Chats");
   });
 });

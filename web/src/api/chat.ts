@@ -101,6 +101,20 @@ export interface ChatMeta {
   worked_issues?: string[];
   /** When the prompt cache of the last finished turn expires. */
   cache_expires_at?: string;
+  /** Set while the chat is archived: out of the active lists, and read only. */
+  archived_at?: string;
+  /** Totals of the chat's finished turns. */
+  usage?: ChatUsage;
+}
+
+/** Token and cost totals of a chat's finished turns, as the agent reported them. */
+export interface ChatUsage {
+  turns: number;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: number;
+  /** False while no turn reported a cost; Codex reports none. */
+  cost_known: boolean;
 }
 
 /** A model the composer offers; "" means the provider's default. */
@@ -203,6 +217,15 @@ export function renameChat(id: string, title: string): Promise<ChatMeta> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
+}
+
+/** Takes a chat out of the active lists and makes it read only. 409 for a running chat or one in Work Mode. */
+export function archiveChat(id: string): Promise<ChatMeta> {
+  return request(`${BASE}/chats/${encodeURIComponent(id)}/archive`, { method: "POST" });
+}
+
+export function unarchiveChat(id: string): Promise<ChatMeta> {
+  return request(`${BASE}/chats/${encodeURIComponent(id)}/unarchive`, { method: "POST" });
 }
 
 export function deleteChat(id: string): Promise<void> {

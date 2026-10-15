@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
-import { Ellipsis, Hammer, MessageSquare, MessageSquareDot, MessageSquareMore, MessageSquareWarning } from "lucide-react";
+import { useContext, useEffect, useRef, useState, type RefObject } from "react";
+import { Archive, Ellipsis, Hammer, MessageSquare, MessageSquareDot, MessageSquareMore, MessageSquareWarning } from "lucide-react";
 import type { ChatMeta } from "../../api/chat";
+import { AppNavContext } from "../../app/contexts";
 import { cn } from "../../utils/cn";
 import { formatRelativeTime } from "../../utils/format";
-import { indicatorPill, Menu, MenuFilter, MenuItem, MenuLabel, Popover } from "../ui";
+import { indicatorPill, Menu, MenuDivider, MenuFilter, MenuItem, MenuLabel, Popover } from "../ui";
 import { useOptionalAgentChat } from "./agent-context";
 import { chatState, enterWorkBlocker, filterChats, type IssueChatState } from "./issue-chats";
 import { chatCount, useIssueChats } from "./useIssueChats";
@@ -74,7 +75,8 @@ export function IssueChatsPopover({ issueId, anchorRef, onClose }: { issueId: st
  */
 export function IssueChatsList({ issueId, onClose, bare }: { issueId: string; onClose(): void; bare?: boolean }) {
   const agent = useOptionalAgentChat();
-  const { chats, holder } = useIssueChats(issueId);
+  const { chats, holder, archived } = useIssueChats(issueId);
+  const nav = useContext(AppNavContext);
   const { startWork } = useStartWorkChat();
   const [query, setQuery] = useState("");
   const [actionsFor, setActionsFor] = useState<string | null>(null);
@@ -102,6 +104,20 @@ export function IssueChatsList({ issueId, onClose, bare }: { issueId: string; on
       );
       if (blocker) items.push(<MenuLabel key={`${c.id}-why`} className="pl-12 normal-case tracking-normal font-normal">{blocker}</MenuLabel>);
     }
+  }
+  if (archived > 0 && nav) {
+    items.push(<MenuDivider key="archived-divider" />);
+    items.push(
+      <MenuItem
+        key="archived"
+        label={`${archived} archived ${archived === 1 ? "chat" : "chats"}`}
+        icon={<Archive size={14} />}
+        onClick={() => {
+          onClose();
+          nav.openChatHistory(issueId);
+        }}
+      />,
+    );
   }
   return (
     // Bare, it fills a submenu flyout, which is at most 280px wide.

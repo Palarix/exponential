@@ -48,6 +48,9 @@ func (r *Runner) BindWork(chatID string, b WorkBinding) (Meta, error) {
 		return Meta{}, ErrBusy
 	}
 	m, err := r.cfg.Store.Meta(chatID)
+	if err == nil && m.ArchivedAt != nil {
+		err = ErrArchived
+	}
 	if err != nil {
 		r.mu.Unlock()
 		return Meta{}, err

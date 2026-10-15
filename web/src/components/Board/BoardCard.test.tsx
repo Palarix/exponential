@@ -64,7 +64,7 @@ describe("Board card chat icon", () => {
     const issue = makeIssue({ labels: [] });
     const agent = {
       status: { available: true, default_provider: "claude", providers: [] },
-      chats: [
+      allChats: [
         { id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] },
         { id: "c2", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] },
       ],

@@ -14,7 +14,7 @@ const issue = makeIssue({
 });
 
 // An agent chat whose agent CLI is available, with no chats.
-const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] }, chats: [] } as unknown as AgentChat;
+const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] }, chats: [], allChats: [] } as unknown as AgentChat;
 
 function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null, others: Issue[] = []): string {
   // The app wraps everything in a tooltip provider (main.tsx).
@@ -90,7 +90,7 @@ describe("PropertySidebar chats", () => {
   const withChats = (n: number) =>
     ({
       ...agentAvailable,
-      chats: Array.from({ length: n }, (_, i) => ({ id: `c${i}`, title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] })),
+      allChats: Array.from({ length: n }, (_, i) => ({ id: `c${i}`, title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", worked_issues: [issue.id] })),
     }) as unknown as AgentChat;
 
   it("shows a chats button below Relations when chats worked on the issue", () => {
@@ -146,7 +146,7 @@ describe("PropertySidebar button priority", () => {
     const withChat = (mode: "work" | undefined) =>
       ({
         ...agentAvailable,
-        chats: [{ id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", mode, work: mode ? { issue_id: doing.id, worktree: "/w" } : undefined, worked_issues: [doing.id] }],
+        allChats: [{ id: "c1", title: "t", created_at: "", updated_at: "", agent: "claude", state: "idle", mode, work: mode ? { issue_id: doing.id, worktree: "/w" } : undefined, worked_issues: [doing.id] }],
       }) as unknown as AgentChat;
 
     it("makes Continue Work secondary while a chat is in Work Mode on the issue", () => {

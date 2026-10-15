@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { History, MousePointer2 } from "lucide-react";
-import { Menu, Popover } from "../ui";
+import { History, List, MousePointer2 } from "lucide-react";
+import { useAppNav } from "../../app/hooks";
+import { Menu, MenuDivider, MenuItem, Popover } from "../ui";
 import Tooltip from "../ui/Tooltip";
 import { chatStateIcon, recentChatItems } from "./recent-chats";
 import { useAgentChat } from "./agent-context";
@@ -15,6 +16,7 @@ const shortcut = navigator.platform.includes("Mac") ? "⌘J" : "Ctrl+J";
 export default function AgentStatusBar() {
   const agent = useAgentChat();
   const { status, chats, pills, seen, popupOpen, chatId } = agent;
+  const { openChatHistory } = useAppNav();
   const historyRef = useRef<HTMLButtonElement>(null);
   const agentRef = useRef<HTMLButtonElement>(null);
   const pillRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -85,6 +87,8 @@ export default function AgentStatusBar() {
                   agent.openChat(id);
                 })
               )}
+              <MenuDivider />
+              <MenuItem label="All chats" icon={<List size={14} />} onClick={() => { setHistoryOpen(false); openChatHistory(); }} />
             </Menu>
           </Popover>
         )}

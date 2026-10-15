@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: an "All chats" page (`#/agent/history`), opened from the Agent view header and the status-bar history menu. It lists every chat in a full-width table.
+  - **Find:** search by title, Active/Archived tabs, and agent, period (7 days, 30 days, all) and issue filters (`?issue=<id>`).
+  - **Usage:** a summary strip totals chats, tokens in/out and cost for the filtered rows. Hovering a chat's agent shows its turns, tokens and cost. Chats without a reported cost (Codex) show "—".
+  - **Manage:** rename, archive, unarchive and delete per row, or in bulk. Checkboxes take the place of the state icon on hover.
+  - **Archive:** an archived chat leaves the recent lists, the switcher and the pills, and opens read only with an Unarchive banner. Archive is refused while a reply runs or the chat is in Work Mode. An issue's chat list shows "N archived chats".
+  - **API:** `POST /api/local/chats/{id}/archive` and `/unarchive`. Chats carry `archived_at` and `usage` (turns, tokens, cost), and older chats get their totals from their logs. (xpo-1446f2)
+
 - Agent chat: chat chips and the recent-chats lists show a red alert circle when a chat's last turn failed. Its tooltip gives the error. It stays until the next turn starts; opening the chat does not clear it. Interrupted chats keep the red dot. Chats include `last_error`. (xpo-c56e70)
 
 - Agent chat: Claude can ask you questions with `AskUserQuestion`, in both modes. The chat shows a question card: each question with its options (one pick or several), and "Other…" for a free-text answer. Send returns the answers to the agent, and Skip tells it you skipped. The thread keeps each question with your answer. `POST /api/local/chats/{id}/approvals/{approval}` takes `{"decision":"answer","answers":{…}}`, and `approval_resolved` events carry `answers`. Claude only; Codex follows in xpo-eafa9b. (xpo-447687)
@@ -135,6 +142,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Issue drafts: the new issue dialog has a "Save draft" button, and the discard prompt offers "Save draft" too. Drafts are stored per user in `.xpo/drafts/` (git-ignored, outside the event log). A "Drafts" sidebar item with a count badge appears while drafts exist (`g r`). Reopen a draft to keep editing, create the issue from it, or discard it. New `/api/issue-drafts` endpoints (`GET`/`POST`/`PUT`/`DELETE`, `issue.create` capability) and a `draft_changed` SSE event (xpo-758398)
 
 ### Changed
+
+- Agent chat: the board no longer deletes chats older than 30 days at startup. It archives them instead, skipping running and Work Mode chats, and only you delete chats. Chat titles keep up to 200 characters instead of 60. The "Delete branch" checkbox in the merge view uses the accent color. (xpo-1446f2)
 
 - Agent chat: approval cards are reworked. (xpo-aaf8b1)
   - **Layout:** the headline, the call's arguments, then the buttons. A call without arguments fits on one row.

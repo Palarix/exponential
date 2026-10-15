@@ -145,6 +145,9 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	if err != nil {
 		return err
 	}
+	if meta.ArchivedAt != nil {
+		return ErrArchived
+	}
 	provider := req.Provider
 	if provider == "" {
 		provider = r.cfg.DefaultProvider
@@ -166,10 +169,15 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	r.mu.Unlock()
 
 	// Read the meta again: BindWork may have changed it before the turn was
-	// registered, and no mode change can happen from here on.
+	// registered, and no mode change can happen from here on. Archive may
+	// have too: it refuses only once the turn is registered.
 	if meta, err = r.cfg.Store.Meta(id); err != nil {
 		r.finish(id, t)
 		return err
+	}
+	if meta.ArchivedAt != nil {
+		r.finish(id, t)
+		return ErrArchived
 	}
 	notice := checkWorktree(&meta)
 	if meta.Title == "" {
@@ -499,6 +507,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 	var cacheTTL time.Duration // the prompt cache TTL of a finished turn
 	var cacheEnd time.Time     // when that turn finished
 	var failure string         // the error message of a failed turn
+	var done *Event            // the turn_done event of a finished turn
 	switch {
 	case t.ctx.Err() != nil:
 		r.settle(id, Event{Type: EventTurnStopped})
@@ -519,14 +528,20 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 		if r.cfg.Learner != nil {
 			r.cfg.Learner.Learn(t.meta.Agent, t.meta.Model, res.Model, res.ContextWindow)
 		}
-		r.settle(id, Event{
+		done = &Event{
 			Type:       EventTurnDone,
 			DurationMS: res.Duration.Milliseconds(),
 			CostUSD:    res.CostUSD,
 			TokensIn:   res.TokensIn,
 			TokensOut:  res.TokensOut,
 			CacheTTL:   int(cacheTTL / time.Second),
-		})
+		}
+	}
+	if done != nil {
+		// Backfill the totals before turn_done is logged, else the
+		// backfill counts this turn and so does the update below.
+		_, _ = r.cfg.Store.Meta(id)
+		r.settle(id, *done)
 	}
 
 	r.mu.Lock()
@@ -541,6 +556,9 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 		m.State = StateIdle
 		m.SessionID = t.sessionID
 		m.LastError = failure
+		if done != nil && m.Usage != nil {
+			m.Usage.add(*done)
+		}
 		if resolved != nil && resolved.Model != "" {
 			m.ResolvedModel = resolved.Model
 			m.ContextWindow = resolved.ContextWindow

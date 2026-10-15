@@ -764,7 +764,7 @@ export default function MergeView({
                   type="checkbox"
                   checked={deleteBranch}
                   onChange={(e) => setDeleteBranch(e.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0"
+                  className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0 accent-[var(--color-accent-primary)]"
                 />
                 <span className="leading-none">
                   Delete branch after merge

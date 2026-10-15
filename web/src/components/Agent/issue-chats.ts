@@ -16,6 +16,8 @@ export interface IssueChats {
   holder: ChatMeta | undefined;
   /** The most urgent state among the chats; null without chats. */
   state: IssueChatState | null;
+  /** How many archived chats worked on the issue; they are not in chats. */
+  archived: number;
 }
 
 /** A chat's own state in an issue's chat list. */
@@ -31,15 +33,16 @@ function isHolder(c: ChatMeta, issueId: string): boolean {
   return c.mode === "work" && c.work?.issue_id === issueId;
 }
 
-/** The chats linked to an issue, from the chat list (which is newest first). */
+/** The active chats linked to an issue, from the chat list (which is newest first). */
 export function chatsForIssue(all: ChatMeta[], issueId: string): IssueChats {
-  const chats = all.filter((c) => c.worked_issues?.includes(issueId));
+  const linked = all.filter((c) => c.worked_issues?.includes(issueId));
+  const chats = linked.filter((c) => !c.archived_at);
   let state: IssueChatState | null = null;
   for (const c of chats) {
     const s = chatState(c, issueId);
     if (state === null || URGENCY.indexOf(s) < URGENCY.indexOf(state)) state = s;
   }
-  return { chats, holder: chats.find((c) => isHolder(c, issueId)), state };
+  return { chats, holder: chats.find((c) => isHolder(c, issueId)), state, archived: linked.length - chats.length };
 }
 
 /** The chats whose title contains query, ignoring case. */

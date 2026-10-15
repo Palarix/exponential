@@ -48,6 +48,8 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
 	mux.HandleFunc("GET /api/local/chats/{id}/stream", s.handleChatStream)
 	mux.HandleFunc("POST /api/local/chats/{id}/leave-work", s.handleLeaveWork)
+	mux.HandleFunc("POST /api/local/chats/{id}/archive", s.handleArchiveChat)
+	mux.HandleFunc("POST /api/local/chats/{id}/unarchive", s.handleUnarchiveChat)
 	mux.HandleFunc("POST /api/local/issues/{id}/work-chat", s.handleWorkChat)
 }
 
@@ -107,6 +109,24 @@ func (s *Server) handleRenameChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	meta, err := s.Chat.Store.Rename(r.PathValue("id"), req.Title)
+	if s.respondChatError(w, err) {
+		return
+	}
+	respondJSON(w, http.StatusOK, meta)
+}
+
+// handleArchiveChat takes a chat out of the active chat lists and makes it
+// read only. A running chat and a chat in Work Mode get 409.
+func (s *Server) handleArchiveChat(w http.ResponseWriter, r *http.Request) {
+	meta, err := s.Chat.Runner.Archive(r.PathValue("id"))
+	if s.respondChatError(w, err) {
+		return
+	}
+	respondJSON(w, http.StatusOK, meta)
+}
+
+func (s *Server) handleUnarchiveChat(w http.ResponseWriter, r *http.Request) {
+	meta, err := s.Chat.Runner.Unarchive(r.PathValue("id"))
 	if s.respondChatError(w, err) {
 		return
 	}
@@ -384,6 +404,8 @@ func (s *Server) checkResumable(chatID string) error {
 		return chat.ErrBusy
 	case m.Mode == chat.ModeWork && m.Work != nil:
 		return chat.ErrWorkingElsewhere
+	case m.ArchivedAt != nil:
+		return chat.ErrArchived
 	}
 	return nil
 }
@@ -431,7 +453,8 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		respondError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, chat.ErrWorkUnavailable):
 		respondError(w, http.StatusNotImplemented, err.Error())
-	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork), errors.Is(err, chat.ErrWorkingElsewhere):
+	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork), errors.Is(err, chat.ErrWorkingElsewhere),
+		errors.Is(err, chat.ErrArchived), errors.Is(err, chat.ErrArchiveInWork):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, err.Error())

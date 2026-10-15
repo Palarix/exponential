@@ -4,6 +4,7 @@ import { useIssueList } from "../../api/queries";
 import { useAppNav } from "../../app/hooks";
 import { useAgentChat } from "./agent-context";
 import { clampPopupSize, loadPopupSize, popupLeft, safeLocalStorage, savePopupSize, SUGGESTIONS, type PopupSize } from "./agent-state-utils";
+import ArchivedBanner from "./ArchivedBanner";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
@@ -41,12 +42,12 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   });
-  const { chatId, chats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft, pendingIssueFor, consumeContext } = agent;
+  const { chatId, allChats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft, pendingIssueFor, consumeContext } = agent;
   const { openChatView } = useAppNav();
   const { thread, running, send, stop, expireApproval, background } = useChatSession(chatId, chatCreated);
   const issues = useIssueList();
 
-  const meta = chats.find((c) => c.id === chatId);
+  const meta = allChats.find((c) => c.id === chatId);
   useMarkSeen(meta);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
   // The chip is the context the next message carries; sending uses it up.
@@ -122,7 +123,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={() => setComposerFocus((n) => n + 1)} cacheExpiresAt={meta?.cache_expires_at} />
       )}
 
-      <ChatComposer
+      {meta?.archived_at ? <ArchivedBanner chatId={meta.id} /> : <ChatComposer
         running={running}
         background={background}
         disabled={!agent.status?.available}
@@ -141,7 +142,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         draft={draftFor(chatId)}
         onDraftUsed={() => chatId && clearDraft(chatId)}
         focusSignal={composerFocus}
-      />
+      />}
     </div>
   );
 }

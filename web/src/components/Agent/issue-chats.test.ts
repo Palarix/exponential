@@ -20,7 +20,24 @@ describe("chatsForIssue", () => {
   });
 
   it("returns nothing for an issue without chats", () => {
-    expect(chatsForIssue([chat({ id: "a" })], "xpo-1")).toEqual({ chats: [], holder: undefined, state: null });
+    expect(chatsForIssue([chat({ id: "a" })], "xpo-1")).toEqual({ chats: [], holder: undefined, state: null, archived: 0 });
+  });
+
+  it("counts archived chats apart and leaves them out of the list and state", () => {
+    const chats = [
+      chat({ id: "a", worked_issues: ["xpo-1"], archived_at: "2026-10-01T00:00:00Z", state: "interrupted" }),
+      chat({ id: "b", worked_issues: ["xpo-1"] }),
+      chat({ id: "c", worked_issues: ["xpo-1"], archived_at: "2026-10-01T00:00:00Z" }),
+    ];
+    const got = chatsForIssue(chats, "xpo-1");
+    expect(got.chats.map((c) => c.id)).toEqual(["b"]);
+    expect(got.archived).toBe(2);
+    expect(got.state).toBe("idle");
+  });
+
+  it("has no state when every chat on the issue is archived", () => {
+    const got = chatsForIssue([chat({ id: "a", worked_issues: ["xpo-1"], archived_at: "2026-10-01T00:00:00Z" })], "xpo-1");
+    expect(got).toEqual({ chats: [], holder: undefined, state: null, archived: 1 });
   });
 
   it("finds the chat in Work Mode on the issue", () => {

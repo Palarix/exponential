@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import type { ChatMeta } from "../../api/chat";
+import { AppNavContext, type AppNav } from "../../app/contexts";
 import { renderMarkup } from "../../render-markup";
 import { AgentChatContext, type AgentChat } from "./agent-context";
 import { IssueChatIcon, IssueChatsList } from "./IssueChats";
@@ -11,18 +12,21 @@ function chat(c: Partial<ChatMeta> & { id: string }): ChatMeta {
 }
 
 function agentWith(chats: ChatMeta[], available = true): AgentChat {
-  return { status: { available, default_provider: "claude", providers: [] }, chats } as unknown as AgentChat;
+  return { status: { available, default_provider: "claude", providers: [] }, chats: chats.filter((c) => !c.archived_at), allChats: chats } as unknown as AgentChat;
 }
 
 function render(node: ReactNode, agent: AgentChat | null): string {
   return renderMarkup(
     <QueryClientProvider client={new QueryClient()}>
-      <AgentChatContext.Provider value={agent}>{node}</AgentChatContext.Provider>
+      <AppNavContext.Provider value={{ openChatHistory: () => {} } as unknown as AppNav}>
+        <AgentChatContext.Provider value={agent}>{node}</AgentChatContext.Provider>
+      </AppNavContext.Provider>
     </QueryClientProvider>,
   );
 }
 
 const past = chat({ id: "a", title: "upe-1 First try", worked_issues: ["upe-1"] });
+const archived = chat({ id: "c", title: "upe-1 Old try", worked_issues: ["upe-1"], archived_at: "2026-10-01T00:00:00Z" });
 const holder = chat({ id: "b", title: "upe-1 Second try", worked_issues: ["upe-1"], mode: "work", work: { issue_id: "upe-1", worktree: "/wt" } });
 
 describe("IssueChatIcon", () => {
@@ -73,6 +77,13 @@ describe("IssueChatIcon", () => {
   });
 });
 
+describe("IssueChatIcon with archived chats", () => {
+  it("counts only active chats, and hides when all are archived", () => {
+    expect(render(<IssueChatIcon issueId="upe-1" />, agentWith([past, archived]))).toContain('aria-label="1 chat on upe-1"');
+    expect(render(<IssueChatIcon issueId="upe-1" />, agentWith([archived]))).toBe("");
+  });
+});
+
 describe("IssueChatsList", () => {
   it("lists the chats with a search field, and badges the work chat", () => {
     const html = render(<IssueChatsList issueId="upe-1" onClose={() => {}} />, agentWith([holder, past]));
@@ -81,6 +92,16 @@ describe("IssueChatsList", () => {
     expect(html.match(/>Work</g)).toHaveLength(1);
     // A chat holds the issue, so the rows offer no actions.
     expect(html).not.toContain('aria-label="Chat actions"');
+  });
+
+  it("hides archived chats and links to them on the history page", () => {
+    const html = render(<IssueChatsList issueId="upe-1" onClose={() => {}} />, agentWith([past, archived]));
+    expect(html).not.toContain("Old try");
+    expect(html).toContain("1 archived chat");
+  });
+
+  it("shows no archived link without archived chats", () => {
+    expect(render(<IssueChatsList issueId="upe-1" onClose={() => {}} />, agentWith([past]))).not.toContain("archived");
   });
 
   it("offers row actions when no chat is in Work Mode, without showing them yet", () => {

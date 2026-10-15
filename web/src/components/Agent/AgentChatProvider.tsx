@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
+import { activeChats } from "./chat-history-utils";
 import { addPill, adoptNewChatContext, chatListPollMs, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
 
 const isMac = navigator.platform.includes("Mac");
@@ -35,9 +36,10 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     // Keep polling in a hidden tab, so its title and favicon show approvals and replies.
     refetchIntervalInBackground: true,
   });
-  const chats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);
+  const allChats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);
+  const chats = useMemo(() => activeChats(allChats), [allChats]);
 
-  // Pills whose chat file is gone drop out once the chat list has loaded.
+  // Pills whose chat file is gone or archived drop out once the chat list has loaded.
   const visiblePills = useMemo(() => {
     if (!chatsQuery.isSuccess) return pills;
     const known = new Set(chats.map((c) => c.id));
@@ -46,15 +48,15 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   useEffect(() => savePills(storage, visiblePills), [storage, visiblePills]);
 
   // Seen records of deleted chats drop out once the chat list has loaded.
-  const visibleSeen = useMemo(() => (chatsQuery.isSuccess ? pruneSeen(seen, chats.map((c) => c.id)) : seen), [chatsQuery.isSuccess, chats, seen]);
+  const visibleSeen = useMemo(() => (chatsQuery.isSuccess ? pruneSeen(seen, allChats.map((c) => c.id)) : seen), [chatsQuery.isSuccess, allChats, seen]);
   useEffect(() => saveSeen(storage, visibleSeen), [storage, visibleSeen]);
   const markChatSeen = useCallback((id: string, updatedAt: string) => setSeen((s) => markSeen(s, id, updatedAt)), []);
 
   // Saved prefs can name a provider or model that is gone; use the defaults then.
   const prefsFor = useCallback((id: string | null) => {
-    const meta = id ? chats.find((c) => c.id === id) : undefined;
+    const meta = id ? allChats.find((c) => c.id === id) : undefined;
     return normalizePrefs(chatPrefs(meta, id ? picked[id] : undefined, savedPrefs), status);
-  }, [chats, picked, savedPrefs, status]);
+  }, [allChats, picked, savedPrefs, status]);
 
   const setPrefsFor = useCallback((id: string | null, next: ChatPrefs) => {
     if (id) setPicked((p) => ({ ...p, [id]: next }));
@@ -71,6 +73,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     return {
       status,
       chats,
+      allChats,
       popupOpen,
       chatId,
       pills: visiblePills,
@@ -114,7 +117,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
         if (chatId === id) setChatId(null);
       },
     };
-  }, [status, chats, popupOpen, chatId, visiblePills, visibleSeen, markChatSeen, context, prefsFor, setPrefsFor, drafts, viewed, consumed]);
+  }, [status, chats, allChats, popupOpen, chatId, visiblePills, visibleSeen, markChatSeen, context, prefsFor, setPrefsFor, drafts, viewed, consumed]);
 
   useKeyboardShortcuts({
     scope: "global.agent",
