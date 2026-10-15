@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from
 import { useConfig, useIssues } from "../../api/queries";
 import { issueHref, issueIdFromHref, splitIssueIds } from "../../utils/issue-refs";
 import { createHoverIntent } from "../IssueDetail/hover-intent";
+import StatusIcon from "../ui/StatusIcon";
 import { IssuePreview } from "./IssuePreview";
 
 const PREVIEW_DELAY = 250;
@@ -36,7 +37,8 @@ export function IssueRef({ id, label }: { id: string; label?: ReactNode }) {
         onBlur={() => intent.leave()}
         onClick={() => intent.leave()}
       >
-        {label ?? id}
+        {issue && <StatusIcon status={issue.status} size={11} />}
+        <span className="issue-ref-text">{label ?? id}</span>
       </a>
       {preview && issue && <IssuePreview anchorRef={ref} issue={issue} placement="bottom-start" />}
     </>

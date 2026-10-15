@@ -130,6 +130,9 @@
   --color-accent-primary-hover: #6c75db;
   --color-accent-primary-active: color-mix(in srgb, var(--color-accent-primary) 88%, black);
 
+  /* Links in prose — a light periwinkle, readable as text on every surface */
+  --color-link: #adbbff;
+
   /* Semantic */
   --color-success: #4cb782;
   --color-success-bg: rgba(76, 183, 130, 0.12);
@@ -463,18 +466,25 @@ body {
 }
 
 .prose-exponential a {
-  color: var(--color-accent-primary);
-  text-decoration: underline;
+  color: var(--color-link);
+  text-decoration: none;
   text-underline-offset: 2px;
 }
 
+.prose-exponential a:hover {
+  text-decoration: underline;
+}
+
 /* Issue ID chips (IssueRef). Listed after `.prose-exponential a` so they win inside prose.
-   Inline-block with a fixed line-height gives every chip the same height whatever
-   its font; 0.875em × 1.6 stays below the surrounding line height, so lines keep
-   their spacing. */
+   A fixed line-height gives every chip the same height whatever its font;
+   0.875em × 1.6 stays below the surrounding line height, so lines keep their
+   spacing. Inline-flex centers the status icon on the text's line box; the text
+   keeps baseline alignment, so the chip still sits on the surrounding baseline. */
 .issue-ref,
 .prose-exponential .issue-ref {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
   font-family: var(--font-mono);
   font-size: 0.875em;
   line-height: 1.6;
@@ -490,6 +500,16 @@ body {
 .issue-ref:hover,
 .prose-exponential .issue-ref:hover {
   background: var(--color-issue-ref-bg-hover);
+  text-decoration: none;
+}
+
+.issue-ref-text {
+  align-self: baseline;
+}
+
+/* The status icon reads a hair high at the chip's exact center; settle it down. */
+.issue-ref > svg {
+  translate: 0 0.06em;
 }
 
 /* A Markdown link with its own text, e.g. [the epic](#/issues/…). */
