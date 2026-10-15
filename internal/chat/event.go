@@ -76,7 +76,7 @@ type Event struct {
 	IssueID string `json:"issue_id,omitempty"` // mode_changed: the issue entered or left; turn_continued
 
 	DurationMS int64   `json:"duration_ms,omitempty"` // turn_done
-	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done
+	CostUSD    float64 `json:"cost_usd,omitempty"`    // turn_done: as reported; Claude's is the session's running total
 	TokensIn   int     `json:"tokens_in,omitempty"`   // turn_done
 	TokensOut  int     `json:"tokens_out,omitempty"`  // turn_done
 	CacheTTL   int     `json:"cache_ttl,omitempty"`   // turn_done: seconds the prompt cache lives after the turn
@@ -93,26 +93,45 @@ const (
 	StateInterrupted = "interrupted"
 )
 
+// usageRev is the revision of how Usage is computed. A saved Usage with an
+// older Rev is recomputed from the chat's log.
+//
+// Rev 1: a turn's cost is the difference between running totals. Before,
+// each running total was added, which overcounted long chats.
+const usageRev = 1
+
 // Usage is the token and cost totals of a chat's finished turns, as the
 // agent reported them. CostKnown is false while no turn reported a cost:
 // Codex reports none.
 type Usage struct {
+	Rev       int     `json:"rev,omitempty"`
 	Turns     int     `json:"turns"`
 	TokensIn  int     `json:"tokens_in"`
 	TokensOut int     `json:"tokens_out"`
 	CostUSD   float64 `json:"cost_usd"`
 	CostKnown bool    `json:"cost_known"`
+
+	// CostReported is the last running total the agent reported.
+	CostReported float64 `json:"cost_reported,omitempty"`
 }
 
-// add counts one turn_done event.
+// add counts one turn_done event. Its cost is the session's running total,
+// so the turn costs the difference to the last one. A total below the last
+// one means a new session, which starts from zero.
 func (u *Usage) add(e Event) {
 	u.Turns++
 	u.TokensIn += e.TokensIn
 	u.TokensOut += e.TokensOut
-	u.CostUSD += e.CostUSD
-	if e.CostUSD > 0 {
-		u.CostKnown = true
+	if e.CostUSD <= 0 {
+		return
 	}
+	if e.CostUSD >= u.CostReported {
+		u.CostUSD += e.CostUSD - u.CostReported
+	} else {
+		u.CostUSD += e.CostUSD
+	}
+	u.CostReported = e.CostUSD
+	u.CostKnown = true
 }
 
 // Meta is a chat's metadata, stored next to its event log.

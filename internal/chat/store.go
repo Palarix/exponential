@@ -72,7 +72,7 @@ func (s *Store) Create() (Meta, error) {
 		return Meta{}, err
 	}
 	now := time.Now().UTC()
-	m := Meta{ID: uuid.NewString(), CreatedAt: now, UpdatedAt: now, State: StateIdle, Usage: &Usage{}}
+	m := Meta{ID: uuid.NewString(), CreatedAt: now, UpdatedAt: now, State: StateIdle, Usage: &Usage{Rev: usageRev}}
 	return m, s.writeMeta(m)
 }
 
@@ -116,7 +116,7 @@ func (s *Store) Meta(id string) (Meta, error) {
 		m.SessionID = m.ClaudeSessionID
 	}
 	m.ClaudeSessionID = ""
-	if m.Usage == nil {
+	if m.Usage == nil || m.Usage.Rev < usageRev {
 		if err := s.backfillUsage(&m); err != nil {
 			return Meta{}, err
 		}
@@ -125,7 +125,8 @@ func (s *Store) Meta(id string) (Meta, error) {
 }
 
 // backfillUsage totals the turn_done events of a chat saved before usage
-// totals existed, and saves them, so the log is read once.
+// totals existed, or with an older usageRev, and saves them, so the log is
+// read once.
 func (s *Store) backfillUsage(m *Meta) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -133,7 +134,7 @@ func (s *Store) backfillUsage(m *Meta) error {
 	if err != nil {
 		return err
 	}
-	u := &Usage{}
+	u := &Usage{Rev: usageRev}
 	for _, e := range events {
 		if e.Type == EventTurnDone {
 			u.add(e)

@@ -10,8 +10,64 @@ import (
 func TestStore_CreateHasZeroUsage(t *testing.T) {
 	s := newTestStore(t)
 	m, _ := s.Create()
-	if m.Usage == nil || *m.Usage != (Usage{}) {
+	if m.Usage == nil || *m.Usage != (Usage{Rev: usageRev}) {
 		t.Fatalf("usage = %+v, want zero totals", m.Usage)
+	}
+}
+
+// turnDone is a turn_done event whose agent reported cost as the running
+// session total.
+func turnDone(cost float64) Event { return Event{Type: EventTurnDone, CostUSD: cost} }
+
+func TestUsage_AddsCostDifferences(t *testing.T) {
+	cases := []struct {
+		name      string
+		totals    []float64
+		cost      float64
+		costKnown bool
+	}{
+		{"running total", []float64{0.25, 0.5, 1}, 1, true},
+		{"reset when the total drops", []float64{0.5, 1, 0.25, 0.5}, 1.5, true},
+		{"no cost reported", []float64{0, 0}, 0, false},
+		{"cost-less turn between priced turns", []float64{0.25, 0, 0.5}, 0.5, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			u := &Usage{}
+			for _, total := range c.totals {
+				u.add(turnDone(total))
+			}
+			if u.Turns != len(c.totals) || u.CostUSD != c.cost || u.CostKnown != c.costKnown {
+				t.Fatalf("usage = %+v, want %d turns, cost %v, known %v", u, len(c.totals), c.cost, c.costKnown)
+			}
+		})
+	}
+}
+
+// A chat whose usage was saved before the running-total fix summed every
+// total. It is recomputed from its log on read, once.
+func TestStore_MetaRecomputesOldUsage(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	s.Append(m.ID, turnDone(0.25), turnDone(0.5), turnDone(1))
+	old := `{"id":"` + m.ID + `","state":"idle","usage":{"turns":3,"cost_usd":1.75,"cost_known":true}}`
+	if err := os.WriteFile(s.metaPath(m.ID), []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.Meta(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Usage{Rev: usageRev, Turns: 3, CostUSD: 1, CostReported: 1, CostKnown: true}
+	if *got.Usage != want {
+		t.Fatalf("usage = %+v, want %+v", got.Usage, want)
+	}
+
+	s.Append(m.ID, turnDone(5))
+	again, _ := s.Meta(m.ID)
+	if *again.Usage != want {
+		t.Fatalf("usage after save = %+v, want %+v", again.Usage, want)
 	}
 }
 
@@ -34,7 +90,7 @@ func TestStore_MetaBackfillsUsage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Usage{Turns: 2, TokensIn: 15, TokensOut: 5, CostUSD: 0.02, CostKnown: true}
+	want := Usage{Rev: usageRev, Turns: 2, TokensIn: 15, TokensOut: 5, CostUSD: 0.02, CostReported: 0.02, CostKnown: true}
 	if got.Usage == nil || *got.Usage != want {
 		t.Fatalf("usage = %+v, want %+v", got.Usage, want)
 	}
@@ -59,20 +115,25 @@ func TestStore_MetaBackfillsUnknownCost(t *testing.T) {
 	}
 }
 
+// Claude reports total_cost_usd as the session's running total, so three
+// turns at 0.01, 0.02 and 0.03 cost 0.03, not 0.06.
 func TestRunner_TurnsAddUsage(t *testing.T) {
-	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
+	r, store, dir := newTestRunner(t, `n=$((n+1)); sed "s/\"total_cost_usd\":0.01/\"total_cost_usd\":0.0$n/" "$FIXTURE"`)
 	m, _ := store.Create()
-	for _, text := range []string{"one", "two"} {
+	for _, text := range []string{"one", "two", "three"} {
 		if err := r.Send(m.ID, SendRequest{Text: text}); err != nil {
 			t.Fatal(err)
 		}
 		r.Wait()
 	}
+	if n := starts(t, dir); n != 1 {
+		t.Fatalf("agent started %d times, want one live session", n)
+	}
 
 	meta, _ := store.Meta(m.ID)
-	want := Usage{Turns: 2, TokensIn: 6, TokensOut: 14, CostUSD: 0.02, CostKnown: true}
+	want := Usage{Turns: 3, TokensIn: 9, TokensOut: 21, CostUSD: 0.03, CostKnown: true}
 	if meta.Usage == nil || meta.Usage.Turns != want.Turns || meta.Usage.TokensIn != want.TokensIn ||
-		meta.Usage.TokensOut != want.TokensOut || !meta.Usage.CostKnown || meta.Usage.CostUSD < 0.0199 || meta.Usage.CostUSD > 0.0201 {
+		meta.Usage.TokensOut != want.TokensOut || !meta.Usage.CostKnown || meta.Usage.CostUSD < 0.0299 || meta.Usage.CostUSD > 0.0301 {
 		t.Fatalf("usage = %+v, want %+v", meta.Usage, want)
 	}
 }
