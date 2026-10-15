@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { AgentStatus, ChatContext, ChatMeta } from "../../api/chat";
-import type { ChatPrefs, SeenChats } from "./agent-state-utils";
+import type { ChatPrefs, NotifyState, SeenChats } from "./agent-state-utils";
 
 export interface AgentChat {
   status: AgentStatus | undefined;
@@ -22,6 +22,10 @@ export interface AgentChat {
   prefsFor(chatId: string | null): ChatPrefs;
   /** Records a pick in a chat's composer and remembers it for new chats. */
   setPrefsFor(chatId: string | null, prefs: ChatPrefs): void;
+  /** Desktop notifications for chats that wait on the viewer. */
+  notify: NotifyState;
+  /** Turns them on, asking the browser for permission first, or off. */
+  toggleNotify(): void;
   openNew(): void;
   /** Opens a chat in the popup; a draft prefills its composer. */
   openChat(id: string, draft?: string): void;

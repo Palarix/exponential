@@ -2,11 +2,13 @@ import type { AgentStatus, ChatContext, ChatMeta } from "../../api/chat";
 import type { DropdownOption } from "../ui";
 import type { Issue } from "../../api/types";
 import { VIEW_BY_ID, type ViewId } from "../../views";
+import { FAVICON_URL } from "../../favicon";
 
 const PILLS_KEY = "xpo.agent.pills";
 const PREFS_KEY = "xpo.agent.prefs";
 const POPUP_SIZE_KEY = "xpo.agent.popupSize";
 const SEEN_KEY = "xpo.agent.seen";
+const NOTIFY_KEY = "xpo.agent.notify";
 
 /** The browser's localStorage, or null when it is blocked. */
 export function safeLocalStorage(): Storage | null {
@@ -99,6 +101,52 @@ export function tabAttention(chats: ChatMeta[], hiddenSince: string | null): Tab
   if (hiddenSince === null) return "none";
   const since = Date.parse(hiddenSince);
   return chats.some((c) => c.state !== "running" && Date.parse(c.updated_at) > since) ? "output" : "none";
+}
+
+/** Whether the viewer turned on desktop notifications in this browser; off by default. */
+export function loadNotify(storage: Storage | null): boolean {
+  return readJSON(storage, NOTIFY_KEY) === true;
+}
+
+export function saveNotify(storage: Storage | null, on: boolean): void {
+  writeJSON(storage, NOTIFY_KEY, on);
+}
+
+/** The desktop notifications to show and to close after the chat list changed. */
+export interface NotificationPlan {
+  show: ChatMeta[];
+  /** IDs of chats that waited before and no longer do, or are gone. */
+  close: string[];
+}
+
+/**
+ * Shows chats that start waiting while the tab is hidden; a wait that was
+ * already there does not notify again. Closes the ones that stopped waiting.
+ */
+export function notificationPlan(prev: ChatMeta[], next: ChatMeta[], hidden: boolean): NotificationPlan {
+  const waitedBefore = new Set(prev.filter((c) => c.waiting).map((c) => c.id));
+  const waitsNow = new Set(next.filter((c) => c.waiting).map((c) => c.id));
+  return {
+    show: hidden ? next.filter((c) => c.waiting && !waitedBefore.has(c.id)) : [],
+    close: [...waitedBefore].filter((id) => !waitsNow.has(id)),
+  };
+}
+
+/** The desktop notification for a chat that waits; its tag replaces an older one for the same chat. */
+export function notificationFor(c: ChatMeta): { title: string; options: NotificationOptions } {
+  return {
+    title: "Agent needs your input",
+    options: { body: c.title || "Untitled chat", tag: `xpo-chat-${c.id}`, icon: FAVICON_URL },
+  };
+}
+
+/** What the notification bell shows; unsupported means the browser has no Notification API. */
+export type NotifyState = "on" | "off" | "blocked" | "unsupported";
+
+export function notifyState(on: boolean, permission: NotificationPermission | undefined): NotifyState {
+  if (permission === undefined) return "unsupported";
+  if (permission === "denied") return "blocked";
+  return on && permission === "granted" ? "on" : "off";
 }
 
 export interface PopupSize {

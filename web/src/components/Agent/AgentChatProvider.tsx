@@ -4,9 +4,15 @@ import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
 import { activeChats } from "./chat-history-utils";
-import { addPill, adoptNewChatContext, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
+import { useApprovalNotifications } from "./useApprovalNotifications";
+import { addPill, adoptNewChatContext, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadNotify, loadPrefs, normalizePrefs, notifyState, saveNotify, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
 
 const isMac = navigator.platform.includes("Mac");
+
+/** The browser's notification permission; undefined when it has no Notification API. */
+function notificationPermission(): NotificationPermission | undefined {
+  return typeof Notification === "undefined" ? undefined : Notification.permission;
+}
 
 export default function AgentChatProvider({ context, children }: { context: ChatContext; children: ReactNode }) {
   const [storage] = useState(safeLocalStorage);
@@ -15,6 +21,8 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const [pills, setPills] = useState(() => loadPills(storage));
   const [seen, setSeen] = useState(() => loadSeen(storage));
   const [savedPrefs, setPrefsState] = useState(() => loadPrefs(storage));
+  const [notifyOn, setNotifyOn] = useState(() => loadNotify(storage));
+  const [permission, setPermission] = useState(notificationPermission);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   // Each issue the user opens becomes pending context for every chat, until
   // that chat sends or removes it. This outlives the popup, not a reload.
@@ -61,6 +69,22 @@ export default function AgentChatProvider({ context, children }: { context: Chat
     savePrefs(storage, next);
   }, [storage]);
 
+  const notify = notifyState(notifyOn, permission);
+  const toggleNotify = useCallback(() => {
+    const turnOn = (on: boolean) => {
+      setNotifyOn(on);
+      saveNotify(storage, on);
+    };
+    if (notify === "on") return turnOn(false);
+    if (notify !== "off") return;
+    // Browsers only allow the permission prompt from a user gesture, like this click.
+    if (Notification.permission === "granted") return turnOn(true);
+    void Notification.requestPermission().then((p) => {
+      setPermission(p);
+      turnOn(p === "granted");
+    });
+  }, [notify, storage]);
+
   const value = useMemo<AgentChat>(() => {
     const closeChat = () => {
       setPopupOpen(false);
@@ -79,6 +103,8 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       context,
       prefsFor,
       setPrefsFor,
+      notify,
+      toggleNotify,
       openNew: () => { setChatId(null); setPopupOpen(true); },
       openChat: (id, draft) => {
         if (draft) setDrafts((d) => ({ ...d, [id]: draft }));
@@ -114,7 +140,9 @@ export default function AgentChatProvider({ context, children }: { context: Chat
         if (chatId === id) setChatId(null);
       },
     };
-  }, [status, chats, allChats, popupOpen, chatId, visiblePills, visibleSeen, markChatSeen, context, prefsFor, setPrefsFor, drafts, viewed, consumed]);
+  }, [status, chats, allChats, popupOpen, chatId, visiblePills, visibleSeen, markChatSeen, context, prefsFor, setPrefsFor, notify, toggleNotify, drafts, viewed, consumed]);
+
+  useApprovalNotifications(chatsQuery.isSuccess ? chats : null, notify === "on", value.openChat);
 
   useKeyboardShortcuts({
     scope: "global.agent",

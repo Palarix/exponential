@@ -33,6 +33,11 @@ import {
   pruneSeen,
   saveSeen,
   tabAttention,
+  loadNotify,
+  saveNotify,
+  notificationPlan,
+  notificationFor,
+  notifyState,
 } from "./agent-state-utils";
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
@@ -437,3 +442,70 @@ describe("tab attention", () => {
   });
 });
 
+
+describe("notify setting", () => {
+  it("is off by default and round-trips through storage", () => {
+    const s = memoryStorage();
+    expect(loadNotify(s)).toBe(false);
+    saveNotify(s, true);
+    expect(loadNotify(s)).toBe(true);
+    saveNotify(s, false);
+    expect(loadNotify(s)).toBe(false);
+  });
+  it("is off when storage is blocked or holds junk", () => {
+    expect(loadNotify(throwing)).toBe(false);
+    expect(loadNotify(null)).toBe(false);
+    expect(loadNotify(memoryStorage({ "xpo.agent.notify": '"yes"' }))).toBe(false);
+  });
+});
+
+describe("notification plan", () => {
+  const chat = (over: Partial<ChatMeta> = {}): ChatMeta => ({
+    id: "c1", title: "Fix it", created_at: "", updated_at: "", agent: "claude", state: "running", ...over,
+  });
+  it("shows chats that start waiting while the tab is hidden", () => {
+    const plan = notificationPlan([chat(), chat({ id: "c2" })], [chat({ waiting: true }), chat({ id: "c2" })], true);
+    expect(plan.show.map((c) => c.id)).toEqual(["c1"]);
+    expect(plan.close).toEqual([]);
+  });
+  it("skips waits that already existed", () => {
+    expect(notificationPlan([chat({ waiting: true })], [chat({ waiting: true })], true).show).toEqual([]);
+  });
+  it("skips new waits while the tab is visible", () => {
+    expect(notificationPlan([chat()], [chat({ waiting: true })], false).show).toEqual([]);
+  });
+  it("shows a chat that appears already waiting", () => {
+    expect(notificationPlan([], [chat({ waiting: true })], true).show.map((c) => c.id)).toEqual(["c1"]);
+  });
+  it("closes chats that stop waiting or are gone", () => {
+    const plan = notificationPlan([chat({ waiting: true }), chat({ id: "c2", waiting: true })], [chat()], true);
+    expect(plan.close).toEqual(["c1", "c2"]);
+    expect(plan.show).toEqual([]);
+  });
+});
+
+describe("notification content", () => {
+  it("asks for input, names the chat, and uses one tag per chat", () => {
+    const n = notificationFor({ id: "c9", title: "Fix the login", created_at: "", updated_at: "", agent: "claude", state: "running", waiting: true });
+    expect(n.title).toBe("Agent needs your input");
+    expect(n.options).toMatchObject({ body: "Fix the login", tag: "xpo-chat-c9", icon: "/favicon.svg" });
+  });
+  it("names an untitled chat", () => {
+    expect(notificationFor({ id: "c9", title: "", created_at: "", updated_at: "", agent: "claude", state: "running" }).options.body).toBe("Untitled chat");
+  });
+});
+
+describe("notify state", () => {
+  it("is unsupported without the Notification API", () => {
+    expect(notifyState(true, undefined)).toBe("unsupported");
+  });
+  it("is blocked when the browser denied permission, whatever the setting", () => {
+    expect(notifyState(true, "denied")).toBe("blocked");
+    expect(notifyState(false, "denied")).toBe("blocked");
+  });
+  it("is on only when turned on and granted", () => {
+    expect(notifyState(true, "granted")).toBe("on");
+    expect(notifyState(true, "default")).toBe("off");
+    expect(notifyState(false, "granted")).toBe("off");
+  });
+});

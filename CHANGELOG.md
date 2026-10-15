@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: opt-in desktop notifications. A bell in the Agent view header turns them on. The browser asks for permission only then, and the bell shows when the site's notifications are blocked. When a chat starts waiting on an approval or a question while the xpo tab is hidden, a notification shows "Agent needs your input" with the chat title. Clicking it focuses the tab and opens the chat. Each chat has at most one notification, and a new one replaces the old. It closes when the chat stops waiting or the tab becomes visible. Finished turns don't notify; the favicon dot covers those. (xpo-a3f62b)
+
 - Agent chat: attach files and images to a message by pasting, dropping, or the paperclip button next to Send. Pending attachments show as removable chips above the input, and a message can have attachments and no text. Up to 10 per message, images up to 5 MB, other files up to 10 MB.
   - **Agents:** PNG, JPEG, GIF and WebP go in as images: image blocks for Claude, `localImage` for Codex. Every attachment is also listed with its absolute path in the prompt, so the agent can read text files and PDFs with its own tools. Image types are detected from the file's content, not the type the browser reports.
   - **Storage:** files are saved with the chat in `.xpo/chats/<id>/attachments/` and deleted with it. The `user_message` event records them as `attachments`.

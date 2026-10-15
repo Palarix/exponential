@@ -12,6 +12,7 @@ import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
+import NotifyBell from "./NotifyBell";
 import { chatStateIcon, idleChatIcon, recentChatItems } from "./recent-chats";
 import { focusComposerShortcut, isEmptyThread } from "./chat-thread-utils";
 import { useKeyboardShortcuts } from "../../keyboard";
@@ -171,6 +172,7 @@ export default function AgentView() {
           onDeleted={() => openChatView(null)}
         />
         {allChatsButton}
+        <NotifyBell state={agent.notify} onToggle={agent.toggleNotify} />
         {chatId && (
           <button
             type="button"
