@@ -147,6 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: approval cards for calls with details (a command or arguments) open collapsed, on one row with the Deny and Allow once buttons. A chevron in the title shows the state; clicking the title expands the details and clicking it again collapses them. Cards without details are unchanged. (xpo-8579fb)
+
 - Links in Markdown prose (chat transcript, descriptions, comments) use a new `--color-link` token, `#adbbff`, in place of the accent color. They have about 9–11:1 contrast instead of about 4:1. They have no underline at rest and underline on hover. Issue ID chips start with the issue's status icon, so they stand apart from plain links. (xpo-1d9d5d)
 
 - Agent chat: the board no longer deletes chats older than 30 days at startup. It archives them instead, skipping running and Work Mode chats, and only you delete chats. Chat titles keep up to 200 characters instead of 60. The "Delete branch" checkbox in the merge view uses the accent color. (xpo-1446f2)

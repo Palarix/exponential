@@ -3,9 +3,20 @@ import { renderMarkup } from "../../render-markup";
 import ApprovalCard from "./ApprovalCard";
 
 describe("ApprovalCard", () => {
-  const merge = renderMarkup(
-    <ApprovalCard chatId="c1" step={{ kind: "tool", id: "t1", name: "mcp__xpo__merge", arg: "xpo-1", done: false, approval: { id: "a1", input: '{"id":"xpo-1"}' } }} />,
-  );
+  const mergeStep = { kind: "tool", id: "t1", name: "mcp__xpo__merge", arg: "xpo-1", done: false, approval: { id: "a1", input: '{"id":"xpo-1"}' } } as const;
+  const merge = renderMarkup(<ApprovalCard chatId="c1" step={mergeStep} defaultOpen />);
+  const collapsed = renderMarkup(<ApprovalCard chatId="c1" step={mergeStep} />);
+
+  it("opens collapsed: no details, the headline and the buttons on one row", () => {
+    expect(collapsed).not.toContain("<dl");
+    expect(collapsed).toMatch(/flex-wrap[^>]*>.*Merge.*>Deny</s);
+  });
+
+  it("puts a chevron in the headline, which toggles the details", () => {
+    expect(collapsed).toMatch(/<button[^>]*aria-expanded="false"[^>]*>.*Merge.*lucide-chevron-right/s);
+    expect(collapsed).not.toMatch(/lucide-chevron-right[^"]*rotate-90/);
+    expect(merge).toMatch(/<button[^>]*aria-expanded="true"[^>]*>.*Merge.*lucide-chevron-right[^"]*rotate-90/s);
+  });
 
   it("says what will happen and names the tool on one line", () => {
     expect(merge).toMatch(/Merge.*xpo-1.*via.*xpo merge/s);
@@ -20,6 +31,7 @@ describe("ApprovalCard", () => {
     const bare = renderMarkup(<ApprovalCard chatId="c1" step={{ kind: "tool", id: "t4", name: "mcp__xpo__list", arg: "", done: false, approval: { id: "a4", input: "{}" } }} />);
     expect(bare).not.toContain("<dl");
     expect(bare).not.toContain("<pre");
+    expect(bare).not.toContain("lucide-chevron-right");
   });
 
   it("offers Deny and a split Allow once button, with the chat-wide grant in its menu", () => {
@@ -57,6 +69,7 @@ describe("ApprovalCard", () => {
       <ApprovalCard
         chatId="c1"
         step={{ kind: "tool", id: "t2", name: "Bash", arg: "Clean the build", done: false, approval: { id: "a2", input: '{"command":"rm -rf build","description":"Clean the build"}' } }}
+        defaultOpen
       />,
     );
     expect(bash).toContain("Run a shell command");
@@ -65,7 +78,7 @@ describe("ApprovalCard", () => {
 
   it("puts the buttons in a footer, below the details", () => {
     const bash = renderMarkup(
-      <ApprovalCard chatId="c1" step={{ kind: "tool", id: "t2", name: "Bash", arg: "Build", done: false, approval: { id: "a2", input: '{"command":"make build"}' } }} />,
+      <ApprovalCard chatId="c1" step={{ kind: "tool", id: "t2", name: "Bash", arg: "Build", done: false, approval: { id: "a2", input: '{"command":"make build"}' } }} defaultOpen />,
     );
     expect(bash.indexOf(">Deny<")).toBeGreaterThan(bash.indexOf("make build"));
   });
@@ -76,7 +89,7 @@ describe("ApprovalCard", () => {
 
   it("lists the other arguments", () => {
     const update = renderMarkup(
-      <ApprovalCard chatId="c1" step={{ kind: "tool", id: "t3", name: "mcp__xpo__update", arg: "xpo-1", done: false, approval: { id: "a3", input: '{"id":"xpo-1","status":"DONE"}' } }} />,
+      <ApprovalCard chatId="c1" step={{ kind: "tool", id: "t3", name: "mcp__xpo__update", arg: "xpo-1", done: false, approval: { id: "a3", input: '{"id":"xpo-1","status":"DONE"}' } }} defaultOpen />,
     );
     expect(update).toMatch(/status.*DONE/s);
   });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { decideApproval, type ApprovalDecision } from "../../api/chat";
 import { ApiError } from "../../api/client";
 import { IssueRefText } from "../IssueRef/IssueRef";
@@ -27,6 +27,7 @@ export default function ApprovalCard({
   active = false,
   onExpired,
   onFocusChange,
+  defaultOpen = false,
 }: {
   chatId: string;
   step: ToolStep & { approval: StepApproval };
@@ -34,7 +35,10 @@ export default function ApprovalCard({
   onExpired?: (approvalId: string) => void;
   /** Runs with true when focus enters the card and false when it leaves. */
   onFocusChange?: (focused: boolean) => void;
+  /** Whether a call's details start expanded. */
+  defaultOpen?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [sending, setSending] = useState<ApprovalDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -79,8 +83,10 @@ export default function ApprovalCard({
   const hasArgs = !!command || fields.length > 0;
   const busy = sending !== null;
 
-  const headline = (
-    <div className={`min-w-0 text-sm text-[var(--color-text-primary)] break-words ${hasArgs ? "" : "flex-[1_1_auto] py-1"}`}>
+  const expanded = hasArgs && open;
+
+  const title = (
+    <>
       {action}
       {detail && (
         <>
@@ -91,7 +97,17 @@ export default function ApprovalCard({
       <span className="whitespace-nowrap text-[var(--color-text-muted)]">
         via <span className="font-mono text-[0.85em] px-1.5 py-px rounded-[var(--radius-sm)] bg-[var(--color-tint-rest)]">{toolLabel(step.name)}</span>
       </span>
-    </div>
+    </>
+  );
+  const headlineClass = `min-w-0 text-sm text-[var(--color-text-primary)] break-words ${expanded ? "" : "flex-[1_1_auto] py-1"}`;
+  // A call with details toggles them from its headline.
+  const headline = hasArgs ? (
+    <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${headlineClass} flex items-center gap-1 text-left`}>
+      <span className="min-w-0">{title}</span>
+      <ChevronRight className={`shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)] transition-transform ${open ? "rotate-90" : ""}`} />
+    </button>
+  ) : (
+    <div className={headlineClass}>{title}</div>
   );
 
   // Deny, and Allow once with the chat-wide grant behind its chevron.
@@ -150,7 +166,7 @@ export default function ApprovalCard({
       }}
       className="rounded-[var(--radius-lg)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-2)] outline-none focus-within:border-[var(--color-border-focus)] transition-colors"
     >
-      {hasArgs ? (
+      {expanded ? (
         <>
           {/* The headline and the call on top, the buttons in a footer. */}
           <div className="flex flex-col gap-2.5 px-3 pt-3 pb-2.5 min-w-0">
@@ -176,7 +192,7 @@ export default function ApprovalCard({
         </>
       ) : (
         <>
-          {/* Nothing to show but the headline: it shares a row with the buttons, which wrap below when they do not fit. */}
+          {/* Collapsed, or nothing to show but the headline: it shares a row with the buttons, which wrap below when they do not fit. */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 min-w-0">
             {headline}
             {buttons}
