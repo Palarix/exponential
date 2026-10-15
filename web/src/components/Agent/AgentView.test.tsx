@@ -87,4 +87,14 @@ describe("AgentView", () => {
     // Full width: no centered max-width column.
     expect(html).not.toContain("max-w-6xl");
   });
+
+  // Same symmetric gutter as the thread scroller, so nothing shifts sideways
+  // when the pane starts overflowing or the landing pane gives way to a thread.
+  it("reserves a stable scrollbar gutter on the landing and history panes", () => {
+    const scrollerClass = (html: string, attr: string) => html.match(new RegExp(`<div ${attr}="true" class="([^"]*)"`))?.[1] ?? "";
+    for (const scroller of [scrollerClass(render(null), "data-landing-scroller"), scrollerClass(render(null, { issueId: null }), "data-history-scroller")]) {
+      expect(scroller).toContain("scroll-stable");
+      expect(scroller).not.toMatch(/overflow-y-/);
+    }
+  });
 });

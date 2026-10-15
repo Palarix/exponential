@@ -179,7 +179,7 @@ export default function AgentView() {
       </div>
 
       {empty && !chatId ? (
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center gap-8 py-10">
+        <div data-landing-scroller className="flex-1 scroll-stable flex flex-col items-center justify-center gap-8 py-10">
           <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] px-4 text-center">
             What do you want to know about {projectName || "this project"}?
           </h1>

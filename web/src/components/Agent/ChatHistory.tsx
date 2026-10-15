@@ -101,7 +101,7 @@ export default function ChatHistory({ issueId }: { issueId: string | null }) {
       center={<SearchInput value={query} onChange={setQuery} placeholder="Search chats…" />}
       right={<Button variant="ghost" size="sm" icon={<SquarePen size={14} />} onClick={() => openChatView(null)}>New chat</Button>}
     />
-    <div className="flex-1 overflow-y-auto scroll-stable">
+    <div data-history-scroller className="flex-1 scroll-stable">
       <div className="px-6 py-6 flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <InlineDropdown borderless placeholder="All agents" options={agentOptions} value={agentFilter} onChange={setAgentFilter} />

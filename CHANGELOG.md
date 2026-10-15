@@ -190,6 +190,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent view: the new-chat landing page keeps a stable scrollbar gutter, so its content no longer shifts sideways when the recent-chats list overflows or when a thread opens. The All chats page drops a redundant `overflow-y-auto`. (xpo-127a26)
+
 - Agent chat: the question card takes focus when it appears, as approval cards do, so its keys work without a click. It never takes focus from a field you are typing in, and shows the focus border. Enter on the card presses its primary button: Next, or "Submit answers" on the review step. (xpo-9761dd)
 
 - Issue ID chips no longer make the line they sit in taller, and they sit centered on it. Before, they sat low on the text, stretched lines in the chat bubble, and floated off the Work Mode divider lines. Chips are now inline boxes with `line-height: 1`; their tint comes from padding, which does not add height. (xpo-b47189)
