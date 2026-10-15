@@ -95,6 +95,10 @@ describe("QuestionCard with several questions", () => {
     expect(html).toMatch(/<div[^>]*role="group"[^>]*tabindex="-1"/);
   });
 
+  it("shows the approval card's focus border while focus is in it", () => {
+    expect(html).toContain("focus-within:border-[var(--color-border-focus)]");
+  });
+
   it("does not slide the first step in when the card opens", () => {
     expect(html).not.toContain("animate-step-in");
   });

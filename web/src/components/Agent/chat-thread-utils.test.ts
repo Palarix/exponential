@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeApprovalId, changesChatMeta, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeCardId, changesChatMeta, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -466,32 +466,31 @@ describe("approvals", () => {
   });
 });
 
-describe("activeApprovalId", () => {
+describe("activeCardId", () => {
   const step = (id: string, name = "Bash") => ({ kind: "tool" as const, id: `t-${id}`, name, arg: "", done: false, approval: { id } });
 
   it("picks the oldest pending approval", () => {
-    expect(activeApprovalId([step("a1"), step("a2")], null)).toBe("a1");
+    expect(activeCardId([step("a1"), step("a2")], null)).toBe("a1");
   });
 
   it("picks the focused card over the oldest", () => {
-    expect(activeApprovalId([step("a1"), step("a2")], "a2")).toBe("a2");
+    expect(activeCardId([step("a1"), step("a2")], "a2")).toBe("a2");
   });
 
   it("ignores a focused ID that is no longer pending", () => {
-    expect(activeApprovalId([step("a2")], "a1")).toBe("a2");
+    expect(activeCardId([step("a2")], "a1")).toBe("a2");
   });
 
-  it("skips question cards", () => {
-    expect(activeApprovalId([step("q1", "AskUserQuestion"), step("a2")], null)).toBe("a2");
-    expect(activeApprovalId([step("q1", "AskUserQuestion"), step("a2")], "q1")).toBe("a2");
-    expect(activeApprovalId([step("q1", "AskUserQuestion")], null)).toBeNull();
+  it("counts question cards like approval cards", () => {
+    expect(activeCardId([step("q1", "AskUserQuestion")], null)).toBe("q1");
+    expect(activeCardId([step("q1", "AskUserQuestion"), step("a2")], null)).toBe("q1");
+    expect(activeCardId([step("a1"), step("q2", "AskUserQuestion")], "q2")).toBe("q2");
   });
 
   it("is null when nothing waits", () => {
-    expect(activeApprovalId([], null)).toBeNull();
+    expect(activeCardId([], null)).toBeNull();
   });
 });
-
 describe("approvalKeyDecision", () => {
   const key = (k: string, extra: Partial<Parameters<typeof approvalKeyDecision>[0]> = {}) =>
     approvalKeyDecision({ key: k, onCard: true, composing: false, modified: false, ...extra });
@@ -939,6 +938,14 @@ describe("question navigation", () => {
     expect(questionKeyAction("3", three, 0)).toBeNull();
     expect(questionKeyAction("0", three, 0)).toBeNull();
     expect(questionKeyAction("x", three, 0)).toBeNull();
+  });
+
+  it("presses the primary button on Enter, only with focus on the card itself", () => {
+    expect(questionKeyAction("Enter", three, 3, true)).toEqual({ kind: "primary" }); // review: Submit answers
+    expect(questionKeyAction("Enter", three, 0, true)).toEqual({ kind: "primary" }); // Next
+    expect(questionKeyAction("Enter", one, 0, true)).toEqual({ kind: "primary" });
+    expect(questionKeyAction("Enter", three, 3, false)).toBeNull(); // a focused button keeps its Enter
+    expect(questionKeyAction("Enter", three, 3)).toBeNull();
   });
 
   it("writes one question's answer, or nothing", () => {

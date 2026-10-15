@@ -434,10 +434,14 @@ export function isQuestion(step: ToolStep): boolean {
   return step.name === "AskUserQuestion";
 }
 
-/** The approval card that takes focus: the focused card, else the oldest. Question cards never count. */
-export function activeApprovalId(pending: (ToolStep & { approval: StepApproval })[], focusedId: string | null): string | null {
-  const approvals = pending.filter((s) => !isQuestion(s));
-  return (approvals.find((s) => s.approval.id === focusedId) ?? approvals[0])?.approval.id ?? null;
+/** The card that takes focus, approval or question: the focused card, else the oldest. */
+export function activeCardId(pending: (ToolStep & { approval: StepApproval })[], focusedId: string | null): string | null {
+  return (pending.find((s) => s.approval.id === focusedId) ?? pending[0])?.approval.id ?? null;
+}
+
+/** A text field with something in it: the user is typing there. */
+export function typing(el: Element | null): boolean {
+  return (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) && el.value.trim() !== "";
 }
 
 /**
@@ -613,8 +617,13 @@ export function autoAdvanceTo(questions: Question[], current: number): number | 
   return current + 1;
 }
 
-/** The card's keys: ←/→ move between steps, 1–9 pick an option of the current question. */
-export function questionKeyAction(key: string, questions: Question[], current: number): QuestionMove | { kind: "pick"; label: string } | null {
+/**
+ * The card's keys: ←/→ move between steps, 1–9 pick an option of the current
+ * question. Enter presses the primary button (Next or "Submit answers"), only
+ * with focus on the card itself, so a focused button keeps its own Enter.
+ */
+export function questionKeyAction(key: string, questions: Question[], current: number, onCard = false): QuestionMove | { kind: "pick"; label: string } | { kind: "primary" } | null {
+  if (key === "Enter") return onCard ? { kind: "primary" } : null;
   if (key === "ArrowLeft") return current > 0 ? { kind: "go", index: current - 1 } : null;
   if (key === "ArrowRight") return current < lastStep(questions) ? { kind: "go", index: current + 1 } : null;
   if (/^[1-9]$/.test(key)) {

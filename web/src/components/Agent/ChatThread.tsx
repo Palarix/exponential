@@ -7,7 +7,7 @@ import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
 import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
-import { activeApprovalId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -253,8 +253,8 @@ function Turn({
   const last = segments[segments.length - 1];
   // Open cards show under the active group.
   const pending = chatId ? pendingApprovals(turn) : [];
-  const [focusedApproval, setFocusedApproval] = useState<string | null>(null);
-  const active = activeApprovalId(pending, focusedApproval);
+  const [focusedCard, setFocusedCard] = useState<string | null>(null);
+  const active = activeCardId(pending, focusedCard);
   // The last card went away with focus in it: focus fell to the page, so hand it on.
   const pendingCount = useRef(pending.length);
   useEffect(() => {
@@ -294,20 +294,16 @@ function Turn({
       {thinking && <ThinkingLine seconds={seconds} />}
 
       {chatId &&
-        pending.map((step) =>
-          isQuestion(step) ? (
-            <QuestionCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />
-          ) : (
-            <ApprovalCard
-              key={step.approval.id}
-              chatId={chatId}
-              step={step}
-              active={step.approval.id === active}
-              onExpired={onApprovalExpired}
-              onFocusChange={(focused) => setFocusedApproval((id) => (focused ? step.approval.id : id === step.approval.id ? null : id))}
-            />
-          ),
-        )}
+        pending.map((step) => {
+          const card = {
+            chatId,
+            step,
+            active: step.approval.id === active,
+            onExpired: onApprovalExpired,
+            onFocusChange: (focused: boolean) => setFocusedCard((id) => (focused ? step.approval.id : id === step.approval.id ? null : id)),
+          };
+          return isQuestion(step) ? <QuestionCard key={step.approval.id} {...card} /> : <ApprovalCard key={step.approval.id} {...card} />;
+        })}
 
       {turn.status === "stopped" && <div className="text-xs text-[var(--color-text-muted)]">Stopped</div>}
       {turn.status === "interrupted" && (

@@ -17,6 +17,7 @@ import {
   setOtherText,
   stepInClass,
   toggleOther,
+  typing,
   type Question,
   type QuestionPick,
   type StepApproval,
@@ -247,16 +248,22 @@ export function QuestionFooter({
  * the way back. "Submit answers" returns the answers; "Chat about this"
  * denies the call, so the user can talk instead. The card stays until the
  * outcome arrives on the chat stream. onExpired runs when the server no
- * longer has it open.
+ * longer has it open. The active card takes focus, as an approval card
+ * does, unless the user is typing.
  */
 export default function QuestionCard({
   chatId,
   step,
+  active = false,
   onExpired,
+  onFocusChange,
 }: {
   chatId: string;
   step: ToolStep & { approval: StepApproval };
+  active?: boolean;
   onExpired?: (approvalId: string) => void;
+  /** Runs with true when focus enters the card and false when it leaves. */
+  onFocusChange?: (focused: boolean) => void;
 }) {
   const id = useId();
   const questions = useMemo(() => parseQuestions(step.approval.input), [step.approval.input]);
@@ -281,6 +288,11 @@ export default function QuestionCard({
     timer.current = null;
   };
   useEffect(() => clearTimer, []);
+
+  // The active card takes focus, so its keys work at once, but never from a field the user is typing in.
+  useEffect(() => {
+    if (active && !typing(document.activeElement)) rootRef.current?.focus({ preventScroll: true });
+  }, [active]);
 
   // Focus goes back to the card, so its keys keep working and focus does not
   // stay on a button that the new question hides.
@@ -326,13 +338,14 @@ export default function QuestionCard({
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (busy || e.target instanceof HTMLInputElement || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-    const action = questionKeyAction(e.key, questions, current);
+    const action = questionKeyAction(e.key, questions, current, e.target === e.currentTarget);
     if (!action) return;
     // The board's own ←/→ listeners sit on the document; keep the keys here.
     e.preventDefault();
     e.stopPropagation();
     if (action.kind === "pick") pick(action.label);
     else if (action.kind === "go") go(action.index);
+    else if (action.kind === "primary") advance();
   };
 
   // The free-text answer: inside the "Other…" row, or on its own for a
@@ -362,7 +375,19 @@ export default function QuestionCard({
   const labelId = `${id}-q${current}`;
 
   return (
-    <div ref={rootRef} role="group" aria-label="Question" tabIndex={-1} onKeyDown={onKeyDown} className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-2)] focus:outline-none">
+    <div
+      ref={rootRef}
+      role="group"
+      aria-label="Question"
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
+      onFocus={() => onFocusChange?.(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) onFocusChange?.(false);
+      }}
+      // The approval card's focus border.
+      className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-2)] focus:outline-none focus-within:border-[var(--color-border-focus)] transition-colors"
+    >
       {tabbed && <QuestionTabs questions={questions} picks={picks} current={current} disabled={busy} onSelect={go} />}
       {onReview && (
         <div role="tabpanel" aria-label="Review your answers" className={`px-3 pt-3 pb-3 ${stepInClass(direction)}`}>

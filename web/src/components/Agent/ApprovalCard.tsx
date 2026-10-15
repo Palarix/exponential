@@ -4,7 +4,7 @@ import { decideApproval, type ApprovalDecision } from "../../api/chat";
 import { ApiError } from "../../api/client";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import { Menu, MenuItem, Popover, PopoverPanel } from "../ui";
-import { approvalArgs, approvalKeyDecision, approvalTitle, toolLabel, type StepApproval, type ToolStep } from "./chat-thread-utils";
+import { approvalArgs, approvalKeyDecision, approvalTitle, toolLabel, typing, type StepApproval, type ToolStep } from "./chat-thread-utils";
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />;
@@ -202,9 +202,4 @@ export default function ApprovalCard({
       )}
     </div>
   );
-}
-
-/** A text field with something in it: the user is typing there. */
-function typing(el: Element | null): boolean {
-  return (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) && el.value.trim() !== "";
 }
