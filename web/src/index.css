@@ -476,22 +476,23 @@ body {
 }
 
 /* Issue ID chips (IssueRef). Listed after `.prose-exponential a` so they win inside prose.
-   A fixed line-height gives every chip the same height whatever its font;
-   0.875em × 1.6 stays below the surrounding line height, so lines keep their
-   spacing. Inline-flex centers the status icon on the text's line box; the text
-   keeps baseline alignment, so the chip still sits on the surrounding baseline. */
+   A chip never changes the height of its line (xpo-b47189). It is an inline
+   box, not inline-flex: its line-height of 1 stays below every parent line
+   height, and the vertical padding paints the tint without growing the line
+   box. The chip shares the text's baseline. */
 .issue-ref,
 .prose-exponential .issue-ref {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
+  display: inline;
   font-family: var(--font-mono);
   font-size: 0.875em;
-  line-height: 1.6;
+  line-height: 1;
+  vertical-align: baseline;
   color: var(--color-issue-ref);
   background: var(--color-issue-ref-bg);
   border-radius: var(--radius-md);
-  padding: 0 0.45em;
+  padding: 0.15em 0.45em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   text-decoration: none;
   white-space: nowrap;
   transition: background-color 120ms;
@@ -503,13 +504,12 @@ body {
   text-decoration: none;
 }
 
-.issue-ref-text {
-  align-self: baseline;
-}
-
-/* The status icon reads a hair high at the chip's exact center; settle it down. */
+/* `middle` puts the status icon a hair low on the mono x-height; lift it. */
 .issue-ref > svg {
-  translate: 0 0.06em;
+  display: inline;
+  vertical-align: middle;
+  margin-right: 0.35em;
+  translate: 0 -0.06em;
 }
 
 /* A Markdown link with its own text, e.g. [the epic](#/issues/…). */
@@ -522,7 +522,7 @@ body {
 code .issue-ref,
 .prose-exponential code .issue-ref {
   font-size: inherit;
-  padding: 0 0.3em;
+  padding: 0.15em 0.3em;
 }
 
 .issue-ref-missing,

@@ -188,6 +188,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Issue ID chips no longer make the line they sit in taller, and they sit centered on it. Before, they sat low on the text, stretched lines in the chat bubble, and floated off the Work Mode divider lines. Chips are now inline boxes with `line-height: 1`; their tint comes from padding, which does not add height. (xpo-b47189)
+
 - Agent chat: chat costs are no longer overcounted. Claude reports a running total for the session, and xpo added it again on every turn, so long chats showed many times their real cost. Each turn now adds only the difference. Existing chats are recomputed from their logs the first time they are read. (xpo-66fce3)
 
 - Agent chat: the transcript lines up with the reply box again once the thread scrolls. The scrollbar no longer narrows only the right side and pulls the transcript off-center. (xpo-260a28)
