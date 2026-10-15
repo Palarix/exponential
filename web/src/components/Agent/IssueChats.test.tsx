@@ -57,6 +57,7 @@ describe("IssueChatIcon", () => {
     expect(html).toContain("color-text-muted");
     expect(html).not.toMatch(/lucide[^"]*color-(accent|warning|error|text-secondary)/);
     expect(html).toMatch(/<\/svg>2<\/button>/);
+    expect(html).toContain("lucide-hammer");
   });
 
   it("names an untitled work chat", () => {

@@ -182,9 +182,25 @@ func newChatService() *server.ChatService {
 			Learner:         catalog,
 			CanWork:         target.RemoteURL == "",
 			ResolveWork:     resolveWork,
+			Titlers: map[string]chat.Titler{
+				chat.ProviderClaude: &chat.ClaudeTitler{},
+				chat.ProviderCodex:  &chat.CodexTitler{},
+			},
+			TitleModel: catalog.TitleModel,
+			IssueTitle: issueTitle,
 		}),
 		Catalog: catalog,
 	}
+}
+
+// issueTitle returns an issue's title for a work chat's title hint, or ""
+// when the issue cannot be read.
+func issueTitle(id string) string {
+	issue, err := exponential.NewClient(cfg).Transport.GetIssue(id)
+	if err != nil {
+		return ""
+	}
+	return issue.Title
 }
 
 // resolveWork finds an issue's full ID and worktree, after the chat agent

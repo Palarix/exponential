@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeApprovalId, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeApprovalId, changesChatMeta, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -947,5 +947,17 @@ describe("question navigation", () => {
     picks = setOtherText(picks, 1, " a parrot ");
     expect(questionAnswerText(three[1], picks[1])).toBe("Cat, a parrot");
     expect(questionAnswerText(three[0], picks[0])).toBe("");
+  });
+});
+
+describe("changesChatMeta", () => {
+  it("refreshes the chat list on a generated title", () => {
+    expect(changesChatMeta("title")).toBe(true);
+    expect(changesChatMeta("turn_done")).toBe(true);
+    expect(changesChatMeta("text_delta")).toBe(false);
+  });
+  it("leaves the thread alone on a title event", () => {
+    const t = reduce([ev({ type: "user_message", text: "hi" })]);
+    expect(chatThreadReducer(t, { type: "event", event: ev({ type: "title", text: "Greeting" }) })).toBe(t);
   });
 });

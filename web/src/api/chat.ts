@@ -25,13 +25,15 @@ export type ChatEventType =
   | "text_delta"
   | "thinking"
   | "tool_start"
-  | "background_tasks";
+  | "background_tasks"
+  | "title";
 
 /** One entry of a chat's event stream; `seq` is set on settled events only. */
 export interface ChatEvent {
   seq?: number;
   type: ChatEventType;
   time: string;
+  /** user_message, assistant_text, text_delta; title: the generated title. */
   text?: string;
   context?: ChatContext;
   name?: string;
@@ -83,6 +85,8 @@ export type ApprovalOutcome = ApprovalDecision | "answer" | "cancelled";
 export interface ChatMeta {
   id: string;
   title: string;
+  /** The title is a placeholder, which the board replaces after the first finished turn. */
+  auto_title?: boolean;
   created_at: string;
   updated_at: string;
   agent: string;

@@ -12,7 +12,7 @@ import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
-import { chatStateIcon, recentChatItems } from "./recent-chats";
+import { chatStateIcon, idleChatIcon, recentChatItems } from "./recent-chats";
 import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
 import { useMarkSeen } from "./useMarkSeen";
@@ -72,7 +72,7 @@ function RecentChatsList({ chats, onOpen }: { chats: ChatMeta[]; onOpen: (id: st
               onClick={() => onOpen(c.id)}
               className="flex items-center gap-3 w-full h-9 px-3 rounded-[var(--radius-md)] text-left hover:bg-[var(--color-hover-surface-ai-1)] transition-colors"
             >
-              {chatStateIcon(c, seen, "w-3.5 h-3.5", <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />)}
+              {chatStateIcon(c, seen, "w-3.5 h-3.5", idleChatIcon(c, "w-3.5 h-3.5", <MessageSquare className="shrink-0 w-3.5 h-3.5 text-[var(--color-text-muted)]" />))}
               <span className="flex-1 min-w-0 truncate text-sm text-[var(--color-text-secondary)]">{c.title || "Untitled chat"}</span>
               <span className="shrink-0 whitespace-nowrap text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.updated_at)}</span>
             </button>

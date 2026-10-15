@@ -223,6 +223,39 @@ func TestStore_Rename(t *testing.T) {
 	}
 }
 
+func TestStore_RenameMakesTheTitleFinal(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	if got, err := s.SetAutoTitle(m.ID, "Fix login"); err != nil || got.Title != "Fix login" || !got.AutoTitle {
+		t.Fatalf("SetAutoTitle = %+v, %v", got, err)
+	}
+	if got, _ := s.Rename(m.ID, "Mine"); got.AutoTitle {
+		t.Fatal("a rename left the title automatic")
+	}
+	if stored, _ := s.Meta(m.ID); stored.AutoTitle || stored.Title != "Mine" {
+		t.Fatalf("stored = %+v", stored)
+	}
+}
+
+func TestStore_ReplaceAutoTitle(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	s.SetAutoTitle(m.ID, "placeholder")
+
+	if ok, err := s.ReplaceAutoTitle(m.ID, "other", "Generated"); ok || err != nil {
+		t.Fatalf("replace with a stale placeholder = %v, %v; want no change", ok, err)
+	}
+	if ok, err := s.ReplaceAutoTitle(m.ID, "placeholder", "Generated"); !ok || err != nil {
+		t.Fatalf("replace = %v, %v", ok, err)
+	}
+	if stored, _ := s.Meta(m.ID); stored.Title != "Generated" {
+		t.Fatalf("title = %q", stored.Title)
+	}
+	if _, err := s.ReplaceAutoTitle("00000000-0000-4000-8000-000000000000", "a", "b"); err != ErrNotFound {
+		t.Fatalf("unknown chat: err = %v", err)
+	}
+}
+
 func TestStore_MetaMigratesClaudeSessionID(t *testing.T) {
 	s := newTestStore(t)
 	m, _ := s.Create()

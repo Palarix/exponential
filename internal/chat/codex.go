@@ -696,11 +696,19 @@ func CodexModels(ctx context.Context, binary string) ([]ModelOption, error) {
 	}
 }
 
+// fastModel reports whether a Codex model description calls the model fast
+// or affordable, for example "Fast and affordable model for easier tasks.".
+func fastModel(description string) bool {
+	d := strings.ToLower(description)
+	return strings.Contains(d, "fast") || strings.Contains(d, "affordable")
+}
+
 func codexModelOptions(raw json.RawMessage) ([]ModelOption, error) {
 	var res struct {
 		Data []struct {
 			ID          string `json:"id"`
 			DisplayName string `json:"displayName"`
+			Description string `json:"description"`
 			Hidden      bool   `json:"hidden"`
 			IsDefault   bool   `json:"isDefault"`
 			Efforts     []struct {
@@ -724,7 +732,7 @@ func codexModelOptions(raw json.RawMessage) ([]ModelOption, error) {
 		for _, e := range m.Efforts {
 			efforts = append(efforts, e.Effort)
 		}
-		opts = append(opts, ModelOption{ID: m.ID, Label: label, Name: label, Efforts: efforts})
+		opts = append(opts, ModelOption{ID: m.ID, Label: label, Name: label, Efforts: efforts, Fast: fastModel(m.Description)})
 		if m.IsDefault {
 			opts[0] = ModelOption{ID: "", Label: "Default model", Name: label, Efforts: efforts}
 		}

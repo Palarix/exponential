@@ -30,6 +30,16 @@ type RunnerConfig struct {
 	DefaultModel    string  // chat.model from config; used for the default provider when a chat has no model
 	Learner         Learner // told which model each finished turn ran; optional
 
+	// Titlers name chats after their first finished turn, by provider ID. A
+	// provider with no titler keeps the placeholder title.
+	Titlers map[string]Titler
+	// TitleModel returns the model a provider names chats with; "" means
+	// the chat's own model. Optional.
+	TitleModel func(provider string) string
+	// IssueTitle returns an issue's title, for the title hint of a work
+	// chat; "" when unknown. Optional.
+	IssueTitle func(issueID string) string
+
 	// CanWork allows Work Mode. False in remote mode, where start and merge
 	// run on the server (xpo-a60065).
 	CanWork bool
@@ -78,6 +88,9 @@ type Runner struct {
 	closing   bool                           // Shutdown began: no turn continues on its own
 	wg        sync.WaitGroup                 // running turns
 	closers   []chan struct{}                // sessions being closed; each closes when done
+	titles    sync.WaitGroup                 // running title calls
+	titleCtx  context.Context                // ends title calls on Shutdown
+	endTitles context.CancelFunc
 	stopReap  chan struct{}
 	stopOnce  sync.Once
 }
@@ -135,6 +148,7 @@ func NewRunner(cfg RunnerConfig) *Runner {
 		approvals: map[string]map[string]openCard{},
 		stopReap:  make(chan struct{}),
 	}
+	r.titleCtx, r.endTitles = context.WithCancel(context.Background())
 	go r.reap()
 	return r
 }
@@ -182,6 +196,7 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	notice := checkWorktree(&meta)
 	if meta.Title == "" {
 		meta.Title = TitleFrom(req.Text)
+		meta.AutoTitle = true
 	}
 	if meta.Agent != provider {
 		meta.SessionID = "" // a session belongs to the agent that made it
@@ -323,13 +338,17 @@ func (r *Runner) CancelAndWait(id string) {
 	<-t.done
 }
 
-// Wait blocks until no turn is running.
-func (r *Runner) Wait() { r.wg.Wait() }
+// Wait blocks until no turn and no title call is running.
+func (r *Runner) Wait() {
+	r.wg.Wait()
+	r.titles.Wait()
+}
 
 // Shutdown stops every running turn and every agent, and waits for them to
 // end.
 func (r *Runner) Shutdown() {
 	r.stopOnce.Do(func() { close(r.stopReap) })
+	r.endTitles()
 	r.mu.Lock()
 	r.closing = true
 	var turns []*turn
@@ -552,6 +571,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 	var notice *Event
 	var next *turn
 	var old *liveSession
+	var titled *Meta // the chat to name, after its first finished turn
 	if merr == nil {
 		m.State = StateIdle
 		m.SessionID = t.sessionID
@@ -578,10 +598,18 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 			next = r.handOverLocked(id)
 			m.State = StateRunning
 		}
+		if resolved != nil && m.AutoTitle && r.cfg.Titlers[m.Agent] != nil && !r.closing {
+			m.AutoTitle = false // one attempt per chat
+			titled = &m
+			r.titles.Add(1)
+		}
 		m.UpdatedAt = time.Now().UTC()
 		_ = r.cfg.Store.SaveMeta(m)
 	}
 	r.mu.Unlock()
+	if titled != nil {
+		go r.generateTitle(id, *titled, titled.Title)
+	}
 	r.closeAsync(old)
 	if notice != nil {
 		r.settle(id, *notice)

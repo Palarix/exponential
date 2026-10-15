@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: chats get a short, generated title after their first finished reply, in place of the first line of the first message. The chat's own agent writes it in the background: Claude chats use Haiku, Codex chats use Codex's fast model (today `gpt-6-luna`). A title you renamed is never replaced, and chats from before this change keep their titles. Work chats start with the issue title and get no `<id>` prefix. Instead, idle chats in Work Mode show a hammer icon in the chat lists. Chats carry `auto_title` while their title is a placeholder, and the chat stream sends a live `title` event. (xpo-714245)
+
 - Agent chat: an "All chats" page (`#/agent/history`), opened from the Agent view header and the status-bar history menu. It lists every chat in a full-width table.
   - **Find:** search by title, Active/Archived tabs, and agent, period (7 days, 30 days, all) and issue filters (`?issue=<id>`).
   - **Usage:** a summary strip totals chats, tokens in/out and cost for the filtered rows. Hovering a chat's agent shows its turns, tokens and cost. Chats without a reported cost (Codex) show "—".

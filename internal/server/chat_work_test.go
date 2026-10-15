@@ -99,8 +99,8 @@ func TestChat_WorkChatStartsIssueAndBindsNewChat(t *testing.T) {
 		t.Errorf("chat = %+v, want Work Mode on %s", m, id)
 	}
 	// The title makes the chat easy to find in recent chats.
-	if m.Title != id+" Fix login" {
-		t.Errorf("title = %q", m.Title)
+	if m.Title != "Fix login" || !m.AutoTitle {
+		t.Errorf("title = %q (auto %v), want the issue title as a placeholder", m.Title, m.AutoTitle)
 	}
 	if len(*starts) != 1 || (*starts)[0] != id {
 		t.Errorf("starts = %v", *starts)

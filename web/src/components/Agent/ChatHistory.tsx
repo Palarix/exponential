@@ -11,7 +11,7 @@ import { Button, ConfirmDialog, InlineDropdown, Menu, MenuItem, MenuLabel, Popov
 import { agentQueryKeys, useAgentChat } from "./agent-context";
 import { archiveBlocker, filterHistory, formatCost, formatTokens, summarize, type HistoryPeriod } from "./chat-history-utils";
 import ProviderIcon from "./ProviderIcon";
-import { chatStateIcon } from "./recent-chats";
+import { chatStateIcon, idleChatIcon } from "./recent-chats";
 import { useArchiveChat } from "./useArchiveChat";
 
 const SHOW_TABS = { active: { label: "Active" }, archived: { label: "Archived" } } as const;
@@ -183,7 +183,7 @@ export default function ChatHistory({ issueId }: { issueId: string | null }) {
                   <td className="px-3 py-2 max-w-0 w-full">
                     <span className="flex items-center gap-2 min-w-0">
                       <SelectSlot
-                        icon={chatStateIcon(c, seen, "w-3.5 h-3.5", IDLE_DOT)}
+                        icon={chatStateIcon(c, seen, "w-3.5 h-3.5", idleChatIcon(c, "w-3.5 h-3.5", IDLE_DOT))}
                         label={`Select ${c.title || "Untitled chat"}`}
                         selecting={selecting}
                         checked={selected.has(c.id)}

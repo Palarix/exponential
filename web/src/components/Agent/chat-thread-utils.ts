@@ -63,6 +63,14 @@ export type ChatThreadAction =
   | { type: "background"; tasks: BackgroundTask[] }
   | { type: "reset" };
 
+// Events that change a chat's title, state or mode in the chat list.
+const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "turn_stopped", "error", "approval_requested", "approval_resolved", "mode_changed", "turn_continued", "agent_turn", "title"]);
+
+/** Whether an event changes the chat list: its title, state or mode. */
+export function changesChatMeta(type: ChatEvent["type"]): boolean {
+  return META_EVENTS.has(type);
+}
+
 export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0, background: [] };
 
 /**

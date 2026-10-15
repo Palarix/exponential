@@ -3,10 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { chatStreamURL, fetchChat, type ChatEvent } from "../../api/chat";
 import { ApiError } from "../../api/client";
 import { agentQueryKeys } from "./agent-context";
-import { chatThreadReducer, emptyThread, type ChatThread } from "./chat-thread-utils";
-
-// Events that change a chat's title, state or mode in the chat list.
-const META_EVENTS = new Set<ChatEvent["type"]>(["user_message", "turn_done", "turn_stopped", "error", "approval_requested", "approval_resolved", "mode_changed", "turn_continued", "agent_turn"]);
+import { changesChatMeta, chatThreadReducer, emptyThread, type ChatThread } from "./chat-thread-utils";
 
 /**
  * Loads a chat's settled events, then follows its SSE stream. A null chatId
@@ -26,7 +23,7 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
     let cancelled = false;
     const onEvent = (event: ChatEvent) => {
       dispatch({ type: "event", event });
-      if (META_EVENTS.has(event.type)) qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
+      if (changesChatMeta(event.type)) qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
       // A finished turn teaches the board the model's full name and context window.
       if (event.type === "turn_done") qc.invalidateQueries({ queryKey: agentQueryKeys.status });
     };

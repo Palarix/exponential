@@ -19,6 +19,8 @@ type ModelOption struct {
 	Name          string   `json:"name,omitempty"`
 	ContextWindow int      `json:"context_window,omitempty"`
 	Efforts       []string `json:"efforts"`
+	// Fast marks a small, cheap model. The board names chats with it.
+	Fast bool `json:"-"`
 }
 
 // ProviderStatus describes one agent CLI chat can run, and why not when it
@@ -50,7 +52,7 @@ var (
 	allEfforts   = []string{"low", "medium", "high", "xhigh", "max"}
 	claudeModels = []ModelOption{
 		{ID: "", Label: "Default model", Efforts: allEfforts},
-		{ID: "haiku", Label: "Haiku", Efforts: allEfforts},
+		{ID: "haiku", Label: "Haiku", Efforts: allEfforts, Fast: true},
 		{ID: "sonnet", Label: "Sonnet", Efforts: allEfforts},
 		{ID: "opus", Label: "Opus", Efforts: allEfforts},
 		{ID: "fable", Label: "Fable", Efforts: allEfforts},
@@ -212,6 +214,24 @@ func (c *Catalog) SetModels(provider string, models []ModelOption) {
 			c.status.Providers[i].Models = models
 		}
 	}
+}
+
+// TitleModel returns the first fast model of a provider, or "" when it
+// lists none.
+func (c *Catalog) TitleModel(provider string) string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, p := range c.status.Providers {
+		if p.ID != provider {
+			continue
+		}
+		for _, m := range p.Models {
+			if m.Fast && m.ID != "" {
+				return m.ID
+			}
+		}
+	}
+	return ""
 }
 
 // Resolve checks a message's provider, model and effort. An empty provider

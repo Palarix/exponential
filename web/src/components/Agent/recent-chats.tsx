@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CircleAlert, MessageSquare } from "lucide-react";
+import { CircleAlert, Hammer, MessageSquare } from "lucide-react";
 import type { ChatMeta } from "../../api/chat";
 import { formatRelativeTime } from "../../utils/format";
 import { MenuItem } from "../ui";
@@ -46,6 +46,12 @@ export function chatStateIcon(c: ChatMeta, seen: SeenChats, size: string, idle: 
   );
 }
 
+/** The idle icon of a chat: a hammer in Work Mode, like the composer, else chatIcon. */
+export function idleChatIcon(c: ChatMeta, size: string, chatIcon: ReactNode): ReactNode {
+  if (c.mode !== "work") return chatIcon;
+  return <Hammer className={`shrink-0 ${size} text-[var(--color-text-muted)]`} aria-label="In Work Mode" role="img" />;
+}
+
 /** Menu items for the most recent chats (chats arrive newest first). */
 export function recentChatItems(chats: ChatMeta[], seen: SeenChats, activeId: string | null, onPick: (id: string) => void) {
   return chats.slice(0, RECENT_CHAT_LIMIT).map((c) => (
@@ -54,7 +60,7 @@ export function recentChatItems(chats: ChatMeta[], seen: SeenChats, activeId: st
       label={c.title || "Untitled chat"}
       truncate
       active={c.id === activeId}
-      icon={chatStateIcon(c, seen, "w-3 h-3", <MessageSquare size={14} />)}
+      icon={chatStateIcon(c, seen, "w-3 h-3", idleChatIcon(c, "w-3.5 h-3.5", <MessageSquare size={14} />))}
       suffix={<span className="whitespace-nowrap text-xs text-[var(--color-text-muted)]">{formatRelativeTime(c.updated_at)}</span>}
       onClick={() => onPick(c.id)}
     />

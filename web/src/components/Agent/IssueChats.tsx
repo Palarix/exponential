@@ -15,7 +15,7 @@ const STATE_ICONS: Record<IssueChatState, { Icon: typeof MessageSquare; label: s
   waiting: { Icon: MessageSquareDot, label: "Waiting for your approval" },
   running: { Icon: MessageSquareMore, label: "Running" },
   interrupted: { Icon: MessageSquareWarning, label: "Interrupted" },
-  work: { Icon: MessageSquare, label: "In Work Mode" },
+  work: { Icon: Hammer, label: "In Work Mode" },
   idle: { Icon: MessageSquare, label: "Idle" },
 };
 

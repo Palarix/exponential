@@ -382,7 +382,8 @@ func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 	if s.respondChatError(w, err) {
 		return
 	}
-	if _, err := s.Chat.Store.Rename(created.ID, id+" "+issue.Title); s.respondChatError(w, err) {
+	// The issue title is a placeholder; the first finished turn replaces it.
+	if _, err := s.Chat.Store.SetAutoTitle(created.ID, issue.Title); s.respondChatError(w, err) {
 		return
 	}
 	m, err := s.Chat.Runner.BindWork(created.ID, binding)

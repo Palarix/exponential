@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChatMeta } from "../../api/chat";
 import { renderMarkup } from "../../render-markup";
-import { chatStateIcon } from "./recent-chats";
+import { chatStateIcon, idleChatIcon } from "./recent-chats";
 
 const chat = (over: Partial<ChatMeta> = {}): ChatMeta => ({
   id: "c1", title: "", created_at: "2026-10-14T10:00:00Z", updated_at: "2026-10-14T10:00:00Z", agent: "claude", state: "idle", ...over,
@@ -41,5 +41,17 @@ describe("chatStateIcon", () => {
   });
   it("shows the idle fallback otherwise", () => {
     expect(render(chat(), { c1: "2026-10-14T10:00:00Z" })).toBe("<i>idle</i>");
+  });
+});
+
+describe("idleChatIcon", () => {
+  it("shows a hammer for a chat in Work Mode", () => {
+    const html = renderMarkup(<>{idleChatIcon(chat({ mode: "work", work: { issue_id: "xpo-1", worktree: "/wt" } }), "w-3 h-3", <i>chat</i>)}</>);
+    expect(html).toContain("lucide-hammer");
+    expect(html).toContain('aria-label="In Work Mode"');
+  });
+  it("shows the Chat Mode icon otherwise", () => {
+    expect(renderMarkup(<>{idleChatIcon(chat(), "w-3 h-3", <i>chat</i>)}</>)).toBe("<i>chat</i>");
+    expect(renderMarkup(<>{idleChatIcon(chat({ mode: "chat" }), "w-3 h-3", <i>chat</i>)}</>)).toBe("<i>chat</i>");
   });
 });

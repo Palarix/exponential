@@ -43,6 +43,10 @@ const (
 	// The agent's live background tasks changed. Tasks is the new list;
 	// empty means none run.
 	EventBackgroundTasks = "background_tasks"
+
+	// The board replaced the chat's placeholder title with a generated one.
+	// Text is the new title.
+	EventTitle = "title"
 )
 
 // Context describes what the user had open when they sent a message.
@@ -138,6 +142,10 @@ func (u *Usage) add(e Event) {
 type Meta struct {
 	ID              string    `json:"id"`
 	Title           string    `json:"title"`
+	// AutoTitle is set while Title is a placeholder: the first message, or
+	// the issue title of a work chat. The board replaces it once, with a
+	// generated title, after the first finished turn. A rename clears it.
+	AutoTitle bool `json:"auto_title,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 	Agent           string    `json:"agent"` // provider ID; set by the first message

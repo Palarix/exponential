@@ -35,6 +35,9 @@ type Store struct {
 
 	mu      sync.Mutex
 	lastSeq map[string]int
+	// titleMu orders title changes, so a generated title never replaces a
+	// rename.
+	titleMu sync.Mutex
 }
 
 // NewStore returns a store rooted at dir. Dir is created on the first write.
@@ -238,21 +241,48 @@ func (s *Store) Delete(id string) error {
 	return os.Remove(s.metaPath(id))
 }
 
-// Rename sets a chat's title, cleaned up like a title from the first message.
+// Rename sets a chat's title, cleaned up like a title from the first
+// message. The title is final: the board no longer replaces it.
 func (s *Store) Rename(id, title string) (Meta, error) {
+	return s.setTitle(id, title, false)
+}
+
+// SetAutoTitle sets a placeholder title, which the board replaces with a
+// generated one after the chat's first finished turn.
+func (s *Store) SetAutoTitle(id, title string) (Meta, error) {
+	return s.setTitle(id, title, true)
+}
+
+func (s *Store) setTitle(id, title string, auto bool) (Meta, error) {
 	title = TitleFrom(title)
 	if title == "" {
 		return Meta{}, ErrEmptyTitle
 	}
+	s.titleMu.Lock()
+	defer s.titleMu.Unlock()
 	m, err := s.Meta(id)
 	if err != nil {
 		return Meta{}, err
 	}
-	if m.Title == title {
+	if m.Title == title && m.AutoTitle == auto {
 		return m, nil
 	}
 	m.Title = title
+	m.AutoTitle = auto
 	return m, s.SaveMeta(m)
+}
+
+// ReplaceAutoTitle sets a generated title when the chat's title is still
+// placeholder. It reports whether it did.
+func (s *Store) ReplaceAutoTitle(id, placeholder, title string) (bool, error) {
+	s.titleMu.Lock()
+	defer s.titleMu.Unlock()
+	m, err := s.Meta(id)
+	if err != nil || m.Title != placeholder {
+		return false, err
+	}
+	m.Title = title
+	return true, s.SaveMeta(m)
 }
 
 // AutoArchive archives the chats last updated before now-maxAge. It skips
