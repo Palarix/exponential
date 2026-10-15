@@ -57,7 +57,7 @@ func TestRealAgents_ChatProfile(t *testing.T) {
 						mu.Unlock()
 						return Verdict{Decision: DecisionDeny}
 					},
-				}, buildPrompt(prompt, nil, p), func(ev exponential.StreamEvent) {
+				}, buildPrompt(prompt, nil, p, nil), func(ev exponential.StreamEvent) {
 					if ev.Kind == exponential.StreamToolDone && ev.Text != "" {
 						mu.Lock()
 						calls[ev.Text] = "called"

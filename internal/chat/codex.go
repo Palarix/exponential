@@ -143,13 +143,16 @@ type codexSession struct {
 }
 
 // codexInput is one user turn.
-type codexInput struct{ prompt, model, effort string }
+type codexInput struct {
+	prompt        Prompt
+	model, effort string
+}
 
 func (s *codexSession) PID() int { return s.p.pid() }
 
 // Send implements Session. Codex takes the model and effort on each
 // turn/start, so a switch needs no extra request.
-func (s *codexSession) Send(prompt, model, effort string) error {
+func (s *codexSession) Send(prompt Prompt, model, effort string) error {
 	select {
 	case <-s.p.waited:
 		return agentExited{s.p.exitError()}
@@ -174,7 +177,7 @@ func (s *codexSession) Send(prompt, model, effort string) error {
 func (s *codexSession) startTurn(in *codexInput) {
 	params := map[string]any{
 		"threadId": s.threadID,
-		"input":    []map[string]any{{"type": "text", "text": in.prompt}},
+		"input":    codexUserInput(in.prompt),
 	}
 	if in.model != "" {
 		params["model"] = in.model
@@ -183,6 +186,16 @@ func (s *codexSession) startTurn(in *codexInput) {
 		params["effort"] = in.effort
 	}
 	s.turnReqID = s.p.call("turn/start", params)
+}
+
+// codexUserInput is the prompt as turn/start input: the text, then each
+// image as a localImage item with its path.
+func codexUserInput(p Prompt) []map[string]any {
+	input := []map[string]any{{"type": "text", "text": p.Text}}
+	for _, img := range p.Images {
+		input = append(input, map[string]any{"type": "localImage", "path": img.Path})
+	}
+	return input
 }
 
 // Interrupt implements Session.

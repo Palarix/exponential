@@ -125,7 +125,7 @@ export default function AgentView() {
   }
 
   const empty = isEmptyThread(thread);
-  const sendText = (text: string) => send(text, { view: "Agent" });
+  const sendText = (text: string, files?: File[]) => send(text, { view: "Agent" }, files);
   const composer = meta?.archived_at ? <ArchivedBanner chatId={meta.id} wide /> : (
     <ChatComposer
       wide

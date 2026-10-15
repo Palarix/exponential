@@ -53,9 +53,9 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
   // The chip is the context the next message carries; sending uses it up.
   const issueId = pendingIssueFor(chatId);
   const issueTitle = issues.find((i) => i.id === issueId)?.title;
-  const sendText = (text: string) => {
+  const sendText = (text: string, files?: File[]) => {
     consumeContext(chatId);
-    return send(text, issueId ? { view: context.view, issue_id: issueId, issue_title: issueTitle } : { view: context.view });
+    return send(text, issueId ? { view: context.view, issue_id: issueId, issue_title: issueTitle } : { view: context.view }, files);
   };
   const empty = isEmptyThread(thread);
 

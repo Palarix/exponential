@@ -4,6 +4,7 @@ import { ApiError } from "../../api/client";
 import { cancelChat, createChat, sendChatMessage, stopBackground, type ChatContext } from "../../api/chat";
 import { useToast } from "../ui";
 import { agentQueryKeys, useAgentChat } from "./agent-context";
+import { toSendAttachment } from "./attachment-utils";
 import { backgroundBanner, isRunning } from "./chat-thread-utils";
 import type { BackgroundBannerInfo } from "./ChatComposer";
 import { useChatThread } from "./useChatThread";
@@ -31,7 +32,7 @@ export function useChatSession(chatId: string | null, onCreated: (id: string) =>
   const qc = useQueryClient();
   const showToast = useToast();
 
-  const send = async (text: string, context: ChatContext): Promise<boolean> => {
+  const send = async (text: string, context: ChatContext, files: File[] = []): Promise<boolean> => {
     try {
       const prefs = prefsFor(chatId);
       let id = chatId;
@@ -39,7 +40,8 @@ export function useChatSession(chatId: string | null, onCreated: (id: string) =>
         id = (await createChat()).id;
         onCreated(id);
       }
-      await sendChatMessage(id, { text, context, provider: prefs.provider, model: prefs.model, effort: prefs.effort });
+      const attachments = await Promise.all(files.map(toSendAttachment));
+      await sendChatMessage(id, { text, context, provider: prefs.provider, model: prefs.model, effort: prefs.effort, ...(attachments.length ? { attachments } : {}) });
       qc.invalidateQueries({ queryKey: agentQueryKeys.chats });
       return true;
     } catch (err) {

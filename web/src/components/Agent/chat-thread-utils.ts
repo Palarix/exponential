@@ -1,5 +1,5 @@
 import type { ShortcutBinding } from "../../keyboard";
-import type { ApprovalOutcome, BackgroundTask, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
+import type { ApprovalOutcome, BackgroundTask, ChatAttachment, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
 
 /** An approval or question card on a tool step. No decision means it waits for the user. */
 export interface StepApproval {
@@ -24,7 +24,7 @@ export interface ToolStep {
 export type ChatStep = { kind: "text"; text: string; live: boolean } | ToolStep;
 
 export interface ChatTurn {
-  user: { text: string; context?: ChatContext; time: string };
+  user: { text: string; context?: ChatContext; time: string; attachments?: ChatAttachment[] };
   /** The board started this turn after an approved start, with no user message. */
   continued?: boolean;
   /** The agent started this turn on its own; user.text says what woke it. */
@@ -116,7 +116,7 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
   if (e.type === "background_tasks") return { ...state, background: e.tasks ?? [] };
   if (e.type === "user_message" || e.type === "turn_continued" || e.type === "agent_turn") {
     const turn: ChatTurn = {
-      user: { text: e.text ?? "", context: e.context, time: e.time },
+      user: { text: e.text ?? "", context: e.context, time: e.time, ...(e.attachments?.length ? { attachments: e.attachments } : {}) },
       steps: [],
       status: "running",
       thinking: false,

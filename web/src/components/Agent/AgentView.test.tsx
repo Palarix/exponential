@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { ChatMeta } from "../../api/chat";
 import { AppNavContext, type AppNav } from "../../app/contexts";
 import { renderMarkup } from "../../render-markup";
@@ -19,12 +20,15 @@ function render(chatId: string | null, history: AppNav["chatHistory"] = null): s
     draftFor: () => undefined,
   } as unknown as AgentChat;
   const nav = { view: "agent", chatId, chatHistory: history } as unknown as AppNav;
+  // The app wraps everything in a tooltip provider (main.tsx).
   return renderMarkup(
-    <AppNavContext.Provider value={nav}>
-      <AgentChatContext.Provider value={agent}>
-        <AgentView />
-      </AgentChatContext.Provider>
-    </AppNavContext.Provider>,
+    <TooltipPrimitive.Provider>
+      <AppNavContext.Provider value={nav}>
+        <AgentChatContext.Provider value={agent}>
+          <AgentView />
+        </AgentChatContext.Provider>
+      </AppNavContext.Provider>
+    </TooltipPrimitive.Provider>,
   );
 }
 

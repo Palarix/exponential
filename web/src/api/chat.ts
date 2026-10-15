@@ -36,6 +36,8 @@ export interface ChatEvent {
   /** user_message, assistant_text, text_delta; title: the generated title. */
   text?: string;
   context?: ChatContext;
+  /** user_message: the files the user attached. */
+  attachments?: ChatAttachment[];
   name?: string;
   arg?: string;
   /** tool_start, tool_call; missing in chats saved before tool results. */
@@ -152,12 +154,28 @@ export interface AgentStatus {
   providers: ProviderStatus[];
 }
 
+/** A sent attachment, as the user_message event records it. */
+export interface ChatAttachment {
+  id: string;
+  name?: string;
+  mime: string;
+  size: number;
+}
+
+/** A file to attach to a message; data is base64. */
+export interface SendAttachment {
+  name: string;
+  mime: string;
+  data: string;
+}
+
 export interface SendChatMessage {
   text: string;
   context?: ChatContext;
   provider: string;
   model: string;
   effort: string;
+  attachments?: SendAttachment[];
 }
 
 export function fetchAgentStatus(): Promise<AgentStatus> {

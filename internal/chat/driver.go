@@ -44,11 +44,23 @@ type agentExited struct{ reason error }
 func (e agentExited) Error() string        { return e.reason.Error() }
 func (e agentExited) Is(target error) bool { return target == errAgentExited }
 
+// Prompt is one turn's input.
+type Prompt struct {
+	Text   string
+	Images []PromptImage
+}
+
+// PromptImage is an image the agent gets as image input, not only as a path.
+type PromptImage struct {
+	Path string // absolute
+	MIME string // one of imageTypes
+}
+
 // Session is a running agent.
 type Session interface {
 	// Send starts a turn with prompt. A model or effort that differs from
 	// the session's current one is switched in place first.
-	Send(prompt, model, effort string) error
+	Send(prompt Prompt, model, effort string) error
 	// Interrupt asks the agent to stop the running turn. Background tasks
 	// keep running.
 	Interrupt()

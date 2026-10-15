@@ -77,15 +77,15 @@ func TestClaudeArgs_GrantsFollowTheAllowList(t *testing.T) {
 
 func TestBuildPrompt(t *testing.T) {
 	chat := ChatProfile("/repo", true)
-	if got, want := buildPrompt("hi", nil, chat), "<xpo-context>\nmode: chat\n</xpo-context>\n\nhi"; got != want {
+	if got, want := buildPrompt("hi", nil, chat, nil), "<xpo-context>\nmode: chat\n</xpo-context>\n\nhi"; got != want {
 		t.Errorf("no context: %q", got)
 	}
-	got := buildPrompt("fix this", &Context{View: "board", IssueID: "xpo-1", IssueTitle: "Login <times> out"}, chat)
+	got := buildPrompt("fix this", &Context{View: "board", IssueID: "xpo-1", IssueTitle: "Login <times> out"}, chat, nil)
 	want := "<xpo-context>\nmode: chat\nview: board\nopen issue: xpo-1 \"Login <times> out\"\n</xpo-context>\n\nfix this"
 	if got != want {
 		t.Errorf("got %q\nwant %q", got, want)
 	}
-	got = buildPrompt("go", nil, WorkProfile("xpo-1", "/wt", "/repo"))
+	got = buildPrompt("go", nil, WorkProfile("xpo-1", "/wt", "/repo"), nil)
 	if want := "<xpo-context>\nmode: work on xpo-1\nworktree: /wt\n</xpo-context>\n\ngo"; got != want {
 		t.Errorf("work: %q", got)
 	}

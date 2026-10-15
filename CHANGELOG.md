@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: attach files and images to a message by pasting, dropping, or the paperclip button next to Send. Pending attachments show as removable chips above the input, and a message can have attachments and no text. Up to 10 per message, images up to 5 MB, other files up to 10 MB.
+  - **Agents:** PNG, JPEG, GIF and WebP go in as images: image blocks for Claude, `localImage` for Codex. Every attachment is also listed with its absolute path in the prompt, so the agent can read text files and PDFs with its own tools. Image types are detected from the file's content, not the type the browser reports.
+  - **Storage:** files are saved with the chat in `.xpo/chats/<id>/attachments/` and deleted with it. The `user_message` event records them as `attachments`.
+  - **Transcript:** image thumbnails open the full image; other files download. `GET /api/local/chats/{id}/attachments/{aid}` serves only real images as images, and everything else as a download. (xpo-c1d423)
+
 - Agent chat: chat lists update live in every open browser. The board sends a `chat_changed` SSE event on `/api/events` when a chat is created, renamed, archived, unarchived or deleted, when a turn starts or ends, when its usage changes, and when an approval or question card opens or closes. It sends at most one per chat per 500ms, and the last change always arrives. The browser refetches the chat list on these events and whenever the stream (re)connects, and no longer polls it. In remote mode the board serves `/api/events` itself: it relays the remote server's stream and adds its own chat events. (xpo-ae6385)
 
 - Agent chat: the Agent view shows a turn rail on the thread's left edge, one bar per user message, lined up with the chat title. Hovering magnifies the bars and shows the message; clicking a bar scrolls to it. Bars of messages on screen are highlighted. The chat popup has no rail. (xpo-0e4df5)

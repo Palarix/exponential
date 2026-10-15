@@ -107,9 +107,17 @@ func mcpConfig(t MCPTarget) ([]byte, error) {
 	return json.Marshal(map[string]any{"mcpServers": map[string]any{"xpo": server}})
 }
 
+// promptFile is an attachment as the prompt lists it.
+type promptFile struct {
+	Name  string
+	Path  string // absolute
+	Image bool   // also sent as image input
+}
+
 // buildPrompt prefixes the user's text with the turn's mode and what they
-// had open in the UI.
-func buildPrompt(text string, c *Context, p Profile) string {
+// had open in the UI, and lists the attachments with their paths after it,
+// so the agent can read them with its own tools.
+func buildPrompt(text string, c *Context, p Profile, files []promptFile) string {
 	var b strings.Builder
 	b.WriteString("<xpo-context>\n")
 	for _, line := range p.contextLines() {
@@ -126,5 +134,20 @@ func buildPrompt(text string, c *Context, p Profile) string {
 	}
 	b.WriteString("</xpo-context>\n\n")
 	b.WriteString(text)
+	if len(files) == 0 {
+		return b.String()
+	}
+	if text != "" {
+		b.WriteString("\n\n")
+	}
+	b.WriteString("<attachments>\n")
+	for _, f := range files {
+		kind := ""
+		if f.Image {
+			kind = " (image, attached)"
+		}
+		fmt.Fprintf(&b, "- %s%s: %s\n", f.Name, kind, f.Path)
+	}
+	b.WriteString("</attachments>")
 	return b.String()
 }

@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { Bot, ChevronRight, Copy, Check, Lightbulb } from "lucide-react";
+import { Bot, ChevronRight, Copy, Check, FileText, Lightbulb } from "lucide-react";
+import type { ChatAttachment } from "../../api/chat";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
 import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
+import { attachmentUrl, formatSize, isAgentImage } from "./attachment-utils";
 import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
 import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
@@ -233,6 +235,29 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** A message's attachments: image thumbnails that open the full image, and file chips that download. */
+function MessageAttachments({ chatId, attachments }: { chatId: string; attachments: ChatAttachment[] }) {
+  return (
+    <div data-message-attachments className="self-end flex flex-wrap justify-end gap-1.5 max-w-[85%]">
+      {attachments.map((a) => {
+        const url = attachmentUrl(chatId, a.id);
+        const name = a.name || "attachment";
+        return isAgentImage(a.mime) ? (
+          <a key={a.id} href={url} target="_blank" rel="noreferrer" title={name} className="block rounded-[var(--radius-md)] overflow-hidden border border-[var(--color-border-ai-subtle)] hover:border-[var(--color-border-ai)] transition-colors">
+            <img src={url} alt={name} className="block h-20 max-w-48 object-cover" />
+          </a>
+        ) : (
+          <a key={a.id} href={url} download={name} title={name} className="flex items-center gap-1.5 max-w-56 px-2 py-1.5 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-2)] border border-[var(--color-border-ai-subtle)] hover:border-[var(--color-border-ai)] text-xs transition-colors">
+            <FileText className="w-3.5 h-3.5 shrink-0 text-[var(--color-text-muted)]" aria-hidden />
+            <span className="truncate text-[var(--color-text-primary)]">{name}</span>
+            <span className="shrink-0 text-[var(--color-text-muted)]">{formatSize(a.size)}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 function Turn({
   index,
   turn,
@@ -276,7 +301,10 @@ function Turn({
           <span className="truncate">{turn.user.text || "The agent continued on its own"}</span>
         </div>
       )}
-      {!turn.continued && !turn.byAgent && (
+      {!turn.continued && !turn.byAgent && chatId && turn.user.attachments && (
+        <MessageAttachments chatId={chatId} attachments={turn.user.attachments} />
+      )}
+      {!turn.continued && !turn.byAgent && (turn.user.text || !turn.user.attachments) && (
         <div data-user-message className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
           <IssueRefText text={turn.user.text} />
         </div>

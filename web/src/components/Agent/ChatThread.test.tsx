@@ -320,3 +320,34 @@ describe("ChatThread turn rail", () => {
     expect(render(<ChatThread thread={one} wide />)).not.toContain('aria-label="Turns"');
   });
 });
+
+describe("ChatThread attachments", () => {
+  const withFiles = thread([
+    {
+      type: "user_message",
+      seq: 1,
+      text: "",
+      attachments: [
+        { id: "img-1", name: "shot.png", mime: "image/png", size: 2048 },
+        { id: "doc-1", name: "notes.txt", mime: "text/plain", size: 900 },
+      ],
+    },
+  ]);
+
+  it("keeps a message's attachments on its turn", () => {
+    expect(withFiles.turns[0].user.attachments?.map((a) => a.id)).toEqual(["img-1", "doc-1"]);
+  });
+
+  it("shows images as thumbnails that open the full image, and other files as downloads", () => {
+    const html = render(<ChatThread thread={withFiles} chatId="c1" />);
+    expect(html).toContain('src="/api/local/chats/c1/attachments/img-1"');
+    expect(html).toMatch(/<a[^>]*href="\/api\/local\/chats\/c1\/attachments\/img-1"[^>]*target="_blank"/);
+    expect(html).toMatch(/<a[^>]*href="\/api\/local\/chats\/c1\/attachments\/doc-1"[^>]*download="notes.txt"/);
+    expect(html).toContain("900 B");
+  });
+
+  it("shows no empty bubble for a message with only attachments", () => {
+    const html = render(<ChatThread thread={withFiles} chatId="c1" />);
+    expect(html).not.toContain("data-user-message");
+  });
+});

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -43,6 +44,7 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/local/chats/{id}", s.handleRenameChat)
 	mux.HandleFunc("DELETE /api/local/chats/{id}", s.handleDeleteChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/messages", s.handleSendChatMessage)
+	mux.HandleFunc("GET /api/local/chats/{id}/attachments/{attachment}", s.handleGetChatAttachment)
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/background/stop", s.handleStopBackground)
 	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
@@ -154,7 +156,20 @@ type sendChatRequest struct {
 	Provider string        `json:"provider"` // empty means the default provider
 	Model    string        `json:"model"`
 	Effort   string        `json:"effort"`
+
+	Attachments []sendChatAttachment `json:"attachments"`
 }
+
+// sendChatAttachment is a pasted or dropped file; Data is base64 in JSON.
+type sendChatAttachment struct {
+	Name string `json:"name"`
+	MIME string `json:"mime"`
+	Data []byte `json:"data"`
+}
+
+// maxSendBody caps a message request: every attachment at the file limit,
+// base64-encoded, plus room for the text.
+const maxSendBody = chat.MaxAttachments*chat.MaxFileBytes*4/3 + 1<<20
 
 func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 	if st := s.Chat.Catalog.Status(); !st.Available {
@@ -162,13 +177,17 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req sendChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxSendBody)).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if strings.TrimSpace(req.Text) == "" {
+	if strings.TrimSpace(req.Text) == "" && len(req.Attachments) == 0 {
 		respondError(w, http.StatusBadRequest, "text is required")
 		return
+	}
+	attachments := make([]chat.AttachmentData, len(req.Attachments))
+	for i, a := range req.Attachments {
+		attachments[i] = chat.AttachmentData{Name: a.Name, MIME: a.MIME, Data: a.Data}
 	}
 	provider, err := s.Chat.Catalog.Resolve(req.Provider, req.Model, req.Effort)
 	if err != nil {
@@ -182,11 +201,37 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 		Provider: provider,
 		Model:    req.Model,
 		Effort:   req.Effort,
+
+		Attachments: attachments,
 	})
 	if s.respondChatError(w, err) {
 		return
 	}
 	respondJSON(w, http.StatusAccepted, map[string]bool{"ok": true})
+}
+
+// handleGetChatAttachment serves a saved attachment. Only the image types
+// the agents take are served as what they are; anything else downloads, so
+// a pasted HTML or SVG file never runs in the board's origin.
+func (s *Server) handleGetChatAttachment(w http.ResponseWriter, r *http.Request) {
+	path, a, err := s.Chat.Store.Attachment(r.PathValue("id"), r.PathValue("attachment"))
+	if s.respondChatError(w, err) {
+		return
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		respondError(w, http.StatusNotFound, "attachment not found")
+		return
+	}
+	defer f.Close()
+	h := w.Header()
+	h.Set("Content-Type", a.MIME)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Cache-Control", "private, max-age=31536000, immutable")
+	if !a.Image() {
+		h.Set("Content-Disposition", "attachment")
+	}
+	http.ServeContent(w, r, "", time.Time{}, f)
 }
 
 func (s *Server) handleCancelChat(w http.ResponseWriter, r *http.Request) {
@@ -450,7 +495,7 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		respondError(w, http.StatusNotFound, "chat not found")
 	case errors.Is(err, chat.ErrApprovalNotFound):
 		respondError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, chat.ErrEmptyTitle), errors.Is(err, chat.ErrBadDecision):
+	case errors.Is(err, chat.ErrEmptyTitle), errors.Is(err, chat.ErrBadDecision), errors.Is(err, chat.ErrAttachment):
 		respondError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, chat.ErrWorkUnavailable):
 		respondError(w, http.StatusNotImplemented, err.Error())

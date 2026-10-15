@@ -26,7 +26,7 @@ var ErrEmptyTitle = errors.New("title is required")
 const AutoArchiveAfter = 30 * 24 * time.Hour
 
 // Store keeps chats as <id>.json (meta) and <id>.jsonl (settled events) in
-// Dir. Chats are personal scratch, so files are private to the user.
+// Dir, and a chat's attachments in <id>/attachments/. Chats are personal scratch, so files are private to the user.
 type Store struct {
 	Dir string
 	// OnCreateDir runs once, after the store creates Dir. The board uses it
@@ -248,7 +248,7 @@ func (s *Store) Append(id string, events ...Event) ([]Event, error) {
 	return out, nil
 }
 
-// Delete removes a chat's meta and event log.
+// Delete removes a chat's meta, event log and attachments.
 func (s *Store) Delete(id string) error {
 	if _, err := s.Meta(id); err != nil {
 		return err
@@ -257,6 +257,9 @@ func (s *Store) Delete(id string) error {
 	defer s.mu.Unlock()
 	delete(s.lastSeq, id)
 	if err := os.Remove(s.eventsPath(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := os.RemoveAll(filepath.Join(s.Dir, id)); err != nil {
 		return err
 	}
 	if err := os.Remove(s.metaPath(id)); err != nil {

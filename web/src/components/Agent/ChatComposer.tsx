@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { ArrowUp, Square, X } from "lucide-react";
+import { ArrowUp, FileText, Paperclip, Square, X } from "lucide-react";
 import type { AgentStatus, BackgroundTask } from "../../api/chat";
 import type { ChatPrefs } from "./agent-state-utils";
+import Tooltip from "../ui/Tooltip";
 import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
 import { composerEscapeBlurs } from "./chat-thread-utils";
+import { addAttachments, formatSize, isAgentImage } from "./attachment-utils";
+
+/** A file waiting in the composer. preview is an object URL for images. */
+export interface PendingAttachment {
+  key: string;
+  file: File;
+  preview?: string;
+}
 
 /** The banner for work the agent keeps running between turns. */
 export interface BackgroundBannerInfo {
@@ -34,7 +43,8 @@ interface ChatComposerProps {
   /** The chat has started: its session belongs to the picked provider. */
   providerLocked?: boolean;
   onPrefsChange(prefs: ChatPrefs): void;
-  onSend(text: string): Promise<boolean>;
+  /** Sends the message with its attachments; resolves false when it failed. */
+  onSend(text: string, files: File[]): Promise<boolean>;
   onStop(): void;
   /** The full-page variant: a centered column and a taller input. */
   wide?: boolean;
@@ -62,6 +72,37 @@ export function BackgroundTaskList({ tasks }: { tasks: BackgroundTask[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The composer's pending attachments: image thumbnails and file chips, each with a remove button. */
+export function ComposerAttachments({ items, onRemove }: { items: PendingAttachment[]; onRemove(key: string): void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 px-2 pt-2">
+      {items.map(({ key, file, preview }) => (
+        <div key={key} title={file.name} className="relative group flex items-center gap-1.5 max-w-56 h-10 pl-1 pr-6 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-3)] text-xs">
+          {preview ? (
+            <img src={preview} alt="" className="w-8 h-8 shrink-0 rounded-[var(--radius-sm)] object-cover" />
+          ) : (
+            <span className="w-8 h-8 shrink-0 flex items-center justify-center text-[var(--color-text-muted)]">
+              <FileText className="w-4 h-4" aria-hidden />
+            </span>
+          )}
+          <span className="min-w-0 flex flex-col leading-tight">
+            <span className="truncate text-[var(--color-text-primary)]">{file.name}</span>
+            <span className="text-[var(--color-text-muted)]">{formatSize(file.size)}</span>
+          </span>
+          <button
+            type="button"
+            aria-label={`Remove ${file.name}`}
+            onClick={() => onRemove(key)}
+            className="absolute top-1 right-1 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-3)]"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -120,6 +161,38 @@ export default function ChatComposer({
   const [text, setText] = useState(draft ?? "");
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attachError, setAttachError] = useState<string | undefined>();
+  const [dragging, setDragging] = useState(false);
+
+  // Thumbnails are object URLs: free them when they go away.
+  const previews = useRef(new Set<string>());
+  useEffect(() => {
+    const urls = previews.current;
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
+  const addFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    const { added, error } = addAttachments(attachments.map((a) => a.file), files);
+    setAttachError(error);
+    const items = added.map((file) => {
+      const preview = isAgentImage(file.type) ? URL.createObjectURL(file) : undefined;
+      if (preview) previews.current.add(preview);
+      return { key: crypto.randomUUID(), file, preview };
+    });
+    setAttachments((prev) => [...prev, ...items]);
+  };
+  const removeAttachments = (keys: Set<string>) => {
+    for (const a of attachments) {
+      if (keys.has(a.key) && a.preview) {
+        URL.revokeObjectURL(a.preview);
+        previews.current.delete(a.preview);
+      }
+    }
+    setAttachments((prev) => prev.filter((a) => !keys.has(a.key)));
+    setAttachError(undefined);
+  };
 
   useEffect(() => inputRef.current?.focus(), []);
   useEffect(() => {
@@ -146,13 +219,17 @@ export default function ChatComposer({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, [text]);
 
-  const canSend = !running && !sending && !disabled && text.trim() !== "";
+  const canSend = !running && !sending && !disabled && (text.trim() !== "" || attachments.length > 0);
   const send = async () => {
     if (!canSend) return;
     setSending(true);
-    const ok = await onSend(text.trim());
+    const sent = attachments;
+    const ok = await onSend(text.trim(), sent.map((a) => a.file));
     setSending(false);
-    if (ok) setText("");
+    if (ok) {
+      setText("");
+      removeAttachments(new Set(sent.map((a) => a.key)));
+    }
     inputRef.current?.focus();
   };
 
@@ -187,13 +264,43 @@ export default function ChatComposer({
           </button>
         </div>
       )}
-      <div className="rounded-[var(--radius-lg)] border border-[var(--color-border-ai)] bg-[var(--color-surface-ai-2)] focus-within:border-[var(--color-border-focus)] transition-colors">
+      <div
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes("Files")) return;
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (e.dataTransfer.files.length === 0) return;
+          e.preventDefault();
+          setDragging(false);
+          addFiles(Array.from(e.dataTransfer.files));
+          inputRef.current?.focus();
+        }}
+        className={`rounded-[var(--radius-lg)] border bg-[var(--color-surface-ai-2)] focus-within:border-[var(--color-border-focus)] transition-colors ${dragging ? "border-[var(--color-border-focus)]" : "border-[var(--color-border-ai)]"}`}
+      >
+        {attachments.length > 0 && <ComposerAttachments items={attachments} onRemove={(key) => removeAttachments(new Set([key]))} />}
+        {attachError && (
+          <p role="alert" className="px-3 pt-2 text-xs text-[var(--color-error)]">
+            {attachError}
+          </p>
+        )}
         <textarea
           ref={inputRef}
           rows={1}
           value={text}
           placeholder={placeholder}
           onChange={(e) => setText(e.target.value)}
+          onPaste={(e) => {
+            // Files on the clipboard become attachments; text pastes as text.
+            const files = Array.from(e.clipboardData.files);
+            if (files.length === 0) return;
+            e.preventDefault();
+            addFiles(files);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
@@ -215,12 +322,34 @@ export default function ChatComposer({
             onLeaveWork={onLeaveWork}
             onOpenIssue={onOpenIssue}
           />
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => {
+              addFiles(Array.from(e.target.files ?? []));
+              e.target.value = "";
+              inputRef.current?.focus();
+            }}
+          />
+          <Tooltip content="Attach files">
+            <button
+              type="button"
+              aria-label="Attach files"
+              onClick={() => fileRef.current?.click()}
+              disabled={disabled}
+              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)] disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
           {running ? (
             <button
               type="button"
               aria-label="Stop"
               onClick={onStop}
-              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-surface-ai-3)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-3)] transition-colors"
+              className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-surface-ai-3)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-3)] transition-colors"
             >
               <Square className="w-2.5 h-2.5 fill-current" />
             </button>
@@ -230,7 +359,7 @@ export default function ChatComposer({
               aria-label="Send"
               onClick={() => void send()}
               disabled={!canSend}
-              className="ml-auto w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-button-ai)] text-white hover:bg-[var(--color-button-ai-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-button-ai)] transition-colors"
+              className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-button-ai)] text-white hover:bg-[var(--color-button-ai-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-button-ai)] transition-colors"
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>

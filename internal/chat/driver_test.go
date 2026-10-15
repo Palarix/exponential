@@ -55,7 +55,7 @@ func runTurn(ctx context.Context, t *testing.T, d Driver, in SessionInput, promp
 		return nil, err
 	}
 	defer s.Close()
-	if err := s.Send(prompt, in.Model, in.Effort); err != nil {
+	if err := s.Send(Prompt{Text: prompt}, in.Model, in.Effort); err != nil {
 		return nil, err
 	}
 	select {

@@ -66,6 +66,8 @@ type Event struct {
 	Text    string   `json:"text,omitempty"`    // user_message, assistant_text, text_delta
 	Context *Context `json:"context,omitempty"` // user_message
 
+	Attachments []Attachment `json:"attachments,omitempty"` // user_message
+
 	Name   string `json:"name,omitempty"`    // tool_call, tool_start, approval_requested
 	Arg    string `json:"arg,omitempty"`     // tool_call, tool_start, approval_requested
 	ToolID string `json:"tool_id,omitempty"` // tool_call, tool_start, approval_requested; empty in chats saved before tool results

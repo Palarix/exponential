@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentStatus } from "../../api/chat";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { renderMarkup } from "../../render-markup";
-import ChatComposer, { BackgroundTaskList } from "./ChatComposer";
+import ChatComposer, { BackgroundTaskList, ComposerAttachments } from "./ChatComposer";
 import type { ChatPrefs } from "./agent-state-utils";
 
 const claude = {
@@ -166,5 +166,29 @@ describe("BackgroundTaskList", () => {
     expect(html).toContain("Start vite dev server");
     expect(html).toContain("Agent");
     expect(html.match(/<li/g)).toHaveLength(2);
+  });
+});
+
+describe("ChatComposer attachments", () => {
+  it("has a paperclip button that opens a file picker", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "medium" });
+    expect(html).toContain('aria-label="Attach files"');
+    expect(html).toMatch(/<input[^>]*type="file"[^>]*multiple/);
+  });
+
+  it("shows pending attachments as removable chips, images with a thumbnail", () => {
+    const html = renderMarkup(
+      <ComposerAttachments
+        items={[
+          { key: "1", file: new File(["x"], "shot.png", { type: "image/png" }), preview: "blob:shot" },
+          { key: "2", file: new File(["x"], "notes.txt", { type: "text/plain" }) },
+        ]}
+        onRemove={() => {}}
+      />,
+    );
+    expect(html).toContain('src="blob:shot"');
+    expect(html).toContain("notes.txt");
+    expect(html).toContain('aria-label="Remove shot.png"');
+    expect(html).toContain('aria-label="Remove notes.txt"');
   });
 });

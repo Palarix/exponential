@@ -72,6 +72,10 @@ type SendRequest struct {
 	Provider string // empty means the default provider
 	Model    string
 	Effort   string
+
+	// Attachments are files the user pasted or dropped. A message may have
+	// attachments and no text.
+	Attachments []AttachmentData
 }
 
 // Runner runs chat turns and fans their events out to subscribers. Each
@@ -162,6 +166,9 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	if meta.ArchivedAt != nil {
 		return ErrArchived
 	}
+	if err := ValidateAttachments(req.Attachments); err != nil {
+		return err
+	}
 	provider := req.Provider
 	if provider == "" {
 		provider = r.cfg.DefaultProvider
@@ -196,7 +203,20 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	notice := checkWorktree(&meta)
 	if meta.Title == "" {
 		meta.Title = TitleFrom(req.Text)
+		if meta.Title == "" && len(req.Attachments) > 0 {
+			meta.Title = TitleFrom(req.Attachments[0].Name)
+		}
 		meta.AutoTitle = true
+	}
+	attachments, err := r.cfg.Store.SaveAttachments(id, req.Attachments)
+	if err != nil {
+		r.finish(id, t)
+		return err
+	}
+	prompt, err := r.promptFiles(id, attachments)
+	if err != nil {
+		r.finish(id, t)
+		return err
 	}
 	if meta.Agent != provider {
 		meta.SessionID = "" // a session belongs to the agent that made it
@@ -218,14 +238,42 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		r.closeAsync(old)
 		r.settle(id, *notice)
 	}
-	r.settle(id, Event{Type: EventUserMessage, Text: req.Text, Context: req.Context})
+	r.settle(id, Event{Type: EventUserMessage, Text: req.Text, Context: req.Context, Attachments: attachments})
 
 	profile := r.profileFor(meta)
 	t.meta = meta
 	t.sessionID = meta.SessionID
 	t.modes = &modeTools{profile: profile}
-	go r.start(id, driver, profile, buildPrompt(req.Text, req.Context, profile), t)
+	prompt.Text = buildPrompt(req.Text, req.Context, profile, prompt.files)
+	go r.start(id, driver, profile, prompt.Prompt, t)
 	return nil
+}
+
+// turnPrompt is a Prompt with the files its text lists.
+type turnPrompt struct {
+	Prompt
+	files []promptFile
+}
+
+// promptFiles resolves a message's saved attachments: every one is listed
+// in the prompt, and images also go in as image input.
+func (r *Runner) promptFiles(id string, list []Attachment) (turnPrompt, error) {
+	var p turnPrompt
+	paths, err := r.cfg.Store.attachmentPaths(id, list)
+	if err != nil {
+		return p, err
+	}
+	for i, a := range list {
+		name := a.Name
+		if name == "" {
+			name = "attachment"
+		}
+		p.files = append(p.files, promptFile{Name: name, Path: paths[i], Image: a.Image()})
+		if a.Image() {
+			p.Images = append(p.Images, PromptImage{Path: paths[i], MIME: a.MIME})
+		}
+	}
+	return p, nil
 }
 
 // newTurnLocked registers a turn for a chat. r.mu must be held.
@@ -248,7 +296,7 @@ func (r *Runner) model(m Meta) string {
 
 // start sends turn t's prompt to the chat's live session, and opens one
 // first when there is none.
-func (r *Runner) start(id string, driver Driver, profile Profile, prompt string, t *turn) {
+func (r *Runner) start(id string, driver Driver, profile Profile, prompt Prompt, t *turn) {
 	for attempt := 0; ; attempt++ {
 		if t.ctx.Err() != nil {
 			r.endTurn(id, t, nil, nil)
@@ -620,7 +668,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 		next.meta = m
 		next.sessionID = m.SessionID
 		next.modes = &modeTools{profile: p}
-		go r.start(id, r.cfg.Drivers[m.Agent], p, buildPrompt(continuePrompt(m.Work.IssueID), nil, p), next)
+		go r.start(id, r.cfg.Drivers[m.Agent], p, Prompt{Text: buildPrompt(continuePrompt(m.Work.IssueID), nil, p, nil)}, next)
 	}
 }
 

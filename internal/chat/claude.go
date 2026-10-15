@@ -3,6 +3,7 @@ package chat
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -107,11 +108,15 @@ type claudeSession struct {
 func (s *claudeSession) PID() int { return s.p.pid() }
 
 // Send implements Session.
-func (s *claudeSession) Send(prompt, model, effort string) error {
+func (s *claudeSession) Send(prompt Prompt, model, effort string) error {
 	select {
 	case <-s.p.waited:
 		return agentExited{s.exitError()}
 	default:
+	}
+	msg, err := claudeUserMessage(prompt)
+	if err != nil {
+		return err
 	}
 	s.mu.Lock()
 	switchModel, switchEffort := model != s.model, effort != s.effort
@@ -140,7 +145,7 @@ func (s *claudeSession) Send(prompt, model, effort string) error {
 		s.beginTurn()
 	}
 	s.mu.Unlock()
-	s.p.stdin.write(claudeUserMessage(prompt))
+	s.p.stdin.write(msg)
 	return nil
 }
 
@@ -430,13 +435,28 @@ func removeString(list []string, s string) []string {
 	return out
 }
 
-// claudeUserMessage is the prompt as a stream-json user message.
-func claudeUserMessage(prompt string) []byte {
-	data, _ := json.Marshal(map[string]any{
+// claudeUserMessage is the prompt as a stream-json user message. Images go
+// in as base64 image blocks before the text.
+func claudeUserMessage(prompt Prompt) ([]byte, error) {
+	var content any = prompt.Text
+	if len(prompt.Images) > 0 {
+		blocks := make([]map[string]any, 0, len(prompt.Images)+1)
+		for _, img := range prompt.Images {
+			data, err := os.ReadFile(img.Path)
+			if err != nil {
+				return nil, err
+			}
+			blocks = append(blocks, map[string]any{
+				"type":   "image",
+				"source": map[string]string{"type": "base64", "media_type": img.MIME, "data": base64.StdEncoding.EncodeToString(data)},
+			})
+		}
+		content = append(blocks, map[string]any{"type": "text", "text": prompt.Text})
+	}
+	return json.Marshal(map[string]any{
 		"type":    "user",
-		"message": map[string]string{"role": "user", "content": prompt},
+		"message": map[string]any{"role": "user", "content": content},
 	})
-	return data
 }
 
 // claudeControlLine is a control_request from xpo to Claude Code.
