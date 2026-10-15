@@ -115,11 +115,12 @@ func TestClaudePermissionResponse_Answer(t *testing.T) {
 	}
 }
 
-func TestClaudePermissionResponse_SkipQuestion(t *testing.T) {
+func TestClaudePermissionResponse_ChatAboutQuestion(t *testing.T) {
 	cr := parseControlRequest(t, claudeQuestionRequest)
 	resp := decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionDeny}))
-	if resp["behavior"] != "deny" || resp["message"] != "The user skipped the questions without answering." {
-		t.Errorf("skip = %v", resp)
+	want := "The user wants to talk about these questions in the chat instead of answering them. End your turn and wait for their message."
+	if resp["behavior"] != "deny" || resp["message"] != want {
+		t.Errorf("chat about this = %v", resp)
 	}
 	resp = decodeResponse(t, claudePermissionResponse(cr, Verdict{Decision: DecisionCancelled}))
 	if resp["message"] != "The user cancelled the turn." {
@@ -179,7 +180,7 @@ func TestRunner_QuestionAnswer(t *testing.T) {
 	}
 }
 
-func TestRunner_QuestionSkip(t *testing.T) {
+func TestRunner_QuestionChatAboutThis(t *testing.T) {
 	r, store, dir := newApprovalRunner(t, claudeQuestionRequest)
 	m, _ := store.Create()
 	ch, unsubscribe := r.Subscribe(m.ID)
@@ -192,7 +193,7 @@ func TestRunner_QuestionSkip(t *testing.T) {
 	}
 	waitDone(t, r)
 
-	if resps := recordedResponses(t, dir); len(resps) != 1 || resps[0]["behavior"] != "deny" || !strings.Contains(resps[0]["message"].(string), "skipped") {
+	if resps := recordedResponses(t, dir); len(resps) != 1 || resps[0]["behavior"] != "deny" || !strings.Contains(resps[0]["message"].(string), "talk about these questions") {
 		t.Errorf("responses = %v", resps)
 	}
 	_, events, _ := store.Get(m.ID)

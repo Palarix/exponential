@@ -416,9 +416,9 @@ const APPROVAL_OUTCOMES: Record<NonNullable<StepApproval["decision"]>, string> =
   expired: "Expired",
 };
 
-/** How an approval card ended, in words. A question card the user denied was skipped. */
+/** How an approval card ended, in words. A question card the user denied went to "Chat about this". */
 export function approvalOutcomeLabel(decision: NonNullable<StepApproval["decision"]>, question = false): string {
-  return question && decision === "deny" ? "Skipped" : APPROVAL_OUTCOMES[decision];
+  return question && decision === "deny" ? "Chat instead" : APPROVAL_OUTCOMES[decision];
 }
 
 /** The step is an AskUserQuestion call: its card asks questions, not for approval. */
@@ -509,14 +509,90 @@ export function questionAnswers(questions: Question[], picks: QuestionPick[]): R
   if (questions.length === 0) return null;
   const answers: Record<string, string> = {};
   for (const [i, q] of questions.entries()) {
-    const p = picks[i];
-    const labels = q.options.map((o) => o.label).filter((l) => p?.picked.includes(l));
-    const other = p?.other?.trim();
-    const answer = [...labels, ...(other ? [other] : [])].join(", ");
+    const answer = questionAnswerText(q, picks[i]);
     if (!answer) return null;
     answers[q.question] = answer;
   }
   return answers;
+}
+
+/** One question's answer: the picked labels in option order, then the free text. Empty without an answer. */
+export function questionAnswerText(q: Question, p: QuestionPick | undefined): string {
+  const labels = q.options.map((o) => o.label).filter((l) => p?.picked.includes(l));
+  const other = p?.other?.trim();
+  return [...labels, ...(other ? [other] : [])].join(", ");
+}
+
+export function questionAnswered(q: Question, p: QuestionPick | undefined): boolean {
+  return questionAnswerText(q, p) !== "";
+}
+
+/** A question's tab: its header, or Q and its number. */
+export function questionTabLabel(q: Question, i: number): string {
+  return q.header || `Q${i + 1}`;
+}
+
+/**
+ * The card's steps are its questions, then a review step. The review step's
+ * index, or null: a single question has no review step.
+ */
+export function reviewStep(questions: Question[]): number | null {
+  return questions.length > 1 ? questions.length : null;
+}
+
+/** The index of the card's last step: the review step, or the only question. */
+function lastStep(questions: Question[]): number {
+  return reviewStep(questions) ?? questions.length - 1;
+}
+
+export type QuestionMove = { kind: "send" } | { kind: "go"; index: number };
+
+/** Which way the question card last moved between steps. Null until the first move. */
+export type StepDirection = "forward" | "back" | null;
+
+/**
+ * The class that slides a new step in from its direction: from the right
+ * going forward, from the left going back. None under reduced motion.
+ */
+export function stepInClass(direction: StepDirection): string {
+  if (direction === "forward") return "motion-safe:animate-step-in-forward";
+  if (direction === "back") return "motion-safe:animate-step-in-back";
+  return "";
+}
+
+/**
+ * What the primary button (or Enter) does on step `current`: Next moves to
+ * the next step, and from the last question to review. On the last step it
+ * sends once every question has an answer, and else moves to the first
+ * question without one.
+ */
+export function questionAdvance(questions: Question[], picks: QuestionPick[], current: number): QuestionMove {
+  if (current < lastStep(questions)) return { kind: "go", index: current + 1 };
+  if (questionAnswers(questions, picks)) return { kind: "send" };
+  const open = questions.findIndex((q, i) => !questionAnswered(q, picks[i]));
+  return { kind: "go", index: Math.max(open, 0) };
+}
+
+/**
+ * Where a pick on question `current` moves to on its own: the next step,
+ * after a single-select option. A single question stays, so nothing sends
+ * on its own.
+ */
+export function autoAdvanceTo(questions: Question[], current: number): number | null {
+  const q = questions[current];
+  if (!q || q.multiSelect || current >= lastStep(questions)) return null;
+  return current + 1;
+}
+
+/** The card's keys: ←/→ move between steps, 1–9 pick an option of the current question. */
+export function questionKeyAction(key: string, questions: Question[], current: number): QuestionMove | { kind: "pick"; label: string } | null {
+  if (key === "ArrowLeft") return current > 0 ? { kind: "go", index: current - 1 } : null;
+  if (key === "ArrowRight") return current < lastStep(questions) ? { kind: "go", index: current + 1 } : null;
+  if (/^[1-9]$/.test(key)) {
+    const option = questions[current]?.options[Number(key) - 1];
+    return option ? { kind: "pick", label: option.label } : null;
+  }
+  return null;
 }
 
 /** What a call that has not run would do: "Merge upe-1", "Edit main.go". Unknown tools read "Use <tool>". */

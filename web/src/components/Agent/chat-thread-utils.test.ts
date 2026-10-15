@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { approvalArgs, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAnswers, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { approvalArgs, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -709,7 +709,7 @@ describe("question cards", () => {
     const step = (decision?: "answer" | "deny"): ToolStep => ({ kind: "tool", id: "t1", name: "AskUserQuestion", arg: "Which color?", done: true, status: decision === "deny" ? "denied" : "done", approval: { id: "a1", decision } });
     expect(stepSummary(step("answer"))).toEqual({ text: "Asked", detail: "Which color?" });
     expect(stepSummary(step("deny"))).toEqual({ text: "Ask", detail: "Which color?" });
-    expect(approvalOutcomeLabel("deny", true)).toBe("Skipped");
+    expect(approvalOutcomeLabel("deny", true)).toBe("Chat instead");
     expect(approvalOutcomeLabel("answer", true)).toBe("Answered");
     expect(approvalOutcomeLabel("deny")).toBe("Denied");
     expect(failedSteps(reduce([...asked, ev({ type: "approval_resolved", seq: 3, approval_id: "a1", decision: "deny" }), ev({ type: "tool_call", seq: 4, name: "AskUserQuestion", tool_id: "t1", status: "denied" })]).turns[0])).toEqual([]);
@@ -790,5 +790,103 @@ describe("question picks", () => {
     expect(questionAnswers(open, picks)).toBeNull();
     picks = setOtherText(picks, 0, "Because");
     expect(questionAnswers(open, picks)).toEqual({ "Why?": "Because" });
+  });
+
+  it("says whether one question has an answer", () => {
+    let picks = emptyPicks(qs);
+    expect(questionAnswered(qs[0], picks[0])).toBe(false);
+    picks = pickOption(picks, qs, 0, "Red");
+    expect(questionAnswered(qs[0], picks[0])).toBe(true);
+    picks = toggleOther(picks, qs, 1);
+    picks = setOtherText(picks, 1, "   ");
+    expect(questionAnswered(qs[1], picks[1])).toBe(false);
+    picks = setOtherText(picks, 1, "a parrot");
+    expect(questionAnswered(qs[1], picks[1])).toBe(true);
+    picks = setOtherText(picks, 1, "");
+    picks = pickOption(picks, qs, 1, "Cat");
+    expect(questionAnswered(qs[1], picks[1])).toBe(true);
+  });
+});
+
+describe("question navigation", () => {
+  const three = parseQuestions(
+    JSON.stringify({
+      questions: [
+        { question: "Which color?", header: "Color", options: [{ label: "Red" }, { label: "Blue" }] },
+        { question: "Which pets?", header: "", options: [{ label: "Cat" }], multiSelect: true },
+        { question: "Why?", header: "Reason" },
+      ],
+    }),
+  );
+
+  it("labels a tab with the header, or Q and the number", () => {
+    expect(questionTabLabel(three[0], 0)).toBe("Color");
+    expect(questionTabLabel(three[1], 1)).toBe("Q2");
+  });
+
+  const one = parseQuestions('{"questions":[{"question":"A?","options":[{"label":"x"}]}]}');
+
+  it("has a review step after the questions, only with 2 or more questions", () => {
+    expect(reviewStep(three)).toBe(3);
+    expect(reviewStep(one)).toBeNull();
+    expect(reviewStep([])).toBeNull();
+  });
+
+  it("moves Next to the next question, whether or not it has an answer, and from the last one to review", () => {
+    const picks = emptyPicks(three);
+    expect(questionAdvance(three, picks, 0)).toEqual({ kind: "go", index: 1 });
+    expect(questionAdvance(three, picks, 1)).toEqual({ kind: "go", index: 2 });
+    expect(questionAdvance(three, picks, 2)).toEqual({ kind: "go", index: 3 });
+  });
+
+  it("sends only from the review step, once every question has an answer", () => {
+    let picks = pickOption(emptyPicks(three), three, 0, "Red");
+    picks = pickOption(picks, three, 1, "Cat");
+    picks = setOtherText(picks, 2, "Because");
+    expect(questionAdvance(three, picks, 3)).toEqual({ kind: "send" });
+    expect(questionAdvance(three, picks, 2)).toEqual({ kind: "go", index: 3 });
+    expect(questionAdvance(three, picks, 0)).toEqual({ kind: "go", index: 1 });
+  });
+
+  it("moves from the review step to the first question without an answer", () => {
+    let picks = pickOption(emptyPicks(three), three, 0, "Red");
+    picks = setOtherText(picks, 2, "Because");
+    expect(questionAdvance(three, picks, 3)).toEqual({ kind: "go", index: 1 });
+  });
+
+  it("sends a single question straight away, once it has an answer", () => {
+    expect(questionAdvance(one, emptyPicks(one), 0)).toEqual({ kind: "go", index: 0 });
+    expect(questionAdvance(one, pickOption(emptyPicks(one), one, 0, "x"), 0)).toEqual({ kind: "send" });
+  });
+
+  it("auto-advances after a single-select option, from the last question to review", () => {
+    expect(autoAdvanceTo(three, 0)).toBe(1);
+    expect(autoAdvanceTo(three, 1)).toBeNull(); // multi-select
+    const singles = parseQuestions('{"questions":[{"question":"A?","options":[{"label":"x"}]},{"question":"B?","options":[{"label":"y"}]}]}');
+    expect(autoAdvanceTo(singles, 1)).toBe(2);
+    expect(autoAdvanceTo(one, 0)).toBeNull();
+  });
+
+  it("maps arrow and number keys to a step or an option", () => {
+    expect(questionKeyAction("ArrowRight", three, 0)).toEqual({ kind: "go", index: 1 });
+    expect(questionKeyAction("ArrowLeft", three, 1)).toEqual({ kind: "go", index: 0 });
+    expect(questionKeyAction("ArrowLeft", three, 0)).toBeNull();
+    expect(questionKeyAction("ArrowRight", three, 2)).toEqual({ kind: "go", index: 3 });
+    expect(questionKeyAction("ArrowRight", three, 3)).toBeNull();
+    expect(questionKeyAction("ArrowLeft", three, 3)).toEqual({ kind: "go", index: 2 });
+    expect(questionKeyAction("ArrowRight", one, 0)).toBeNull();
+    expect(questionKeyAction("2", three, 0)).toEqual({ kind: "pick", label: "Blue" });
+    expect(questionKeyAction("1", three, 3)).toBeNull(); // review
+    expect(questionKeyAction("3", three, 0)).toBeNull();
+    expect(questionKeyAction("0", three, 0)).toBeNull();
+    expect(questionKeyAction("x", three, 0)).toBeNull();
+  });
+
+  it("writes one question's answer, or nothing", () => {
+    let picks = pickOption(emptyPicks(three), three, 1, "Cat");
+    picks = toggleOther(picks, three, 1);
+    picks = setOtherText(picks, 1, " a parrot ");
+    expect(questionAnswerText(three[1], picks[1])).toBe("Cat, a parrot");
+    expect(questionAnswerText(three[0], picks[0])).toBe("");
   });
 });

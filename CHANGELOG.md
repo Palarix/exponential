@@ -136,6 +136,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: the question card asks one question at a time. (xpo-46afc0)
+  - **Tabs and review:** with several questions, tabs at the top list the questions (✓ when answered) and a Review tab at the far right. The review step shows each question with your answer, or "Not answered", and a "Change" button on hover. "Submit answers" sends from there. A single question has no tabs and no review step.
+  - **Footer:** "Chat about this" (left) replaces Skip, and Next (right) moves forward; there is no Previous. "Chat about this" now tells the agent to end its turn and wait for your message, and the thread reads "Chat instead".
+  - **Faster answers:** a single-choice pick moves on by itself after 250 ms. With focus in the card, ←/→ switch steps and 1–9 pick an option; each option shows its number. The "Other…" field sits inside its option.
+  - **Look and motion:** recessed tab and footer bands, raised option rows with an accent tint when picked, and short animations (the pick lands, the tab's ✓ pops, the next step slides in from its side). The animations are off under reduced motion.
+
 - Agent chat: on a DOING issue, Continue Work renders as a secondary button while a chat is in Work Mode on the issue, and stays primary otherwise. Clicking it works as before. (xpo-374792)
 
 - A `blocked_by` blocker now counts as resolved only when it is DONE. CANCELED and DUPLICATE blockers still block, until you remove the link or point it at another issue.

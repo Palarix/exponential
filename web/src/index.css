@@ -109,6 +109,7 @@
   --color-hover-surface-ai-1:  #202020; /* hover on ai-1 */
   --color-hover-surface-ai-2:  #272727; /* hover on ai-2 */
   --color-hover-surface-ai-3:  #2e2e2e; /* hover on ai-3 */
+  --color-surface-ai-selected: color-mix(in srgb, var(--color-accent-primary) 14%, transparent); /* picked option */
   --color-border-ai:         #333333; /* popup edge, cards, inputs  */
   --color-border-ai-subtle:  #242424; /* dividers within AI content */
   --color-button-ai:         var(--color-accent-primary);       /* primary buttons */
@@ -674,6 +675,57 @@ code .issue-ref,
 
 .animate-scale-in {
   animation: scale-in var(--duration-normal) ease-out;
+}
+
+/* A wizard step slides in from its direction: from the right going forward,
+   from the left going back. Used by the agent chat's question card. */
+@keyframes step-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes step-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Utilities, not plain classes, so they take Tailwind's motion-safe:
+   variant: a user with reduced motion gets no slide. */
+@utility animate-step-in-forward {
+  animation: step-in-forward var(--duration-normal) ease-out;
+}
+
+@utility animate-step-in-back {
+  animation: step-in-back var(--duration-normal) ease-out;
+}
+
+/* A mark that lands: a picked option's dot, an answered tab's check. The
+   curve overshoots a little. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@utility animate-pop-in {
+  animation: pop-in var(--duration-normal) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* A brighter band that sweeps across text, left to right: work in progress,

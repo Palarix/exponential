@@ -138,7 +138,9 @@ func claudePermissionResponse(cr claudeControlRequest, v Verdict) []byte {
 	default:
 		msg := "The user declined this tool call."
 		if cr.Request.ToolName == ToolAskUserQuestion {
-			msg = "The user skipped the questions without answering."
+			// "Chat about this": the user wants to talk, and cannot type
+			// while the turn runs.
+			msg = "The user wants to talk about these questions in the chat instead of answering them. End your turn and wait for their message."
 		}
 		resp = map[string]any{"behavior": "deny", "message": msg}
 	}
