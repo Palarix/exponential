@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { approvalArgs, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeApprovalId, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -466,6 +466,63 @@ describe("approvals", () => {
   });
 });
 
+describe("activeApprovalId", () => {
+  const step = (id: string, name = "Bash") => ({ kind: "tool" as const, id: `t-${id}`, name, arg: "", done: false, approval: { id } });
+
+  it("picks the oldest pending approval", () => {
+    expect(activeApprovalId([step("a1"), step("a2")], null)).toBe("a1");
+  });
+
+  it("picks the focused card over the oldest", () => {
+    expect(activeApprovalId([step("a1"), step("a2")], "a2")).toBe("a2");
+  });
+
+  it("ignores a focused ID that is no longer pending", () => {
+    expect(activeApprovalId([step("a2")], "a1")).toBe("a2");
+  });
+
+  it("skips question cards", () => {
+    expect(activeApprovalId([step("q1", "AskUserQuestion"), step("a2")], null)).toBe("a2");
+    expect(activeApprovalId([step("q1", "AskUserQuestion"), step("a2")], "q1")).toBe("a2");
+    expect(activeApprovalId([step("q1", "AskUserQuestion")], null)).toBeNull();
+  });
+
+  it("is null when nothing waits", () => {
+    expect(activeApprovalId([], null)).toBeNull();
+  });
+});
+
+describe("approvalKeyDecision", () => {
+  const key = (k: string, extra: Partial<Parameters<typeof approvalKeyDecision>[0]> = {}) =>
+    approvalKeyDecision({ key: k, onCard: true, composing: false, modified: false, ...extra });
+
+  it("allows once on Enter and denies on Esc, with focus on the card", () => {
+    expect(key("Enter")).toBe("allow");
+    expect(key("Escape")).toBe("deny");
+  });
+
+  it("leaves other keys, modified keys, IME input and focused buttons alone", () => {
+    expect(key("a")).toBeNull();
+    expect(key("Enter", { modified: true })).toBeNull();
+    expect(key("Enter", { composing: true })).toBeNull();
+    expect(key("Enter", { onCard: false })).toBeNull();
+    expect(key("Escape", { onCard: false })).toBeNull();
+  });
+});
+
+describe("cardsDone", () => {
+  it("hands focus on when the last card goes and focus fell to the page", () => {
+    expect(cardsDone(1, 0, true)).toBe(true);
+    expect(cardsDone(3, 0, true)).toBe(true);
+  });
+
+  it("does nothing while cards remain, before any card, or when focus went elsewhere", () => {
+    expect(cardsDone(2, 1, true)).toBe(false);
+    expect(cardsDone(0, 0, true)).toBe(false);
+    expect(cardsDone(1, 0, false)).toBe(false);
+  });
+});
+
 describe("approval labels", () => {
   it("names the tool as the user knows it", () => {
     expect(toolLabel("mcp__xpo__merge")).toBe("xpo merge");
@@ -530,14 +587,16 @@ describe("stepSummary", () => {
 });
 
 describe("approvalArgs", () => {
-  it("shows a shell command as code", () => {
-    expect(approvalArgs("Bash", '{"command":"rm -rf build","description":"Clean the build"}', "Clean the build")).toEqual({ command: "rm -rf build", fields: [] });
+  it("shows a shell command as code, with its other arguments", () => {
+    expect(approvalArgs("Bash", '{"command":"rm -rf build","description":"Clean the build"}')).toEqual({ command: "rm -rf build", fields: [] });
+    expect(approvalArgs("Bash", '{"command":"make","description":"Build","timeout":60000}')).toEqual({ command: "make", fields: [["timeout", "60000"]] });
   });
 
-  it("lists only the arguments the headline does not show", () => {
-    expect(approvalArgs("mcp__xpo__merge", '{"id":"upe-1"}', "upe-1")).toEqual({ fields: [] });
-    expect(approvalArgs("mcp__xpo__update", '{"id":"upe-1","status":"DONE","priority":2,"labels":["bug","ui"]}', "upe-1")).toEqual({
+  it("lists every argument, including the one the headline shows", () => {
+    expect(approvalArgs("mcp__xpo__start", '{"id":"upe-1","force":true}')).toEqual({ fields: [["id", "upe-1"], ["force", "true"]] });
+    expect(approvalArgs("mcp__xpo__update", '{"id":"upe-1","status":"DONE","priority":2,"labels":["bug","ui"]}')).toEqual({
       fields: [
+        ["id", "upe-1"],
         ["status", "DONE"],
         ["priority", "2"],
         ["labels", "bug, ui"],
@@ -546,9 +605,9 @@ describe("approvalArgs", () => {
   });
 
   it("drops empty values and survives input that is not JSON", () => {
-    expect(approvalArgs("Edit", '{"file_path":"/r/a.go","old_string":"","replace_all":false}', "/r/a.go")).toEqual({ fields: [["replace_all", "false"]] });
-    expect(approvalArgs("Edit", "not json", "x")).toEqual({ fields: [] });
-    expect(approvalArgs("Edit", undefined, "x")).toEqual({ fields: [] });
+    expect(approvalArgs("Edit", '{"file_path":"/r/a.go","old_string":"","replace_all":false}')).toEqual({ fields: [["file_path", "/r/a.go"], ["replace_all", "false"]] });
+    expect(approvalArgs("Edit", "not json")).toEqual({ fields: [] });
+    expect(approvalArgs("Edit", undefined)).toEqual({ fields: [] });
   });
 });
 

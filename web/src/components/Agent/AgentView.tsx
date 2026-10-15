@@ -90,6 +90,8 @@ export default function AgentView() {
   const { projectName } = useConfig();
   const { thread, missing, running, send, stop, expireApproval, background } = useChatSession(chatId, (id) => openChatView(id));
   const meta = agent.chats.find((c) => c.id === chatId);
+  // Bumped when the last approval card is answered, to hand focus back to the composer.
+  const [composerFocus, setComposerFocus] = useState(0);
   useMarkSeen(meta);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
 
@@ -113,6 +115,7 @@ export default function AgentView() {
 
   const empty = isEmptyThread(thread);
   const sendText = (text: string) => send(text, { view: "Agent" });
+  const focusComposer = () => setComposerFocus((n) => n + 1);
   const composer = (
     <ChatComposer
       wide
@@ -131,6 +134,7 @@ export default function AgentView() {
       onOpenIssue={onOpenIssue}
       draft={agent.draftFor(chatId)}
       onDraftUsed={() => chatId && agent.clearDraft(chatId)}
+      focusSignal={composerFocus}
     />
   );
 
@@ -185,7 +189,7 @@ export default function AgentView() {
         </div>
       ) : (
         <>
-          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} cacheExpiresAt={meta?.cache_expires_at} />
+          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={focusComposer} cacheExpiresAt={meta?.cache_expires_at} />
           {composer}
         </>
       )}

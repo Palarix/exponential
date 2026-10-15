@@ -23,6 +23,8 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
   const ref = useRef<HTMLDivElement>(null);
   const [storage] = useState(safeLocalStorage);
   const [size, setSize] = useState(() => loadPopupSize(storage));
+  // Bumped when the last approval card is answered, to hand focus back to the composer.
+  const [composerFocus, setComposerFocus] = useState(0);
 
   // Position after every render, and on resize: pills come and go, and their
   // widths change with titles. Writing the style directly avoids a re-render.
@@ -117,7 +119,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
           </div>
         </div>
       ) : (
-        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} cacheExpiresAt={meta?.cache_expires_at} />
+        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={() => setComposerFocus((n) => n + 1)} cacheExpiresAt={meta?.cache_expires_at} />
       )}
 
       <ChatComposer
@@ -138,6 +140,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         onOpenIssue={onOpenIssue}
         draft={draftFor(chatId)}
         onDraftUsed={() => chatId && clearDraft(chatId)}
+        focusSignal={composerFocus}
       />
     </div>
   );

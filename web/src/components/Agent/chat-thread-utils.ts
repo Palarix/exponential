@@ -426,6 +426,27 @@ export function isQuestion(step: ToolStep): boolean {
   return step.name === "AskUserQuestion";
 }
 
+/** The approval card that takes focus: the focused card, else the oldest. Question cards never count. */
+export function activeApprovalId(pending: (ToolStep & { approval: StepApproval })[], focusedId: string | null): string | null {
+  const approvals = pending.filter((s) => !isQuestion(s));
+  return (approvals.find((s) => s.approval.id === focusedId) ?? approvals[0])?.approval.id ?? null;
+}
+
+/**
+ * The decision a key makes on an approval card, as in a form: Enter allows
+ * once and Esc denies. Only with focus on the card itself, so a focused
+ * button keeps its own Enter.
+ */
+export function approvalKeyDecision(e: { key: string; onCard: boolean; composing: boolean; modified: boolean }): "allow" | "deny" | null {
+  if (!e.onCard || e.composing || e.modified) return null;
+  return e.key === "Enter" ? "allow" : e.key === "Escape" ? "deny" : null;
+}
+
+/** The last open card went away while it held focus, so focus fell to the page. */
+export function cardsDone(before: number, after: number, focusOnPage: boolean): boolean {
+  return before > 0 && after === 0 && focusOnPage;
+}
+
 export interface QuestionOption {
   label: string;
   description: string;
@@ -637,10 +658,10 @@ function argText(v: unknown): string {
 }
 
 /**
- * What an approval card shows besides its headline: the command of a shell
- * call, and the arguments the headline does not already show.
+ * The call an approval card shows under its headline: the command of a shell
+ * call, and every other non-empty argument.
  */
-export function approvalArgs(name: string, input: string | undefined, detail: string): { command?: string; fields: [string, string][] } {
+export function approvalArgs(name: string, input: string | undefined): { command?: string; fields: [string, string][] } {
   let args: Record<string, unknown>;
   try {
     const parsed: unknown = JSON.parse(input ?? "");
@@ -654,7 +675,6 @@ export function approvalArgs(name: string, input: string | undefined, detail: st
   for (const [key, value] of Object.entries(args)) {
     if (shell && (key === "command" || key === "description")) continue;
     if (value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) continue;
-    if (value === detail) continue;
     fields.push([key, argText(value)]);
   }
   return shell ? { command: args.command as string, fields } : { fields };

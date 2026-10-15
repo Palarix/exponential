@@ -136,6 +136,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: approval cards are reworked. (xpo-aaf8b1)
+  - **Layout:** the headline, the call's arguments, then the buttons. A call without arguments fits on one row.
+  - **Arguments:** every argument shows as key/value rows in a monospace panel, so values like `force true` no longer read as part of the headline.
+  - **Tool name:** "via" matches the headline's size, and the tool name sits in a code chip.
+  - **Buttons:** `[Deny] [Allow once ▾]`. "Allow for this chat" moved into the chevron's menu.
+  - **Keyboard:** the waiting card takes focus, with the composer's focus border. Enter allows once and Esc denies. Focus moves to the next card, then back to the composer. The card never takes focus from a text field you are typing in.
+
+- Buttons look the same on any surface. (xpo-aaf8b1)
+  - `secondary` is a wash of its own text color for rest, hover and pressed, with an optional `bordered` outline and a `tone` (`danger`, `warning`) for colored text.
+  - `ghost` uses the same wash on hover.
+  - `primary` darkens when pressed.
+  - `danger` rests a little darker and hovers a little lighter than its base color, and darkens when pressed.
+  - A new `warning` variant works the same way, with dark text.
+
 - Agent chat: the question card asks one question at a time. (xpo-46afc0)
   - **Tabs and review:** with several questions, tabs at the top list the questions (✓ when answered) and a Review tab at the far right. The review step shows each question with your answer, or "Not answered", and a "Change" button on hover. "Submit answers" sends from there. A single question has no tabs and no review step.
   - **Footer:** "Chat about this" (left) replaces Skip, and Next (right) moves forward; there is no Previous. "Chat about this" now tells the agent to end its turn and wait for your message, and the thread reads "Chat instead".

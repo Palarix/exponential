@@ -1,10 +1,15 @@
 import { forwardRef, type ReactNode, type ButtonHTMLAttributes } from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning';
+type ButtonTone = 'neutral' | 'danger' | 'warning';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /** Colors the text of a secondary or ghost button; its tint follows the text. */
+  tone?: ButtonTone;
+  /** Adds a border in the text color's tint, so it reads on any surface. */
+  bordered?: boolean;
   size?: ButtonSize;
   children: ReactNode;
   loading?: boolean;
@@ -12,10 +17,28 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] text-white',
-  secondary: 'bg-[var(--color-surface-2)] hover:bg-[var(--color-hover-surface-2)] text-[var(--color-text-primary)] border border-[var(--color-border-default)]',
-  ghost: 'bg-transparent hover:bg-[var(--color-hover-surface-2)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-  danger: 'bg-[var(--color-error)] hover:opacity-90 text-white',
+  primary: 'bg-[var(--color-accent-primary)] hover:bg-[var(--color-accent-primary-hover)] active:bg-[var(--color-accent-primary-active)] text-white',
+  // A wash of the text color: it lifts off whatever surface the button sits on.
+  secondary: 'bg-[var(--color-tint-rest)] hover:bg-[var(--color-tint-hover)] active:bg-[var(--color-tint-active)]',
+  // No fill at rest; on hover it takes secondary's resting wash, so it never outweighs secondary.
+  ghost: 'bg-transparent hover:bg-[var(--color-tint-rest)] active:bg-[var(--color-tint-hover)]',
+  // Solid status buttons rest a little below their base color and hover a little above it.
+  danger: 'bg-[var(--color-error-solid)] hover:bg-[var(--color-error-solid-hover)] active:bg-[var(--color-error-solid-active)] text-white',
+  warning: 'bg-[var(--color-warning-solid)] hover:bg-[var(--color-warning-solid-hover)] active:bg-[var(--color-warning-solid-active)] text-[var(--color-text-on-warning)]',
+};
+
+// The text color of the tinted variants; the tint is a wash of it.
+const toneStyles: Record<'secondary' | 'ghost', Record<ButtonTone, string>> = {
+  secondary: {
+    neutral: 'text-[var(--color-text-primary)]',
+    danger: 'text-[var(--color-error)]',
+    warning: 'text-[var(--color-warning)]',
+  },
+  ghost: {
+    neutral: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+    danger: 'text-[var(--color-error)]',
+    warning: 'text-[var(--color-warning)]',
+  },
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -27,6 +50,8 @@ const sizeStyles: Record<ButtonSize, string> = {
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   function Button({
     variant = 'primary',
+    tone = 'neutral',
+    bordered = false,
     size = 'md',
     children,
     loading = false,
@@ -46,6 +71,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           focus-visible:ring-[var(--color-border-focus)]
           disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
           ${variantStyles[variant]}
+          ${variant === 'secondary' || variant === 'ghost' ? toneStyles[variant][tone] : ''}
+          ${bordered ? 'border border-[var(--color-tint-border)]' : ''}
           ${sizeStyles[size]}
           ${className}
         `.trim().replace(/\s+/g, ' ')}

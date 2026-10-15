@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { Bot, ChevronRight, Copy, Check, Lightbulb } from "lucide-react";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
@@ -7,7 +7,7 @@ import { IssueRefText } from "../IssueRef/IssueRef";
 import ApprovalCard from "./ApprovalCard";
 import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
-import { approvalOutcomeLabel, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { activeApprovalId, approvalOutcomeLabel, cardsDone, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -233,7 +233,17 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: string | null; onApprovalExpired?: (id: string) => void }) {
+function Turn({
+  turn,
+  chatId,
+  onApprovalExpired,
+  onCardsDone,
+}: {
+  turn: ChatTurn;
+  chatId?: string | null;
+  onApprovalExpired?: (id: string) => void;
+  onCardsDone?: () => void;
+}) {
   const running = turn.status === "running";
   const now = useNow(running);
   const seconds = turnSeconds(turn, now);
@@ -241,6 +251,15 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
   const last = segments[segments.length - 1];
   // Open cards show under the active group.
   const pending = chatId ? pendingApprovals(turn) : [];
+  const [focusedApproval, setFocusedApproval] = useState<string | null>(null);
+  const active = activeApprovalId(pending, focusedApproval);
+  // The last card went away with focus in it: focus fell to the page, so hand it on.
+  const pendingCount = useRef(pending.length);
+  useEffect(() => {
+    const before = pendingCount.current;
+    pendingCount.current = pending.length;
+    if (cardsDone(before, pending.length, !document.activeElement || document.activeElement === document.body)) onCardsDone?.();
+  }, [pending.length, onCardsDone]);
   const waiting = pending.length === 0 ? null : pending.some(isQuestion) ? "answer" : "approval";
   // Streaming narration is progress enough; otherwise the agent is thinking,
   // as it is right after the user answers a question.
@@ -277,7 +296,14 @@ function Turn({ turn, chatId, onApprovalExpired }: { turn: ChatTurn; chatId?: st
           isQuestion(step) ? (
             <QuestionCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />
           ) : (
-            <ApprovalCard key={step.approval.id} chatId={chatId} step={step} onExpired={onApprovalExpired} />
+            <ApprovalCard
+              key={step.approval.id}
+              chatId={chatId}
+              step={step}
+              active={step.approval.id === active}
+              onExpired={onApprovalExpired}
+              onFocusChange={(focused) => setFocusedApproval((id) => (focused ? step.approval.id : id === step.approval.id ? null : id))}
+            />
           ),
         )}
 
@@ -351,12 +377,15 @@ export default function ChatThread({
   wide,
   chatId,
   onApprovalExpired,
+  onCardsDone,
   cacheExpiresAt,
 }: {
   thread: Thread;
   wide?: boolean;
   chatId?: string | null;
   onApprovalExpired?: (id: string) => void;
+  /** Runs when the last open card is answered and focus has nowhere to go. */
+  onCardsDone?: () => void;
   /** When the prompt cache of the last finished turn expires. */
   cacheExpiresAt?: string;
 }) {
@@ -379,7 +408,7 @@ export default function ChatThread({
         {thread.turns.map((turn, i) => (
           <Fragment key={i}>
             {thread.dividers.filter((d) => d.at === i).map((d, j) => <Divider key={`d${j}`} text={modeDividerText(d)} />)}
-            <Turn turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} />
+            <Turn turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} onCardsDone={onCardsDone} />
           </Fragment>
         ))}
         {thread.dividers.filter((d) => d.at >= thread.turns.length).map((d, j) => <Divider key={`end${j}`} text={modeDividerText(d)} />)}

@@ -114,6 +114,7 @@
   --color-border-ai-subtle:  #242424; /* dividers within AI content */
   --color-button-ai:         var(--color-accent-primary);       /* primary buttons */
   --color-button-ai-hover:   var(--color-accent-primary-hover); /* hover on them   */
+  --color-button-ai-active:  var(--color-accent-primary-active); /* pressed     */
 
   /* Diff gutter — opaque approximations of add/del tints over --color-surface */
   --color-diff-gutter-add: #0f1a0f;
@@ -127,16 +128,33 @@
   /* Accent — muted indigo */
   --color-accent-primary: #5e6ad2;
   --color-accent-primary-hover: #6c75db;
+  --color-accent-primary-active: color-mix(in srgb, var(--color-accent-primary) 88%, black);
 
   /* Semantic */
   --color-success: #4cb782;
   --color-success-bg: rgba(76, 183, 130, 0.12);
   --color-warning: #f2c94c;
   --color-warning-bg: rgba(242, 201, 76, 0.12);
+  --color-warning-solid:        color-mix(in srgb, var(--color-warning) 94%, black);
+  --color-warning-solid-hover:  color-mix(in srgb, var(--color-warning) 94%, white);
+  --color-warning-solid-active: color-mix(in srgb, var(--color-warning) 86%, black);
+  --color-text-on-warning:      #1a1a1a; /* white lacks contrast on yellow */
   --color-error: #eb5757;
   --color-error-bg: rgba(235, 87, 87, 0.12);
+  /* Solid danger and warning buttons rest a little below the base color and
+     hover a little above it; pressing takes them darker than rest. */
+  --color-error-solid:          color-mix(in srgb, var(--color-error) 94%, black);
+  --color-error-solid-hover:    color-mix(in srgb, var(--color-error) 94%, white);
+  --color-error-solid-active:   color-mix(in srgb, var(--color-error) 86%, black);
   --color-info: #4da6e8;
   --color-info-bg: rgba(77, 166, 232, 0.12);
+
+  /* Tinted controls: a wash of the control's own text color, so they lift off
+     any surface they sit on. Rest, hover, pressed, and an optional border. */
+  --color-tint-rest:   color-mix(in srgb, currentColor 8%, transparent);
+  --color-tint-hover:  color-mix(in srgb, currentColor 13%, transparent);
+  --color-tint-active: color-mix(in srgb, currentColor 18%, transparent);
+  --color-tint-border: color-mix(in srgb, currentColor 15%, transparent);
 
   /* Issue ID chips — tints of the accent */
   --color-issue-ref: color-mix(in srgb, var(--color-accent-primary) 45%, white);

@@ -44,6 +44,8 @@ interface ChatComposerProps {
   /** Text to put in the input, such as Start Work's first message. onDraftUsed runs once it is in. */
   draft?: string;
   onDraftUsed?(): void;
+  /** The input takes focus each time this changes, as when the last approval card is answered. */
+  focusSignal?: number;
 }
 
 /** The background tasks, one per line: what each one runs. */
@@ -109,12 +111,16 @@ export default function ChatComposer({
   onOpenIssue,
   draft,
   onDraftUsed,
+  focusSignal,
 }: ChatComposerProps) {
   const [text, setText] = useState(draft ?? "");
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => inputRef.current?.focus(), []);
+  useEffect(() => {
+    if (focusSignal) inputRef.current?.focus();
+  }, [focusSignal]);
 
   // A draft fills the input but sends nothing: the user can add to it first.
   const [shownDraft, setShownDraft] = useState(draft);
