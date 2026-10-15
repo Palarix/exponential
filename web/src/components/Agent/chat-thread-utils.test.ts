@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeCardId, changesChatMeta, approvalKeyDecision, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -506,6 +506,35 @@ describe("approvalKeyDecision", () => {
     expect(key("Enter", { composing: true })).toBeNull();
     expect(key("Enter", { onCard: false })).toBeNull();
     expect(key("Escape", { onCard: false })).toBeNull();
+  });
+});
+
+describe("composerEscapeBlurs", () => {
+  const esc = (extra: Partial<Parameters<typeof composerEscapeBlurs>[0]> = {}) =>
+    composerEscapeBlurs({ key: "Escape", enabled: true, composing: false, handled: false, ...extra });
+
+  it("blurs on Esc when the composer opts in", () => {
+    expect(esc()).toBe(true);
+  });
+
+  it("leaves other keys, IME input, handled events and the popup alone", () => {
+    expect(esc({ key: "Enter" })).toBe(false);
+    expect(esc({ composing: true })).toBe(false);
+    expect(esc({ handled: true })).toBe(false);
+    expect(esc({ enabled: false })).toBe(false);
+  });
+});
+
+describe("focusComposerShortcut", () => {
+  it("binds / outside text fields and lists it in the help", () => {
+    let ran = 0;
+    const s = focusComposerShortcut(() => ran++);
+    expect(s.key).toBe("/");
+    expect(s.label).toBe("Focus composer");
+    expect(s.allowInEditable).not.toBe(true);
+    expect(s.showInHelp).not.toBe(false);
+    s.run({} as KeyboardEvent);
+    expect(ran).toBe(1);
   });
 });
 

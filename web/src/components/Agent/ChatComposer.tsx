@@ -4,6 +4,7 @@ import { ArrowUp, Square, X } from "lucide-react";
 import type { AgentStatus, BackgroundTask } from "../../api/chat";
 import type { ChatPrefs } from "./agent-state-utils";
 import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
+import { composerEscapeBlurs } from "./chat-thread-utils";
 
 /** The banner for work the agent keeps running between turns. */
 export interface BackgroundBannerInfo {
@@ -46,6 +47,8 @@ interface ChatComposerProps {
   onDraftUsed?(): void;
   /** The input takes focus each time this changes, as when the last approval card is answered. */
   focusSignal?: number;
+  /** Esc gives up focus, keeping the draft. The popup leaves Esc to minimize instead. */
+  blurOnEscape?: boolean;
 }
 
 /** The background tasks, one per line: what each one runs. */
@@ -112,6 +115,7 @@ export default function ChatComposer({
   draft,
   onDraftUsed,
   focusSignal,
+  blurOnEscape,
 }: ChatComposerProps) {
   const [text, setText] = useState(draft ?? "");
   const [sending, setSending] = useState(false);
@@ -194,6 +198,8 @@ export default function ChatComposer({
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               void send();
+            } else if (composerEscapeBlurs({ key: e.key, enabled: !!blurOnEscape, composing: e.nativeEvent.isComposing, handled: e.defaultPrevented })) {
+              inputRef.current?.blur();
             }
           }}
           className={`block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none ${wide ? "min-h-16" : ""}`}

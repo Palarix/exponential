@@ -13,7 +13,8 @@ import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
 import { chatStateIcon, idleChatIcon, recentChatItems } from "./recent-chats";
-import { isEmptyThread } from "./chat-thread-utils";
+import { focusComposerShortcut, isEmptyThread } from "./chat-thread-utils";
+import { useKeyboardShortcuts } from "../../keyboard";
 import { useChatSession } from "./useChatSession";
 import { useMarkSeen } from "./useMarkSeen";
 import { useWorkMode } from "./useWorkMode";
@@ -97,6 +98,13 @@ export default function AgentView() {
   const [composerFocus, setComposerFocus] = useState(0);
   useMarkSeen(meta);
   const { work, onLeaveWork, onOpenIssue } = useWorkMode(meta);
+  const focusComposer = () => setComposerFocus((n) => n + 1);
+  const hasComposer = !!agent.status?.available && !missing && !chatHistory && !meta?.archived_at;
+  useKeyboardShortcuts({
+    scope: "agent-view",
+    enabled: hasComposer,
+    shortcuts: [focusComposerShortcut(focusComposer)],
+  });
 
   if (!agent.status) return null;
   if (!agent.status.available) {
@@ -118,10 +126,10 @@ export default function AgentView() {
 
   const empty = isEmptyThread(thread);
   const sendText = (text: string) => send(text, { view: "Agent" });
-  const focusComposer = () => setComposerFocus((n) => n + 1);
   const composer = meta?.archived_at ? <ArchivedBanner chatId={meta.id} wide /> : (
     <ChatComposer
       wide
+      blurOnEscape
       running={running}
       background={background}
       placeholder={empty ? "Ask a question, or describe what to build…" : "Reply…"}

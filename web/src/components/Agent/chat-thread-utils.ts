@@ -1,3 +1,4 @@
+import type { ShortcutBinding } from "../../keyboard";
 import type { ApprovalOutcome, BackgroundTask, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
 
 /** An approval or question card on a tool step. No decision means it waits for the user. */
@@ -452,6 +453,19 @@ export function typing(el: Element | null): boolean {
 export function approvalKeyDecision(e: { key: string; onCard: boolean; composing: boolean; modified: boolean }): "allow" | "deny" | null {
   if (!e.onCard || e.composing || e.modified) return null;
   return e.key === "Enter" ? "allow" : e.key === "Escape" ? "deny" : null;
+}
+
+/**
+ * Esc in the composer gives up focus, so global shortcuts work again. The
+ * draft stays. Not during IME input, and not when another handler took Esc.
+ */
+export function composerEscapeBlurs(e: { key: string; enabled: boolean; composing: boolean; handled: boolean }): boolean {
+  return e.enabled && e.key === "Escape" && !e.composing && !e.handled;
+}
+
+/** The way back into the composer after Esc: `/`, as for search fields. */
+export function focusComposerShortcut(run: () => void): ShortcutBinding {
+  return { id: "agent.focus-composer", key: "/", label: "Focus composer", group: "Agent", run };
 }
 
 /** The last open card went away while it held focus, so focus fell to the page. */

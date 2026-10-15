@@ -192,6 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent view: Esc in the composer takes focus out of it and keeps the draft, so global shortcuts such as `g → i` work again after `g → a`. `/` puts focus back in the composer and is listed in the `?` help. In the chat popup, Esc still minimizes. (xpo-de9f71)
+
 - Agent view: the new-chat landing page keeps a stable scrollbar gutter, so its content no longer shifts sideways when the recent-chats list overflows or when a thread opens. The All chats page drops a redundant `overflow-y-auto`. (xpo-127a26)
 
 - Agent chat: the question card takes focus when it appears, as approval cards do, so its keys work without a click. It never takes focus from a field you are typing in, and shows the focus border. Enter on the card presses its primary button: Next, or "Submit answers" on the review step. (xpo-9761dd)
