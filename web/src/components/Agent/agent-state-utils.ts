@@ -350,9 +350,9 @@ export const SUGGESTIONS = [
     prompt: "Help me file a bug. Ask me what's wrong, then create the issue.",
   },
   {
-    label: "What's blocking an epic?",
-    description: "Find blocked or stalled sub-issues across epics",
-    prompt: "Which open epics have blocked or stalled sub-issues, and what is blocking them?",
+    label: "Plan and build a feature",
+    description: "Shape an idea into a spec'd issue, then build it",
+    prompt: "I want to build something new. Ask me what it is, help me shape it into an issue with a spec, then offer to start work on it.",
   },
   {
     label: "Summarize my open issues",

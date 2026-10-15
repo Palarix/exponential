@@ -34,6 +34,19 @@ describe("AgentView", () => {
     expect(html).toMatch(/<button[^>]*aria-label="Dock chat"[^>]*><svg[^>]*lucide-dock/);
   });
 
+  it("greets with building, not just asking, on the new chat home", () => {
+    const html = render(null);
+    expect(html).toMatch(/<h1[^>]*>What should we build in this project\?<\/h1>/);
+    expect(html).toContain('placeholder="Ask a question, or describe what to build…"');
+    expect(html).not.toContain("What do you want to know");
+  });
+
+  it("offers a build card between the bug and summary suggestions", () => {
+    const labels = [...render(null).matchAll(/<span class="block text-sm font-medium[^"]*">([^<]*)<\/span>/g)].map((m) => m[1]);
+    expect(labels).toEqual(["File a bug", "Plan and build a feature", "Summarize my open issues"]);
+    expect(render(null)).toMatch(/lucide-hammer.*Plan and build a feature/s);
+  });
+
   it("offers no dock button on the new chat home", () => {
     expect(render(null)).not.toContain('aria-label="Dock chat"');
   });

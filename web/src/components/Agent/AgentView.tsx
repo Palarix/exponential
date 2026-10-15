@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { Bug, ChevronDown, Dock, History, ListChecks, MessageSquare, MousePointer2, SquarePen, Workflow } from "lucide-react";
+import { Bug, ChevronDown, Dock, Hammer, History, ListChecks, MessageSquare, MousePointer2, SquarePen } from "lucide-react";
 import type { ChatMeta } from "../../api/chat";
 import { useConfig } from "../../api/queries";
 import { formatRelativeTime } from "../../utils/format";
@@ -18,7 +18,7 @@ import { useChatSession } from "./useChatSession";
 import { useMarkSeen } from "./useMarkSeen";
 import { useWorkMode } from "./useWorkMode";
 
-const SUGGESTION_ICONS = [<Bug key="bug" size={16} />, <Workflow key="epic" size={16} />, <ListChecks key="list" size={16} />];
+const SUGGESTION_ICONS = [<Bug key="bug" size={16} />, <Hammer key="build" size={16} />, <ListChecks key="list" size={16} />];
 
 /** The header title: opens a menu with "New chat" and the recent chats. */
 function ChatSwitcher({ title }: { title: string }) {
@@ -124,7 +124,7 @@ export default function AgentView() {
       wide
       running={running}
       background={background}
-      placeholder={empty ? `Ask ${projectName || "xpo"} anything…` : "Reply…"}
+      placeholder={empty ? "Ask a question, or describe what to build…" : "Reply…"}
       onDismissContext={() => {}}
       status={agent.status}
       prefs={agent.prefsFor(chatId)}
@@ -181,7 +181,7 @@ export default function AgentView() {
       {empty && !chatId ? (
         <div data-landing-scroller className="flex-1 scroll-stable flex flex-col items-center justify-center gap-8 py-10">
           <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] px-4 text-center">
-            What do you want to know about {projectName || "this project"}?
+            What should we build in {projectName || "this project"}?
           </h1>
           {composer}
           {/* -mt-6 cancels the composer's bottom padding, so the gap matches the others. */}

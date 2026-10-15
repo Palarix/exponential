@@ -147,6 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent view: the new-chat page asks "What should we build in <project>?", and the composer placeholder reads "Ask a question, or describe what to build…". The "What's blocking an epic?" suggestion is replaced by "Plan and build a feature", which also shows in the chat popup. (xpo-296ea8)
+
 - Agent chat: approval cards for calls with details (a command or arguments) open collapsed, on one row with the Deny and Allow once buttons. A chevron in the title shows the state; clicking the title expands the details and clicking it again collapses them. Cards without details are unchanged. (xpo-8579fb)
 
 - Links in Markdown prose (chat transcript, descriptions, comments) use a new `--color-link` token, `#adbbff`, in place of the accent color. They have about 9–11:1 contrast instead of about 4:1. They have no underline at rest and underline on hover. Issue ID chips start with the issue's status icon, so they stand apart from plain links. (xpo-1d9d5d)
