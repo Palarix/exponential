@@ -4,7 +4,7 @@ import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
 import { activeChats } from "./chat-history-utils";
-import { addPill, adoptNewChatContext, chatListPollMs, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
+import { addPill, adoptNewChatContext, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadPrefs, normalizePrefs, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
 
 const isMac = navigator.platform.includes("Mac");
 
@@ -30,11 +30,8 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const chatsQuery = useQuery({
     queryKey: agentQueryKeys.chats,
     queryFn: fetchChats,
+    // No polling: chat_changed events on /api/events refetch it (App.tsx).
     enabled: !!status?.available,
-    // Pills and issue chat icons show running chats; poll while one runs.
-    refetchInterval: (q) => chatListPollMs(q.state.data),
-    // Keep polling in a hidden tab, so its title and favicon show approvals and replies.
-    refetchIntervalInBackground: true,
   });
   const allChats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);
   const chats = useMemo(() => activeChats(allChats), [allChats]);

@@ -280,3 +280,59 @@ func TestStore_MetaMigratesClaudeSessionID(t *testing.T) {
 		t.Fatalf("saved meta = %s", data)
 	}
 }
+
+// recordChanges collects the IDs OnChange reports.
+func recordChanges(s *Store) *[]string {
+	var ids []string
+	s.OnChange = func(id string) { ids = append(ids, id) }
+	return &ids
+}
+
+func TestStore_OnChangeOnMetaWritesAndDelete(t *testing.T) {
+	s := newTestStore(t)
+	ids := recordChanges(s)
+	m, _ := s.Create()
+	if _, err := s.Rename(m.ID, "renamed"); err != nil {
+		t.Fatal(err)
+	}
+	m, _ = s.Meta(m.ID)
+	m.State = StateRunning
+	if err := s.SaveMeta(m); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Delete(m.ID); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{m.ID, m.ID, m.ID, m.ID}
+	if strings.Join(*ids, ",") != strings.Join(want, ",") {
+		t.Fatalf("OnChange = %v, want %v", *ids, want)
+	}
+}
+
+func TestStore_OnChangeOnApprovalEventsOnly(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	ids := recordChanges(s)
+	if _, err := s.Append(m.ID, Event{Type: EventUserMessage}, Event{Type: EventAssistantText}, Event{Type: EventToolCall}); err != nil {
+		t.Fatal(err)
+	}
+	if len(*ids) != 0 {
+		t.Fatalf("OnChange on plain events: %v", *ids)
+	}
+	s.Append(m.ID, Event{Type: EventApprovalRequested})
+	s.Append(m.ID, Event{Type: EventApprovalResolved})
+	if len(*ids) != 2 || (*ids)[0] != m.ID || (*ids)[1] != m.ID {
+		t.Fatalf("OnChange = %v, want two calls for %s", *ids, m.ID)
+	}
+}
+
+func TestStore_NoOnChangeOnFailedDelete(t *testing.T) {
+	s := newTestStore(t)
+	ids := recordChanges(s)
+	if err := s.Delete("00000000-0000-0000-0000-000000000000"); err != ErrNotFound {
+		t.Fatalf("err = %v", err)
+	}
+	if len(*ids) != 0 {
+		t.Fatalf("OnChange = %v", *ids)
+	}
+}

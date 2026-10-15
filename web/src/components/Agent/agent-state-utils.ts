@@ -40,14 +40,6 @@ export function savePills(storage: Storage | null, pills: string[]): void {
   writeJSON(storage, PILLS_KEY, pills);
 }
 
-/**
- * How often to refetch the chat list: every 2s while any chat runs, so pills
- * and issue chat icons show its state; otherwise not at all.
- */
-export function chatListPollMs(chats: { state: string }[] | undefined): number | false {
-  return chats?.some((c) => c.state === "running") ? 2000 : false;
-}
-
 /** By chat ID, the chat's updated_at when the viewer last watched it. */
 export type SeenChats = Record<string, string>;
 

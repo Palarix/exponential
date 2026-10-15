@@ -32,6 +32,10 @@ type Store struct {
 	// OnCreateDir runs once, after the store creates Dir. The board uses it
 	// to gitignore .xpo/chats/.
 	OnCreateDir func()
+	// OnChange runs after a chat's list entry may have changed: its meta was
+	// written, it was deleted, or an approval card opened or closed. The
+	// board uses it to tell open browsers to refetch the chat list.
+	OnChange func(id string)
 
 	mu      sync.Mutex
 	lastSeq map[string]int
@@ -96,7 +100,17 @@ func (s *Store) writeMeta(m Meta) error {
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.metaPath(m.ID))
+	if err := os.Rename(tmp, s.metaPath(m.ID)); err != nil {
+		return err
+	}
+	s.changed(m.ID)
+	return nil
+}
+
+func (s *Store) changed(id string) {
+	if s.OnChange != nil {
+		s.OnChange(id)
+	}
 }
 
 // Meta returns a chat's meta.
@@ -224,6 +238,13 @@ func (s *Store) Append(id string, events ...Event) ([]Event, error) {
 		out[i] = e
 	}
 	s.lastSeq[id] = seq
+	// An approval card opening or closing flips the chat's live waiting flag.
+	for _, e := range out {
+		if e.Type == EventApprovalRequested || e.Type == EventApprovalResolved {
+			s.changed(id)
+			break
+		}
+	}
 	return out, nil
 }
 
@@ -238,7 +259,11 @@ func (s *Store) Delete(id string) error {
 	if err := os.Remove(s.eventsPath(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return os.Remove(s.metaPath(id))
+	if err := os.Remove(s.metaPath(id)); err != nil {
+		return err
+	}
+	s.changed(id)
+	return nil
 }
 
 // Rename sets a chat's title, cleaned up like a title from the first

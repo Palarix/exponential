@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -60,6 +61,34 @@ func (h *SSEHub) ClientCount() int {
 	return len(h.clients)
 }
 
+func setSSEHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+}
+
+// writeSSEEvent writes evt as one SSE event block.
+func writeSSEEvent(w io.Writer, evt SSEEvent) {
+	eventName := "issue_updated"
+	switch evt.Type {
+	case "CREATE":
+		eventName = "issue_created"
+	case "DELETE":
+		eventName = "issue_deleted"
+	case "MERGE":
+		eventName = "issue_merged"
+	case "COMMENT":
+		eventName = "issue_commented"
+	case "REFRESH":
+		eventName = "refresh"
+	case "draft_changed", "chat_changed":
+		eventName = evt.Type
+	}
+	fmt.Fprintf(w, "event: %s\ndata: {\"issue_id\":%q,\"type\":%q,\"timestamp\":%q}\n\n",
+		eventName, evt.IssueID, evt.Type, time.Now().UTC().Format(time.RFC3339))
+}
+
 func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 	if s.SSEHub == nil {
 		http.Error(w, "SSE not enabled", http.StatusServiceUnavailable)
@@ -72,10 +101,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
+	setSSEHeaders(w)
 	flusher.Flush()
 
 	ch := s.SSEHub.subscribe()
@@ -90,23 +116,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			eventName := "issue_updated"
-			switch evt.Type {
-			case "CREATE":
-				eventName = "issue_created"
-			case "DELETE":
-				eventName = "issue_deleted"
-			case "MERGE":
-				eventName = "issue_merged"
-			case "COMMENT":
-				eventName = "issue_commented"
-			case "REFRESH":
-				eventName = "refresh"
-			case "draft_changed":
-				eventName = "draft_changed"
-			}
-			fmt.Fprintf(w, "event: %s\ndata: {\"issue_id\":%q,\"type\":%q,\"timestamp\":%q}\n\n",
-				eventName, evt.IssueID, evt.Type, time.Now().UTC().Format(time.RFC3339))
+			writeSSEEvent(w, evt)
 			flusher.Flush()
 
 		case <-keepalive.C:

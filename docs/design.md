@@ -195,6 +195,8 @@ The web UI batches mutations in memory as "pending events" (`Server.pendingEvent
 
 Real-time updates are pushed to connected web clients via Server-Sent Events (`GET /api/events`). Handlers call `broadcastEvent(type, issueID)` after mutations. The SSE hub manages client channels with non-blocking sends (slow clients get dropped). A 30-second keepalive prevents connection timeouts.
 
+The board also sends `chat_changed` (chat ID in `issue_id`) whenever a chat's list entry may have changed: its meta is written, it is deleted, or an approval card opens or closes. It sends at most one per chat per 500ms, plus one at the end of the window so the last change always arrives. The browser refetches the chat list on `chat_changed` and whenever the stream (re)opens; the chat list is not polled. In remote mode the board answers `/api/events` itself, relaying the remote stream and adding its own chat events, because chats live on the local board.
+
 ### Proxy mode
 
 `xpo board --remote <url>` runs the web UI locally but reverse-proxies all `/api/*` and `/auth/*` requests to a remote server. This gives the full board experience while data lives on the server. SSE is disabled in proxy mode.

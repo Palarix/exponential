@@ -80,6 +80,7 @@ func runBoard(cmd *cobra.Command, args []string) error {
 	}
 
 	srv.Chat = newChatService()
+	srv.Chat.Store.OnChange = srv.ChatChanged
 	defer srv.Chat.Runner.Shutdown()
 	if srv.AccessToken != "" && srv.Chat.Catalog.Status().Available {
 		log.Printf("WARNING: agent chat is on — anyone with the access token can use this machine's agent logins (Claude Code, Codex) and read project code through the agent.")

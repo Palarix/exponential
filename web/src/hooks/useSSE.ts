@@ -1,43 +1,24 @@
 import { useEffect, useRef } from "react";
+import { connectEvents } from "./sse-utils";
 
 interface SSEOptions {
+  /** An issue event arrived. */
   onEvent: () => void;
+  /** A chat changed, or the stream (re)opened and may have missed changes. */
+  onChatEvent: () => void;
 }
 
-export function useSSE({ onEvent }: SSEOptions) {
+export function useSSE({ onEvent, onChatEvent }: SSEOptions) {
   const onEventRef = useRef(onEvent);
+  const onChatEventRef = useRef(onChatEvent);
   useEffect(() => {
     onEventRef.current = onEvent;
-  }, [onEvent]);
+    onChatEventRef.current = onChatEvent;
+  }, [onEvent, onChatEvent]);
 
-  useEffect(() => {
-    let es: EventSource | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
-
-    const connect = () => {
-      es = new EventSource("/api/events");
-
-      const handleEvent = () => onEventRef.current();
-      es.addEventListener("issue_created", handleEvent);
-      es.addEventListener("issue_updated", handleEvent);
-      es.addEventListener("issue_deleted", handleEvent);
-      es.addEventListener("issue_merged", handleEvent);
-      es.addEventListener("issue_commented", handleEvent);
-      es.addEventListener("refresh", handleEvent);
-      es.addEventListener("draft_changed", handleEvent);
-
-      es.onerror = () => {
-        es?.close();
-        es = null;
-        reconnectTimer = setTimeout(connect, 5000);
-      };
-    };
-
-    connect();
-
-    return () => {
-      clearTimeout(reconnectTimer);
-      es?.close();
-    };
-  }, []);
+  useEffect(() => connectEvents({
+    create: () => new EventSource("/api/events"),
+    onEvent: () => onEventRef.current(),
+    onChatEvent: () => onChatEventRef.current(),
+  }), []);
 }

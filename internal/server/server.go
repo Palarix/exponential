@@ -59,6 +59,21 @@ type Server struct {
 
 	// Agent chat — set by xpo board; nil disables the chat routes.
 	Chat *ChatService
+
+	chatEventsOnce sync.Once
+	chatEvents     *throttle
+}
+
+// chatEventWindow is the shortest gap between two chat_changed events for
+// one chat, so a streaming turn doesn't flood the browsers.
+const chatEventWindow = 500 * time.Millisecond
+
+// ChatChanged tells open browsers that a chat's list entry changed.
+func (s *Server) ChatChanged(id string) {
+	s.chatEventsOnce.Do(func() {
+		s.chatEvents = newThrottle(chatEventWindow, func(id string) { s.broadcastEvent("chat_changed", id) })
+	})
+	s.chatEvents.Trigger(id)
 }
 
 // requireCapability checks whether the request has the named capability.

@@ -51,6 +51,11 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	if s.SSEHub != nil && s.ProxyURL == "" {
 		handle("GET /api/events", s.handleSSE)
 	}
+	// Proxy mode: merge the remote stream with this board's own events
+	// (agent chats live here). More specific than the proxy's catch-all.
+	if s.SSEHub != nil && s.ProxyURL != "" && !s.Headless {
+		mux.HandleFunc("GET /api/events", s.handleSSERelay)
+	}
 
 	// Local-only routes: answered by this process in both local and proxy
 	// mode, because they describe the viewer's machine (e.g. worktree paths),

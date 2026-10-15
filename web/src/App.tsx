@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Layout from './components/Layout/Layout';
 import ViewRouter from './components/Layout/ViewRouter';
 import CommandPalette from './components/CommandPalette/CommandPalette';
@@ -7,6 +8,7 @@ import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import AgentChatProvider from './components/Agent/AgentChatProvider';
 import TabStatus from './components/Agent/TabStatus';
 import { chatContextFor } from './components/Agent/agent-state-utils';
+import { agentQueryKeys } from './components/Agent/agent-context';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
 import { useSSE } from './hooks/useSSE';
 import { useKeyboardShortcuts } from './keyboard';
@@ -59,7 +61,9 @@ function App() {
   const draftCount = useIssueDrafts().length;
   const showToast = useToast();
 
-  useSSE({ onEvent: useInvalidateOnServerEvent() });
+  const queryClient = useQueryClient();
+  const invalidateChats = useCallback(() => { queryClient.invalidateQueries({ queryKey: agentQueryKeys.chats }); }, [queryClient]);
+  useSSE({ onEvent: useInvalidateOnServerEvent(), onChatEvent: invalidateChats });
 
   const openIssue = useCallback((issueId: string) => {
     setIssueNavOrder(publishedOrderRef.current);
