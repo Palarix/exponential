@@ -28,13 +28,20 @@ export const PRIORITY_OPTIONS = [
   { value: 4, label: "Low" },
 ];
 
+/** Colors offered for custom labels: distinct from each other and from the built-in label colors. */
 export const LABEL_PRESET_COLORS = [
-  '#26b5b0',
-  '#e06091',
-  '#d4a030',
-  '#7ab030',
-  '#8891a5',
-  '#e07058',
+  '#e85d9c', // pink
+  '#a33a6e', // plum
+  '#f28c38', // orange
+  '#b4501f', // rust
+  '#e6c935', // yellow
+  '#86881a', // olive
+  '#a3c93a', // lime
+  '#3fb26b', // green
+  '#2e7a2c', // forest
+  '#1fb5b0', // teal
+  '#0e6a7c', // petrol
+  '#8a8f98', // gray
 ];
 
 

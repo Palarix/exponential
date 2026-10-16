@@ -156,6 +156,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Labels: creating a label in the label picker (`Create "…"`) applies it to the issue in one step, uncolored; the color step is gone. Colors are managed in the Labels view.
+  - **Labels view:** "Built-in labels" and "Custom labels" are separate sections. Clicking a custom label opens an Edit label dialog with the name, a 12-color palette, and a live preview of the label on its issues. Delete label sits in the dialog behind a confirmation. "N issues" on each row links to the filtered issue list.
+  - **Built-in labels** (`default_labels`) are read-only: the board and the API (400) refuse to rename, recolor, re-add or delete them, or to rename another label onto one.
+  - **Palette:** the 12 swatches avoid the built-in colors and are clearly different from each other.
+  - **Persistence:** coloring a label that was only used on issues now saves it to `config.yaml`, so the color survives a restart.
+  - **Dialogs:** the Edit label dialog and every confirm dialog share one frame (`DialogPanel`). (xpo-e35f16)
 - Deleting an issue: the context menu (click, Enter, ⌘⌫) and the issue sidebar open the same confirmation dialog. It replaces the two hand-built popovers. The dialog shows the issue in a card (status, ID and title). With sub-issues it offers Keep sub-issues (soft red) or Delete all (solid red). A toast confirms the delete: "Deleted <id>", or "Deleted <id> and its sub-issues". Every confirm dialog now has a footer bar with an "esc to cancel" hint and a secondary Cancel button. Red menu items such as Delete stay red on hover and keyboard focus. (xpo-33c92b)
 
 - Agent view: the new-chat page asks "What should we build in <project>?", and the composer placeholder reads "Ask a question, or describe what to build…". The "What's blocking an epic?" suggestion is replaced by "Plan and build a feature", which also shows in the chat popup. (xpo-296ea8)
@@ -203,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Menus: items that open a next step inside their menu keep it open. In the label picker, `Create "…"` shows the color step again and creates the label, where before it closed the picker and did nothing. In the issue context menu, Delete shows its confirmation; before, only ⌘⌫ / Ctrl⌫ did. `MenuItem` takes a new `keepOpen` prop for such items. (xpo-2790cd)
+- Menus: items that open a next step inside their menu keep it open. In the label picker, `Create "…"` creates the label again, where before it closed the picker and did nothing. In the issue context menu, Delete shows its confirmation; before, only ⌘⌫ / Ctrl⌫ did. `MenuItem` takes a new `keepOpen` prop for such items. (xpo-2790cd)
 
 - Agent view: Esc in the composer takes focus out of it and keeps the draft, so global shortcuts such as `g → i` work again after `g → a`. `/` puts focus back in the composer and is listed in the `?` help. In the chat popup, Esc still minimizes. (xpo-de9f71)
 

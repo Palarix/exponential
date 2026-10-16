@@ -551,6 +551,17 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 
 var hexColorRe = regexp.MustCompile(`^#?[0-9a-fA-F]{6}$`)
 
+// isDefaultLabel reports whether name is one of the project's built-in labels,
+// which the workflow uses to classify issues.
+func (s *Server) isDefaultLabel(name string) bool {
+	for _, d := range s.Config.DefaultLabels {
+		if strings.EqualFold(d, name) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name  string `json:"name"`
@@ -566,6 +577,10 @@ func (s *Server) handleAddLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	if !hexColorRe.MatchString(req.Color) {
 		respondError(w, http.StatusBadRequest, "color must be a 6-digit hex value (e.g. #FF5733 or FF5733)")
+		return
+	}
+	if s.isDefaultLabel(req.Name) {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("built-in label %q cannot be changed", req.Name))
 		return
 	}
 
@@ -598,6 +613,14 @@ func (s *Server) handleUpdateLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	if !hexColorRe.MatchString(req.Color) {
 		respondError(w, http.StatusBadRequest, "color must be a 6-digit hex value (e.g. #FF5733 or FF5733)")
+		return
+	}
+	if s.isDefaultLabel(req.OldName) {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("built-in label %q cannot be changed", req.OldName))
+		return
+	}
+	if s.isDefaultLabel(req.NewName) {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("label name %q is reserved for a built-in label", req.NewName))
 		return
 	}
 
@@ -649,6 +672,10 @@ func (s *Server) handleDeleteLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Name == "" {
 		respondError(w, http.StatusBadRequest, "name required")
+		return
+	}
+	if s.isDefaultLabel(req.Name) {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("built-in label %q cannot be deleted", req.Name))
 		return
 	}
 

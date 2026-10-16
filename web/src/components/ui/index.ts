@@ -11,6 +11,7 @@ export { default as Badge, LabelBadge, LabelIndicator, StatusBadge } from './Bad
 export { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from './BadgeContexts';
 export { default as Modal, ModalFooter } from './Modal';
 export { default as ConfirmDialog } from './ConfirmDialog';
+export { DialogOverlay, DialogPanel } from './Dialog';
 export { default as DeleteIssueDialog } from './DeleteIssueDialog';
 export { default as Progress, ProgressRing } from './Progress';
 export { default as StatusIcon } from './StatusIcon';

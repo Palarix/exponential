@@ -94,3 +94,43 @@ export function filterLabelsByName<T extends { name: string }>(
   if (!q) return labels;
   return labels.filter((l) => l.name.toLowerCase().includes(q));
 }
+
+/** Whether `name` is one of the project's built-in (default) labels. */
+export function isBuiltinLabel(
+  name: string,
+  defaultLabels: { name: string }[],
+): boolean {
+  const lk = name.toLowerCase();
+  return defaultLabels.some((d) => d.name.toLowerCase() === lk);
+}
+
+/**
+ * Splits labels into built-ins, in `defaultLabels` order, and custom labels,
+ * in their original order.
+ */
+export function partitionBuiltinLabels<T extends { name: string }>(
+  labels: T[],
+  defaultLabels: { name: string }[],
+): { builtin: T[]; custom: T[] } {
+  const rank = new Map(defaultLabels.map((d, i) => [d.name.toLowerCase(), i]));
+  const builtin: T[] = [];
+  const custom: T[] = [];
+  for (const l of labels) {
+    (rank.has(l.name.toLowerCase()) ? builtin : custom).push(l);
+  }
+  builtin.sort((a, b) => rank.get(a.name.toLowerCase())! - rank.get(b.name.toLowerCase())!);
+  return { builtin, custom };
+}
+
+/** The `limit` most recently updated issues carrying `label` (case-insensitive). */
+export function recentIssuesWithLabel<T extends { labels?: string[]; updated_at: string }>(
+  issues: T[],
+  label: string,
+  limit: number,
+): T[] {
+  const lk = label.toLowerCase();
+  return issues
+    .filter((i) => (i.labels || []).some((l) => l.toLowerCase() === lk))
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, limit);
+}

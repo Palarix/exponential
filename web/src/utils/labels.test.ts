@@ -8,6 +8,9 @@ import {
   splitLabels,
   contrastTextColor,
   filterLabelsByName,
+  isBuiltinLabel,
+  partitionBuiltinLabels,
+  recentIssuesWithLabel,
 } from "./labels";
 
 const CONFIG: Record<string, string> = {
@@ -173,5 +176,54 @@ describe("filterLabelsByName", () => {
 
   it("returns an empty list when nothing matches", () => {
     expect(filterLabelsByName(LABELS, "zzz")).toEqual([]);
+  });
+});
+
+describe("isBuiltinLabel", () => {
+  const defaults = [{ name: "Bug", color: "#f00" }, { name: "feature", color: "" }];
+
+  it("matches default labels case-insensitively", () => {
+    expect(isBuiltinLabel("bug", defaults)).toBe(true);
+    expect(isBuiltinLabel("FEATURE", defaults)).toBe(true);
+  });
+
+  it("rejects other labels", () => {
+    expect(isBuiltinLabel("ux", defaults)).toBe(false);
+    expect(isBuiltinLabel("bug", [])).toBe(false);
+  });
+});
+
+describe("partitionBuiltinLabels", () => {
+  const defaults = [{ name: "feature", color: "" }, { name: "Bug", color: "#f00" }];
+
+  it("orders built-ins by default_labels and keeps the custom order", () => {
+    const labels = [{ name: "api" }, { name: "bug" }, { name: "Feature" }, { name: "ux" }];
+    const { builtin, custom } = partitionBuiltinLabels(labels, defaults);
+    expect(builtin.map((l) => l.name)).toEqual(["Feature", "bug"]);
+    expect(custom.map((l) => l.name)).toEqual(["api", "ux"]);
+  });
+
+  it("puts everything in custom when there are no defaults", () => {
+    const { builtin, custom } = partitionBuiltinLabels([{ name: "bug" }], []);
+    expect(builtin).toEqual([]);
+    expect(custom).toEqual([{ name: "bug" }]);
+  });
+});
+
+describe("recentIssuesWithLabel", () => {
+  const issues = [
+    { id: "a", labels: ["UX"], updated_at: "2026-01-01T00:00:00Z" },
+    { id: "b", labels: ["bug"], updated_at: "2026-03-01T00:00:00Z" },
+    { id: "c", labels: ["ux", "bug"], updated_at: "2026-02-01T00:00:00Z" },
+    { id: "d", labels: ["ux"], updated_at: "2025-01-01T00:00:00Z" },
+    { id: "e", updated_at: "2026-04-01T00:00:00Z" },
+  ];
+
+  it("returns the most recently updated issues with the label, case-insensitively", () => {
+    expect(recentIssuesWithLabel(issues, "ux", 2).map((i) => i.id)).toEqual(["c", "a"]);
+  });
+
+  it("returns none when no issue has the label", () => {
+    expect(recentIssuesWithLabel(issues, "infra", 2)).toEqual([]);
   });
 });

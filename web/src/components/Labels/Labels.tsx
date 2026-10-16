@@ -1,18 +1,18 @@
-import { useState, useMemo, useCallback, useContext, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useContext, useRef, useEffect, type ReactNode } from "react";
 import { LabelBadge } from "../ui/Badge";
-import { LabelColorsContext } from "../ui/BadgeContexts";
-import { TopBar, CountBadge, Heading, Text, SearchInput, ViewContainer } from "../ui";
-import { Trash2 } from "lucide-react";
+import { LabelColorsContext, DefaultLabelsContext } from "../ui/BadgeContexts";
+import { TopBar, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { LABEL_PRESET_COLORS } from "../../constants";
-import { labelColor, canonicalLabel, filterLabelsByName } from "../../utils/labels";
+import { labelColor, canonicalLabel, filterLabelsByName, partitionBuiltinLabels, recentIssuesWithLabel } from "../../utils/labels";
 import { useIssueList } from "../../api/queries";
 import { useAddLabel, useDeleteLabel, useUpdateLabel } from "../../api/mutations";
 import { useAppNav } from "../../app/hooks";
+import EditLabelDialog, { type EditableLabel } from "./EditLabelDialog";
 
-interface LabelInfo {
-  name: string;
-  color: string;
-  count: number;
+type LabelInfo = EditableLabel;
+
+function issueCountText(count: number): string {
+  return `${count} ${count === 1 ? "issue" : "issues"}`;
 }
 
 export default function Labels() {
@@ -23,15 +23,12 @@ export default function Labels() {
   const { navigate } = useAppNav();
   const onLabelClick = (label: string) => navigate("backlog", { filters: { labels: [label] } });
   const configLabels = useContext(LabelColorsContext);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editColor, setEditColor] = useState("");
+  const defaultLabels = useContext(DefaultLabelsContext);
+  const [editing, setEditing] = useState<LabelInfo | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(LABEL_PRESET_COLORS[0]);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const editInputRef = useRef<HTMLInputElement>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
 
   const labelCounts = useMemo(() => {
@@ -63,13 +60,12 @@ export default function Labels() {
       });
   }, [configLabels, labelCounts]);
 
-  const visibleLabels = useMemo(() => filterLabelsByName(labels, search), [labels, search]);
-
-  useEffect(() => {
-    if (editing) {
-      requestAnimationFrame(() => editInputRef.current?.focus());
-    }
-  }, [editing]);
+  const { builtin: builtinLabels, custom: customLabels } = useMemo(
+    () => partitionBuiltinLabels(labels, defaultLabels),
+    [labels, defaultLabels],
+  );
+  const visibleBuiltin = useMemo(() => filterLabelsByName(builtinLabels, search), [builtinLabels, search]);
+  const visibleCustom = useMemo(() => filterLabelsByName(customLabels, search), [customLabels, search]);
 
   useEffect(() => {
     if (creating) {
@@ -77,30 +73,18 @@ export default function Labels() {
     }
   }, [creating]);
 
-  const startEditing = useCallback((label: LabelInfo) => {
-    setEditing(label.name);
-    setEditName(label.name);
-    setEditColor(label.color);
-    setConfirmDelete(null);
-  }, []);
-
-  const cancelEditing = useCallback(() => {
-    setEditing(null);
-    setEditName("");
-    setEditColor("");
-  }, []);
-
-  const saveEdit = useCallback(() => {
-    if (!editing || !editName.trim()) return;
+  const saveEdit = useCallback((name: string, color: string) => {
+    if (!editing) return;
     updateLabel(
-      { oldName: editing, newName: editName.trim(), color: editColor },
+      { oldName: editing.name, newName: name, color },
       { onSuccess: () => setEditing(null) },
     );
-  }, [editing, editName, editColor, updateLabel]);
+  }, [editing, updateLabel]);
 
-  const handleDelete = useCallback((name: string) => {
-    deleteLabel({ name }, { onSuccess: () => setConfirmDelete(null) });
-  }, [deleteLabel]);
+  const handleDelete = useCallback(() => {
+    if (!editing) return;
+    deleteLabel({ name: editing.name }, { onSuccess: () => setEditing(null) });
+  }, [editing, deleteLabel]);
 
   const handleCreate = useCallback(() => {
     if (!newName.trim()) return;
@@ -113,6 +97,54 @@ export default function Labels() {
     });
   }, [newName, newColor, addLabel]);
 
+  const countLink = (label: LabelInfo) => label.count > 0 ? (
+    <button
+      onClick={(e) => { e.stopPropagation(); onLabelClick(label.name); }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:underline transition-colors"
+      title={`Show issues labeled ${label.name}`}
+    >
+      {issueCountText(label.count)}
+    </button>
+  ) : (
+    <span className="text-sm text-[var(--color-text-muted)]">{issueCountText(0)}</span>
+  );
+
+  const rowContent = (label: LabelInfo) => (
+    <>
+      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
+      <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
+        {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
+      </span>
+      {countLink(label)}
+    </>
+  );
+
+  const renderBuiltinRow = (label: LabelInfo) => (
+    <div key={label.name} className="flex items-center gap-3 px-4 py-3">
+      {rowContent(label)}
+    </div>
+  );
+
+  const renderCustomRow = (label: LabelInfo) => (
+    <div
+      key={label.name}
+      role="button"
+      tabIndex={0}
+      onClick={() => setEditing(label)}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setEditing(label);
+        }
+      }}
+      className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer outline-none focus-visible:bg-[var(--color-hover-surface)]"
+    >
+      {rowContent(label)}
+    </div>
+  );
+
   return (
     <ViewContainer
       maxWidth="7xl"
@@ -123,7 +155,7 @@ export default function Labels() {
           center={<SearchInput value={search} onChange={setSearch} placeholder="Filter labels..." />}
           right={
             <button
-              onClick={() => { setCreating(true); setEditing(null); setConfirmDelete(null); }}
+              onClick={() => { setCreating(true); setEditing(null); }}
               className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -183,127 +215,60 @@ export default function Labels() {
         </div>
       )}
 
-      {/* Label list */}
-      {labels.length === 0 && !creating ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <svg className="w-10 h-10 text-[var(--color-text-muted)] opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
-          </svg>
-          <Text as="p">No labels yet</Text>
-          <button
-            onClick={() => setCreating(true)}
-            className="text-xs text-[var(--color-accent-primary)] hover:underline"
-          >
-            Create your first label
-          </button>
-        </div>
-      ) : visibleLabels.length === 0 && labels.length > 0 ? (
+      {/* Label lists */}
+      {visibleBuiltin.length === 0 && visibleCustom.length === 0 && search.trim() ? (
         <div className="flex justify-center py-16">
           <Text as="p">No labels match “{search.trim()}”</Text>
         </div>
       ) : (
-        <div className="divide-y divide-[var(--color-border-subtle)]">
-          {visibleLabels.map((label) => (
-            <div key={label.name}>
-              {editing === label.name ? (
-                <div className="px-4 py-3 bg-[var(--color-surface-1)]">
-                  <div className="flex items-center gap-3 mb-3">
-                    <input
-                      ref={editInputRef}
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveEdit();
-                        if (e.key === "Escape") cancelEditing();
-                      }}
-                      className="flex-1 h-8 px-3 text-sm bg-[var(--color-surface)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)]"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Text size="xs">Color</Text>
-                    {LABEL_PRESET_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setEditColor(c)}
-                        className={`w-6 h-6 rounded-full transition-transform ${editColor === c ? "ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-surface-1)] scale-110" : "hover:scale-110"}`}
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-[var(--color-text-muted)] mr-auto">
-                      {editName.trim() && (
-                        <span className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary border rounded-2xl h-6 px-2 border-bg-elevated">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: editColor }} />
-                          {editName.trim().charAt(0).toUpperCase() + editName.trim().slice(1)}
-                        </span>
-                      )}
-                    </span>
-                    <button
-                      onClick={cancelEditing}
-                      className="h-7 px-3 text-xs rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveEdit}
-                      disabled={!editName.trim()}
-                      className="h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] disabled:opacity-40 transition-colors"
-                    >
-                      Save
-                    </button>
-                  </div>
+        <div className="flex flex-col gap-6">
+          {visibleBuiltin.length > 0 && (
+            <LabelSection title="Built-in labels">
+              {visibleBuiltin.map(renderBuiltinRow)}
+            </LabelSection>
+          )}
+          {(visibleCustom.length > 0 || !search.trim()) && (
+            <LabelSection title="Custom labels">
+              {customLabels.length === 0 && !creating ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <svg className="w-10 h-10 text-[var(--color-text-muted)] opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+                  </svg>
+                  <Text as="p">No custom labels yet</Text>
+                  <button
+                    onClick={() => setCreating(true)}
+                    className="text-xs text-[var(--color-accent-primary)] hover:underline"
+                  >
+                    Create your first label
+                  </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 px-4 py-3 group hover:bg-[var(--color-hover-surface)] transition-colors cursor-pointer" onClick={() => onLabelClick(label.name)}>
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: label.color }} />
-                  <span className="text-sm text-[var(--color-text-primary)] flex-1 min-w-0">
-                    {label.name.charAt(0).toUpperCase() + label.name.slice(1)}
-                  </span>
-                  <CountBadge count={label.count} />
-                  {confirmDelete === label.name ? (
-                    <div className="flex items-center gap-2">
-                      <Text size="xs">Delete?</Text>
-                      <button
-                        onClick={() => handleDelete(label.name)}
-                        className="h-6 px-2 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity"
-                      >
-                        Yes
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(null)}
-                        className="h-6 px-2 text-xs rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => startEditing(label)}
-                        className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-1)] transition-colors"
-                        title="Edit label"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(label.name)}
-                        className="h-6 w-6 flex items-center justify-center rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-surface-1)] transition-colors"
-                        title="Delete label"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
-                </div>
+                visibleCustom.map(renderCustomRow)
               )}
-            </div>
-          ))}
+            </LabelSection>
+          )}
         </div>
       )}
+      {editing && (
+        <EditLabelDialog
+          key={editing.name}
+          label={editing}
+          sampleIssues={recentIssuesWithLabel(issues, editing.name, 2)}
+          onSave={saveEdit}
+          onDelete={handleDelete}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </ViewContainer>
+  );
+}
+
+function LabelSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="px-4 pb-2 text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{title}</h2>
+      <div className="divide-y divide-[var(--color-border-subtle)] border-y border-[var(--color-border-subtle)]">{children}</div>
+    </section>
   );
 }

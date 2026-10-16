@@ -160,3 +160,47 @@ func TestUpdateLabel_ColorOnly(t *testing.T) {
 		t.Errorf("color should be updated: %s", got)
 	}
 }
+
+func TestUpdateLabel_UpsertsMissingLabel(t *testing.T) {
+	setupConfigDir(t)
+	writeConfig(t, "prefix: test-\nlabels:\n  bug: \"#ff0000\"\n")
+
+	if err := UpdateLabel("ux", "ux", "#00ff00"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readConfig(t)
+	if !strings.Contains(got, "ux: \"#00ff00\"") {
+		t.Errorf("missing label should be added: %s", got)
+	}
+	if !strings.Contains(got, "bug") {
+		t.Error("existing label should be preserved")
+	}
+}
+
+func TestUpdateLabel_CreatesLabelsSection(t *testing.T) {
+	setupConfigDir(t)
+	writeConfig(t, "prefix: test-\nversion: 2\n")
+
+	if err := UpdateLabel("ux", "ux", "#00ff00"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readConfig(t)
+	if !strings.Contains(got, "labels:") || !strings.Contains(got, "ux: \"#00ff00\"") {
+		t.Errorf("labels section not created: %s", got)
+	}
+}
+
+func TestUpdateLabel_NoConfigFile(t *testing.T) {
+	setupConfigDir(t)
+
+	if err := UpdateLabel("ux", "ux", "#00ff00"); err != nil {
+		t.Fatal(err)
+	}
+
+	got := readConfig(t)
+	if !strings.Contains(got, "ux") {
+		t.Errorf("should create config with label: %s", got)
+	}
+}

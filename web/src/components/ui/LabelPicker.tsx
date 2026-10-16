@@ -1,8 +1,5 @@
-import { useState, useMemo, useContext, useCallback, type ReactNode } from "react";
-import { LabelBadge } from "./Badge";
+import { useState, useMemo, useContext, type ReactNode } from "react";
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext } from "./BadgeContexts";
-import { LABEL_PRESET_COLORS } from "../../constants";
-import { useAddLabel } from "../../api/mutations";
 import { labelColor } from "../../utils/labels";
 import { Menu, MenuItem, MenuFilter, MenuDivider, MenuLabel } from "./Menu";
 
@@ -10,12 +7,11 @@ interface LabelPickerProps {
   allLabels: string[];
   selected: string[];
   onToggle: (label: string) => void;
-  /** Offer "Create" for new labels and ask for a color when picking an uncolored one. */
+  /** Offer "Create" for a new label, which applies it uncolored. Colors are set in the Labels view. */
   canCreateLabels?: boolean;
   onClose?: () => void;
   singleSelect?: boolean;
   exclude?: string[];
-  borderlessBadges?: boolean;
 }
 
 function displayLabel(label: string): string {
@@ -32,14 +28,11 @@ export default function LabelPicker({
   onClose,
   // singleSelect — accepted for API compatibility, no longer affects rendering
   exclude,
-  borderlessBadges,
 }: LabelPickerProps) {
   const configLabels = useContext(LabelColorsContext);
   const hideDefaultLabels = useContext(HideDefaultLabelsContext);
   const defaultLabels = useContext(DefaultLabelsContext);
   const [search, setSearch] = useState("");
-  const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
-  const { mutate: addLabel } = useAddLabel();
 
   const excludeSet = useMemo(
     () => new Set((exclude || []).map((l) => l.toLowerCase())),
@@ -76,73 +69,10 @@ export default function LabelPicker({
     search.trim().length > 0 &&
     !orderedLabels.some((l) => l.toLowerCase() === search.trim().toLowerCase());
 
-  const handleSelect = useCallback(
-    (name: string) => {
-      const hasColor = labelColor(name, configLabels) !== "var(--color-text-muted)";
-      if (!hasColor && canCreateLabels) {
-        setCreatingLabel(name);
-      } else {
-        onToggle(name);
-        setSearch("");
-      }
-    },
-    [configLabels, canCreateLabels, onToggle],
-  );
-
-  const handleCreateLabel = useCallback(
-    (name: string, color: string) => {
-      addLabel({ name, color }, {
-        onSuccess: () => {
-          setCreatingLabel(null);
-          setSearch("");
-          onToggle(name);
-        },
-      });
-    },
-    [addLabel, onToggle],
-  );
-
-  if (creatingLabel) {
-    return (
-      <>
-        <div className="px-3 py-2 flex items-center gap-2">
-          <button
-            onClick={() => setCreatingLabel(null)}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-          <span className="text-xs text-[var(--color-text-muted)]">
-            Pick a color for
-          </span>
-          <LabelBadge borderless={borderlessBadges} label={creatingLabel} />
-        </div>
-        <div className="border-t border-[var(--color-border-subtle)]" />
-        <div className="flex items-center gap-2 px-3 py-3">
-          {LABEL_PRESET_COLORS.map((color) => (
-            <button
-              key={color}
-              onClick={() => handleCreateLabel(creatingLabel, color)}
-              className="w-6 h-6 rounded-full border-2 border-transparent hover:border-[var(--color-text-primary)] transition-colors hover:scale-110"
-              style={{ background: color }}
-            />
-          ))}
-        </div>
-      </>
-    );
-  }
+  const handleCreate = () => {
+    onToggle(search.trim());
+    setSearch("");
+  };
 
   const items: ReactNode[] = [];
   for (let i = 0; i < filtered.length; i++) {
@@ -182,8 +112,7 @@ export default function LabelPicker({
       {canCreate && canCreateLabels && (
         <MenuItem
           label={`Create "${search.trim()}"`}
-          keepOpen
-          onClick={() => handleSelect(search.trim())}
+          onClick={handleCreate}
         />
       )}
       {filtered.length === 0 && !canCreate && (

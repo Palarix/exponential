@@ -155,7 +155,7 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
             </button>
             {labelOpen && createPortal(
               <div ref={labelMenuRef} className="fixed z-[100] min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1" style={{ top: labelPos.top, left: labelPos.left }}>
-                <LabelPicker allLabels={allKnownLabels} selected={labels} onToggle={selectLabel} canCreateLabels onClose={() => setLabelOpen(false)} singleSelect borderlessBadges />
+                <LabelPicker allLabels={allKnownLabels} selected={labels} onToggle={selectLabel} canCreateLabels onClose={() => setLabelOpen(false)} singleSelect />
               </div>,
               document.body,
             )}
@@ -219,7 +219,7 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
                 {morePopover === "labels" && (
                   <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
                     <PopoverPanel>
-                      <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} canCreateLabels onClose={() => setMorePopover(null)} exclude={labels} borderlessBadges />
+                      <LabelPicker allLabels={allKnownLabels} selected={additionalLabels} onToggle={toggleAdditionalLabel} canCreateLabels onClose={() => setMorePopover(null)} exclude={labels} />
                     </PopoverPanel>
                   </Popover>
                 )}

@@ -257,11 +257,9 @@ func ParseEstimateInput(system string, input string) (int, error) {
 	return val, nil
 }
 
-// AddLabel writes a label and its color to the project config file,
-// preserving existing formatting via yaml.Node manipulation.
-func AddLabel(name, color string) error {
-	configPath := filepath.Join(".xpo", "config.yaml")
-
+// loadLabelsNode reads the project config file as a yaml.Node and returns
+// the document with its `labels:` mapping, creating both when missing.
+func loadLabelsNode(configPath string) (*yaml.Node, *yaml.Node, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		data = []byte{}
@@ -270,7 +268,7 @@ func AddLabel(name, color string) error {
 	var doc yaml.Node
 	if len(data) > 0 {
 		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return fmt.Errorf("failed to parse config file: %w", err)
+			return nil, nil, fmt.Errorf("failed to parse config file: %w", err)
 		}
 	}
 
@@ -280,44 +278,54 @@ func AddLabel(name, color string) error {
 	}
 
 	root := doc.Content[0]
-
-	var labelsNode *yaml.Node
 	for i := 0; i < len(root.Content)-1; i += 2 {
 		if root.Content[i].Value == "labels" {
-			labelsNode = root.Content[i+1]
-			break
+			return &doc, root.Content[i+1], nil
 		}
 	}
 
-	if labelsNode == nil {
-		root.Content = append(root.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Value: "labels"},
-			&yaml.Node{Kind: yaml.MappingNode},
-		)
-		labelsNode = root.Content[len(root.Content)-1]
-	}
+	root.Content = append(root.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "labels"},
+		&yaml.Node{Kind: yaml.MappingNode},
+	)
+	return &doc, root.Content[len(root.Content)-1], nil
+}
 
-	found := false
-	for i := 0; i < len(labelsNode.Content)-1; i += 2 {
-		if labelsNode.Content[i].Value == name {
-			labelsNode.Content[i+1].Value = color
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		labelsNode.Content = append(labelsNode.Content,
-			&yaml.Node{Kind: yaml.ScalarNode, Value: name},
-			&yaml.Node{Kind: yaml.ScalarNode, Value: color, Style: yaml.DoubleQuotedStyle},
-		)
-	}
-
-	out, err := yaml.Marshal(&doc)
+// writeConfigDoc marshals doc back to the project config file.
+func writeConfigDoc(configPath string, doc *yaml.Node) error {
+	out, err := yaml.Marshal(doc)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 	return os.WriteFile(configPath, out, 0644)
+}
+
+// upsertLabel sets the color of oldName, renaming it to newName, or appends
+// newName when oldName isn't in the mapping.
+func upsertLabel(labelsNode *yaml.Node, oldName, newName, color string) {
+	for i := 0; i < len(labelsNode.Content)-1; i += 2 {
+		if labelsNode.Content[i].Value == oldName {
+			labelsNode.Content[i].Value = newName
+			labelsNode.Content[i+1].Value = color
+			return
+		}
+	}
+	labelsNode.Content = append(labelsNode.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: newName},
+		&yaml.Node{Kind: yaml.ScalarNode, Value: color, Style: yaml.DoubleQuotedStyle},
+	)
+}
+
+// AddLabel writes a label and its color to the project config file,
+// preserving existing formatting via yaml.Node manipulation.
+func AddLabel(name, color string) error {
+	configPath := filepath.Join(".xpo", "config.yaml")
+	doc, labelsNode, err := loadLabelsNode(configPath)
+	if err != nil {
+		return err
+	}
+	upsertLabel(labelsNode, name, name, color)
+	return writeConfigDoc(configPath, doc)
 }
 
 // DeleteLabel removes a label from the project config file.
@@ -359,44 +367,17 @@ func DeleteLabel(name string) error {
 	return os.WriteFile(configPath, out, 0644)
 }
 
-// UpdateLabel renames a label and/or changes its color in the project config file.
+// UpdateLabel renames a label and/or changes its color in the project config
+// file. A label that isn't in the config yet, such as one only used on issues,
+// is added.
 func UpdateLabel(oldName, newName, color string) error {
 	configPath := filepath.Join(".xpo", "config.yaml")
-
-	data, err := os.ReadFile(configPath)
+	doc, labelsNode, err := loadLabelsNode(configPath)
 	if err != nil {
-		return fmt.Errorf("config file not found: %w", err)
+		return err
 	}
-
-	var doc yaml.Node
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("failed to parse config file: %w", err)
-	}
-
-	if doc.Kind == 0 || len(doc.Content) == 0 {
-		return fmt.Errorf("label %q not found", oldName)
-	}
-
-	root := doc.Content[0]
-	for i := 0; i < len(root.Content)-1; i += 2 {
-		if root.Content[i].Value == "labels" {
-			labelsNode := root.Content[i+1]
-			for j := 0; j < len(labelsNode.Content)-1; j += 2 {
-				if labelsNode.Content[j].Value == oldName {
-					labelsNode.Content[j].Value = newName
-					labelsNode.Content[j+1].Value = color
-					break
-				}
-			}
-			break
-		}
-	}
-
-	out, err := yaml.Marshal(&doc)
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-	return os.WriteFile(configPath, out, 0644)
+	upsertLabel(labelsNode, oldName, newName, color)
+	return writeConfigDoc(configPath, doc)
 }
 
 // envBindableKeys returns the dotted mapstructure path of every config
