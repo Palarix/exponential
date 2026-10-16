@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
-  addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions, deleteIssueOptions,
+  addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions, deleteIssueOptions, deleteIssueToast,
   deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions, updateLabelOptions,
   type MutationApi,
 } from "./mutation-options";
@@ -234,5 +234,15 @@ describe("label mutations", () => {
     vi.mocked(api.addConfigLabel).mockRejectedValue(new Error("dup"));
     await run(addLabelOptions(qc, api), { name: "bug", color: "#0f0" }).catch(() => {});
     expect(labels()).toEqual({ ui: "#f00" });
+  });
+});
+
+describe("deleteIssueToast", () => {
+  it("names the deleted issue", () => {
+    expect(deleteIssueToast({ issueId: "xpo-a1b2c3", cascade: false })).toBe("Deleted xpo-a1b2c3");
+  });
+
+  it("mentions sub-issues only when they were deleted too", () => {
+    expect(deleteIssueToast({ issueId: "xpo-a1b2c3", cascade: true })).toBe("Deleted xpo-a1b2c3 and its sub-issues");
   });
 });

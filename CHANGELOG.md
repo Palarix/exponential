@@ -156,6 +156,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Deleting an issue: the context menu (click, Enter, ⌘⌫) and the issue sidebar open the same confirmation dialog. It replaces the two hand-built popovers. The dialog shows the issue in a card (status, ID and title). With sub-issues it offers Keep sub-issues (soft red) or Delete all (solid red). A toast confirms the delete: "Deleted <id>", or "Deleted <id> and its sub-issues". Every confirm dialog now has a footer bar with an "esc to cancel" hint and a secondary Cancel button. Red menu items such as Delete stay red on hover and keyboard focus. (xpo-33c92b)
+
 - Agent view: the new-chat page asks "What should we build in <project>?", and the composer placeholder reads "Ask a question, or describe what to build…". The "What's blocking an epic?" suggestion is replaced by "Plan and build a feature", which also shows in the chat popup. (xpo-296ea8)
 
 - Agent chat: approval cards for calls with details (a command or arguments) open collapsed, on one row with the Deny and Allow once buttons. A chevron in the title shows the state; clicking the title expands the details and clicking it again collapses them. Cards without details are unchanged. (xpo-8579fb)

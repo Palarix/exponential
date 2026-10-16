@@ -1,3 +1,5 @@
+import { cn } from "../../utils/cn";
+
 export function nextIndex(
   current: number,
   count: number,
@@ -67,4 +69,29 @@ const MENU_INSET = 8;
  */
 export function scrollMenuPadding(gutter: number): { block: number; inline: number } {
   return { block: Math.max(MENU_INSET, gutter), inline: Math.max(0, MENU_INSET - gutter) };
+}
+
+/** A MenuItem's classes. Destructive items stay red when highlighted, on a red tint. */
+export function menuItemClass({ focused, active, destructive, checked, disabled }: {
+  focused: boolean; active: boolean; destructive: boolean; checked: boolean; disabled: boolean;
+}): string {
+  const highlight = destructive
+    ? "bg-[var(--color-error-bg)] text-[var(--color-error)]"
+    : "bg-[var(--color-hover-surface-3)] text-[var(--color-text-primary)]";
+  return cn(
+    "flex items-center gap-2 w-full px-2 py-1.5 text-sm transition-colors rounded-md outline-none",
+    focused
+      ? highlight
+      : active
+        ? "bg-[var(--color-hover-surface-4)] text-[var(--color-text-primary)]"
+        : destructive
+          ? "text-[var(--color-error)]"
+          : checked
+            ? "text-[var(--color-text-primary)]"
+            : "text-[var(--color-text-secondary)]",
+    disabled && "opacity-50 cursor-default",
+    !disabled && !focused && !active && (destructive
+      ? "hover:bg-[var(--color-error-bg)]"
+      : "hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]"),
+  );
 }

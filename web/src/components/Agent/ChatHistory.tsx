@@ -263,7 +263,7 @@ export default function ChatHistory({ issueId }: { issueId: string | null }) {
             : `${confirmDelete.length} chats will be deleted. This cannot be undone.`}
           onCancel={() => setConfirmDelete(null)}
         >
-          <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+          <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(null)}>Cancel</Button>
           <Button
             variant="danger"
             size="sm"

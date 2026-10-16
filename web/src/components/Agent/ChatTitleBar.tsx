@@ -112,7 +112,7 @@ export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarPro
           description={`"${chat.title || "Untitled chat"}" will be deleted. This cannot be undone.`}
           onCancel={() => setConfirmDelete(false)}
         >
-          <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
           <Button variant="danger" size="sm" onClick={() => void remove()}>Delete</Button>
         </ConfirmDialog>
       )}

@@ -70,7 +70,7 @@ export default function Drafts() {
           description={`"${draftDisplayTitle(pendingDelete.payload)}" will be deleted. This cannot be undone.`}
           onCancel={() => setPendingDelete(null)}
         >
-          <Button variant="ghost" size="sm" onClick={() => setPendingDelete(null)}>Cancel</Button>
+          <Button variant="secondary" size="sm" onClick={() => setPendingDelete(null)}>Cancel</Button>
           <Button variant="danger" size="sm" onClick={() => { deleteDraft(pendingDelete.id); setPendingDelete(null); }}>Delete</Button>
         </ConfirmDialog>
       )}

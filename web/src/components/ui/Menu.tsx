@@ -13,7 +13,7 @@ import {
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useKeyboardHandler } from "../../keyboard";
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate } from "./menu-utils";
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass } from "./menu-utils";
 
 // ─── Internal props injected by Menu via cloneElement ──
 
@@ -472,20 +472,7 @@ export function MenuItem({
       tabIndex={_focused ? 0 : -1}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
-      className={cn(
-        "flex items-center gap-2 w-full px-2 py-1.5 text-sm transition-colors rounded-md outline-none",
-        _focused
-          ? "bg-[var(--color-hover-surface-3)] text-[var(--color-text-primary)]"
-          : active
-            ? "bg-[var(--color-hover-surface-4)] text-[var(--color-text-primary)]"
-            : destructive
-              ? "text-[var(--color-error)]"
-              : checked
-                ? "text-[var(--color-text-primary)]"
-                : "text-[var(--color-text-secondary)]",
-        disabled && "opacity-50 cursor-default",
-        !disabled && !_focused && !active && "hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]",
-      )}
+      className={menuItemClass({ focused: !!_focused, active: !!active, destructive: !!destructive, checked: !!checked, disabled: !!disabled })}
     >
       {icon && (
         <span className="shrink-0 flex items-center justify-center">

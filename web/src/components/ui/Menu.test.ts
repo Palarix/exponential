@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate } from './menu-utils';
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass } from './menu-utils';
 
 describe('nextIndex', () => {
   const skip = new Set<number>();
@@ -131,5 +131,32 @@ describe("scrollMenuPadding", () => {
     // Overlay scrollbars reserve no gutter: pad the sides instead.
     expect(scrollMenuPadding(0)).toEqual({ block: 8, inline: 8 });
     expect(scrollMenuPadding(6)).toEqual({ block: 8, inline: 2 });
+  });
+});
+
+describe("menuItemClass", () => {
+  const base = { focused: false, active: false, destructive: false, checked: false, disabled: false };
+
+  it("keeps a destructive item red with a red tint when focused", () => {
+    const c = menuItemClass({ ...base, destructive: true, focused: true });
+    expect(c).toContain("text-[var(--color-error)]");
+    expect(c).toContain("bg-[var(--color-error-bg)]");
+    expect(c).not.toContain("text-[var(--color-text-primary)]");
+    expect(c).not.toContain("bg-[var(--color-hover-surface-3)]");
+  });
+
+  it("keeps a destructive item red with a red tint on hover", () => {
+    const c = menuItemClass({ ...base, destructive: true });
+    expect(c).toContain("text-[var(--color-error)]");
+    expect(c).toContain("hover:bg-[var(--color-error-bg)]");
+    expect(c).not.toContain("hover:text-[var(--color-text-primary)]");
+  });
+
+  it("highlights other items neutrally", () => {
+    expect(menuItemClass({ ...base, focused: true })).toContain("bg-[var(--color-hover-surface-3)] text-[var(--color-text-primary)]");
+    const rest = menuItemClass(base);
+    expect(rest).toContain("text-[var(--color-text-secondary)]");
+    expect(rest).toContain("hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]");
+    expect(menuItemClass({ ...base, disabled: true })).not.toContain("hover:");
   });
 });

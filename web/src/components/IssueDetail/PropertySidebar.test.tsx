@@ -190,6 +190,15 @@ describe("PropertySidebar Start Work blockers", () => {
   });
 });
 
+describe("PropertySidebar delete", () => {
+  it("offers Delete issue, with no inline confirmation", () => {
+    const html = renderSidebar();
+    expect(html).toMatch(/<button[^>]*>(?:(?!<\/button>).)*Delete issue<\/button>/);
+    expect(html).not.toContain("Delete sub-issues too");
+    expect(html).not.toContain("Delete this issue?");
+  });
+});
+
 describe("BlockerList", () => {
   const render = (blockers: Issue[]) => renderMarkup(<BlockerList blockers={blockers} onRemove={() => {}} />);
 

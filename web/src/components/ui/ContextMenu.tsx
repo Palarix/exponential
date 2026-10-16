@@ -9,6 +9,7 @@ import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import CyclePicker from "./CyclePicker";
 import AssigneePicker from "./AssigneePicker";
+import DeleteIssueDialog from "./DeleteIssueDialog";
 import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink, MessageSquare } from "lucide-react";
 import { toggleLabel } from "../../utils/labels";
 import { collectKnownPeople } from "../../utils/issues";
@@ -68,12 +69,12 @@ export default function ContextMenu({
   issue, issues, x, y, onClose, allLabels, contributors, canCreateLabels,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
-  const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { cycles } = useCycles();
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
-  const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
+  const subIssueCount = useMemo(() => issues.filter(i => i.parent_id === issue.id).length, [issues, issue.id]);
   const agent = useOptionalAgentChat();
   const { chats, holder } = useIssueChats(issue.id);
 
@@ -134,36 +135,14 @@ export default function ContextMenu({
     scope: "context-menu-delete",
     priority: "overlay",
     shortcuts: [
-      { id: "context-menu.delete.meta", key: "Backspace", label: "Delete", showInHelp: false, modifiers: { meta: true }, allowInEditable: true, run: () => setConfirmDelete(hasChildren ? "choose" : "confirm") },
-      { id: "context-menu.delete.ctrl", key: "Backspace", label: "Delete", showInHelp: false, modifiers: { ctrl: true }, allowInEditable: true, run: () => setConfirmDelete(hasChildren ? "choose" : "confirm") },
+      { id: "context-menu.delete.meta", key: "Backspace", label: "Delete", showInHelp: false, modifiers: { meta: true }, allowInEditable: true, run: () => setConfirmDelete(true) },
+      { id: "context-menu.delete.ctrl", key: "Backspace", label: "Delete", showInHelp: false, modifiers: { ctrl: true }, allowInEditable: true, run: () => setConfirmDelete(true) },
     ],
   });
 
-  if (confirmDelete === "choose") {
-    return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
-        <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
-        <div className="flex flex-col gap-2">
-          <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">Keep sub-issues</button>
-          <button onClick={() => handleDelete(true)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">Delete sub-issues too</button>
-          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] transition-colors text-left">Cancel</button>
-        </div>
-      </div>,
-      document.body,
-    );
-  }
-
-  if (confirmDelete === "confirm") {
-    return createPortal(
-      <div ref={menuRef} style={{ position: "fixed", top: y, left: x }} className="z-[100] min-w-55 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] p-3">
-        <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue?</p>
-        <div className="flex items-center gap-2">
-          <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">Delete</button>
-          <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-3)] transition-colors">Cancel</button>
-        </div>
-      </div>,
-      document.body,
-    );
+  // The dialog replaces the menu: with no menuRef, the outside-click handler can't close it.
+  if (confirmDelete) {
+    return <DeleteIssueDialog issue={issue} subIssueCount={subIssueCount} onDelete={handleDelete} onCancel={closeAll} />;
   }
 
   return createPortal(
@@ -208,7 +187,7 @@ export default function ContextMenu({
         <MenuDivider />
         <MenuItem
           label="Delete" icon={<Trash2 size={16} />} destructive keepOpen
-          onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
+          onClick={() => setConfirmDelete(true)}
           suffix={<span className="text-xs opacity-70">{navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}{"⌫"}</span>}
         />
       </Menu>

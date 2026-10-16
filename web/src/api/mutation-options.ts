@@ -135,6 +135,11 @@ export function deleteIssueDraftOptions(qc: QueryClient, api: MutationApi = clie
   };
 }
 
+/** The toast after a delete; sub-issues are named only when they went too. */
+export function deleteIssueToast({ issueId, cascade }: { issueId: string; cascade: boolean }): string {
+  return cascade ? `Deleted ${issueId} and its sub-issues` : `Deleted ${issueId}`;
+}
+
 export function deleteIssueOptions(qc: QueryClient, api: MutationApi = clientApi) {
   return issueMutation(qc, ({ issueId, cascade }: { issueId: string; cascade: boolean }) =>
     api.addDraft(issueId, "DELETE", { cascade }));

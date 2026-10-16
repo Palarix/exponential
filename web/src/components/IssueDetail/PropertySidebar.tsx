@@ -5,7 +5,7 @@ import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
 import { useStartWorkChat } from "../Agent/useWorkMode";
 import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
 import { chatCount, useIssueChats } from "../Agent/useIssueChats";
-import { ActorName, Avatar, Button, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
+import { ActorName, Avatar, Button, DeleteIssueDialog, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
 import { Flag, UserRound, RefreshCw, Trash2, FlagOff } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
 import { GitBranch, GitMerge } from "lucide-react";
@@ -47,7 +47,7 @@ export default function PropertySidebar({
   onOpenMerge,
   gitActions = false,
 }: PropertySidebarProps) {
-  const [confirmDelete, setConfirmDelete] = useState<false | "confirm" | "choose">(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { cycles } = useCycles();
   const defaultLabels = useContext(DefaultLabelsContext);
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
@@ -90,9 +90,10 @@ export default function PropertySidebar({
     [issue.dependencies, saveUpdate],
   );
 
-  const hasChildren = useMemo(() => issues.some(i => i.parent_id === issue.id), [issues, issue.id]);
+  const subIssueCount = useMemo(() => issues.filter(i => i.parent_id === issue.id).length, [issues, issue.id]);
 
-  const handleDelete = useCallback((cascade = false) => {
+  const handleDelete = useCallback((cascade: boolean) => {
+    setConfirmDelete(false);
     deleteIssue({ issueId: issue.id, cascade }, { onSuccess: onClose });
   }, [issue.id, onClose, deleteIssue]);
 
@@ -545,41 +546,15 @@ export default function PropertySidebar({
 
         {/* Delete */}
         <div className="pt-2">
-          {confirmDelete === "choose" ? (
-            <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-error)] p-3">
-              <p className="text-sm text-[var(--color-text-primary)] mb-3">This issue has sub-issues. What should happen to them?</p>
-              <div className="flex flex-col gap-2">
-                <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity text-left">
-                  Keep sub-issues
-                </button>
-                <button onClick={() => handleDelete(true)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] border border-[var(--color-error)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors text-left">
-                  Delete sub-issues too
-                </button>
-                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-2)] transition-colors text-left">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : confirmDelete === "confirm" ? (
-            <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-error)] p-3">
-              <p className="text-sm text-[var(--color-text-primary)] mb-3">Delete this issue? This cannot be undone.</p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-error)] text-white hover:opacity-90 transition-opacity">
-                  Delete
-                </button>
-                <button onClick={() => setConfirmDelete(false)} className="px-3 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface-2)] transition-colors">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
-            >
-              <Trash2 size={16} />
-              Delete issue
-            </button>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-error)] rounded-[var(--radius-md)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
+          >
+            <Trash2 size={16} />
+            Delete issue
+          </button>
+          {confirmDelete && (
+            <DeleteIssueDialog issue={issue} subIssueCount={subIssueCount} onDelete={handleDelete} onCancel={() => setConfirmDelete(false)} />
           )}
         </div>
       </div>

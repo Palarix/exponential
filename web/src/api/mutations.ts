@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useMutation, useQueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
   addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions,
-  deleteIssueOptions, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
+  deleteIssueOptions, deleteIssueToast, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
   updateLabelOptions, type IssuePatch,
 } from "./mutation-options";
 import { ApiError } from "./client";
@@ -74,7 +74,11 @@ export function useDeleteIssueDraft() {
 
 export function useDeleteIssue() {
   const qc = useQueryClient();
-  return useMutation(useWithErrorToast(deleteIssueOptions(qc)));
+  const showToast = useToast();
+  return useMutation(useWithErrorToast({
+    ...deleteIssueOptions(qc),
+    onSuccess: (_data, vars) => showToast(deleteIssueToast(vars)),
+  }));
 }
 
 export function useAddComment() {

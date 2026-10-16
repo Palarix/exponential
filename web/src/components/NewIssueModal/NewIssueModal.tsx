@@ -241,7 +241,7 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
             description={draft ? "Your changes to this draft are not saved." : "Your issue has unsaved changes."}
             onCancel={() => setConfirm(null)}
           >
-            <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirm(null)}>Cancel</Button>
             <Button variant="secondary" size="sm" onClick={handleSaveDraft} disabled={!canSaveDraft} loading={savingDraft}>Save draft</Button>
             <Button variant="danger" size="sm" onClick={onClose}>Discard</Button>
           </ConfirmDialog>
@@ -253,7 +253,7 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
             description="The draft will be deleted. This cannot be undone."
             onCancel={() => setConfirm(null)}
           >
-            <Button variant="ghost" size="sm" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirm(null)}>Cancel</Button>
             <Button variant="danger" size="sm" onClick={handleDeleteDraft} loading={deletingDraft}>Discard draft</Button>
           </ConfirmDialog>
         )}
