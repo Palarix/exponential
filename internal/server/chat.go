@@ -283,7 +283,8 @@ func (s *Server) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
 // handleChatStream sends a chat's events as SSE: first the settled events
 // after Last-Event-ID (or ?after=), then live events until the client goes.
 // Settled events carry their Seq as the SSE id, so a reconnecting
-// EventSource resumes without duplicates.
+// EventSource resumes without duplicates. A client that falls behind loses
+// its subscription; the stream then ends, and the reconnect catches it up.
 func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, err := s.Chat.Store.Meta(id); s.respondChatError(w, err) {
@@ -334,7 +335,10 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
 	defer keepalive.Stop()
 	for {
 		select {
-		case e := <-ch:
+		case e, ok := <-ch:
+			if !ok {
+				return
+			}
 			send(e)
 			flusher.Flush()
 		case <-keepalive.C:

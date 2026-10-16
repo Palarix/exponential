@@ -209,6 +209,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Live updates no longer stop after the tab was in the background. An open chat showed a running turn that had already finished, and the board missed new issues and status changes, until a hard reload. The cause: when a frozen background tab stopped reading, the server dropped its events while the connection stayed open. Now a client that falls behind gets its stream closed, so the browser reconnects. The chat stream replays what was missed through `Last-Event-ID`. The board refetches issues as well as chats whenever `/api/events` (re)connects. Both streams also reconnect as soon as the tab is visible again. (xpo-7e9c4f)
+
 - Menus: items that open a next step inside their menu keep it open. In the label picker, `Create "…"` creates the label again, where before it closed the picker and did nothing. In the issue context menu, Delete shows its confirmation; before, only ⌘⌫ / Ctrl⌫ did. `MenuItem` takes a new `keepOpen` prop for such items. (xpo-2790cd)
 
 - Agent view: Esc in the composer takes focus out of it and keeps the draft, so global shortcuts such as `g → i` work again after `g → a`. `/` puts focus back in the composer and is listed in the `?` help. In the chat popup, Esc still minimizes. (xpo-de9f71)

@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -54,30 +55,45 @@ func TestSSEHub_UnsubscribeRemovesClient(t *testing.T) {
 	}
 }
 
-func TestSSEHub_BroadcastDropsSlowClient(t *testing.T) {
+// A client that falls behind (a frozen background tab) is closed rather than
+// left open with events dropped, so its browser reconnects and refetches.
+func TestSSEHub_BroadcastClosesSlowClient(t *testing.T) {
 	hub := NewSSEHub()
 	ch := hub.subscribe()
-	defer hub.unsubscribe(ch)
+	keep := hub.subscribe()
+	defer hub.unsubscribe(keep)
 
-	// Fill the channel buffer (capacity 16)
-	for i := 0; i < 20; i++ {
-		hub.Broadcast(SSEEvent{Type: "UPDATE", IssueID: "test-123"})
+	// Overflow ch's buffer; keep drains as it goes. Must not block.
+	for i := range cap(ch) + 1 {
+		hub.Broadcast(SSEEvent{Type: "UPDATE", IssueID: fmt.Sprint(i)})
+		<-keep
 	}
-
-	// Should not panic or block — excess events are dropped
-	count := 0
+	n := 0
+drain:
 	for {
 		select {
-		case <-ch:
-			count++
-		default:
-			goto done
+		case _, ok := <-ch:
+			if !ok {
+				break drain
+			}
+			n++
+		case <-time.After(time.Second):
+			t.Fatalf("client still open after %d events", n)
 		}
 	}
-done:
-	if count > 16 {
-		t.Errorf("expected at most 16 buffered events, got %d", count)
+	if n != cap(ch) {
+		t.Fatalf("got %d events before close, want %d", n, cap(ch))
 	}
+	if hub.ClientCount() != 1 {
+		t.Fatalf("expected 1 client, got %d", hub.ClientCount())
+	}
+
+	hub.Broadcast(SSEEvent{Type: "UPDATE", IssueID: "after"})
+	if evt := <-keep; evt.IssueID != "after" {
+		t.Fatalf("kept client got %q", evt.IssueID)
+	}
+	// The handler's deferred unsubscribe must not close it again.
+	hub.unsubscribe(ch)
 }
 
 func TestHandleSSE_StreamsEvents(t *testing.T) {

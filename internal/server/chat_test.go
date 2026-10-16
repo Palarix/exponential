@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -228,6 +229,38 @@ func TestChat_StreamReplaysAfterLastEventID(t *testing.T) {
 	}
 	if strings.Join(ids, ",") != "2,3" || strings.Join(types, ",") != "assistant_text,turn_done" {
 		t.Fatalf("ids = %v, types = %v", ids, types)
+	}
+}
+
+// A client that stops reading (a frozen background tab) falls behind. The
+// stream must end, so its EventSource reconnects and replays what it missed,
+// rather than stay open with events silently dropped.
+func TestChat_StreamEndsWhenClientFallsBehind(t *testing.T) {
+	// 2000 deltas of 16 KiB: more than the socket buffers and the
+	// subscription buffer together hold.
+	body := `awk 'BEGIN { s = sprintf("%16384s", ""); gsub(/ /, "x", s);
+for (i = 0; i < 2000; i++) printf "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"%s\"}}}\n", s;
+print "{\"type\":\"result\",\"result\":\"done\",\"session_id\":\"sess-9\",\"duration_ms\":5}" }'`
+	s, h := setupChatServer(t, body)
+	m := createChat(t, h)
+
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/local/chats/"+m.ID+"/stream", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	// Do not read while the turn runs.
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hello"}`)
+	s.Chat.Runner.Wait()
+
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		t.Fatalf("stream did not end: %v", err)
 	}
 }
 

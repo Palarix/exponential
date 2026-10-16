@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { connectEvents } from "./sse-utils";
 
 interface SSEOptions {
-  /** An issue event arrived. */
+  /** An issue event arrived, or the stream (re)opened and may have missed changes. */
   onEvent: () => void;
   /** A chat changed, or the stream (re)opened and may have missed changes. */
   onChatEvent: () => void;

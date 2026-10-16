@@ -20,6 +20,9 @@ function setup() {
   const timers: (() => void)[] = [];
   const onEvent = vi.fn();
   const onChatEvent = vi.fn();
+  const cancel = vi.fn();
+  const unwatch = vi.fn();
+  let setVisible: (visible: boolean) => void = () => {};
   const stop = connectEvents({
     create: () => {
       const s = new FakeSource();
@@ -32,9 +35,13 @@ function setup() {
       timers.push(fn);
       return timers.length;
     },
-    cancel: () => {},
+    cancel,
+    watchVisibility: (fn) => {
+      setVisible = fn;
+      return unwatch;
+    },
   });
-  return { sources, timers, onEvent, onChatEvent, stop };
+  return { sources, timers, onEvent, onChatEvent, cancel, unwatch, stop, setVisible: (v: boolean) => setVisible(v) };
 }
 
 describe("connectEvents", () => {
@@ -52,9 +59,10 @@ describe("connectEvents", () => {
     expect(onEvent).not.toHaveBeenCalled();
   });
 
-  it("calls onChatEvent when the stream opens, to catch missed changes", () => {
-    const { sources, onChatEvent } = setup();
+  it("calls onEvent and onChatEvent when the stream opens, to catch missed changes", () => {
+    const { sources, onEvent, onChatEvent } = setup();
     sources[0].emit("open");
+    expect(onEvent).toHaveBeenCalledTimes(1);
     expect(onChatEvent).toHaveBeenCalledTimes(1);
   });
 
@@ -70,25 +78,34 @@ describe("connectEvents", () => {
     expect(onChatEvent).toHaveBeenCalledTimes(2);
   });
 
-  it("closes the stream and cancels a pending reconnect when stopped", () => {
-    const cancel = vi.fn();
-    const sources: FakeSource[] = [];
-    const stop = connectEvents({
-      create: () => {
-        const s = new FakeSource();
-        sources.push(s);
-        return s;
-      },
-      onEvent: () => {},
-      onChatEvent: () => {},
-      schedule: () => 7,
-      cancel,
-    });
+  it("reconnects at once when the tab is visible again", () => {
+    const { sources, setVisible } = setup();
+    setVisible(true);
+    expect(sources).toHaveLength(1);
+    setVisible(false);
+    setVisible(true);
+    expect(sources[0].closed).toBe(true);
+    expect(sources).toHaveLength(2);
+  });
+
+  it("reconnecting on visible cancels a pending retry", () => {
+    const { sources, cancel, setVisible } = setup();
+    sources[0].emit("error");
+    setVisible(false);
+    setVisible(true);
+    expect(cancel).toHaveBeenCalledWith(1);
+    expect(sources).toHaveLength(2);
+  });
+
+  it("closes the stream, cancels a pending reconnect and stops watching visibility when stopped", () => {
+    const { sources, cancel, unwatch, stop } = setup();
     sources[0].emit("error");
     stop();
-    expect(cancel).toHaveBeenCalledWith(7);
-    const live = connectEvents({ create: () => { const s = new FakeSource(); sources.push(s); return s; }, onEvent: () => {}, onChatEvent: () => {} });
-    live();
-    expect(sources[1].closed).toBe(true);
+    expect(cancel).toHaveBeenCalledWith(1);
+    expect(unwatch).toHaveBeenCalled();
+
+    const live = setup();
+    live.stop();
+    expect(live.sources[0].closed).toBe(true);
   });
 });

@@ -433,7 +433,9 @@ func (r *Runner) Shutdown() {
 }
 
 // Subscribe returns a channel of every event published for a chat, settled
-// and live. A slow subscriber misses events rather than blocking the turn.
+// and live. A subscriber that falls behind does not block the turn: its
+// channel is closed instead, so it can resubscribe and replay the settled
+// events it missed from the store. Unsubscribing more than once is a no-op.
 func (r *Runner) Subscribe(id string) (<-chan Event, func()) {
 	ch := make(chan Event, 256)
 	r.mu.Lock()
@@ -444,10 +446,7 @@ func (r *Runner) Subscribe(id string) (<-chan Event, func()) {
 	r.mu.Unlock()
 	return ch, func() {
 		r.mu.Lock()
-		delete(r.subs[id], ch)
-		if len(r.subs[id]) == 0 {
-			delete(r.subs, id)
-		}
+		r.dropSub(id, ch)
 		r.mu.Unlock()
 	}
 }
@@ -459,7 +458,17 @@ func (r *Runner) publish(id string, e Event) {
 		select {
 		case ch <- e:
 		default:
+			r.dropSub(id, ch)
+			close(ch)
 		}
+	}
+}
+
+// dropSub removes ch from the chat's subscribers. r.mu must be held.
+func (r *Runner) dropSub(id string, ch chan Event) {
+	delete(r.subs[id], ch)
+	if len(r.subs[id]) == 0 {
+		delete(r.subs, id)
 	}
 }
 

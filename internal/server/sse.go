@@ -35,14 +35,19 @@ func (h *SSEHub) subscribe() chan SSEEvent {
 	return ch
 }
 
+// unsubscribe removes ch and closes it, unless Broadcast already did.
 func (h *SSEHub) unsubscribe(ch chan SSEEvent) {
 	h.mu.Lock()
-	delete(h.clients, ch)
-	h.mu.Unlock()
-	close(ch)
+	defer h.mu.Unlock()
+	if _, ok := h.clients[ch]; ok {
+		delete(h.clients, ch)
+		close(ch)
+	}
 }
 
-// Broadcast sends an event to all connected clients.
+// Broadcast sends an event to all connected clients. A client that falls
+// behind is closed rather than left to miss events: its stream ends, and the
+// browser reconnects and refetches.
 func (h *SSEHub) Broadcast(evt SSEEvent) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -50,6 +55,8 @@ func (h *SSEHub) Broadcast(evt SSEEvent) {
 		select {
 		case ch <- evt:
 		default:
+			delete(h.clients, ch)
+			close(ch)
 		}
 	}
 }

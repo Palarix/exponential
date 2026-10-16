@@ -4,6 +4,7 @@ import { chatStreamURL, fetchChat, type ChatEvent } from "../../api/chat";
 import { ApiError } from "../../api/client";
 import { agentQueryKeys } from "./agent-context";
 import { changesChatMeta, chatThreadReducer, emptyThread, type ChatThread } from "./chat-thread-utils";
+import { followChatStream } from "./chat-stream-utils";
 
 /**
  * Loads a chat's settled events, then follows its SSE stream. A null chatId
@@ -19,7 +20,7 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
     dispatch({ type: "reset" });
     if (!chatId) return;
 
-    let es: EventSource | null = null;
+    let stop: (() => void) | null = null;
     let cancelled = false;
     const onEvent = (event: ChatEvent) => {
       dispatch({ type: "event", event });
@@ -37,14 +38,11 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
         const after = events.length > 0 ? events[events.length - 1].seq ?? 0 : 0;
         // A reconnecting EventSource sends Last-Event-ID, which the server
         // prefers over ?after=, so replays never duplicate.
-        es = new EventSource(`${chatStreamURL(chatId)}?after=${after}`);
-        es.onmessage = (msg) => {
-          try {
-            onEvent(JSON.parse(msg.data) as ChatEvent);
-          } catch {
-            // Ignore a malformed frame; the next settled event resyncs.
-          }
-        };
+        stop = followChatStream({
+          after,
+          create: (from) => new EventSource(`${chatStreamURL(chatId)}?after=${from}`),
+          onEvent,
+        });
       })
       .catch((err: unknown) => {
         // A 404 means the chat is gone; anything else shows the empty thread.
@@ -53,7 +51,7 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
 
     return () => {
       cancelled = true;
-      es?.close();
+      stop?.();
     };
   }, [chatId, qc]);
 
