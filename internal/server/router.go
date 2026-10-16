@@ -174,10 +174,33 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	if err != nil {
 		panic(err)
 	}
-	fileServer := http.FileServer(http.FS(static))
+	mux.HandleFunc("GET /", spaHandler(static))
 
-	// Catch-all for SPA routing
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+	return mux
+}
+
+// isBackendPath reports whether path belongs to the API, auth or MCP
+// endpoints, which must never fall through to the SPA's index.html.
+func isBackendPath(path string) bool {
+	for _, prefix := range []string{"/api", "/auth", "/mcp"} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// spaHandler serves the built frontend in static: asset files as they are,
+// and index.html for every other route so client-side routing works.
+// Unrouted backend paths get a 404.
+func spaHandler(static fs.FS) http.HandlerFunc {
+	fileServer := http.FileServer(http.FS(static))
+	return func(w http.ResponseWriter, r *http.Request) {
+		if isBackendPath(r.URL.Path) {
+			respondError(w, http.StatusNotFound, "not found")
+			return
+		}
+
 		// Serve static assets directly
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
 			fileServer.ServeHTTP(w, r)
@@ -202,7 +225,5 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		}
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(indexFile)
-	})
-
-	return mux
+	}
 }
