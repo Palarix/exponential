@@ -13,10 +13,10 @@ import (
 
 // WatchGitRefs watches .git/refs/heads/ (recursively) and .git/packed-refs
 // for changes. When git refs change (new commit, new/deleted branch, gc),
-// the cached issues are invalidated and an SSE update is broadcast so the
+// the cached issues are invalidated and the issues topic is notified so the
 // GUI refreshes branch stats immediately.
 func (s *Server) WatchGitRefs() {
-	if s.SSEHub == nil {
+	if s.Live == nil {
 		return
 	}
 
@@ -92,7 +92,7 @@ func (s *Server) WatchGitRefs() {
 					s.mu.Lock()
 					s.cachedIssues = nil
 					s.mu.Unlock()
-					s.SSEHub.Broadcast(SSEEvent{Type: "UPDATE", IssueID: ""})
+					s.notify(TopicIssues)
 				})
 
 			case err, ok := <-watcher.Errors:

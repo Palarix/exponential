@@ -253,8 +253,7 @@ func TestRunner_MCPConfigFileRemovedWhenAgentEnds(t *testing.T) {
 func TestRunner_PublishesLiveAndSettledEvents(t *testing.T) {
 	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "x"})
 	r.Wait()
@@ -276,44 +275,6 @@ func TestRunner_PublishesLiveAndSettledEvents(t *testing.T) {
 	}
 }
 
-func TestRunner_ClosesASubscriberThatFallsBehind(t *testing.T) {
-	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
-	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	keep, unsubscribeKeep := r.Subscribe(m.ID)
-	defer unsubscribeKeep()
-
-	// Overflow ch's buffer; keep drains as it goes.
-	for i := range cap(ch) + 1 {
-		r.live(m.ID, Event{Type: EventTextDelta, Text: fmt.Sprint(i)})
-		<-keep
-	}
-	n := 0
-drain:
-	for {
-		select {
-		case _, ok := <-ch:
-			if !ok {
-				break drain
-			}
-			n++
-		case <-time.After(time.Second):
-			t.Fatalf("subscriber still open after %d events", n)
-		}
-	}
-	if n != cap(ch) {
-		t.Fatalf("got %d events before close, want %d", n, cap(ch))
-	}
-
-	// Later events skip the closed subscriber, and unsubscribing is a no-op.
-	r.live(m.ID, Event{Type: EventTextDelta, Text: "after"})
-	if e := <-keep; e.Text != "after" {
-		t.Fatalf("kept subscriber got %q", e.Text)
-	}
-	unsubscribe()
-	unsubscribe()
-}
-
 func TestRunner_BusyWhileRunning(t *testing.T) {
 	r, store, _ := newTestRunner(t, `sleep 5`)
 	m, _ := store.Create()
@@ -330,8 +291,7 @@ func TestRunner_BusyWhileRunning(t *testing.T) {
 func TestRunner_Cancel(t *testing.T) {
 	r, store, _ := newTestRunner(t, `head -n 3 "$FIXTURE"; sleep 30`)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "x"})
 
 	// Cancel once the partial text has streamed.
@@ -501,8 +461,7 @@ func TestRunner_ToolCallsSettleWithResults(t *testing.T) {
 	r, store, dir := newTestRunner(t, `cat "$(dirname "$0")/tools.jsonl"`)
 	os.WriteFile(filepath.Join(dir, "tools.jsonl"), []byte(toolResultsFixture), 0o644)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "x"})
 	r.Wait()

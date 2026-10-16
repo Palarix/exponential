@@ -10,10 +10,10 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
-// WatchDB watches issues.db for external modifications and broadcasts
-// an SSE event so the GUI refreshes immediately.
+// WatchDB watches issues.db for external modifications and notifies the
+// issues topic so the GUI refreshes immediately.
 func (s *Server) WatchDB() {
-	if s.SSEHub == nil {
+	if s.Live == nil {
 		return
 	}
 
@@ -88,7 +88,7 @@ func (s *Server) WatchDB() {
 					debounce.Stop()
 				}
 				debounce = time.AfterFunc(150*time.Millisecond, func() {
-					s.SSEHub.Broadcast(SSEEvent{Type: "UPDATE", IssueID: ""})
+					s.notify(TopicIssues)
 				})
 
 			case err, ok := <-watcher.Errors:

@@ -249,8 +249,7 @@ func TestCodexDriver_WorkProfile(t *testing.T) {
 func TestCodexDriver_LiveEvents(t *testing.T) {
 	r, store, _ := newCodexRunner(t, "")
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "x", Provider: "codex"})
 	r.Wait()
@@ -411,8 +410,7 @@ func TestCodexDriver_Cancel(t *testing.T) {
 	turn := strings.SplitAfter(codexTurnFixture, "\n")
 	os.WriteFile(filepath.Join(dir, "turn.jsonl"), []byte(strings.Join(turn[:7], "")), 0o644)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "x", Provider: "codex"})
 
 	timeout := time.After(5 * time.Second)

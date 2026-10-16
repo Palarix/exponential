@@ -63,7 +63,7 @@ func init() {
 func runBoard(cmd *cobra.Command, args []string) error {
 	srv := server.NewServer(cfg, boardPort, boardDev, boardDevPort)
 	srv.Host = boardHost
-	srv.SSEHub = server.NewSSEHub()
+	srv.Live = server.NewLiveHub()
 	if !server.IsLoopbackHost(boardHost) {
 		token, err := server.GenerateAccessToken()
 		if err != nil {
@@ -79,7 +79,7 @@ func runBoard(cmd *cobra.Command, args []string) error {
 		log.Printf("Remote mode: proxying API to %s", cfg.Remote.URL)
 	}
 
-	srv.Chat = newChatService()
+	srv.Chat = newChatService(server.ChatEventsTo(srv.Live))
 	srv.Chat.Store.OnChange = srv.ChatChanged
 	defer srv.Chat.Runner.Shutdown()
 	if srv.AccessToken != "" && srv.Chat.Catalog.Status().Available {
@@ -106,6 +106,7 @@ func runBoard(cmd *cobra.Command, args []string) error {
 	go func() {
 		<-sigCh
 		_ = registry.UnregisterByPID(os.Getpid())
+		srv.Live.Close()
 		srv.Chat.Runner.Shutdown()
 		os.Exit(0)
 	}()
@@ -126,7 +127,7 @@ func runBoard(cmd *cobra.Command, args []string) error {
 // binary's stdio MCP server, or the remote server's /mcp in remote mode.
 // Work Mode runs the agent in an issue's worktree; remote mode has none
 // until Team Mode (xpo-a60065).
-func newChatService() *server.ChatService {
+func newChatService(onEvent func(string, chat.Event)) *server.ChatService {
 	root := storage.HubRoot()
 	store := chat.NewStore(filepath.Join(storage.XpoDir(), "chats"))
 	store.OnCreateDir = func() {
@@ -189,6 +190,7 @@ func newChatService() *server.ChatService {
 			},
 			TitleModel: catalog.TitleModel,
 			IssueTitle: issueTitle,
+			OnEvent:    onEvent,
 		}),
 		Catalog: catalog,
 	}

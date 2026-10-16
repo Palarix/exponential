@@ -1,10 +1,8 @@
 package server
 
 import (
-	"bufio"
-	"context"
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +13,7 @@ import (
 	"time"
 
 	"github.com/palarix/exponential/internal/chat"
+	"github.com/palarix/exponential/internal/live"
 )
 
 const chatFixture = `{"type":"system","subtype":"init","session_id":"sess-9"}
@@ -31,6 +30,7 @@ func setupChatServer(t *testing.T, body string) (*Server, http.Handler) {
 		t.Skip("fake claude is a shell script")
 	}
 	s := setupTestServer(t)
+	s.Live = NewLiveHub()
 	dir := t.TempDir()
 	fixture := filepath.Join(dir, "fixture.jsonl")
 	os.WriteFile(fixture, []byte(chatFixture), 0o644)
@@ -50,6 +50,7 @@ func setupChatServer(t *testing.T, body string) (*Server, http.Handler) {
 		Drivers:        map[string]chat.Driver{chat.ProviderClaude: fake, chat.ProviderCodex: fake},
 		Dir:            dir,
 		InterruptGrace: 200 * time.Millisecond,
+		OnEvent:        ChatEventsTo(s.Live),
 	})
 	t.Cleanup(runner.Shutdown)
 	s.Chat = &ChatService{
@@ -58,6 +59,32 @@ func setupChatServer(t *testing.T, body string) (*Server, http.Handler) {
 		Catalog: chat.NewCatalog("", func(name string) (string, error) { return "/usr/bin/" + name, nil }),
 	}
 	return s, s.SetupRoutes()
+}
+
+// newChatServer is setupChatServer behind an HTTP server.
+func newChatServer(t *testing.T) (*Server, *httptest.Server) {
+	t.Helper()
+	s, h := setupChatServer(t, "")
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	return s, srv
+}
+
+// waitApproval returns the ID of the chat's first approval request.
+func waitApproval(t *testing.T, s *Server, id string) string {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		_, events, _ := s.Chat.Store.Get(id)
+		for _, e := range events {
+			if e.Type == chat.EventApprovalRequested {
+				return e.ApprovalID
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("no approval_requested event")
+	return ""
 }
 
 func doJSON(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
@@ -192,75 +219,77 @@ func TestChat_SendUnavailable(t *testing.T) {
 	}
 }
 
-func TestChat_StreamReplaysAfterLastEventID(t *testing.T) {
-	s, h := setupChatServer(t, "")
+func TestChat_StreamReplaysAfterAfter(t *testing.T) {
+	s, srv := newChatServer(t)
+	h := srv.Config.Handler
 	m := createChat(t, h)
 	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hello"}`)
 	s.Chat.Runner.Wait()
 
-	srv := httptest.NewServer(h)
-	defer srv.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/local/chats/"+m.ID+"/stream", nil)
-	req.Header.Set("Last-Event-ID", "1")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	c := openEvents(t, srv.URL)
+	c.topics(`{"add":[{"topic":"chat:` + m.ID + `","after":1}]}`)
+	var seqs, types []string
+	for len(types) < 2 {
+		f := c.next()
+		data, _ := f.data["data"].(map[string]any)
+		seqs = append(seqs, fmt.Sprint(data["seq"]))
+		types = append(types, fmt.Sprint(data["type"]))
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
-		t.Fatalf("content type %q", ct)
-	}
-
-	var ids []string
-	var types []string
-	sc := bufio.NewScanner(resp.Body)
-	for sc.Scan() && len(types) < 2 {
-		line := sc.Text()
-		if id, ok := strings.CutPrefix(line, "id: "); ok {
-			ids = append(ids, id)
-		}
-		if data, ok := strings.CutPrefix(line, "data: "); ok {
-			var e chat.Event
-			json.Unmarshal([]byte(data), &e)
-			types = append(types, e.Type)
-		}
-	}
-	if strings.Join(ids, ",") != "2,3" || strings.Join(types, ",") != "assistant_text,turn_done" {
-		t.Fatalf("ids = %v, types = %v", ids, types)
+	if strings.Join(seqs, ",") != "2,3" || strings.Join(types, ",") != "assistant_text,turn_done" {
+		t.Fatalf("seqs = %v, types = %v", seqs, types)
 	}
 }
 
-// A client that stops reading (a frozen background tab) falls behind. The
-// stream must end, so its EventSource reconnects and replays what it missed,
-// rather than stay open with events silently dropped.
-func TestChat_StreamEndsWhenClientFallsBehind(t *testing.T) {
-	// 2000 deltas of 16 KiB: more than the socket buffers and the
-	// subscription buffer together hold.
-	body := `awk 'BEGIN { s = sprintf("%16384s", ""); gsub(/ /, "x", s);
-for (i = 0; i < 2000; i++) printf "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"%s\"}}}\n", s;
+// A client that stops reading (a frozen background tab) falls behind. Its
+// stream stays open, and once it reads again it gets the whole turn: the
+// settled events, replayed from the store, once and in order.
+func TestChat_StreamCatchesUpAfterTheClientFellBehind(t *testing.T) {
+	// 3000 deltas of 1 KiB: more than the socket buffers and the topic's
+	// queue hold, while the stored text stays under the store's line limit.
+	const deltas = 3000
+	body := `awk 'BEGIN { s = sprintf("%1024s", ""); gsub(/ /, "x", s);
+for (i = 0; i < ` + fmt.Sprint(deltas) + `; i++) printf "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"%s\"}}}\n", s;
 print "{\"type\":\"result\",\"result\":\"done\",\"session_id\":\"sess-9\",\"duration_ms\":5}" }'`
 	s, h := setupChatServer(t, body)
+	s.Live.QueueCap = 8
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
 	m := createChat(t, h)
 
-	srv := httptest.NewServer(h)
-	defer srv.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/local/chats/"+m.ID+"/stream", nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
+	c := openEvents(t, srv.URL)
+	c.topics(`{"add":[{"topic":"chat:` + m.ID + `"}]}`)
 	// Do not read while the turn runs.
 	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hello"}`)
 	s.Chat.Runner.Wait()
 
-	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-		t.Fatalf("stream did not end: %v", err)
+	_, stored, _ := s.Chat.Store.Get(m.ID)
+	var got []int
+	deltasGot := 0
+	for {
+		f := c.next()
+		if f.event != live.EventLog {
+			t.Fatalf("event = %+v, want only log frames", f)
+		}
+		data, _ := f.data["data"].(map[string]any)
+		if seq, ok := data["seq"].(float64); ok {
+			got = append(got, int(seq))
+		} else {
+			deltasGot++
+		}
+		if data["type"] == chat.EventTurnDone {
+			break
+		}
+	}
+	if deltasGot >= deltas {
+		t.Fatalf("got all %d deltas: the client never fell behind, so this tests nothing", deltasGot)
+	}
+	if len(got) != len(stored) {
+		t.Fatalf("settled seqs = %v, want all %d stored events once", got, len(stored))
+	}
+	for i, seq := range got {
+		if seq != stored[i].Seq {
+			t.Fatalf("settled seqs = %v, want them in order", got)
+		}
 	}
 }
 
@@ -399,24 +428,11 @@ func waitingChats(t *testing.T, h http.Handler) []string {
 func TestChat_Approval(t *testing.T) {
 	s, h := setupChatServer(t, `printf '%s\n' '`+chatMergeRequest+`'; IFS= read -r answer; cat "$(dirname "$0")/fixture.jsonl"`)
 	m := createChat(t, h)
-	ch, unsubscribe := s.Chat.Runner.Subscribe(m.ID)
-	defer unsubscribe()
 	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"merge it"}`); w.Code != http.StatusAccepted {
 		t.Fatalf("send: %d %s", w.Code, w.Body.String())
 	}
 
-	var approvalID string
-	timeout := time.After(5 * time.Second)
-	for approvalID == "" {
-		select {
-		case e := <-ch:
-			if e.Type == chat.EventApprovalRequested {
-				approvalID = e.ApprovalID
-			}
-		case <-timeout:
-			t.Fatal("no approval_requested event")
-		}
-	}
+	approvalID := waitApproval(t, s, m.ID)
 	if got := waitingChats(t, h); len(got) != 1 || got[0] != m.ID {
 		t.Errorf("waiting chats = %v, want [%s]", got, m.ID)
 	}
@@ -456,22 +472,9 @@ const chatQuestionRequest = `{"type":"control_request","request_id":"req-1","req
 func TestChat_QuestionAnswer(t *testing.T) {
 	s, h := setupChatServer(t, `printf '%s\n' '`+chatQuestionRequest+`'; IFS= read -r answer; cat "$(dirname "$0")/fixture.jsonl"`)
 	m := createChat(t, h)
-	ch, unsubscribe := s.Chat.Runner.Subscribe(m.ID)
-	defer unsubscribe()
 	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"ask me"}`)
 
-	var approvalID string
-	timeout := time.After(5 * time.Second)
-	for approvalID == "" {
-		select {
-		case e := <-ch:
-			if e.Type == chat.EventApprovalRequested {
-				approvalID = e.ApprovalID
-			}
-		case <-timeout:
-			t.Fatal("no approval_requested event")
-		}
-	}
+	approvalID := waitApproval(t, s, m.ID)
 	if got := waitingChats(t, h); len(got) != 1 {
 		t.Errorf("waiting chats = %v, want the chat with the open question", got)
 	}

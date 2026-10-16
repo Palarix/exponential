@@ -67,8 +67,7 @@ func TestRunner_GeneratesTitleAfterFirstTurn(t *testing.T) {
 	f := &fakeTitler{title: "Open login issues"}
 	r, store, dir := newTestRunner(t, `cat "$FIXTURE"`, withTitler(f))
 	m, _ := store.Create()
-	events, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	events := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "how many open issues?\nmore detail", Model: "sonnet"})
 	r.Wait()

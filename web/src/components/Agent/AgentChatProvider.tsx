@@ -38,7 +38,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const chatsQuery = useQuery({
     queryKey: agentQueryKeys.chats,
     queryFn: fetchChats,
-    // No polling: chat_changed events on /api/events refetch it (App.tsx).
+    // No polling: the event stream's chats signal refetches it (useLive).
     enabled: !!status?.available,
   });
   const allChats = useMemo(() => chatsQuery.data ?? [], [chatsQuery.data]);

@@ -56,8 +56,8 @@ type Context struct {
 	IssueTitle string `json:"issue_title,omitempty"`
 }
 
-// Event is one entry in a chat's stream. Seq is set on settled events only
-// and doubles as the SSE event ID.
+// Event is one entry in a chat's stream. Seq is set on settled events only;
+// it is the event's position in the chat's log topic on the event stream.
 type Event struct {
 	Seq  int       `json:"seq,omitempty"`
 	Type string    `json:"type"`

@@ -74,7 +74,7 @@ func (s *Server) handleCreateIssueDraft(w http.ResponseWriter, r *http.Request) 
 		respondIssueDraftError(w, err)
 		return
 	}
-	s.broadcastEvent("draft_changed", d.ID)
+	s.notify(TopicDrafts)
 	respondJSON(w, http.StatusCreated, d)
 }
 
@@ -89,7 +89,7 @@ func (s *Server) handleUpdateIssueDraft(w http.ResponseWriter, r *http.Request) 
 		respondIssueDraftError(w, err)
 		return
 	}
-	s.broadcastEvent("draft_changed", d.ID)
+	s.notify(TopicDrafts)
 	respondJSON(w, http.StatusOK, d)
 }
 
@@ -100,6 +100,6 @@ func (s *Server) handleDeleteIssueDraft(w http.ResponseWriter, r *http.Request) 
 		respondIssueDraftError(w, err)
 		return
 	}
-	s.broadcastEvent("draft_changed", id)
+	s.notify(TopicDrafts)
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -47,15 +47,8 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 		w.Write([]byte("ok"))
 	})
 
-	// SSE endpoint (when hub is configured)
-	if s.SSEHub != nil && s.ProxyURL == "" {
-		handle("GET /api/events", s.handleSSE)
-	}
-	// Proxy mode: merge the remote stream with this board's own events
-	// (agent chats live here). More specific than the proxy's catch-all.
-	if s.SSEHub != nil && s.ProxyURL != "" && !s.Headless {
-		mux.HandleFunc("GET /api/events", s.handleSSERelay)
-	}
+	// The event stream (when the hub is configured).
+	s.registerLiveRoutes(mux, handle)
 
 	// Local-only routes: answered by this process in both local and proxy
 	// mode, because they describe the viewer's machine (e.g. worktree paths),

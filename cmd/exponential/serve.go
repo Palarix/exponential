@@ -76,7 +76,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	srv.VerifyKey = verifyKey
 	srv.NonceStore = auth.NewNonceStore(5 * time.Minute)
 	srv.AuthorizedKeys = authorizedKeys
-	srv.SSEHub = server.NewSSEHub()
+	srv.Live = server.NewLiveHub()
 
 	// Set up MCP-over-HTTP handler
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
@@ -84,7 +84,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			Name:    "xpo",
 			Version: version.CLIVersion,
 		}, nil)
-		mcpserver.RegisterTools(mcpSrv, cfg, r, srv.BroadcastEvent)
+		mcpserver.RegisterTools(mcpSrv, cfg, r, func(string, string) { srv.Notify(server.TopicIssues) })
 		return mcpSrv
 	}, nil)
 	srv.MCPHandler = mcpHandler
@@ -111,6 +111,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+	// Shutdown waits for open requests; end the event streams so it can.
+	httpServer.RegisterOnShutdown(srv.Live.Close)
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- httpServer.Serve(listener) }()

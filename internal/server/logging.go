@@ -27,6 +27,10 @@ func (r *statusRecorder) Flush() {
 	}
 }
 
+// Unwrap lets http.ResponseController reach the connection, for the event
+// stream's write deadlines.
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 type utcLogWriter struct{}
 
 func (utcLogWriter) Write(p []byte) (int, error) {

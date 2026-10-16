@@ -86,8 +86,7 @@ func TestRunner_BackgroundTasksAndAgentTurn(t *testing.T) {
 	r, store, _ := newTestRunner(t, printLines(claudeAgentTurnInit, claudeTaskStarted, claudeResultLine)+
 		"( sleep 0.5\n"+printLines(claudeTaskEnded, claudeTasksNone, claudeAgentTurnInit, claudeAgentText, claudeResultLine)+") &")
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "serve it"})
 
 	bg := waitForEvent(t, ch, EventBackgroundTasks)
@@ -183,8 +182,7 @@ func TestRunner_CancelKeepsTheAgent(t *testing.T) {
 IFS= read -r interrupt; printf '%s\n' "$interrupt" >> "$(dirname "$0")/interrupts.txt"
 printf '%s\n' '{"type":"result","subtype":"error_during_execution","is_error":true,"session_id":"sess-42"}'`)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "x"})
 	waitForEvent(t, ch, EventTextDelta)
 	r.Cancel(m.ID)
@@ -206,8 +204,7 @@ printf '%s\n' '{"type":"result","subtype":"error_during_execution","is_error":tr
 func TestRunner_StopBackgroundEndsTheAgent(t *testing.T) {
 	r, store, _ := newTestRunner(t, printLines(claudeAgentTurnInit, claudeTaskStarted, claudeResultLine))
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "serve it"})
 	waitDone(t, r)
 	meta, _ := store.Meta(m.ID)
@@ -383,8 +380,7 @@ func TestCodexDriver_BackgroundCommand(t *testing.T) {
 {"method":"turn/completed","params":{"threadId":"thr-1","turn":{"id":"turn-1","status":"completed","error":null,"durationMs":5}}}
 `), 0o644)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "serve it", Provider: "codex"})
 
 	bg := waitForEvent(t, ch, EventBackgroundTasks)

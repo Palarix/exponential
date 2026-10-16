@@ -172,8 +172,7 @@ func TestRunner_ContinuedTurnHoldsTheChat(t *testing.T) {
 	r.cfg.Drivers["claude"] = &ClaudeDriver{Binary: fakeClaude(t, dir, `cat "$(dirname "$0")/turn.jsonl"; if grep -q Edit "$(dirname "$0")/args.txt"; then sleep 5; fi`)}
 	setTurn(t, dir, toolTurn("start", "abc", false))
 	m, _ := store.Create()
-	events, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	events := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "start xpo-abc"})
 	for e := range events {
@@ -201,8 +200,7 @@ func TestRunner_StoppedStartTurnDoesNotContinue(t *testing.T) {
 	r.cfg.Drivers["claude"] = &ClaudeDriver{Binary: fakeClaude(t, dir, `head -n 5 "$(dirname "$0")/turn.jsonl"; sleep 5`)}
 	setTurn(t, dir, toolTurn("start", "abc", false))
 	m, _ := store.Create()
-	events, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	events := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "start xpo-abc"})
 	for e := range events {

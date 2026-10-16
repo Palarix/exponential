@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,8 +15,9 @@ import (
 	"crypto/ed25519"
 
 	"github.com/palarix/exponential/internal/auth"
-	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/exponential"
+	"github.com/palarix/exponential/internal/live"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/registry"
 	"github.com/palarix/exponential/internal/storage"
@@ -54,8 +56,8 @@ type Server struct {
 	ProxyURL   string
 	ProxyToken string
 
-	// SSE hub for real-time event notifications.
-	SSEHub *SSEHub
+	// Live is the hub of the event stream (/api/events); nil disables it.
+	Live *live.Hub
 
 	// Agent chat — set by xpo board; nil disables the chat routes.
 	Chat *ChatService
@@ -64,14 +66,14 @@ type Server struct {
 	chatEvents     *throttle
 }
 
-// chatEventWindow is the shortest gap between two chat_changed events for
+// chatEventWindow is the shortest gap between two chats signals for
 // one chat, so a streaming turn doesn't flood the browsers.
 const chatEventWindow = 500 * time.Millisecond
 
 // ChatChanged tells open browsers that a chat's list entry changed.
 func (s *Server) ChatChanged(id string) {
 	s.chatEventsOnce.Do(func() {
-		s.chatEvents = newThrottle(chatEventWindow, func(id string) { s.broadcastEvent("chat_changed", id) })
+		s.chatEvents = newThrottle(chatEventWindow, func(string) { s.notify(TopicChats) })
 	})
 	s.chatEvents.Trigger(id)
 }
@@ -130,6 +132,7 @@ func (s *Server) Bind() (net.Listener, error) {
 func (s *Server) ServeOn(l net.Listener) error {
 	s.WatchDB()
 	s.WatchGitRefs()
+	s.startMirror(context.Background())
 	mux := s.SetupRoutes()
 	log.Printf("Starting xpo board server on %s", s.URL())
 	server := &http.Server{
@@ -192,19 +195,6 @@ func (s *Server) SaveAndSync(commitMessage string) error {
 	s.pendingGen++
 	s.cachedIssues = nil
 	return nil
-}
-
-// broadcastEvent notifies SSE clients about a change, if SSE is enabled.
-func (s *Server) broadcastEvent(eventType, issueID string) {
-	if s.SSEHub != nil {
-		s.SSEHub.Broadcast(SSEEvent{Type: eventType, IssueID: issueID})
-	}
-}
-
-// BroadcastEvent is the exported form of broadcastEvent for use by external
-// callers (e.g. MCP tool handlers that need to push SSE notifications).
-func (s *Server) BroadcastEvent(eventType, issueID string) {
-	s.broadcastEvent(eventType, issueID)
 }
 
 func (s *Server) statDB() (mtime time.Time, size int64, exists bool) {

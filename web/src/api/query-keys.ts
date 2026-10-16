@@ -8,7 +8,7 @@ const headSha = (issue: IssueRef) => issue.branch_stats?.head_sha ?? null;
 /**
  * Per-issue keys carry the issue field their data depends on (`updated_at`,
  * `status`, `head_sha`), so they refetch exactly when the issues query brings
- * a change — not on every SSE event. Superseded versions age out via gcTime.
+ * a change — not on every issues signal. Superseded versions age out via gcTime.
  */
 export const queryKeys = {
   issues: ["issues"],
@@ -36,7 +36,7 @@ export const queryKeys = {
   commitDiff: (issueId: string, sha: string) => ["issue", issueId, "commit", sha],
 } as const;
 
-/** Prefixes of everything an SSE event can change. */
+/** Prefixes of everything the event stream's issues topic can change. Drafts have their own topic. */
 export const SSE_INVALIDATED_KEYS = [
   queryKeys.issues,
   queryKeys.inbox,
@@ -44,7 +44,6 @@ export const SSE_INVALIDATED_KEYS = [
   queryKeys.metrics,
   queryKeys.activity,
   queryKeys.timelineAll,
-  queryKeys.issueDrafts,
 ] as const;
 
 export function invalidateOnServerEvent(qc: QueryClient): Promise<void> {

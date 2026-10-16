@@ -247,7 +247,7 @@ export function QuestionFooter({
  * the card shows one at a time behind tabs, then a review step; the tabs are
  * the way back. "Submit answers" returns the answers; "Chat about this"
  * denies the call, so the user can talk instead. The card stays until the
- * outcome arrives on the chat stream. onExpired runs when the server no
+ * outcome arrives on the chat's event stream topic. onExpired runs when the server no
  * longer has it open. The active card takes focus, as an approval card
  * does, unless the user is typing.
  */

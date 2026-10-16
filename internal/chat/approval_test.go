@@ -131,8 +131,7 @@ func TestClaudePermissionResponse_ChatAboutQuestion(t *testing.T) {
 func TestRunner_QuestionAnswer(t *testing.T) {
 	r, store, dir := newApprovalRunner(t, claudeQuestionRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "ask me"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)
@@ -183,8 +182,7 @@ func TestRunner_QuestionAnswer(t *testing.T) {
 func TestRunner_QuestionChatAboutThis(t *testing.T) {
 	r, store, dir := newApprovalRunner(t, claudeQuestionRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "ask me"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)
@@ -291,8 +289,7 @@ func eventsOfType(events []Event, typ string) []Event {
 func TestRunner_ApprovalAllowOnce(t *testing.T) {
 	r, store, dir := newApprovalRunner(t, claudeMergeRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "merge it"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)
@@ -330,8 +327,7 @@ func TestRunner_ApprovalAllowOnce(t *testing.T) {
 func TestRunner_ApprovalDeny(t *testing.T) {
 	r, store, dir := newApprovalRunner(t, claudeMergeRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "merge it"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)
@@ -356,8 +352,7 @@ func TestRunner_ApprovalDeny(t *testing.T) {
 func TestRunner_ApprovalAllowSessionGrantsLaterTurns(t *testing.T) {
 	r, store, dir := newApprovalRunner(t, claudeBashRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "write a file"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)
@@ -399,8 +394,7 @@ func TestRunner_ApprovalAllowSessionGrantsLaterTurns(t *testing.T) {
 func TestRunner_ApprovalCancelResolvesOpenRequests(t *testing.T) {
 	r, store, _ := newApprovalRunner(t, claudeMergeRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "merge it"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)
@@ -423,8 +417,7 @@ func TestRunner_ApprovalCancelResolvesOpenRequests(t *testing.T) {
 func TestRunner_DecideErrors(t *testing.T) {
 	r, store, _ := newApprovalRunner(t, claudeMergeRequest)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "merge it"})
 	req := waitForEvent(t, ch, EventApprovalRequested)
 
@@ -504,8 +497,7 @@ func TestCodexDriver_ForwardsApprovals(t *testing.T) {
 	})
 	t.Cleanup(r.Shutdown)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "clean up", Provider: "codex"})
 
 	cmd := waitForEvent(t, ch, EventApprovalRequested)
@@ -589,8 +581,7 @@ func TestRunner_DeniedApprovalMarksToolCallDenied(t *testing.T) {
 	})
 	t.Cleanup(r.Shutdown)
 	m, _ := store.Create()
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 	r.Send(m.ID, SendRequest{Text: "merge it"})
 
 	req := waitForEvent(t, ch, EventApprovalRequested)

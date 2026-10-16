@@ -57,6 +57,11 @@ type RunnerConfig struct {
 	// ReapEvery is how often the runner looks for idle agents. 5 minutes
 	// when zero.
 	ReapEvery time.Duration
+
+	// OnEvent gets every event published for a chat, settled (with Seq) and
+	// live, in order. It is called under the runner's lock, so it must not
+	// block or call back into the runner. Optional.
+	OnEvent func(chatID string, e Event)
 }
 
 // Learner learns which model a picked model ID resolved to. The Catalog is
@@ -78,7 +83,7 @@ type SendRequest struct {
 	Attachments []AttachmentData
 }
 
-// Runner runs chat turns and fans their events out to subscribers. Each
+// Runner runs chat turns and hands their events to RunnerConfig.OnEvent. Each
 // chat keeps one agent process across turns (a live session), so background
 // tasks the agent starts outlive the turn that started them.
 type Runner struct {
@@ -87,7 +92,6 @@ type Runner struct {
 	mu        sync.Mutex
 	turns     map[string]*turn
 	sessions  map[string]*liveSession
-	subs      map[string]map[chan Event]struct{}
 	approvals map[string]map[string]openCard // open approval cards: chat ID → approval ID → card
 	closing   bool                           // Shutdown began: no turn continues on its own
 	wg        sync.WaitGroup                 // running turns
@@ -148,7 +152,6 @@ func NewRunner(cfg RunnerConfig) *Runner {
 		cfg:       cfg,
 		turns:     map[string]*turn{},
 		sessions:  map[string]*liveSession{},
-		subs:      map[string]map[chan Event]struct{}{},
 		approvals: map[string]map[string]openCard{},
 		stopReap:  make(chan struct{}),
 	}
@@ -432,43 +435,13 @@ func (r *Runner) Shutdown() {
 	r.Wait()
 }
 
-// Subscribe returns a channel of every event published for a chat, settled
-// and live. A subscriber that falls behind does not block the turn: its
-// channel is closed instead, so it can resubscribe and replay the settled
-// events it missed from the store. Unsubscribing more than once is a no-op.
-func (r *Runner) Subscribe(id string) (<-chan Event, func()) {
-	ch := make(chan Event, 256)
-	r.mu.Lock()
-	if r.subs[id] == nil {
-		r.subs[id] = map[chan Event]struct{}{}
-	}
-	r.subs[id][ch] = struct{}{}
-	r.mu.Unlock()
-	return ch, func() {
-		r.mu.Lock()
-		r.dropSub(id, ch)
-		r.mu.Unlock()
-	}
-}
-
+// publish hands e to OnEvent. The lock keeps the events of one chat in the
+// order they were published, across the goroutines that publish them.
 func (r *Runner) publish(id string, e Event) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for ch := range r.subs[id] {
-		select {
-		case ch <- e:
-		default:
-			r.dropSub(id, ch)
-			close(ch)
-		}
-	}
-}
-
-// dropSub removes ch from the chat's subscribers. r.mu must be held.
-func (r *Runner) dropSub(id string, ch chan Event) {
-	delete(r.subs[id], ch)
-	if len(r.subs[id]) == 0 {
-		delete(r.subs, id)
+	if r.cfg.OnEvent != nil {
+		r.cfg.OnEvent(id, e)
 	}
 }
 

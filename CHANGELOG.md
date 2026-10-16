@@ -156,6 +156,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Live updates: each board tab now holds **one** event stream, `GET /api/events`, whatever the number of open chats. Issues, drafts, the chat list and every open chat all arrive over it, so tabs no longer use up the browser's 6 connections per host. (xpo-6d1102)
+  - **Topics:** a new broadcaster, `internal/live`, carries *signal* topics (`issues`, `drafts`, `chats`: "changed, refetch") and *log* topics (`chat:<id>`: ordered events with seq ids). A tab adds and removes chats with `POST /api/events/{stream}/topics` and the last seq it has. Draft saves now refetch only the drafts list.
+  - **Never silently behind:** repeated signals merge into one. If a chat's queue overflows, only that chat replays from the store, and the stream stays open. After any reconnect (sleep, network drop, board restart), the tab refetches the signal topics and replays each open chat from its last seq. The browser retries with backoff (1s up to 30s) and reconnects as soon as the tab is visible again.
+  - **Server:** a 10s deadline on each write, so a frozen tab no longer holds its handler; a keepalive every 25s; open streams end on shutdown.
+  - **Remote mode:** the board keeps one connection to the remote's stream for all its tabs. Chats keep updating while the remote is down. The board and its remote must run the same version.
+  - **Removed:** `GET /api/local/chats/{id}/stream`, and the `issue_*`, `draft_changed` and `chat_changed` SSE events.
+
 - Labels: creating a label in the label picker (`Create "…"`) applies it to the issue in one step, uncolored; the color step is gone. Colors are managed in the Labels view.
   - **Labels view:** "Built-in labels" and "Custom labels" are separate sections. Clicking a custom label opens an Edit label dialog with the name, a 12-color palette, and a live preview of the label on its issues. Delete label sits in the dialog behind a confirmation. "N issues" on each row links to the filtered issue list.
   - **Built-in labels** (`default_labels`) are read-only: the board and the API (400) refuse to rename, recolor, re-add or delete them, or to rename another label onto one.

@@ -17,7 +17,7 @@ const PRIMARY = `${BUTTON} bg-[var(--color-button-ai)] text-white hover:bg-[var(
 
 /**
  * An agent asks before a tool call runs. The card stays until the decision
- * arrives on the chat stream. onExpired runs when the server no longer has
+ * arrives on the chat's event stream topic. onExpired runs when the server no longer has
  * the request open. The active card takes focus, unless the user is typing:
  * there Enter allows once and Esc denies, as in a form.
  */

@@ -7,12 +7,12 @@ import {
 } from "./client";
 import type { Issue, InboxStatus, IssueDraft } from "./types";
 import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
-import { invalidateOnServerEvent, queryKeys } from "./query-keys";
+import { queryKeys } from "./query-keys";
 import { useToast } from "../components/ui/ToastContext";
 
 export { queryKeys };
 
-/** SSE is the freshness signal, so queries never go stale or retry on their own. */
+/** The event stream (useLive) is the freshness signal, so queries never go stale or retry on their own. */
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
@@ -75,12 +75,6 @@ export function useMarkInboxRead(): () => Promise<void> {
 
 export function useUser() {
   return useQuery({ queryKey: queryKeys.user, queryFn: fetchUser }).data ?? null;
-}
-
-/** Invalidates everything SSE events can change. */
-export function useInvalidateOnServerEvent(): () => void {
-  const qc = useQueryClient();
-  return useCallback(() => { invalidateOnServerEvent(qc); }, [qc]);
 }
 
 // --- Per-view data ---

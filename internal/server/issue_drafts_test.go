@@ -125,26 +125,25 @@ func TestIssueDrafts_ValidationIs400(t *testing.T) {
 	}
 }
 
-func TestIssueDrafts_BroadcastsDraftChanged(t *testing.T) {
+func TestIssueDrafts_NotifyDraftsOnly(t *testing.T) {
 	srv := setupTestServer(t)
-	srv.SSEHub = NewSSEHub()
-	ch := srv.SSEHub.subscribe()
-	defer srv.SSEHub.unsubscribe(ch)
+	sub := subscribeLive(t, srv)
 	mux := srv.SetupRoutes()
 
-	w := draftRequest(t, mux, "POST", "/api/issue-drafts", model.IssueDraftPayload{Title: "x"}, "")
-	d := decodeDraft(t, w)
-	draftRequest(t, mux, "PUT", "/api/issue-drafts/"+d.ID, model.IssueDraftPayload{Title: "y"}, "")
-	draftRequest(t, mux, "DELETE", "/api/issue-drafts/"+d.ID, nil, "")
-
-	for i := 0; i < 3; i++ {
-		select {
-		case evt := <-ch:
-			if evt.Type != "draft_changed" || evt.IssueID != d.ID {
-				t.Errorf("event %d: got %+v", i, evt)
-			}
-		case <-time.After(time.Second):
-			t.Fatalf("event %d: no broadcast", i)
+	var d model.IssueDraft
+	steps := map[string]func(){
+		"create": func() {
+			d = decodeDraft(t, draftRequest(t, mux, "POST", "/api/issue-drafts", model.IssueDraftPayload{Title: "x"}, ""))
+		},
+		"update": func() {
+			draftRequest(t, mux, "PUT", "/api/issue-drafts/"+d.ID, model.IssueDraftPayload{Title: "y"}, "")
+		},
+		"delete": func() { draftRequest(t, mux, "DELETE", "/api/issue-drafts/"+d.ID, nil, "") },
+	}
+	for _, name := range []string{"create", "update", "delete"} {
+		steps[name]()
+		if got := signals(sub, 50*time.Millisecond); got[TopicDrafts] != 1 || len(got) != 1 {
+			t.Errorf("%s: signals = %v, want drafts only", name, got)
 		}
 	}
 }

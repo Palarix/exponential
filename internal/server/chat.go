@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -48,7 +47,6 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/background/stop", s.handleStopBackground)
 	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
-	mux.HandleFunc("GET /api/local/chats/{id}/stream", s.handleChatStream)
 	mux.HandleFunc("POST /api/local/chats/{id}/leave-work", s.handleLeaveWork)
 	mux.HandleFunc("POST /api/local/chats/{id}/archive", s.handleArchiveChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/unarchive", s.handleUnarchiveChat)
@@ -280,76 +278,6 @@ func (s *Server) handleDecideApproval(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// handleChatStream sends a chat's events as SSE: first the settled events
-// after Last-Event-ID (or ?after=), then live events until the client goes.
-// Settled events carry their Seq as the SSE id, so a reconnecting
-// EventSource resumes without duplicates. A client that falls behind loses
-// its subscription; the stream then ends, and the reconnect catches it up.
-func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if _, err := s.Chat.Store.Meta(id); s.respondChatError(w, err) {
-		return
-	}
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
-		return
-	}
-
-	after := r.Header.Get("Last-Event-ID")
-	if after == "" {
-		after = r.URL.Query().Get("after")
-	}
-	last, _ := strconv.Atoi(after)
-
-	// Subscribe before reading the log, so no event falls between the two.
-	ch, unsubscribe := s.Chat.Runner.Subscribe(id)
-	defer unsubscribe()
-	_, events, err := s.Chat.Store.Get(id)
-	if s.respondChatError(w, err) {
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	send := func(e chat.Event) {
-		if e.Seq > 0 {
-			if e.Seq <= last {
-				return
-			}
-			last = e.Seq
-			fmt.Fprintf(w, "id: %d\n", e.Seq)
-		}
-		data, _ := json.Marshal(e)
-		fmt.Fprintf(w, "data: %s\n\n", data)
-	}
-	for _, e := range events {
-		send(e)
-	}
-	flusher.Flush()
-
-	keepalive := time.NewTicker(30 * time.Second)
-	defer keepalive.Stop()
-	for {
-		select {
-		case e, ok := <-ch:
-			if !ok {
-				return
-			}
-			send(e)
-			flusher.Flush()
-		case <-keepalive.C:
-			fmt.Fprint(w, ": keepalive\n\n")
-			flusher.Flush()
-		case <-r.Context().Done():
-			return
-		}
-	}
-}
-
 // handleWorkChat is Start Work and Continue Work in Work Mode. It opens
 // the chat in Work Mode on the issue when one exists. Otherwise it binds a
 // new chat to the issue's worktree: the existing one for a DOING issue, or
@@ -412,7 +340,7 @@ func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, err.Error())
 			return
 		}
-		s.broadcastEvent("UPDATE", id)
+		s.notify(TopicIssues)
 	}
 
 	binding := chat.WorkBinding{IssueID: id, Worktree: worktree}

@@ -34,13 +34,13 @@ func chdir(t *testing.T, dir string) {
 func serverWithCache(t *testing.T) *Server {
 	t.Helper()
 	srv := &Server{
-		SSEHub:       NewSSEHub(),
+		Live:         NewLiveHub(),
 		cachedIssues: map[string]*model.Issue{"test": {ID: "test"}},
 	}
 	return srv
 }
 
-func TestWatchGitRefs_NilSSEHub(t *testing.T) {
+func TestWatchGitRefs_NilLiveHub(t *testing.T) {
 	dir := setupFakeGitRepo(t)
 	chdir(t, dir)
 	srv := &Server{}
@@ -50,7 +50,7 @@ func TestWatchGitRefs_NilSSEHub(t *testing.T) {
 func TestWatchGitRefs_NoGitDir(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
-	srv := &Server{SSEHub: NewSSEHub()}
+	srv := &Server{Live: NewLiveHub()}
 	srv.WatchGitRefs() // should not panic
 }
 
@@ -167,8 +167,7 @@ func TestWatchGitRefs_SSEBroadcast(t *testing.T) {
 	chdir(t, dir)
 	srv := serverWithCache(t)
 
-	ch := srv.SSEHub.subscribe()
-	defer srv.SSEHub.unsubscribe(ch)
+	sub := subscribeLive(t, srv)
 
 	srv.WatchGitRefs()
 	time.Sleep(50 * time.Millisecond)
@@ -176,12 +175,5 @@ func TestWatchGitRefs_SSEBroadcast(t *testing.T) {
 	refFile := filepath.Join(dir, ".git", "refs", "heads", "main")
 	os.WriteFile(refFile, []byte("eee555\n"), 0o644)
 
-	select {
-	case evt := <-ch:
-		if evt.Type != "UPDATE" {
-			t.Errorf("expected UPDATE event, got %s", evt.Type)
-		}
-	case <-time.After(500 * time.Millisecond):
-		t.Error("timed out waiting for SSE broadcast")
-	}
+	waitSignal(t, sub, TopicIssues)
 }

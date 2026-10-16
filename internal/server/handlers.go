@@ -131,7 +131,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, "failed to create issue")
 			return
 		}
-		s.broadcastEvent("CREATE", issue.ID)
+		s.notify(TopicIssues)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issue.ID})
 
 	case model.EventTypeUpdate:
@@ -155,7 +155,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update issue %s", req.IssueID))
 			return
 		}
-		s.broadcastEvent("UPDATE", req.IssueID)
+		s.notify(TopicIssues)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeComment:
@@ -179,7 +179,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to add comment to issue %s", req.IssueID))
 			return
 		}
-		s.broadcastEvent("COMMENT", req.IssueID)
+		s.notify(TopicIssues)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeDelete:
@@ -199,7 +199,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete issue %s", req.IssueID))
 			return
 		}
-		s.broadcastEvent("DELETE", req.IssueID)
+		s.notify(TopicIssues)
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	default:
@@ -911,7 +911,7 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastEvent("UPDATE", id)
+	s.notify(TopicIssues)
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"status":   "ok",
 		"issue_id": id,
@@ -1218,7 +1218,7 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.broadcastEvent("MERGE", id)
+	s.notify(TopicIssues)
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"status":    "ok",
 		"merge_sha": result.MergeSHA,

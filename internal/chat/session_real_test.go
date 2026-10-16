@@ -33,8 +33,7 @@ func TestRealClaude_BackgroundTask(t *testing.T) {
 	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-1", Worktree: wt}); err != nil {
 		t.Fatal(err)
 	}
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 
 	start := time.Now()
 	r.Send(m.ID, SendRequest{Text: "Use the Bash tool with run_in_background=true to run: sleep 20. Do not wait for it. Reply with just OK.", Model: "haiku"})
@@ -109,8 +108,7 @@ func TestRealCodex_BackgroundCommand(t *testing.T) {
 	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-1", Worktree: wt}); err != nil {
 		t.Fatal(err)
 	}
-	ch, unsubscribe := r.Subscribe(m.ID)
-	defer unsubscribe()
+	ch := tap(r, m.ID)
 
 	r.Send(m.ID, SendRequest{Text: "Start the shell command `sleep 25 && echo finished` as a long-running command without nohup or &. Do not wait for it: leave it running and reply with just OK right away.", Provider: ProviderCodex})
 	waitForEventWithin(t, ch, EventTurnDone, 120*time.Second)

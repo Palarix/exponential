@@ -229,10 +229,6 @@ export function answerQuestion(chatId: string, approvalId: string, answers: Reco
   });
 }
 
-export function chatStreamURL(id: string): string {
-  return `${BASE}/chats/${encodeURIComponent(id)}/stream`;
-}
-
 export function renameChat(id: string, title: string): Promise<ChatMeta> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}`, {
     method: "PATCH",

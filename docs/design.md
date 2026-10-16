@@ -28,7 +28,7 @@ Exponential is an event-sourced issue tracker that stores its data in a git-trac
            │            │   HTTP Server     │
            │            │  (xpo serve)    │
            │            │  + Auth (JWT/SSH) │
-           │            │  + SSE hub        │
+           │            │  + event stream   │
            │            │  + projection     │
            │            │    cache          │
            │            └────────┬─────────┘
@@ -191,15 +191,39 @@ The server maintains a read-through cache of projected issues. `GetProjectedIssu
 
 The web UI batches mutations in memory as "pending events" (`Server.pendingEvents`). These are applied on top of the persisted projection at read time, giving instant feedback in the UI. They're only written to disk when the user clicks Save (which calls `POST /api/save`).
 
-### SSE
+### Event stream
 
-Real-time updates are pushed to connected web clients via Server-Sent Events (`GET /api/events`). Handlers call `broadcastEvent(type, issueID)` after mutations. The SSE hub manages client channels with non-blocking sends (slow clients get dropped). A 30-second keepalive prevents connection timeouts.
+Each board tab holds **one** Server-Sent Events connection, `GET /api/events`, for every live update. The broadcaster is `internal/live` (the hub). Every event belongs to a **topic** of one of two kinds:
 
-The board also sends `chat_changed` (chat ID in `issue_id`) whenever a chat's list entry may have changed: its meta is written, it is deleted, or an approval card opens or closes. It sends at most one per chat per 500ms, plus one at the end of the window so the last change always arrives. The browser refetches the chat list on `chat_changed` and whenever the stream (re)opens; the chat list is not polled. In remote mode the board answers `/api/events` itself, relaying the remote stream and adding its own chat events, because chats live on the local board.
+| Kind | Meaning | Slow reader | Topics |
+|---|---|---|---|
+| Signal | "Something changed, refetch." No payload. | Repeats merge into one dirty flag per stream, so it can't overflow. | `issues` (issue writes, the DB watch, git refs), `drafts` (issue drafts), `chats` (the chat list, at most one per chat per 500ms) |
+| Log | Ordered events with `seq` ids and a store to replay from. Keyed: `<kind>:<key>`. | Each topic queues up to 256 frames per stream. On overflow, the queue is dropped and that one topic replays from the store. The stream stays open. | `chat:<id>`: a chat's events, settled and live |
+
+Publishing never blocks: `hub.Notify(topic)` for a signal, `hub.Append(kind, key, frame)` for a log.
+
+**Wire format.** Named SSE events with JSON data:
+
+```
+event: hello   data: {"stream":"<id>"}
+event: signal  data: {"topic":"issues"}
+event: log     data: {"topic":"chat:<id>","data":<chat.Event>}
+event: gone    data: {"topic":"chat:<id>"}
+```
+
+A stream is subscribed to every signal topic. The browser adds and removes log topics with `POST /api/events/{stream}/topics`, body `{"add":[{"topic":"chat:<id>","after":12}],"remove":["chat:<id>"]}`. Adding a topic replays its stored events after `after`, then goes live. There are no SSE ids: the browser keeps each log topic's last seq. After every `hello` (any reconnect), it calls every signal handler and re-adds its log topics from their last seqs. `gone` means the server dropped a log topic, because it no longer exists or could not be read; the browser loads it again.
+
+Each write has a 10s deadline, and a keepalive comment goes out every 25s. `hub.Close()` ends every stream on shutdown.
+
+**Browser.** `web/src/live/`: `createLive` owns the `EventSource`. It retries with backoff (1s doubling to 30s) once the browser gives up, and it reconnects right away when the tab is visible again. `useLive()` (in `App.tsx`) maps signals to React Query invalidations. `live.follow("chat:<id>", after, onEvent, onGone)` follows a log topic. `useChatThread` uses it.
+
+**Adding a topic.**
+1. Server: register it with `hub.Signal("name")` or `hub.Log("name", replay)` (see `NewLiveHub` and `registerLiveRoutes` in `internal/server/live.go`). Then call `Notify` or `Append` where the data changes.
+2. Browser: `live.onSignal("name", fn)` in `useLive`, or `live.follow("name:<key>", after, fn)` where the data is shown.
 
 ### Proxy mode
 
-`xpo board --remote <url>` runs the web UI locally but reverse-proxies all `/api/*` and `/auth/*` requests to a remote server. This gives the full board experience while data lives on the server. SSE is disabled in proxy mode.
+`xpo board --remote <url>` runs the web UI locally but reverse-proxies all `/api/*` and `/auth/*` requests to a remote server. This gives the full board experience while data lives on the server. The event stream is the local board's, because chats live there. One `live.Mirror` per board follows the remote's `/api/events` and turns its `issues` and `drafts` signals into local ones, and every remote (re)connect notifies both. A remote that is down doesn't end the browser's stream. The board and its remote must run the same version.
 
 **Files:** `internal/server/`
 
