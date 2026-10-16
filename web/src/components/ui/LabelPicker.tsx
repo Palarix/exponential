@@ -182,6 +182,7 @@ export default function LabelPicker({
       {canCreate && canCreateLabels && (
         <MenuItem
           label={`Create "${search.trim()}"`}
+          keepOpen
           onClick={() => handleSelect(search.trim())}
         />
       )}

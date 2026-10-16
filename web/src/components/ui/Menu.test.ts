@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding } from './menu-utils';
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate } from './menu-utils';
 
 describe('nextIndex', () => {
   const skip = new Set<number>();
@@ -105,6 +105,22 @@ describe('pointInTriangle', () => {
 
   it('returns false for degenerate triangle (collinear)', () => {
     expect(pointInTriangle(1, 1, 0, 0, 2, 2, 4, 4)).toBe(false);
+  });
+});
+
+describe("closesOnActivate", () => {
+  it("closes the menu after a plain item", () => {
+    expect(closesOnActivate({ isCheckbox: false })).toBe(true);
+  });
+
+  it("keeps the menu open after a checkbox item, so several can be toggled", () => {
+    expect(closesOnActivate({ isCheckbox: true })).toBe(false);
+  });
+
+  // Regression (xpo-2790cd): "Create label" and "Delete" open a next step inside
+  // their own menu; closing unmounted it before it could show.
+  it("keeps the menu open after an item that opens a next step", () => {
+    expect(closesOnActivate({ isCheckbox: false, keepOpen: true })).toBe(false);
   });
 });
 

@@ -201,6 +201,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Menus: items that open a next step inside their menu keep it open. In the label picker, `Create "…"` shows the color step again and creates the label, where before it closed the picker and did nothing. In the issue context menu, Delete shows its confirmation; before, only ⌘⌫ / Ctrl⌫ did. `MenuItem` takes a new `keepOpen` prop for such items. (xpo-2790cd)
+
 - Agent view: Esc in the composer takes focus out of it and keeps the draft, so global shortcuts such as `g → i` work again after `g → a`. `/` puts focus back in the composer and is listed in the `?` help. In the chat popup, Esc still minimizes. (xpo-de9f71)
 
 - Agent view: the new-chat landing page keeps a stable scrollbar gutter, so its content no longer shifts sideways when the recent-chats list overflows or when a thread opens. The All chats page drops a redundant `overflow-y-auto`. (xpo-127a26)

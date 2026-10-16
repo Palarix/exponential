@@ -13,7 +13,7 @@ import {
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useKeyboardHandler } from "../../keyboard";
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding } from "./menu-utils";
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate } from "./menu-utils";
 
 // ─── Internal props injected by Menu via cloneElement ──
 
@@ -34,6 +34,7 @@ interface ChildMeta {
   shortcut?: string;
   isSubMenu: boolean;
   isCheckbox: boolean;
+  keepOpen: boolean;
   onClick?: () => void;
 }
 
@@ -81,6 +82,7 @@ export function Menu({
       shortcut: props.shortcut as string | undefined,
       isSubMenu,
       isCheckbox,
+      keepOpen: props.keepOpen === true,
       onClick: props.onClick as (() => void) | undefined,
     });
     childCount++;
@@ -130,7 +132,7 @@ export function Menu({
       setOpenSubMenuIndex(index);
     } else {
       meta.onClick?.();
-      if (!meta.isCheckbox) onClose?.();
+      if (closesOnActivate(meta)) onClose?.();
     }
   }, [onClose]);
 
@@ -422,6 +424,8 @@ interface MenuItemProps extends MenuItemInternalProps {
   active?: boolean;
   destructive?: boolean;
   onClick?: () => void;
+  /** Activating opens a next step inside this menu, so the menu stays open. */
+  keepOpen?: boolean;
   suffix?: ReactNode;
   /** Keep the label on one line, ending in an ellipsis. */
   truncate?: boolean;

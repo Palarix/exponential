@@ -49,6 +49,14 @@ export function pointInTriangle(
   return a >= 0 && b >= 0 && c >= 0;
 }
 
+/**
+ * Whether activating an item closes its menu. Checkbox items stay open so
+ * several can be toggled; keepOpen items open a next step inside the menu.
+ */
+export function closesOnActivate({ isCheckbox, keepOpen }: { isCheckbox: boolean; keepOpen?: boolean }): boolean {
+  return !isCheckbox && !keepOpen;
+}
+
 /** The inset a framed menu keeps on every side, in px (p-2). */
 const MENU_INSET = 8;
 

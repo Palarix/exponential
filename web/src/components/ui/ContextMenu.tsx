@@ -207,7 +207,7 @@ export default function ContextMenu({
         )}
         <MenuDivider />
         <MenuItem
-          label="Delete" icon={<Trash2 size={16} />} destructive
+          label="Delete" icon={<Trash2 size={16} />} destructive keepOpen
           onClick={() => setConfirmDelete(hasChildren ? "choose" : "confirm")}
           suffix={<span className="text-xs opacity-70">{navigator.platform.includes("Mac") ? "⌘" : "Ctrl"}{"⌫"}</span>}
         />
