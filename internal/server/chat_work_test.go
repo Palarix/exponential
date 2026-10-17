@@ -22,6 +22,10 @@ import (
 func setupWorkServer(t *testing.T, body string) (*Server, http.Handler, *[]string) {
 	t.Helper()
 	s, _ := setupChatServer(t, body)
+	// Work Mode needs a git repository; a .git directory is enough here.
+	if err := os.Mkdir(".git", 0o755); err != nil {
+		t.Fatal(err)
+	}
 	dir := t.TempDir()
 	old := s.Chat.Runner
 	t.Cleanup(old.Shutdown)
@@ -166,6 +170,41 @@ func TestChat_WorkChatStartFails(t *testing.T) {
 	}
 	if list, _ := s.Chat.Store.List(); len(list) != 0 {
 		t.Errorf("chats = %+v, want none", list)
+	}
+}
+
+// Without a git repository, Start Work refuses before the issue starts, and
+// says what to do (xpo-e627e1).
+func TestChat_WorkChatWithoutGitRepoChangesNothing(t *testing.T) {
+	s, h, starts := setupWorkServer(t, "")
+	os.RemoveAll(".git")
+	id := seedIssue(t, "No repo")
+
+	code, _, body := postWorkChat(t, h, id)
+	if code != http.StatusConflict || !strings.Contains(body, "Work Mode needs a git repository") || !strings.Contains(body, "git init") {
+		t.Fatalf("got %d %s, want 409 telling to run git init", code, body)
+	}
+	if len(*starts) != 0 {
+		t.Errorf("starts = %v, want none", *starts)
+	}
+	if list, _ := s.Chat.Store.List(); len(list) != 0 {
+		t.Errorf("chats = %+v, want none", list)
+	}
+}
+
+// The real start path checks for git before it changes the issue.
+func TestStartWorktree_WithoutGitRepoKeepsStatus(t *testing.T) {
+	s := setupTestServer(t)
+	id := seedIssue(t, "No repo")
+	status := "PLANNED"
+	storage.AppendEvent(model.Event{ID: id, Type: model.EventTypeUpdate, Payload: model.UpdatePayload{Status: &status}, CreatedBy: "Test User <test@test.com>", CreatedAt: time.Now()})
+
+	if _, err := s.startWorktree(id); err == nil || !strings.Contains(err.Error(), "git init") {
+		t.Fatalf("err = %v, want the git init hint", err)
+	}
+	issues, _ := s.GetProjectedIssues()
+	if got := issues[id].Status; got != model.StatusPlanned {
+		t.Errorf("status = %s, want PLANNED", got)
 	}
 }
 

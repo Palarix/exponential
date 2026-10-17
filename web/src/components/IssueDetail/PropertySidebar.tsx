@@ -4,6 +4,7 @@ import { useCycles } from "../../api/queries";
 import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
 import { useStartWorkChat } from "../Agent/useWorkMode";
 import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
+import { noGitHint } from "../Agent/issue-chats";
 import { chatCount, useIssueChats } from "../Agent/useIssueChats";
 import { ActorName, Avatar, Button, DeleteIssueDialog, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
 import { Flag, UserRound, RefreshCw, Trash2, FlagOff } from "lucide-react";
@@ -57,7 +58,7 @@ export default function PropertySidebar({
     children: { id: string; title: string; status: string }[];
   } | null>(null);
 
-  const { startWork, starting, canChat } = useStartWorkChat();
+  const { startWork, starting, canChat, noGitRoot } = useStartWorkChat();
   const issueChats = useIssueChats(issue.id);
   const chatsRef = useRef<HTMLButtonElement>(null);
   const [chatsOpen, setChatsOpen] = useState(false);
@@ -87,7 +88,8 @@ export default function PropertySidebar({
   );
   // start refuses a BACKLOG issue, so Start Work waits for PLANNED (xpo-31520e).
   const inBacklog = workAction === "Start Work" && issue.status === "BACKLOG";
-  const startDisabled = inBacklog || blockers.length > 0;
+  // Work Mode can't open without a git repository (xpo-e627e1).
+  const startDisabled = !!noGitRoot || inBacklog || blockers.length > 0;
   const handleRemoveBlocker = useCallback(
     (id: string) => saveUpdate({ dependencies: removeLink(issue.dependencies || [], id, "blocked_by") }),
     [issue.dependencies, saveUpdate],
@@ -231,7 +233,7 @@ export default function PropertySidebar({
           );
           // A disabled button fires no pointer events, so a span triggers the tooltip.
           return startDisabled ? (
-            <Tooltip content={<StartWorkBlockedReasons inBacklog={inBacklog} blockers={blockers} onRemoveBlocker={handleRemoveBlocker} />}>
+            <Tooltip content={<StartWorkBlockedReasons noGitRoot={noGitRoot} inBacklog={inBacklog} blockers={blockers} onRemoveBlocker={handleRemoveBlocker} />}>
               <span className="block cursor-not-allowed">{button}</span>
             </Tooltip>
           ) : button;
@@ -648,14 +650,24 @@ export default function PropertySidebar({
   );
 }
 
-/** Why Start Work is disabled: the issue is in BACKLOG (xpo-31520e), then any unresolved blockers. */
-export function StartWorkBlockedReasons({ inBacklog, blockers, onRemoveBlocker }: {
+/**
+ * Why Start Work is disabled: the project has no git repository (xpo-e627e1),
+ * the issue is in BACKLOG (xpo-31520e), then any unresolved blockers.
+ */
+export function StartWorkBlockedReasons({ noGitRoot, inBacklog, blockers, onRemoveBlocker }: {
+  noGitRoot?: string;
   inBacklog: boolean;
   blockers: Issue[];
   onRemoveBlocker: (id: string) => void;
 }) {
   return (
     <div className="space-y-1">
+      {noGitRoot && (
+        <div className="flex items-center gap-2 py-0.5">
+          <GitBranch size={12} className="shrink-0" />
+          <span className="text-[var(--color-text-primary)]">{noGitHint(noGitRoot)}</span>
+        </div>
+      )}
       {inBacklog && (
         <div className="flex items-center gap-2 py-0.5">
           <StatusIcon status="BACKLOG" size={12} />

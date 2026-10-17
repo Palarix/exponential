@@ -404,10 +404,19 @@ export async function mergeIssue(issueId: string, options?: { strategy?: string;
   });
 }
 
+export interface LocalMode {
+  /** The board proxies to a remote server. */
+  remote: boolean;
+  /** The project is a git repository, so Work Mode can make worktrees. */
+  git: boolean;
+  /** The project's primary checkout, where to run git init. */
+  root: string;
+}
+
 // Answered by the local `xpo board` process (never proxied): whether it
 // proxies to a remote server. In remote mode git actions are hidden, because
 // the server would run them in its own checkout.
-export function fetchLocalMode(): Promise<{ remote: boolean }> {
+export function fetchLocalMode(): Promise<LocalMode> {
   return request(`${API_BASE}/local/mode`);
 }
 

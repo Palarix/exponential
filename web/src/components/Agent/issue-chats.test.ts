@@ -82,4 +82,10 @@ describe("enterWorkBlocker", () => {
     expect(enterWorkBlocker(chat({ id: "a", state: "running" }))).toMatch(/running/);
     expect(enterWorkBlocker(chat({ id: "a", mode: "work", work: { issue_id: "xpo-2", worktree: "/wt" } }))).toMatch(/xpo-2/);
   });
+
+  it("says Work Mode needs a git repository, and where to run git init", () => {
+    const why = enterWorkBlocker(chat({ id: "a" }), "/work/proj");
+    expect(why).toMatch(/Work Mode needs a git repository/);
+    expect(why).toMatch(/git init.*\/work\/proj/);
+  });
 });

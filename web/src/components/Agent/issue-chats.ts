@@ -51,8 +51,17 @@ export function filterChats(chats: ChatMeta[], query: string): ChatMeta[] {
   return q ? chats.filter((c) => c.title.toLowerCase().includes(q)) : chats;
 }
 
-/** Why a chat cannot enter Work Mode, or null when it can. */
-export function enterWorkBlocker(c: ChatMeta): string | null {
+/** Why Work Mode is unavailable in a project without git, and what to do (xpo-e627e1). */
+export function noGitHint(root: string): string {
+  return `Work Mode needs a git repository. Run git init in ${root}`;
+}
+
+/**
+ * Why a chat cannot enter Work Mode, or null when it can. noGitRoot is the
+ * project root when the project is not a git repository.
+ */
+export function enterWorkBlocker(c: ChatMeta, noGitRoot?: string): string | null {
+  if (noGitRoot) return noGitHint(noGitRoot);
   if (c.state === "running") return "The chat is running a reply";
   if (c.mode === "work" && c.work) return `The chat is in Work Mode on ${c.work.issue_id}`;
   return null;

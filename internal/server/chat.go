@@ -14,6 +14,7 @@ import (
 	"github.com/palarix/exponential/internal/chat"
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 )
 
 // ChatService is the board's agent chat. The board runs the agent on the
@@ -305,6 +306,12 @@ func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 		s.respondChatError(w, chat.ErrWorkUnavailable)
 		return
 	}
+	// Refuse before the issue starts: StartWork moves it to DOING even
+	// where it cannot make a worktree (xpo-e627e1).
+	if !exponential.CheckGitRepo() {
+		respondError(w, http.StatusConflict, errNoGitRepo().Error())
+		return
+	}
 	// Check the given chat before the issue starts, so a refusal changes
 	// nothing.
 	if req.ChatID != "" && s.respondChatError(w, s.checkResumable(req.ChatID)) {
@@ -399,13 +406,30 @@ func findIssueWorktree(id string) (string, bool) {
 }
 
 // startWorktree starts an issue like the start endpoint and returns its
-// worktree.
+// worktree. Outside a git repository it changes nothing.
 func (s *Server) startWorktree(id string) (string, error) {
+	if !exponential.CheckGitRepo() {
+		return "", errNoGitRepo()
+	}
 	_, worktree, _, err := s.startIssue(id, false)
 	if err == nil && worktree == "" {
-		err = errors.New("work mode needs a git repository")
+		err = errNoGitRepo()
 	}
 	return worktree, err
+}
+
+// hubPath returns the absolute path of the project's primary checkout.
+func hubPath() string {
+	if path, err := filepath.Abs(storage.HubRoot()); err == nil {
+		return path
+	}
+	return storage.HubRoot()
+}
+
+// errNoGitRepo says that Work Mode needs a git repository, and how to make
+// one.
+func errNoGitRepo() error {
+	return fmt.Errorf("Work Mode needs a git repository. Run \"git init\" in %s.", hubPath())
 }
 
 // handleLeaveWork puts a chat back in Chat Mode without a merge.

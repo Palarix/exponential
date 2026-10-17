@@ -28,12 +28,15 @@ var ErrWorkingElsewhere = errors.New("this chat is in work mode on another issue
 // CanWork reports whether chats may enter Work Mode.
 func (r *Runner) CanWork() bool { return r.cfg.CanWork }
 
-// profileFor builds the turn's profile from the chat's mode.
+// profileFor builds the turn's profile from the chat's mode. Chat Mode can
+// start work only in a git repository: start would move the issue to DOING
+// without a worktree (xpo-e627e1). It checks every turn, so git init takes
+// effect without a restart.
 func (r *Runner) profileFor(m Meta) Profile {
 	if m.Mode == ModeWork && m.Work != nil {
 		return WorkProfile(m.Work.IssueID, m.Work.Worktree, r.cfg.Dir)
 	}
-	return ChatProfile(r.cfg.Dir, r.cfg.CanWork)
+	return ChatProfile(r.cfg.Dir, r.cfg.CanWork && exponential.IsGitRepo(r.cfg.Dir))
 }
 
 // BindWork puts a chat in Work Mode on an issue. It refuses while a turn

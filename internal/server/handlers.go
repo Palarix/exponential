@@ -1053,9 +1053,14 @@ func (s *Server) handleGetLocalWorktree(w http.ResponseWriter, r *http.Request) 
 
 // handleLocalMode tells the UI whether this board proxies to a remote
 // server. In remote mode the UI hides actions that run git, because the
-// server would run them in its own checkout.
+// server would run them in its own checkout. git and root tell it whether
+// Work Mode can make worktrees, and where to run git init (xpo-e627e1).
 func (s *Server) handleLocalMode(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, map[string]bool{"remote": s.ProxyURL != ""})
+	respondJSON(w, http.StatusOK, map[string]any{
+		"remote": s.ProxyURL != "",
+		"git":    exponential.CheckGitRepo(),
+		"root":   hubPath(),
+	})
 }
 
 func resolveWorkingDir(branch string) (string, bool) {

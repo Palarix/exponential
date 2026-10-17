@@ -32,6 +32,10 @@ func newModeRunner(t *testing.T) (*Runner, *Store, string) {
 	t.Helper()
 	r, store, dir := newTestRunner(t, `cat "$(dirname "$0")/turn.jsonl"`)
 	r.cfg.CanWork = true
+	// Work Mode needs a git repository; a .git directory is enough here.
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	r.cfg.ResolveWork = func(id string) (WorkBinding, error) {
 		full := id
 		if !strings.HasPrefix(id, "xpo-") {
@@ -92,6 +96,21 @@ func TestRunner_NewChatRunsInChatMode(t *testing.T) {
 	meta, _ := store.Meta(m.ID)
 	if meta.Mode != "" && meta.Mode != ModeChat {
 		t.Errorf("mode = %q", meta.Mode)
+	}
+}
+
+// Outside a git repository Chat Mode cannot start work: start would move
+// the issue to DOING without a worktree (xpo-e627e1). git init takes
+// effect on the next turn.
+func TestRunner_ChatModeCanWorkNeedsGitRepo(t *testing.T) {
+	r, _, dir := newModeRunner(t)
+	if !r.profileFor(Meta{}).CanWork {
+		t.Fatal("CanWork = false in a git repository")
+	}
+	os.RemoveAll(filepath.Join(dir, ".git"))
+	p := r.profileFor(Meta{})
+	if p.CanWork || !slices.Contains(p.deniedTools(), "start") {
+		t.Errorf("profile = %+v, denied %v, want start denied without git", p, p.deniedTools())
 	}
 }
 

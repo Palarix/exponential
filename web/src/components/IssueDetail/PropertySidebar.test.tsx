@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { QueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../../api/query-keys";
 import type { Issue } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
@@ -16,7 +18,7 @@ const issue = makeIssue({
 // An agent chat whose agent CLI is available, with no chats.
 const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] }, chats: [], allChats: [] } as unknown as AgentChat;
 
-function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null, others: Issue[] = []): string {
+function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null, others: Issue[] = [], client?: QueryClient): string {
   // The app wraps everything in a tooltip provider (main.tsx).
   return renderMarkup(
     <TooltipPrimitive.Provider>
@@ -34,7 +36,15 @@ function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | 
     />
     </AgentChatContext.Provider>
     </TooltipPrimitive.Provider>,
+    client,
   );
+}
+
+/** A query client whose board answered /api/local/mode with no git repository. */
+function noGitClient(): QueryClient {
+  const client = new QueryClient();
+  client.setQueryData(queryKeys.localMode, { remote: false, git: false, root: "/work/proj" });
+  return client;
 }
 
 describe("PropertySidebar triggers", () => {
@@ -206,9 +216,33 @@ describe("PropertySidebar Start Work in BACKLOG", () => {
   });
 });
 
+describe("PropertySidebar Start Work without a git repository", () => {
+  const startButton = (html: string) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Start Work/)?.[0];
+  const planned = makeIssue({ status: "PLANNED" });
+
+  it("disables Start Work when the agent would open Work Mode", () => {
+    const html = renderSidebar(planned, true, agentAvailable, [], noGitClient());
+    expect(startButton(html)).toMatch(/disabled=""/);
+    expect(html).toContain("cursor-not-allowed");
+  });
+
+  it("keeps Start Work enabled without an agent: it only starts the issue", () => {
+    const html = renderSidebar(planned, true, null, [], noGitClient());
+    expect(startButton(html)).not.toMatch(/disabled=""/);
+  });
+});
+
 describe("StartWorkBlockedReasons", () => {
-  const render = (inBacklog: boolean, blockers: Issue[]) =>
-    renderMarkup(<StartWorkBlockedReasons inBacklog={inBacklog} blockers={blockers} onRemoveBlocker={() => {}} />);
+  const render = (inBacklog: boolean, blockers: Issue[], noGitRoot?: string) =>
+    renderMarkup(<StartWorkBlockedReasons noGitRoot={noGitRoot} inBacklog={inBacklog} blockers={blockers} onRemoveBlocker={() => {}} />);
+
+  it("says Work Mode needs git, and where to run git init, first", () => {
+    const html = render(true, [], "/work/proj");
+    expect(html).toContain("Work Mode needs a git repository");
+    expect(html).toContain("git init");
+    expect(html).toContain("/work/proj");
+    expect(html.indexOf("git repository")).toBeLessThan(html.indexOf("Move the issue to Planned"));
+  });
 
   it("says to move a BACKLOG issue to Planned", () => {
     const html = render(true, []);

@@ -216,6 +216,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Work Mode in a project without a git repository: Start Work no longer moves the issue to DOING and then fails with "not a git repo". The board refuses before anything changes, with `Work Mode needs a git repository. Run "git init" in <path>.` With an agent available, Start Work and "Enter work mode" are disabled, and their tooltip says the same. Without an agent, Start Work still only starts the issue. Chat Mode no longer offers the agent `start` outside git. Running `git init` takes effect without restarting the board. `GET /api/local/mode` also returns `git` and `root`. (xpo-e627e1)
+
 - Issue sidebar: Start Work is disabled while the issue is in BACKLOG, since `start` requires PLANNED. Before, clicking it only showed an error toast. Its tooltip says "Move the issue to Planned to start work", followed by any unresolved blockers. (xpo-31520e)
 
 - Agent chat: each chat keeps its own composer draft, text and pending attachments. Before, a draft typed in one popup chat showed up in the next chat opened, and a draft was lost when a chat moved between the popup and the Agent view. A chat's draft now follows it both ways on Maximize and Dock. The popup's new chat and the Agent view's new chat have separate drafts: Maximize moves the popup's draft into the Agent view and leaves the popup's new chat empty, for a side question. Drafts last until a reload. (xpo-4e78ba)

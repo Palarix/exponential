@@ -26,6 +26,23 @@ func TestCheckGitRepo_False(t *testing.T) {
 	}
 }
 
+func TestIsGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	if IsGitRepo(dir) {
+		t.Error("expected false without .git")
+	}
+	os.Mkdir(filepath.Join(dir, ".git"), 0755)
+	if !IsGitRepo(dir) {
+		t.Error("expected true with a .git directory")
+	}
+	// A worktree's .git is a file.
+	wt := t.TempDir()
+	os.WriteFile(filepath.Join(wt, ".git"), []byte("gitdir: /x\n"), 0644)
+	if !IsGitRepo(wt) {
+		t.Error("expected true with a .git file")
+	}
+}
+
 func TestCheckGithubWorkflows_True(t *testing.T) {
 	dir := t.TempDir()
 	origDir, _ := os.Getwd()

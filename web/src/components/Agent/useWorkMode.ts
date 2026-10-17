@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { leaveWork, startWorkChat, type ChatMeta } from "../../api/chat";
 import { queryKeys } from "../../api/query-keys";
 import { useStartWork } from "../../api/mutations";
-import { useIssueList } from "../../api/queries";
+import { useIssueList, useLocalMode } from "../../api/queries";
 import { useAppNav } from "../../app/hooks";
 import { useToast } from "../ui";
 import { agentQueryKeys, useOptionalAgentChat } from "./agent-context";
@@ -25,10 +25,13 @@ export function continueDraft(issueId: string): string {
  * it, or a new one with a prefilled first message. The server starts the
  * issue unless it is DOING already. With chatId, that chat enters Work
  * Mode instead ("Enter work mode" on a past chat). Without an available
- * agent (canChat false) it only starts the issue.
+ * agent (canChat false) it only starts the issue. noGitRoot is the project
+ * root when Work Mode would open but the project has no git repository, so
+ * it cannot (xpo-e627e1).
  */
-export function useStartWorkChat(): { startWork: (issueId: string, chatId?: string) => void; starting: boolean; canChat: boolean } {
+export function useStartWorkChat(): { startWork: (issueId: string, chatId?: string) => void; starting: boolean; canChat: boolean; noGitRoot?: string } {
   const agent = useOptionalAgentChat();
+  const mode = useLocalMode();
   const qc = useQueryClient();
   const showToast = useToast();
   const { mutate: startOnly, isPending: startingOnly } = useStartWork();
@@ -50,7 +53,9 @@ export function useStartWorkChat(): { startWork: (issueId: string, chatId?: stri
       .catch((err: unknown) => showToast(errorMessage(err), { variant: "error" }))
       .finally(() => setStartingChat(false));
   };
-  return { startWork, starting: startingOnly || startingChat, canChat: !!agent?.status?.available };
+  const canChat = !!agent?.status?.available;
+  const noGitRoot = canChat && mode?.git === false ? mode.root : undefined;
+  return { startWork, starting: startingOnly || startingChat, canChat, noGitRoot };
 }
 
 /** A chat's Work Mode for the composer: the bound issue, and how to leave. */

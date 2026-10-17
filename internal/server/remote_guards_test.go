@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -21,6 +22,18 @@ func TestLocalMode_LocalBoard(t *testing.T) {
 	code, body := localMode(t, s.SetupRoutes())
 	if code != http.StatusOK || body["remote"] != false {
 		t.Fatalf("got %d %v, want 200 remote=false", code, body)
+	}
+}
+
+func TestLocalMode_ReportsGitRepo(t *testing.T) {
+	s := setupTestServer(t)
+	h := s.SetupRoutes()
+	if _, body := localMode(t, h); body["git"] != false || body["root"] == "" || body["root"] == nil {
+		t.Fatalf("without .git: %v, want git=false and a root", body)
+	}
+	os.Mkdir(".git", 0o755)
+	if _, body := localMode(t, h); body["git"] != true {
+		t.Fatalf("with .git: %v, want git=true", body)
 	}
 }
 

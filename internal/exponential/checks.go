@@ -8,7 +8,13 @@ import (
 
 // CheckGitRepo checks if the current directory is a git repository.
 func CheckGitRepo() bool {
-	if _, err := os.Stat(".git"); os.IsNotExist(err) {
+	return IsGitRepo(".")
+}
+
+// IsGitRepo checks if dir is a git repository: it has a .git directory, or
+// a .git file as a worktree does.
+func IsGitRepo(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
 		return false
 	}
 	return true

@@ -77,7 +77,7 @@ export function IssueChatsList({ issueId, onClose, bare }: { issueId: string; on
   const agent = useOptionalAgentChat();
   const { chats, holder, archived } = useIssueChats(issueId);
   const nav = useContext(AppNavContext);
-  const { startWork } = useStartWorkChat();
+  const { startWork, noGitRoot } = useStartWorkChat();
   const [query, setQuery] = useState("");
   const [actionsFor, setActionsFor] = useState<string | null>(null);
   if (!agent) return null;
@@ -98,7 +98,7 @@ export function IssueChatsList({ issueId, onClose, bare }: { issueId: string; on
       />,
     );
     if (actionsFor === c.id && !holder) {
-      const blocker = enterWorkBlocker(c);
+      const blocker = enterWorkBlocker(c, noGitRoot);
       items.push(
         <MenuItem key={`${c.id}-work`} label="Enter work mode" icon={<Hammer size={14} className="ml-5" />} disabled={!!blocker} onClick={() => startWork(issueId, c.id)} />,
       );

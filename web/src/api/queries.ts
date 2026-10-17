@@ -3,7 +3,7 @@ import { keepPreviousData, QueryClient, useQuery, useQueryClient } from "@tansta
 import {
   fetchActivity, fetchArtifactContent, fetchCommitDetail, fetchCommitDiff, fetchConfig, fetchCycleProgress, fetchCycles,
   fetchInbox, fetchInboxStatus, fetchInstances, fetchIssueCommits, fetchIssueDiff, fetchIssueHistory, fetchIssues,
-  fetchIssueDrafts, fetchLocalMode, fetchLocalWorktree, fetchMergeability, fetchMergedChanges, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
+  fetchIssueDrafts, fetchLocalMode, fetchLocalWorktree, type LocalMode, fetchMergeability, fetchMergedChanges, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
 } from "./client";
 import type { Issue, InboxStatus, IssueDraft } from "./types";
 import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
@@ -150,12 +150,19 @@ export function useFetchArtifact(): (issue: Issue, filename: string) => Promise<
 }
 
 /**
+ * The local board's mode. It refetches when the window regains focus, so a
+ * git init in the project shows up on return (xpo-e627e1).
+ */
+export function useLocalMode(): LocalMode | undefined {
+  return useQuery({ queryKey: queryKeys.localMode, queryFn: fetchLocalMode, refetchOnWindowFocus: "always" }).data;
+}
+
+/**
  * Whether the board may offer actions that run git (Start Work, Review
  * Changes). False in remote mode, and while the mode is still unknown.
  */
 export function useGitActions(): boolean {
-  const { data } = useQuery({ queryKey: queryKeys.localMode, queryFn: fetchLocalMode, staleTime: Infinity });
-  return data?.remote === false;
+  return useLocalMode()?.remote === false;
 }
 
 export function useLocalWorktree(issue: Issue) {
