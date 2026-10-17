@@ -10,8 +10,8 @@ import (
 	"github.com/palarix/exponential/internal/storage"
 )
 
-// LocalTransport implements Transport by reading and writing the local
-// .xpo/issues.db event log directly.
+// LocalTransport reads and writes the local .xpo/issues.db event log
+// directly.
 type LocalTransport struct {
 	Config       *config.Config
 	Collapse     bool

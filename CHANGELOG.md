@@ -216,6 +216,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch pill shows its commit count and the chat pill its chat count; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9)
 - Agent chat polish: mode dividers read "Entered Work Mode on xpo-…" and "Entered Chat Mode". The Work Mode segment shows the hammer and the issue ID, without "Work ·". The send and stop buttons are 24px. (xpo-219de9)
 
+### Removed
+
+- Remote mode: xpo is local-only. Issue data travels with the code through git (`.xpo/issues.db merge=union`), and teammates get the latest copy when they sync. Remote mode reported branch state, and ran start and merge, in the server's checkout, which nobody works in. Team mode will be designed separately. (xpo-67281a)
+  - **Commands:** `xpo serve`, `xpo login` and `xpo logout` are gone. `xpo whoami` prints only the identity xpo records on events: the configured `user`, else git config.
+  - **Board:** `xpo board` no longer proxies to a remote server. The board's `--host` access token still works. The guards that hid Start Work, Review Changes and the MCP `start` and `merge` tools in remote mode are gone (xpo-a60065), and `GET /api/local/mode` no longer returns `remote`.
+  - **Config:** `remote.url`, `remote.token` (`XPO_REMOTE_URL`, `XPO_REMOTE_TOKEN`), `permissions`, and the `servers:` entries in `~/.config/xpo/user.yaml` are ignored. The `.xpo/authorized_keys` and `.xpo/server.key` files are no longer used.
+  - **Other:** issue drafts are no longer scoped to an owner. The Dockerfile, `docker-compose.yml` and `make docker` are gone, and `golang.org/x/crypto` is no longer a dependency.
+
 ### Fixed
 
 - Work Mode in a project without a git repository: Start Work no longer moves the issue to DOING and then fails with "not a git repo". The board refuses before anything changes, with `Work Mode needs a git repository. Run "git init" in <path>.` With an agent available, Start Work and "Enter work mode" are disabled, and their tooltip says the same. Without an agent, Start Work still only starts the issue. Chat Mode no longer offers the agent `start` outside git. Running `git init` takes effect without restarting the board. `GET /api/local/mode` also returns `git` and `root`. (xpo-e627e1)

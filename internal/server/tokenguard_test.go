@@ -66,7 +66,6 @@ func TestTokenGuardWithoutCookie(t *testing.T) {
 		{"GET", "/api/issues", http.StatusUnauthorized, ""},
 		{"GET", "/api/events", http.StatusUnauthorized, ""},
 		{"POST", "/api/save", http.StatusUnauthorized, ""},
-		{"POST", "/mcp", http.StatusUnauthorized, ""},
 		{"GET", "/", http.StatusFound, "/auth"},
 		{"GET", "/board/xpo-1", http.StatusFound, "/auth"},
 		{"GET", "/assets/index.js", http.StatusFound, "/auth"},

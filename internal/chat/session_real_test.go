@@ -26,7 +26,7 @@ func TestRealClaude_BackgroundTask(t *testing.T) {
 	wt := filepath.Join(dir, "wt")
 	os.Mkdir(wt, 0o755)
 	store := NewStore(filepath.Join(dir, "chats"))
-	r := NewRunner(RunnerConfig{Store: store, Drivers: map[string]Driver{ProviderClaude: &ClaudeDriver{}}, Dir: dir, MCP: MCPTarget{Executable: "/nonexistent/xpo"}, CanWork: true})
+	r := NewRunner(RunnerConfig{Store: store, Drivers: map[string]Driver{ProviderClaude: &ClaudeDriver{}}, Dir: dir, MCP: MCPTarget{Executable: "/nonexistent/xpo"}})
 	t.Cleanup(r.Shutdown)
 	m, _ := store.Create()
 	// Work Mode allows Bash without a card.
@@ -102,7 +102,7 @@ func TestRealCodex_BackgroundCommand(t *testing.T) {
 	wt := filepath.Join(dir, "wt")
 	os.Mkdir(wt, 0o755)
 	store := NewStore(filepath.Join(dir, "chats"))
-	r := NewRunner(RunnerConfig{Store: store, Drivers: map[string]Driver{ProviderCodex: &CodexDriver{}}, DefaultProvider: ProviderCodex, Dir: dir, MCP: MCPTarget{Executable: "/nonexistent/xpo"}, CanWork: true})
+	r := NewRunner(RunnerConfig{Store: store, Drivers: map[string]Driver{ProviderCodex: &CodexDriver{}}, DefaultProvider: ProviderCodex, Dir: dir, MCP: MCPTarget{Executable: "/nonexistent/xpo"}})
 	t.Cleanup(r.Shutdown)
 	m, _ := store.Create()
 	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-1", Worktree: wt}); err != nil {

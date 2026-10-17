@@ -174,7 +174,7 @@ func TestClient_SyncLocal_PropagatesCollapse(t *testing.T) {
 	c := setupClient(t)
 	c.Collapse = true
 	c.syncLocal()
-	if !c.local.Collapse {
+	if !c.Transport.Collapse {
 		t.Error("Collapse not propagated to local transport")
 	}
 }

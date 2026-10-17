@@ -28,8 +28,7 @@ type Profile struct {
 	Root    string // Work Mode: the project root, where .xpo/artifacts lives
 	IssueID string // Work Mode: the bound issue
 	// CanWork lets a Chat Mode turn call start, behind an approval card.
-	// False in remote mode, where start runs on the server (xpo-a60065),
-	// and outside a git repository (xpo-e627e1).
+	// False outside a git repository (xpo-e627e1).
 	CanWork bool
 }
 

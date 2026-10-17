@@ -28,5 +28,5 @@
 - [x] The tooltip on the disabled button says "Move the issue to Planned to start work". Evidence: test "says to move a BACKLOG issue to Planned".
 - [x] A BACKLOG issue with an unresolved blocker shows both reasons. Evidence: test "lists both reasons, BACKLOG first…".
 - [x] A PLANNED issue with no blockers still has Start Work enabled. Evidence: test "enables Start Work for a PLANNED issue without blockers". The existing blocker tests still pass.
-- [x] Moving the issue to Planned enables the button with no reload. Evidence: `inBacklog` is derived from `issue.status` on every render, and the user checked it on the board.
+- [x] Moving the issue to Planned enables the button with no reload. Evidence: `inBacklog` is derived from `issue.status` on every render, so a status update re-enables the button. There is no dedicated test for the transition, and it was not checked on a live board before merge.
 - [x] PropertySidebar tests cover BACKLOG, BACKLOG with a blocker, and PLANNED. Evidence: `PropertySidebar.test.tsx`; `make test` passes.

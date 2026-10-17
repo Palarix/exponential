@@ -25,10 +25,6 @@ import (
 // side doors that make "read-only" git commands unsafe to expose as raw
 // Bash: --output writes files, external diff and textconv drivers and
 // core.fsmonitor run programs from repo config, and -c sets any config.
-//
-// Git always runs against the local hub or the issue's worktree, whatever
-// the transport: the code lives on this machine even when issue data comes
-// from a remote server.
 
 const (
 	gitReadCap         = 64 * 1024

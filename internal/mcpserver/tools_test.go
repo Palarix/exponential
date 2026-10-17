@@ -2,13 +2,11 @@ package mcpserver
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/palarix/exponential/internal/auth"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
@@ -39,55 +37,6 @@ func setup(t *testing.T) (*toolset, func()) {
 		Version:          2,
 	}
 	return newToolset(cfg), func() { os.Chdir(origDir) }
-}
-
-func TestRegisterTools_WithHTTPAuth(t *testing.T) {
-	_, cleanup := setup(t)
-	defer cleanup()
-
-	cfg := &config.Config{
-		Prefix:           "test-",
-		User:             "Default <default@test.com>",
-		EstimationSystem: "fibonacci",
-		Version:          2,
-	}
-
-	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
-
-	user := auth.UserIdentity{Name: "Alice", Email: "alice@test.com", Raw: "Alice <alice@test.com>"}
-	ctx := auth.WithUser(context.Background(), user)
-	req, _ := http.NewRequestWithContext(ctx, "POST", "/mcp", nil)
-
-	RegisterTools(srv, cfg, req, nil)
-}
-
-func TestRegisterTools_WithoutHTTP(t *testing.T) {
-	_, cleanup := setup(t)
-	defer cleanup()
-
-	cfg := &config.Config{
-		Prefix:           "test-",
-		User:             "Default <default@test.com>",
-		EstimationSystem: "fibonacci",
-		Version:          2,
-	}
-
-	srv := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
-	RegisterTools(srv, cfg, nil, nil)
-}
-
-func TestHttpUserOverride_SetsOnBehalfOf(t *testing.T) {
-	ts, cleanup := setup(t)
-	defer cleanup()
-
-	ts.httpUserOverride = "Alice <alice@test.com>"
-	c := ts.clientFor(nil)
-	if c.OnBehalfOf != "Alice <alice@test.com>" {
-		t.Errorf("expected OnBehalfOf Alice, got %q", c.OnBehalfOf)
-	}
-	if c.Source != "mcp" {
-		t.Errorf("expected Source mcp, got %q", c.Source)
-	}
 }
 
 func TestAddAndShow(t *testing.T) {

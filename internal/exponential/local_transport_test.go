@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/storage"
 )
@@ -220,5 +221,20 @@ func TestGetInbox_Empty(t *testing.T) {
 	}
 	if len(items) != 0 {
 		t.Errorf("expected empty inbox, got %d items", len(items))
+	}
+}
+
+func TestSyncLocal_PropagatesFields(t *testing.T) {
+	c := NewClient(&config.Config{Prefix: "test-"})
+	c.Collapse = true
+	c.UserOverride = "Agent <agent@test.com>"
+
+	c.syncLocal()
+
+	if !c.Transport.Collapse {
+		t.Error("expected Collapse to propagate to LocalTransport")
+	}
+	if c.Transport.UserOverride != "Agent <agent@test.com>" {
+		t.Errorf("expected UserOverride to propagate, got %q", c.Transport.UserOverride)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/storage"
 )
@@ -59,7 +58,7 @@ func TestCreateIssueDraft_Validates(t *testing.T) {
 func TestUpdateIssueDraft_KeepsIDAndCreatedAt(t *testing.T) {
 	c := setupClient(t)
 	d, _ := c.CreateIssueDraft(model.IssueDraftPayload{Title: "v1"})
-	u, err := c.UpdateIssueDraft(d.ID, "", model.IssueDraftPayload{Title: "v2"})
+	u, err := c.UpdateIssueDraft(d.ID, model.IssueDraftPayload{Title: "v2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +68,7 @@ func TestUpdateIssueDraft_KeepsIDAndCreatedAt(t *testing.T) {
 	if u.UpdatedAt.Before(d.UpdatedAt) || u.Payload.Title != "v2" {
 		t.Errorf("update not applied: %+v", u)
 	}
-	all, _ := c.ListIssueDrafts("")
+	all, _ := c.ListIssueDrafts()
 	if len(all) != 1 {
 		t.Errorf("expected 1 draft after update, got %d", len(all))
 	}
@@ -77,49 +76,12 @@ func TestUpdateIssueDraft_KeepsIDAndCreatedAt(t *testing.T) {
 
 func TestUpdateIssueDraft_MissingDoesNotRecreate(t *testing.T) {
 	c := setupClient(t)
-	_, err := c.UpdateIssueDraft("draft-deadbeef", "", model.IssueDraftPayload{Title: "x"})
+	_, err := c.UpdateIssueDraft("draft-deadbeef", model.IssueDraftPayload{Title: "x"})
 	if !errors.Is(err, storage.ErrDraftNotFound) {
 		t.Errorf("expected ErrDraftNotFound, got %v", err)
 	}
-	all, _ := c.ListIssueDrafts("")
+	all, _ := c.ListIssueDrafts()
 	if len(all) != 0 {
 		t.Errorf("update recreated a draft")
-	}
-}
-
-func TestIssueDrafts_OwnerFilter(t *testing.T) {
-	c := setupClient(t)
-	c.UserOverride = "Alice <alice@example.com>"
-	a, _ := c.CreateIssueDraft(model.IssueDraftPayload{Title: "alice"})
-	c.UserOverride = "Bob <bob@example.com>"
-	c.CreateIssueDraft(model.IssueDraftPayload{Title: "bob"})
-
-	all, _ := c.ListIssueDrafts("")
-	if len(all) != 2 {
-		t.Errorf("no owner: expected 2, got %d", len(all))
-	}
-	bobs, _ := c.ListIssueDrafts("Bob <bob@example.com>")
-	if len(bobs) != 1 || bobs[0].Payload.Title != "bob" {
-		t.Errorf("owner filter wrong: %+v", bobs)
-	}
-
-	if _, err := c.UpdateIssueDraft(a.ID, "Bob <bob@example.com>", model.IssueDraftPayload{Title: "hijack"}); !errors.Is(err, storage.ErrDraftNotFound) {
-		t.Errorf("update by other owner: expected ErrDraftNotFound, got %v", err)
-	}
-	if err := c.DeleteIssueDraft(a.ID, "Bob <bob@example.com>"); !errors.Is(err, storage.ErrDraftNotFound) {
-		t.Errorf("delete by other owner: expected ErrDraftNotFound, got %v", err)
-	}
-	if err := c.DeleteIssueDraft(a.ID, "Alice <alice@example.com>"); err != nil {
-		t.Errorf("delete by owner: %v", err)
-	}
-}
-
-func TestIssueDrafts_RemoteIsLocalOnly(t *testing.T) {
-	c := NewClient(&config.Config{Remote: config.RemoteConfig{URL: "http://example.invalid"}})
-	if _, err := c.ListIssueDrafts(""); !errors.Is(err, ErrLocalOnly) {
-		t.Errorf("expected ErrLocalOnly, got %v", err)
-	}
-	if _, err := c.CreateIssueDraft(model.IssueDraftPayload{Title: "x"}); !errors.Is(err, ErrLocalOnly) {
-		t.Errorf("expected ErrLocalOnly, got %v", err)
 	}
 }

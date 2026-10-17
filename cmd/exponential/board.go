@@ -73,12 +73,6 @@ func runBoard(cmd *cobra.Command, args []string) error {
 		log.Printf("WARNING: listening on %q over plain HTTP — anyone who can reach this address and holds the access token can read and modify issues. Prefer: ssh -L %d:127.0.0.1:%d <host>", boardHost, boardPort, boardPort)
 	}
 
-	if cfg.Remote.URL != "" {
-		srv.ProxyURL = cfg.Remote.URL
-		srv.ProxyToken = cfg.Remote.Token
-		log.Printf("Remote mode: proxying API to %s", cfg.Remote.URL)
-	}
-
 	srv.Chat = newChatService(server.ChatEventsTo(srv.Live))
 	srv.Chat.Store.OnChange = srv.ChatChanged
 	defer srv.Chat.Runner.Shutdown()
@@ -124,9 +118,8 @@ func runBoard(cmd *cobra.Command, args []string) error {
 
 // newChatService sets up the agent chat: chats in .xpo/chats/, and an agent
 // that runs in the project root and reaches the xpo tools through this
-// binary's stdio MCP server, or the remote server's /mcp in remote mode.
-// Work Mode runs the agent in an issue's worktree; remote mode has none
-// until Team Mode (xpo-a60065).
+// binary's stdio MCP server. Work Mode runs the agent in an issue's
+// worktree.
 func newChatService(onEvent func(string, chat.Event)) *server.ChatService {
 	root := storage.HubRoot()
 	store := chat.NewStore(filepath.Join(storage.XpoDir(), "chats"))
@@ -149,14 +142,11 @@ func newChatService(onEvent func(string, chat.Event)) *server.ChatService {
 		log.Printf("Archived %d chat(s) idle for 30 days", n)
 	}
 
-	target := chat.MCPTarget{RemoteURL: cfg.Remote.URL, RemoteToken: cfg.Remote.Token}
-	if target.RemoteURL == "" {
-		exe, err := os.Executable()
-		if err != nil {
-			exe = "xpo"
-		}
-		target.Executable = exe
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "xpo"
 	}
+	target := chat.MCPTarget{Executable: exe}
 
 	catalog := chat.NewCatalog(cfg.Chat.Agent, exec.LookPath)
 	st := catalog.Status()
@@ -182,7 +172,6 @@ func newChatService(onEvent func(string, chat.Event)) *server.ChatService {
 			DefaultProvider: st.DefaultProvider,
 			DefaultModel:    cfg.Chat.Model,
 			Learner:         catalog,
-			CanWork:         target.RemoteURL == "",
 			ResolveWork:     resolveWork,
 			Titlers: map[string]chat.Titler{
 				chat.ProviderClaude: &chat.ClaudeTitler{},

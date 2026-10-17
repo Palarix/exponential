@@ -97,13 +97,7 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "rationale",
 		Description: "Search across specs and walkthroughs for design rationale. Returns matching fragments ranked by relevance (BM25 scoring with title/label boost and proximity bonus). Use this to find prior design decisions before modifying code or writing a new spec.",
 	}, t.rationale)
-}
 
-// registerWorkTools registers start and merge. They run git in this
-// process's checkout, so only a local stdio server offers them: on xpo serve,
-// or with a remote transport, the checkout is not the one the user works in
-// (xpo-a60065, until Team Mode xpo-8757a9).
-func (t *toolset) registerWorkTools(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start",
 		Description: "Start working on an issue: transitions status to DOING and creates a git worktree with a new branch <issue-id>-<slug> off the default branch. Returns the worktree path.",
@@ -224,7 +218,6 @@ func (t *toolset) add(ctx context.Context, req *mcp.CallToolRequest, in jsonio.A
 	if err != nil {
 		return nil, jsonio.AddOutput{}, err
 	}
-	t.broadcast("CREATE", issue.ID)
 	return textResult(fmt.Sprintf("Created %s: %s", issue.ID, issue.Title)),
 		jsonio.AddOutput{ID: issue.ID, Title: issue.Title, Status: string(issue.Status)}, nil
 }
@@ -267,7 +260,6 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in jsoni
 	if len(msgs) == 0 && pos != nil {
 		msgs = []string{pos.Unchanged(issue.ID)}
 	}
-	t.broadcast("UPDATE", issue.ID)
 	return textResult(strings.Join(msgs, "\n")), jsonio.UpdateOutput{ID: issue.ID, Messages: msgs}, nil
 }
 
@@ -286,7 +278,6 @@ func (t *toolset) comment(ctx context.Context, req *mcp.CallToolRequest, in json
 	if err := c.AddComment(issue.ID, in.Body); err != nil {
 		return nil, jsonio.CommentOutput{}, err
 	}
-	t.broadcast("COMMENT", issue.ID)
 	return textResult(fmt.Sprintf("Comment added to %s", issue.ID)), jsonio.CommentOutput{ID: issue.ID}, nil
 }
 
@@ -294,10 +285,6 @@ func (t *toolset) link(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 	added, replaced, _, err := t.clientFor(req).Link(in.Source, in.Target, in.Type, in.Overwrite)
 	if err != nil {
 		return nil, jsonio.LinkOutput{}, err
-	}
-	t.broadcast("UPDATE", added.SourceID)
-	if len(replaced) > 0 {
-		t.broadcast("UPDATE", added.TargetID)
 	}
 	out := jsonio.NewLinkOutput(added, replaced)
 	return textResult(out.LinkSummary()), out, nil
@@ -309,8 +296,6 @@ func (t *toolset) unlink(ctx context.Context, req *mcp.CallToolRequest, in jsoni
 	if err != nil {
 		return nil, jsonio.LinkOutput{}, err
 	}
-	t.broadcast("UPDATE", dep.SourceID)
-	t.broadcast("UPDATE", dep.TargetID)
 	return textResult(fmt.Sprintf("Unlinked %s %s %s", dep.SourceID, dep.Kind, dep.TargetID)),
 		jsonio.LinkOutput{Source: dep.SourceID, Target: dep.TargetID, Kind: string(dep.Kind)}, nil
 }
@@ -328,7 +313,6 @@ func (t *toolset) start(ctx context.Context, req *mcp.CallToolRequest, in jsonio
 	if err != nil {
 		return nil, jsonio.StartOutput{}, err
 	}
-	t.broadcast("UPDATE", issue.ID)
 	text := strings.Join(msgs, "\n")
 	return textResult(text), jsonio.StartOutput{ID: issue.ID, Branch: branch, WorktreePath: wtPath, Messages: msgs}, nil
 }
@@ -372,7 +356,6 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in jsonio
 	if err != nil {
 		return nil, jsonio.MergeOutput{}, err
 	}
-	t.broadcast("MERGE", issue.ID)
 
 	text := strings.Join(result.Messages, "\n")
 	return textResult(text), jsonio.MergeOutput{ID: issue.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil
@@ -400,7 +383,6 @@ func (t *toolset) spec(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 		if err := c.WriteSpec(issueID, in.Content); err != nil {
 			return nil, jsonio.SpecOutput{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Spec written for %s", issueID)),
 			jsonio.SpecOutput{OK: true, IssueID: issueID, Path: path}, nil
 
@@ -416,7 +398,6 @@ func (t *toolset) spec(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 		if err := c.DeleteSpec(issueID); err != nil {
 			return nil, jsonio.SpecOutput{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Spec deleted from %s", issueID)),
 			jsonio.SpecOutput{OK: true, IssueID: issueID, Path: path}, nil
 
@@ -446,7 +427,6 @@ func (t *toolset) walkthrough(ctx context.Context, req *mcp.CallToolRequest, in 
 		if err := c.WriteWalkthrough(issueID, in.Content); err != nil {
 			return nil, jsonio.WalkthroughOutput{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Walkthrough written for %s", issueID)),
 			jsonio.WalkthroughOutput{OK: true, IssueID: issueID, Path: path}, nil
 
@@ -462,7 +442,6 @@ func (t *toolset) walkthrough(ctx context.Context, req *mcp.CallToolRequest, in 
 		if err := c.DeleteWalkthrough(issueID); err != nil {
 			return nil, jsonio.WalkthroughOutput{OK: false, Error: err.Error()}, err
 		}
-		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Walkthrough deleted from %s", issueID)),
 			jsonio.WalkthroughOutput{OK: true, IssueID: issueID, Path: path}, nil
 
@@ -495,7 +474,6 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in jso
 			return nil, jsonio.ArtifactOutput{OK: false, Error: err.Error()}, err
 		}
 		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, in.Filename)
-		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Artifact %s added to %s", in.Filename, issueID)),
 			jsonio.ArtifactOutput{OK: true, IssueID: issueID, Path: path}, nil
 
@@ -519,7 +497,6 @@ func (t *toolset) artifact(ctx context.Context, req *mcp.CallToolRequest, in jso
 			return nil, jsonio.ArtifactOutput{OK: false, Error: err.Error()}, err
 		}
 		path := filepath.Join(storage.XpoDir(), "artifacts", issueID, in.Filename)
-		t.broadcast("ARTIFACT", issueID)
 		return textResult(fmt.Sprintf("Artifact %s deleted from %s", in.Filename, issueID)),
 			jsonio.ArtifactOutput{OK: true, IssueID: issueID, Path: path}, nil
 

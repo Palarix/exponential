@@ -19,9 +19,6 @@ type ArchiveStats struct {
 
 // GetArchiveStats calculates which issues would be archived.
 func (c *Client) GetArchiveStats(days int, keep int) (*ArchiveStats, error) {
-	if c.local == nil {
-		return nil, ErrLocalOnly
-	}
 	events, err := storage.ReadEvents()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read events: %w", err)
@@ -78,9 +75,6 @@ func (c *Client) GetArchiveStats(days int, keep int) (*ArchiveStats, error) {
 // changed since then and are no longer eligible are skipped and reported
 // in the result.
 func (c *Client) PerformArchive(stats *ArchiveStats) (storage.ArchiveResult, error) {
-	if c.local == nil {
-		return storage.ArchiveResult{}, ErrLocalOnly
-	}
 	if stats == nil {
 		return storage.ArchiveResult{}, fmt.Errorf("archive stats cannot be nil")
 	}

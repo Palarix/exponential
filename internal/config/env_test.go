@@ -32,8 +32,6 @@ var envTestValues = map[string]string{
 	"cycles.start_day":           "monday",
 	"cycles.anchor_date":         "2026-01-05",
 	"contributors":               "Ann <ann@example.com>,Bob <bob@example.com>",
-	"remote.url":                 "https://env.example.com",
-	"remote.token":               "env-token",
 	"drive.supervisor.agent":     "codex",
 	"drive.supervisor.model":     "opus",
 	"drive.coder.agent":          "codex",
@@ -96,7 +94,7 @@ func TestEnvBindings_CoverEveryField(t *testing.T) {
 			t.Errorf("envTestValues has %q, which is not a bindable config key", k)
 		}
 	}
-	for _, mapKey := range []string{"labels", "permissions.roles", "permissions.users"} {
+	for _, mapKey := range []string{"labels"} {
 		if slices.Contains(keys, mapKey) {
 			t.Errorf("map key %q must not be bound to the environment", mapKey)
 		}
@@ -145,15 +143,15 @@ func TestLoadConfig_EnvSetsEveryKey(t *testing.T) {
 }
 
 func TestLoadConfig_EnvOverridesFile(t *testing.T) {
-	envProject(t, "remote:\n  url: https://file.example.com\nchat:\n  model: opus\n")
-	t.Setenv("XPO_REMOTE_URL", "https://env.example.com")
+	envProject(t, "default_branch: trunk\nchat:\n  model: opus\n")
+	t.Setenv("XPO_DEFAULT_BRANCH", "develop")
 
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if cfg.Remote.URL != "https://env.example.com" {
-		t.Errorf("remote.url = %q, want the env value", cfg.Remote.URL)
+	if cfg.DefaultBranch != "develop" {
+		t.Errorf("default_branch = %q, want the env value", cfg.DefaultBranch)
 	}
 	if cfg.Chat.Model != "opus" {
 		t.Errorf("chat.model = %q, want the file value when no env var is set", cfg.Chat.Model)
@@ -166,9 +164,9 @@ func TestLoadConfig_DefaultsWithoutEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if cfg.Prefix != "issue" || cfg.EstimationSystem != "fibonacci" || cfg.Remote.URL != "" || cfg.Drive.MaxRetries != 3 {
-		t.Errorf("defaults not applied: prefix=%q estimation=%q remote=%q retries=%d",
-			cfg.Prefix, cfg.EstimationSystem, cfg.Remote.URL, cfg.Drive.MaxRetries)
+	if cfg.Prefix != "issue" || cfg.EstimationSystem != "fibonacci" || cfg.Drive.MaxRetries != 3 {
+		t.Errorf("defaults not applied: prefix=%q estimation=%q retries=%d",
+			cfg.Prefix, cfg.EstimationSystem, cfg.Drive.MaxRetries)
 	}
 }
 

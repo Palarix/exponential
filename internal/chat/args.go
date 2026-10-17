@@ -85,25 +85,13 @@ func claudeArgs(o turnOptions) []string {
 }
 
 // MCPTarget says where the chat agent finds the xpo MCP tools: the stdio
-// server of the running xpo binary (local mode), or the remote server's
-// /mcp endpoint (remote mode, RemoteURL set).
+// server of the running xpo binary.
 type MCPTarget struct {
-	Executable  string
-	RemoteURL   string
-	RemoteToken string
+	Executable string
 }
 
 func mcpConfig(t MCPTarget) ([]byte, error) {
 	server := map[string]any{"command": t.Executable, "args": []string{"mcp"}}
-	if t.RemoteURL != "" {
-		server = map[string]any{
-			"type": "http",
-			"url":  strings.TrimSuffix(t.RemoteURL, "/") + "/mcp",
-		}
-		if t.RemoteToken != "" {
-			server["headers"] = map[string]string{"Authorization": "Bearer " + t.RemoteToken}
-		}
-	}
 	return json.Marshal(map[string]any{"mcpServers": map[string]any{"xpo": server}})
 }
 

@@ -18,8 +18,7 @@ import (
 )
 
 // ChatService is the board's agent chat. The board runs the agent on the
-// viewer's machine, so the chat routes live under /api/local/ and are
-// answered by this process in local and proxy mode alike.
+// viewer's machine, so the chat routes live under /api/local/.
 type ChatService struct {
 	Store   *chat.Store
 	Runner  *chat.Runner
@@ -302,10 +301,6 @@ func (s *Server) handleWorkChat(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]any{"chat": m, "created": false})
 		return
 	}
-	if !s.Chat.Runner.CanWork() {
-		s.respondChatError(w, chat.ErrWorkUnavailable)
-		return
-	}
 	// Refuse before the issue starts: StartWork moves it to DOING even
 	// where it cannot make a worktree (xpo-e627e1).
 	if !exponential.CheckGitRepo() {
@@ -453,8 +448,6 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		respondError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, chat.ErrEmptyTitle), errors.Is(err, chat.ErrBadDecision), errors.Is(err, chat.ErrAttachment):
 		respondError(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, chat.ErrWorkUnavailable):
-		respondError(w, http.StatusNotImplemented, err.Error())
 	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork), errors.Is(err, chat.ErrWorkingElsewhere),
 		errors.Is(err, chat.ErrArchived), errors.Is(err, chat.ErrArchiveInWork):
 		respondError(w, http.StatusConflict, err.Error())

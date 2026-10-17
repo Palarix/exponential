@@ -47,32 +47,13 @@ func ValidateIssueDraftPayload(p model.IssueDraftPayload) error {
 	return nil
 }
 
-// ListIssueDrafts returns the issue drafts of owner, newest first.
-func (c *Client) ListIssueDrafts(owner string) ([]*model.IssueDraft, error) {
-	if c.local == nil {
-		return nil, ErrLocalOnly
-	}
-	all, err := storage.ListDrafts()
-	if err != nil {
-		return nil, err
-	}
-	if owner == "" {
-		return all, nil
-	}
-	mine := []*model.IssueDraft{}
-	for _, d := range all {
-		if d.CreatedBy == owner {
-			mine = append(mine, d)
-		}
-	}
-	return mine, nil
+// ListIssueDrafts returns the issue drafts, newest first.
+func (c *Client) ListIssueDrafts() ([]*model.IssueDraft, error) {
+	return storage.ListDrafts()
 }
 
 // CreateIssueDraft stores a new issue draft authored by the current user.
 func (c *Client) CreateIssueDraft(p model.IssueDraftPayload) (*model.IssueDraft, error) {
-	if c.local == nil {
-		return nil, ErrLocalOnly
-	}
 	if err := ValidateIssueDraftPayload(p); err != nil {
 		return nil, err
 	}
@@ -90,14 +71,11 @@ func (c *Client) CreateIssueDraft(p model.IssueDraftPayload) (*model.IssueDraft,
 
 // UpdateIssueDraft replaces the payload of an existing issue draft. It never
 // recreates a deleted draft.
-func (c *Client) UpdateIssueDraft(id, owner string, p model.IssueDraftPayload) (*model.IssueDraft, error) {
-	if c.local == nil {
-		return nil, ErrLocalOnly
-	}
+func (c *Client) UpdateIssueDraft(id string, p model.IssueDraftPayload) (*model.IssueDraft, error) {
 	if err := ValidateIssueDraftPayload(p); err != nil {
 		return nil, err
 	}
-	d, err := c.ownedDraft(id, owner)
+	d, err := storage.ReadDraft(id)
 	if err != nil {
 		return nil, err
 	}
@@ -110,23 +88,9 @@ func (c *Client) UpdateIssueDraft(id, owner string, p model.IssueDraftPayload) (
 }
 
 // DeleteIssueDraft removes an issue draft.
-func (c *Client) DeleteIssueDraft(id, owner string) error {
-	if c.local == nil {
-		return ErrLocalOnly
-	}
-	if _, err := c.ownedDraft(id, owner); err != nil {
+func (c *Client) DeleteIssueDraft(id string) error {
+	if _, err := storage.ReadDraft(id); err != nil {
 		return err
 	}
 	return storage.DeleteDraft(id)
-}
-
-func (c *Client) ownedDraft(id, owner string) (*model.IssueDraft, error) {
-	d, err := storage.ReadDraft(id)
-	if err != nil {
-		return nil, err
-	}
-	if owner != "" && d.CreatedBy != owner {
-		return nil, storage.ErrDraftNotFound
-	}
-	return d, nil
 }

@@ -1,7 +1,0 @@
-services:
-  xpo:
-    build: .
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./xpo-data/.xpo:/data/.xpo

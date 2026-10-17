@@ -10,8 +10,7 @@ import (
 )
 
 // Read-only git tools. They run git on this machine, where the hub and the
-// worktrees live, so only the stdio server registers them: `xpo serve`'s
-// /mcp would read the server's checkout, not the caller's.
+// worktrees live.
 
 const gitToolNote = " Read-only: never changes the repository. Text output is capped at 64 KiB (`truncated: true`); narrow with `path` or `stat`."
 

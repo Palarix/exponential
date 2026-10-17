@@ -487,8 +487,7 @@ func answerClaudeControlRequest(ctx context.Context, in SessionInput, cr claudeC
 	return claudePermissionResponse(cr, in.approve(ctx, claudeApproval(cr)))
 }
 
-// writeMCPConfig writes the agent's MCP config to a private temp file, so a
-// remote token never shows up in the process list.
+// writeMCPConfig writes the agent's MCP config to a private temp file.
 func writeMCPConfig(t MCPTarget) (string, error) {
 	data, err := mcpConfig(t)
 	if err != nil {

@@ -204,7 +204,7 @@ func TestHasUnresolvedBlockers_Derived(t *testing.T) {
 		t.Run(string(kind), func(t *testing.T) {
 			tr := setupLocalTransport(t)
 			_, b := addLinked(t, tr, kind)
-			c := &Client{Config: tr.Config, Transport: tr, local: tr}
+			c := &Client{Config: tr.Config, Transport: tr}
 			if !hasUnresolvedBlockers(readAllIssues(t)[b.ID], c) {
 				t.Errorf("B should be blocked by A via derived %s", model.InverseKind(kind))
 			}
@@ -233,23 +233,10 @@ func TestHasUnresolvedBlockers_TerminalBlockers(t *testing.T) {
 			if _, err := tr.UpdateIssue(a.ID, model.UpdatePayload{Status: sp(tc.status)}, "update"); err != nil {
 				t.Fatal(err)
 			}
-			c := &Client{Config: tr.Config, Transport: tr, local: tr}
+			c := &Client{Config: tr.Config, Transport: tr}
 			if got := hasUnresolvedBlockers(readAllIssues(t)[b.ID], c); got != tc.blocked {
 				t.Errorf("hasUnresolvedBlockers = %v, want %v", got, tc.blocked)
 			}
 		})
-	}
-}
-
-func TestAPIIssueToModel_SplitsDerivedLinks(t *testing.T) {
-	issue := apiIssueToModel(apiIssue{ID: "b", Dependencies: []apiDependency{
-		{SourceID: "b", TargetID: "c", Kind: "depends_on"},
-		{SourceID: "b", TargetID: "a", Kind: "blocked_by", Derived: true},
-	}})
-	if len(issue.Links) != 2 {
-		t.Errorf("links = %+v, want 2", issue.Links)
-	}
-	if len(issue.Dependencies) != 1 || issue.Dependencies[0].TargetID != "c" {
-		t.Errorf("owned deps = %+v, want only depends_on c", issue.Dependencies)
 	}
 }

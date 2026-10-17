@@ -42,7 +42,7 @@ func listToolNames(t *testing.T, srv *mcp.Server) []string {
 	return names
 }
 
-func TestGitTools_OnlyOnStdioServer(t *testing.T) {
+func TestGitTools_OnStdioServer(t *testing.T) {
 	_, cleanup := setup(t)
 	defer cleanup()
 	cfg := &config.Config{Prefix: "test", User: "U <u@test>", Version: 2}
@@ -55,15 +55,6 @@ func TestGitTools_OnlyOnStdioServer(t *testing.T) {
 	}
 	if !slices.Contains(stdio, "show") {
 		t.Error("stdio server is missing the issue tools")
-	}
-
-	httpSrv := mcp.NewServer(&mcp.Implementation{Name: "xpo", Version: "v0"}, nil)
-	RegisterTools(httpSrv, cfg, nil, nil)
-	served := listToolNames(t, httpSrv)
-	for _, name := range gitToolNames {
-		if slices.Contains(served, name) {
-			t.Errorf("xpo serve's /mcp offers %s; the server's checkout is not the user's", name)
-		}
 	}
 }
 

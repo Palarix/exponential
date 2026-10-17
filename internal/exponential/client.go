@@ -2,7 +2,6 @@ package exponential
 
 import (
 	"fmt"
-	"net/http"
 	"os/exec"
 	"strings"
 	"time"
@@ -21,46 +20,29 @@ func GitCommit(msg string) {
 }
 
 // Client manages the interaction with the xpo issue tracker.
-// It delegates data operations to a Transport (local or remote) and
-// keeps git-only operations (start, merge, review) as direct methods.
+// It delegates data operations to a LocalTransport and keeps git-only
+// operations (start, merge, review) as direct methods.
 type Client struct {
-	Transport    Transport
+	Transport    *LocalTransport
 	Config       *config.Config
 	Collapse     bool
 	UserOverride string
 	OnBehalfOf   string
 	Source       string
-	local        *LocalTransport
 }
 
 // NewClient creates a new Client with the given configuration.
-// By default it uses a LocalTransport. When cfg.Remote.URL is set,
-// a RemoteTransport is used instead.
 func NewClient(cfg *config.Config) *Client {
-	c := &Client{Config: cfg}
-	if cfg.Remote.URL != "" {
-		c.Transport = &RemoteTransport{
-			BaseURL:    cfg.Remote.URL,
-			Token:      cfg.Remote.Token,
-			HTTPClient: &http.Client{Timeout: 30 * time.Second},
-		}
-	} else {
-		lt := &LocalTransport{Config: cfg}
-		c.Transport = lt
-		c.local = lt
-	}
-	return c
+	return &Client{Config: cfg, Transport: &LocalTransport{Config: cfg}}
 }
 
 // syncLocal propagates Client-level fields to the underlying
 // LocalTransport before each delegation call.
 func (c *Client) syncLocal() {
-	if c.local != nil {
-		c.local.Collapse = c.Collapse
-		c.local.UserOverride = c.UserOverride
-		c.local.OnBehalfOf = c.OnBehalfOf
-		c.local.Source = c.Source
-	}
+	c.Transport.Collapse = c.Collapse
+	c.Transport.UserOverride = c.UserOverride
+	c.Transport.OnBehalfOf = c.OnBehalfOf
+	c.Transport.Source = c.Source
 }
 
 const (
@@ -223,7 +205,7 @@ func (c *Client) ValidateUpdatePayload(p *model.UpdatePayload) error {
 	return nil
 }
 
-// --- Transport delegation methods ---
+// --- LocalTransport delegation methods ---
 
 func (c *Client) GetIssue(id string) (*model.Issue, error) {
 	c.syncLocal()
@@ -339,12 +321,5 @@ func (c *Client) SearchRationale(query string, limit int) (*RationaleSearchResul
 // resolveIssue is a convenience for git-only methods that need to resolve
 // an issue ID from a projected issue map.
 func (c *Client) resolveIssue(issues map[string]*model.Issue, id string) (*model.Issue, error) {
-	if c.local != nil {
-		return c.local.resolveIssue(issues, id)
-	}
-	issue, ok := issues[id]
-	if !ok {
-		return nil, fmt.Errorf("issue %s not found", id)
-	}
-	return issue, nil
+	return c.Transport.resolveIssue(issues, id)
 }

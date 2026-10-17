@@ -11,10 +11,6 @@ import (
 	"github.com/palarix/exponential/internal/exponential"
 )
 
-// ErrWorkUnavailable is returned for Work Mode in remote mode, where start
-// and merge run on the server (xpo-a60065).
-var ErrWorkUnavailable = errors.New("work mode needs a local board")
-
 // ErrIssueHeld is returned when another chat is in Work Mode on the issue.
 var ErrIssueHeld = errors.New("another chat is in work mode on this issue")
 
@@ -25,9 +21,6 @@ var ErrNotInWork = errors.New("this chat is not in work mode")
 // another issue.
 var ErrWorkingElsewhere = errors.New("this chat is in work mode on another issue")
 
-// CanWork reports whether chats may enter Work Mode.
-func (r *Runner) CanWork() bool { return r.cfg.CanWork }
-
 // profileFor builds the turn's profile from the chat's mode. Chat Mode can
 // start work only in a git repository: start would move the issue to DOING
 // without a worktree (xpo-e627e1). It checks every turn, so git init takes
@@ -36,15 +29,12 @@ func (r *Runner) profileFor(m Meta) Profile {
 	if m.Mode == ModeWork && m.Work != nil {
 		return WorkProfile(m.Work.IssueID, m.Work.Worktree, r.cfg.Dir)
 	}
-	return ChatProfile(r.cfg.Dir, r.cfg.CanWork && exponential.IsGitRepo(r.cfg.Dir))
+	return ChatProfile(r.cfg.Dir, exponential.IsGitRepo(r.cfg.Dir))
 }
 
 // BindWork puts a chat in Work Mode on an issue. It refuses while a turn
-// runs, in remote mode, and when another chat holds the issue.
+// runs and when another chat holds the issue.
 func (r *Runner) BindWork(chatID string, b WorkBinding) (Meta, error) {
-	if !r.cfg.CanWork {
-		return Meta{}, ErrWorkUnavailable
-	}
 	r.mu.Lock()
 	if _, busy := r.turns[chatID]; busy {
 		r.mu.Unlock()

@@ -114,22 +114,6 @@ func TestMCPConfig_Local(t *testing.T) {
 	}
 }
 
-func TestMCPConfig_Remote(t *testing.T) {
-	raw, err := mcpConfig(MCPTarget{RemoteURL: "https://xpo.example.com/", RemoteToken: "tok"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := string(raw)
-	for _, want := range []string{`"type":"http"`, `"url":"https://xpo.example.com/mcp"`, `"Authorization":"Bearer tok"`} {
-		if !strings.Contains(s, want) {
-			t.Errorf("remote config %s missing %s", s, want)
-		}
-	}
-	if strings.Contains(s, `"command"`) {
-		t.Errorf("remote config must not have a command: %s", s)
-	}
-}
-
 func TestSystemPromptFor(t *testing.T) {
 	for _, p := range []string{ProviderClaude, ProviderCodex} {
 		got := systemPromptFor(p)

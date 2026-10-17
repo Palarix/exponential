@@ -33,8 +33,6 @@ interface PropertySidebarProps {
   onClose: () => void;
   contributors: string[];
   onOpenMerge?: () => void;
-  /** Offer Start Work and Review Changes. False in remote mode (xpo-a60065). */
-  gitActions?: boolean;
 }
 
 export default function PropertySidebar({
@@ -46,7 +44,6 @@ export default function PropertySidebar({
   onClose,
   contributors,
   onOpenMerge,
-  gitActions = false,
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { cycles } = useCycles();
@@ -68,12 +65,11 @@ export default function PropertySidebar({
   // Continue Work does the same for an issue already DOING, without starting
   // it again, so closing that chat never strands the issue.
   const handleStartWork = useCallback(() => startWork(issue.id), [issue.id, startWork]);
-  const showReview = !!(gitActions && issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge);
+  const showReview = !!(issue.branch_stats && (issue.branch_stats.commits > 0 || issue.branch_stats.has_uncommitted) && !isTerminal(issue.status) && onOpenMerge);
   // A merged issue's changes, read from its merge commit (xpo-64be51).
-  const showMerged = !!(gitActions && issue.merged && issue.status === "DONE" && onOpenMerge);
-  const workAction = !gitActions
-    ? null
-    : issue.status === "BACKLOG" || issue.status === "PLANNED"
+  const showMerged = !!(issue.merged && issue.status === "DONE" && onOpenMerge);
+  const workAction =
+    issue.status === "BACKLOG" || issue.status === "PLANNED"
       ? "Start Work"
       : issue.status === "DOING" && issue.branch_stats && canChat
         ? "Continue Work"

@@ -1,6 +1,6 @@
 BINARY_NAME=xpo
 
-.PHONY: all build clean test lint frontend frontend-test install docker release-check-version release-prep release-tag stressgen setup
+.PHONY: all build clean test lint frontend frontend-test install release-check-version release-prep release-tag stressgen setup
 
 all: setup build
 
@@ -51,9 +51,6 @@ setup:
 
 stressgen:
 	go run ./tools/stressgen $(or $(OUTPUT),stresstest)
-
-docker:
-	docker build -t palarix/exponential:latest .
 
 # Cut a release: make release VERSION=x.y.z
 # Releasing is two steps so the xpo workflow does the committing and merging:

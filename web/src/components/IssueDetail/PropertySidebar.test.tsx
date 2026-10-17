@@ -18,7 +18,7 @@ const issue = makeIssue({
 // An agent chat whose agent CLI is available, with no chats.
 const agentAvailable = { status: { available: true, default_provider: "claude", providers: [] }, chats: [], allChats: [] } as unknown as AgentChat;
 
-function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | null = null, others: Issue[] = [], client?: QueryClient): string {
+function renderSidebar(target = issue, agent: AgentChat | null = null, others: Issue[] = [], client?: QueryClient): string {
   // The app wraps everything in a tooltip provider (main.tsx).
   return renderMarkup(
     <TooltipPrimitive.Provider>
@@ -32,7 +32,6 @@ function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | 
       onClose={() => {}}
       contributors={[]}
       onOpenMerge={() => {}}
-      gitActions={gitActions}
     />
     </AgentChatContext.Provider>
     </TooltipPrimitive.Provider>,
@@ -43,7 +42,7 @@ function renderSidebar(target = issue, gitActions?: boolean, agent: AgentChat | 
 /** A query client whose board answered /api/local/mode with no git repository. */
 function noGitClient(): QueryClient {
   const client = new QueryClient();
-  client.setQueryData(queryKeys.localMode, { remote: false, git: false, root: "/work/proj" });
+  client.setQueryData(queryKeys.localMode, { git: false, root: "/work/proj" });
   return client;
 }
 
@@ -67,32 +66,23 @@ describe("PropertySidebar git actions", () => {
     branch_stats: { branch: "xpo-aaa111-x", head_sha: "abc", commits: 2, files_changed: 1, insertions: 3, deletions: 0, has_uncommitted: false },
   });
 
-  it("shows Start Work and Review Changes in local mode", () => {
-    const html = renderSidebar(started, true);
+  it("shows Start Work and Review Changes", () => {
+    const html = renderSidebar(started);
     expect(html).toContain("Start Work");
     expect(html).toContain("Review Changes");
-  });
-
-  it("hides them in remote mode and while the mode is unknown", () => {
-    for (const mode of [false, undefined]) {
-      const html = renderSidebar(started, mode);
-      expect(html).not.toContain("Start Work");
-      expect(html).not.toContain("Review Changes");
-    }
   });
 
   const doing = makeIssue({ ...started, status: "DOING" });
 
   it("offers Continue Work on a DOING issue with a branch when the agent is available", () => {
-    const html = renderSidebar(doing, true, agentAvailable);
+    const html = renderSidebar(doing, agentAvailable);
     expect(html).toContain("Continue Work");
     expect(html).not.toContain("Start Work");
   });
 
-  it("hides Continue Work without an agent, in remote mode, or without a branch", () => {
-    expect(renderSidebar(doing, true)).not.toContain("Continue Work");
-    expect(renderSidebar(doing, false, agentAvailable)).not.toContain("Continue Work");
-    expect(renderSidebar(makeIssue({ status: "DOING" }), true, agentAvailable)).not.toContain("Continue Work");
+  it("hides Continue Work without an agent or without a branch", () => {
+    expect(renderSidebar(doing)).not.toContain("Continue Work");
+    expect(renderSidebar(makeIssue({ status: "DOING" }), agentAvailable)).not.toContain("Continue Work");
   });
 });
 
@@ -104,15 +94,15 @@ describe("PropertySidebar chats", () => {
     }) as unknown as AgentChat;
 
   it("shows a chats button below Relations when chats worked on the issue", () => {
-    const html = renderSidebar(issue, true, withChats(2));
+    const html = renderSidebar(issue, withChats(2));
     const button = html.match(/<button[^>]*>(?:(?!<\/button>).)*2 chats(?:(?!<\/button>).)*<\/button>/)?.[0];
     expect(button).toBeDefined();
     expect(button).toContain('aria-haspopup="menu"');
-    expect(renderSidebar(issue, true, withChats(1))).toContain("1 chat<");
+    expect(renderSidebar(issue, withChats(1))).toContain("1 chat<");
   });
 
   it("hides it without chats", () => {
-    expect(renderSidebar(issue, true, agentAvailable)).not.toMatch(/\d chats?</);
+    expect(renderSidebar(issue, agentAvailable)).not.toMatch(/\d chats?</);
   });
 });
 
@@ -122,7 +112,7 @@ describe("PropertySidebar button priority", () => {
   const button = (html: string, text: string) => html.match(new RegExp(`<button[^>]*>(?:(?!</button>).)*${text}`))?.[0];
 
   it("makes Continue Work secondary when Review Changes shows", () => {
-    const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: stats }), true, agentAvailable);
+    const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: stats }), agentAvailable);
     expect(button(html, "Review Changes")).toContain("bg-[var(--color-accent-primary)]");
     expect(button(html, "Continue Work")).not.toContain("bg-[var(--color-accent-primary)]");
     expect(button(html, "Continue Work")).toContain("border-[var(--color-border-default)]");
@@ -132,21 +122,20 @@ describe("PropertySidebar button priority", () => {
 
   it("offers a secondary View changes button on a merged DONE issue", () => {
     const merged = makeIssue({ status: "DONE", merged: true });
-    const html = renderSidebar(merged, true);
+    const html = renderSidebar(merged);
     expect(button(html, "View changes")).toBeDefined();
     expect(button(html, "View changes")).not.toContain("bg-[var(--color-accent-primary)]");
     expect(button(html, "View changes")).toContain("border-[var(--color-border-default)]");
     expect(html).not.toContain("Review Changes");
   });
 
-  it("hides View changes in remote mode, and for issues that weren't merged or aren't DONE", () => {
-    expect(renderSidebar(makeIssue({ status: "DONE", merged: true }), false)).not.toContain("View changes");
-    expect(renderSidebar(makeIssue({ status: "DONE" }), true)).not.toContain("View changes");
-    expect(renderSidebar(makeIssue({ status: "DOING", merged: true }), true)).not.toContain("View changes");
+  it("hides View changes for issues that weren't merged or aren't DONE", () => {
+    expect(renderSidebar(makeIssue({ status: "DONE" }))).not.toContain("View changes");
+    expect(renderSidebar(makeIssue({ status: "DOING", merged: true }))).not.toContain("View changes");
   });
 
   it("keeps the work button primary without Review Changes", () => {
-    const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: { ...stats, files_changed: 0, has_uncommitted: false } }), true, agentAvailable);
+    const html = renderSidebar(makeIssue({ status: "DOING", branch_stats: { ...stats, files_changed: 0, has_uncommitted: false } }), agentAvailable);
     expect(html).not.toContain("Review Changes");
     expect(button(html, "Continue Work")).toContain("bg-[var(--color-accent-primary)]");
   });
@@ -160,13 +149,13 @@ describe("PropertySidebar button priority", () => {
       }) as unknown as AgentChat;
 
     it("makes Continue Work secondary while a chat is in Work Mode on the issue", () => {
-      const html = renderSidebar(doing, true, withChat("work"));
+      const html = renderSidebar(doing, withChat("work"));
       expect(button(html, "Continue Work")).not.toContain("bg-[var(--color-accent-primary)]");
       expect(button(html, "Continue Work")).toContain("border-[var(--color-border-default)]");
     });
 
     it("keeps Continue Work primary once the chat has left Work Mode", () => {
-      const html = renderSidebar(doing, true, withChat(undefined));
+      const html = renderSidebar(doing, withChat(undefined));
       expect(button(html, "Continue Work")).toContain("bg-[var(--color-accent-primary)]");
     });
   });
@@ -180,13 +169,13 @@ describe("PropertySidebar Start Work blockers", () => {
 
   for (const status of ["PLANNED", "DOING", "CANCELED", "DUPLICATE"]) {
     it(`disables Start Work while a ${status} blocker is unresolved`, () => {
-      const html = renderSidebar(blockedIssue("xpo-bbb222"), true, null, [blockerWith(status)]);
+      const html = renderSidebar(blockedIssue("xpo-bbb222"), null, [blockerWith(status)]);
       expect(startButton(html)).toMatch(/disabled=""/);
     });
   }
 
   it("enables Start Work once every blocker is DONE", () => {
-    const html = renderSidebar(blockedIssue("xpo-bbb222"), true, null, [blockerWith("DONE")]);
+    const html = renderSidebar(blockedIssue("xpo-bbb222"), null, [blockerWith("DONE")]);
     expect(startButton(html)).toBeDefined();
     expect(startButton(html)).not.toMatch(/disabled=""/);
   });
@@ -196,7 +185,7 @@ describe("PropertySidebar Start Work blockers", () => {
       status: "PLANNED",
       dependencies: ["relates_to", "depends_on"].map(kind => ({ source_id: "xpo-aaa111", target_id: "xpo-bbb222", kind })),
     });
-    expect(startButton(renderSidebar(target, true, null, [blockerWith("PLANNED")]))).not.toMatch(/disabled=""/);
+    expect(startButton(renderSidebar(target, null, [blockerWith("PLANNED")]))).not.toMatch(/disabled=""/);
   });
 });
 
@@ -204,13 +193,13 @@ describe("PropertySidebar Start Work in BACKLOG", () => {
   const startButton = (html: string) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Start Work/)?.[0];
 
   it("disables Start Work while the issue is in BACKLOG", () => {
-    const html = renderSidebar(makeIssue({ status: "BACKLOG" }), true);
+    const html = renderSidebar(makeIssue({ status: "BACKLOG" }));
     expect(startButton(html)).toMatch(/disabled=""/);
     expect(html).toContain("cursor-not-allowed");
   });
 
   it("enables Start Work for a PLANNED issue without blockers", () => {
-    const html = renderSidebar(makeIssue({ status: "PLANNED" }), true);
+    const html = renderSidebar(makeIssue({ status: "PLANNED" }));
     expect(startButton(html)).toBeDefined();
     expect(startButton(html)).not.toMatch(/disabled=""/);
   });
@@ -221,13 +210,13 @@ describe("PropertySidebar Start Work without a git repository", () => {
   const planned = makeIssue({ status: "PLANNED" });
 
   it("disables Start Work when the agent would open Work Mode", () => {
-    const html = renderSidebar(planned, true, agentAvailable, [], noGitClient());
+    const html = renderSidebar(planned, agentAvailable, [], noGitClient());
     expect(startButton(html)).toMatch(/disabled=""/);
     expect(html).toContain("cursor-not-allowed");
   });
 
   it("keeps Start Work enabled without an agent: it only starts the issue", () => {
-    const html = renderSidebar(planned, true, null, [], noGitClient());
+    const html = renderSidebar(planned, null, [], noGitClient());
     expect(startButton(html)).not.toMatch(/disabled=""/);
   });
 });

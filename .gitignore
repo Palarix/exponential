@@ -16,8 +16,6 @@ NOTES.md
 .env.*
 *.pem
 *.key
-/.xpo/authorized_keys
-/.xpo/server.key
 
 # Dependencies
 node_modules/

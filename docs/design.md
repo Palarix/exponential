@@ -4,36 +4,23 @@ This document describes the architecture of xpo as implemented. It is the author
 
 ## Overview
 
-Exponential is an event-sourced issue tracker that stores its data in a git-tracked append-only log (`.xpo/issues.db`). A single Go binary ships the CLI, a web UI, an HTTP API, and an MCP server. In local mode everything reads and writes the event log directly; in distributed mode a headless server exposes the same data over HTTP with SSH-key authentication.
+Exponential is an event-sourced issue tracker that stores its data in a git-tracked append-only log (`.xpo/issues.db`). A single Go binary ships the CLI, a web UI, an HTTP API, and an MCP server. Everything reads and writes the event log directly. xpo is local-only: issue data travels with the code through git, and teammates get the latest copy when they sync.
 
 ```
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
 │   CLI commands   │  │  Web UI (React)  │  │  MCP server      │
-│  add, update,    │  │  xpo board     │  │  xpo mcp       │
-│  start, merge …  │  │                  │  │  (stdio / HTTP)  │
+│  add, update,    │  │  xpo board       │  │  xpo mcp         │
+│  start, merge …  │  │  (HTTP server)   │  │  (stdio)         │
 └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
          │                     │                      │
          └─────────────┬───────┘──────────────────────┘
                   ┌────▼────┐
-                  │  Client │  ← chooses transport based on config
+                  │  Client │
                   └────┬────┘
-            ┌──────────┴──────────┐
-            ▼                     ▼
-   ┌────────────────┐   ┌─────────────────┐
-   │ LocalTransport │   │ RemoteTransport  │
-   │  (issues.db)   │   │  (REST /api/*)   │
-   └───────┬────────┘   └────────┬─────────┘
-           │                     │
-           │            ┌────────▼─────────┐
-           │            │   HTTP Server     │
-           │            │  (xpo serve)    │
-           │            │  + Auth (JWT/SSH) │
-           │            │  + event stream   │
-           │            │  + projection     │
-           │            │    cache          │
-           │            └────────┬─────────┘
-           │                     │
-           └──────────┬──────────┘
+                       ▼
+              ┌────────────────┐
+              │ LocalTransport │
+              └───────┬────────┘
                  ┌────▼──────────┐
                  │ Storage layer │
                  │ (issues.db)   │
@@ -127,32 +114,13 @@ Data model v3 introduced globally consistent sort order (previously per-status-g
 
 **Files:** `internal/sortorder/`, `internal/xpo/migrate.go`
 
-## Transport abstraction
+## Client and transport
 
-All issue operations go through the `Transport` interface:
+**LocalTransport** reads and writes `.xpo/issues.db` directly. It resolves issue IDs flexibly — exact match, prefix match (with configured prefix), or substring match. It supports collapsed writes for draft optimization.
 
-```go
-type Transport interface {
-    ListIssues(opts FilterOptions) ([]*Issue, error)
-    GetIssue(id string) (*Issue, error)
-    FindIssue(id string) (*Issue, []*Issue, bool, error)
-    AddIssue(payload CreatePayload) (*Issue, error)
-    UpdateIssue(id string, payload UpdatePayload, action string) ([]string, error)
-    AddComment(issueID, text string) error
-    DeleteIssue(id string, reason string, cascade bool) error
-    CheckDuplicates(title string) ([]*Issue, error)
-    GetUser() string
-    GetInbox(since time.Time) ([]InboxItem, error)
-}
-```
+**Client** holds a `LocalTransport` and adds git operations (`StartWork`, `MergeIssue`, `Review`). `NewClient(cfg)` builds both.
 
-**LocalTransport** reads/writes `.xpo/issues.db` directly. It resolves issue IDs flexibly — exact match, prefix match (with configured prefix), or substring match. It supports collapsed writes for draft optimization.
-
-**RemoteTransport** proxies to a xpo server via REST. Mutations go through `POST /api/draft`, reads through `GET /api/issues`. Authentication is via Bearer JWT token.
-
-**Client** wraps a Transport and adds git-specific operations (`StartWork`, `MergeIssue`, `Review`) that only make sense locally. `NewClient(cfg)` chooses the transport based on whether `cfg.Remote.URL` is set.
-
-**Files:** `internal/xpo/transport.go`, `internal/xpo/local_transport.go`, `internal/xpo/remote_transport.go`, `internal/xpo/client.go`
+**Files:** `internal/exponential/local_transport.go`, `internal/exponential/client.go`
 
 ## Storage layer
 
@@ -173,15 +141,13 @@ The storage package handles all file I/O for the event log:
 | `.xpo/issues.db` | Yes | Active event log (JSONL) |
 | `.xpo/archive.db` | Yes | Archived events |
 | `.xpo/config.yaml` | Yes | Project configuration |
-| `.xpo/authorized_keys` | Yes | SSH public keys for server auth |
-| `.xpo/server.key` | No | Ed25519 signing key (auto-generated) |
 | `.xpo/issues.snapshot.json` | No (.gitignored) | Projection cache |
 
 **Files:** `internal/storage/`
 
 ## HTTP server
 
-The server (`xpo serve` or `xpo board`) exposes a REST API and optionally serves the embedded React frontend.
+The board server (`xpo board`) exposes a REST API and serves the embedded React frontend. It binds to `127.0.0.1`. With a non-loopback `--host`, it requires a per-run access token, carried in a session cookie and entered on the `/auth` page.
 
 ### Projection cache
 
@@ -221,42 +187,7 @@ Each write has a 10s deadline, and a keepalive comment goes out every 25s. `hub.
 1. Server: register it with `hub.Signal("name")` or `hub.Log("name", replay)` (see `NewLiveHub` and `registerLiveRoutes` in `internal/server/live.go`). Then call `Notify` or `Append` where the data changes.
 2. Browser: `live.onSignal("name", fn)` in `useLive`, or `live.follow("name:<key>", after, fn)` where the data is shown.
 
-### Proxy mode
-
-`xpo board --remote <url>` runs the web UI locally but reverse-proxies all `/api/*` and `/auth/*` requests to a remote server. This gives the full board experience while data lives on the server. The event stream is the local board's, because chats live there. One `live.Mirror` per board follows the remote's `/api/events` and turns its `issues` and `drafts` signals into local ones, and every remote (re)connect notifies both. A remote that is down doesn't end the browser's stream. The board and its remote must run the same version.
-
 **Files:** `internal/server/`
-
-## Authentication
-
-Authentication is only active in server mode (`xpo serve`). Local mode (`xpo board`) binds to `127.0.0.1` with no auth.
-
-### Flow
-
-1. Client calls `POST /auth/challenge` → server returns a random nonce (256-bit, single-use, TTL-bounded).
-2. Client signs the nonce with an SSH private key and sends `POST /auth/verify` with `{public_key, signature, nonce}`.
-3. Server validates the nonce, verifies the signature, looks up the public key in `.xpo/authorized_keys`, and returns a JWT (EdDSA-signed, 7-day expiry).
-4. Client caches the JWT and sends it as `Authorization: Bearer <token>` on subsequent requests.
-
-### Permissions
-
-When `permissions` is configured in `config.yaml`, the server enforces capability-based access control:
-
-```yaml
-permissions:
-  roles:
-    admin: ["*"]
-    member: ["issue.read", "issue.create", "issue.update", "issue.comment", "issue.start"]
-  users:
-    alice@example.com: admin
-    bob@example.com: member
-```
-
-Capabilities: `issue.read`, `issue.create`, `issue.update`, `issue.comment`, `issue.start`, `issue.merge`, `issue.delete`, `issue.link`.
-
-When permissions are not configured, all authenticated users have full access.
-
-**Files:** `internal/auth/`
 
 ## MCP server
 
@@ -299,11 +230,11 @@ Clients render the principal everywhere and mark agent work with a robot avatar 
 
 ### Project config (`.xpo/config.yaml`)
 
-Committed to git. Contains project-level settings: prefix, labels, cycles, automations, contributors, permissions.
+Committed to git. Contains project-level settings: prefix, labels, cycles, automations, contributors.
 
 ### User config (`~/.config/xpo/user.yaml`)
 
-Per-user, not committed. Stores server credentials (JWT tokens), remote URLs, and inbox read cursors.
+Per-user, not committed. Stores inbox read cursors, keyed by project.
 
 ### Key settings
 
@@ -384,24 +315,6 @@ All automations default to `true` and control automatic state propagation betwee
 | `automations.auto_close_sub_issues` | `true` | Automatically move children to DONE when their parent is moved to DONE. |
 | `automations.auto_progress_sub_issues` | `true` | Automatically advance children when their parent moves forward (e.g. PLANNED → DOING). |
 | `automations.auto_progress_parent` | `true` | Automatically advance a parent when one of its children moves forward. |
-
-### Permissions
-
-Permissions are only enforced in [distributed mode](#distributed-mode). When no permissions block is configured, all operations are allowed.
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `permissions.roles` | map of role → list of capabilities | Define named roles. Use `["*"]` to grant all capabilities. |
-| `permissions.users` | map of email → role | Assign users to roles by email address. |
-
-**Available capabilities:** `issue.read`, `issue.create`, `issue.update`, `issue.comment`, `issue.start`, `issue.merge`, `issue.delete`, `issue.link`.
-
-### Remote
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `remote.url` | string | URL of a remote xpo server for distributed mode. |
-| `remote.token` | string | Authentication token. If omitted, xpo resolves it from `~/.config/xpo/user.yaml` (populated by `xpo login`). |
 
 ### Style
 

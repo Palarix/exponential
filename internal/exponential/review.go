@@ -36,14 +36,11 @@ func CurrentBranch() string {
 // IssueIDFromBranch attempts to find an issue whose ID matches a segment
 // of the given branch name.
 func (c *Client) IssueIDFromBranch(branch string) (*model.Issue, error) {
-	if c.local == nil {
-		return nil, ErrLocalOnly
-	}
 	events, err := storage.ReadEvents()
 	if err != nil {
 		return nil, err
 	}
-	issues := ProjectIssuesWithConfig(events, c.local.Config)
+	issues := ProjectIssuesWithConfig(events, c.Transport.Config)
 
 	for _, issue := range issues {
 		for _, segment := range strings.Split(branch, "/") {

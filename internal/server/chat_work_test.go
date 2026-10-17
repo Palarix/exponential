@@ -39,7 +39,6 @@ func setupWorkServer(t *testing.T, body string) (*Server, http.Handler, *[]strin
 		Store:   s.Chat.Store,
 		Drivers: map[string]chat.Driver{chat.ProviderClaude: fake, chat.ProviderCodex: fake},
 		Dir:     dir,
-		CanWork: true,
 	})
 	t.Cleanup(s.Chat.Runner.Shutdown)
 	var starts []string
@@ -205,14 +204,6 @@ func TestStartWorktree_WithoutGitRepoKeepsStatus(t *testing.T) {
 	issues, _ := s.GetProjectedIssues()
 	if got := issues[id].Status; got != model.StatusPlanned {
 		t.Errorf("status = %s, want PLANNED", got)
-	}
-}
-
-func TestChat_WorkChatUnavailableWithoutWork(t *testing.T) {
-	_, h := setupChatServer(t, "") // CanWork is false, as in remote mode
-	code, _, body := postWorkChat(t, h, seedIssue(t, "x"))
-	if code != http.StatusNotImplemented {
-		t.Fatalf("got %d %s", code, body)
 	}
 }
 

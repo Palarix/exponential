@@ -163,13 +163,6 @@ cd exponential
 make && make install
 ```
 
-### Docker
-
-```bash
-docker build -t xpo:latest .
-docker run -v /path/to/repo:/data -p 8080:8080 xpo:latest
-```
-
 ## Upgrading from 1.3.x
 
 1.4.0 has no migration steps, but one behavior change can affect scripts and integrations.
@@ -201,27 +194,11 @@ docker run -v /path/to/repo:/data -p 8080:8080 xpo:latest
 
 **6. Prefix without trailing dash** (xpo-76e2a1). The issue prefix is now stored as `pay` rather than `pay-`. Existing configs are normalised on load, so nothing to do. You may see this in a config diff after `xpo init`.
 
-## Distributed mode
-
-For teams that need a shared server, xpo runs in client-server mode with SSH key authentication.
-
-```bash
-# Server
-xpo serve --addr :8080
-
-# Client
-xpo login https://xpo.example.com
-xpo list                                # works against the remote
-xpo board                               # proxies to the remote
-```
-
-Add team members' SSH public keys to `.xpo/authorized_keys`. Role-based permissions (admin, member, viewer) are configured in `.xpo/config.yaml`. See `xpo serve --help` for details.
-
 ## Configuration
 
 Settings live in `.xpo/config.yaml`, created by `xpo init`. Project settings override user-level settings in `~/.config/xpo/config.yaml`. Environment variables prefixed with `XPO_` override both.
 
-An environment variable name is `XPO_` plus the key in upper case, with `.` replaced by `_`. For example, `remote.url` is `XPO_REMOTE_URL` and `chat.model` is `XPO_CHAT_MODEL`. List keys such as `default_labels` and `contributors` take a comma-separated value. Map keys (`labels`, `permissions`) can only be set in a config file.
+An environment variable name is `XPO_` plus the key in upper case, with `.` replaced by `_`. For example, `default_branch` is `XPO_DEFAULT_BRANCH` and `chat.model` is `XPO_CHAT_MODEL`. List keys such as `default_labels` and `contributors` take a comma-separated value. Map keys (`labels`) can only be set in a config file.
 
 Highlights: configurable issue ID prefix, estimation scales (fibonacci, exponential, linear, t-shirt), sprint cycles, label colors, contributor lists, automatic parent/child state propagation, and `xpo drive` agent configuration. Run `xpo config` to view or edit.
 

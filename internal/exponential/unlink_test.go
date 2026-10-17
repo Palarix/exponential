@@ -8,7 +8,7 @@ import (
 )
 
 func localClient(tr *LocalTransport) *Client {
-	return &Client{Config: tr.Config, Transport: tr, local: tr}
+	return &Client{Config: tr.Config, Transport: tr}
 }
 
 func TestUnlink_RemovesOwnedLinkKeepsOthers(t *testing.T) {

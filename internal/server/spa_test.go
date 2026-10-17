@@ -19,7 +19,7 @@ func builtStatic() fstest.MapFS {
 // getting the app's index.html.
 func TestSPA_UnknownBackendPathsAreNotFound(t *testing.T) {
 	h := spaHandler(builtStatic())
-	for _, path := range []string{"/api", "/api/nope", "/api/local/chats/x/stream", "/auth/nope", "/mcp/nope"} {
+	for _, path := range []string{"/api", "/api/nope", "/api/local/chats/x/stream", "/auth/nope"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != http.StatusNotFound {

@@ -8,38 +8,11 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-
-	"github.com/palarix/exponential/internal/auth"
 )
 
 // setupRoutes configures the HTTP routes for the server.
 func (s *Server) SetupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
-
-	// handle conditionally wraps routes with auth middleware when auth is enabled.
-	handle := func(pattern string, handler http.HandlerFunc) {
-		if s.SigningKey != nil {
-			mux.HandleFunc(pattern, auth.RequireAuth(s.VerifyKey, handler))
-		} else {
-			mux.HandleFunc(pattern, handler)
-		}
-	}
-
-	// handleCap wraps with auth + capability check when auth is enabled.
-	perms := s.Config.Permissions
-	handleCap := func(pattern string, capability string, handler http.HandlerFunc) {
-		if s.SigningKey != nil {
-			mux.HandleFunc(pattern, auth.RequireCapability(s.VerifyKey, perms, capability, handler))
-		} else {
-			mux.HandleFunc(pattern, handler)
-		}
-	}
-
-	// Auth endpoints (public, only registered when auth is enabled)
-	if s.SigningKey != nil {
-		mux.HandleFunc("POST /auth/challenge", s.handleAuthChallenge)
-		mux.HandleFunc("POST /auth/verify", s.handleAuthVerify)
-	}
 
 	// Health check (always public)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -48,108 +21,54 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	})
 
 	// The event stream (when the hub is configured).
-	s.registerLiveRoutes(mux, handle)
+	s.registerLiveRoutes(mux)
 
-	// Local-only routes: answered by this process in both local and proxy
-	// mode, because they describe the viewer's machine (e.g. worktree paths),
-	// not the API server's. More specific than the proxy's /api/{path...}
-	// catch-all, so they win. Never exposed by a headless server.
-	if !s.Headless {
-		mux.HandleFunc("GET /api/local/issues/{id}/worktree", s.handleGetLocalWorktree)
-		mux.HandleFunc("GET /api/local/mode", s.handleLocalMode)
-		s.registerChatRoutes(mux)
-	}
+	// Local machine routes: they describe the viewer's machine (e.g.
+	// worktree paths).
+	mux.HandleFunc("GET /api/local/issues/{id}/worktree", s.handleGetLocalWorktree)
+	mux.HandleFunc("GET /api/local/mode", s.handleLocalMode)
+	s.registerChatRoutes(mux)
 
-	// Proxy mode: reverse-proxy /api/* to remote server with bearer token
-	if s.ProxyURL != "" {
-		remoteURL, err := url.Parse(s.ProxyURL)
-		if err != nil {
-			log.Fatalf("Invalid proxy URL: %v", err)
-		}
-		proxy := httputil.NewSingleHostReverseProxy(remoteURL)
-		originalDirector := proxy.Director
-		token := s.ProxyToken
-		proxy.Director = func(req *http.Request) {
-			originalDirector(req)
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			req.Host = remoteURL.Host
-		}
-		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-			respondError(w, http.StatusBadGateway, "remote server unreachable — check that the server is running and the URL is correct")
-		}
+	// API routes — read endpoints
+	mux.HandleFunc("GET /api/issues", s.handleGetIssues)
+	mux.HandleFunc("GET /api/issues/{id}", s.handleGetIssue)
+	mux.HandleFunc("GET /api/issues/{id}/history", s.handleGetIssueHistory)
+	mux.HandleFunc("GET /api/issues/{id}/commits", s.handleGetIssueCommits)
+	mux.HandleFunc("GET /api/issues/{id}/files", s.handleGetIssueFiles)
+	mux.HandleFunc("GET /api/issues/{id}/diff", s.handleGetIssueDiff)
+	mux.HandleFunc("GET /api/issues/{id}/commits/{sha}/diff", s.handleGetCommitDiff)
+	mux.HandleFunc("GET /api/issues/{id}/artifacts/{filename}", s.handleGetArtifact)
+	mux.HandleFunc("GET /api/issues/{id}/mergeability", s.handleMergeability)
+	mux.HandleFunc("GET /api/issues/{id}/merged", s.handleMergedChanges)
+	mux.HandleFunc("GET /api/config", s.handleGetConfig)
+	mux.HandleFunc("GET /api/pending", s.handleGetPending)
+	mux.HandleFunc("GET /api/instances", s.handleListInstances)
+	mux.HandleFunc("GET /api/metrics", s.handleMetrics)
+	mux.HandleFunc("GET /api/activity", s.handleActivity)
+	mux.HandleFunc("GET /api/timeline", s.handleTimeline)
+	mux.HandleFunc("GET /api/commits/{sha}", s.handleCommitDetail)
+	mux.HandleFunc("GET /api/inbox", s.handleInbox)
+	mux.HandleFunc("GET /api/inbox/status", s.handleInboxStatus)
+	mux.HandleFunc("GET /api/cycles", s.handleGetCycles)
+	mux.HandleFunc("GET /api/cycles/{id}/progress", s.handleCycleProgress)
+	mux.HandleFunc("GET /api/user", s.handleGetUser)
 
-		proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			proxy.ServeHTTP(w, r)
-		})
-		mux.HandleFunc("GET /api/{path...}", proxyHandler)
-		mux.HandleFunc("POST /api/{path...}", proxyHandler)
-		mux.HandleFunc("PUT /api/{path...}", proxyHandler)
-		mux.HandleFunc("DELETE /api/{path...}", proxyHandler)
-		mux.HandleFunc("POST /auth/{path...}", proxyHandler)
+	// Write endpoints
+	mux.HandleFunc("POST /api/draft", s.handleDraft)
+	mux.HandleFunc("POST /api/save", s.handleSave)
+	mux.HandleFunc("DELETE /api/pending", s.handleDiscardPending)
+	mux.HandleFunc("POST /api/config/labels", s.handleAddLabel)
+	mux.HandleFunc("PUT /api/config/labels", s.handleUpdateLabel)
+	mux.HandleFunc("DELETE /api/config/labels", s.handleDeleteLabel)
+	mux.HandleFunc("POST /api/issues/{id}/merge", s.handleMergeIssue)
+	mux.HandleFunc("POST /api/issues/{id}/start", s.handleStartWork)
+	mux.HandleFunc("POST /api/inbox/read", s.handleInboxRead)
 
-		log.Printf("Proxy mode: forwarding /api/* to %s", s.ProxyURL)
-	} else {
-		// Local mode: API routes — read endpoints
-		handleCap("GET /api/issues", "issue.read", s.handleGetIssues)
-		handleCap("GET /api/issues/{id}", "issue.read", s.handleGetIssue)
-		handleCap("GET /api/issues/{id}/history", "issue.read", s.handleGetIssueHistory)
-		handleCap("GET /api/issues/{id}/commits", "issue.read", s.handleGetIssueCommits)
-		handleCap("GET /api/issues/{id}/files", "issue.read", s.handleGetIssueFiles)
-		handleCap("GET /api/issues/{id}/diff", "issue.read", s.handleGetIssueDiff)
-		handleCap("GET /api/issues/{id}/commits/{sha}/diff", "issue.read", s.handleGetCommitDiff)
-		handleCap("GET /api/issues/{id}/artifacts/{filename}", "issue.read", s.handleGetArtifact)
-		handleCap("GET /api/issues/{id}/mergeability", "issue.read", s.handleMergeability)
-		handleCap("GET /api/issues/{id}/merged", "issue.read", s.handleMergedChanges)
-		handleCap("GET /api/config", "issue.read", s.handleGetConfig)
-		handleCap("GET /api/pending", "issue.read", s.handleGetPending)
-		handleCap("GET /api/instances", "issue.read", s.handleListInstances)
-		handleCap("GET /api/metrics", "issue.read", s.handleMetrics)
-		handleCap("GET /api/activity", "issue.read", s.handleActivity)
-		handleCap("GET /api/timeline", "issue.read", s.handleTimeline)
-		handleCap("GET /api/commits/{sha}", "issue.read", s.handleCommitDetail)
-		handleCap("GET /api/inbox", "issue.read", s.handleInbox)
-		handleCap("GET /api/inbox/status", "issue.read", s.handleInboxStatus)
-		handleCap("GET /api/cycles", "issue.read", s.handleGetCycles)
-		handleCap("GET /api/cycles/{id}/progress", "issue.read", s.handleCycleProgress)
-		handle("GET /api/user", s.handleGetUser)
-
-		// Write endpoints
-		handleCap("POST /api/draft", "issue.read", s.handleDraft)
-		handleCap("POST /api/save", "issue.update", s.handleSave)
-		handleCap("DELETE /api/pending", "issue.update", s.handleDiscardPending)
-		handleCap("POST /api/config/labels", "issue.update", s.handleAddLabel)
-		handleCap("PUT /api/config/labels", "issue.update", s.handleUpdateLabel)
-		handleCap("DELETE /api/config/labels", "issue.update", s.handleDeleteLabel)
-		handleCap("POST /api/issues/{id}/merge", "issue.merge", s.handleMergeIssue)
-		handleCap("POST /api/issues/{id}/start", "issue.start", s.handleStartWork)
-		handleCap("POST /api/inbox/read", "issue.read", s.handleInboxRead)
-
-		// Issue drafts (unrelated to POST /api/draft above)
-		handleCap("GET /api/issue-drafts", "issue.create", s.handleListIssueDrafts)
-		handleCap("POST /api/issue-drafts", "issue.create", s.handleCreateIssueDraft)
-		handleCap("PUT /api/issue-drafts/{id}", "issue.create", s.handleUpdateIssueDraft)
-		handleCap("DELETE /api/issue-drafts/{id}", "issue.create", s.handleDeleteIssueDraft)
-	}
-
-	// MCP endpoint (when configured)
-	if s.MCPHandler != nil {
-		if s.SigningKey != nil {
-			mux.Handle("POST /mcp", auth.RequireAuthHandler(s.VerifyKey, s.MCPHandler))
-			mux.Handle("GET /mcp", auth.RequireAuthHandler(s.VerifyKey, s.MCPHandler))
-			mux.Handle("DELETE /mcp", auth.RequireAuthHandler(s.VerifyKey, s.MCPHandler))
-		} else {
-			mux.Handle("POST /mcp", s.MCPHandler)
-			mux.Handle("GET /mcp", s.MCPHandler)
-			mux.Handle("DELETE /mcp", s.MCPHandler)
-		}
-	}
-
-	// Headless mode: no static assets
-	if s.Headless {
-		return mux
-	}
+	// Issue drafts (unrelated to POST /api/draft above)
+	mux.HandleFunc("GET /api/issue-drafts", s.handleListIssueDrafts)
+	mux.HandleFunc("POST /api/issue-drafts", s.handleCreateIssueDraft)
+	mux.HandleFunc("PUT /api/issue-drafts/{id}", s.handleUpdateIssueDraft)
+	mux.HandleFunc("DELETE /api/issue-drafts/{id}", s.handleDeleteIssueDraft)
 
 	// Development mode: proxy all static requests to Vite dev server
 	if s.DevMode {
@@ -179,10 +98,10 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	return mux
 }
 
-// isBackendPath reports whether path belongs to the API, auth or MCP
+// isBackendPath reports whether path belongs to the API or auth
 // endpoints, which must never fall through to the SPA's index.html.
 func isBackendPath(path string) bool {
-	for _, prefix := range []string{"/api", "/auth", "/mcp"} {
+	for _, prefix := range []string{"/api", "/auth"} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return true
 		}

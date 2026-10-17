@@ -194,7 +194,7 @@ func TestRunner_ArchiveRefusesWorkMode(t *testing.T) {
 }
 
 func TestRunner_BindWorkRefusesArchivedChat(t *testing.T) {
-	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`, func(c *RunnerConfig) { c.CanWork = true })
+	r, store, _ := newTestRunner(t, `cat "$FIXTURE"`)
 	m, _ := store.Create()
 	r.Archive(m.ID)
 

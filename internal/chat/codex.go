@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -13,10 +12,6 @@ import (
 
 	"github.com/palarix/exponential/internal/exponential"
 )
-
-// codexTokenEnv is the environment variable that carries the remote xpo
-// token to Codex, so the token never shows up in the process list.
-const codexTokenEnv = "XPO_MCP_BEARER_TOKEN"
 
 // CodexDriver runs a chat on one `codex app-server` process and one
 // thread, speaking its JSON-RPC protocol over stdio. The process lives
@@ -37,20 +32,14 @@ func (d *CodexDriver) binary() string {
 	return d.Binary
 }
 
-// codexArgs starts app-server with the xpo MCP server: this binary's stdio
-// server in local mode, or the remote server's /mcp in remote mode. The
-// whole xpo table is replaced, so an xpo entry in a Codex config file
+// codexArgs starts app-server with this binary's stdio xpo MCP server.
+// The whole xpo table is replaced, so an xpo entry in a Codex config file
 // cannot mix in. The profile disables tools and makes others ask.
 func codexArgs(t MCPTarget, p Profile) []string {
-	server := map[string]any{"default_tools_approval_mode": "approve"}
-	if t.RemoteURL != "" {
-		server["url"] = strings.TrimSuffix(t.RemoteURL, "/") + "/mcp"
-		if t.RemoteToken != "" {
-			server["bearer_token_env_var"] = codexTokenEnv
-		}
-	} else {
-		server["command"] = t.Executable
-		server["args"] = []string{"mcp"}
+	server := map[string]any{
+		"default_tools_approval_mode": "approve",
+		"command":                     t.Executable,
+		"args":                        []string{"mcp"},
 	}
 	args := []string{"app-server"}
 	for _, key := range []string{"command", "args", "url", "bearer_token_env_var", "default_tools_approval_mode"} {
@@ -85,7 +74,7 @@ const codexCacheTTL = 5 * time.Minute
 // Open implements Driver. It starts app-server and its thread; a Send
 // before the thread is ready starts its turn once it is.
 func (d *CodexDriver) Open(in SessionInput, h SessionHandler) (Session, error) {
-	p, err := startCodex(d.binary(), codexArgs(in.MCP, in.Profile), in.Dir, in.MCP.RemoteToken)
+	p, err := startCodex(d.binary(), codexArgs(in.MCP, in.Profile), in.Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -668,7 +657,7 @@ func CodexModels(ctx context.Context, binary string) ([]ModelOption, error) {
 	if binary == "" {
 		binary = "codex"
 	}
-	p, err := startCodex(binary, []string{"app-server"}, "", "")
+	p, err := startCodex(binary, []string{"app-server"}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -762,12 +751,9 @@ type codexProc struct {
 	nextID int
 }
 
-func startCodex(binary string, args []string, dir, token string) (*codexProc, error) {
+func startCodex(binary string, args []string, dir string) (*codexProc, error) {
 	cmd := exec.Command(binary, args...)
 	cmd.Dir = dir
-	if token != "" {
-		cmd.Env = append(os.Environ(), codexTokenEnv+"="+token)
-	}
 	p, err := startAgent(cmd)
 	if err != nil {
 		return nil, err

@@ -293,30 +293,6 @@ print "{\"type\":\"result\",\"result\":\"done\",\"session_id\":\"sess-9\",\"dura
 	}
 }
 
-func TestChat_RoutesServedLocallyInProxyMode(t *testing.T) {
-	var proxied bool
-	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxied = true
-		w.WriteHeader(http.StatusTeapot)
-	}))
-	defer backend.Close()
-
-	s, _ := setupChatServer(t, "")
-	s.ProxyURL = backend.URL
-	h := s.SetupRoutes()
-	if w := doJSON(t, h, "POST", "/api/local/chats", ""); w.Code != http.StatusCreated || proxied {
-		t.Fatalf("got %d, proxied=%v", w.Code, proxied)
-	}
-}
-
-func TestChat_NotRegisteredWhenHeadless(t *testing.T) {
-	s, _ := setupChatServer(t, "")
-	s.Headless = true
-	if w := doJSON(t, s.SetupRoutes(), "GET", "/api/local/chats", ""); w.Code == http.StatusOK {
-		t.Fatalf("headless server must not serve chats: %d", w.Code)
-	}
-}
-
 func TestChat_Delete(t *testing.T) {
 	s, h := setupChatServer(t, "")
 	m := createChat(t, h)

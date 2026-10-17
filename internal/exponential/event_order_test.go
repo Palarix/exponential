@@ -69,7 +69,7 @@ func TestBuildUpdate_LinkOnlyTimesStrictlyIncrease(t *testing.T) {
 func TestBuildMergeEvents_MergeBeforeDone(t *testing.T) {
 	tr := setupLocalTransport(t)
 	issue, _ := tr.AddIssue(model.CreatePayload{Title: "work", Status: "DOING"})
-	c := &Client{local: tr, Transport: tr}
+	c := &Client{Transport: tr}
 
 	events, _, err := c.buildMergeEvents(projected(t)[issue.ID], "work-branch", "abc123", MergeStrategySquash)
 	if err != nil {

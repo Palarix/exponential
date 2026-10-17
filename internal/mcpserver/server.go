@@ -10,10 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 
-	"github.com/palarix/exponential/internal/auth"
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/version"
@@ -35,8 +33,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 }
 
 // newStdioServer builds the stdio server: the issue tools plus the git
-// tools, which read this machine's checkout and so are stdio-only. start and
-// merge are added in local mode only.
+// tools.
 func newStdioServer(cfg *config.Config) *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "xpo",
@@ -45,9 +42,6 @@ func newStdioServer(cfg *config.Config) *mcp.Server {
 	ts := newToolset(cfg)
 	ts.register(srv)
 	ts.registerGitTools(srv)
-	if cfg.Remote.URL == "" {
-		ts.registerWorkTools(srv)
-	}
 	return srv
 }
 
@@ -66,33 +60,11 @@ func isCleanShutdown(err error) bool {
 
 // toolset holds dependencies shared by all tool handlers.
 type toolset struct {
-	cfg              *config.Config
-	httpUserOverride string
-	onEvent          func(eventType, issueID string)
+	cfg *config.Config
 }
 
 func newToolset(cfg *config.Config) *toolset {
 	return &toolset{cfg: cfg}
-}
-
-func (t *toolset) broadcast(eventType, issueID string) {
-	if t.onEvent != nil {
-		t.onEvent(eventType, issueID)
-	}
-}
-
-// RegisterTools registers all xpo MCP tools on the given server.
-// When httpReq is non-nil (HTTP transport), the authenticated user identity
-// from the request context is used for event attribution.
-func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request, onEvent func(eventType, issueID string)) {
-	ts := newToolset(cfg)
-	ts.onEvent = onEvent
-	if httpReq != nil {
-		if user, ok := auth.UserFromContext(httpReq.Context()); ok {
-			ts.httpUserOverride = user.Raw
-		}
-	}
-	ts.register(srv)
 }
 
 // clientFor returns a exponential.Client with UserOverride set to the resolved
@@ -103,11 +75,7 @@ func RegisterTools(srv *mcp.Server, cfg *config.Config, httpReq *http.Request, o
 func (t *toolset) clientFor(req *mcp.CallToolRequest) *exponential.Client {
 	c := exponential.NewClient(t.cfg)
 	c.Source = "mcp"
-	if t.httpUserOverride != "" {
-		c.OnBehalfOf = t.httpUserOverride
-	} else {
-		c.OnBehalfOf = c.GetUser()
-	}
+	c.OnBehalfOf = c.GetUser()
 	var session mcp.Session
 	if req != nil {
 		session = req.GetSession()

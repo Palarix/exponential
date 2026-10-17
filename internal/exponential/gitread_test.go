@@ -1,9 +1,6 @@
 package exponential
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -565,37 +562,6 @@ func TestGitRead_DoesNotWriteIndex(t *testing.T) {
 		if _, err := os.Stat(p + ".lock"); err == nil {
 			t.Errorf("%s.lock exists", p)
 		}
-	}
-}
-
-// --- transports ---
-
-func TestGitDiff_RemoteTransport(t *testing.T) {
-	local, _ := setupGitReadEnv(t)
-	wt := startGitReadIssue(t, local, "test-d9b2c3", "Remote")
-	commitFile(t, wt, "remote.txt", "from the local worktree\n", "test-d9b2c3: work")
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/issues/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasSuffix("test-d9b2c3", r.PathValue("id")) {
-			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
-			return
-		}
-		json.NewEncoder(w).Encode(apiIssue{ID: "test-d9b2c3", Title: "Remote", Status: "DOING"})
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
-
-	cfg := &config.Config{Prefix: "test", Version: 2}
-	cfg.Remote.URL = srv.URL
-	remote := NewClient(cfg)
-
-	got, err := remote.GitDiff("d9b2c3", GitDiffOptions{})
-	if err != nil {
-		t.Fatalf("GitDiff over a remote transport: %v", err)
-	}
-	if got.IssueID != "test-d9b2c3" || !strings.Contains(got.Patch, "from the local worktree") {
-		t.Errorf("got %+v, want the local worktree diff", got)
 	}
 }
 

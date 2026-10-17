@@ -34,9 +34,6 @@ type MergeResult struct {
 // MergeIssue merges the issue's branch into the default branch,
 // records a MERGE event, and transitions the issue to DONE.
 func (c *Client) MergeIssue(id string, opts MergeOptions) (*MergeResult, error) {
-	if c.local == nil {
-		return nil, ErrLocalOnly
-	}
 	// MCP builds a fresh Client per request, so the agent identity and
 	// principal must reach the transport before any event is stamped.
 	c.syncLocal()
@@ -165,7 +162,7 @@ func (c *Client) recordMerge(issue *model.Issue, branch, baseSHA string, strateg
 		return err
 	}
 	for _, evt := range events {
-		if err := c.local.appendEvent(evt); err != nil {
+		if err := c.Transport.appendEvent(evt); err != nil {
 			if evt.Type == model.EventTypeMerge {
 				return fmt.Errorf("failed to record merge event: %w", err)
 			}
@@ -198,7 +195,7 @@ func (c *Client) buildMergeEvents(issue *model.Issue, branch, baseSHA string, st
 		return nil, nil, err
 	}
 	doneStatus := string(model.StatusDone)
-	doneEvents, doneMessages, err := c.local.buildUpdate(
+	doneEvents, doneMessages, err := c.Transport.buildUpdate(
 		issue.ID, model.UpdatePayload{Status: &doneStatus}, ProjectIssues(preEvents))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build DONE transition: %w", err)

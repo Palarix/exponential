@@ -157,14 +157,6 @@ export function useLocalMode(): LocalMode | undefined {
   return useQuery({ queryKey: queryKeys.localMode, queryFn: fetchLocalMode, refetchOnWindowFocus: "always" }).data;
 }
 
-/**
- * Whether the board may offer actions that run git (Start Work, Review
- * Changes). False in remote mode, and while the mode is still unknown.
- */
-export function useGitActions(): boolean {
-  return useLocalMode()?.remote === false;
-}
-
 export function useLocalWorktree(issue: Issue) {
   return useQuery({
     queryKey: queryKeys.worktree(issue),

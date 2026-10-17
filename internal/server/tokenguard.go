@@ -92,7 +92,7 @@ func (s *Server) tokenGuard(next http.Handler) http.Handler {
 			return
 		}
 
-		if r.Method != http.MethodGet || r.URL.Path == "/mcp" || strings.HasPrefix(r.URL.Path, "/api/") {
+		if r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/") {
 			respondError(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}

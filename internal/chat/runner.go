@@ -40,9 +40,6 @@ type RunnerConfig struct {
 	// chat; "" when unknown. Optional.
 	IssueTitle func(issueID string) string
 
-	// CanWork allows Work Mode. False in remote mode, where start and merge
-	// run on the server (xpo-a60065).
-	CanWork bool
 	// ResolveWork returns an issue's full ID and worktree, once the agent's
 	// start call on it succeeded. The ID may be a unique suffix.
 	ResolveWork func(issueID string) (WorkBinding, error)

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,9 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"crypto/ed25519"
-
-	"github.com/palarix/exponential/internal/auth"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/live"
@@ -31,7 +27,6 @@ type Server struct {
 	AccessToken   string // required from clients when non-empty (non-loopback --host)
 	DevMode       bool
 	DevPort       int
-	Headless      bool
 	pendingEvents []model.Event
 	mu            sync.RWMutex
 	pendingGen    uint64
@@ -41,20 +36,6 @@ type Server struct {
 	lastDBSize    int64
 	dbExists      bool
 	cacheGen      uint64
-
-	// Auth fields — nil when auth is disabled (local board mode).
-	NonceStore     *auth.NonceStore
-	AuthorizedKeys *auth.AuthorizedKeys
-	SigningKey     ed25519.PrivateKey
-	VerifyKey      ed25519.PublicKey
-
-	// MCP handler — set externally for xpo serve mode.
-	MCPHandler http.Handler
-
-	// Proxy mode — when set, /api/* routes are reverse-proxied to
-	// the remote server with the bearer token injected.
-	ProxyURL   string
-	ProxyToken string
 
 	// Live is the hub of the event stream (/api/events); nil disables it.
 	Live *live.Hub
@@ -76,29 +57,6 @@ func (s *Server) ChatChanged(id string) {
 		s.chatEvents = newThrottle(chatEventWindow, func(string) { s.notify(TopicChats) })
 	})
 	s.chatEvents.Trigger(id)
-}
-
-// requireCapability checks whether the request has the named capability.
-// Returns true if the check passes (or auth is disabled). When it returns
-// false it has already written a 403 response.
-func (s *Server) requireCapability(w http.ResponseWriter, r *http.Request, capability string) bool {
-	if s.SigningKey == nil {
-		return true
-	}
-	perms := s.Config.Permissions
-	if !perms.Enabled() {
-		return true
-	}
-	user, ok := auth.UserFromContext(r.Context())
-	if !ok {
-		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-		return false
-	}
-	if !perms.HasCapability(user.Email, capability) {
-		http.Error(w, fmt.Sprintf(`{"error":"forbidden: requires %s capability"}`, capability), http.StatusForbidden)
-		return false
-	}
-	return true
 }
 
 // NewServer creates a new Server instance.
@@ -132,7 +90,6 @@ func (s *Server) Bind() (net.Listener, error) {
 func (s *Server) ServeOn(l net.Listener) error {
 	s.WatchDB()
 	s.WatchGitRefs()
-	s.startMirror(context.Background())
 	mux := s.SetupRoutes()
 	log.Printf("Starting xpo board server on %s", s.URL())
 	server := &http.Server{

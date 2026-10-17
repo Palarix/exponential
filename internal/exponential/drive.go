@@ -496,10 +496,6 @@ func (c *Client) DriveIssue(opts DriveOptions) (*DriveResult, error) {
 	isGit := CheckGitRepo()
 
 	// ── Pre-flight ──────────────────────────────────────────────────
-	if c.local == nil {
-		return nil, fmt.Errorf("xpo drive requires a local project (not a remote server)")
-	}
-
 	issue, err := c.pickIssue(opts)
 	if err != nil {
 		return nil, err

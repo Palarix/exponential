@@ -31,7 +31,6 @@ func toolTurn(tool, issue string, failed bool) string {
 func newModeRunner(t *testing.T) (*Runner, *Store, string) {
 	t.Helper()
 	r, store, dir := newTestRunner(t, `cat "$(dirname "$0")/turn.jsonl"`)
-	r.cfg.CanWork = true
 	// Work Mode needs a git repository; a .git directory is enough here.
 	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
 		t.Fatal(err)
@@ -347,20 +346,6 @@ func TestRunner_BindWorkRefusesChatBoundElsewhere(t *testing.T) {
 	}
 	if meta, _ := store.Meta(m.ID); meta.Work == nil || meta.Work.IssueID != "xpo-abc" {
 		t.Errorf("work = %+v, want still on xpo-abc", meta.Work)
-	}
-}
-
-func TestRunner_BindWorkRefusedWithoutWork(t *testing.T) {
-	r, store, dir := newModeRunner(t)
-	r.cfg.CanWork = false
-	m, _ := store.Create()
-	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-abc", Worktree: dir}); !errors.Is(err, ErrWorkUnavailable) {
-		t.Fatalf("err = %v, want ErrWorkUnavailable", err)
-	}
-	r.Send(m.ID, SendRequest{Text: "hi"})
-	r.Wait()
-	if got := flagValues(lastArgs(t, dir), "--disallowedTools"); !slices.Contains(got, "mcp__xpo__start") {
-		t.Errorf("--disallowedTools = %v, want start denied", got)
 	}
 }
 

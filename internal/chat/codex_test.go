@@ -69,7 +69,6 @@ func fakeCodex(t *testing.T, dir, after string) string {
 	script := filepath.Join(dir, "codex")
 	content := "#!/bin/sh\n" +
 		`for a in "$@"; do printf '%s\n' "$a"; done > "` + dir + `/args.txt"` + "\n" +
-		`printf '%s' "$` + codexTokenEnv + `" > "` + dir + `/token.txt"` + "\n" +
 		`echo start >> "` + dir + `/starts.txt"` + "\n" +
 		`IFS= read -r line || exit 0; printf '%s\n' "$line" >> "` + dir + `/stdin.txt"` + "\n" +
 		`cat "` + dir + `/init.jsonl"` + "\n" +
@@ -226,7 +225,6 @@ func TestCodexDriver_Turn(t *testing.T) {
 // asks before it runs.
 func TestCodexDriver_WorkProfile(t *testing.T) {
 	r, store, dir := newCodexRunner(t, "")
-	r.cfg.CanWork = true
 	wt := filepath.Join(dir, "wt")
 	os.Mkdir(wt, 0o755)
 	m, _ := store.Create()
@@ -319,35 +317,6 @@ func TestCodexDriver_ResumesThreadAfterAgentEnds(t *testing.T) {
 	turn := params(sent["turn/start"][0])
 	if _, ok := turn["model"]; ok {
 		t.Errorf("turn/start sent a model although none was picked: %v", turn)
-	}
-}
-
-func TestCodexDriver_RemoteTokenOnlyInEnv(t *testing.T) {
-	dir := t.TempDir()
-	writeCodexFixtures(t, dir, codexInitFixture, codexThreadFixture, codexTurnFixture)
-	d := &CodexDriver{Binary: fakeCodex(t, dir, "")}
-	_, err := runTurn(context.Background(), t, d, SessionInput{
-		Dir: dir,
-		MCP: MCPTarget{RemoteURL: "https://xpo.example.com/", RemoteToken: "s3cret"},
-	}, "x", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	args, _ := os.ReadFile(filepath.Join(dir, "args.txt"))
-	if strings.Contains(string(args), "s3cret") {
-		t.Fatalf("token on the command line:\n%s", args)
-	}
-	for _, a := range []string{`mcp_servers.xpo.url="https://xpo.example.com/mcp"`, `mcp_servers.xpo.bearer_token_env_var="` + codexTokenEnv + `"`} {
-		if !strings.Contains(string(args), a) {
-			t.Errorf("args missing %q:\n%s", a, args)
-		}
-	}
-	if strings.Contains(string(args), "mcp_servers.xpo.command") {
-		t.Errorf("remote mode still starts a local xpo mcp:\n%s", args)
-	}
-	token, _ := os.ReadFile(filepath.Join(dir, "token.txt"))
-	if string(token) != "s3cret" {
-		t.Errorf("token env = %q", token)
 	}
 }
 

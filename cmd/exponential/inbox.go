@@ -46,13 +46,8 @@ func init() {
 }
 
 func runInbox(cmd *cobra.Command, args []string) error {
-	remoteURL := ""
-	if cfg != nil {
-		remoteURL = cfg.Remote.URL
-	}
-
 	if inboxClear {
-		if err := config.SetInboxLastRead(remoteURL, time.Now()); err != nil {
+		if err := config.SetInboxLastRead(time.Now()); err != nil {
 			if inboxJSONFlag {
 				exitJSONError(fmt.Errorf("failed to update read cursor: %w", err))
 			}
@@ -70,7 +65,7 @@ func runInbox(cmd *cobra.Command, args []string) error {
 
 	client := exponential.NewClient(cfg)
 	me := client.GetUser()
-	since := config.GetInboxLastRead(remoteURL)
+	since := config.GetInboxLastRead()
 
 	items, err := client.GetInbox(since)
 	if err != nil {

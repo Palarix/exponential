@@ -215,57 +215,6 @@ func TestEvents_ChatStreamEndpointIsGone(t *testing.T) {
 	}
 }
 
-// In proxy mode the browser's stream is this board's: a remote that is down
-// doesn't keep it from opening, and chat topics still work.
-func TestEvents_ProxyModeStreamWorksWhileTheRemoteIsDown(t *testing.T) {
-	s := setupTestServer(t)
-	s.Live = NewLiveHub()
-	s.ProxyURL = "http://127.0.0.1:1"
-	srv := httptest.NewServer(s.SetupRoutes())
-	t.Cleanup(srv.Close)
-
-	c := openEvents(t, srv.URL)
-	s.ChatChanged("chat-1")
-	if f := c.next(); f.event != live.EventSignal || f.data["topic"] != TopicChats {
-		t.Errorf("event = %+v, want the chats signal", f)
-	}
-	if code := c.topics(`{"add":[{"topic":"bogus:1"}]}`); code != http.StatusBadRequest {
-		t.Errorf("topics in proxy mode = %d, want the local board's 400", code)
-	}
-}
-
-func TestStartMirror_NotifiesRemoteTopics(t *testing.T) {
-	auth := make(chan string, 4)
-	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/events" {
-			http.NotFound(w, r)
-			return
-		}
-		auth <- r.Header.Get("Authorization")
-		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprint(w, "event: hello\ndata: {\"stream\":\"r\"}\n\n")
-		w.(http.Flusher).Flush()
-		<-r.Context().Done()
-	}))
-	t.Cleanup(remote.Close)
-
-	s := setupTestServer(t)
-	s.ProxyURL = remote.URL
-	s.ProxyToken = "tok"
-	sub := subscribeLive(t, s)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	s.startMirror(ctx)
-
-	if got := <-auth; got != "Bearer tok" {
-		t.Errorf("remote Authorization = %q", got)
-	}
-	got := signals(sub, 200*time.Millisecond)
-	if got[TopicIssues] == 0 || got[TopicDrafts] == 0 || got[TopicChats] != 0 {
-		t.Errorf("signals = %v, want issues and drafts", got)
-	}
-}
-
 func TestIssueWrites_NotifyIssuesOnly(t *testing.T) {
 	s := setupTestServer(t)
 	sub := subscribeLive(t, s)

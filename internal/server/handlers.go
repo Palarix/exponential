@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,14 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/palarix/exponential/internal/auth"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/model"
 	"github.com/palarix/exponential/internal/registry"
 	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/version"
-	"golang.org/x/crypto/ssh"
 )
 
 func (s *Server) handleGetIssues(w http.ResponseWriter, r *http.Request) {
@@ -108,15 +105,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	client := exponential.NewClient(s.Config)
 	client.Collapse = true
 	client.Source = "web"
-	if user, ok := auth.UserFromContext(r.Context()); ok {
-		client.UserOverride = user.Raw
-	}
 
 	switch model.EventType(req.Type) {
 	case model.EventTypeCreate:
-		if !s.requireCapability(w, r, "issue.create") {
-			return
-		}
 		var p model.CreatePayload
 		if err := json.Unmarshal(req.Payload, &p); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid CREATE payload")
@@ -135,9 +126,6 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": issue.ID})
 
 	case model.EventTypeUpdate:
-		if !s.requireCapability(w, r, "issue.update") {
-			return
-		}
 		if req.IssueID == "" {
 			respondError(w, http.StatusBadRequest, "issue_id is required")
 			return
@@ -159,9 +147,6 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeComment:
-		if !s.requireCapability(w, r, "issue.comment") {
-			return
-		}
 		if req.IssueID == "" {
 			respondError(w, http.StatusBadRequest, "issue_id is required")
 			return
@@ -183,9 +168,6 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]string{"status": "ok", "issue_id": req.IssueID})
 
 	case model.EventTypeDelete:
-		if !s.requireCapability(w, r, "issue.delete") {
-			return
-		}
 		if req.IssueID == "" {
 			respondError(w, http.StatusBadRequest, "issue_id is required")
 			return
@@ -533,14 +515,6 @@ func (s *Server) handleCycleProgress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
-	if user, ok := auth.UserFromContext(r.Context()); ok {
-		respondJSON(w, http.StatusOK, map[string]string{
-			"user":  user.Raw,
-			"name":  user.Name,
-			"email": user.Email,
-		})
-		return
-	}
 	name, email := getUserNameEmail(s.Config)
 	respondJSON(w, http.StatusOK, map[string]string{
 		"user":  fmt.Sprintf("%s <%s>", name, email),
@@ -759,14 +733,7 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
-	// Resolve the requesting user: prefer the authenticated identity, fall
-	// back to the server's configured user when auth is disabled.
-	var me string
-	if u, ok := auth.UserFromContext(r.Context()); ok {
-		me = u.Raw
-	} else {
-		me = exponential.NewClient(s.Config).GetUser()
-	}
+	me := exponential.NewClient(s.Config).GetUser()
 
 	var since time.Time
 	if raw := r.URL.Query().Get("since"); raw != "" {
@@ -805,15 +772,8 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
-	var me string
-	if u, ok := auth.UserFromContext(r.Context()); ok {
-		me = u.Raw
-	} else {
-		me = exponential.NewClient(s.Config).GetUser()
-	}
-
-	remoteURL := config.ReadRemoteURL()
-	lastRead := config.GetInboxLastRead(remoteURL)
+	me := exponential.NewClient(s.Config).GetUser()
+	lastRead := config.GetInboxLastRead()
 
 	allEvents, err := s.GetAllEvents()
 	if err != nil {
@@ -844,9 +804,8 @@ func (s *Server) handleInboxStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInboxRead(w http.ResponseWriter, r *http.Request) {
-	remoteURL := config.ReadRemoteURL()
 	now := time.Now()
-	if err := config.SetInboxLastRead(remoteURL, now); err != nil {
+	if err := config.SetInboxLastRead(now); err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to update inbox read cursor")
 		return
 	}
@@ -888,16 +847,7 @@ func (s *Server) handleGetIssueHistory(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, history)
 }
 
-// errGitActionsOnServe explains why xpo serve refuses start and merge: they
-// would run git in the server's own checkout, which nobody works in. Team
-// Mode (xpo-8757a9) moves them to the client.
-const errGitActionsOnServe = "start and merge run on your machine and are not available through xpo serve yet"
-
 func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
-	if s.Headless {
-		respondError(w, http.StatusNotImplemented, errGitActionsOnServe)
-		return
-	}
 	id := r.PathValue("id")
 	if id == "" {
 		respondError(w, http.StatusBadRequest, "issue ID required")
@@ -1039,8 +989,7 @@ func (s *Server) handleGetIssueFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetLocalWorktree returns the worktree for an issue on the machine
-// running this process. Resolved purely from local git, so it works in proxy
-// mode where issue data lives on the remote.
+// running this process, resolved from local git.
 func (s *Server) handleGetLocalWorktree(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	entry, ok := exponential.FindWorktreeForIssue(id)
@@ -1051,13 +1000,10 @@ func (s *Server) handleGetLocalWorktree(w http.ResponseWriter, r *http.Request) 
 	respondJSON(w, http.StatusOK, map[string]string{"path": entry.Path, "branch": entry.Branch})
 }
 
-// handleLocalMode tells the UI whether this board proxies to a remote
-// server. In remote mode the UI hides actions that run git, because the
-// server would run them in its own checkout. git and root tell it whether
-// Work Mode can make worktrees, and where to run git init (xpo-e627e1).
+// handleLocalMode tells the UI whether Work Mode can make worktrees (git),
+// and where to run git init (root) (xpo-e627e1).
 func (s *Server) handleLocalMode(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]any{
-		"remote": s.ProxyURL != "",
 		"git":    exponential.CheckGitRepo(),
 		"root":   hubPath(),
 	})
@@ -1145,10 +1091,6 @@ func (s *Server) handleMergeability(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
-	if s.Headless {
-		respondError(w, http.StatusNotImplemented, errGitActionsOnServe)
-		return
-	}
 	id := r.PathValue("id")
 	if id == "" {
 		respondError(w, http.StatusBadRequest, "issue ID required")
@@ -1228,96 +1170,6 @@ func (s *Server) handleMergeIssue(w http.ResponseWriter, r *http.Request) {
 		"status":    "ok",
 		"merge_sha": result.MergeSHA,
 		"messages":  result.Messages,
-	})
-}
-
-// --- Auth handlers ---
-
-func (s *Server) handleAuthChallenge(w http.ResponseWriter, r *http.Request) {
-	if s.NonceStore == nil {
-		respondError(w, http.StatusServiceUnavailable, "auth not enabled")
-		return
-	}
-	nonce, err := s.NonceStore.Generate()
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to generate challenge")
-		return
-	}
-	respondJSON(w, http.StatusOK, map[string]string{"nonce": nonce})
-}
-
-func (s *Server) handleAuthVerify(w http.ResponseWriter, r *http.Request) {
-	if s.NonceStore == nil || s.AuthorizedKeys == nil {
-		respondError(w, http.StatusServiceUnavailable, "auth not enabled")
-		return
-	}
-
-	var req struct {
-		PublicKey string `json:"public_key"`
-		Signature string `json:"signature"`
-		Nonce     string `json:"nonce"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
-		return
-	}
-
-	if !s.NonceStore.Validate(req.Nonce) {
-		respondError(w, http.StatusUnauthorized, "invalid or expired nonce")
-		return
-	}
-
-	pubKeyBytes, err := base64.StdEncoding.DecodeString(req.PublicKey)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid public key encoding")
-		return
-	}
-
-	sshPubKey, err := ssh.ParsePublicKey(pubKeyBytes)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid public key")
-		return
-	}
-
-	identity, ok := s.AuthorizedKeys.Lookup(sshPubKey)
-	if !ok {
-		respondError(w, http.StatusUnauthorized, "public key not authorized")
-		return
-	}
-
-	sigBytes, err := base64.StdEncoding.DecodeString(req.Signature)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "invalid signature encoding")
-		return
-	}
-
-	sig := new(ssh.Signature)
-	if err := ssh.Unmarshal(sigBytes, sig); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid signature format")
-		return
-	}
-
-	if err := sshPubKey.Verify([]byte(req.Nonce), sig); err != nil {
-		respondError(w, http.StatusUnauthorized, "signature verification failed")
-		return
-	}
-
-	expiry := time.Now().Add(7 * 24 * time.Hour)
-	claims := auth.Claims{
-		Sub: identity.Raw,
-		Exp: expiry.Unix(),
-		Iat: time.Now().Unix(),
-	}
-
-	token, err := auth.SignToken(s.SigningKey, claims)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to sign token")
-		return
-	}
-
-	respondJSON(w, http.StatusOK, map[string]string{
-		"token":      token,
-		"expires_at": expiry.Format(time.RFC3339),
 	})
 }
 

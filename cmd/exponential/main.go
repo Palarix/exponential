@@ -26,7 +26,7 @@ var rootCmd = &cobra.Command{
 		var err error
 		cfg, err = config.LoadConfig()
 		if err != nil {
-			allowed := []string{"init", "help", "version", "doctor", "login", "logout", "whoami", "demo"}
+			allowed := []string{"init", "help", "version", "doctor", "whoami", "demo"}
 			if commandOrAncestorAllowed(cmd, allowed) {
 				return nil
 			}
@@ -38,7 +38,7 @@ var rootCmd = &cobra.Command{
 			ui.SetLabelColors(cfg.Labels)
 		}
 
-		exceptions := []string{"init", "help", "version", "doctor", "migrate", "login", "logout", "whoami", "serve", "demo"}
+		exceptions := []string{"init", "help", "version", "doctor", "migrate", "whoami", "demo"}
 		if commandOrAncestorAllowed(cmd, exceptions) {
 			return nil
 		}
