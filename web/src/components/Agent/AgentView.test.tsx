@@ -5,6 +5,7 @@ import { AppNavContext, type AppNav } from "../../app/contexts";
 import { renderMarkup } from "../../render-markup";
 import { AgentChatContext, type AgentChat } from "./agent-context";
 import AgentView from "./AgentView";
+import { createComposerDrafts } from "./composer-drafts";
 
 const chat: ChatMeta = { id: "c1", title: "A chat", created_at: "", updated_at: "", agent: "claude", state: "idle" };
 const archived: ChatMeta = { ...chat, id: "c2", title: "Old chat", archived_at: "2026-10-01T00:00:00Z" };
@@ -17,7 +18,7 @@ function render(chatId: string | null, history: AppNav["chatHistory"] = null): s
     seen: {},
     markSeen: () => {},
     prefsFor: () => ({ provider: "", model: "", effort: "" }),
-    draftFor: () => undefined,
+    drafts: createComposerDrafts(),
   } as unknown as AgentChat;
   const nav = { view: "agent", chatId, chatHistory: history } as unknown as AppNav;
   // The app wraps everything in a tooltip provider (main.tsx).

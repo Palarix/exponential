@@ -6,14 +6,8 @@ import type { ChatPrefs } from "./agent-state-utils";
 import Tooltip from "../ui/Tooltip";
 import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
 import { composerEscapeBlurs } from "./chat-thread-utils";
-import { addAttachments, formatSize, isAgentImage } from "./attachment-utils";
-
-/** A file waiting in the composer. preview is an object URL for images. */
-export interface PendingAttachment {
-  key: string;
-  file: File;
-  preview?: string;
-}
+import { formatSize } from "./attachment-utils";
+import { useComposerDraft, type ComposerDrafts, type PendingAttachment } from "./composer-drafts";
 
 /** The banner for work the agent keeps running between turns. */
 export interface BackgroundBannerInfo {
@@ -52,9 +46,10 @@ interface ChatComposerProps {
   work?: WorkModeInfo;
   onLeaveWork?(): void;
   onOpenIssue?(issueId: string): void;
-  /** Text to put in the input, such as Start Work's first message. onDraftUsed runs once it is in. */
-  draft?: string;
-  onDraftUsed?(): void;
+  /** Every unsent draft; the composer shows and edits draftKey's. */
+  drafts: ComposerDrafts;
+  /** The chat's ID, or the new chat's key in this place (NEW_CHAT_POPUP or NEW_CHAT_VIEW). */
+  draftKey: string;
   /** The input takes focus each time this changes, as when the last approval card is answered. */
   focusSignal?: number;
   /** Esc gives up focus, keeping the draft. The popup leaves Esc to minimize instead. */
@@ -153,44 +148,30 @@ export default function ChatComposer({
   work,
   onLeaveWork,
   onOpenIssue,
-  draft,
-  onDraftUsed,
+  drafts,
+  draftKey,
   focusSignal,
   blurOnEscape,
 }: ChatComposerProps) {
-  const [text, setText] = useState(draft ?? "");
+  const { text, attachments, prefilled } = useComposerDraft(drafts, draftKey);
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [attachError, setAttachError] = useState<string | undefined>();
   const [dragging, setDragging] = useState(false);
 
-  // Thumbnails are object URLs: free them when they go away.
-  const previews = useRef(new Set<string>());
-  useEffect(() => {
-    const urls = previews.current;
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, []);
+  // The attach error belongs to the draft it came up in.
+  const [errorKey, setErrorKey] = useState(draftKey);
+  if (draftKey !== errorKey) {
+    setErrorKey(draftKey);
+    setAttachError(undefined);
+  }
   const addFiles = (files: File[]) => {
     if (files.length === 0) return;
-    const { added, error } = addAttachments(attachments.map((a) => a.file), files);
-    setAttachError(error);
-    const items = added.map((file) => {
-      const preview = isAgentImage(file.type) ? URL.createObjectURL(file) : undefined;
-      if (preview) previews.current.add(preview);
-      return { key: crypto.randomUUID(), file, preview };
-    });
-    setAttachments((prev) => [...prev, ...items]);
+    setAttachError(drafts.addFiles(draftKey, files));
   };
   const removeAttachments = (keys: Set<string>) => {
-    for (const a of attachments) {
-      if (keys.has(a.key) && a.preview) {
-        URL.revokeObjectURL(a.preview);
-        previews.current.delete(a.preview);
-      }
-    }
-    setAttachments((prev) => prev.filter((a) => !keys.has(a.key)));
+    drafts.removeAttachments(draftKey, keys);
     setAttachError(undefined);
   };
 
@@ -199,17 +180,20 @@ export default function ChatComposer({
     if (focusSignal) inputRef.current?.focus();
   }, [focusSignal]);
 
-  // A draft fills the input but sends nothing: the user can add to it first.
-  const [shownDraft, setShownDraft] = useState(draft);
-  if (draft !== shownDraft) {
-    setShownDraft(draft);
-    if (draft) setText(draft);
-  }
+  // Another chat's draft, or this one's in a new place: the caret goes to its end.
   useEffect(() => {
-    if (!draft) return;
-    inputRef.current?.focus();
-    onDraftUsed?.();
-  }, [draft, onDraftUsed]);
+    const el = inputRef.current;
+    el?.setSelectionRange(el.value.length, el.value.length);
+  }, [draftKey]);
+
+  // A prefill fills the input but sends nothing: the user can add to it first.
+  useEffect(() => {
+    if (!prefilled) return;
+    const el = inputRef.current;
+    el?.focus();
+    el?.setSelectionRange(el.value.length, el.value.length);
+    drafts.prefillUsed(draftKey);
+  }, [prefilled, draftKey, drafts]);
 
   // Grow with the text, up to about eight lines.
   useEffect(() => {
@@ -223,12 +207,14 @@ export default function ChatComposer({
   const send = async () => {
     if (!canSend) return;
     setSending(true);
+    // The draft to clear is the one sent, even if the chat changes meanwhile.
+    const from = draftKey;
     const sent = attachments;
     const ok = await onSend(text.trim(), sent.map((a) => a.file));
     setSending(false);
     if (ok) {
-      setText("");
-      removeAttachments(new Set(sent.map((a) => a.key)));
+      drafts.sent(from, new Set(sent.map((a) => a.key)));
+      setAttachError(undefined);
     }
     inputRef.current?.focus();
   };
@@ -293,7 +279,7 @@ export default function ChatComposer({
           rows={1}
           value={text}
           placeholder={placeholder}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => drafts.setText(draftKey, e.target.value)}
           onPaste={(e) => {
             // Files on the clipboard become attachments; text pastes as text.
             const files = Array.from(e.clipboardData.files);

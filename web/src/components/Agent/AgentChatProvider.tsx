@@ -4,6 +4,7 @@ import { fetchAgentStatus, fetchChats, type ChatContext } from "../../api/chat";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-context";
 import { activeChats } from "./chat-history-utils";
+import { createComposerDrafts } from "./composer-drafts";
 import { useApprovalNotifications } from "./useApprovalNotifications";
 import { addPill, adoptNewChatContext, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadNotify, loadPrefs, normalizePrefs, notifyState, saveNotify, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
 
@@ -23,7 +24,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   const [savedPrefs, setPrefsState] = useState(() => loadPrefs(storage));
   const [notifyOn, setNotifyOn] = useState(() => loadNotify(storage));
   const [permission, setPermission] = useState(notificationPermission);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [drafts] = useState(createComposerDrafts);
   // Each issue the user opens becomes pending context for every chat, until
   // that chat sends or removes it. This outlives the popup, not a reload.
   const [viewed, setViewed] = useState(() => nextViewed({ seq: 0 }, context.issue_id));
@@ -107,19 +108,13 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       toggleNotify,
       openNew: () => { setChatId(null); setPopupOpen(true); },
       openChat: (id, draft) => {
-        if (draft) setDrafts((d) => ({ ...d, [id]: draft }));
+        if (draft) drafts.prefill(id, draft);
         setChatId(id);
         // Every open chat gets a pill, so minimizing never loses the way back.
         setPills((p) => addPill(p, id));
         setPopupOpen(true);
       },
-      draftFor: (id) => (id ? drafts[id] : undefined),
-      clearDraft: (id) => setDrafts((d) => {
-        if (!(id in d)) return d;
-        const next = { ...d };
-        delete next[id];
-        return next;
-      }),
+      drafts,
       pendingIssueFor: (id) => {
         const meta = id ? chats.find((c) => c.id === id) : undefined;
         return pendingContextIssue(viewed, consumedFor(consumed, id), meta?.mode === "work" ? meta.work?.issue_id : undefined);

@@ -8,6 +8,7 @@ import ArchivedBanner from "./ArchivedBanner";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
+import { NEW_CHAT_POPUP, NEW_CHAT_VIEW } from "./composer-drafts";
 import { isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
 import { useMarkSeen } from "./useMarkSeen";
@@ -42,7 +43,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   });
-  const { chatId, allChats, context, prefsFor, setPrefsFor, chatCreated, draftFor, clearDraft, pendingIssueFor, consumeContext } = agent;
+  const { chatId, allChats, context, prefsFor, setPrefsFor, chatCreated, drafts, pendingIssueFor, consumeContext } = agent;
   const { openChatView } = useAppNav();
   const { thread, running, send, stop, expireApproval, background } = useChatSession(chatId, chatCreated);
   const issues = useIssueList();
@@ -83,6 +84,8 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
           type="button"
           aria-label="Open in Agent view"
           onClick={() => {
+            // A new chat's draft goes along, one way: the popup's new chat starts empty again.
+            if (!chatId) drafts.move(NEW_CHAT_POPUP, NEW_CHAT_VIEW);
             openChatView(chatId);
             agent.maximize();
           }}
@@ -139,8 +142,8 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         work={work}
         onLeaveWork={onLeaveWork}
         onOpenIssue={onOpenIssue}
-        draft={draftFor(chatId)}
-        onDraftUsed={() => chatId && clearDraft(chatId)}
+        drafts={drafts}
+        draftKey={chatId ?? NEW_CHAT_POPUP}
         focusSignal={composerFocus}
       />}
     </div>

@@ -5,6 +5,7 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { renderMarkup } from "../../render-markup";
 import ChatComposer, { BackgroundTaskList, ComposerAttachments } from "./ChatComposer";
 import type { ChatPrefs } from "./agent-state-utils";
+import { createComposerDrafts } from "./composer-drafts";
 
 const claude = {
   id: "claude",
@@ -40,6 +41,8 @@ function renderComposer(status: AgentStatus, prefs: ChatPrefs, providerLocked = 
       onPrefsChange={() => {}}
       onSend={async () => true}
       onStop={() => {}}
+      drafts={createComposerDrafts()}
+      draftKey="c1"
       {...extra}
     />
     </TooltipPrimitive.Provider>,
@@ -114,9 +117,20 @@ describe("ChatComposer pickers", () => {
     expect(trigger(html, "xpo-1")).toMatch(disabledAttr);
   });
 
-  it("prefills the draft", () => {
-    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, false, { draft: "Let's implement xpo-1." });
+  it("shows the open chat's own draft", () => {
+    const drafts = createComposerDrafts();
+    drafts.prefill("c1", "Let's implement xpo-1.");
+    drafts.setText("c2", "Something else");
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, false, { drafts, draftKey: "c1" });
     expect(html).toMatch(/<textarea[^>]*>Let&#x27;s implement xpo-1\.<\/textarea>/);
+    expect(html).not.toContain("Something else");
+  });
+
+  it("shows an empty input for a chat without a draft", () => {
+    const drafts = createComposerDrafts();
+    drafts.setText("c1", "Draft for c1");
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, false, { drafts, draftKey: "c2" });
+    expect(html).not.toContain("Draft for c1");
   });
 
   it("separates the segments with rules", () => {
@@ -174,6 +188,15 @@ describe("ChatComposer attachments", () => {
     const html = renderComposer(both, { provider: "claude", model: "", effort: "medium" });
     expect(html).toContain('aria-label="Attach files"');
     expect(html).toMatch(/<input[^>]*type="file"[^>]*multiple/);
+  });
+
+  it("shows the open chat's pending attachments only", () => {
+    const drafts = createComposerDrafts();
+    drafts.addFiles("c1", [new File(["x"], "mine.txt", { type: "text/plain" })]);
+    drafts.addFiles("c2", [new File(["x"], "theirs.txt", { type: "text/plain" })]);
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "medium" }, false, { drafts, draftKey: "c1" });
+    expect(html).toContain('aria-label="Remove mine.txt"');
+    expect(html).not.toContain("theirs.txt");
   });
 
   it("shows pending attachments as removable chips, images with a thumbnail", () => {

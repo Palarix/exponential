@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { AgentStatus, ChatContext, ChatMeta } from "../../api/chat";
 import type { ChatPrefs, NotifyState, SeenChats } from "./agent-state-utils";
+import type { ComposerDrafts } from "./composer-drafts";
 
 export interface AgentChat {
   status: AgentStatus | undefined;
@@ -29,10 +30,8 @@ export interface AgentChat {
   openNew(): void;
   /** Opens a chat in the popup; a draft prefills its composer. */
   openChat(id: string, draft?: string): void;
-  /** The text waiting to prefill a chat's composer. */
-  draftFor(chatId: string | null): string | undefined;
-  /** Called once a draft is in the composer. */
-  clearDraft(chatId: string): void;
+  /** Each chat's unsent composer draft, shared by the popup and the Agent view. */
+  drafts: ComposerDrafts;
   /** The issue a chat's next message carries as context; null is a new chat. */
   pendingIssueFor(chatId: string | null): string | undefined;
   /** Clears a chat's pending context, once sent or removed. */

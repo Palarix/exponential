@@ -12,6 +12,7 @@ import { SUGGESTIONS } from "./agent-state-utils";
 import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
+import { NEW_CHAT_VIEW } from "./composer-drafts";
 import NotifyBell from "./NotifyBell";
 import { chatStateIcon, idleChatIcon, recentChatItems } from "./recent-chats";
 import { focusComposerShortcut, isEmptyThread } from "./chat-thread-utils";
@@ -144,8 +145,8 @@ export default function AgentView() {
       work={work}
       onLeaveWork={onLeaveWork}
       onOpenIssue={onOpenIssue}
-      draft={agent.draftFor(chatId)}
-      onDraftUsed={() => chatId && agent.clearDraft(chatId)}
+      drafts={agent.drafts}
+      draftKey={chatId ?? NEW_CHAT_VIEW}
       focusSignal={composerFocus}
     />
   );
