@@ -4,7 +4,7 @@ import type { Issue } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
 import { AgentChatContext, type AgentChat } from "../Agent/agent-context";
-import PropertySidebar, { BlockerList } from "./PropertySidebar";
+import PropertySidebar, { BlockerList, StartWorkBlockedReasons } from "./PropertySidebar";
 
 const issue = makeIssue({
   estimate: 2,
@@ -187,6 +187,45 @@ describe("PropertySidebar Start Work blockers", () => {
       dependencies: ["relates_to", "depends_on"].map(kind => ({ source_id: "xpo-aaa111", target_id: "xpo-bbb222", kind })),
     });
     expect(startButton(renderSidebar(target, true, null, [blockerWith("PLANNED")]))).not.toMatch(/disabled=""/);
+  });
+});
+
+describe("PropertySidebar Start Work in BACKLOG", () => {
+  const startButton = (html: string) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Start Work/)?.[0];
+
+  it("disables Start Work while the issue is in BACKLOG", () => {
+    const html = renderSidebar(makeIssue({ status: "BACKLOG" }), true);
+    expect(startButton(html)).toMatch(/disabled=""/);
+    expect(html).toContain("cursor-not-allowed");
+  });
+
+  it("enables Start Work for a PLANNED issue without blockers", () => {
+    const html = renderSidebar(makeIssue({ status: "PLANNED" }), true);
+    expect(startButton(html)).toBeDefined();
+    expect(startButton(html)).not.toMatch(/disabled=""/);
+  });
+});
+
+describe("StartWorkBlockedReasons", () => {
+  const render = (inBacklog: boolean, blockers: Issue[]) =>
+    renderMarkup(<StartWorkBlockedReasons inBacklog={inBacklog} blockers={blockers} onRemoveBlocker={() => {}} />);
+
+  it("says to move a BACKLOG issue to Planned", () => {
+    const html = render(true, []);
+    expect(html).toContain("Move the issue to Planned to start work");
+    expect(html).not.toContain("Blocked by");
+  });
+
+  it("lists both reasons, BACKLOG first, when a BACKLOG issue also has blockers", () => {
+    const html = render(true, [makeIssue({ id: "xpo-bbb222", status: "PLANNED" })]);
+    expect(html).toContain("Blocked by xpo-bbb222");
+    expect(html.indexOf("Move the issue to Planned")).toBeLessThan(html.indexOf("Blocked by xpo-bbb222"));
+  });
+
+  it("lists only blockers outside BACKLOG", () => {
+    const html = render(false, [makeIssue({ id: "xpo-bbb222", status: "PLANNED" })]);
+    expect(html).toContain("Blocked by xpo-bbb222");
+    expect(html).not.toContain("Move the issue to Planned");
   });
 });
 

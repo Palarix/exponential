@@ -85,6 +85,9 @@ export default function PropertySidebar({
     () => (workAction === "Start Work" ? unresolvedBlockers(issue, issues) : []),
     [workAction, issue, issues],
   );
+  // start refuses a BACKLOG issue, so Start Work waits for PLANNED (xpo-31520e).
+  const inBacklog = workAction === "Start Work" && issue.status === "BACKLOG";
+  const startDisabled = inBacklog || blockers.length > 0;
   const handleRemoveBlocker = useCallback(
     (id: string) => saveUpdate({ dependencies: removeLink(issue.dependencies || [], id, "blocked_by") }),
     [issue.dependencies, saveUpdate],
@@ -213,7 +216,7 @@ export default function PropertySidebar({
           const button = (
           <button
             onClick={handleStartWork}
-            disabled={starting || blockers.length > 0}
+            disabled={starting || startDisabled}
             className={`flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-opacity disabled:opacity-50 disabled:pointer-events-none ${
               workSecondary
                 ? "bg-[var(--color-surface-2)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)]"
@@ -227,8 +230,8 @@ export default function PropertySidebar({
           </button>
           );
           // A disabled button fires no pointer events, so a span triggers the tooltip.
-          return blockers.length > 0 ? (
-            <Tooltip content={<BlockerList blockers={blockers} onRemove={handleRemoveBlocker} />}>
+          return startDisabled ? (
+            <Tooltip content={<StartWorkBlockedReasons inBacklog={inBacklog} blockers={blockers} onRemoveBlocker={handleRemoveBlocker} />}>
               <span className="block cursor-not-allowed">{button}</span>
             </Tooltip>
           ) : button;
@@ -645,7 +648,26 @@ export default function PropertySidebar({
   );
 }
 
-/** Why Start Work is disabled: each unresolved blocker, with Remove link for stale ones (xpo-35943d). */
+/** Why Start Work is disabled: the issue is in BACKLOG (xpo-31520e), then any unresolved blockers. */
+export function StartWorkBlockedReasons({ inBacklog, blockers, onRemoveBlocker }: {
+  inBacklog: boolean;
+  blockers: Issue[];
+  onRemoveBlocker: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      {inBacklog && (
+        <div className="flex items-center gap-2 py-0.5">
+          <StatusIcon status="BACKLOG" size={12} />
+          <span className="text-[var(--color-text-primary)]">Move the issue to Planned to start work</span>
+        </div>
+      )}
+      {blockers.length > 0 && <BlockerList blockers={blockers} onRemove={onRemoveBlocker} />}
+    </div>
+  );
+}
+
+/** Each unresolved blocker, with Remove link for stale ones (xpo-35943d). */
 export function BlockerList({ blockers, onRemove }: { blockers: Issue[]; onRemove: (id: string) => void }) {
   return (
     <ul className="space-y-1 py-0.5">
