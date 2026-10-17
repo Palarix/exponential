@@ -19,7 +19,9 @@ Use the `xpo` MCP tools and follow this workflow when working on `xpo` issues:
 Understand what's on the board before doing anything. Call `list` to see current issues; use the
 `match` parameter to search for related work. Call `show` for full details on candidate issues.
 
-Before creating a new issue, search to ensure no existing issue already covers the work.
+Before any `add`, search twice: `list` with `match` for issues that already cover the work, and
+`rationale` for specs and walkthroughs of prior work in the same area. When you propose the issue,
+tell the user what the searches found, or that they found nothing.
 
 ### 2. Plan (Write great issues)
 
@@ -207,4 +209,4 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 
-<!-- xpo:skill 1.4.0 sha256:ade13e22ab19 -->
+<!-- xpo:skill 1.4.0 sha256:78af8783eb8b -->

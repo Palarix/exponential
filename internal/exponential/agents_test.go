@@ -647,6 +647,28 @@ func TestAgentTemplates_DoNotAskAgentsToAssignThemselves(t *testing.T) {
 	}
 }
 
+// Step 1 searches issues and prior rationale before any add, and reports
+// what it found (xpo-ed312f).
+func TestSkillStep1SearchesBoardAndRationaleBeforeAdd(t *testing.T) {
+	s := GenerateSkillMD()
+	start := strings.Index(s, "### 1. Check existing work")
+	end := strings.Index(s, "### 2. Plan")
+	if start == -1 || end == -1 {
+		t.Fatal("SKILL.md has no step 1")
+	}
+	step := s[start:end]
+	for _, want := range []string{
+		"Before any `add`",
+		"`list` with `match`",
+		"`rationale`",
+		"tell the user what the searches found, or that they found nothing",
+	} {
+		if !strings.Contains(step, want) {
+			t.Errorf("step 1 is missing %q:\n%s", want, step)
+		}
+	}
+}
+
 func TestMergeDocsTellAgentsToOmitStrategy(t *testing.T) {
 	for name, doc := range map[string]string{
 		"skill":     GenerateSkillMD(),

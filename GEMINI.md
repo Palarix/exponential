@@ -48,7 +48,7 @@ Status transitions (`BACKLOG` → `PLANNED` → `DOING` → `BLOCKED` → `DONE`
 
 ### Discovery
 
-- Before creating a new issue, search with `list` (use the `match` parameter for free-text search) to ensure no existing issue already covers the work.
+- Before any `add`, search twice: `list` with `match` for issues that already cover the work, and `rationale` for specs and walkthroughs of prior work in the same area. When you propose the issue, tell the user what the searches found, or that they found nothing.
 - If an issue looks related, read it fully with `show` before deciding.
 
 ### Creating issues

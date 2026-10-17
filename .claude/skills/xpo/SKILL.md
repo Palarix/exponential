@@ -19,7 +19,9 @@ Use the `xpo` MCP tools and follow this workflow when working on `xpo` issues:
 Understand what's on the board before doing anything. Call `list` to see current issues; use the
 `match` parameter to search for related work. Call `show` for full details on candidate issues.
 
-Before creating a new issue, search to ensure no existing issue already covers the work.
+Before any `add`, search twice: `list` with `match` for issues that already cover the work, and
+`rationale` for specs and walkthroughs of prior work in the same area. When you propose the issue,
+tell the user what the searches found, or that they found nothing.
 
 ### 2. Plan (Write great issues)
 

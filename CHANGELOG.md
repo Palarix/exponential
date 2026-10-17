@@ -156,6 +156,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent instructions: agents now search before they file an issue. Step 1 of the `xpo` skill asks for a `list` (`match`) search and a `rationale` search before any `add`, and the agent tells the user what the searches found when it proposes the issue. In Chat Mode, the agent loads the skill before it files an issue as well as before it plans, specs or starts work. (xpo-ed312f)
+
 - Live updates: each board tab now holds **one** event stream, `GET /api/events`, whatever the number of open chats. Issues, drafts, the chat list and every open chat all arrive over it, so tabs no longer use up the browser's 6 connections per host. (xpo-6d1102)
   - **Topics:** a new broadcaster, `internal/live`, carries *signal* topics (`issues`, `drafts`, `chats`: "changed, refetch") and *log* topics (`chat:<id>`: ordered events with seq ids). A tab adds and removes chats with `POST /api/events/{stream}/topics` and the last seq it has. Draft saves now refetch only the drafts list.
   - **Never silently behind:** repeated signals merge into one. If a chat's queue overflows, only that chat replays from the store, and the stream stays open. After any reconnect (sleep, network drop, board restart), the tab refetches the signal topics and replays each open chat from its last seq. The browser retries with backoff (1s up to 30s) and reconnects as soon as the tab is visible again.

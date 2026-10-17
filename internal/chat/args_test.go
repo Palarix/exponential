@@ -137,9 +137,9 @@ func TestSystemPromptFor(t *testing.T) {
 			t.Errorf("%s prompt = %q", p, got)
 		}
 		// Both modes name the xpo skill, so the agent follows the project's
-		// workflow (xpo-a058b4).
+		// workflow (xpo-a058b4), including its search before filing (xpo-ed312f).
 		for _, want := range []string{
-			"Before you plan, spec or start work on an issue, load the `xpo` skill.",
+			"Before you file, plan, spec or start work on an issue, load the `xpo` skill.",
 			"Before you change anything, load the `xpo` skill",
 		} {
 			if !strings.Contains(got, want) {
