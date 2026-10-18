@@ -163,6 +163,22 @@ cd exponential
 make && make install
 ```
 
+## Upgrading from 1.4.x
+
+1.5.0 removes remote mode. Read this if you run `xpo serve`, or if scripts and integrations call xpo.
+
+**1. Remote mode is gone** (xpo-67281a). xpo is local-only: issue data travels with the code through git (`.xpo/issues.db merge=union`), and teammates get the latest copy when they sync. `xpo serve`, `xpo login` and `xpo logout` are removed, and `xpo board` no longer proxies to a remote server. The config keys `remote.url`, `remote.token` (`XPO_REMOTE_URL`, `XPO_REMOTE_TOKEN`), `permissions`, and `servers:` in `~/.config/xpo/user.yaml` are ignored, so you can delete them. The Dockerfile, `docker-compose.yml` and `make docker` are gone. Before upgrading a project that used a server, make sure its `.xpo/issues.db` in git has every change.
+
+**2. Canceled and duplicate blockers still block** (xpo-35943d). A `blocked_by` blocker counts as resolved only when it is DONE. `start` refuses an issue with a CANCELED or DUPLICATE blocker, and drive skips it. Remove the link, or point it at another issue.
+
+**3. One event stream for live updates** (xpo-6d1102). The board sends everything over `GET /api/events`, with topics. The `issue_*` SSE events are removed. Integrations that listened for them should watch the `issues` topic and refetch.
+
+**4. `null` clears fields in `update`** (xpo-bbfcf9, xpo-328824). MCP `update` and `xpo update --json` now clear `assignee`, `cycle_id`, `priority`, `story_points` and `parent` when the field is `null`. Before, `null` on these fields was an error or left the field unchanged. Leave a field out to keep it.
+
+**5. Go 1.26 to build from source** (xpo-b2ca41). `go install` and `make` need Go 1.26 or newer.
+
+**6. Refresh the agent instructions.** The skill text now tells agents to search the board and prior rationale before they file an issue (xpo-ed312f). Run `xpo init` or `xpo doctor --fix` in each project to pick it up.
+
 ## Upgrading from 1.3.x
 
 1.4.0 has no migration steps, but one behavior change can affect scripts and integrations.

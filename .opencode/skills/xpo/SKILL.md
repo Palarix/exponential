@@ -209,4 +209,4 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 
-<!-- xpo:skill 1.4.0 sha256:78af8783eb8b -->
+<!-- xpo:skill 1.5.0 sha256:78af8783eb8b -->

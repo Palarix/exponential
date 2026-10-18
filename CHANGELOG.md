@@ -7,294 +7,202 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-10-18
+
 ### Added
 
-- Agent chat: opt-in desktop notifications. A bell in the Agent view header turns them on. The browser asks for permission only then, and the bell shows when the site's notifications are blocked. When a chat starts waiting on an approval or a question while the xpo tab is hidden, a notification shows "Agent needs your input" with the chat title. Clicking it focuses the tab and opens the chat. Each chat has at most one notification, and a new one replaces the old. It closes when the chat stops waiting or the tab becomes visible. Finished turns don't notify; the favicon dot covers those. (xpo-a3f62b)
+- Agent chat in `xpo board`: talk to your local Claude Code or Codex about the project, and let it implement issues.
+  - **Opening it:** the **Agent** button in the status bar (⌘J / Ctrl+J) opens a chat popup from any view, centered above its pill. The popup is resizable from its top edge, sides and top corners, from 360×400 up to 600×900, and remembers its size. Minimized chats stay as pills in the status bar.
+  - **Agent view:** **Agent** is the first entry in the personal section of the sidebar (`g a`). It opens a full-page chat at `#/agent`, and each chat has its own URL (`#/agent/<id>`). The new-chat page asks "What should we build in <project>?" and shows suggestion cards and the 5 most recent chats. The header has a chat switcher and a "⋯" menu to rename or delete a chat. The popup's expand button opens its chat in the Agent view and removes its pill. A dock button puts it back as a popup and returns to the view you were on.
+  - **Agents:** the board detects which of `claude` and `codex` are installed. `chat.agent` sets the default, and an unknown or uninstalled agent logs a warning and falls back to the first installed one. With 2+ agents, the composer shows an agent picker, which locks once a chat has messages. Each chat keeps one agent process across turns, in the project root with your settings. Codex runs through `codex app-server`, and its models and effort levels come from `model/list` at board start.
+  - **Composer:** one footer row with the model, effort and mode: `✳ Claude Opus 5.5 ⌄ | Medium · 1M ⌄ | Chat`. One model menu lists every installed agent's models, grouped by agent. Models show their full names, learned from the model each turn ran. Medium effort is pre-selected, and the trigger shows the model's context window once known. A chat restores the agent, model and effort of its last message, and your last pick is remembered for new chats.
+  - **Issue context:** opening an issue adds it to the composer as a chip, and the next message carries it. Sending clears the chip, and a removed chip stays removed until you open an issue again.
+  - **Drafts:** each chat keeps its own composer draft, text and attachments, also when it moves between the popup and the Agent view. The popup's new chat and the Agent view's new chat have separate drafts. Drafts last until a reload.
+  - **Keyboard:** in the Agent view, Esc leaves the composer and keeps the draft, so global shortcuts work, and `/` focuses it again. In the popup, Esc minimizes.
+  - **Look:** the popup, the composer, cards, message bubbles and their menus use their own monochrome surface scale (`--color-*-ai-*` tokens, `.surface-ai`), a step above the app's.
+  - **Storage:** chats are stored per user in `.xpo/chats/` (git-ignored).
+  - **API:** `/api/local/agent` lists every agent with its models and efforts. `/api/local/chats/*` holds the chats, with `PATCH` (rename) and `DELETE` on `/api/local/chats/{id}`. `POST /messages` takes `provider` and returns 409 for a chat of another agent.
+  - **Config:** `chat.agent` and `chat.model`. The stream-json parser is shared by drive and chat.
 
-- Agent chat: attach files and images to a message by pasting, dropping, or the paperclip button next to Send. Pending attachments show as removable chips above the input, and a message can have attachments and no text. Up to 10 per message, images up to 5 MB, other files up to 10 MB.
-  - **Agents:** PNG, JPEG, GIF and WebP go in as images: image blocks for Claude, `localImage` for Codex. Every attachment is also listed with its absolute path in the prompt, so the agent can read text files and PDFs with its own tools. Image types are detected from the file's content, not the type the browser reports.
+  (xpo-56ae3a, xpo-c047ce, xpo-5b3157, xpo-74390c, xpo-fb4f9b, xpo-b45049, xpo-b204f1, xpo-c94d85, xpo-4e78ba, xpo-de9f71, xpo-127a26, xpo-296ea8, xpo-03fa37)
+
+- Agent chat: Chat Mode and Work Mode in one chat. A chat can implement an issue in its worktree, and the conversation carries over.
+  - **Chat Mode:** the default. The agent reads the repo and changes issues. `merge` is denied, and `start` asks first: "Enter Work Mode on xpo-…?". After you allow it, the chat continues in Work Mode on its own.
+  - **Work Mode:** the agent runs in the issue's worktree. Read, Edit, Write and Bash run there without a card, and so do edits to the issue's own `.xpo/artifacts/<issue>/` folder. Other edits outside the worktree, and `merge`, ask first. After a successful `merge`, the chat goes back to Chat Mode.
+  - **Start Work:** opens a new chat in Work Mode, titled with the issue title. The first message is prefilled but not sent. If a chat is already working on the issue, Start Work opens it.
+  - **Continue Work:** on an in-progress issue, opens its Work Mode chat, or creates one on the existing worktree. It is a secondary button while a chat is in Work Mode on the issue.
+  - **Composer:** the mode segment reads "Chat", or shows the hammer and the issue ID, with "Go to issue" and "Exit work mode". Exiting keeps the worktree, and the issue stays in progress.
+  - **Transcript:** "Entered Work Mode on xpo-…" and "Entered Chat Mode" dividers mark each switch.
+  - **Skills:** the agent loads skills without an approval card. Its prompt tells it to load the `xpo` skill before it plans, files issues or changes anything, so Work Mode follows the project's workflow.
+  - **Codex:** read-only sandbox in Chat Mode, workspace-write in Work Mode, with approval policy `on-request`.
+  - **API:** `POST /api/local/issues/{id}/work-chat` (optional `{"chat_id"}`), `POST /api/local/chats/{id}/leave-work`. Chats include `mode`, `work` and `worked_issues`, and a `turn_continued` event opens a continued turn.
+
+  (xpo-00f0e5, xpo-219de9, xpo-ad6069, xpo-374792, xpo-2c724e, xpo-a058b4)
+
+- Agent chat: approval cards. The agent asks before a tool call runs, and the chat shows a card.
+  - **Layout:** the headline ("Merge upe-1 via `merge`"), the call's arguments as key/value rows in a monospace panel, then `[Deny] [Allow once ▾]`. "Allow for this chat" is in the chevron's menu. Cards with arguments open collapsed on one row; click the title to expand them.
+  - **Keyboard:** the waiting card takes focus, unless you are typing in a field. Enter allows once and Esc denies. Focus moves to the next card, then back to the composer.
+  - **Allow for this chat:** xpo keeps the grant with the chat. It never writes to Claude Code's settings files.
+  - **States:** cancelling a turn resolves its cards as "Cancelled", and a card whose turn ended shows "Expired".
+  - **Agents:** Claude Code turns use `--permission-prompt-tool stdio`. Codex command, file-change and MCP-tool approval requests go to the same cards.
+  - **API:** `POST /api/local/chats/{id}/approvals/{approval_id}` with `{decision}`. Chat lists include `waiting`.
+
+  (xpo-7bc86e, xpo-aaf8b1, xpo-8579fb)
+
+- Agent chat: Claude can ask you questions with `AskUserQuestion`, in both modes. The question card asks one question at a time.
+  - **Answering:** pick one option or several, or type into "Other…". A single-choice pick moves on after 250 ms. With focus in the card, ←/→ switch steps, 1–9 pick an option, and Enter presses Next or "Submit answers". The card takes focus when it appears, unless you are typing in a field.
+  - **Several questions:** tabs list the questions (✓ when answered), and a Review tab shows each answer, or "Not answered", with a "Change" button. "Submit answers" sends from there.
+  - **Chat about this:** tells the agent to end its turn and wait for your message. The thread reads "Chat instead".
+  - **Thread:** keeps each question with your answer.
+  - **API:** `POST /api/local/chats/{id}/approvals/{approval}` takes `{"decision":"answer","answers":{…}}`, and `approval_resolved` events carry `answers`.
+  - Claude only for now; Codex follows in xpo-eafa9b. Animations are off under reduced motion.
+
+  (xpo-447687, xpo-46afc0, xpo-9761dd)
+
+- Agent chat: the transcript shows the agent's work live.
+  - **Work list:** narration is a regular message. The actions between messages collapse into one line: while the agent works, the current action's icon and target with a shimmer and a timer; afterwards "6 actions · 2 failed". Click it to see the actions on a timeline. A Lightbulb line shows while the agent thinks. The turn's total time sits under its last message.
+  - **Actions in words:** "Read board.go", "Searched the code for …", "Created issue …", "Wrote the spec of xpo-1". Each action shows an icon, and its verb is the tooltip and screen-reader label. Calls that did not run read as what was asked ("Merge upe-1").
+  - **Failures:** a denied or failed action has a red icon and ends with "failed: <reason>"; the full error opens on hover, focus or click. A denied call is not counted as a failure.
+  - **Following:** an open chat follows new output while you're at the bottom, also when a card or code block grows. Scrolling up stops following, and scrolling back to the end resumes it.
+  - **Turn rail:** in the Agent view, one bar per user message on the thread's left edge. Hovering shows the message, and clicking scrolls to it.
+  - **Cold cache divider:** "Context cache expired" marks when the next message re-sends the whole conversation. The lifetime comes from what each Claude turn reports (1h or 5m); Codex assumes 5 minutes.
+  - **Events:** `tool_call` and `tool_start` carry `tool_id`, `tool_call` has `status` (`done`, `error`, `denied`) and `message`, and `turn_done` includes `cache_ttl`.
+
+  (xpo-855e28, xpo-8673f4, xpo-6afc58, xpo-63b755, xpo-260a28, xpo-0e4df5, xpo-219de9)
+
+- Agent chat: background tasks. A process the agent started (a dev server, a monitor) does not block the chat; a turn ends when the agent replies.
+  - **Composer:** shows "Monitoring N tasks", or "N agents working" for subagents. A card lists the tasks, and its Stop button ends the agent with its tasks. The next message resumes the session.
+  - **Agent turns:** when a task ends and Claude Code replies on its own, the reply shows as its own turn, marked with what woke the agent.
+  - **Stop** interrupts the turn only; background tasks keep running. Model and effort changes apply without restarting the agent.
+  - **Lifecycle:** a mode change restarts the agent. Agents idle for 30 minutes without tasks, deleted chats and board shutdown end their agents. A starting board stops agents a crashed board left running.
+  - **API:** `POST /api/local/chats/{id}/background/stop`, `background` on `GET /chats/{id}`, and `background_tasks` and `agent_turn` events.
+
+  (xpo-fb4f9b)
+
+- Agent chat: more tools. Both modes get WebSearch, WebFetch and LSP, and Work Mode also gets the task list (TaskCreate, TaskUpdate, TaskList, TaskGet) and subagents (Agent). WebFetch asks before every fetch. Codex turns get live web search. (xpo-80bf05)
+
+- Agent chat: attach files and images by pasting, dropping, or the paperclip button next to Send. Up to 10 per message, images up to 5 MB, other files up to 10 MB, and a message can have attachments and no text.
+  - **Agents:** PNG, JPEG, GIF and WebP go in as images, detected from the file's content. Every attachment is also listed with its absolute path in the prompt, so the agent can read text files and PDFs with its own tools.
   - **Storage:** files are saved with the chat in `.xpo/chats/<id>/attachments/` and deleted with it. The `user_message` event records them as `attachments`.
-  - **Transcript:** image thumbnails open the full image; other files download. `GET /api/local/chats/{id}/attachments/{aid}` serves only real images as images, and everything else as a download. (xpo-c1d423)
+  - **Transcript:** image thumbnails open the full image; other files download. `GET /api/local/chats/{id}/attachments/{aid}` serves only real images as images.
 
-- Agent chat: chat lists update live in every open browser. The board sends a `chat_changed` SSE event on `/api/events` when a chat is created, renamed, archived, unarchived or deleted, when a turn starts or ends, when its usage changes, and when an approval or question card opens or closes. It sends at most one per chat per 500ms, and the last change always arrives. The browser refetches the chat list on these events and whenever the stream (re)connects, and no longer polls it. In remote mode the board serves `/api/events` itself: it relays the remote server's stream and adds its own chat events. (xpo-ae6385)
+  (xpo-c1d423)
 
-- Agent chat: the Agent view shows a turn rail on the thread's left edge, one bar per user message, lined up with the chat title. Hovering magnifies the bars and shows the message; clicking a bar scrolls to it. Bars of messages on screen are highlighted. The chat popup has no rail. (xpo-0e4df5)
+- Agent chat: chats get a short, generated title after their first finished reply. Claude chats use Haiku and Codex chats use Codex's fast model. A title you renamed is never replaced, and titles keep up to 200 characters. Chats carry `auto_title` while their title is a placeholder, and the chat stream sends a live `title` event. (xpo-714245, xpo-1446f2)
 
-- Agent chat: chats get a short, generated title after their first finished reply, in place of the first line of the first message. The chat's own agent writes it in the background: Claude chats use Haiku, Codex chats use Codex's fast model (today `gpt-6-luna`). A title you renamed is never replaced, and chats from before this change keep their titles. Work chats start with the issue title and get no `<id>` prefix. Instead, idle chats in Work Mode show a hammer icon in the chat lists. Chats carry `auto_title` while their title is a placeholder, and the chat stream sends a live `title` event. (xpo-714245)
+- Agent chat: chat state at a glance.
+  - **Status dots:** chat pills and the recent-chats lists show yellow while an approval waits, red when interrupted, and blue for a finished reply you have not seen. A red alert circle marks a chat whose last turn failed, with the error in its tooltip. Running chats show a spinner, and idle Work Mode chats a hammer.
+  - **Favicon:** a dot when a chat needs you: amber while any chat waits on an approval, blue when a reply finished while the tab was hidden.
+  - **Desktop notifications:** opt in with the bell in the Agent view header. When a chat starts waiting on you while the tab is hidden, a notification shows "Agent needs your input" with the chat title. Clicking it opens the chat. Each chat has at most one notification, and it closes when the chat stops waiting or the tab becomes visible.
+  - **API:** chats include `last_error`.
 
-- Agent chat: an "All chats" page (`#/agent/history`), opened from the Agent view header and the status-bar history menu. It lists every chat in a full-width table.
-  - **Find:** search by title, Active/Archived tabs, and agent, period (7 days, 30 days, all) and issue filters (`?issue=<id>`).
-  - **Usage:** a summary strip totals chats, tokens in/out and cost for the filtered rows. Hovering a chat's agent shows its turns, tokens and cost. Chats without a reported cost (Codex) show "—".
-  - **Manage:** rename, archive, unarchive and delete per row, or in bulk. Checkboxes take the place of the state icon on hover.
-  - **Archive:** an archived chat leaves the recent lists, the switcher and the pills, and opens read only with an Unarchive banner. Archive is refused while a reply runs or the chat is in Work Mode. An issue's chat list shows "N archived chats".
-  - **API:** `POST /api/local/chats/{id}/archive` and `/unarchive`. Chats carry `archived_at` and `usage` (turns, tokens, cost), and older chats get their totals from their logs. (xpo-1446f2)
+  (xpo-f2d4c8, xpo-c56e70, xpo-bbcab4, xpo-a3f62b, xpo-714245)
 
-- Agent chat: chat chips and the recent-chats lists show a red alert circle when a chat's last turn failed. Its tooltip gives the error. It stays until the next turn starts; opening the chat does not clear it. Interrupted chats keep the red dot. Chats include `last_error`. (xpo-c56e70)
+- Agent chat: an "All chats" page (`#/agent/history`), opened from the Agent view header and the status-bar history menu.
+  - **Find:** search by title, Active/Archived tabs, and agent, period and issue filters (`?issue=<id>`).
+  - **Usage:** a summary strip totals chats, tokens in/out and cost for the filtered rows. Chats without a reported cost (Codex) show "—".
+  - **Manage:** rename, archive, unarchive and delete per row, or in bulk.
+  - **Archive:** an archived chat leaves the recent lists and the pills, and opens read only with an Unarchive banner. Archive is refused while a reply runs or the chat is in Work Mode. At startup the board archives chats older than 30 days; only you delete chats.
+  - **API:** `POST /api/local/chats/{id}/archive` and `/unarchive`. Chats carry `archived_at` and `usage` (turns, tokens, cost).
 
-- Agent chat: Claude can ask you questions with `AskUserQuestion`, in both modes. The chat shows a question card: each question with its options (one pick or several), and "Other…" for a free-text answer. Send returns the answers to the agent, and Skip tells it you skipped. The thread keeps each question with your answer. `POST /api/local/chats/{id}/approvals/{approval}` takes `{"decision":"answer","answers":{…}}`, and `approval_resolved` events carry `answers`. Claude only; Codex follows in xpo-eafa9b. (xpo-447687)
+  (xpo-1446f2, xpo-66fce3)
 
-- Agent chat: Claude gets more built-in tools. Both modes get WebSearch, WebFetch and LSP. Work Mode also gets the task list (TaskCreate, TaskUpdate, TaskList, TaskGet) and subagents (Agent). WebFetch asks before every fetch, and the other new tools run without a card. Codex turns get live web search in both modes. The transcript shows a verb and icon for each new tool, with a new bot icon for subagents. (xpo-80bf05)
+- Issues show the chats that worked on them.
+  - **Chat pill:** backlog rows and board cards show a chat pill with the chat count. Its icon gives the most urgent state: waiting on you, running, or interrupted. A click opens the chat, or a searchable list of the issue's chats.
+  - **Issue details:** a "k chats" row below Relations opens the same list, with "N archived chats".
+  - **Context menu:** "Open work chat" and a "Chats" submenu.
+  - **Back to work:** when no chat is working on the issue, a chat's row actions (right-click, `⋯` or Shift+F10) put it back into Work Mode, prefilled with "Let's continue with xpo-…".
+  - **API:** chats include `cache_ttl` and `cache_expires_at`.
 
-- Agent chat: the browser tab's favicon gets a dot when a chat needs you: amber while any chat waits on an approval, blue when a reply finished while the tab was hidden. The blue dot clears when you return to the tab. The chat list now keeps polling in hidden tabs. (xpo-bbcab4)
+  (xpo-219de9, xpo-1446f2)
 
-- Agent chat: chat chips in the status bar and the recent-chats lists show a status dot: yellow while an approval waits, red when interrupted, blue for a finished reply you have not seen. The spinner stays for running chats. A reply counts as seen only while its chat is shown and the window has focus; the blue dot clears 1.5s after you come back. This replaces the yellow shield icon. (xpo-f2d4c8)
+- Issue ID chips: issue IDs in chat messages, tool rows, descriptions, specs, walkthroughs and comments show as chips that start with the issue's status icon. A click opens the issue and hovering shows a preview. IDs in inline code are chips too, and IDs in fenced code blocks stay plain. An ID inside a link is not wrapped again, and unknown IDs show a gray chip with a "not found" tooltip. Chips sit centered on the line and don't make it taller. (xpo-289f40, xpo-b83f1c, xpo-1d9d5d, xpo-b47189)
 
-- Merged issues get a "View changes" button that opens a read-only Merged view: the walkthrough, commits, diff and conversation, read from the merge commit, with who merged it and when. `GET /api/issues/{id}/merged` returns the merge's commits and diff, and issues in the API carry `merged: true`. (xpo-64be51)
+- Merged issues get a "View changes" button that opens a read-only Merged view: the walkthrough, commits, diff and conversation, read from the merge commit, with who merged it and when. Merging while the merge view is open switches it to the Merged view. `GET /api/issues/{id}/merged` returns the merge's commits and diff, and issues in the API carry `merged: true`. (xpo-64be51)
+
+- Issue drafts: the new issue dialog has a "Save draft" button, and the discard prompt offers "Save draft" too. Drafts are stored per user in `.xpo/drafts/` (git-ignored, outside the event log). A "Drafts" sidebar item with a count badge appears while drafts exist (`g r`). Reopen a draft to keep editing, create the issue from it, or discard it. New `/api/issue-drafts` endpoints (`GET`/`POST`/`PUT`/`DELETE`, `issue.create` capability). (xpo-758398)
+
+- Read-only git MCP tools for the local `xpo mcp` server: `git_status`, `git_diff`, `git_log`, `git_show` and `code_history`. Agents can see what an issue changed and which issues touched a file or lines. xpo builds every git command from an issue ID, a path, a SHA, a line range and a limit. External diff, textconv, fsmonitor and hooks never run, and the tools take no index locks. Output is capped at 64 KiB, with `truncated: true` and a marker line. (xpo-a7f115)
 
 - MCP `add`/`update` take `before` or `after` (an issue ID) to place an issue directly above or below another issue in the manual order, so agents can reorder the board. The CLI gets the same as `xpo add`/`xpo update --before/--after` and in `--json` payloads. An issue already in place is left alone ("X is already after Y"). (xpo-61232d)
 
-- Agent chat: issues show the chats that worked on them.
-  - **Chat pill:** backlog rows and board cards show a chat pill with the chat count. Its icon shape gives the most urgent state: a dot for waiting on your approval, three dots for running, a warning for interrupted. A click opens the chat in Work Mode on the issue, or a searchable list of the issue's chats.
-  - **Issue details:** a "k chats" row below Relations opens the same list.
-  - **Context menu:** right-click an issue for "Open work chat" and a "Chats" submenu.
-  - **Enter work mode on a past chat:** when no chat is working on the issue, a chat's row actions (right-click, `⋯` or Shift+F10) put it back into Work Mode with its conversation, prefilled with "Let's continue with xpo-…". Continue Work still opens the current work chat or starts a new one.
-  - **Cold cache divider:** a dashed "Context cache expired" divider appears in a chat once its prompt cache has expired, so you know the next message re-sends the whole conversation. Claude's cache lifetime comes from what each turn reports (1h or 5m); Codex assumes 5 minutes.
-  - **API:** `POST /api/local/issues/{id}/work-chat` takes an optional `{"chat_id"}` to enter Work Mode with an existing chat. Chats include `cache_ttl` and `cache_expires_at`; `turn_done` events include `cache_ttl`.
-
-  (xpo-219de9)
-
-- Agent chat: Chat Mode and Work Mode in one chat. A chat can now implement an issue in its worktree without starting a second session, and the conversation carries over.
-  - **Chat Mode:** the default. The agent reads the repo and changes issues. `merge` is denied, and `start` asks first: the card reads "Enter Work Mode on xpo-…?".
-  - **Work Mode:** the agent runs in the issue's worktree. Read, Edit, Write and Bash run there without a card; Edit or Write outside the worktree, and `merge`, ask first.
-  - **Start Work:** opens a new chat in Work Mode, titled "<issue ID> <issue title>". The first message is prefilled but not sent. If a chat is already working on the issue, Start Work opens that chat.
-  - **Continue Work:** on an in-progress issue, opens its Work Mode chat, or creates one on the existing worktree without changing the issue.
-  - **Composer:** the "Read-only" badge is now a mode segment: "Chat", or "Work · xpo-…" with "Go to issue" and "Exit work mode". Exit work mode keeps the worktree, and the issue stays in progress.
-  - **Transcript:** a divider marks each switch. After a successful `merge`, the chat goes back to Chat Mode on its own.
-  - **Codex:** read-only sandbox in Chat Mode, workspace-write in Work Mode. The approval policy is now `on-request`, so `start` and `merge` ask instead of failing.
-  - **Remote mode:** Work Mode is unavailable, and the agent cannot call `start`.
-  - **API:** `POST /api/local/issues/{id}/work-chat`, `POST /api/local/chats/{id}/leave-work`; chats include `mode`, `work` and `worked_issues`.
-
-  (xpo-00f0e5)
-
-- Agent chat: approval cards. The agent asks before a tool call runs, and the chat shows a card with "Deny", "Allow for this chat" and "Allow".
-  - **First use:** `merge` in a chat now asks before it runs, instead of running silently.
-  - **Claude Code:** turns run with `--permission-prompt-tool stdio`; the prompt goes in as a stream-json message and stdin stays open for the answers.
-  - **Codex:** command, file-change and MCP-tool approval requests are forwarded to the same cards instead of being declined.
-  - **Allow for this chat:** xpo keeps the grant with the chat and passes it to every later turn. It never writes to Claude Code's settings files.
-  - **Card:** one row, "Merge upe-1 via `xpo merge`". A shell call shows its command; other tools show only the arguments the headline does not.
-  - **States:** cancelling a turn resolves its cards as "Cancelled"; a card whose turn ended shows "Expired". Chat lists mark chats waiting for an approval.
-  - **API:** `POST /api/local/chats/{id}/approvals/{approval_id}` with `{decision}`; chat lists include `waiting`.
-  - **Work list:** calls that did not run read as what was asked ("Merge upe-1", not "Merged"). Failed rows end with "failed: <reason>", and the full error opens in a card on hover, focus or click. A turn with a failure opens its work list; collapsed, it shows "· k failed". A call you denied is not counted as a failure.
-  - **Layout:** in the Agent view, the thread and the reply box share the same edges.
-
-  (xpo-7bc86e)
-
-- Agent chat: the composer footer is one row with the model, effort and permissions: `✳ Claude Opus 5.5 ⌄ | Medium · 1M ⌄ | 🔒 Read-only`.
-  - **Model:** one menu lists every installed agent's models, grouped by agent, with the Claude and ChatGPT marks. Models show their full names, learned from the model each finished turn actually ran; the default reads "Name (Default)". Fable is added to the Claude list.
-  - **Effort:** Medium is pre-selected and there is no "Default effort" option. The trigger also shows the model's context window once known.
-  - **Read-only badge:** explains that code changes happen in work sessions.
-  - **Per-chat selections:** opening a chat, in the popup or the full-page view, restores the agent, model and effort its last message used. Your last pick is remembered for new chats.
-  - **Polish:** the chat popup is 460px wide. The empty Agent page is spaced evenly. The recent chats popover opens above its button. Scrolling menus have an even inset on every side.
-
-  (xpo-74390c)
-
-- Agent chat supports Codex as well as Claude Code, with an agent picker in the composer.
-  - **Detection:** the board finds which of `claude` and `codex` are installed. `chat.agent` sets the default; an unknown or uninstalled agent logs a warning and falls back to the first installed one.
-  - **Codex:** runs through `codex app-server` with a read-only sandbox and approval policy `never`. Answers stream live, tool calls show in the work list, and follow-ups continue the same Codex thread. The xpo MCP tools are pre-approved; in remote mode the token is passed in an environment variable.
-  - **Models:** Codex models and their effort levels come from `model/list` at board start.
-  - **Composer:** the agent picker shows when 2+ agents are installed and locks once a chat has messages. Changing the agent resets model and effort.
-  - **API:** `GET /api/local/agent` lists every provider with its models and efforts. `POST /messages` takes `provider`; sending to a chat that belongs to another agent returns 409.
-  - **Storage:** chat meta stores a generic `session_id`. Chats saved with `claude_session_id` still resume.
-
-  (xpo-5b3157)
-
-- Remote mode guards: actions that would run git in the server's checkout are hidden or refused until Team Mode (xpo-8757a9).
-  - **Board:** in remote mode, Start Work and Review Changes are hidden. A new local route, `GET /api/local/mode`, tells the UI which mode the board runs in.
-  - **`xpo serve`:** `POST /api/issues/{id}/start` and `/merge` return 501. Its `/mcp` no longer offers the `start` and `merge` tools.
-  - **`xpo mcp`:** with `remote.url` set, it does not offer `start` and `merge`. The CLI commands are unchanged.
-
-  (xpo-a60065)
-
-- Read-only git MCP tools: `git_status`, `git_diff`, `git_log`, `git_show` and `code_history`. The agent chat can now show what an issue changed and which issues touched a file or lines.
-  - **Where:** the local `xpo mcp` server only. `xpo serve` does not offer them on `/mcp`. A chat in remote mode gets them once xpo-6dd7a0 lands.
-  - **Safety:** xpo builds every git command. The caller gives only an issue ID, a path, a SHA, a line range and a limit. External diff, textconv, fsmonitor and hooks never run, and the tools take no index locks.
-  - **Output:** capped at 64 KiB, with `truncated: true` and a marker line.
-  - **Remote mode:** the issue is looked up on the server; git always runs against the local checkout.
-
-  (xpo-a7f115)
-
-- Agent chat: denied and failed tool calls show in the work list.
-  - **Marker:** a red × replaces the bullet. The error text shows below the step, clamped to 3 lines. A denied call's text starts with "Denied:".
-  - **Header:** the collapsed "Worked for N seconds" line adds "· N failed" in red.
-  - **Timing:** a step keeps its spinner until the tool result arrives, not only until Claude finishes writing the tool input.
-  - **Events:** `tool_call` and `tool_start` carry `tool_id`. `tool_call` has `status` `done`, `error` or `denied`, and a `message`.
-
-  (xpo-8673f4)
-
-- Issue ID chips: issue IDs show as accent-tinted chips that open the issue on click and show a preview on hover.
-  - **Where:** agent chat answers, your own messages, tool rows, issue descriptions, specs, walkthroughs and comments.
-  - **Code:** IDs in inline code are chips too. IDs in fenced code blocks stay plain text.
-  - **Links:** an ID inside an existing link is not wrapped again. A Markdown link to an issue with its own text keeps that text.
-  - **Unknown IDs:** a gray chip with a "not found" tooltip.
-
-  (xpo-289f40)
-
-- Agent view:
-  - **Opening it:** **Agent** is the first entry in the personal section of the sidebar (`g a`). It opens a full-page chat at `#/agent`, and each chat has its own URL (`#/agent/<id>`).
-  - **Empty state:** a wide composer, suggestion cards, and the 5 most recent chats.
-  - **Header:** a "Title ⌄" switcher lists recent chats. A "⋯" menu (also in the popup) renames chats inline or deletes them after a confirmation. Deleting a running chat stops it first.
-  - **Popup:** a new expand button opens the popup's chat in the Agent view.
-  - **Status bar:** a history button lists recent chats.
-  - **Pruning:** on start, `xpo board` deletes idle chats older than 30 days and keeps at most 200.
-  - **Routes:** `PATCH` (rename) and `DELETE` on `/api/local/chats/{id}`.
-
-  (xpo-c047ce)
-
-- Agent chat in `xpo board`:
-  - **Opening it:** an **Agent** button in the status bar (or ⌘J / Ctrl+J) opens a chat popup from any view. The popup sends the open issue as context.
-  - **Agent:** replies come from your local Claude Code (`claude -p`, one process per turn, resumed with `--resume`), running in the project root with your settings. It can read code (Read, Grep, Glob) and use the xpo MCP tools. It cannot run commands or edit files.
-  - **Thread:** replies stream in, and tool calls collapse into a "Worked for N seconds" row.
-  - **Composer:** model (Haiku, Sonnet, Opus) and effort pickers.
-  - **Pills:** minimized chats stay as pills in the status bar.
-  - **Storage:** chats are stored per user in `.xpo/chats/` (git-ignored).
-  - **Routes:** `/api/local/agent` and `/api/local/chats/*`, with an SSE stream per chat. The board answers them in remote mode too, where the agent uses the remote server's `/mcp`.
-  - **Config:** `chat.agent` and `chat.model`.
-
-  The stream-json parser is now shared by drive and chat (xpo-56ae3a)
-
-- Issue drafts: the new issue dialog has a "Save draft" button, and the discard prompt offers "Save draft" too. Drafts are stored per user in `.xpo/drafts/` (git-ignored, outside the event log). A "Drafts" sidebar item with a count badge appears while drafts exist (`g r`). Reopen a draft to keep editing, create the issue from it, or discard it. New `/api/issue-drafts` endpoints (`GET`/`POST`/`PUT`/`DELETE`, `issue.create` capability) and a `draft_changed` SSE event (xpo-758398)
+- README section "Upgrading from 1.4.x" (xpo-bb6beb)
 
 ### Changed
 
-- Agent instructions: agents now search before they file an issue. Step 1 of the `xpo` skill asks for a `list` (`match`) search and a `rationale` search before any `add`, and the agent tells the user what the searches found when it proposes the issue. In Chat Mode, the agent loads the skill before it files an issue as well as before it plans, specs or starts work. (xpo-ed312f)
+- Live updates: each board tab holds **one** event stream, `GET /api/events`. Issues, drafts, the chat list and every open chat arrive over it, so tabs no longer use up the browser's 6 connections per host.
+  - **Topics:** a new broadcaster, `internal/live`, carries *signal* topics (`issues`, `drafts`, `chats`: "changed, refetch") and *log* topics (`chat:<id>`: ordered events with seq ids). A tab adds and removes chats with `POST /api/events/{stream}/topics` and the last seq it has. The chat list updates live in every open browser and is no longer polled.
+  - **Never silently behind:** before, a frozen background tab could stop receiving events while its connection stayed open, and the board missed new issues and status changes until a reload. Now repeated signals merge into one, and a chat whose queue overflows replays from the store. After any reconnect (sleep, network drop, board restart), the tab refetches the signal topics and replays each open chat. The browser retries with backoff (1s up to 30s) and reconnects as soon as the tab is visible again.
+  - **Server:** a 10s deadline on each write, a keepalive every 25s, and open streams end on shutdown.
+  - **Removed:** the `issue_*` SSE events.
 
-- Live updates: each board tab now holds **one** event stream, `GET /api/events`, whatever the number of open chats. Issues, drafts, the chat list and every open chat all arrive over it, so tabs no longer use up the browser's 6 connections per host. (xpo-6d1102)
-  - **Topics:** a new broadcaster, `internal/live`, carries *signal* topics (`issues`, `drafts`, `chats`: "changed, refetch") and *log* topics (`chat:<id>`: ordered events with seq ids). A tab adds and removes chats with `POST /api/events/{stream}/topics` and the last seq it has. Draft saves now refetch only the drafts list.
-  - **Never silently behind:** repeated signals merge into one. If a chat's queue overflows, only that chat replays from the store, and the stream stays open. After any reconnect (sleep, network drop, board restart), the tab refetches the signal topics and replays each open chat from its last seq. The browser retries with backoff (1s up to 30s) and reconnects as soon as the tab is visible again.
-  - **Server:** a 10s deadline on each write, so a frozen tab no longer holds its handler; a keepalive every 25s; open streams end on shutdown.
-  - **Remote mode:** the board keeps one connection to the remote's stream for all its tabs. Chats keep updating while the remote is down. The board and its remote must run the same version.
-  - **Removed:** `GET /api/local/chats/{id}/stream`, and the `issue_*`, `draft_changed` and `chat_changed` SSE events.
+  (xpo-6d1102, xpo-ae6385, xpo-7e9c4f, xpo-bbcab4)
+
+- A `blocked_by` blocker counts as resolved only when it is DONE. CANCELED and DUPLICATE blockers still block, until you remove the link or point it at another issue.
+  - **Board:** Start Work is disabled while any blocker is unresolved. Its tooltip lists each blocker and its status, with a one-click Remove link for canceled and duplicate blockers.
+  - **`start` and drive:** `start` refuses such issues, and the error says to remove the link. Drive skips them.
+
+  (xpo-35943d)
+
+- Agent instructions: agents search before they file an issue. Step 1 of the `xpo` skill asks for a `list` (`match`) search and a `rationale` search before any `add`, and the agent tells the user what the searches found when it proposes the issue. (xpo-ed312f)
 
 - Labels: creating a label in the label picker (`Create "…"`) applies it to the issue in one step, uncolored; the color step is gone. Colors are managed in the Labels view.
   - **Labels view:** "Built-in labels" and "Custom labels" are separate sections. Clicking a custom label opens an Edit label dialog with the name, a 12-color palette, and a live preview of the label on its issues. Delete label sits in the dialog behind a confirmation. "N issues" on each row links to the filtered issue list.
   - **Built-in labels** (`default_labels`) are read-only: the board and the API (400) refuse to rename, recolor, re-add or delete them, or to rename another label onto one.
   - **Palette:** the 12 swatches avoid the built-in colors and are clearly different from each other.
-  - **Persistence:** coloring a label that was only used on issues now saves it to `config.yaml`, so the color survives a restart.
-  - **Dialogs:** the Edit label dialog and every confirm dialog share one frame (`DialogPanel`). (xpo-e35f16)
-- Deleting an issue: the context menu (click, Enter, ⌘⌫) and the issue sidebar open the same confirmation dialog. It replaces the two hand-built popovers. The dialog shows the issue in a card (status, ID and title). With sub-issues it offers Keep sub-issues (soft red) or Delete all (solid red). A toast confirms the delete: "Deleted <id>", or "Deleted <id> and its sub-issues". Every confirm dialog now has a footer bar with an "esc to cancel" hint and a secondary Cancel button. Red menu items such as Delete stay red on hover and keyboard focus. (xpo-33c92b)
+  - **Persistence:** coloring a label that was only used on issues saves it to `config.yaml`, so the color survives a restart.
+  - **Dialogs:** the Edit label dialog and every confirm dialog share one frame (`DialogPanel`).
 
-- Agent view: the new-chat page asks "What should we build in <project>?", and the composer placeholder reads "Ask a question, or describe what to build…". The "What's blocking an epic?" suggestion is replaced by "Plan and build a feature", which also shows in the chat popup. (xpo-296ea8)
+  (xpo-e35f16)
 
-- Agent chat: approval cards for calls with details (a command or arguments) open collapsed, on one row with the Deny and Allow once buttons. A chevron in the title shows the state; clicking the title expands the details and clicking it again collapses them. Cards without details are unchanged. (xpo-8579fb)
+- Deleting an issue: the context menu (click, Enter, ⌘⌫) and the issue sidebar open the same confirmation dialog, which replaces the two hand-built popovers. The dialog shows the issue in a card (status, ID and title). With sub-issues it offers Keep sub-issues (soft red) or Delete all (solid red). A toast confirms the delete: "Deleted <id>", or "Deleted <id> and its sub-issues". Every confirm dialog has a footer bar with an "esc to cancel" hint and a secondary Cancel button. Red menu items such as Delete stay red on hover and keyboard focus. (xpo-33c92b)
 
-- Links in Markdown prose (chat transcript, descriptions, comments) use a new `--color-link` token, `#adbbff`, in place of the accent color. They have about 9–11:1 contrast instead of about 4:1. They have no underline at rest and underline on hover. Issue ID chips start with the issue's status icon, so they stand apart from plain links. (xpo-1d9d5d)
+- Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch, chat and attachment pills show their counts; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9, xpo-199a69)
 
-- Agent chat: the board no longer deletes chats older than 30 days at startup. It archives them instead, skipping running and Work Mode chats, and only you delete chats. Chat titles keep up to 200 characters instead of 60. The "Delete branch" checkbox in the merge view uses the accent color. (xpo-1446f2)
+- Links in Markdown prose (chat transcript, descriptions, comments) use a new `--color-link` token, `#adbbff`, in place of the accent color. They have about 9–11:1 contrast instead of about 4:1. They have no underline at rest and underline on hover. (xpo-1d9d5d)
 
-- Agent chat: approval cards are reworked. (xpo-aaf8b1)
-  - **Layout:** the headline, the call's arguments, then the buttons. A call without arguments fits on one row.
-  - **Arguments:** every argument shows as key/value rows in a monospace panel, so values like `force true` no longer read as part of the headline.
-  - **Tool name:** "via" matches the headline's size, and the tool name sits in a code chip.
-  - **Buttons:** `[Deny] [Allow once ▾]`. "Allow for this chat" moved into the chevron's menu.
-  - **Keyboard:** the waiting card takes focus, with the composer's focus border. Enter allows once and Esc denies. Focus moves to the next card, then back to the composer. The card never takes focus from a text field you are typing in.
+- Buttons look the same on any surface. `secondary` is a wash of its own text color for rest, hover and pressed, with an optional `bordered` outline and a `tone` (`danger`, `warning`) for colored text. `ghost` uses the same wash on hover. `primary` darkens when pressed. `danger` rests a little darker and hovers a little lighter than its base color. A new `warning` variant works the same way, with dark text. The "Delete branch" checkbox in the merge view uses the accent color. (xpo-aaf8b1, xpo-1446f2)
 
-- Buttons look the same on any surface. (xpo-aaf8b1)
-  - `secondary` is a wash of its own text color for rest, hover and pressed, with an optional `bordered` outline and a `tone` (`danger`, `warning`) for colored text.
-  - `ghost` uses the same wash on hover.
-  - `primary` darkens when pressed.
-  - `danger` rests a little darker and hovers a little lighter than its base color, and darkens when pressed.
-  - A new `warning` variant works the same way, with dark text.
-
-- Agent chat: the question card asks one question at a time. (xpo-46afc0)
-  - **Tabs and review:** with several questions, tabs at the top list the questions (✓ when answered) and a Review tab at the far right. The review step shows each question with your answer, or "Not answered", and a "Change" button on hover. "Submit answers" sends from there. A single question has no tabs and no review step.
-  - **Footer:** "Chat about this" (left) replaces Skip, and Next (right) moves forward; there is no Previous. "Chat about this" now tells the agent to end its turn and wait for your message, and the thread reads "Chat instead".
-  - **Faster answers:** a single-choice pick moves on by itself after 250 ms. With focus in the card, ←/→ switch steps and 1–9 pick an option; each option shows its number. The "Other…" field sits inside its option.
-  - **Look and motion:** recessed tab and footer bands, raised option rows with an accent tint when picked, and short animations (the pick lands, the tab's ✓ pops, the next step slides in from its side). The animations are off under reduced motion.
-
-- Agent chat: on a DOING issue, Continue Work renders as a secondary button while a chat is in Work Mode on the issue, and stays primary otherwise. Clicking it works as before. (xpo-374792)
-
-- A `blocked_by` blocker now counts as resolved only when it is DONE. CANCELED and DUPLICATE blockers still block, until you remove the link or point it at another issue.
-  - **Board:** Start Work is disabled while any blocker is unresolved. Hovering it shows a tooltip that lists each blocker and its status, with a one-click Remove link for canceled and duplicate blockers.
-  - **`start` and drive:** `start` refuses such issues, and the error says to remove the link. Drive skips them.
-
-  (xpo-35943d)
-
-- Dependencies upgraded. Frontend: vite 8 (Rolldown; vendor chunks move to `rolldownOptions.output.codeSplitting.groups`), @vitejs/plugin-react 6, eslint 10, fractional-indexing 4, React 19.3, recharts 3.10, tiptap 3.32 and the rest to latest. TypeScript stays on 5.9 (typescript-eslint supports <6.1) and eslint-plugin-react-hooks on 7.0 (xpo-09fa6f). `bun.lock` is regenerated and the unused `web/package-lock.json` is removed. Go: glamour 1.0, MCP go-sdk 1.8, golang.org/x/* and the rest to latest. **Building from source now requires Go 1.26** (required by golang.org/x/*). The README and Dockerfile are updated to match. (xpo-b2ca41)
-- Agent chat: a turn shows the agent's work live. Narration is a regular message. The actions between messages collapse into one line: while the agent works, the current action's icon and target with a shimmer and the timer on the right; afterwards "6 actions · 2 failed". Click a line to see its actions on a timeline. Each action shows an icon in place of its verb (tooltip and screen-reader label keep the verb). A Lightbulb line shows while the agent is thinking. Failures no longer expand the list, and a failed action has only a red icon. The turn's total time moves under its last message, replacing the "Worked for …" header. lucide-react is upgraded to 1.57. (xpo-855e28)
-- Agent chat: the chat popup, the composer, approval cards, message bubbles and the menus they open draw on their own monochrome surface scale (`--color-*-ai-*` tokens), a step above the app's, so the chat stands out from the board. The Agent view keeps the app canvas. A `.surface-ai` class puts shared menus and popovers on that scale. (xpo-03fa37)
-- Agent chat popup: it opens centered above its status-bar pill, or above the Agent button for a new chat, instead of the bottom-right corner. It is resizable from its top edge, sides and top corners, from 360×400 up to 600×900, and remembers its size. (xpo-b45049)
-- Issue rows: one pill style for row indicators, after Linear. Sub-issue progress, branch, chats and attachments sit in the same faint, fully rounded pill, with a muted 12px icon. The branch pill shows its commit count and the chat pill its chat count; details are in the tooltips. Pills and label chips have the surface background, so they stay dark on a hovered or highlighted row. Applies to backlog rows, board cards and My Issues. (xpo-219de9)
-- Agent chat polish: mode dividers read "Entered Work Mode on xpo-…" and "Entered Chat Mode". The Work Mode segment shows the hammer and the issue ID, without "Work ·". The send and stop buttons are 24px. (xpo-219de9)
+- Dependencies upgraded. Frontend: vite 8 (Rolldown; vendor chunks move to `rolldownOptions.output.codeSplitting.groups`), @vitejs/plugin-react 6, eslint 10, fractional-indexing 4, React 19.3, recharts 3.10, tiptap 3.32, lucide-react 1.57 and the rest to latest. TypeScript stays on 5.9 (typescript-eslint supports <6.1) and eslint-plugin-react-hooks on 7.0 (xpo-09fa6f). `bun.lock` is regenerated and the unused `web/package-lock.json` is removed. Go: glamour 1.0, MCP go-sdk 1.8, golang.org/x/* and the rest to latest. **Building from source now requires Go 1.26** (required by golang.org/x/*). (xpo-b2ca41, xpo-855e28)
 
 ### Removed
 
 - Remote mode: xpo is local-only. Issue data travels with the code through git (`.xpo/issues.db merge=union`), and teammates get the latest copy when they sync. Remote mode reported branch state, and ran start and merge, in the server's checkout, which nobody works in. Team mode will be designed separately. (xpo-67281a)
   - **Commands:** `xpo serve`, `xpo login` and `xpo logout` are gone. `xpo whoami` prints only the identity xpo records on events: the configured `user`, else git config.
-  - **Board:** `xpo board` no longer proxies to a remote server. The board's `--host` access token still works. The guards that hid Start Work, Review Changes and the MCP `start` and `merge` tools in remote mode are gone (xpo-a60065), and `GET /api/local/mode` no longer returns `remote`.
+  - **Board:** `xpo board` no longer proxies to a remote server. The board's `--host` access token still works. `GET /api/local/mode` no longer returns `remote`. The interim remote-mode guards for Start Work, Review Changes and the MCP `start` and `merge` tools are gone with it (xpo-a60065).
   - **Config:** `remote.url`, `remote.token` (`XPO_REMOTE_URL`, `XPO_REMOTE_TOKEN`), `permissions`, and the `servers:` entries in `~/.config/xpo/user.yaml` are ignored. The `.xpo/authorized_keys` and `.xpo/server.key` files are no longer used.
-  - **Other:** issue drafts are no longer scoped to an owner. The Dockerfile, `docker-compose.yml` and `make docker` are gone, and `golang.org/x/crypto` is no longer a dependency.
+  - **Other:** the Dockerfile, `docker-compose.yml` and `make docker` are gone, and `golang.org/x/crypto` is no longer a dependency.
 
 ### Fixed
 
-- Work Mode in a project without a git repository: Start Work no longer moves the issue to DOING and then fails with "not a git repo". The board refuses before anything changes, with `Work Mode needs a git repository. Run "git init" in <path>.` With an agent available, Start Work and "Enter work mode" are disabled, and their tooltip says the same. Without an agent, Start Work still only starts the issue. Chat Mode no longer offers the agent `start` outside git. Running `git init` takes effect without restarting the board. `GET /api/local/mode` also returns `git` and `root`. (xpo-e627e1)
+- Start Work in a project without a git repository no longer moves the issue to DOING and then fails with "not a git repo". The board refuses before anything changes, with `Work Mode needs a git repository. Run "git init" in <path>.` With an agent available, Start Work and "Enter work mode" are disabled, and their tooltip says the same. Without an agent, Start Work still only starts the issue. Running `git init` takes effect without restarting the board. `GET /api/local/mode` also returns `git` and `root`. (xpo-e627e1)
 
 - Issue sidebar: Start Work is disabled while the issue is in BACKLOG, since `start` requires PLANNED. Before, clicking it only showed an error toast. Its tooltip says "Move the issue to Planned to start work", followed by any unresolved blockers. (xpo-31520e)
 
-- Agent chat: each chat keeps its own composer draft, text and pending attachments. Before, a draft typed in one popup chat showed up in the next chat opened, and a draft was lost when a chat moved between the popup and the Agent view. A chat's draft now follows it both ways on Maximize and Dock. The popup's new chat and the Agent view's new chat have separate drafts: Maximize moves the popup's draft into the Agent view and leaves the popup's new chat empty, for a side question. Drafts last until a reload. (xpo-4e78ba)
+- Review Changes shows when a worktree's only changes are new, untracked files. Branch stats count them as uncommitted (files and line insertions; gitignored files and `.xpo/` excluded). The dialog opens on "Uncommitted" when the branch has no commits yet, instead of an empty "All changes". When Review Changes shows, it is the primary, top button, and Start Work or Continue Work turns secondary. (xpo-926f0b)
 
-- Unknown `/api/…`, `/auth/…` and `/mcp/…` paths return 404 again in builds with the web app embedded. Before, the app's catch-all route answered them with `index.html` and a 200, so a removed endpoint like the old chat `/stream` still looked alive. The server tests passed or failed depending on whether the frontend had been built.
+- Merging an issue while its merge view is open no longer shows a raw `{"error":"no branch found for this issue"}` screen. An issue without a branch shows a clear "No branch found" screen, and API errors across the UI show their message instead of raw JSON. (xpo-64be51)
 
-- Live updates no longer stop after the tab was in the background. An open chat showed a running turn that had already finished, and the board missed new issues and status changes, until a hard reload. The cause: when a frozen background tab stopped reading, the server dropped its events while the connection stayed open. Now a client that falls behind gets its stream closed, so the browser reconnects. The chat stream replays what was missed through `Last-Event-ID`. The board refetches issues as well as chats whenever `/api/events` (re)connects. Both streams also reconnect as soon as the tab is visible again. (xpo-7e9c4f)
+- MCP `update` and `xpo update --json` clear `assignee`, `cycle_id`, `priority`, `story_points` and `parent` when the field is `null`. They used to fail with "no fields set", or leave the field unchanged when another field was set. `null` on `description`, `labels` and `links` still means "unchanged"; clear those with `""` or `[]`. A literal quoted empty string (`"\"\""`) is treated as `""` instead of failing with `issue "" not found`. Each nullable field's schema description says how to clear it. (xpo-bbfcf9, xpo-328824)
 
-- Menus: items that open a next step inside their menu keep it open. In the label picker, `Create "…"` creates the label again, where before it closed the picker and did nothing. In the issue context menu, Delete shows its confirmation; before, only ⌘⌫ / Ctrl⌫ did. `MenuItem` takes a new `keepOpen` prop for such items. (xpo-2790cd)
-
-- Agent view: Esc in the composer takes focus out of it and keeps the draft, so global shortcuts such as `g → i` work again after `g → a`. `/` puts focus back in the composer and is listed in the `?` help. In the chat popup, Esc still minimizes. (xpo-de9f71)
-
-- Agent view: the new-chat landing page keeps a stable scrollbar gutter, so its content no longer shifts sideways when the recent-chats list overflows or when a thread opens. The All chats page drops a redundant `overflow-y-auto`. (xpo-127a26)
-
-- Agent chat: the question card takes focus when it appears, as approval cards do, so its keys work without a click. It never takes focus from a field you are typing in, and shows the focus border. Enter on the card presses its primary button: Next, or "Submit answers" on the review step. (xpo-9761dd)
-
-- Issue ID chips no longer make the line they sit in taller, and they sit centered on it. Before, they sat low on the text, stretched lines in the chat bubble, and floated off the Work Mode divider lines. Chips are now inline boxes with `line-height: 1`; their tint comes from padding, which does not add height. (xpo-b47189)
-
-- Agent chat: chat costs are no longer overcounted. Claude reports a running total for the session, and xpo added it again on every turn, so long chats showed many times their real cost. Each turn now adds only the difference. Existing chats are recomputed from their logs the first time they are read. (xpo-66fce3)
-
-- Agent chat: the transcript lines up with the reply box again once the thread scrolls. The scrollbar no longer narrows only the right side and pulls the transcript off-center. (xpo-260a28)
-
-- Agent chat: a background process the agent started (a dev server, a monitor) no longer keeps the turn running and blocks replies until Stop. Each chat now keeps one agent process (Claude Code or Codex) across turns, and a turn ends when the agent replies.
-  - **Background tasks:** the composer shows "Monitoring N tasks", or "N agents working" for subagents. A card on the title lists the tasks; its Stop button ends the agent with its tasks. The next message resumes the session. `POST /api/local/chats/{id}/background/stop`; `GET /chats/{id}` includes `background`; live `background_tasks` events.
-  - **Agent turns:** when a background task ends and Claude Code replies on its own, the reply shows as its own turn (`agent_turn` event), marked with what woke the agent.
-  - **Stop** interrupts the turn only; background tasks keep running. Model and effort changes apply in place, without restarting the agent.
-  - **Lifecycle:** a mode change restarts the agent ("Entered Chat Mode. Background tasks stopped." when tasks ran). Agents idle for 30 minutes without tasks, deleted chats and board shutdown end their agents. A board that starts stops agents a crashed board left running.
-
-  (xpo-fb4f9b)
-- Markdown: rendered checklist items now wrap like the editor. Wrapped lines line up with the first line of text instead of the checkbox, and the checkbox sits at the editor's height. (xpo-d4e6e4)
-- Issue activity: status, estimate and priority chips now line up with the row's text. The row and its chips use flex centering instead of baseline-aligned inline text. (xpo-d3578a)
-- Dashboard: Active Epics rows no longer nest the copyable issue ID button inside the row button, which was invalid HTML and logged a React error on every Dashboard load. Clicking the row still opens the epic; clicking the ID copies it. (xpo-66c6a4)
-- Agent chat: `xpo spec`, `xpo walkthrough` and `xpo artifact` calls always read "Read the … of" and showed no issue, also for writes. Tool details for MCP tools now include the call's `operation` and `issue_id` ("write xpo-1"), for Claude, Codex and approval cards, and the chat words them "Wrote the spec of xpo-1". (xpo-855e28)
-- Agent chat: Work Mode no longer asks for approval every time the agent edits its issue's spec or walkthrough. Claude may now edit files in the bound issue's `.xpo/artifacts/<issue>/` folder without a card. Other issues' artifacts and everything else outside the worktree still ask. (xpo-2c724e)
-
-- Issue activity timeline: every field change is described, cleared values read as words, and rows read as muted sentences. (xpo-ca763f)
+- Issue activity timeline: every field change is described, cleared values read as words, and rows read as muted sentences. (xpo-ca763f, xpo-bbfcf9)
   - **New descriptions:** priority ("set priority to High" / "cleared the priority"), parent ("set parent to [issue]" / "removed the parent issue") and cycle ("added this issue to Cycle 12" / "removed this issue from its cycle").
   - **Cleared values:** a cleared estimate reads "cleared the estimate" instead of "set estimate to 0 Points". Removing the assignee reads "removed the assignee"; before, such an event had no text. Removing all labels reads "removed all labels" on the web and in the CLI.
   - **Same wording in the CLI:** `xpo history` uses the same phrases, replacing "unassigned", "removed parent", "removed from cycle" and "added to cycle X".
   - **Muted rows:** actor names and values stay muted and turn white with a pointer cursor on hover. Comment headers keep the white name.
-  - **Spacing and alignment:** each row is one run of text with normal word spacing instead of 8px gaps, and long rows wrap like a sentence. Chip labels sit on the text baseline, and the estimate triangle no longer hangs below it.
+  - **Spacing and alignment:** each row is one run of text with normal word spacing instead of 8px gaps, and long rows wrap like a sentence. Status, estimate and priority chips line up with the row's text, and the estimate triangle no longer hangs below it (xpo-d3578a).
 
-- MCP `update` and `xpo update --json` clear `assignee`, `cycle_id`, `priority` and `story_points` when the field is `null`, like `parent`. They used to fail with "no fields set", or leave the field unchanged when another field was set. `null` on `description`, `labels` and `links` still means "unchanged"; clear those with `""` or `[]`. Each nullable field's schema description says how to clear it, and the CLI timeline describes cleared values in words instead of "assigned to " or "set priority to 0". (xpo-bbfcf9)
+- Menus: items that open a next step inside their menu keep it open. In the label picker, `Create "…"` creates the label, where before it closed the picker and did nothing. In the issue context menu, Delete shows its confirmation; before, only ⌘⌫ / Ctrl⌫ did. `MenuItem` takes a new `keepOpen` prop for such items. (xpo-2790cd)
 
-- MCP `update` and `xpo update --json` can clear an issue's parent. `parent: null` now clears it instead of failing with "no fields set". A literal quoted empty string (`"\"\""`) is treated as `""` instead of failing with `issue "" not found`. The `parent` schema description explains how to clear it. (xpo-328824)
+- Menu items with a suffix (relative times, filter counts, "⌘⌫") no longer overflow their row. (xpo-c047ce)
 
-- Agent chat: after you allow the agent's `start`, the chat continues in Work Mode on its own. You no longer have to send "go" to get it working. The continued turn shows no user message, just the "Entered Work Mode on …" divider; a new `turn_continued` chat event opens it. (xpo-ad6069)
+- `XPO_*` environment variables set every config key, as the README promised. Before, a key without a default was ignored unless a config file already set it. List keys take a comma-separated value. Map keys (`labels`) can still only be set in a config file. (xpo-e81612)
 
-- Merging an issue while its merge view is open (for example from the agent chat) no longer shows a raw `{"error":"no branch found for this issue"}` screen. The view switches to the Merged view in place. An issue without a branch shows a clear "No branch found" screen, and API errors across the UI show their message instead of raw JSON. (xpo-64be51)
+- Unknown `/api/…`, `/auth/…` and `/mcp/…` paths return 404 again in builds with the web app embedded. Before, the app's catch-all route answered them with `index.html` and a 200.
 
-- The attachment pill on backlog rows and board cards shows its count again, like the branch, chat and sub-issue pills. (xpo-199a69)
-- Agent chat: an open chat keeps following new output while you're at the bottom, also when a card or code block grows after it renders, the composer grows, or the popup is resized. Only scrolling up stops following; scrolling back to the end resumes it. (xpo-63b755)
-- Agent chat: the agent can now load skills, in Chat Mode and Work Mode, without an approval card. Its prompt tells it to load the `xpo` skill before planning or changing anything, so Work Mode follows the project's workflow: spec, handoff, and a stop for review. A skill load shows as "Loaded the skill xpo". (xpo-a058b4)
-- Agent chat: maximizing a chat popup into the Agent view now removes its pill from the status bar. A dock button at the right of the Agent view's header puts the chat back in the status bar as a popup and returns to the view you were on before. (xpo-b204f1)
-- Agent chat: the composer's issue chip is now the context the next message carries. Opening an issue adds it as a chip. Sending a message carries it and clears the chip, so later turns carry no issue context. A removed chip stays removed after closing and reopening the popup, until you open an issue again. A Work Mode chat never gets its bound issue as a chip. (xpo-c94d85)
-- Review Changes now shows when a worktree's only changes are new, untracked files. Branch stats count them as uncommitted (files and line insertions; gitignored files and `.xpo/` excluded). The dialog opens on "Uncommitted" when the branch has no commits yet, instead of an empty "All changes". When Review Changes shows, it is the primary, top button, and Start Work or Continue Work turns secondary. (xpo-926f0b)
-- Agent chat: opening an existing chat (Recent chats, Start Work or Continue Work, an issue's chat pill or chats list) now adds its status-bar pill, so minimizing it no longer loses the way back. (xpo-b45049)
-- `XPO_*` environment variables now set every config key, as the README promised. Before, a key without a default, such as `XPO_REMOTE_URL`, was ignored unless a config file already set it. List keys take a comma-separated value. Map keys (`labels`, `permissions`) can still only be set in a config file. (xpo-e81612)
-- Plain issue IDs in descriptions, comments and chat answers were never linked, because the API sends the prefix without the hyphen. (xpo-b83f1c)
-- Agent chat tool calls:
-  - **Arguments:** Grep patterns and other tool arguments with escaped quotes are no longer cut off (`\\{\\` instead of the pattern). They are decoded properly, which also fixes drive's spinner detail.
-  - **Readable summaries:** the work list shows tool calls in words, such as "Read board.go", "Searched the code for …", "Listed issues matching …", and "Created issue …".
-  - **Titles:** xpo tools show the issue ID or title instead of the description.
-  - **Alignment:** bullets line up in the narrow popup.
+- Markdown: rendered checklist items wrap like the editor. Wrapped lines line up with the first line of text instead of the checkbox, and the checkbox sits at the editor's height. (xpo-d4e6e4)
 
-  (xpo-6afc58)
-- Menu items with a suffix (relative times, filter counts, "⌘⌫") no longer overflow their row (xpo-c047ce)
+- Dashboard: Active Epics rows no longer nest the copyable issue ID button inside the row button, which was invalid HTML and logged a React error on every Dashboard load. (xpo-66c6a4)
 
 ## [1.4.0] — 2026-10-12
 

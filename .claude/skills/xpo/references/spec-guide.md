@@ -65,4 +65,4 @@ Before you call `spec write` or `walkthrough write`, re-read the draft against t
 Check passive voice, term consistency, and Flow steps with more than one instruction.
 Fix every violation, then write.
 
-<!-- xpo:skill 1.4.0 sha256:5a874c8b87af -->
+<!-- xpo:skill 1.5.0 sha256:5a874c8b87af -->
