@@ -13,6 +13,7 @@ import (
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/jsonio"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -36,6 +37,9 @@ var historyCmd = &cobra.Command{
 		client := exponential.NewClient(cfg)
 
 		var entries []model.TimelineEntry
+		// The full log names the releases events refer to by ID.
+		logEvents, _ := storage.ReadEvents()
+		notes := exponential.ReleaseNoter(logEvents)
 
 		if len(args) == 1 {
 			issue, _, archived, err := client.FindIssue(args[0])
@@ -52,11 +56,17 @@ var historyCmd = &cobra.Command{
 
 			client.FillLocalBranchStats(issue)
 
+			// An issue's own history keeps the moves bulk operations made,
+			// with the operation that caused them.
 			for _, evt := range issue.Events {
 				if !exponential.IsMeaningfulActivityEvent(evt) {
 					continue
 				}
+				n := notes(evt)
 				entries = append(entries, model.TimelineEntry{
+					Release:    n.Release,
+					Cause:      evt.Cause,
+					CauseNote:  n.CauseNote,
 					Kind:       "issue_event",
 					Timestamp:  evt.CreatedAt,
 					IssueID:    evt.ID,
@@ -104,6 +114,12 @@ var historyCmd = &cobra.Command{
 				allEvents = append(allEvents, iss.Events...)
 				issueMap[iss.ID] = iss
 			}
+			for _, evt := range logEvents {
+				if model.IsReleaseEvent(evt.Type) {
+					allEvents = append(allEvents, evt)
+				}
+			}
+			sort.SliceStable(allEvents, func(i, j int) bool { return allEvents[i].CreatedAt.Before(allEvents[j].CreatedAt) })
 
 			entries = exponential.BuildTimeline(allEvents, issueMap, historyLimit, "")
 		}

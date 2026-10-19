@@ -34,12 +34,19 @@ const addToolDescription = "Create a new issue. Set status, labels, parent, stor
 	"Set `before` or `after` to another issue ID to place the new issue directly above or below it in the manual order."
 
 const updateToolDescription = "Patch fields on an existing issue. Use this to transition status (BACKLOG/PLANNED/DOING/BLOCKED/DONE) instead of separate start/done tools. " +
-	"To reorder, set `before` or `after` to another issue ID: the issue moves directly above or below it in the manual order."
+	"To reorder, set `before` or `after` to another issue ID: the issue moves directly above or below it in the manual order. " +
+	"Changing `release` moves only this issue unless `with_children` is true."
+
+const releaseToolDescription = "Manage releases: scope-bounded groups of issues that ship together. " +
+	"Releases are numbered #1, #2, ... and may have a label. Current and Next are the first two open releases in order; an unsaved slot is a placeholder, saved by its first write. " +
+	"`list` shows Current, Next, upcoming and past releases. `create` adds an open release at the end. `update` sets label, goal or target_date. " +
+	"`reorder` moves an open release before or after another. `complete` marks it RELEASED (final): open issues move to Next unless `issues` is remove; done issues stay. " +
+	"`delete` removes an open release and moves all its issues to Next unless `issues` is remove. Put issues in a release with `release` on add and update."
 
 func (t *toolset) register(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list",
-		Description: "List issues with optional filters (status, label, assignee, parent, free-text match).",
+		Description: "List issues with optional filters (status, label, assignee, parent, release, free-text match).",
 	}, t.list)
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -61,6 +68,11 @@ func (t *toolset) register(s *mcp.Server) {
 		Name:        "update",
 		Description: updateToolDescription,
 	}, t.update)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "release",
+		Description: releaseToolDescription,
+	}, t.release)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "comment",
@@ -127,6 +139,7 @@ func (t *toolset) list(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 		Assignee: in.Assignee,
 		ParentID: in.Parent,
 		Match:    in.Match,
+		Release:  in.Release,
 		All:      in.IncludeDone,
 	}
 	issues, err := c.ListIssues(opts)
@@ -162,6 +175,8 @@ func (t *toolset) show(ctx context.Context, req *mcp.CallToolRequest, in jsonio.
 		AssigneeVia:      issue.AssigneeVia,
 		CycleID:          issue.CycleID,
 		EffectiveCycleID: issue.EffectiveCycleID,
+		ReleaseID:        issue.ReleaseID,
+		Release:          issue.ReleaseName,
 		BranchStats:      issue.BranchStats,
 		CreatedBy:        issue.CreatedBy,
 		CreatedAt:        issue.CreatedAt.Format(time.RFC3339),
@@ -253,7 +268,7 @@ func (t *toolset) update(ctx context.Context, req *mcp.CallToolRequest, in jsoni
 	if pos != nil {
 		payload.SortOrder = &pos.Key
 	}
-	msgs, err := c.UpdateIssue(issue.ID, payload, "update")
+	msgs, err := c.UpdateIssueOpts(issue.ID, payload, "update", exponential.UpdateOptions{WithChildren: in.WithChildren})
 	if err != nil {
 		return nil, jsonio.UpdateOutput{}, err
 	}
@@ -359,6 +374,92 @@ func (t *toolset) merge(ctx context.Context, req *mcp.CallToolRequest, in jsonio
 
 	text := strings.Join(result.Messages, "\n")
 	return textResult(text), jsonio.MergeOutput{ID: issue.ID, MergeSHA: result.MergeSHA, Messages: result.Messages}, nil
+}
+
+func (t *toolset) release(ctx context.Context, req *mcp.CallToolRequest, in jsonio.ReleaseToolInput) (*mcp.CallToolResult, jsonio.ReleaseOutput, error) {
+	c := t.clientFor(req)
+	fields := exponential.ReleaseInput{Label: in.Label, Goal: in.Goal, TargetDate: in.TargetDate}
+
+	one := func(r *model.Release, msgs []string, err error) (*mcp.CallToolResult, jsonio.ReleaseOutput, error) {
+		if err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		views, err := c.ListReleases()
+		if err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		summary := jsonio.ToReleaseSummary(r, "", nil, 0, 0)
+		for _, v := range views {
+			if v.ID == r.ID {
+				summary = jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done)
+			}
+		}
+		text := fmt.Sprintf("%s (%s) %s", summary.Name, summary.Ref, summary.State)
+		if len(msgs) > 0 {
+			text = strings.Join(msgs, "\n")
+		}
+		return textResult(text), jsonio.ReleaseOutput{Release: &summary, Messages: msgs}, nil
+	}
+	needID := func() error {
+		if in.ID == "" {
+			return fmt.Errorf("'id' is required for %s", in.Operation)
+		}
+		return nil
+	}
+
+	switch in.Operation {
+	case "list":
+		views, err := c.ListReleases()
+		if err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		out := jsonio.ReleaseOutput{Releases: make([]jsonio.ReleaseSummary, 0, len(views))}
+		lines := make([]string, 0, len(views))
+		for _, v := range views {
+			s := jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done)
+			out.Releases = append(out.Releases, s)
+			lines = append(lines, fmt.Sprintf("%s: %s (%s) %d/%d done", v.Slot, s.Name, s.Ref, s.Done, s.Total))
+		}
+		return textResult(strings.Join(lines, "\n")), out, nil
+
+	case "create":
+		r, err := c.CreateRelease(fields)
+		return one(r, nil, err)
+
+	case "update":
+		if err := needID(); err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		r, err := c.UpdateRelease(in.ID, fields)
+		return one(r, nil, err)
+
+	case "reorder":
+		if err := needID(); err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		r, err := c.ReorderRelease(in.ID, in.Before, in.After)
+		return one(r, nil, err)
+
+	case "complete":
+		if err := needID(); err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		r, msgs, err := c.CompleteRelease(in.ID, in.Issues)
+		return one(r, msgs, err)
+
+	case "delete":
+		if err := needID(); err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		msgs, err := c.DeleteRelease(in.ID, in.Issues)
+		if err != nil {
+			return nil, jsonio.ReleaseOutput{}, err
+		}
+		return textResult(strings.Join(msgs, "\n")), jsonio.ReleaseOutput{Messages: msgs}, nil
+
+	default:
+		return nil, jsonio.ReleaseOutput{}, fmt.Errorf("invalid operation %q: must be list, create, update, reorder, complete, or delete", in.Operation)
+	}
 }
 
 // --- Artifact handlers ---

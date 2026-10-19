@@ -710,17 +710,27 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 		CreatedAt  time.Time   `json:"created_at"`
 		CreatedBy  string      `json:"created_by"`
 		OnBehalfOf string      `json:"on_behalf_of,omitempty"`
+		Release    string      `json:"release,omitempty"`  // display name of the release the event sets or is about
+		MovedTo    string      `json:"moved_to,omitempty"` // release events: where the issues moved
 	}
 
+	notes := exponential.ReleaseNoter(allEvents)
 	out := make([]activityItem, 0, maxItems)
 	for i := len(allEvents) - 1; i >= 0 && len(out) < maxItems; i-- {
 		evt := allEvents[i]
-		if !isMeaningfulActivityEvent(evt) {
+		if !exponential.IsFeedEvent(evt) {
 			continue
 		}
+		n := notes(evt)
+		title := titles[evt.ID]
+		if model.IsReleaseEvent(evt.Type) {
+			title = n.Release
+		}
 		out = append(out, activityItem{
+			Release:    n.Release,
+			MovedTo:    n.MovedTo,
 			IssueID:    evt.ID,
-			IssueTitle: titles[evt.ID],
+			IssueTitle: title,
 			Type:       string(evt.Type),
 			Payload:    evt.Payload,
 			CreatedAt:  evt.CreatedAt,

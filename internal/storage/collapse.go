@@ -42,6 +42,12 @@ func AppendEventCollapsed(event model.Event) error {
 }
 
 func appendEventCollapsed(event model.Event) error {
+	return appendEventsCollapsed([]model.Event{event})
+}
+
+// appendEventsCollapsed folds each event into the uncommitted tail in turn
+// and rewrites the file once.
+func appendEventsCollapsed(batch []model.Event) error {
 	path := filepath.Join(XpoDir(), "issues.db")
 
 	committedBytes, err := readCommittedBytes(path)
@@ -58,13 +64,16 @@ func appendEventCollapsed(event model.Event) error {
 
 	uncommitted := events[committedCount:]
 
-	switch event.Type {
-	case model.EventTypeUpdate:
-		uncommitted = collapseUpdate(uncommitted, event)
-	case model.EventTypeComment:
-		uncommitted = collapseComment(uncommitted, event)
-	default:
-		uncommitted = append(uncommitted, event)
+	for _, event := range batch {
+		switch event.Type {
+		case model.EventTypeUpdate:
+			uncommitted = collapseUpdate(uncommitted, event)
+		case model.EventTypeComment:
+			uncommitted = collapseComment(uncommitted, event)
+		default:
+			// Release events are never folded or pruned.
+			uncommitted = append(uncommitted, event)
+		}
 	}
 
 	committedState := projectCommittedState(events[:committedCount])
@@ -122,8 +131,10 @@ func collapseComment(uncommitted []model.Event, incoming model.Event) []model.Ev
 	return append(uncommitted, incoming)
 }
 
+// sameActor also compares causes: an edit and a move caused by a release
+// operation stay separate events, so the feeds can tell them apart.
 func sameActor(a, b model.Event) bool {
-	return a.CreatedBy == b.CreatedBy && a.OnBehalfOf == b.OnBehalfOf && a.Source == b.Source
+	return a.CreatedBy == b.CreatedBy && a.OnBehalfOf == b.OnBehalfOf && a.Source == b.Source && a.Cause == b.Cause
 }
 
 func mergeUpdatePayloads(existing *model.Event, incoming model.Event) {
@@ -160,6 +171,12 @@ func mergeUpdatePayloads(existing *model.Event, incoming model.Event) {
 	}
 	if newP.CycleID != nil {
 		oldP.CycleID = newP.CycleID
+	}
+	if newP.ReleaseID != nil {
+		oldP.ReleaseID = newP.ReleaseID
+	}
+	if newP.Children != nil {
+		oldP.Children = newP.Children
 	}
 	if newP.Labels != nil {
 		oldP.Labels = newP.Labels
@@ -218,6 +235,7 @@ func applyStateEvent(issues map[string]*model.Issue, evt model.Event) {
 			SortOrder:    p.SortOrder,
 			Assignee:     p.Assignee,
 			CycleID:      p.CycleID,
+			ReleaseID:    p.ReleaseID,
 			Labels:       p.Labels,
 			Dependencies: p.Dependencies,
 		}
@@ -255,6 +273,9 @@ func applyStateEvent(issues map[string]*model.Issue, evt model.Event) {
 		}
 		if p.CycleID != nil {
 			issue.CycleID = *p.CycleID
+		}
+		if p.ReleaseID != nil {
+			issue.ReleaseID = *p.ReleaseID
 		}
 		if p.Labels != nil {
 			issue.Labels = p.Labels
@@ -314,6 +335,9 @@ func pruneNoopUpdates(uncommitted []model.Event, state map[string]*model.Issue) 
 		if p.CycleID != nil && *p.CycleID == issue.CycleID {
 			p.CycleID = nil
 		}
+		if p.ReleaseID != nil && *p.ReleaseID == issue.ReleaseID {
+			p.ReleaseID = nil
+		}
 		if p.Labels != nil && strSlicesEqual(p.Labels, issue.Labels) {
 			p.Labels = nil
 		}
@@ -324,7 +348,7 @@ func pruneNoopUpdates(uncommitted []model.Event, state map[string]*model.Issue) 
 		if p.Title == nil && p.Description == nil && p.Status == nil &&
 			p.ParentID == nil && p.Estimate == nil && p.Priority == nil &&
 			p.SortOrder == nil && p.Assignee == nil && p.CycleID == nil &&
-			p.Labels == nil && p.Dependencies == nil {
+			p.ReleaseID == nil && p.Children == nil && p.Labels == nil && p.Dependencies == nil {
 			continue
 		}
 

@@ -21,6 +21,7 @@ type FilterOptions struct {
 	Label    string
 	Assignee string
 	CycleID  string
+	Release  string // release ref: R7, #7, 7, a label, @current, @next or none
 	All      bool
 	Archived bool
 }
@@ -42,6 +43,27 @@ func (t *LocalTransport) ListIssues(opts FilterOptions) ([]*model.Issue, error) 
 
 	issuesMap := ProjectIssuesWithConfig(events, t.Config)
 	issues := SortIssues(issuesMap)
+
+	if opts.Release != "" {
+		r, err := ResolveRelease(ProjectReleases(events), opts.Release)
+		if err != nil {
+			return nil, err
+		}
+		if r != nil && r.Placeholder {
+			return []*model.Issue{}, nil // an unsaved release holds no issues
+		}
+		want := ""
+		if r != nil {
+			want = r.ID
+		}
+		kept := issues[:0]
+		for _, i := range issues {
+			if i.ReleaseID == want {
+				kept = append(kept, i)
+			}
+		}
+		issues = kept
+	}
 
 	return FilterIssues(issues, opts, t.GetUser()), nil
 }

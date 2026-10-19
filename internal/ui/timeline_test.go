@@ -341,3 +341,46 @@ func TestDescribeEvent_UpdateClearedLabels(t *testing.T) {
 		t.Errorf("null labels: got %q want %q", got, "updated the title")
 	}
 }
+
+func TestDescribeEvent_UpdateRelease(t *testing.T) {
+	rel, none := "rel-abc123", ""
+	set := model.Event{Type: model.EventTypeUpdate, Payload: model.UpdatePayload{ReleaseID: &rel}}
+	if got := DescribeEventNamed(set, ReleaseNames{Release: "1.5.0"}); got != "moved this issue to release 1.5.0" {
+		t.Errorf("got %q", got)
+	}
+	if got := DescribeEvent(set); got != "moved this issue to a release" {
+		t.Errorf("without a name: got %q", got)
+	}
+	clear := model.Event{Type: model.EventTypeUpdate, Payload: model.UpdatePayload{ReleaseID: &none}}
+	if got := DescribeEvent(clear); got != "removed this issue from its release" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestDescribeEvent_ReleaseBulkEntries(t *testing.T) {
+	complete := model.Event{Type: model.EventTypeReleaseComplete, Payload: model.ReleaseCompletePayload{Moved: 12, MovedTo: "rel-b"}}
+	if got := DescribeEventNamed(complete, ReleaseNames{Release: "1.5", MovedTo: "#3"}); got != "released 1.5 · moved 12 open issues to #3" {
+		t.Errorf("got %q", got)
+	}
+	none := model.Event{Type: model.EventTypeReleaseComplete, Payload: model.ReleaseCompletePayload{}}
+	if got := DescribeEventNamed(none, ReleaseNames{Release: "1.5"}); got != "released 1.5" {
+		t.Errorf("got %q", got)
+	}
+	del := model.Event{Type: model.EventTypeReleaseDelete, Payload: model.ReleaseDeletePayload{Moved: 1}}
+	if got := DescribeEventNamed(del, ReleaseNames{Release: "1.5"}); got != "deleted release 1.5 · removed 1 issue from the release" {
+		t.Errorf("got %q", got)
+	}
+	rel := "rel-b"
+	epic := model.Event{Type: model.EventTypeUpdate, Payload: model.UpdatePayload{ReleaseID: &rel, Children: &model.ChildrenMove{Count: 10, ReleaseID: rel}}}
+	if got := DescribeEventNamed(epic, ReleaseNames{Release: "1.5"}); got != "moved this issue and 10 open children to release 1.5" {
+		t.Errorf("got %q", got)
+	}
+	only := model.Event{Type: model.EventTypeUpdate, Payload: model.UpdatePayload{Children: &model.ChildrenMove{Count: 1, ReleaseID: rel}}}
+	if got := DescribeEventNamed(only, ReleaseNames{Release: "1.5"}); got != "moved 1 open child to release 1.5" {
+		t.Errorf("got %q", got)
+	}
+	caused := model.Event{Type: model.EventTypeUpdate, Payload: model.UpdatePayload{ReleaseID: &rel}, Cause: "rel-a"}
+	if got := DescribeEventNamed(caused, ReleaseNames{Release: "#3", Cause: "when 1.5 was released"}); got != "moved this issue to release #3 when 1.5 was released" {
+		t.Errorf("got %q", got)
+	}
+}

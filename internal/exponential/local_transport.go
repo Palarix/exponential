@@ -21,12 +21,7 @@ type LocalTransport struct {
 }
 
 func (t *LocalTransport) appendEvent(evt model.Event) error {
-	if t.Source != "" {
-		evt.Source = t.Source
-	}
-	if t.OnBehalfOf != "" {
-		evt.OnBehalfOf = t.OnBehalfOf
-	}
+	t.stamp(&evt)
 	if t.Collapse {
 		return storage.AppendEventCollapsed(evt)
 	}

@@ -22,6 +22,27 @@ func FormatActor(createdBy, onBehalfOf string) string {
 // DescribeEvent returns a human-readable description for an event.
 // Returns empty string for unrecognized or empty updates (caller should skip).
 func DescribeEvent(evt model.Event) string {
+	return DescribeEventNamed(evt, ReleaseNames{})
+}
+
+// ReleaseNames carries the display names an event's payload refers to by
+// ID only (see exponential.ReleaseNotes).
+type ReleaseNames struct {
+	Release string // the release an UPDATE sets, or a release event's own release
+	MovedTo string // release events: where the issues moved
+	Cause   string // caused events: e.g. "when 1.5 was released"
+}
+
+// DescribeEventNamed is DescribeEvent with release names filled in.
+func DescribeEventNamed(evt model.Event, names ReleaseNames) string {
+	desc := describeEvent(evt, names)
+	if desc != "" && names.Cause != "" {
+		desc += " " + names.Cause
+	}
+	return desc
+}
+
+func describeEvent(evt model.Event, names ReleaseNames) string {
 	switch evt.Type {
 	case model.EventTypeCreate:
 		return "created this issue"
@@ -34,7 +55,13 @@ func DescribeEvent(evt model.Event) string {
 	case model.EventTypeArtifact:
 		return describeArtifact(evt.Payload)
 	case model.EventTypeUpdate:
-		return describeUpdate(evt.Payload)
+		return describeUpdate(evt.Payload, names.Release)
+	case model.EventTypeReleaseComplete:
+		p := coercePayload[model.ReleaseCompletePayload](evt.Payload)
+		return "released " + names.Release + describeMoved(p.Moved, "open issue", names.MovedTo, p.MovedTo)
+	case model.EventTypeReleaseDelete:
+		p := coercePayload[model.ReleaseDeletePayload](evt.Payload)
+		return "deleted release " + names.Release + describeMoved(p.Moved, "issue", names.MovedTo, p.MovedTo)
 	default:
 		return ""
 	}
@@ -67,7 +94,7 @@ func describeArtifact(payload interface{}) string {
 	return fmt.Sprintf("%s %s", action, filename)
 }
 
-func describeUpdate(payload interface{}) string {
+func describeUpdate(payload interface{}, release string) string {
 	p := coercePayload[model.UpdatePayload](payload)
 	var fragments []string
 
@@ -121,10 +148,58 @@ func describeUpdate(payload interface{}) string {
 		}
 	}
 
+	switch {
+	case p.Children != nil:
+		kids := fmt.Sprintf("%d open %s", p.Children.Count, plural(p.Children.Count, "child", "children"))
+		subject := kids
+		if p.ReleaseID != nil {
+			subject = "this issue and " + kids
+		}
+		if p.Children.ReleaseID == "" {
+			fragments = append(fragments, fmt.Sprintf("removed %s from the release", subject))
+		} else {
+			fragments = append(fragments, fmt.Sprintf("moved %s to %s", subject, releaseRef(release)))
+		}
+	case p.ReleaseID != nil && *p.ReleaseID == "":
+		fragments = append(fragments, "removed this issue from its release")
+	case p.ReleaseID != nil:
+		fragments = append(fragments, fmt.Sprintf("moved this issue to %s", releaseRef(release)))
+	}
+
 	if len(fragments) == 0 {
 		return ""
 	}
 	return strings.Join(fragments, " and ")
+}
+
+func releaseRef(name string) string {
+	if name == "" {
+		return "a release"
+	}
+	return "release " + name
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// describeMoved is the " · moved 12 open issues to #3" tail of a release
+// complete or delete entry; movedToID "" means the issues were removed.
+func describeMoved(n int, noun, movedTo, movedToID string) string {
+	if n == 0 {
+		return ""
+	}
+	what := fmt.Sprintf("%d %s", n, plural(n, noun, noun+"s"))
+	if movedToID == "" {
+		return fmt.Sprintf(" · removed %s from the release", what)
+	}
+	if movedTo == "" {
+		movedTo = "another release"
+	}
+	return fmt.Sprintf(" · moved %s to %s", what, movedTo)
 }
 
 // coercePayload converts an event payload (which may be map[string]interface{}
@@ -229,7 +304,9 @@ func renderIssueEventEntry(w io.Writer, entry model.TimelineEntry, termWidth int
 	dot := timelineDot(entry)
 
 	var idPart string
-	if entry.IssueID != "" {
+	if model.IsReleaseEvent(model.EventType(entry.EventType)) {
+		idPart = "" // the description names the release
+	} else if entry.IssueID != "" {
 		idPart = fmt.Sprintf("%s %s ",
 			AccentStyle.Render(entry.IssueID),
 			MutedStyle.Render("·"))
@@ -249,7 +326,7 @@ func renderIssueEventEntry(w io.Writer, entry model.TimelineEntry, termWidth int
 		Type:    model.EventType(entry.EventType),
 		Payload: entry.Payload,
 	}
-	desc := DescribeEvent(evt)
+	desc := DescribeEventNamed(evt, ReleaseNames{Release: entry.Release, MovedTo: entry.MovedTo, Cause: entry.CauseNote})
 	if desc == "" {
 		return false
 	}

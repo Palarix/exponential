@@ -51,6 +51,8 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("GET /api/inbox/status", s.handleInboxStatus)
 	mux.HandleFunc("GET /api/cycles", s.handleGetCycles)
 	mux.HandleFunc("GET /api/cycles/{id}/progress", s.handleCycleProgress)
+	mux.HandleFunc("GET /api/releases", s.handleGetReleases)
+	mux.HandleFunc("GET /api/releases/{id}/progress", s.handleReleaseProgress)
 	mux.HandleFunc("GET /api/user", s.handleGetUser)
 
 	// Write endpoints
@@ -63,6 +65,11 @@ func (s *Server) SetupRoutes() *http.ServeMux {
 	mux.HandleFunc("POST /api/issues/{id}/merge", s.handleMergeIssue)
 	mux.HandleFunc("POST /api/issues/{id}/start", s.handleStartWork)
 	mux.HandleFunc("POST /api/inbox/read", s.handleInboxRead)
+	mux.HandleFunc("POST /api/releases", s.handleCreateRelease)
+	mux.HandleFunc("POST /api/releases/reorder", s.handleReorderRelease)
+	mux.HandleFunc("PUT /api/releases/{id}", s.handleUpdateRelease)
+	mux.HandleFunc("POST /api/releases/{id}/complete", s.handleCompleteRelease)
+	mux.HandleFunc("DELETE /api/releases/{id}", s.handleDeleteRelease)
 
 	// Issue drafts (unrelated to POST /api/draft above)
 	mux.HandleFunc("GET /api/issue-drafts", s.handleListIssueDrafts)

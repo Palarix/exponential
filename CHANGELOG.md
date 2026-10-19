@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   (xpo-52ec1f)
 
+- Releases (backend, MCP and CLI): group issues that ship together. The web UI follows in later stories.
+  - **Model:** releases are numbered `#1`, `#2`, … (never reused) and may have a label, unique among open releases. A release is OPEN until it is completed (RELEASED, final) or deleted. Current and Next are the first two open releases in order. They always exist, as placeholders that the first write saves, and Next is locked while Current is unsaved.
+  - **Issues:** `release` on `add`, `update` and `list` takes `#7`, a label, `@current`, `@next` or `none`. A new child copies its parent's open release. `with_children` also moves an epic's open children. Only open releases accept issues.
+  - **Complete and delete:** completing moves open issues to Next or removes them, keeps done issues, and stores final stats that survive `xpo archive`. Deleting moves all issues to Next or removes them.
+  - **Stats:** counts and a daily burndown from the day a release became Current. Only issues without children count, and canceled or duplicate issues leave the scope.
+  - **Surfaces:** the `release` MCP tool; `xpo release list|show|create|update|reorder|complete|delete`; `--release` and `--with-children` flags; `/api/releases` endpoints; `release_id` and `release` in issue output.
+  - **Feeds:** completing or deleting a release, or moving an epic with its children, makes one activity and inbox entry. Each issue's own history keeps its move.
+
+  (xpo-f89e55)
+
 ### Changed
 
 - Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)

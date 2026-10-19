@@ -54,8 +54,8 @@ func identityMatches(a, b string) bool {
 
 // BuildInbox filters the full event log down to events relevant to `me` that
 // occurred after `since`, newest-first. Relevance = events on issues where
-// the user is the creator or current assignee — plus all MERGE events
-// (team-wide visibility). The user's own actions are excluded so the inbox
+// the user is the creator or current assignee — plus all MERGE events and
+// release completes and deletes (team-wide visibility). The user's own actions are excluded so the inbox
 // shows what others did. A zero `since` returns all matching events.
 func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string, since time.Time) []InboxItem {
 	participates := make(map[string]bool, len(issues))
@@ -72,6 +72,7 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 		}
 	}
 
+	notes := ReleaseNoter(events)
 	var items []InboxItem
 	for _, evt := range events {
 		if !since.IsZero() && !evt.CreatedAt.After(since) {
@@ -87,12 +88,17 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 		if !isMeaningfulInboxEvent(evt) {
 			continue // skip bookkeeping noise (e.g. sort-order-only updates)
 		}
-		if !participates[evt.ID] && evt.Type != model.EventTypeMerge {
+		teamWide := evt.Type == model.EventTypeMerge || isReleaseBulkEvent(evt.Type)
+		if !participates[evt.ID] && !teamWide {
 			continue
+		}
+		title := titles[evt.ID]
+		if model.IsReleaseEvent(evt.Type) {
+			title = notes(evt).Release
 		}
 		items = append(items, InboxItem{
 			IssueID:    evt.ID,
-			IssueTitle: titles[evt.ID],
+			IssueTitle: title,
 			Type:       evt.Type,
 			Payload:    evt.Payload,
 			CreatedAt:  evt.CreatedAt,
@@ -112,7 +118,12 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 // a sort_order change are bookkeeping noise (e.g. drag-reorder, migrations)
 // and are skipped. Works for both typed and map[string]interface{} payloads.
 func isMeaningfulInboxEvent(evt model.Event) bool {
+	if evt.Cause != "" {
+		return false // a move made by a bulk operation; the operation itself is the entry
+	}
 	switch evt.Type {
+	case model.EventTypeReleaseComplete, model.EventTypeReleaseDelete:
+		return true
 	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge, model.EventTypeArtifact:
 		return true
 	case model.EventTypeUpdate:

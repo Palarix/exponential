@@ -21,6 +21,7 @@ var (
 	listLabelFlag    string
 	listAssigneeFlag string
 	listCycleFlag    string
+	listReleaseFlag  string
 	listAllFlag      bool
 	listArchivedFlag bool
 	listJSONFlag     bool
@@ -51,6 +52,7 @@ var listCmd = &cobra.Command{
 			Label:    listLabelFlag,
 			Assignee: listAssigneeFlag,
 			CycleID:  resolveCycleID(listCycleFlag),
+			Release:  listReleaseFlag,
 			All:      listAllFlag,
 			Archived: listArchivedFlag,
 		}
@@ -95,6 +97,7 @@ func init() {
 	listCmd.Flags().StringVarP(&listLabelFlag, "label", "l", "", "Filter by label")
 	listCmd.Flags().StringVar(&listAssigneeFlag, "assignee", "", "Filter by assignee")
 	listCmd.Flags().StringVar(&listCycleFlag, "cycle", "", "Filter by cycle (current, next, or YYYY-MM-DD)")
+	listCmd.Flags().StringVar(&listReleaseFlag, "release", "", "Filter by release (#7, a label, @current, @next, none)")
 	listCmd.Flags().BoolVarP(&listAllFlag, "all", "a", false, "Show all issues (including old DONE)")
 	listCmd.Flags().BoolVar(&listArchivedFlag, "archived", false, "Include archived issues")
 	listCmd.Flags().BoolVar(&listJSONFlag, "json", false, "Output as JSON")

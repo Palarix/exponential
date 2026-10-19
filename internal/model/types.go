@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -13,7 +14,119 @@ const (
 	EventTypeComment  EventType = "COMMENT"
 	EventTypeMerge    EventType = "MERGE"
 	EventTypeArtifact EventType = "ARTIFACT"
+
+	// Release events share issues.db with issue events. Their IDs carry the
+	// "rel-" prefix, so ProjectIssues never mistakes them for issues.
+	EventTypeReleaseCreate   EventType = "RELEASE_CREATE"
+	EventTypeReleaseUpdate   EventType = "RELEASE_UPDATE"
+	EventTypeReleaseComplete EventType = "RELEASE_COMPLETE"
+	EventTypeReleaseDelete   EventType = "RELEASE_DELETE"
 )
+
+// ReleaseIDPrefix starts the ID of every release event.
+const ReleaseIDPrefix = "rel-"
+
+// IsReleaseEvent reports whether t is one of the release event types.
+func IsReleaseEvent(t EventType) bool {
+	switch t {
+	case EventTypeReleaseCreate, EventTypeReleaseUpdate, EventTypeReleaseComplete, EventTypeReleaseDelete:
+		return true
+	}
+	return false
+}
+
+type ReleaseState string
+
+const (
+	ReleaseOpen     ReleaseState = "OPEN"
+	ReleaseReleased ReleaseState = "RELEASED"
+)
+
+// What complete and delete do with a release's issues.
+const (
+	ReleaseMoveToNext = "move_to_next"
+	ReleaseRemove     = "remove"
+)
+
+type ReleaseCreatePayload struct {
+	Number     int    `json:"number"`
+	Label      string `json:"label,omitempty"`
+	Goal       string `json:"goal,omitempty"`
+	TargetDate string `json:"target_date,omitempty"`
+	SortOrder  string `json:"sort_order,omitempty"`
+}
+
+type ReleaseUpdatePayload struct {
+	Label      *string    `json:"label,omitempty"`
+	Goal       *string    `json:"goal,omitempty"`
+	TargetDate *string    `json:"target_date,omitempty"`
+	SortOrder  *string    `json:"sort_order,omitempty"`
+	StartedAt  *time.Time `json:"started_at,omitempty"`
+}
+
+// ReleaseStats is the final record of a completed release: counts by status
+// and the IDs of its leaf issues. It survives `xpo archive`.
+type ReleaseStats struct {
+	Counts  map[string]int `json:"counts"`
+	LeafIDs []string       `json:"leaf_ids"`
+}
+
+// Moved counts the issues the operation moved (or removed, when MovedTo is
+// ""), so its single feed entry can say so.
+type ReleaseCompletePayload struct {
+	OpenIssues string       `json:"open_issues"`
+	Moved      int          `json:"moved,omitempty"`
+	MovedTo    string       `json:"moved_to,omitempty"`
+	Stats      ReleaseStats `json:"stats"`
+}
+
+type ReleaseDeletePayload struct {
+	Issues  string `json:"issues"`
+	Moved   int    `json:"moved,omitempty"`
+	MovedTo string `json:"moved_to,omitempty"`
+}
+
+// ChildrenMove records, on an epic's update, how many open children an
+// update with_children moved and to which release ("" = removed). It is not
+// an issue field.
+type ChildrenMove struct {
+	Count     int    `json:"count"`
+	ReleaseID string `json:"release_id"`
+}
+
+// Release is the projected state of one release. A placeholder is an unsaved
+// Current or Next slot: it has a number but no ID. The Next placeholder is
+// Locked while Current is a placeholder too: writes to it are refused.
+type Release struct {
+	ID          string
+	Number      int
+	Label       string
+	Goal        string
+	State       ReleaseState
+	SortOrder   string
+	TargetDate  string
+	StartedAt   *time.Time
+	ReleasedAt  *time.Time
+	CreatedAt   time.Time
+	CreatedBy   string
+	Deleted     bool
+	Placeholder bool
+	Locked      bool
+	Stats       *ReleaseStats
+}
+
+// Ref is "#<number>", the ref that always names this release.
+func (r *Release) Ref() string {
+	return fmt.Sprintf("#%d", r.Number)
+}
+
+// Display is the label, or the ref when there is none.
+func (r *Release) Display() string {
+	if r.Label != "" {
+		return r.Label
+	}
+	return r.Ref()
+}
 
 type DeletePayload struct {
 	Reason  string `json:"reason,omitempty"`
@@ -49,6 +162,11 @@ type Event struct {
 	CreatedBy  string      `json:"created_by"`            // Actor: "First Last <email>" or agent identity
 	OnBehalfOf string      `json:"on_behalf_of,omitempty"` // Principal: user the actor is working for
 	Source     string      `json:"source,omitempty"`       // Origin channel: "web", "mcp", "cli"
+	// Cause is the release or epic issue whose bulk operation wrote this
+	// event (a release complete/delete, an update with_children). Feeds
+	// show the operation once and skip its caused events; the issue's own
+	// history keeps them.
+	Cause string `json:"cause,omitempty"`
 }
 
 type CreatePayload struct {
@@ -61,6 +179,7 @@ type CreatePayload struct {
 	SortOrder    string       `json:"sort_order,omitempty"`
 	Assignee     string       `json:"assignee,omitempty"`
 	CycleID      string       `json:"cycle_id,omitempty"`
+	ReleaseID    string       `json:"release_id,omitempty"`
 	Dependencies []Dependency `json:"dependencies,omitempty"`
 	Labels       []string     `json:"labels,omitempty"`
 }
@@ -110,6 +229,8 @@ type UpdatePayload struct {
 	SortOrder    *string      `json:"sort_order,omitempty"`
 	Assignee     *string      `json:"assignee,omitempty"`
 	CycleID      *string      `json:"cycle_id,omitempty"`
+	ReleaseID    *string      `json:"release_id,omitempty"`
+	Children     *ChildrenMove `json:"children_moved,omitempty"`
 	Dependencies []Dependency `json:"dependencies"`
 	Labels       []string     `json:"labels"`
 }
@@ -164,6 +285,8 @@ type Issue struct {
 	AssigneeVia  string // agent identity doing the work for Assignee, or ""
 	CycleID          string
 	EffectiveCycleID string
+	ReleaseID        string
+	ReleaseName      string // display name of ReleaseID, filled in by projection
 	InferredStatus   bool
 	BranchStats      *BranchStats
 	Deleted          bool
@@ -266,6 +389,10 @@ type TimelineEntry struct {
 	CreatedBy  string      `json:"created_by,omitempty"`
 	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
 	Source     string      `json:"source,omitempty"`
+	Release    string      `json:"release,omitempty"`    // display name of the release the event sets or is about
+	MovedTo    string      `json:"moved_to,omitempty"`   // release events: display name of the release the issues moved to
+	Cause      string      `json:"cause,omitempty"`      // see Event.Cause
+	CauseNote  string      `json:"cause_note,omitempty"` // e.g. "when 1.5 was released"
 	SHA        string      `json:"sha,omitempty"`
 	Message    string      `json:"message,omitempty"`
 	Author     string      `json:"author,omitempty"`

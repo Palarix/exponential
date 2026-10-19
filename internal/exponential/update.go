@@ -176,33 +176,108 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 	return eventsToAppend, messages, nil
 }
 
-// applyUpdate reads current state, builds update events via buildUpdate,
-// and appends them to storage.  Does not create a git commit.
-func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload) ([]string, error) {
-	events, err := storage.ReadEvents()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read events: %w", err)
-	}
-	issues := ProjectIssues(events)
+// UpdateOptions changes how an update applies beyond the payload itself.
+type UpdateOptions struct {
+	// WithChildren also moves the issue's open descendants to its new
+	// release. Terminal descendants never move.
+	WithChildren bool
+}
 
-	toAppend, messages, err := t.buildUpdate(id, payload, issues)
+// applyUpdate builds update events via buildUpdate against the current log
+// and appends them in one locked write.  Does not create a git commit.
+func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload, opts UpdateOptions) ([]string, error) {
+	var messages []string
+	err := t.writeBatch(func(current []model.Event) ([]model.Event, error) {
+		issues := ProjectIssues(current)
+		w := t.newReleaseWriter(current)
+
+		// payload.ReleaseID holds a release ref until it is resolved here.
+		var childMoves []*model.Issue
+		var epicID string
+		if payload.ReleaseID != nil {
+			target, err := t.resolveIssue(issues, id)
+			if err != nil {
+				return nil, err
+			}
+			rid, err := w.assign(*payload.ReleaseID, target.ReleaseID)
+			if err != nil {
+				return nil, err
+			}
+			payload.ReleaseID = &rid
+			epicID = target.ID
+			if opts.WithChildren {
+				for _, child := range openDescendants(issues, target.ID) {
+					if child.ReleaseID != rid {
+						childMoves = append(childMoves, child)
+					}
+				}
+			}
+			// The epic's own update records the child moves, so the feeds can
+			// show the whole move as one entry. It survives pruning even when
+			// the epic's release itself is unchanged.
+			if len(childMoves) > 0 {
+				payload.Children = &model.ChildrenMove{Count: len(childMoves), ReleaseID: rid}
+			}
+		}
+
+		toAppend, msgs, err := t.buildUpdate(id, payload, issues)
+		if err != nil {
+			return nil, err
+		}
+		w.emit(toAppend...)
+		w.messages = append(w.messages, msgs...)
+		if len(childMoves) > 0 {
+			w.moveIssues(childMoves, *payload.ReleaseID, epicID)
+			w.messages = append(w.messages, fmt.Sprintf("Moved %d open %s", len(childMoves), pluralChildren(len(childMoves))))
+		}
+		batch := w.finish()
+		messages = w.messages
+		return batch, nil
+	})
 	if err != nil {
 		return nil, err
 	}
+	return messages, nil
+}
 
-	for _, evt := range toAppend {
-		if err := t.appendEvent(evt); err != nil {
-			return nil, fmt.Errorf("failed to append event for %s: %w", evt.ID, err)
+// openDescendants returns the non-terminal issues below id, at any depth.
+func openDescendants(issues map[string]*model.Issue, id string) []*model.Issue {
+	var out []*model.Issue
+	seen := map[string]bool{id: true}
+	queue := []string{id}
+	for len(queue) > 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		for _, iss := range issues {
+			if iss.ParentID != parent || seen[iss.ID] {
+				continue
+			}
+			seen[iss.ID] = true
+			queue = append(queue, iss.ID)
+			if !model.IsTerminal(iss.Status) {
+				out = append(out, iss)
+			}
 		}
 	}
+	return out
+}
 
-	return messages, nil
+func pluralChildren(n int) string {
+	if n == 1 {
+		return "child"
+	}
+	return "children"
 }
 
 // UpdateIssue updates an issue, handles side effects, and optionally
 // creates a git commit when AutoCommit is enabled.
 func (t *LocalTransport) UpdateIssue(id string, payload model.UpdatePayload, action string) ([]string, error) {
-	messages, err := t.applyUpdate(id, payload)
+	return t.UpdateIssueOpts(id, payload, action, UpdateOptions{})
+}
+
+// UpdateIssueOpts is UpdateIssue with options.
+func (t *LocalTransport) UpdateIssueOpts(id string, payload model.UpdatePayload, action string, opts UpdateOptions) ([]string, error) {
+	messages, err := t.applyUpdate(id, payload, opts)
 	if err != nil {
 		return nil, err
 	}

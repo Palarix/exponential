@@ -30,6 +30,87 @@ func IsMeaningfulActivityEvent(evt model.Event) bool {
 	}
 }
 
+// IsFeedEvent reports whether an event gets its own entry in the activity
+// feed and the project timeline. A bulk operation shows once: a release
+// complete or delete is an entry, and the issue moves it caused are not.
+func IsFeedEvent(evt model.Event) bool {
+	if evt.Cause != "" {
+		return false
+	}
+	if isReleaseBulkEvent(evt.Type) {
+		return true
+	}
+	return IsMeaningfulActivityEvent(evt)
+}
+
+func isReleaseBulkEvent(t model.EventType) bool {
+	return t == model.EventTypeReleaseComplete || t == model.EventTypeReleaseDelete
+}
+
+// ReleaseNotes names the releases an event refers to, by their current
+// display names.
+type ReleaseNotes struct {
+	Release   string // the release an UPDATE sets (or moves children to), or a release event's own release
+	MovedTo   string // release events: where the issues moved
+	CauseNote string // caused events: e.g. "when 1.5 was released"
+}
+
+// ReleaseNoter returns a function that gives the ReleaseNotes of an event.
+// The releases are projected on first use.
+func ReleaseNoter(events []model.Event) func(model.Event) ReleaseNotes {
+	var byID map[string]*model.Release
+	find := func(id string) *model.Release {
+		if id == "" {
+			return nil
+		}
+		if byID == nil {
+			byID = make(map[string]*model.Release)
+			for _, r := range ProjectReleases(events) {
+				byID[r.ID] = r
+			}
+		}
+		return byID[id]
+	}
+	name := func(id string) string {
+		if r := find(id); r != nil {
+			return r.Display()
+		}
+		return ""
+	}
+	return func(evt model.Event) ReleaseNotes {
+		var n ReleaseNotes
+		switch evt.Type {
+		case model.EventTypeUpdate:
+			var p model.UpdatePayload
+			decodePayload(evt.Payload, &p)
+			if p.ReleaseID != nil {
+				n.Release = name(*p.ReleaseID)
+			} else if p.Children != nil {
+				n.Release = name(p.Children.ReleaseID)
+			}
+		case model.EventTypeReleaseComplete:
+			var p model.ReleaseCompletePayload
+			decodePayload(evt.Payload, &p)
+			n.Release, n.MovedTo = name(evt.ID), name(p.MovedTo)
+		case model.EventTypeReleaseDelete:
+			var p model.ReleaseDeletePayload
+			decodePayload(evt.Payload, &p)
+			n.Release, n.MovedTo = name(evt.ID), name(p.MovedTo)
+		}
+		switch {
+		case strings.HasPrefix(evt.Cause, model.ReleaseIDPrefix):
+			if r := find(evt.Cause); r != nil && r.Deleted {
+				n.CauseNote = fmt.Sprintf("when %s was deleted", r.Display())
+			} else if r != nil {
+				n.CauseNote = fmt.Sprintf("when %s was released", r.Display())
+			}
+		case evt.Cause != "":
+			n.CauseNote = fmt.Sprintf("with %s", evt.Cause)
+		}
+		return n
+	}
+}
+
 func listRecentCommits(branch string, maxCount int) []DetailedCommit {
 	out, err := exec.Command("git", "log", "--format=%H%n%s%n%an%n%aI",
 		"-n", fmt.Sprintf("%d", maxCount), branch).Output()
@@ -123,16 +204,24 @@ func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit i
 	var entries []model.TimelineEntry
 
 	if kindFilter == "" || kindFilter == "issue_event" {
+		notes := ReleaseNoter(events)
 		for i := len(events) - 1; i >= 0; i-- {
 			evt := events[i]
-			if !IsMeaningfulActivityEvent(evt) {
+			if !IsFeedEvent(evt) {
 				continue
 			}
+			n := notes(evt)
+			title := titles[evt.ID]
+			if model.IsReleaseEvent(evt.Type) {
+				title = n.Release
+			}
 			entries = append(entries, model.TimelineEntry{
+				Release:    n.Release,
+				MovedTo:    n.MovedTo,
 				Kind:       "issue_event",
 				Timestamp:  evt.CreatedAt,
 				IssueID:    evt.ID,
-				IssueTitle: titles[evt.ID],
+				IssueTitle: title,
 				EventType:  string(evt.Type),
 				Payload:    evt.Payload,
 				CreatedBy:  evt.CreatedBy,

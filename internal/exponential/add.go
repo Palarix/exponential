@@ -71,14 +71,18 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 		return nil, err
 	}
 
-	// Auto-assign sort_order if not provided — append at end of target status group
-	if payload.SortOrder == "" {
-		targetStatus := model.IssueStatus(payload.Status)
-		if targetStatus == "" {
-			targetStatus = model.StatusBacklog
-		}
-		if events, err := storage.ReadEvents(); err == nil {
-			issues := ProjectIssues(events)
+	user := t.GetUser()
+	var event model.Event
+
+	err = t.writeBatch(func(current []model.Event) ([]model.Event, error) {
+		issues := ProjectIssues(current)
+
+		// Auto-assign sort_order if not provided — append at end of target status group
+		if payload.SortOrder == "" {
+			targetStatus := model.IssueStatus(payload.Status)
+			if targetStatus == "" {
+				targetStatus = model.StatusBacklog
+			}
 			var keys []string
 			for _, iss := range issues {
 				if iss.Status == targetStatus && iss.SortOrder != "" {
@@ -94,20 +98,35 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 				payload.SortOrder = key
 			}
 		}
-	}
 
-	user := t.GetUser()
+		// payload.ReleaseID holds a release ref until it is resolved here.
+		// With none given, a new child copies its parent's release if that
+		// release is OPEN (copy-on-create; nothing is inherited later).
+		w := t.newReleaseWriter(current)
+		if payload.ReleaseID != "" {
+			rid, err := w.assign(payload.ReleaseID, "")
+			if err != nil {
+				return nil, err
+			}
+			payload.ReleaseID = rid
+		} else if parent, ok := issues[payload.ParentID]; ok && parent.ReleaseID != "" {
+			if r := w.find(parent.ReleaseID); r != nil && !r.Deleted && r.State == model.ReleaseOpen {
+				payload.ReleaseID = r.ID
+			}
+		}
 
-	event := model.Event{
-		ID:        id,
-		Type:      model.EventTypeCreate,
-		Payload:   payload,
-		CreatedAt: time.Now().UTC(),
-		CreatedBy: user,
-	}
-
-	if err := t.appendEvent(event); err != nil {
-		return nil, fmt.Errorf("failed to append event: %w", err)
+		event = model.Event{
+			ID:        id,
+			Type:      model.EventTypeCreate,
+			Payload:   payload,
+			CreatedAt: time.Now().UTC(),
+			CreatedBy: user,
+		}
+		w.emit(event)
+		return w.finish(), nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create issue: %w", err)
 	}
 
 	if t.Config.AutoCommit {
@@ -132,6 +151,7 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 		Priority:     payload.Priority,
 		SortOrder:    payload.SortOrder,
 		Assignee:     payload.Assignee,
+		ReleaseID:    payload.ReleaseID,
 		Dependencies: payload.Dependencies,
 		Labels:       payload.Labels,
 		CreatedAt:    event.CreatedAt,

@@ -232,6 +232,51 @@ func (c *Client) UpdateIssue(id string, payload model.UpdatePayload, action stri
 	return c.Transport.UpdateIssue(id, payload, action)
 }
 
+func (c *Client) UpdateIssueOpts(id string, payload model.UpdatePayload, action string, opts UpdateOptions) ([]string, error) {
+	c.syncLocal()
+	return c.Transport.UpdateIssueOpts(id, payload, action, opts)
+}
+
+func (c *Client) ListReleases() ([]ReleaseView, error) {
+	c.syncLocal()
+	return c.Transport.ListReleases()
+}
+
+func (c *Client) GetRelease(ref string) (*model.Release, error) {
+	c.syncLocal()
+	return c.Transport.GetRelease(ref)
+}
+
+func (c *Client) CreateRelease(in ReleaseInput) (*model.Release, error) {
+	c.syncLocal()
+	return c.Transport.CreateRelease(in)
+}
+
+func (c *Client) UpdateRelease(ref string, in ReleaseInput) (*model.Release, error) {
+	c.syncLocal()
+	return c.Transport.UpdateRelease(ref, in)
+}
+
+func (c *Client) ReorderRelease(ref, before, after string) (*model.Release, error) {
+	c.syncLocal()
+	return c.Transport.ReorderRelease(ref, before, after)
+}
+
+func (c *Client) CompleteRelease(ref, mode string) (*model.Release, []string, error) {
+	c.syncLocal()
+	return c.Transport.CompleteRelease(ref, mode)
+}
+
+func (c *Client) DeleteRelease(ref, mode string) ([]string, error) {
+	c.syncLocal()
+	return c.Transport.DeleteRelease(ref, mode)
+}
+
+func (c *Client) ReleaseProgress(ref string) (ReleaseProgress, error) {
+	c.syncLocal()
+	return c.Transport.ReleaseProgress(ref)
+}
+
 const MaxCommentLen = 100 * 1024
 
 func (c *Client) AddComment(issueID, text string) error {

@@ -54,6 +54,8 @@ func showIssue(id string) {
 			AssigneeVia:      issue.AssigneeVia,
 			CycleID:          issue.CycleID,
 			EffectiveCycleID: issue.EffectiveCycleID,
+			ReleaseID:        issue.ReleaseID,
+			Release:          issue.ReleaseName,
 			BranchStats:      issue.BranchStats,
 			CreatedBy:        issue.CreatedBy,
 			CreatedAt:        issue.CreatedAt.Format(time.RFC3339),

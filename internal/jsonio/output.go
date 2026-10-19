@@ -24,6 +24,8 @@ type IssueSummary struct {
 	AssigneeVia      string             `json:"assignee_via,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
+	ReleaseID        string             `json:"release_id,omitempty"`
+	Release          string             `json:"release,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
 	UpdatedAt        string             `json:"updated_at"`
 }
@@ -59,6 +61,8 @@ type ShowOutput struct {
 	AssigneeVia      string             `json:"assignee_via,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
+	ReleaseID        string             `json:"release_id,omitempty"`
+	Release          string             `json:"release,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
 	CreatedBy        string             `json:"created_by"`
 	CreatedAt        string             `json:"created_at"`
@@ -91,6 +95,10 @@ type TimelineEntry struct {
 	CreatedBy  string      `json:"created_by,omitempty"`
 	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
 	Source     string      `json:"source,omitempty"`
+	Release    string      `json:"release,omitempty"`
+	MovedTo    string      `json:"moved_to,omitempty"`
+	Cause      string      `json:"cause,omitempty"`
+	CauseNote  string      `json:"cause_note,omitempty"`
 	SHA        string      `json:"sha,omitempty"`
 	Message    string      `json:"message,omitempty"`
 	Author     string      `json:"author,omitempty"`
@@ -360,6 +368,8 @@ func ToIssueSummary(i *model.Issue) IssueSummary {
 		AssigneeVia:      i.AssigneeVia,
 		CycleID:          i.CycleID,
 		EffectiveCycleID: i.EffectiveCycleID,
+		ReleaseID:        i.ReleaseID,
+		Release:          i.ReleaseName,
 		BranchStats:      i.BranchStats,
 		UpdatedAt:        i.UpdatedAt.Format(time.RFC3339),
 	}
@@ -430,6 +440,10 @@ func ToTimelineEntries(entries []model.TimelineEntry) []TimelineEntry {
 			CreatedBy:  e.CreatedBy,
 			OnBehalfOf: e.OnBehalfOf,
 			Source:     e.Source,
+			Release:    e.Release,
+			MovedTo:    e.MovedTo,
+			Cause:      e.Cause,
+			CauseNote:  e.CauseNote,
 			SHA:        e.SHA,
 			Message:    e.Message,
 			Author:     e.Author,
@@ -454,7 +468,61 @@ func EventsToTimelineEntries(es []model.Event) []TimelineEntry {
 			CreatedBy:  e.CreatedBy,
 			OnBehalfOf: e.OnBehalfOf,
 			Source:     e.Source,
+			Cause:      e.Cause,
 		}
+	}
+	return out
+}
+
+// ReleaseSummary is one release in tool and CLI output.
+type ReleaseSummary struct {
+	ID          string         `json:"id,omitempty"`
+	Number      int            `json:"number"`
+	Ref         string         `json:"ref"`
+	Name        string         `json:"name"`
+	Label       string         `json:"label,omitempty"`
+	Goal        string         `json:"goal,omitempty"`
+	State       string         `json:"state"`
+	Slot        string         `json:"slot,omitempty"`
+	Placeholder bool           `json:"placeholder,omitempty"`
+	Locked      bool           `json:"locked,omitempty"`
+	TargetDate  string         `json:"target_date,omitempty"`
+	StartedAt   string         `json:"started_at,omitempty"`
+	ReleasedAt  string         `json:"released_at,omitempty"`
+	Counts      map[string]int `json:"counts,omitempty"`
+	Total       int            `json:"total"`
+	Done        int            `json:"done"`
+}
+
+type ReleaseOutput struct {
+	Releases []ReleaseSummary `json:"releases,omitempty"`
+	Release  *ReleaseSummary  `json:"release,omitempty"`
+	Messages []string         `json:"messages,omitempty"`
+}
+
+// ToReleaseSummary converts a release; slot and counts are optional.
+func ToReleaseSummary(r *model.Release, slot string, counts map[string]int, total, done int) ReleaseSummary {
+	out := ReleaseSummary{
+		ID:          r.ID,
+		Number:      r.Number,
+		Ref:         r.Ref(),
+		Name:        r.Display(),
+		Label:       r.Label,
+		Goal:        r.Goal,
+		State:       string(r.State),
+		Slot:        slot,
+		Placeholder: r.Placeholder,
+		Locked:      r.Locked,
+		TargetDate:  r.TargetDate,
+		Counts:      counts,
+		Total:       total,
+		Done:        done,
+	}
+	if r.StartedAt != nil {
+		out.StartedAt = r.StartedAt.Format(time.RFC3339)
+	}
+	if r.ReleasedAt != nil {
+		out.ReleasedAt = r.ReleasedAt.Format(time.RFC3339)
 	}
 	return out
 }

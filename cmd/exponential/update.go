@@ -22,6 +22,8 @@ var (
 	updateLabelFlag    []string
 	updateAssigneeFlag string
 	updateCycleFlag    string
+	updateReleaseFlag  string
+	updateWithChildren bool
 	updateDescFlag     string
 	updateJSONFlag     bool
 	updateBeforeFlag   string
@@ -72,7 +74,7 @@ var updateCmd = &cobra.Command{
 			if pos != nil {
 				payload.SortOrder = &pos.Key
 			}
-			msgs, err := client.UpdateIssue(issue.ID, payload, "update")
+			msgs, err := client.UpdateIssueOpts(issue.ID, payload, "update", exponential.UpdateOptions{WithChildren: input.WithChildren})
 			if err != nil {
 				exitJSONError(err)
 			}
@@ -101,8 +103,8 @@ var updateCmd = &cobra.Command{
 		hasFlags := cmd.Flags().Changed("status") || cmd.Flags().Changed("parent") ||
 			cmd.Flags().Changed("sp") || cmd.Flags().Changed("desc") ||
 			cmd.Flags().Changed("label") || cmd.Flags().Changed("assignee") ||
-			cmd.Flags().Changed("cycle") || cmd.Flags().Changed("before") ||
-			cmd.Flags().Changed("after")
+			cmd.Flags().Changed("cycle") || cmd.Flags().Changed("release") ||
+			cmd.Flags().Changed("before") || cmd.Flags().Changed("after")
 
 		// Auto-detect piped stdin when no flags were passed: treat as --desc.
 		if !hasFlags && isStdinPiped() {
@@ -142,6 +144,9 @@ var updateCmd = &cobra.Command{
 				resolved := resolveCycleID(updateCycleFlag)
 				payload.CycleID = &resolved
 			}
+			if cmd.Flags().Changed("release") {
+				payload.ReleaseID = &updateReleaseFlag
+			}
 
 			issue, err := client.GetIssue(id)
 			if err != nil {
@@ -157,7 +162,7 @@ var updateCmd = &cobra.Command{
 				payload.SortOrder = &pos.Key
 			}
 
-			msgs, err := client.UpdateIssue(issue.ID, payload, "update")
+			msgs, err := client.UpdateIssueOpts(issue.ID, payload, "update", exponential.UpdateOptions{WithChildren: updateWithChildren})
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
@@ -378,6 +383,8 @@ func init() {
 	updateCmd.Flags().StringSliceVar(&updateLabelFlag, "label", nil, "Labels")
 	updateCmd.Flags().StringVar(&updateAssigneeFlag, "assignee", "", "Assignee")
 	updateCmd.Flags().StringVar(&updateCycleFlag, "cycle", "", "Assign to cycle (current, next, none, or YYYY-MM-DD)")
+	updateCmd.Flags().StringVar(&updateReleaseFlag, "release", "", "Move to a release (#7, a label, @current, @next, none)")
+	updateCmd.Flags().BoolVar(&updateWithChildren, "with-children", false, "With --release: also move the issue's open children")
 	updateCmd.Flags().StringVar(&updateBeforeFlag, "before", "", "Move the issue directly above this issue")
 	updateCmd.Flags().StringVar(&updateAfterFlag, "after", "", "Move the issue directly below this issue")
 	updateCmd.Flags().BoolVar(&updateJSONFlag, "json", false, "Read a structured payload as JSON from stdin")
