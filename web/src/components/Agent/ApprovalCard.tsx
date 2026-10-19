@@ -10,6 +10,20 @@ function Spinner() {
   return <span className="inline-block w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin" />;
 }
 
+/** A button's label. While sending, the spinner covers the hidden label, which keeps the button's size. */
+export function ButtonLabel({ text, sending }: { text: string; sending: boolean }) {
+  return (
+    <span className="relative inline-grid place-items-center">
+      <span className={sending ? "invisible" : undefined}>{text}</span>
+      {sending && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <Spinner />
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Buttons share the composer's control size.
 const BUTTON = "flex items-center justify-center gap-1.5 h-7 text-xs font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none";
 const DENY = `${BUTTON} px-2.5 rounded-[var(--radius-md)] text-[var(--color-text-primary)] bg-[var(--color-tint-rest)] hover:bg-[var(--color-tint-hover)] active:bg-[var(--color-tint-active)]`;
@@ -19,7 +33,7 @@ const PRIMARY = `${BUTTON} bg-[var(--color-button-ai)] text-white hover:bg-[var(
  * An agent asks before a tool call runs. The card stays until the decision
  * arrives on the chat's event stream topic. onExpired runs when the server no longer has
  * the request open. The active card takes focus, unless the user is typing:
- * there Enter allows once and Esc denies, as in a form.
+ * there Enter allows and Esc denies, as in a form.
  */
 export default function ApprovalCard({
   chatId,
@@ -110,17 +124,15 @@ export default function ApprovalCard({
     <div className={headlineClass}>{title}</div>
   );
 
-  // Deny, and Allow once with the chat-wide grant behind its chevron.
+  // Deny, and Allow with the chat-wide grant behind its chevron.
   const buttons = (
     <div className="ml-auto flex shrink-0 items-center gap-2">
       <button type="button" disabled={busy} onClick={() => decide("deny")} className={DENY}>
-        {sending === "deny" && <Spinner />}
-        Deny
+        <ButtonLabel text="Deny" sending={sending === "deny"} />
       </button>
       <div className="flex items-center">
         <button type="button" disabled={busy} onClick={() => decide("allow")} className={`${PRIMARY} pl-3.5 pr-3 rounded-l-[var(--radius-md)]`}>
-          {(sending === "allow" || sending === "allow_session") && <Spinner />}
-          Allow once
+          <ButtonLabel text="Allow" sending={sending === "allow" || sending === "allow_session"} />
         </button>
         <button
           ref={chevronRef}

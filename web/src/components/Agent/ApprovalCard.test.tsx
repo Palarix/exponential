@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkup } from "../../render-markup";
-import ApprovalCard from "./ApprovalCard";
+import ApprovalCard, { ButtonLabel } from "./ApprovalCard";
 
 describe("ApprovalCard", () => {
   const mergeStep = { kind: "tool", id: "t1", name: "mcp__xpo__merge", arg: "xpo-1", done: false, approval: { id: "a1", input: '{"id":"xpo-1"}' } } as const;
@@ -34,11 +34,12 @@ describe("ApprovalCard", () => {
     expect(bare).not.toContain("lucide-chevron-right");
   });
 
-  it("offers Deny and a split Allow once button, with the chat-wide grant in its menu", () => {
+  it("offers Deny and a split Allow button, with the chat-wide grant in its menu", () => {
     const deny = merge.indexOf(">Deny<");
-    const once = merge.indexOf(">Allow once");
+    const allow = merge.indexOf(">Allow<");
     expect(deny).toBeGreaterThan(-1);
-    expect(once).toBeGreaterThan(deny);
+    expect(allow).toBeGreaterThan(deny);
+    expect(merge).not.toContain("Allow once");
     expect(merge).toMatch(/aria-label="More ways to allow"[^>]*aria-haspopup="menu"|aria-haspopup="menu"[^>]*aria-label="More ways to allow"/);
     expect(merge).not.toContain(">Allow for this chat<");
   });
@@ -92,5 +93,21 @@ describe("ApprovalCard", () => {
       <ApprovalCard chatId="c1" step={{ kind: "tool", id: "t3", name: "mcp__xpo__update", arg: "xpo-1", done: false, approval: { id: "a3", input: '{"id":"xpo-1","status":"DONE"}' } }} defaultOpen />,
     );
     expect(update).toMatch(/status.*DONE/s);
+  });
+});
+
+describe("ButtonLabel", () => {
+  it("shows the label and no spinner when idle", () => {
+    const idle = renderMarkup(<ButtonLabel text="Allow" sending={false} />);
+    expect(idle).toContain(">Allow<");
+    expect(idle).not.toContain("invisible");
+    expect(idle).not.toContain("animate-spin");
+  });
+
+  // The hidden label keeps the button's size, so sending does not shift the row.
+  it("lays the spinner over the hidden label while sending", () => {
+    const sending = renderMarkup(<ButtonLabel text="Allow" sending />);
+    expect(sending).toMatch(/class="invisible"[^>]*>Allow</);
+    expect(sending).toMatch(/class="[^"]*\babsolute\b[^"]*\binset-0\b[^"]*"[^>]*>.*animate-spin/s);
   });
 });
