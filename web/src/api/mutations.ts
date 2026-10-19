@@ -5,7 +5,8 @@ import {
   deleteIssueOptions, deleteIssueToast, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
   updateLabelOptions, type IssuePatch,
 } from "./mutation-options";
-import { ApiError } from "./client";
+import { ApiError, createRelease, reorderRelease } from "./client";
+import { queryKeys } from "./query-keys";
 import type { Issue } from "./types";
 import { useToast } from "../components/ui/ToastContext";
 
@@ -110,4 +111,26 @@ export function useUpdateLabel() {
 export function useDeleteLabel() {
   const qc = useQueryClient();
   return useMutation(useWithErrorToast(deleteLabelOptions(qc)));
+}
+
+// --- Releases ---
+
+/** Release writes change the board and can save placeholders, so both refetch. */
+function useReleaseMutation<TData, TVars>(mutationFn: (vars: TVars) => Promise<TData>) {
+  const qc = useQueryClient();
+  return useMutation(useWithErrorToast<TData, TVars, unknown>({
+    mutationFn,
+    onSettled: async () => {
+      await qc.invalidateQueries({ queryKey: queryKeys.releases });
+      await qc.invalidateQueries({ queryKey: queryKeys.issues });
+    },
+  }));
+}
+
+export function useCreateRelease() {
+  return useReleaseMutation(createRelease);
+}
+
+export function useReorderRelease() {
+  return useReleaseMutation(reorderRelease);
 }

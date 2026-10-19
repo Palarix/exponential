@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   (xpo-f89e55)
 
+- Releases in the web app: a **Releases** view (sidebar entry, `g v`) to plan releases and sort work into them.
+  - **Layout:** one column, future on top: the upcoming releases, Next, Current, then **No release** (open issues in no release) and the 3 latest past releases ("Show N older" for the rest).
+  - **Release rows:** the label (or `#N`) and goal, a Current or Next badge, the target date (in the warning colour when overdue), and a progress pill. The pill opens the status breakdown, a time bar to the target date, and the burndown. A warning icon marks releases whose target dates contradict their order.
+  - **Planning:** drag releases by their handle to reorder them, which changes Current and Next. Expand a release to see its issues, and drag issues between releases and No release. Past releases expand to show what they delivered, read-only.
+  - **Issue rows:** compact, in the backlog's style: ID, status, a "Parent ›" breadcrumb whose tooltip says where the parent is, the title, and sub-issue progress. Hovering shows the issue card.
+  - **Top bar:** issue search and the issue filter, which narrow every list and open the rows with matches. **New Release** creates a release.
+  - **Detail:** clicking a release opens `#/releases/<number>`, a basic page until the full release page lands.
+  - **API:** `POST /api/draft` now answers a refused release assignment (unknown release, released release, Next locked while Current is unsaved) with 400 and the reason, which the app shows, instead of a generic 500.
+
+  (xpo-9a7a77)
+
 ### Changed
 
 - Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)

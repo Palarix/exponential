@@ -5,6 +5,7 @@ const route = (overrides: Partial<Route>): Route => ({
   view: "dashboard",
   issueId: null,
   cycleId: null,
+  releaseNumber: null,
   depFocusId: null,
   chatId: null,
   chatHistory: null,
@@ -21,7 +22,7 @@ describe("VIEWS registry", () => {
 
   it("lists views in sidebar order", () => {
     expect(VIEWS.map((v) => v.id)).toEqual([
-      "dashboard", "backlog", "board", "cycles", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts",
+      "dashboard", "backlog", "board", "cycles", "releases", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts",
     ]);
   });
 
@@ -36,7 +37,7 @@ describe("VIEWS registry", () => {
   it("maps go keys to views", () => {
     expect(VIEW_BY_GO_KEY).toEqual({
       o: "dashboard", i: "backlog", b: "board", n: "inbox", d: "dependencies",
-      l: "labels", c: "cycles", m: "my-issues", t: "timeline", r: "drafts", a: "agent",
+      l: "labels", c: "cycles", v: "releases", m: "my-issues", t: "timeline", r: "drafts", a: "agent",
     });
   });
 
@@ -73,6 +74,12 @@ describe("parseRoute", () => {
     expect(parseRoute("#/dependencies/xpo-abc123")).toEqual(route({ view: "dependencies", depFocusId: "xpo-abc123" }));
   });
 
+  it("parses release links by number, ignoring anything else", () => {
+    expect(parseRoute("#/releases")).toEqual(route({ view: "releases" }));
+    expect(parseRoute("#/releases/7")).toEqual(route({ view: "releases", releaseNumber: 7 }));
+    expect(parseRoute("#/releases/rel-3fa9c1")).toEqual(route({ view: "releases" }));
+  });
+
   it("parses agent chat links", () => {
     expect(parseRoute("#/agent")).toEqual(route({ view: "agent" }));
     expect(parseRoute("#/agent/3f2a")).toEqual(route({ view: "agent", chatId: "3f2a" }));
@@ -99,6 +106,11 @@ describe("formatRoute", () => {
     expect(formatRoute(route({ view: "board", cycleId: "c1" }))).toBe("#/board");
     expect(formatRoute(route({ view: "dependencies", depFocusId: "xpo-2" }))).toBe("#/dependencies/xpo-2");
     expect(formatRoute(route({ view: "labels", depFocusId: "xpo-2" }))).toBe("#/labels");
+  });
+
+  it("only includes the release number on the releases view", () => {
+    expect(formatRoute(route({ view: "releases", releaseNumber: 7 }))).toBe("#/releases/7");
+    expect(formatRoute(route({ view: "board", releaseNumber: 7 }))).toBe("#/board");
   });
 
   it("only includes the chat on the agent view", () => {

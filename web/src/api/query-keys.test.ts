@@ -14,6 +14,7 @@ describe("queryKeys", () => {
   it("nests parameterised keys under the prefixes SSE invalidates", () => {
     expect(startsWith(queryKeys.cycleProgress("c1"), queryKeys.cycles)).toBe(true);
     expect(startsWith(queryKeys.timeline(200), queryKeys.timelineAll)).toBe(true);
+    expect(startsWith(queryKeys.releaseProgress("#7"), queryKeys.releases)).toBe(true);
   });
 
   it("keys history and artifacts by updated_at", () => {
@@ -54,6 +55,7 @@ describe("invalidateOnServerEvent", () => {
     const qc = new QueryClient();
     const keys: QueryKey[] = [
       queryKeys.issues, queryKeys.inbox, queryKeys.inboxStatus, queryKeys.cycles, queryKeys.cycleProgress("c1"),
+      queryKeys.releases, queryKeys.releaseProgress("#7"),
       queryKeys.metrics, queryKeys.activity, queryKeys.timeline(100),
       queryKeys.user, queryKeys.config, queryKeys.instances,
       queryKeys.issueHistory(makeIssue({ id: "x" })),
@@ -67,7 +69,7 @@ describe("invalidateOnServerEvent", () => {
   it("invalidates everything server events can change", async () => {
     const qc = seeded();
     await invalidateOnServerEvent(qc);
-    for (const k of [queryKeys.issues, queryKeys.inboxStatus, queryKeys.cycleProgress("c1"), queryKeys.metrics, queryKeys.activity, queryKeys.timeline(100)]) {
+    for (const k of [queryKeys.issues, queryKeys.inboxStatus, queryKeys.cycleProgress("c1"), queryKeys.releases, queryKeys.releaseProgress("#7"), queryKeys.metrics, queryKeys.activity, queryKeys.timeline(100)]) {
       expect(invalidated(qc, k), JSON.stringify(k)).toBe(true);
     }
   });

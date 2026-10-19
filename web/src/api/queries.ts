@@ -3,7 +3,7 @@ import { keepPreviousData, QueryClient, useQuery, useQueryClient } from "@tansta
 import {
   fetchActivity, fetchArtifactContent, fetchCommitDetail, fetchCommitDiff, fetchConfig, fetchCycleProgress, fetchCycles,
   fetchInbox, fetchInboxStatus, fetchInstances, fetchIssueCommits, fetchIssueDiff, fetchIssueHistory, fetchIssues,
-  fetchIssueDrafts, fetchLocalMode, fetchLocalWorktree, type LocalMode, fetchMergeability, fetchMergedChanges, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
+  fetchIssueDrafts, fetchLocalMode, fetchReleaseProgress, fetchReleases, fetchLocalWorktree, type LocalMode, fetchMergeability, fetchMergedChanges, fetchMetrics, fetchTimeline, fetchUser, markInboxRead,
 } from "./client";
 import type { Issue, InboxStatus, IssueDraft } from "./types";
 import { cyclesFromResponse, deriveAppConfig } from "./query-utils";
@@ -88,6 +88,18 @@ export function useCycleProgress(cycleId: string) {
   return useQuery({ queryKey: queryKeys.cycleProgress(cycleId), queryFn: () => fetchCycleProgress(cycleId) }).data?.days ?? NO_DAYS;
 }
 const NO_DAYS: never[] = [];
+
+export function useReleases() {
+  return useQuery({ queryKey: queryKeys.releases, queryFn: fetchReleases });
+}
+
+/**
+ * Counts and burndown of the release `ref` names (`#7`, a `rel-` ID or a
+ * label). Placeholders aren't stored, so pass `enabled: false` for them.
+ */
+export function useReleaseProgress(ref: string, enabled = true) {
+  return useQuery({ queryKey: queryKeys.releaseProgress(ref), queryFn: () => fetchReleaseProgress(ref), enabled }).data;
+}
 
 // Time-based metrics (aging, cycle time) change without events, so these keep polling.
 const DASHBOARD_POLL = { refetchInterval: 30_000, refetchOnWindowFocus: true } as const;

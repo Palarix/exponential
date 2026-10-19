@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/palarix/exponential/internal/model"
@@ -86,6 +87,38 @@ func TestHandleDraft_Delete(t *testing.T) {
 	issues, _ := srv.GetProjectedIssues()
 	if _, exists := issues[id]; exists {
 		t.Error("deleted issue should not appear in projected issues")
+	}
+}
+
+// A refused release assignment is the user's to fix, so it answers 400
+// with the server's reason instead of a generic 500.
+func TestHandleDraft_UpdateReleaseRefusalIs400(t *testing.T) {
+	srv := setupTestServer(t)
+	mux := srv.SetupRoutes()
+	id := seedIssue(t, "Assignable")
+
+	for _, tc := range []struct {
+		ref, want string
+	}{
+		{"@next", "save Current first"},
+		{"#99", "not found"},
+	} {
+		ref := tc.ref
+		body, _ := json.Marshal(map[string]interface{}{
+			"issue_id": id,
+			"type":     "UPDATE",
+			"payload":  model.UpdatePayload{ReleaseID: &ref},
+		})
+		req := httptest.NewRequest("POST", "/api/draft", bytes.NewReader(body))
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s: expected 400, got %d: %s", ref, w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), tc.want) {
+			t.Errorf("%s: body %q should contain %q", ref, w.Body.String(), tc.want)
+		}
 	}
 }
 

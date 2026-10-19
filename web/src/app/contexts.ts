@@ -20,6 +20,9 @@ export interface AppNav {
   openDraft(draft: IssueDraft): void;
   cycleId: string | null;
   setCycleId(cycleId: string | null): void;
+  /** The release open in the Releases view, by number. */
+  releaseNumber: number | null;
+  setReleaseNumber(releaseNumber: number | null): void;
   depFocusId: string | null;
   setDepFocusId(issueId: string | null): void;
   /** The chat shown in the Agent view; null is a new chat. */

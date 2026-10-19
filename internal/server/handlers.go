@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -140,6 +141,11 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := client.UpdateIssue(req.IssueID, p, "update"); err != nil {
+			var refusal *exponential.ReleaseRefusal
+			if errors.As(err, &refusal) {
+				respondError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update issue %s", req.IssueID))
 			return
 		}

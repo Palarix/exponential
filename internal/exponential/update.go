@@ -176,6 +176,13 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 	return eventsToAppend, messages, nil
 }
 
+// ReleaseRefusal is an update refused because of its release: an unknown
+// ref, a RELEASED release or a locked Next. The caller can fix it, so the
+// server reports it as a bad request with its message.
+type ReleaseRefusal struct{ error }
+
+func (r *ReleaseRefusal) Unwrap() error { return r.error }
+
 // UpdateOptions changes how an update applies beyond the payload itself.
 type UpdateOptions struct {
 	// WithChildren also moves the issue's open descendants to its new
@@ -201,7 +208,7 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload, opt
 			}
 			rid, err := w.assign(*payload.ReleaseID, target.ReleaseID)
 			if err != nil {
-				return nil, err
+				return nil, &ReleaseRefusal{err}
 			}
 			payload.ReleaseID = &rid
 			epicID = target.ID

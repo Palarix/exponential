@@ -1,8 +1,8 @@
-import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload } from './types';
+import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload, Release, ReleasesResponse, ReleaseDay, ReleaseProgressResponse } from './types';
 
 const API_BASE = '/api';
 
-export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload };
+export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload, Release, ReleasesResponse, ReleaseDay, ReleaseProgressResponse };
 
 export class ApiError extends Error {
   status: number;
@@ -266,6 +266,32 @@ export async function fetchCycles(): Promise<CyclesResponse> {
 
 export async function fetchCycleProgress(cycleId: string): Promise<CycleProgressResponse> {
   return request(`${API_BASE}/cycles/${cycleId}/progress`);
+}
+
+export async function fetchReleases(): Promise<ReleasesResponse> {
+  return request(`${API_BASE}/releases`);
+}
+
+/** `ref` is a `#7` number ref, a `rel-` ID or a label. */
+export async function fetchReleaseProgress(ref: string): Promise<ReleaseProgressResponse> {
+  return request(`${API_BASE}/releases/${encodeURIComponent(ref)}/progress`);
+}
+
+export async function createRelease(fields: { label?: string; goal?: string; target_date?: string }): Promise<Release> {
+  return request(`${API_BASE}/releases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+}
+
+/** Moves release `id` directly before or after another open release. */
+export async function reorderRelease(move: { id: string; before?: string; after?: string }): Promise<Release> {
+  return request(`${API_BASE}/releases/reorder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(move),
+  });
 }
 
 export async function fetchConfig(): Promise<{ auto_commit: boolean; prefix: string; version: string; labels: Record<string, string>; name: string; hide_default_labels: boolean; default_labels: string[]; contributors?: string[]; cycles?: { enabled: boolean; duration: string; start_day: string; anchor_date: string } }> {
