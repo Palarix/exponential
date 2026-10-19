@@ -23,6 +23,7 @@ const turnFixture = `{"type":"system","subtype":"init","session_id":"sess-42","m
 {"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"text"}}}
 {"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"You have 1 open issue."}}}
 {"type":"stream_event","event":{"type":"content_block_stop","index":0}}
+{"type":"assistant","uuid":"asst-1","message":{"role":"assistant","content":[{"type":"text","text":"You have 1 open issue."}]}}
 {"type":"result","subtype":"success","result":"You have 1 open issue.","session_id":"sess-42","duration_ms":800,"total_cost_usd":0.01,"usage":{"input_tokens":3,"output_tokens":7},"modelUsage":{"claude-haiku-5-5":{"contextWindow":200000}}}
 `
 

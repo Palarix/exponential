@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Agent chat: the composer can queue messages, steer a running turn, and edit the last message.
+  - **Queue:** a message sent while a turn runs waits in the chat's queue on the board, shown as chips above the composer in every open client. When the turn ends with a reply, the board sends the queue as one message, even with no browser open. Stop, an error or an interrupted turn keeps the queue. The queue lives in the board's memory; archive, delete and a board restart drop it.
+  - **Steer:** a queued chip's **Steer** button sends the message into the running turn, and the agent changes course without stopping. Claude Code gets it as a mid-turn user message, and Codex through `turn/steer`.
+  - **Edit:** once the chat is idle, the last message has an **Edit** button, and ↑ in an empty composer does the same. Sending the edit replaces that turn in the transcript and in the agent's session (Claude `--resume-session-at`, Codex `thread/revert`). Files the agent changed stay changed. ↑ with queued messages pulls the last one back into the composer instead. Chats from before this release cannot be edited: they lack the rewind points that each turn now records.
+  - **API:** `POST /messages` queues while a turn runs and answers `{ok, queued}`, and takes `edit`. New: `DELETE /api/local/chats/{id}/queue/{qid}` and `POST /api/local/chats/{id}/queue/{qid}/steer`. `GET /api/local/chats/{id}` returns `queue`.
+
+  (xpo-52ec1f)
+
 ## [1.5.0] — 2026-10-18
 
 ### Added

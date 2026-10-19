@@ -44,6 +44,8 @@ func (s *Server) registerChatRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/local/chats/{id}", s.handleDeleteChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/messages", s.handleSendChatMessage)
 	mux.HandleFunc("GET /api/local/chats/{id}/attachments/{attachment}", s.handleGetChatAttachment)
+	mux.HandleFunc("DELETE /api/local/chats/{id}/queue/{queued}", s.handleRemoveQueued)
+	mux.HandleFunc("POST /api/local/chats/{id}/queue/{queued}/steer", s.handleSteerQueued)
 	mux.HandleFunc("POST /api/local/chats/{id}/cancel", s.handleCancelChat)
 	mux.HandleFunc("POST /api/local/chats/{id}/background/stop", s.handleStopBackground)
 	mux.HandleFunc("POST /api/local/chats/{id}/approvals/{approval}", s.handleDecideApproval)
@@ -92,11 +94,16 @@ func (s *Server) handleGetChat(w http.ResponseWriter, r *http.Request) {
 	if background == nil {
 		background = []chat.BackgroundTask{}
 	}
+	queue := s.Chat.Runner.Queued(id)
+	if queue == nil {
+		queue = []chat.QueuedMessage{}
+	}
 	respondJSON(w, http.StatusOK, map[string]any{
 		"meta":       meta,
 		"events":     events,
 		"running":    s.Chat.Runner.Running(id),
 		"background": background,
+		"queue":      queue,
 	})
 }
 
@@ -142,6 +149,7 @@ func (s *Server) handleDeleteChat(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Chat.Runner.CancelAndWait(id)
 	s.Chat.Runner.StopBackground(id)
+	s.Chat.Runner.ClearQueue(id)
 	if err := s.Chat.Store.Delete(id); s.respondChatError(w, err) {
 		return
 	}
@@ -156,6 +164,9 @@ type sendChatRequest struct {
 	Effort   string        `json:"effort"`
 
 	Attachments []sendChatAttachment `json:"attachments"`
+
+	// Edit replaces the chat's last user message and drops its turn.
+	Edit bool `json:"edit"`
 }
 
 // sendChatAttachment is a pasted or dropped file; Data is base64 in JSON.
@@ -163,6 +174,10 @@ type sendChatAttachment struct {
 	Name string `json:"name"`
 	MIME string `json:"mime"`
 	Data []byte `json:"data"`
+}
+
+func (a sendChatAttachment) data() chat.AttachmentData {
+	return chat.AttachmentData{Name: a.Name, MIME: a.MIME, Data: a.Data}
 }
 
 // maxSendBody caps a message request: every attachment at the file limit,
@@ -185,7 +200,7 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	attachments := make([]chat.AttachmentData, len(req.Attachments))
 	for i, a := range req.Attachments {
-		attachments[i] = chat.AttachmentData{Name: a.Name, MIME: a.MIME, Data: a.Data}
+		attachments[i] = a.data()
 	}
 	provider, err := s.Chat.Catalog.Resolve(req.Provider, req.Model, req.Effort)
 	if err != nil {
@@ -193,7 +208,7 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.Chat.Runner.Send(r.PathValue("id"), chat.SendRequest{
+	queued, err := s.Chat.Runner.SendOrQueue(r.PathValue("id"), chat.SendRequest{
 		Text:     req.Text,
 		Context:  req.Context,
 		Provider: provider,
@@ -201,11 +216,31 @@ func (s *Server) handleSendChatMessage(w http.ResponseWriter, r *http.Request) {
 		Effort:   req.Effort,
 
 		Attachments: attachments,
+		Edit:        req.Edit,
 	})
 	if s.respondChatError(w, err) {
 		return
 	}
-	respondJSON(w, http.StatusAccepted, map[string]bool{"ok": true})
+	respondJSON(w, http.StatusAccepted, map[string]bool{"ok": true, "queued": queued})
+}
+
+// handleSteerQueued sends a queued message into the chat's running turn.
+// It gets 409 when no turn takes it; the message then stays queued.
+func (s *Server) handleSteerQueued(w http.ResponseWriter, r *http.Request) {
+	if s.respondChatError(w, s.Chat.Runner.SteerQueued(r.PathValue("id"), r.PathValue("queued"))) {
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// handleRemoveQueued takes a message out of the chat's queue and returns
+// it, so a composer can edit it.
+func (s *Server) handleRemoveQueued(w http.ResponseWriter, r *http.Request) {
+	m, err := s.Chat.Runner.RemoveQueued(r.PathValue("id"), r.PathValue("queued"))
+	if s.respondChatError(w, err) {
+		return
+	}
+	respondJSON(w, http.StatusOK, m)
 }
 
 // handleGetChatAttachment serves a saved attachment. Only the image types
@@ -444,12 +479,12 @@ func (s *Server) respondChatError(w http.ResponseWriter, err error) bool {
 		return false
 	case errors.Is(err, chat.ErrNotFound):
 		respondError(w, http.StatusNotFound, "chat not found")
-	case errors.Is(err, chat.ErrApprovalNotFound):
+	case errors.Is(err, chat.ErrApprovalNotFound), errors.Is(err, chat.ErrQueuedNotFound):
 		respondError(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, chat.ErrEmptyTitle), errors.Is(err, chat.ErrBadDecision), errors.Is(err, chat.ErrAttachment):
 		respondError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, chat.ErrBusy), errors.Is(err, chat.ErrProviderLocked), errors.Is(err, chat.ErrIssueHeld), errors.Is(err, chat.ErrNotInWork), errors.Is(err, chat.ErrWorkingElsewhere),
-		errors.Is(err, chat.ErrArchived), errors.Is(err, chat.ErrArchiveInWork):
+		errors.Is(err, chat.ErrArchived), errors.Is(err, chat.ErrArchiveInWork), errors.Is(err, chat.ErrNotRunning), errors.Is(err, chat.ErrCannotEdit):
 		respondError(w, http.StatusConflict, err.Error())
 	default:
 		respondError(w, http.StatusInternalServerError, err.Error())

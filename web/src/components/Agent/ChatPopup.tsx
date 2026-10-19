@@ -45,7 +45,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
   });
   const { chatId, allChats, context, prefsFor, setPrefsFor, chatCreated, drafts, pendingIssueFor, consumeContext } = agent;
   const { openChatView } = useAppNav();
-  const { thread, running, send, stop, expireApproval, background } = useChatSession(chatId, chatCreated);
+  const { thread, running, send, stop, expireApproval, background, queue, editTarget, editLast } = useChatSession(chatId, chatCreated);
   const issues = useIssueList();
 
   const meta = allChats.find((c) => c.id === chatId);
@@ -54,10 +54,14 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
   // The chip is the context the next message carries; sending uses it up.
   const issueId = pendingIssueFor(chatId);
   const issueTitle = issues.find((i) => i.id === issueId)?.title;
-  const sendText = (text: string, files?: File[]) => {
+  const sendText = (text: string, files?: File[], opts?: { edit?: boolean }) => {
     consumeContext(chatId);
-    return send(text, issueId ? { view: context.view, issue_id: issueId, issue_title: issueTitle } : { view: context.view }, files);
+    return send(text, issueId ? { view: context.view, issue_id: issueId, issue_title: issueTitle } : { view: context.view }, files, opts);
   };
+  const editMessage = editLast && (() => {
+    editLast();
+    setComposerFocus((n) => n + 1);
+  });
   const empty = isEmptyThread(thread);
 
   return (
@@ -123,7 +127,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
           </div>
         </div>
       ) : (
-        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={() => setComposerFocus((n) => n + 1)} cacheExpiresAt={meta?.cache_expires_at} />
+        <ChatThread thread={thread} chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={() => setComposerFocus((n) => n + 1)} cacheExpiresAt={meta?.cache_expires_at} editTarget={editTarget} onEditMessage={editMessage} />
       )}
 
       {meta?.archived_at ? <ArchivedBanner chatId={meta.id} /> : <ChatComposer
@@ -139,6 +143,8 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         onPrefsChange={(next) => setPrefsFor(chatId, next)}
         onSend={sendText}
         onStop={stop}
+        queue={queue}
+        onEditLast={editLast}
         work={work}
         onLeaveWork={onLeaveWork}
         onOpenIssue={onOpenIssue}

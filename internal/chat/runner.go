@@ -16,6 +16,10 @@ import (
 // ErrBusy is returned when a chat already has a turn running.
 var ErrBusy = errors.New("a reply is already running")
 
+// ErrNotRunning is returned by Steer when no turn runs that can take the
+// message.
+var ErrNotRunning = errors.New("no reply is running")
+
 // ErrProviderLocked is returned when a message asks for another provider
 // than the one that holds the chat's session.
 var ErrProviderLocked = errors.New("this chat belongs to another agent; start a new chat to switch")
@@ -78,7 +82,12 @@ type SendRequest struct {
 	// Attachments are files the user pasted or dropped. A message may have
 	// attachments and no text.
 	Attachments []AttachmentData
+
+	// Edit replaces the chat's last user message, and its turn and every
+	// later one, with this message.
+	Edit bool
 }
+
 
 // Runner runs chat turns and hands their events to RunnerConfig.OnEvent. Each
 // chat keeps one agent process across turns (a live session), so background
@@ -90,6 +99,7 @@ type Runner struct {
 	turns     map[string]*turn
 	sessions  map[string]*liveSession
 	approvals map[string]map[string]openCard // open approval cards: chat ID → approval ID → card
+	queues    map[string][]QueuedMessage     // messages sent while a turn ran, by chat ID
 	closing   bool                           // Shutdown began: no turn continues on its own
 	wg        sync.WaitGroup                 // running turns
 	closers   []chan struct{}                // sessions being closed; each closes when done
@@ -117,6 +127,9 @@ type turn struct {
 
 	meta      Meta // the chat when the turn began
 	sessionID string
+	// edit is set for an edited message: the turn starts a new agent that
+	// rewinds the session first.
+	edit *editPlan
 	modes     *modeTools
 	text      strings.Builder
 	// A tool call settles when its result arrives. pending holds the calls
@@ -150,6 +163,7 @@ func NewRunner(cfg RunnerConfig) *Runner {
 		turns:     map[string]*turn{},
 		sessions:  map[string]*liveSession{},
 		approvals: map[string]map[string]openCard{},
+		queues:    map[string][]QueuedMessage{},
 		stopReap:  make(chan struct{}),
 	}
 	r.titleCtx, r.endTitles = context.WithCancel(context.Background())
@@ -157,17 +171,29 @@ func NewRunner(cfg RunnerConfig) *Runner {
 	return r
 }
 
-// Send records the user message and starts a turn in the background.
+// Send records the user message and starts a turn in the background. It
+// returns ErrBusy while a turn runs.
 func (r *Runner) Send(id string, req SendRequest) error {
+	_, err := r.send(id, req, false)
+	return err
+}
+
+// SendOrQueue is Send, but a message sent while a turn runs waits in the
+// chat's queue instead, and queued reports so. An edit is never queued.
+func (r *Runner) SendOrQueue(id string, req SendRequest) (queued bool, err error) {
+	return r.send(id, req, !req.Edit)
+}
+
+func (r *Runner) send(id string, req SendRequest, queue bool) (bool, error) {
 	meta, err := r.cfg.Store.Meta(id)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if meta.ArchivedAt != nil {
-		return ErrArchived
+		return false, ErrArchived
 	}
 	if err := ValidateAttachments(req.Attachments); err != nil {
-		return err
+		return false, err
 	}
 	provider := req.Provider
 	if provider == "" {
@@ -175,24 +201,34 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	}
 	driver, ok := r.cfg.Drivers[provider]
 	if !ok {
-		return fmt.Errorf("unknown provider %q", provider)
+		return false, fmt.Errorf("unknown provider %q", provider)
 	}
 	if meta.SessionID != "" && meta.Agent != "" && meta.Agent != provider {
-		return ErrProviderLocked
+		return false, ErrProviderLocked
 	}
 
 	r.mu.Lock()
 	if _, busy := r.turns[id]; busy {
 		r.mu.Unlock()
-		return ErrBusy
+		if !queue {
+			return false, ErrBusy
+		}
+		return r.enqueue(id, req, provider, driver)
 	}
 	t := r.newTurnLocked(id)
 	r.mu.Unlock()
+	return false, r.begin(id, t, req, provider, driver, nil)
+}
 
+// begin runs the registered turn t for req. saved are attachments already
+// saved for it, as a queued message has; req.Attachments are saved here.
+// On an error, t is finished.
+func (r *Runner) begin(id string, t *turn, req SendRequest, provider string, driver Driver, saved []Attachment) error {
 	// Read the meta again: BindWork may have changed it before the turn was
 	// registered, and no mode change can happen from here on. Archive may
 	// have too: it refuses only once the turn is registered.
-	if meta, err = r.cfg.Store.Meta(id); err != nil {
+	meta, err := r.cfg.Store.Meta(id)
+	if err != nil {
 		r.finish(id, t)
 		return err
 	}
@@ -200,11 +236,31 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		r.finish(id, t)
 		return ErrArchived
 	}
+	if req.Edit {
+		_, events, err := r.cfg.Store.Get(id)
+		if err != nil {
+			r.finish(id, t)
+			return err
+		}
+		if meta.Agent != provider {
+			r.finish(id, t)
+			return ErrCannotEdit
+		}
+		plan, err := editPoint(events, provider)
+		if err != nil {
+			r.finish(id, t)
+			return err
+		}
+		t.edit = &plan
+	}
 	notice := checkWorktree(&meta)
 	if meta.Title == "" {
 		meta.Title = TitleFrom(req.Text)
 		if meta.Title == "" && len(req.Attachments) > 0 {
 			meta.Title = TitleFrom(req.Attachments[0].Name)
+		}
+		if meta.Title == "" && len(saved) > 0 {
+			meta.Title = TitleFrom(saved[0].Name)
 		}
 		meta.AutoTitle = true
 	}
@@ -213,12 +269,13 @@ func (r *Runner) Send(id string, req SendRequest) error {
 		r.finish(id, t)
 		return err
 	}
+	attachments = slices.Concat(saved, attachments)
 	prompt, err := r.promptFiles(id, attachments)
 	if err != nil {
 		r.finish(id, t)
 		return err
 	}
-	if meta.Agent != provider {
+	if meta.Agent != provider || (t.edit != nil && t.edit.Fresh) {
 		meta.SessionID = "" // a session belongs to the agent that made it
 	}
 	meta.Agent = provider
@@ -230,6 +287,10 @@ func (r *Runner) Send(id string, req SendRequest) error {
 	if err := r.cfg.Store.SaveMeta(meta); err != nil {
 		r.finish(id, t)
 		return err
+	}
+	// The rewind goes first: it drops the events before it, from FromSeq on.
+	if t.edit != nil {
+		r.settle(id, Event{Type: EventRewound, FromSeq: t.edit.FromSeq})
 	}
 	if notice != nil {
 		r.mu.Lock()
@@ -297,12 +358,23 @@ func (r *Runner) model(m Meta) string {
 // start sends turn t's prompt to the chat's live session, and opens one
 // first when there is none.
 func (r *Runner) start(id string, driver Driver, profile Profile, prompt Prompt, t *turn) {
+	rewind := ""
+	if t.edit != nil {
+		// The agents rewind a session when they open it: close the live one.
+		r.mu.Lock()
+		cur := r.sessions[id]
+		r.mu.Unlock()
+		if cur != nil {
+			r.dropSession(id, cur)
+		}
+		rewind = t.edit.Anchor
+	}
 	for attempt := 0; ; attempt++ {
 		if t.ctx.Err() != nil {
 			r.endTurn(id, t, nil, nil)
 			return
 		}
-		ls, err := r.session(id, t.meta, driver, profile)
+		ls, err := r.session(id, t.meta, driver, profile, rewind)
 		if err != nil {
 			r.endTurn(id, t, nil, err)
 			return
@@ -554,9 +626,13 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 	var cacheEnd time.Time     // when that turn finished
 	var failure string         // the error message of a failed turn
 	var done *Event            // the turn_done event of a finished turn
+	var anchor string
+	if res != nil {
+		anchor = res.Anchor
+	}
 	switch {
 	case t.ctx.Err() != nil:
-		r.settle(id, Event{Type: EventTurnStopped})
+		r.settle(id, Event{Type: EventTurnStopped, Anchor: anchor})
 	case res == nil:
 		msg := "the agent exited without a reply"
 		if err != nil {
@@ -566,7 +642,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 		r.settle(id, Event{Type: EventError, Message: msg})
 	case res.IsError:
 		failure = res.Output
-		r.settle(id, Event{Type: EventError, Message: res.Output})
+		r.settle(id, Event{Type: EventError, Message: res.Output, Anchor: anchor})
 	default:
 		resolved = res
 		cacheTTL = turnCacheTTL(res.CacheTTL, t.meta.CacheTTL)
@@ -581,6 +657,7 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 			TokensIn:   res.TokensIn,
 			TokensOut:  res.TokensOut,
 			CacheTTL:   int(cacheTTL / time.Second),
+			Anchor:     anchor,
 		}
 	}
 	if done != nil {
@@ -597,6 +674,8 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 	m, merr := r.cfg.Store.Meta(id)
 	var notice *Event
 	var next *turn
+	var queued *turn             // the turn that sends the drained queue
+	var drained []QueuedMessage
 	var old *liveSession
 	var titled *Meta // the chat to name, after its first finished turn
 	if merr == nil {
@@ -625,6 +704,13 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 			next = r.handOverLocked(id)
 			m.State = StateRunning
 		}
+		// The queue goes out once the turn it waited for is done.
+		if next == nil && resolved != nil && t.ctx.Err() == nil && !r.closing && len(r.queues[id]) > 0 {
+			drained = r.queues[id]
+			delete(r.queues, id)
+			queued = r.handOverLocked(id)
+			m.State = StateRunning
+		}
 		if resolved != nil && m.AutoTitle && r.cfg.Titlers[m.Agent] != nil && !r.closing {
 			m.AutoTitle = false // one attempt per chat
 			titled = &m
@@ -648,6 +734,9 @@ func (r *Runner) endTurn(id string, t *turn, res *TurnResult, err error) {
 		next.sessionID = m.SessionID
 		next.modes = &modeTools{profile: p}
 		go r.start(id, r.cfg.Drivers[m.Agent], p, Prompt{Text: buildPrompt(continuePrompt(m.Work.IssueID), nil, p, nil)}, next)
+	}
+	if queued != nil {
+		r.sendQueued(id, queued, m.Agent, drained)
 	}
 }
 

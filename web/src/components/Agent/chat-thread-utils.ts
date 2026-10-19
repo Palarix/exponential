@@ -1,5 +1,5 @@
 import type { ShortcutBinding } from "../../keyboard";
-import type { ApprovalOutcome, BackgroundTask, ChatAttachment, ChatContext, ChatEvent, ChatMode, ToolCallStatus } from "../../api/chat";
+import type { ApprovalOutcome, BackgroundTask, ChatAttachment, ChatContext, ChatEvent, ChatMode, QueuedMessage, ToolCallStatus } from "../../api/chat";
 
 /** An approval or question card on a tool step. No decision means it waits for the user. */
 export interface StepApproval {
@@ -21,7 +21,14 @@ export interface ToolStep {
   approval?: StepApproval;
 }
 
-export type ChatStep = { kind: "text"; text: string; live: boolean } | ToolStep;
+/** A message the user sent into the running turn. */
+export interface SteerStep {
+  kind: "steer";
+  text: string;
+  attachments?: ChatAttachment[];
+}
+
+export type ChatStep = { kind: "text"; text: string; live: boolean } | ToolStep | SteerStep;
 
 export interface ChatTurn {
   user: { text: string; context?: ChatContext; time: string; attachments?: ChatAttachment[] };
@@ -29,6 +36,10 @@ export interface ChatTurn {
   continued?: boolean;
   /** The agent started this turn on its own; user.text says what woke it. */
   byAgent?: boolean;
+  /** The seq of the event that started the turn; a rewind drops turns by it. */
+  seq?: number;
+  /** Where the agent's session stood when the turn ended; an edit rewinds to it. */
+  anchor?: string;
   steps: ChatStep[];
   status: "running" | "done" | "stopped" | "error" | "interrupted";
   thinking: boolean;
@@ -53,6 +64,8 @@ export interface ChatThread {
   lastSeq: number;
   /** Work the agent keeps running between turns. */
   background: BackgroundTask[];
+  /** Messages sent while a turn ran, waiting on the board. */
+  queue: QueuedMessage[];
 }
 
 export type ChatThreadAction =
@@ -62,6 +75,8 @@ export type ChatThreadAction =
   | { type: "approval_expired"; id: string }
   /** The background tasks when the chat loaded. */
   | { type: "background"; tasks: BackgroundTask[] }
+  /** The queue when the chat loaded. */
+  | { type: "queue"; queue: QueuedMessage[] }
   | { type: "reset" };
 
 // Events that change a chat's title, state or mode in the chat list.
@@ -72,7 +87,7 @@ export function changesChatMeta(type: ChatEvent["type"]): boolean {
   return META_EVENTS.has(type);
 }
 
-export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0, background: [] };
+export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0, background: [], queue: [] };
 
 /**
  * The background banner's title: how many agents work, or how many shells
@@ -106,6 +121,7 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
     return updateLast(state, (t) => updateApproval(t, action.id, "expired"));
   }
   if (action.type === "background") return { ...state, background: action.tasks };
+  if (action.type === "queue") return { ...state, queue: action.queue };
 
   const e = action.event;
   if (e.seq !== undefined && e.seq > 0) {
@@ -114,16 +130,22 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
   }
 
   if (e.type === "background_tasks") return { ...state, background: e.tasks ?? [] };
+  if (e.type === "queue") return { ...state, queue: e.queue ?? [] };
   if (e.type === "user_message" || e.type === "turn_continued" || e.type === "agent_turn") {
     const turn: ChatTurn = {
       user: { text: e.text ?? "", context: e.context, time: e.time, ...(e.attachments?.length ? { attachments: e.attachments } : {}) },
       steps: [],
       status: "running",
       thinking: false,
+      ...(e.seq !== undefined && { seq: e.seq }),
     };
     if (e.type === "turn_continued") turn.continued = true;
     if (e.type === "agent_turn") turn.byAgent = true;
     return { ...state, turns: [...state.turns, turn] };
+  }
+  if (e.type === "rewound") {
+    const turns = state.turns.filter((t) => t.seq === undefined || t.seq < (e.from_seq ?? 0));
+    return { ...state, turns, dividers: state.dividers.filter((d) => d.at <= turns.length) };
   }
   if (e.type === "mode_changed") {
     const divider: ModeDivider = { at: state.turns.length, mode: e.mode ?? "chat", issueId: e.issue_id, message: e.message };
@@ -139,6 +161,11 @@ function applyToTurn(t: ChatTurn, e: ChatEvent): ChatTurn {
   switch (e.type) {
     case "thinking":
       return { ...t, thinking: true };
+    case "steer": {
+      const step: SteerStep = { kind: "steer", text: e.text ?? "", ...(e.attachments?.length ? { attachments: e.attachments } : {}) };
+      const rest = steps.map((s) => (s.kind === "text" && s.live ? { ...s, live: false } : s));
+      return { ...t, steps: [...rest, step] };
+    }
     case "text_delta":
       if (last?.kind === "text" && last.live) {
         return { ...t, thinking: false, steps: [...steps.slice(0, -1), { ...last, text: last.text + (e.text ?? "") }] };
@@ -191,6 +218,7 @@ function finish(t: ChatTurn, e: ChatEvent, status: ChatTurn["status"]): ChatTurn
     thinking: false,
     durationMs: e.duration_ms,
     endedAt: e.time,
+    ...(e.anchor && { anchor: e.anchor }),
     steps: expireApprovals(t.steps).map((s) => (s.kind === "tool" && !s.done ? { ...s, done: true } : s.kind === "text" && s.live ? { ...s, live: false } : s)),
   };
 }
@@ -241,14 +269,16 @@ export function isRunning(state: ChatThread): boolean {
  * A run of text steps, shown as a message; a run of tool calls, shown as one
  * line; or an answered question, shown with its answers.
  */
-export type TurnSegment = { kind: "text"; text: string; live: boolean } | { kind: "tools"; steps: ToolStep[] } | { kind: "question"; step: ToolStep };
+export type TurnSegment = { kind: "text"; text: string; live: boolean } | { kind: "tools"; steps: ToolStep[] } | { kind: "question"; step: ToolStep } | SteerStep;
 
 /** Splits a turn into messages and the groups of tool calls between them, in order. */
 export function turnSegments(t: ChatTurn): TurnSegment[] {
   const segs: TurnSegment[] = [];
   for (const step of t.steps) {
     const last = segs[segs.length - 1];
-    if (step.kind === "tool" && step.approval?.decision === "answer") {
+    if (step.kind === "steer") {
+      segs.push(step);
+    } else if (step.kind === "tool" && step.approval?.decision === "answer") {
       segs.push({ kind: "question", step });
     } else if (step.kind === "tool") {
       if (last?.kind === "tools") last.steps.push(step);
@@ -461,6 +491,17 @@ export function approvalKeyDecision(e: { key: string; onCard: boolean; composing
  */
 export function composerEscapeBlurs(e: { key: string; enabled: boolean; composing: boolean; handled: boolean }): boolean {
   return e.enabled && e.key === "Escape" && !e.composing && !e.handled;
+}
+
+/**
+ * What ↑ does in an empty composer: pull the last queued message back into
+ * it, or else load the last message to edit. With text in the composer, ↑
+ * moves the caret as usual.
+ */
+export function composerArrowUp(e: { key: string; empty: boolean; composing: boolean; modified: boolean; queued: boolean; canEdit: boolean }): "pull" | "edit" | null {
+  if (e.key !== "ArrowUp" || !e.empty || e.composing || e.modified) return null;
+  if (e.queued) return "pull";
+  return e.canEdit ? "edit" : null;
 }
 
 /** The way back into the composer after Esc: `/`, as for search fields. */
@@ -724,6 +765,21 @@ export function failureReason(step: ToolStep): { label: string; text: string; mo
     text: first < 0 ? "" : lines[first],
     more: first >= 0 && lines.slice(first + 1).some((l) => l !== ""),
   };
+}
+
+/**
+ * The turn whose user message the user can edit: the last one, once the chat
+ * is idle and the agent can rewind its session there. Claude resumes at the
+ * anchor of the turn before (the first message starts a new session); Codex
+ * drops the edited turn by its own anchor. Null when there is none.
+ */
+export function editTarget(state: ChatThread, agent: string): number | null {
+  const turns = state.turns;
+  if (turns.length === 0 || turns[turns.length - 1].status === "running") return null;
+  const i = lastIndexWhere(turns, (t) => !t.continued && !t.byAgent);
+  if (i < 0) return null;
+  if (agent === "codex") return turns[i].anchor ? i : null;
+  return i === 0 || turns[i - 1].anchor ? i : null;
 }
 
 /** The indices of the turns that start with a user message: the turn rail's bars. */

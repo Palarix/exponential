@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, editTarget, composerArrowUp, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -1031,5 +1031,132 @@ describe("visibleTurns", () => {
 
   it("lists none without messages", () => {
     expect(visibleTurns([], 0, 100)).toEqual([]);
+  });
+});
+
+describe("steer and edit", () => {
+  it("shows a steer in the running turn as its own step", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "check x" }),
+      ev({ type: "assistant_text", seq: 2, text: "Checking." }),
+      ev({ type: "steer", seq: 3, text: "also y" }),
+      ev({ type: "assistant_text", seq: 4, text: "And y." }),
+    ]);
+    expect(s.turns).toHaveLength(1);
+    expect(s.turns[0].steps.map((st) => st.kind)).toEqual(["text", "steer", "text"]);
+    expect(turnSegments(s.turns[0]).map((seg) => seg.kind)).toEqual(["text", "steer", "text"]);
+    expect(isRunning(s)).toBe(true);
+  });
+
+  it("keeps each turn's anchor from its end", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "a" }),
+      ev({ type: "turn_done", seq: 2, anchor: "a1" }),
+      ev({ type: "user_message", seq: 3, text: "b" }),
+      ev({ type: "turn_stopped", seq: 4, anchor: "a2" }),
+    ]);
+    expect(s.turns.map((t) => t.anchor)).toEqual(["a1", "a2"]);
+  });
+
+  it("drops the turns a rewind dropped, with their dividers", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "a" }),
+      ev({ type: "turn_done", seq: 2, anchor: "a1" }),
+      ev({ type: "user_message", seq: 3, text: "b" }),
+      ev({ type: "turn_done", seq: 4, anchor: "a2" }),
+      ev({ type: "mode_changed", seq: 5, mode: "work", issue_id: "xpo-1" }),
+      ev({ type: "agent_turn", seq: 6 }),
+      ev({ type: "turn_done", seq: 7, anchor: "a3" }),
+      ev({ type: "rewound", seq: 8, from_seq: 3 }),
+      ev({ type: "user_message", seq: 9, text: "b again" }),
+    ]);
+    expect(s.turns.map((t) => t.user.text)).toEqual(["a", "b again"]);
+    expect(s.dividers).toEqual([]);
+    expect(isRunning(s)).toBe(true);
+  });
+});
+
+describe("editTarget", () => {
+  const done = (seq: number, anchor?: string) => ev({ type: "turn_done", seq, anchor });
+
+  it("is the last user message once the chat is idle", () => {
+    const s = reduce([ev({ type: "user_message", seq: 1, text: "a" }), done(2, "a1"), ev({ type: "user_message", seq: 3, text: "b" }), done(4, "a2")]);
+    expect(editTarget(s, "claude")).toBe(1);
+    expect(editTarget(s, "codex")).toBe(1);
+  });
+
+  it("is none while a turn runs, and in an empty chat", () => {
+    expect(editTarget(emptyThread, "claude")).toBeNull();
+    const s = reduce([ev({ type: "user_message", seq: 1, text: "a" })]);
+    expect(editTarget(s, "claude")).toBeNull();
+  });
+
+  it("lets Claude edit the first message: it starts a fresh session", () => {
+    const s = reduce([ev({ type: "user_message", seq: 1, text: "a" }), ev({ type: "error", seq: 2, message: "x" })]);
+    expect(editTarget(s, "claude")).toBe(0);
+    expect(editTarget(s, "codex")).toBeNull();
+  });
+
+  it("needs Claude's anchor of the turn before, and Codex's of the edited turn", () => {
+    const s = reduce([ev({ type: "user_message", seq: 1, text: "a" }), done(2), ev({ type: "user_message", seq: 3, text: "b" }), done(4, "turn-2")]);
+    expect(editTarget(s, "claude")).toBeNull();
+    expect(editTarget(s, "codex")).toBe(1);
+  });
+
+  it("drops agent turns after the message, and resumes Claude after an agent turn before it", () => {
+    const s = reduce([
+      ev({ type: "user_message", seq: 1, text: "a" }),
+      done(2, "a1"),
+      ev({ type: "agent_turn", seq: 3 }),
+      done(4, "a2"),
+      ev({ type: "user_message", seq: 5, text: "b" }),
+      done(6, "a3"),
+      ev({ type: "agent_turn", seq: 7 }),
+      done(8, "a4"),
+    ]);
+    expect(editTarget(s, "claude")).toBe(2);
+  });
+
+  it("is none for an interrupted turn before the message", () => {
+    let s = reduce([ev({ type: "user_message", seq: 1, text: "a" })]);
+    s = chatThreadReducer(s, { type: "interrupted" });
+    s = reduce([ev({ type: "user_message", seq: 2, text: "b" }), done(3, "a2")], s);
+    expect(editTarget(s, "claude")).toBeNull();
+  });
+});
+
+describe("composerArrowUp", () => {
+  const base = { key: "ArrowUp", empty: true, composing: false, modified: false, queued: false, canEdit: false };
+
+  it("pulls the last queued message first", () => {
+    expect(composerArrowUp({ ...base, queued: true, canEdit: true })).toBe("pull");
+  });
+
+  it("edits the last message when nothing is queued", () => {
+    expect(composerArrowUp({ ...base, canEdit: true })).toBe("edit");
+  });
+
+  it("does nothing with text in the input, a modifier, IME input, another key, or nothing to do", () => {
+    expect(composerArrowUp({ ...base, canEdit: true, empty: false })).toBeNull();
+    expect(composerArrowUp({ ...base, canEdit: true, modified: true })).toBeNull();
+    expect(composerArrowUp({ ...base, canEdit: true, composing: true })).toBeNull();
+    expect(composerArrowUp({ ...base, canEdit: true, key: "ArrowDown" })).toBeNull();
+    expect(composerArrowUp(base)).toBeNull();
+  });
+});
+
+describe("queue", () => {
+  it("takes the board's queue from the live event, and none when it is empty", () => {
+    const item = { id: "q1", text: "two", time: T0 };
+    let s = reduce([ev({ type: "user_message", seq: 1, text: "one" }), ev({ type: "queue", queue: [item] })]);
+    expect(s.queue).toEqual([item]);
+    expect(s.lastSeq).toBe(1);
+    s = reduce([ev({ type: "queue" })], s);
+    expect(s.queue).toEqual([]);
+  });
+
+  it("takes the queue the chat loaded with", () => {
+    const item = { id: "q1", text: "two", time: T0 };
+    expect(chatThreadReducer(emptyThread, { type: "queue", queue: [item] }).queue).toEqual([item]);
   });
 });

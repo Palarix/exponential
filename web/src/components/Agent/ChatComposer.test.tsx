@@ -6,6 +6,7 @@ import { renderMarkup } from "../../render-markup";
 import ChatComposer, { BackgroundTaskList, ComposerAttachments } from "./ChatComposer";
 import type { ChatPrefs } from "./agent-state-utils";
 import { createComposerDrafts } from "./composer-drafts";
+import type { ComposerQueue } from "./useChatSession";
 
 const claude = {
   id: "claude",
@@ -213,5 +214,74 @@ describe("ChatComposer attachments", () => {
     expect(html).toContain("notes.txt");
     expect(html).toContain('aria-label="Remove shot.png"');
     expect(html).toContain('aria-label="Remove notes.txt"');
+  });
+});
+
+describe("ChatComposer queue", () => {
+  const queue = (over: Partial<ComposerQueue> = {}): ComposerQueue => ({
+    items: [{ id: "q1", text: "also check the tests", time: "2026-10-19T10:00:00Z" }],
+    canSteer: true,
+    steer: () => {},
+    remove: () => {},
+    edit: () => {},
+    ...over,
+  });
+
+  it("offers Send next to Stop while a turn runs and the input has text", () => {
+    const drafts = createComposerDrafts();
+    drafts.setText("c1", "next thing");
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { running: true, drafts });
+    expect(html).toContain('aria-label="Stop"');
+    expect(html).toContain('aria-label="Queue message"');
+  });
+
+  it("offers only Stop while a turn runs and the input is empty", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { running: true });
+    expect(html).toContain('aria-label="Stop"');
+    expect(html).not.toContain("Queue message");
+  });
+
+  it("shows each queued message as a chip with Edit, Steer and remove", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { running: true, queue: queue() });
+    expect(html).toMatch(/data-queued-message[^>]*>[\s\S]*also check the tests/);
+    expect(html).toContain('aria-label="Edit queued message"');
+    expect(html).toContain('aria-label="Steer: send it into the running turn"');
+    expect(html).toContain('aria-label="Remove queued message"');
+    expect(html).toContain("lucide-corner-down-right");
+  });
+
+  it("disables Steer when the turn cannot take it", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { running: true, queue: queue({ canSteer: false }) });
+    const steer = html.match(/<button[^>]*aria-label="Steer: send it into the running turn"[^>]*>/)?.[0];
+    expect(steer).toMatch(disabledAttr);
+  });
+
+  it("disables a chip's Edit while the input has text", () => {
+    const drafts = createComposerDrafts();
+    drafts.setText("c1", "typing");
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { running: true, queue: queue(), drafts });
+    const edit = html.match(/<button[^>]*aria-label="Edit queued message"[^>]*>/)?.[0];
+    expect(edit).toMatch(disabledAttr);
+  });
+
+  it("shows no chips without a queue", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { running: true, queue: queue({ items: [] }) });
+    expect(html).not.toContain("data-queued-message");
+  });
+});
+
+describe("ChatComposer edit mode", () => {
+  it("says it edits the last message, with Cancel", () => {
+    const drafts = createComposerDrafts();
+    drafts.startEdit("c1", "the last message", []);
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { drafts });
+    expect(html).toContain("Editing your last message");
+    expect(html).toContain('aria-label="Cancel editing"');
+    expect(html).toContain(">the last message</textarea>");
+  });
+
+  it("shows no edit bar for a normal draft", () => {
+    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true);
+    expect(html).not.toContain("Editing your last message");
   });
 });

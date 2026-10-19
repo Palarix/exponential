@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { ArrowUp, FileText, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, CornerDownRight, FileText, Paperclip, Pencil, Square, X } from "lucide-react";
 import type { AgentStatus, BackgroundTask } from "../../api/chat";
 import type { ChatPrefs } from "./agent-state-utils";
 import Tooltip from "../ui/Tooltip";
 import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
-import { composerEscapeBlurs } from "./chat-thread-utils";
+import { composerArrowUp, composerEscapeBlurs } from "./chat-thread-utils";
 import { formatSize } from "./attachment-utils";
 import { useComposerDraft, type ComposerDrafts, type PendingAttachment } from "./composer-drafts";
+import type { ComposerQueue } from "./useChatSession";
 
 /** The banner for work the agent keeps running between turns. */
 export interface BackgroundBannerInfo {
@@ -37,9 +38,17 @@ interface ChatComposerProps {
   /** The chat has started: its session belongs to the picked provider. */
   providerLocked?: boolean;
   onPrefsChange(prefs: ChatPrefs): void;
-  /** Sends the message with its attachments; resolves false when it failed. */
-  onSend(text: string, files: File[]): Promise<boolean>;
+  /**
+   * Sends the message with its attachments; resolves false when it failed.
+   * While a turn runs, the message waits in the queue. edit replaces the
+   * chat's last message.
+   */
+  onSend(text: string, files: File[], opts?: { edit?: boolean }): Promise<boolean>;
   onStop(): void;
+  /** The messages sent while the turn ran. */
+  queue?: ComposerQueue;
+  /** Loads the last message to edit it; undefined when it cannot be edited. ↑ in an empty input runs it. */
+  onEditLast?(): void;
   /** The full-page variant: a centered column and a taller input. */
   wide?: boolean;
   /** Set in Work Mode. */
@@ -101,6 +110,42 @@ export function ComposerAttachments({ items, onRemove }: { items: PendingAttachm
   );
 }
 
+/** The queued messages, one chip each: Edit puts one back in the input, Steer sends it into the running turn. */
+function QueuedMessages({ queue, inputEmpty }: { queue: ComposerQueue; inputEmpty: boolean }) {
+  const chipButton = "shrink-0 p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--color-text-muted)]";
+  return (
+    <ul aria-label="Queued messages" className="flex flex-col gap-1 mb-1">
+      {queue.items.map((m) => (
+        <li key={m.id} data-queued-message className="flex items-center gap-1 pl-3 pr-1 py-1 rounded-[var(--radius-md)] bg-[var(--color-surface-ai-2)] border border-dashed border-[var(--color-border-ai)] text-xs min-w-0">
+          <span className="min-w-0 flex-1 truncate text-[var(--color-text-secondary)]" title={m.text}>
+            {m.text || m.attachments?.map((a) => a.name ?? "attachment").join(", ")}
+          </span>
+          {!!m.attachments?.length && m.text && (
+            <span className="shrink-0 text-[var(--color-text-muted)]">
+              {m.attachments.length} {m.attachments.length === 1 ? "file" : "files"}
+            </span>
+          )}
+          <Tooltip content={inputEmpty ? "Edit" : "Clear the input first"}>
+            <button type="button" aria-label="Edit queued message" disabled={!inputEmpty} onClick={() => queue.edit(m.id)} className={chipButton}>
+              <Pencil className="w-3 h-3" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Steer: send it into the running turn">
+            <button type="button" aria-label="Steer: send it into the running turn" disabled={!queue.canSteer} onClick={() => queue.steer(m.id)} className={chipButton}>
+              <CornerDownRight className="w-3 h-3" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Remove">
+            <button type="button" aria-label="Remove queued message" onClick={() => queue.remove(m.id)} className={chipButton}>
+              <X className="w-3 h-3" />
+            </button>
+          </Tooltip>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The banner's title. Hover, focus or click opens a card with the tasks. */
 function BackgroundTitle({ background }: { background: BackgroundBannerInfo }) {
   const [open, setOpen] = useState(false);
@@ -144,6 +189,8 @@ export default function ChatComposer({
   onPrefsChange,
   onSend,
   onStop,
+  queue,
+  onEditLast,
   wide,
   work,
   onLeaveWork,
@@ -153,7 +200,7 @@ export default function ChatComposer({
   focusSignal,
   blurOnEscape,
 }: ChatComposerProps) {
-  const { text, attachments, prefilled } = useComposerDraft(drafts, draftKey);
+  const { text, attachments, prefilled, editing } = useComposerDraft(drafts, draftKey);
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -203,14 +250,15 @@ export default function ChatComposer({
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
   }, [text]);
 
-  const canSend = !running && !sending && !disabled && (text.trim() !== "" || attachments.length > 0);
+  const hasContent = text.trim() !== "" || attachments.length > 0;
+  const canSend = !sending && !disabled && hasContent;
   const send = async () => {
     if (!canSend) return;
     setSending(true);
     // The draft to clear is the one sent, even if the chat changes meanwhile.
     const from = draftKey;
     const sent = attachments;
-    const ok = await onSend(text.trim(), sent.map((a) => a.file));
+    const ok = await onSend(text.trim(), sent.map((a) => a.file), editing ? { edit: true } : undefined);
     setSending(false);
     if (ok) {
       drafts.sent(from, new Set(sent.map((a) => a.key)));
@@ -247,6 +295,24 @@ export default function ChatComposer({
             className="ml-auto shrink-0 px-2 py-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)] disabled:opacity-60 disabled:hover:bg-transparent"
           >
             {background.stopping ? "Stopping…" : "Stop"}
+          </button>
+        </div>
+      )}
+      {queue && queue.items.length > 0 && <QueuedMessages queue={queue} inputEmpty={!hasContent} />}
+      {editing && (
+        <div className="flex items-center gap-2 pl-3 pr-1 py-1 mb-1 text-xs min-w-0" role="status">
+          <Pencil className="w-3 h-3 shrink-0 text-[var(--color-text-muted)]" aria-hidden />
+          <span className="min-w-0 truncate text-[var(--color-text-secondary)]">Editing your last message. Sending replaces it and its reply.</span>
+          <button
+            type="button"
+            aria-label="Cancel editing"
+            onClick={() => {
+              drafts.cancelEdit(draftKey);
+              inputRef.current?.focus();
+            }}
+            className="ml-auto shrink-0 px-2 py-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]"
+          >
+            Cancel
           </button>
         </div>
       )}
@@ -288,9 +354,26 @@ export default function ChatComposer({
             addFiles(files);
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            const up = composerArrowUp({
+              key: e.key,
+              empty: !hasContent,
+              composing: e.nativeEvent.isComposing,
+              modified: e.shiftKey || e.altKey || e.metaKey || e.ctrlKey,
+              queued: !!queue?.items.length,
+              canEdit: !!onEditLast && !running,
+            });
+            if (up) {
+              e.preventDefault();
+              if (up === "pull" && queue) queue.edit(queue.items[queue.items.length - 1].id);
+              else onEditLast?.();
+            } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               void send();
+            } else if (editing && e.key === "Escape" && !e.nativeEvent.isComposing) {
+              // Esc ends edit mode first; the popup stays open.
+              e.preventDefault();
+              e.stopPropagation();
+              drafts.cancelEdit(draftKey);
             } else if (composerEscapeBlurs({ key: e.key, enabled: !!blurOnEscape, composing: e.nativeEvent.isComposing, handled: e.defaultPrevented })) {
               inputRef.current?.blur();
             }
@@ -330,6 +413,19 @@ export default function ChatComposer({
               <Paperclip className="w-3.5 h-3.5" />
             </button>
           </Tooltip>
+          {running && hasContent && (
+            <Tooltip content="Queue: send when the reply ends">
+              <button
+                type="button"
+                aria-label="Queue message"
+                onClick={() => void send()}
+                disabled={!canSend}
+                className="w-6 h-6 shrink-0 flex items-center justify-center rounded-full bg-[var(--color-button-ai)] text-white hover:bg-[var(--color-button-ai-hover)] disabled:opacity-40 disabled:hover:bg-[var(--color-button-ai)] transition-colors"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+          )}
           {running ? (
             <button
               type="button"

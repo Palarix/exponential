@@ -192,13 +192,32 @@ func TestChat_SendValidation(t *testing.T) {
 	}
 }
 
-func TestChat_SendWhileRunningIsConflict(t *testing.T) {
+func TestChat_SendWhileRunningQueues(t *testing.T) {
 	s, h := setupChatServer(t, "sleep 5")
 	m := createChat(t, h)
-	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"one"}`)
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"one"}`); !strings.Contains(w.Body.String(), `"queued":false`) {
+		t.Fatalf("first: %d %s", w.Code, w.Body.String())
+	}
 	w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"two"}`)
-	if w.Code != http.StatusConflict {
-		t.Fatalf("got %d %s", w.Code, w.Body.String())
+	if w.Code != http.StatusAccepted || !strings.Contains(w.Body.String(), `"queued":true`) {
+		t.Fatalf("second: %d %s", w.Code, w.Body.String())
+	}
+	var got struct {
+		Queue []chat.QueuedMessage `json:"queue"`
+	}
+	json.Unmarshal(doJSON(t, h, "GET", "/api/local/chats/"+m.ID, "").Body.Bytes(), &got)
+	if len(got.Queue) != 1 || got.Queue[0].Text != "two" {
+		t.Fatalf("queue = %+v", got.Queue)
+	}
+	qid := got.Queue[0].ID
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"x","edit":true}`); w.Code != http.StatusConflict {
+		t.Errorf("edit while running: got %d", w.Code)
+	}
+	if w := doJSON(t, h, "DELETE", "/api/local/chats/"+m.ID+"/queue/"+qid, ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"text":"two"`) {
+		t.Errorf("remove: %d %s", w.Code, w.Body.String())
+	}
+	if w := doJSON(t, h, "DELETE", "/api/local/chats/"+m.ID+"/queue/"+qid, ""); w.Code != http.StatusNotFound {
+		t.Errorf("remove again: got %d", w.Code)
 	}
 
 	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/cancel", ""); w.Code != http.StatusOK {
@@ -207,6 +226,45 @@ func TestChat_SendWhileRunningIsConflict(t *testing.T) {
 	s.Chat.Runner.Wait()
 	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/cancel", ""); w.Code != http.StatusConflict {
 		t.Fatalf("cancel when idle: %d", w.Code)
+	}
+}
+
+func TestChat_SteerQueued(t *testing.T) {
+	s, h := setupChatServer(t, "sleep 5")
+	m := createChat(t, h)
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/queue/nope/steer", ""); w.Code != http.StatusNotFound {
+		t.Errorf("steer an unknown message: got %d", w.Code)
+	}
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"one"}`)
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"two"}`)
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/cancel", "")
+	s.Chat.Runner.Wait()
+	qid := s.Chat.Runner.Queued(m.ID)[0].ID
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/queue/"+qid+"/steer", ""); w.Code != http.StatusConflict {
+		t.Errorf("steer with no turn: got %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestChat_EditLastMessage(t *testing.T) {
+	s, h := setupChatServer(t, "")
+	m := createChat(t, h)
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"x","edit":true}`); w.Code != http.StatusConflict {
+		t.Fatalf("edit with no message: got %d %s", w.Code, w.Body.String())
+	}
+	doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hello"}`)
+	s.Chat.Runner.Wait()
+
+	if w := doJSON(t, h, "POST", "/api/local/chats/"+m.ID+"/messages", `{"text":"hello again","edit":true}`); w.Code != http.StatusAccepted {
+		t.Fatalf("edit: got %d %s", w.Code, w.Body.String())
+	}
+	s.Chat.Runner.Wait()
+	_, events, _ := s.Chat.Store.Get(m.ID)
+	var types []string
+	for _, e := range events {
+		types = append(types, e.Type)
+	}
+	if got := strings.Join(types, ","); got != "user_message,assistant_text,turn_done,rewound,user_message,assistant_text,turn_done" {
+		t.Fatalf("events = %s", got)
 	}
 }
 

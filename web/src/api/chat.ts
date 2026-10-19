@@ -22,10 +22,13 @@ export type ChatEventType =
   | "mode_changed"
   | "turn_continued"
   | "agent_turn"
+  | "steer"
+  | "rewound"
   | "text_delta"
   | "thinking"
   | "tool_start"
   | "background_tasks"
+  | "queue"
   | "title";
 
 /** One entry of a chat's event stream; `seq` is set on settled events only. */
@@ -33,10 +36,10 @@ export interface ChatEvent {
   seq?: number;
   type: ChatEventType;
   time: string;
-  /** user_message, assistant_text, text_delta; title: the generated title. */
+  /** user_message, steer, assistant_text, text_delta; title: the generated title. */
   text?: string;
   context?: ChatContext;
-  /** user_message: the files the user attached. */
+  /** user_message, steer: the files the user attached. */
   attachments?: ChatAttachment[];
   name?: string;
   arg?: string;
@@ -48,6 +51,10 @@ export interface ChatEvent {
   cost_usd?: number;
   tokens_in?: number;
   tokens_out?: number;
+  /** turn_done, turn_stopped, error: where an edit of the next message rewinds the agent to. */
+  anchor?: string;
+  /** rewound: the first event the edit dropped. */
+  from_seq?: number;
   /** error; tool_call: the error or denial text. */
   message?: string;
   /** approval_requested, approval_resolved. */
@@ -64,6 +71,19 @@ export interface ChatEvent {
   issue_id?: string;
   /** background_tasks: the agent's live background tasks; missing means none. */
   tasks?: BackgroundTask[];
+  /** queue: the chat's queued messages; missing means none. */
+  queue?: QueuedMessage[];
+}
+
+/** A message sent while a turn ran. The board sends the queue as one message when the turn is done. */
+export interface QueuedMessage {
+  id: string;
+  text?: string;
+  context?: ChatContext;
+  attachments?: ChatAttachment[];
+  model?: string;
+  effort?: string;
+  time: string;
 }
 
 /** Work the agent keeps running between turns: a subagent, or a shell or monitor it watches. */
@@ -176,6 +196,8 @@ export interface SendChatMessage {
   model: string;
   effort: string;
   attachments?: SendAttachment[];
+  /** Replaces the chat's last user message, and drops its turn and every later one. */
+  edit?: boolean;
 }
 
 export function fetchAgentStatus(): Promise<AgentStatus> {
@@ -186,7 +208,7 @@ export function fetchChats(): Promise<ChatMeta[]> {
   return request(`${BASE}/chats`);
 }
 
-export function fetchChat(id: string): Promise<{ meta: ChatMeta; events: ChatEvent[]; running: boolean; background?: BackgroundTask[] }> {
+export function fetchChat(id: string): Promise<{ meta: ChatMeta; events: ChatEvent[]; running: boolean; background?: BackgroundTask[]; queue?: QueuedMessage[] }> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}`);
 }
 
@@ -194,12 +216,23 @@ export function createChat(): Promise<ChatMeta> {
   return request(`${BASE}/chats`, { method: "POST" });
 }
 
-export function sendChatMessage(id: string, msg: SendChatMessage): Promise<void> {
+/** Sends a message; while a turn runs, the board queues it instead (queued). */
+export function sendChatMessage(id: string, msg: SendChatMessage): Promise<{ ok: boolean; queued: boolean }> {
   return request(`${BASE}/chats/${encodeURIComponent(id)}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(msg),
   });
+}
+
+/** Sends a queued message into the running turn. A 409 means no turn takes it; a 404, that it is no longer queued. */
+export function steerQueued(chatId: string, queuedId: string): Promise<void> {
+  return request(`${BASE}/chats/${encodeURIComponent(chatId)}/queue/${encodeURIComponent(queuedId)}/steer`, { method: "POST" });
+}
+
+/** Takes a message out of the queue and returns it. A 404 means it is no longer queued. */
+export function removeQueued(chatId: string, queuedId: string): Promise<QueuedMessage> {
+  return request(`${BASE}/chats/${encodeURIComponent(chatId)}/queue/${encodeURIComponent(queuedId)}`, { method: "DELETE" });
 }
 
 export function cancelChat(id: string): Promise<void> {

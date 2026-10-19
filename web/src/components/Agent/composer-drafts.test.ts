@@ -124,3 +124,38 @@ describe("composer drafts", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("composer drafts: edit mode", () => {
+  it("puts the edited message in the composer and keeps the old draft aside", () => {
+    const drafts = createComposerDrafts();
+    drafts.setText("a", "half a thought");
+    drafts.startEdit("a", "the last message", [txt()]);
+    const d = drafts.get("a");
+    expect(d.text).toBe("the last message");
+    expect(d.attachments.map((x) => x.file.name)).toEqual(["notes.txt"]);
+    expect(d.editing).toBe(true);
+  });
+
+  it("brings the old draft back on cancel", () => {
+    const drafts = createComposerDrafts();
+    drafts.setText("a", "half a thought");
+    drafts.startEdit("a", "the last message", []);
+    drafts.cancelEdit("a");
+    expect(drafts.get("a")).toEqual({ text: "half a thought", attachments: [] });
+  });
+
+  it("brings the old draft back once the edit is sent", () => {
+    const drafts = createComposerDrafts();
+    drafts.setText("a", "half a thought");
+    drafts.startEdit("a", "the last message", [txt()]);
+    drafts.sent("a", new Set(drafts.get("a").attachments.map((x) => x.key)));
+    expect(drafts.get("a")).toEqual({ text: "half a thought", attachments: [] });
+  });
+
+  it("is an empty draft after cancel when there was none", () => {
+    const drafts = createComposerDrafts();
+    drafts.startEdit("a", "the last message", []);
+    drafts.cancelEdit("a");
+    expect(drafts.get("a")).toBe(EMPTY_DRAFT);
+  });
+});

@@ -60,7 +60,9 @@ const (
 // and every line it reads in dir. It answers initialize and the thread
 // request from init.jsonl and thread.jsonl. It stays alive across turns:
 // each turn/start gets turn.jsonl, with the response ID set to the
-// request's, then runs after (for example a sleep).
+// request's, then runs after (for example a sleep). A turn/steer gets a
+// result, or an error when the file steer-error exists, then steer.jsonl.
+// A thread/revert gets an empty result, or an error when revert-error exists.
 func fakeCodex(t *testing.T, dir, after string) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -83,6 +85,15 @@ func fakeCodex(t *testing.T, dir, after string) string {
 		`    id=$(printf '%s' "$line" | sed 's/.*"id":\([0-9]*\).*/\1/')` + "\n" +
 		`    sed "s/^{\"id\":3,/{\"id\":$id,/" "` + dir + `/turn.jsonl"` + "\n" +
 		`    after ;;` + "\n" +
+		`  *'"turn/steer"'*)` + "\n" +
+		`    id=$(printf '%s' "$line" | sed 's/.*"id":\([0-9]*\).*/\1/')` + "\n" +
+		`    if [ -f "` + dir + `/steer-error" ]; then printf '{"id":%s,"error":{"code":-32600,"message":"no active turn to steer"}}\n' "$id"; continue; fi` + "\n" +
+		`    printf '{"id":%s,"result":{"turnId":"turn-1"}}\n' "$id"` + "\n" +
+		`    cat "` + dir + `/steer.jsonl" 2>/dev/null ;;` + "\n" +
+		`  *'"thread/revert"'*)` + "\n" +
+		`    id=$(printf '%s' "$line" | sed 's/.*"id":\([0-9]*\).*/\1/')` + "\n" +
+		`    if [ -f "` + dir + `/revert-error" ]; then printf '{"id":%s,"error":{"code":-32600,"message":"unknown turn"}}\n' "$id"; continue; fi` + "\n" +
+		`    printf '{"id":%s,"result":{}}\n' "$id" ;;` + "\n" +
 		`  esac` + "\n" +
 		`done` + "\n"
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {

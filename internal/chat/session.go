@@ -27,8 +27,9 @@ type liveSession struct {
 }
 
 // session returns the chat's live session, and opens one when there is
-// none or the running one was started for another mode or worktree.
-func (r *Runner) session(id string, meta Meta, driver Driver, profile Profile) (*liveSession, error) {
+// none or the running one was started for another mode or worktree. A new
+// session rewinds to rewind first; see SessionInput.Rewind.
+func (r *Runner) session(id string, meta Meta, driver Driver, profile Profile, rewind string) (*liveSession, error) {
 	key := launchKey(meta.Agent, profile)
 	r.mu.Lock()
 	cur := r.sessions[id]
@@ -54,6 +55,7 @@ func (r *Runner) session(id string, meta Meta, driver Driver, profile Profile) (
 		Profile:   profile,
 		Approve:   r.approver(id),
 		Grants:    meta.Grants,
+		Rewind:    rewind,
 	}, &sessionHandler{r: r, id: id, ls: ls})
 	if err != nil {
 		return nil, err

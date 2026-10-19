@@ -351,3 +351,37 @@ describe("ChatThread attachments", () => {
     expect(html).not.toContain("data-user-message");
   });
 });
+
+describe("ChatThread steer", () => {
+  it("shows a steered message as a user bubble inside the running turn", () => {
+    const s = thread([
+      { type: "user_message", seq: 1, text: "check x" },
+      { type: "assistant_text", seq: 2, text: "Checking." },
+      { type: "steer", seq: 3, text: "also check y" },
+    ]);
+    const html = render(<ChatThread thread={s} />);
+    expect(html.match(/data-turn=/g)).toHaveLength(1);
+    expect(html).toMatch(/data-steer-message[^>]*>[\s\S]*also check y/);
+    expect(html.indexOf("Checking.")).toBeLessThan(html.indexOf("also check y"));
+  });
+});
+
+describe("ChatThread edit action", () => {
+  const s = thread([
+    { type: "user_message", seq: 1, text: "first" },
+    { type: "turn_done", seq: 2, anchor: "a1" },
+    { type: "user_message", seq: 3, text: "second" },
+    { type: "turn_done", seq: 4, anchor: "a2" },
+  ]);
+
+  it("offers Edit on the editable message only", () => {
+    const html = render(<ChatThread thread={s} editTarget={1} onEditMessage={() => {}} />);
+    expect(html.match(/aria-label="Edit message"/g)).toHaveLength(1);
+    expect(html.indexOf('aria-label="Edit message"')).toBeGreaterThan(html.indexOf("second"));
+  });
+
+  it("offers no Edit without a target", () => {
+    const html = render(<ChatThread thread={s} editTarget={null} onEditMessage={() => {}} />);
+    expect(html).not.toContain("Edit message");
+  });
+});

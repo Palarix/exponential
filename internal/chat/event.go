@@ -31,6 +31,14 @@ const (
 	// The agent started a turn on its own, for example after a background
 	// task ended. Text, when set, says what woke it.
 	EventAgentTurn = "agent_turn"
+
+	// The user sent Text into the running turn, without stopping it.
+	EventSteer = "steer"
+
+	// The user edited their last message: the events from FromSeq on are
+	// dropped from the chat and from the agent's session. The edited message
+	// follows as a new user_message.
+	EventRewound = "rewound"
 )
 
 // Live event types. Subscribers see these while a turn runs; the store does
@@ -43,6 +51,9 @@ const (
 	// The agent's live background tasks changed. Tasks is the new list;
 	// empty means none run.
 	EventBackgroundTasks = "background_tasks"
+
+	// The chat's queue changed. Queue is the new list; empty means none.
+	EventQueue = "queue"
 
 	// The board replaced the chat's placeholder title with a generated one.
 	// Text is the new title.
@@ -63,10 +74,10 @@ type Event struct {
 	Type string    `json:"type"`
 	Time time.Time `json:"time"`
 
-	Text    string   `json:"text,omitempty"`    // user_message, assistant_text, text_delta
+	Text    string   `json:"text,omitempty"`    // user_message, steer, assistant_text, text_delta
 	Context *Context `json:"context,omitempty"` // user_message
 
-	Attachments []Attachment `json:"attachments,omitempty"` // user_message
+	Attachments []Attachment `json:"attachments,omitempty"` // user_message, steer
 
 	Name   string `json:"name,omitempty"`    // tool_call, tool_start, approval_requested
 	Arg    string `json:"arg,omitempty"`     // tool_call, tool_start, approval_requested
@@ -87,9 +98,17 @@ type Event struct {
 	TokensOut  int     `json:"tokens_out,omitempty"`  // turn_done
 	CacheTTL   int     `json:"cache_ttl,omitempty"`   // turn_done: seconds the prompt cache lives after the turn
 
+	// Anchor is where the agent's conversation stood when the turn ended:
+	// Claude's last assistant message UUID, or Codex's turn ID. An edit
+	// rewinds the agent with it. Set on turn_done, turn_stopped and error
+	// when the agent reported one.
+	Anchor  string `json:"anchor,omitempty"`
+	FromSeq int    `json:"from_seq,omitempty"` // rewound: the first dropped event
+
 	Message string `json:"message,omitempty"` // error, mode_changed: the reason; tool_call: the error or denial text
 
 	Tasks []BackgroundTask `json:"tasks,omitempty"` // background_tasks
+	Queue []QueuedMessage  `json:"queue,omitempty"` // queue
 }
 
 // Chat states.

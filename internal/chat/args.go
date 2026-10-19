@@ -37,6 +37,7 @@ func systemPromptFor(provider string) string {
 type turnOptions struct {
 	MCPConfigPath string
 	SessionID     string
+	ResumeAt      string // keep the session up to this assistant message; needs SessionID
 	Model         string
 	Effort        string
 	Grants        []string // rules the user allowed for the whole chat
@@ -74,6 +75,9 @@ func claudeArgs(o turnOptions) []string {
 	)
 	if o.SessionID != "" {
 		args = append(args, "--resume", o.SessionID)
+		if o.ResumeAt != "" {
+			args = append(args, "--resume-session-at", o.ResumeAt)
+		}
 	}
 	if o.Model != "" {
 		args = append(args, "--model", o.Model)
@@ -121,10 +125,17 @@ func buildPrompt(text string, c *Context, p Profile, files []promptFile) string 
 		fmt.Fprintf(&b, "open issue: %s %q\n", c.IssueID, c.IssueTitle)
 	}
 	b.WriteString("</xpo-context>\n\n")
-	b.WriteString(text)
+	b.WriteString(withAttachments(text, files))
+	return b.String()
+}
+
+// withAttachments is the user's text with the attachments listed after it.
+func withAttachments(text string, files []promptFile) string {
 	if len(files) == 0 {
-		return b.String()
+		return text
 	}
+	var b strings.Builder
+	b.WriteString(text)
 	if text != "" {
 		b.WriteString("\n\n")
 	}

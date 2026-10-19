@@ -36,6 +36,7 @@ func (r *Runner) Archive(id string) (Meta, error) {
 		return Meta{}, err
 	}
 	r.StopBackground(id)
+	r.ClearQueue(id)
 	return m, nil
 }
 

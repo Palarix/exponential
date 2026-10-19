@@ -86,7 +86,8 @@ func (d *CodexDriver) Open(in SessionInput, h SessionHandler) (Session, error) {
 		p: p, in: in, h: h, grace: grace,
 		usage: map[string][2]int{}, streamed: map[string]bool{},
 		commands: map[string]BackgroundTask{}, background: map[string]BackgroundTask{},
-		done: make(chan struct{}),
+		steers: map[int]chan error{},
+		done:   make(chan struct{}),
 	}
 	s.exitCtx, s.exitCancel = context.WithCancel(context.Background())
 	s.mu.Lock()
@@ -113,7 +114,9 @@ type codexSession struct {
 	// line; Send holds it while it starts a turn.
 	mu                  sync.Mutex
 	initID, threadReqID int
+	revertReqID         int // thread/revert of an edit, before the thread is ready
 	turnReqID           int
+	steers              map[int]chan error // turn/steer requests waiting for their answer
 	threadID            string
 	ready               bool        // the thread started or resumed
 	failed              bool        // the thread could not start; the session ends
@@ -185,6 +188,35 @@ func codexUserInput(p Prompt) []map[string]any {
 		input = append(input, map[string]any{"type": "localImage", "path": img.Path})
 	}
 	return input
+}
+
+// Steer implements Session with turn/steer. Codex refuses it when the turn
+// it names has ended.
+func (s *codexSession) Steer(prompt Prompt) error {
+	s.mu.Lock()
+	if !s.inTurn || s.turnID == "" {
+		s.mu.Unlock()
+		return ErrNotRunning
+	}
+	ch := make(chan error, 1)
+	id := s.p.call("turn/steer", map[string]any{
+		"threadId":       s.threadID,
+		"expectedTurnId": s.turnID,
+		"input":          codexUserInput(prompt),
+	})
+	s.steers[id] = ch
+	s.mu.Unlock()
+	select {
+	case err := <-ch:
+		return err
+	case <-s.p.exited:
+		return ErrNotRunning
+	case <-time.After(controlTimeout):
+		s.mu.Lock()
+		delete(s.steers, id)
+		s.mu.Unlock()
+		return errors.New("no answer from codex app-server")
+	}
 }
 
 // Interrupt implements Session.
@@ -383,12 +415,17 @@ func (s *codexSession) handle(line []byte) {
 		json.Unmarshal(msg.Result, &res)
 		s.threadID = res.Thread.ID
 		s.model = res.Model
-		s.ready = true
-		s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamSession, Text: s.threadID})
-		if s.queued != nil {
-			s.startTurn(s.queued)
-			s.queued = nil
+		if s.in.Rewind != "" {
+			s.revertReqID = s.p.call("thread/revert", map[string]string{"threadId": s.threadID, "beforeTurnId": s.in.Rewind})
+			return
 		}
+		s.becomeReady()
+	case s.revertReqID:
+		if errText != "" {
+			s.fail("Codex could not drop the edited turn: " + errText)
+			return
+		}
+		s.becomeReady()
 	case s.turnReqID:
 		if errText != "" {
 			if s.inTurn {
@@ -405,6 +442,25 @@ func (s *codexSession) handle(line []byte) {
 		if s.inTurn && s.turnID == "" {
 			s.turnID = res.Turn.ID
 		}
+	default:
+		if ch, ok := s.steers[id]; ok {
+			delete(s.steers, id)
+			if errText != "" {
+				ch <- fmt.Errorf("%w: %s", ErrNotRunning, errText)
+				return
+			}
+			ch <- nil
+		}
+	}
+}
+
+// becomeReady starts the turn that waited for the thread. s.mu is held.
+func (s *codexSession) becomeReady() {
+	s.ready = true
+	s.h.Stream(exponential.StreamEvent{Kind: exponential.StreamSession, Text: s.threadID})
+	if s.queued != nil {
+		s.startTurn(s.queued)
+		s.queued = nil
 	}
 }
 
@@ -501,6 +557,8 @@ func (s *codexSession) notification(method string, raw json.RawMessage) {
 			Model:         s.model,
 			ContextWindow: s.window,
 			CacheTTL:      codexCacheTTL,
+
+			Anchor: p.Turn.ID,
 		}
 		if p.Turn.Status == "failed" {
 			res.IsError = true

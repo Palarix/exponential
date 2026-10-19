@@ -46,6 +46,7 @@ func (d *ClaudeDriver) Open(in SessionInput, h SessionHandler) (Session, error) 
 	cmd := exec.Command(d.binary(), claudeArgs(turnOptions{
 		MCPConfigPath: mcpPath,
 		SessionID:     in.SessionID,
+		ResumeAt:      in.Rewind,
 		Model:         in.Model,
 		Effort:        in.Effort,
 		Grants:        in.Grants,
@@ -97,6 +98,7 @@ type claudeSession struct {
 	model, effort string // what the session runs now
 	inTurn        bool
 	parser        *exponential.ClaudeStreamParser
+	anchor        string // the UUID of the turn's last assistant message
 	endApprovals  context.CancelFunc
 	approveCtx    context.Context
 	approvals     sync.WaitGroup
@@ -149,6 +151,22 @@ func (s *claudeSession) Send(prompt Prompt, model, effort string) error {
 	return nil
 }
 
+// Steer implements Session. Claude Code takes a user message during a turn,
+// and reads it before its next model call.
+func (s *claudeSession) Steer(prompt Prompt) error {
+	msg, err := claudeUserMessage(prompt)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.inTurn {
+		return ErrNotRunning
+	}
+	s.p.stdin.write(msg)
+	return nil
+}
+
 // Interrupt implements Session.
 func (s *claudeSession) Interrupt() {
 	s.ctlMu.Lock()
@@ -192,6 +210,7 @@ func (s *claudeSession) controlRequest(req map[string]any) error {
 func (s *claudeSession) beginTurn() {
 	s.inTurn = true
 	s.parser = &exponential.ClaudeStreamParser{}
+	s.anchor = ""
 	s.approveCtx, s.endApprovals = context.WithCancel(context.Background())
 }
 
@@ -250,6 +269,8 @@ func (s *claudeSession) exitError() error {
 type claudeLine struct {
 	Type     string `json:"type"`
 	Subtype  string `json:"subtype"`
+	UUID     string `json:"uuid"`
+	Parent   string `json:"parent_tool_use_id"` // set on a subagent's own messages
 	Response struct {
 		Subtype   string `json:"subtype"`
 		RequestID string `json:"request_id"`
@@ -305,6 +326,9 @@ func (s *claudeSession) handle(line []byte) {
 	if !s.inTurn {
 		return
 	}
+	if msg.Type == "assistant" && msg.Parent == "" && msg.UUID != "" {
+		s.anchor = msg.UUID
+	}
 	if res := s.parser.Parse(line, s.h.Stream); res != nil {
 		s.endTurn()
 		s.h.TurnEnded(&TurnResult{
@@ -319,6 +343,8 @@ func (s *claudeSession) handle(line []byte) {
 			Model:         res.Model,
 			ContextWindow: res.ContextWindow,
 			CacheTTL:      res.CacheTTL,
+
+			Anchor: s.anchor,
 		}, nil)
 	}
 }

@@ -94,7 +94,7 @@ export default function AgentView() {
   const agent = useAgentChat();
   const { chatId, openChatView, leaveChatView, chatHistory, openChatHistory } = useAppNav();
   const { projectName } = useConfig();
-  const { thread, missing, running, send, stop, expireApproval, background } = useChatSession(chatId, (id) => openChatView(id));
+  const { thread, missing, running, send, stop, expireApproval, background, queue, editTarget, editLast } = useChatSession(chatId, (id) => openChatView(id));
   const meta = agent.allChats.find((c) => c.id === chatId);
   // Bumped when the last approval card is answered, to hand focus back to the composer.
   const [composerFocus, setComposerFocus] = useState(0);
@@ -127,7 +127,11 @@ export default function AgentView() {
   }
 
   const empty = isEmptyThread(thread);
-  const sendText = (text: string, files?: File[]) => send(text, { view: "Agent" }, files);
+  const sendText = (text: string, files?: File[], opts?: { edit?: boolean }) => send(text, { view: "Agent" }, files, opts);
+  const editMessage = editLast && (() => {
+    editLast();
+    focusComposer();
+  });
   const composer = meta?.archived_at ? <ArchivedBanner chatId={meta.id} wide /> : (
     <ChatComposer
       wide
@@ -142,6 +146,8 @@ export default function AgentView() {
       onPrefsChange={(next) => agent.setPrefsFor(chatId, next)}
       onSend={sendText}
       onStop={stop}
+      queue={queue}
+      onEditLast={editLast}
       work={work}
       onLeaveWork={onLeaveWork}
       onOpenIssue={onOpenIssue}
@@ -216,7 +222,7 @@ export default function AgentView() {
         </div>
       ) : (
         <>
-          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={focusComposer} cacheExpiresAt={meta?.cache_expires_at} />
+          <ChatThread thread={thread} wide chatId={chatId} onApprovalExpired={expireApproval} onCardsDone={focusComposer} cacheExpiresAt={meta?.cache_expires_at} editTarget={editTarget} onEditMessage={editMessage} />
           {composer}
         </>
       )}

@@ -14,6 +14,8 @@ export interface ComposerDraft {
   attachments: PendingAttachment[];
   /** Set by prefill, until the composer has taken focus for it. */
   prefilled?: true;
+  /** The draft edits the chat's last message: sending replaces it. */
+  editing?: true;
 }
 
 export const EMPTY_DRAFT: ComposerDraft = { text: "", attachments: [] };
@@ -44,16 +46,22 @@ export interface ComposerDrafts {
   prefill(chatId: string, text: string): void;
   /** Called once the composer has taken focus for a prefill. */
   prefillUsed(chatId: string): void;
+  /** Puts the last message in the composer to edit it. The draft there waits until the edit is sent or cancelled. */
+  startEdit(chatId: string, text: string, files: File[]): void;
+  /** Ends edit mode and brings the waiting draft back. */
+  cancelEdit(chatId: string): void;
   subscribe(listener: () => void): () => void;
 }
 
 export function createComposerDrafts(): ComposerDrafts {
   const drafts = new Map<string, ComposerDraft>();
+  // The drafts that wait while their chat's composer edits the last message.
+  const waiting = new Map<string, ComposerDraft>();
   const listeners = new Set<() => void>();
   const get = (key: string) => drafts.get(key) ?? EMPTY_DRAFT;
   const update = (key: string, change: (d: ComposerDraft) => ComposerDraft) => {
     const next = change(get(key));
-    if (next.text === "" && next.attachments.length === 0 && !next.prefilled) drafts.delete(key);
+    if (next.text === "" && next.attachments.length === 0 && !next.prefilled && !next.editing) drafts.delete(key);
     else drafts.set(key, next);
     listeners.forEach((l) => l());
   };
@@ -62,6 +70,14 @@ export function createComposerDrafts(): ComposerDrafts {
     revoke(d.attachments.filter((a) => keys.has(a.key)));
     return { ...d, attachments: d.attachments.filter((a) => !keys.has(a.key)) };
   });
+  const pending = (files: File[]): PendingAttachment[] =>
+    files.map((file) => ({ key: crypto.randomUUID(), file, preview: isAgentImage(file.type) ? URL.createObjectURL(file) : undefined }));
+  const endEdit = (key: string) => update(key, (d) => {
+    revoke(d.attachments);
+    const back = waiting.get(key) ?? EMPTY_DRAFT;
+    waiting.delete(key);
+    return back;
+  });
 
   return {
     get,
@@ -69,16 +85,16 @@ export function createComposerDrafts(): ComposerDrafts {
     addFiles: (key, files) => {
       if (files.length === 0) return undefined;
       const { added, error } = addAttachments(get(key).attachments.map((a) => a.file), files);
-      const items = added.map((file) => ({
-        key: crypto.randomUUID(),
-        file,
-        preview: isAgentImage(file.type) ? URL.createObjectURL(file) : undefined,
-      }));
+      const items = pending(added);
       if (items.length > 0) update(key, (d) => ({ ...d, attachments: [...d.attachments, ...items] }));
       return error;
     },
     removeAttachments,
     sent: (key, keys) => {
+      if (get(key).editing) {
+        endEdit(key);
+        return;
+      }
       removeAttachments(key, keys);
       update(key, (d) => ({ ...d, text: "" }));
     },
@@ -92,7 +108,15 @@ export function createComposerDrafts(): ComposerDrafts {
       });
     },
     prefill: (chatId, text) => update(chatId, (d) => ({ ...d, text, prefilled: true })),
-    prefillUsed: (chatId) => update(chatId, (d) => ({ text: d.text, attachments: d.attachments })),
+    prefillUsed: (chatId) => update(chatId, (d) => ({ text: d.text, attachments: d.attachments, ...(d.editing && { editing: true as const }) })),
+    startEdit: (chatId, text, files) => update(chatId, (d) => {
+      if (!d.editing) waiting.set(chatId, d);
+      else revoke(d.attachments);
+      return { text, attachments: pending(files), editing: true };
+    }),
+    cancelEdit: (chatId) => {
+      if (get(chatId).editing) endEdit(chatId);
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

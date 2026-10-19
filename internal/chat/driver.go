@@ -33,6 +33,12 @@ type SessionInput struct {
 	// Grants are rules the user allowed for the whole chat. Claude Code gets
 	// them as extra --allowedTools values.
 	Grants []string
+
+	// Rewind drops turns from the resumed session before the first turn
+	// starts: Claude keeps its messages up to and including this assistant
+	// message; Codex drops this turn and every later one. Empty keeps the
+	// session as it is.
+	Rewind string
 }
 
 // errAgentExited is returned by Send when the agent has already exited.
@@ -61,6 +67,9 @@ type Session interface {
 	// Send starts a turn with prompt. A model or effort that differs from
 	// the session's current one is switched in place first.
 	Send(prompt Prompt, model, effort string) error
+	// Steer adds prompt to the running turn, which goes on without a stop.
+	// It returns an error that wraps ErrNotRunning when no turn takes it.
+	Steer(prompt Prompt) error
 	// Interrupt asks the agent to stop the running turn. Background tasks
 	// keep running.
 	Interrupt()
@@ -137,4 +146,6 @@ type TurnResult struct {
 	Model         string        // the model the agent ran, as it reports it; empty when unknown
 	ContextWindow int           // that model's context window in tokens; 0 when unknown
 	CacheTTL      time.Duration // TTL of the prompt cache the turn wrote; 0 when none or unknown
+
+	Anchor string // where the conversation stands after the turn; see Event.Anchor
 }

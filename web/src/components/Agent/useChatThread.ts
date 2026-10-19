@@ -33,11 +33,12 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
     };
 
     fetchChat(chatId)
-      .then(({ events, running, background }) => {
+      .then(({ events, running, background, queue }) => {
         if (cancelled) return;
         events.forEach((event) => dispatch({ type: "event", event }));
         if (!running) dispatch({ type: "interrupted" });
         dispatch({ type: "background", tasks: background ?? [] });
+        dispatch({ type: "queue", queue: queue ?? [] });
         const after = events.length > 0 ? events[events.length - 1].seq ?? 0 : 0;
         stop = live.follow(`chat:${chatId}`, after, (data) => onEvent(data as ChatEvent), () => setReloads((n) => n + 1));
       })

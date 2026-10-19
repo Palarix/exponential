@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { Bot, ChevronRight, Copy, Check, FileText, Lightbulb } from "lucide-react";
+import { Bot, ChevronRight, Copy, Check, CornerDownRight, FileText, Lightbulb, Pencil } from "lucide-react";
 import type { ChatAttachment } from "../../api/chat";
 import { useStickToBottom } from "../../hooks/useStickToBottom";
 import { IssueMarkdown } from "../IssueRef/IssueMarkdown";
@@ -9,6 +9,7 @@ import ApprovalCard from "./ApprovalCard";
 import { attachmentUrl, formatSize, isAgentImage } from "./attachment-utils";
 import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
+import Tooltip from "../ui/Tooltip";
 import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 
 function useNow(active: boolean): number {
@@ -264,12 +265,15 @@ function Turn({
   chatId,
   onApprovalExpired,
   onCardsDone,
+  onEdit,
 }: {
   index: number;
   turn: ChatTurn;
   chatId?: string | null;
   onApprovalExpired?: (id: string) => void;
   onCardsDone?: () => void;
+  /** Set on the message the user can edit and send again. */
+  onEdit?: () => void;
 }) {
   const running = turn.status === "running";
   const now = useNow(running);
@@ -290,7 +294,7 @@ function Turn({
   const waiting = pending.length === 0 ? null : pending.some(isQuestion) ? "answer" : "approval";
   // Streaming narration is progress enough; otherwise the agent is thinking,
   // as it is right after the user answers a question.
-  const thinking = running && (!last || last.kind === "question" || (last.kind === "text" && turn.thinking));
+  const thinking = running && (!last || last.kind === "question" || last.kind === "steer" || (last.kind === "text" && turn.thinking));
   const lastText = !running && last?.kind === "text" ? last.text.trim() : "";
 
   return (
@@ -309,12 +313,39 @@ function Turn({
           <IssueRefText text={turn.user.text} />
         </div>
       )}
+      {onEdit && (
+        <div className="self-end -mt-2">
+          <Tooltip content="Edit and send again. Files the agent changed stay changed.">
+            <button
+              type="button"
+              aria-label="Edit message"
+              onClick={onEdit}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-sm)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-ai-1)]"
+            >
+              <Pencil className="w-3 h-3" aria-hidden />
+              Edit
+            </button>
+          </Tooltip>
+        </div>
+      )}
 
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
           seg.text.trim() && <AnswerText key={i} text={seg.text} />
         ) : seg.kind === "question" ? (
           <AnsweredQuestion key={i} step={seg.step} />
+        ) : seg.kind === "steer" ? (
+          <Fragment key={i}>
+            {chatId && seg.attachments && <MessageAttachments chatId={chatId} attachments={seg.attachments} />}
+            {seg.text && (
+              <div data-steer-message className="self-end max-w-[85%] flex gap-1.5 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+                <CornerDownRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--color-text-muted)]" aria-label="Sent during the turn" />
+                <span className="min-w-0">
+                  <IssueRefText text={seg.text} />
+                </span>
+              </div>
+            )}
+          </Fragment>
         ) : (
           <ToolGroup key={i} steps={seg.steps} active={running && seg === last} waiting={waiting} seconds={seconds} />
         ),
@@ -491,6 +522,8 @@ export default function ChatThread({
   onApprovalExpired,
   onCardsDone,
   cacheExpiresAt,
+  editTarget,
+  onEditMessage,
 }: {
   thread: Thread;
   wide?: boolean;
@@ -500,6 +533,9 @@ export default function ChatThread({
   onCardsDone?: () => void;
   /** When the prompt cache of the last finished turn expires. */
   cacheExpiresAt?: string;
+  /** The turn whose user message the user can edit; null or undefined for none. */
+  editTarget?: number | null;
+  onEditMessage?: () => void;
 }) {
   const { ref: scrollRef, pin } = useStickToBottom<HTMLDivElement>();
   const cold = usePassed(cacheExpiresAt) && thread.turns.length > 0 && !isRunning(thread);
@@ -523,7 +559,7 @@ export default function ChatThread({
         {thread.turns.map((turn, i) => (
           <Fragment key={i}>
             {thread.dividers.filter((d) => d.at === i).map((d, j) => <Divider key={`d${j}`} text={modeDividerText(d)} />)}
-            <Turn index={i} turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} onCardsDone={onCardsDone} />
+            <Turn index={i} turn={turn} chatId={chatId} onApprovalExpired={onApprovalExpired} onCardsDone={onCardsDone} onEdit={i === editTarget ? onEditMessage : undefined} />
           </Fragment>
         ))}
         {thread.dividers.filter((d) => d.at >= thread.turns.length).map((d, j) => <Divider key={`end${j}`} text={modeDividerText(d)} />)}

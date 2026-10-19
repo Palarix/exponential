@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -59,6 +60,106 @@ func TestRealClaude_BackgroundTask(t *testing.T) {
 	waitForEventWithin(t, ch, EventTurnDone, 90*time.Second)
 	if tasks := r.Background(m.ID); len(tasks) != 0 {
 		t.Errorf("Background after the task ended = %+v", tasks)
+	}
+}
+
+// TestRealClaude_EditRewinds runs the real `claude` CLI, so it calls a
+// model. It pins what xpo-52ec1f relies on: an assistant message UUID from
+// stream-json is a valid --resume-session-at point, and the edited turn is
+// gone from the session. Run it with XPO_TEST_REAL_CLI=1 after a Claude Code
+// upgrade.
+func TestRealClaude_EditRewinds(t *testing.T) {
+	testRealEditRewinds(t, ProviderClaude, &ClaudeDriver{}, "haiku")
+}
+
+// TestRealCodex_EditRewinds is TestRealClaude_EditRewinds for Codex: a turn
+// ID is a valid thread/revert point.
+func TestRealCodex_EditRewinds(t *testing.T) {
+	testRealEditRewinds(t, ProviderCodex, &CodexDriver{}, "")
+}
+
+func testRealEditRewinds(t *testing.T, provider string, driver Driver, model string) {
+	if os.Getenv("XPO_TEST_REAL_CLI") != "1" {
+		t.Skip("set XPO_TEST_REAL_CLI=1 to run against the real " + provider + " CLI")
+	}
+	if _, err := exec.LookPath(provider); err != nil {
+		t.Skip(provider + " is not installed")
+	}
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "chats"))
+	r := NewRunner(RunnerConfig{Store: store, Drivers: map[string]Driver{provider: driver}, DefaultProvider: provider, Dir: dir, MCP: MCPTarget{Executable: "/nonexistent/xpo"}})
+	t.Cleanup(r.Shutdown)
+	m, _ := store.Create()
+
+	for _, text := range []string{
+		"Remember the word APPLE. Reply with just OK.",
+		"Now forget that: remember the word PEAR instead. Reply with just OK.",
+	} {
+		if err := r.Send(m.ID, SendRequest{Text: text, Provider: provider, Model: model}); err != nil {
+			t.Fatal(err)
+		}
+		r.Wait()
+	}
+	if err := r.Send(m.ID, SendRequest{Text: "Which word did I ask you to remember? Reply with just the word.", Provider: provider, Model: model, Edit: true}); err != nil {
+		t.Fatal(err)
+	}
+	r.Wait()
+
+	_, events, _ := store.Get(m.ID)
+	last := events[len(events)-1]
+	if last.Type != EventTurnDone {
+		t.Fatalf("last event = %+v", last)
+	}
+	texts := eventsOfType(activeEvents(events), EventAssistantText)
+	reply := texts[len(texts)-1].Text
+	if !strings.Contains(reply, "APPLE") || strings.Contains(reply, "PEAR") {
+		t.Errorf("reply after the edit = %q, want APPLE: the PEAR turn must be gone", reply)
+	}
+}
+
+// TestRealClaude_Steer and TestRealCodex_Steer run the real CLIs, so they
+// call a model. They pin that a steer reaches the running turn: the agent
+// follows it in the same turn.
+func TestRealClaude_Steer(t *testing.T) { testRealSteer(t, ProviderClaude, &ClaudeDriver{}, "haiku") }
+func TestRealCodex_Steer(t *testing.T)  { testRealSteer(t, ProviderCodex, &CodexDriver{}, "") }
+
+func testRealSteer(t *testing.T, provider string, driver Driver, model string) {
+	if os.Getenv("XPO_TEST_REAL_CLI") != "1" {
+		t.Skip("set XPO_TEST_REAL_CLI=1 to run against the real " + provider + " CLI")
+	}
+	if _, err := exec.LookPath(provider); err != nil {
+		t.Skip(provider + " is not installed")
+	}
+	dir := t.TempDir()
+	wt := filepath.Join(dir, "wt")
+	os.Mkdir(wt, 0o755)
+	store := NewStore(filepath.Join(dir, "chats"))
+	r := NewRunner(RunnerConfig{Store: store, Drivers: map[string]Driver{provider: driver}, DefaultProvider: provider, Dir: dir, MCP: MCPTarget{Executable: "/nonexistent/xpo"}})
+	t.Cleanup(r.Shutdown)
+	m, _ := store.Create()
+	// Work Mode runs shell commands without a card.
+	if _, err := r.BindWork(m.ID, WorkBinding{IssueID: "xpo-1", Worktree: wt}); err != nil {
+		t.Fatal(err)
+	}
+	ch := tap(r, m.ID)
+	r.Send(m.ID, SendRequest{Text: "Run the shell command `sleep 8 && echo done` in the foreground and wait for it. Then tell me its output.", Provider: provider, Model: model})
+	waitForEventWithin(t, ch, EventToolStart, 90*time.Second)
+	if queued, err := r.SendOrQueue(m.ID, SendRequest{Text: "Also: end your reply with the word BANANA.", Provider: provider, Model: model}); err != nil || !queued {
+		t.Fatalf("SendOrQueue = %v, %v; want it queued", queued, err)
+	}
+	if err := r.SteerQueued(m.ID, r.Queued(m.ID)[0].ID); err != nil {
+		t.Fatalf("SteerQueued = %v", err)
+	}
+	waitForEventWithin(t, ch, EventTurnDone, 120*time.Second)
+	r.Wait()
+
+	_, events, _ := store.Get(m.ID)
+	if n := len(eventsOfType(events, EventUserMessage)); n != 1 {
+		t.Errorf("user messages = %d, want 1", n)
+	}
+	texts := eventsOfType(events, EventAssistantText)
+	if len(texts) == 0 || !strings.Contains(texts[len(texts)-1].Text, "BANANA") {
+		t.Errorf("the turn did not follow the steer: %+v", texts)
 	}
 }
 
