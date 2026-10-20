@@ -15,6 +15,7 @@ import {
   nextViewed,
   pendingContextIssue,
   chatPrefs,
+  adoptNewChatPick,
   composerOptions,
   formatContextWindow,
   loadPrefs,
@@ -224,6 +225,20 @@ describe("pickModel", () => {
 
   it("keeps the effort within a provider when the model supports it", () => {
     expect(pickModel({ provider: "claude", model: "", effort: "max" }, modelKey("claude", "opus"), status)).toEqual({ provider: "claude", model: "opus", effort: "max" });
+  });
+});
+
+describe("adoptNewChatPick", () => {
+  const haiku = { provider: "claude", model: "haiku", effort: "low" };
+  const opus = { provider: "claude", model: "opus", effort: "high" };
+
+  it("moves the new chat's pick to the created chat and clears it", () => {
+    expect(adoptNewChatPick({ "": haiku, c1: opus }, "c2")).toEqual({ c1: opus, c2: haiku });
+  });
+
+  it("leaves the picks alone when the new chat had none", () => {
+    const picked = { c1: opus };
+    expect(adoptNewChatPick(picked, "c2")).toBe(picked);
   });
 });
 

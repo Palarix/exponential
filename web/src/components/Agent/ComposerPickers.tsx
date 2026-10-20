@@ -98,34 +98,24 @@ function ModeSegment({ work, running, onLeaveWork, onOpenIssue }: { work?: WorkM
   );
 }
 
-/** The composer footer's model, effort and mode segments. */
-export default function ComposerPickers({
+/** The model and effort segments: the composer's, and the Preferences page's default model. */
+export function ModelPickers({
   status,
   prefs,
   providerLocked,
   onPrefsChange,
-  work,
-  running,
-  onLeaveWork,
-  onOpenIssue,
 }: {
   status: AgentStatus | undefined;
   prefs: ChatPrefs;
   /** The chat has started: its session belongs to the picked provider. */
   providerLocked?: boolean;
   onPrefsChange(prefs: ChatPrefs): void;
-  /** Set in Work Mode. */
-  work?: WorkModeInfo;
-  /** A turn runs: the mode cannot change. */
-  running?: boolean;
-  onLeaveWork?(): void;
-  onOpenIssue?(issueId: string): void;
 }) {
   const options = composerOptions(status, prefs, !!providerLocked);
   const headings = options.groups.length > 1;
 
   return (
-    <div className="flex items-center gap-1 min-w-0">
+    <>
       <Segment
         label={options.modelLabel}
         icon={<ProviderIcon provider={prefs.provider} />}
@@ -172,6 +162,36 @@ export default function ComposerPickers({
           </Menu>
         )}
       </Segment>
+    </>
+  );
+}
+
+/** The composer footer's model, effort and mode segments. */
+export default function ComposerPickers({
+  status,
+  prefs,
+  providerLocked,
+  onPrefsChange,
+  work,
+  running,
+  onLeaveWork,
+  onOpenIssue,
+}: {
+  status: AgentStatus | undefined;
+  prefs: ChatPrefs;
+  /** The chat has started: its session belongs to the picked provider. */
+  providerLocked?: boolean;
+  onPrefsChange(prefs: ChatPrefs): void;
+  /** Set in Work Mode. */
+  work?: WorkModeInfo;
+  /** A turn runs: the mode cannot change. */
+  running?: boolean;
+  onLeaveWork?(): void;
+  onOpenIssue?(issueId: string): void;
+}) {
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      <ModelPickers status={status} prefs={prefs} providerLocked={providerLocked} onPrefsChange={onPrefsChange} />
       <Rule />
       <ModeSegment work={work} running={running} onLeaveWork={onLeaveWork} onOpenIssue={onOpenIssue} />
     </div>

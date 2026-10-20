@@ -11,6 +11,7 @@ import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
 import Tooltip from "../ui/Tooltip";
 import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { scrollBehavior } from "../../preferences";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -463,7 +464,7 @@ function TurnRail({ thread, scrollRef }: { thread: Thread; scrollRef: RefObject<
   if (turns.length < 2) return null;
   const jump = (turn: number) => {
     const scroller = scrollRef.current;
-    if (scroller) scroller.scrollTo({ top: contentSpan(scroller, scroller.querySelector(`[data-turn="${turn}"]`)).top - TURN_MARGIN, behavior: "smooth" });
+    if (scroller) scroller.scrollTo({ top: contentSpan(scroller, scroller.querySelector(`[data-turn="${turn}"]`)).top - TURN_MARGIN, behavior: scrollBehavior() });
   };
   // left-6 lines the bars up with the chat title in the Agent view's top bar (px-6).
   return (

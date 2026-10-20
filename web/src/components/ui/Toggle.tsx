@@ -2,6 +2,8 @@ interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
+  /** Names the switch when there is no visible label. */
+  ariaLabel?: string;
   size?: 'sm' | 'md';
 }
 
@@ -10,13 +12,14 @@ const sizes = {
   md: { track: 'w-9 h-5', thumb: 'w-3.5 h-3.5', translate: 'translate-x-4' },
 };
 
-export default function Toggle({ checked, onChange, label, size = 'sm' }: ToggleProps) {
+export default function Toggle({ checked, onChange, label, ariaLabel, size = 'sm' }: ToggleProps) {
   const s = sizes[size];
   return (
     <label className="inline-flex items-center gap-2 cursor-pointer select-none">
       <button
         role="switch"
         aria-checked={checked}
+        aria-label={ariaLabel}
         onClick={() => onChange(!checked)}
         className={`
           relative inline-flex items-center shrink-0 rounded-full

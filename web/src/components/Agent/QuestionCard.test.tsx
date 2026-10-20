@@ -106,8 +106,8 @@ describe("QuestionCard with several questions", () => {
 
 describe("stepInClass", () => {
   it("slides a step in from its direction, and not at all without one", () => {
-    expect(stepInClass("forward")).toBe("motion-safe:animate-step-in-forward");
-    expect(stepInClass("back")).toBe("motion-safe:animate-step-in-back");
+    expect(stepInClass("forward")).toBe("animate-step-in-forward");
+    expect(stepInClass("back")).toBe("animate-step-in-back");
     expect(stepInClass(null)).toBe("");
   });
 });
@@ -126,8 +126,8 @@ describe("Choice", () => {
     const radio = renderMarkup(<Choice multi={false} checked label="Red" disabled={false} onClick={noop} />);
     const box = renderMarkup(<Choice multi checked label="Cat" disabled={false} onClick={noop} />);
     const open = renderMarkup(<Choice multi={false} checked={false} label="Blue" disabled={false} onClick={noop} />);
-    expect(radio).toContain("motion-safe:animate-pop-in");
-    expect(box).toContain("motion-safe:animate-pop-in");
+    expect(radio).toContain("animate-pop-in");
+    expect(box).toContain("animate-pop-in");
     expect(open).not.toContain("animate-pop-in");
   });
 
@@ -154,7 +154,7 @@ describe("QuestionTabs", () => {
     const html = renderMarkup(<QuestionTabs questions={qs} picks={picks} current={1} disabled={false} onSelect={noop} />);
     const [, color, pets, review] = html.split('role="tab"');
     expect(color).toContain("<svg");
-    expect(color).toContain("motion-safe:animate-pop-in");
+    expect(color).toContain("animate-pop-in");
     expect(pets).not.toContain("<svg");
     expect(pets).not.toMatch(/aria-hidden/);
     expect(review).toContain(">Review<");

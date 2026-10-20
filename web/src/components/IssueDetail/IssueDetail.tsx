@@ -19,6 +19,7 @@ import ArtifactList from "./ArtifactList";
 import ActivityTimeline from "./ActivityTimeline";
 import PropertySidebar from "./PropertySidebar";
 import MergeView from "./MergeView";
+import { scrollBehavior } from "../../preferences";
 
 type DetailTab = "details" | "spec" | "walkthrough";
 
@@ -143,7 +144,7 @@ export default function IssueDetail({
         e.preventDefault();
         commentRef.current?.focus();
         commentRef.current?.scrollIntoView({
-          behavior: "smooth",
+          behavior: scrollBehavior(),
           block: "center",
         });
       }

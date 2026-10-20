@@ -674,7 +674,27 @@ code .issue-ref,
 
 /* ========================================
    ANIMATIONS
+
+   Every animation belongs to one of three tiers. `<html data-motion>`
+   (full | reduced | off) comes from the Motion and Animations preference
+   and the OS setting (src/preferences.ts):
+
+   Tier      Utilities                           full   reduced  off
+   Movement  slide-up, scale-in, step-in-*,      play   fade     none
+             pop-in
+   Fade      fade-in                             play   play     none
+   Status    spin, pulse, .text-shimmer          play   play     play
+
+   Movement is what WCAG 2.3.3 asks to be able to turn off; opacity is not
+   motion. Status animations are the only sign the app is not stuck, so
+   they always run. Components use the plain utility; the rules at the end
+   of this section apply the tier.
    ======================================== */
+
+/* Tailwind's motion variants follow the preference, not only the media
+   query. */
+@custom-variant motion-safe (&:where([data-motion="full"], [data-motion="full"] *));
+@custom-variant motion-reduce (&:where([data-motion="reduced"], [data-motion="reduced"] *, [data-motion="off"], [data-motion="off"] *));
 
 @keyframes slide-up {
   from {
@@ -739,8 +759,6 @@ code .issue-ref,
   }
 }
 
-/* Utilities, not plain classes, so they take Tailwind's motion-safe:
-   variant: a user with reduced motion gets no slide. */
 @utility animate-step-in-forward {
   animation: step-in-forward var(--duration-normal) ease-out;
 }
@@ -767,8 +785,8 @@ code .issue-ref,
 }
 
 /* A brighter band that sweeps across text, left to right: work in progress,
-   such as the agent chat's active tool call. It runs under reduced motion
-   too: the shimmer is the only sign the agent is still working. */
+   such as the agent chat's active tool call. Status tier: it runs under
+   every motion setting, as the only sign the agent is still working. */
 @keyframes shimmer {
   from { background-position: 100% 0; }
   to { background-position: 0 0; }
@@ -785,6 +803,16 @@ code .issue-ref,
   background-clip: text;
   color: transparent;
   animation: shimmer 2.4s linear infinite;
+}
+
+/* Motion tiers. Unlayered, so they win over the utilities layer. */
+[data-motion="reduced"] :is(.animate-slide-up, .animate-scale-in, .animate-step-in-forward, .animate-step-in-back, .animate-pop-in) {
+  animation-name: fade-in;
+  animation-timing-function: ease-out;
+}
+
+[data-motion="off"] :is(.animate-slide-up, .animate-scale-in, .animate-step-in-forward, .animate-step-in-back, .animate-pop-in, .animate-fade-in) {
+  animation: none;
 }
 
 /* ========================================

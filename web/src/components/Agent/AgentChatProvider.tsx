@@ -6,7 +6,7 @@ import { AgentChatContext, agentQueryKeys, type AgentChat } from "./agent-contex
 import { activeChats } from "./chat-history-utils";
 import { createComposerDrafts } from "./composer-drafts";
 import { useApprovalNotifications } from "./useApprovalNotifications";
-import { addPill, adoptNewChatContext, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadNotify, loadPrefs, normalizePrefs, notifyState, saveNotify, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
+import { addPill, adoptNewChatContext, adoptNewChatPick, NEW_CHAT, chatPrefs, consumeContext, consumedFor, loadPills, loadSeen, markSeen, nextViewed, pruneSeen, pendingContextIssue, loadNotify, loadPrefs, normalizePrefs, notifyState, saveNotify, removePill, safeLocalStorage, savePills, savePrefs, saveSeen, type ChatPrefs, type ConsumedContext } from "./agent-state-utils";
 
 const isMac = navigator.platform.includes("Mac");
 
@@ -33,8 +33,9 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   if (nextView !== viewed) setViewed(nextView);
 
   const status = useQuery({ queryKey: agentQueryKeys.status, queryFn: fetchAgentStatus, staleTime: Infinity }).data;
-  // Picks made in open chats, by chat ID. They last until the next reload,
-  // when the chat's meta holds what its last message used.
+  // Picks made in chats' composers, by chat ID (NEW_CHAT before sending
+  // creates it). They override the default for that chat only, and last until
+  // the next reload, when the chat's meta holds what its last message used.
   const [picked, setPicked] = useState<Record<string, ChatPrefs>>({});
   const chatsQuery = useQuery({
     queryKey: agentQueryKeys.chats,
@@ -61,14 +62,19 @@ export default function AgentChatProvider({ context, children }: { context: Chat
   // Saved prefs can name a provider or model that is gone; use the defaults then.
   const prefsFor = useCallback((id: string | null) => {
     const meta = id ? allChats.find((c) => c.id === id) : undefined;
-    return normalizePrefs(chatPrefs(meta, id ? picked[id] : undefined, savedPrefs), status);
+    return normalizePrefs(chatPrefs(meta, picked[id ?? NEW_CHAT], savedPrefs), status);
   }, [allChats, picked, savedPrefs, status]);
 
   const setPrefsFor = useCallback((id: string | null, next: ChatPrefs) => {
-    if (id) setPicked((p) => ({ ...p, [id]: next }));
+    setPicked((p) => ({ ...p, [id ?? NEW_CHAT]: next }));
+  }, []);
+
+  const defaultPrefs = useMemo(() => normalizePrefs(savedPrefs, status), [savedPrefs, status]);
+  const setDefaultPrefs = useCallback((next: ChatPrefs) => {
     setPrefsState(next);
     savePrefs(storage, next);
   }, [storage]);
+  const adoptNewChatPrefs = useCallback((id: string) => setPicked((p) => adoptNewChatPick(p, id)), []);
 
   const notify = notifyState(notifyOn, permission);
   const toggleNotify = useCallback(() => {
@@ -104,6 +110,9 @@ export default function AgentChatProvider({ context, children }: { context: Chat
       context,
       prefsFor,
       setPrefsFor,
+      defaultPrefs,
+      setDefaultPrefs,
+      adoptNewChatPrefs,
       notify,
       toggleNotify,
       openNew: () => { setChatId(null); setPopupOpen(true); },
@@ -135,7 +144,7 @@ export default function AgentChatProvider({ context, children }: { context: Chat
         if (chatId === id) setChatId(null);
       },
     };
-  }, [status, chats, allChats, popupOpen, chatId, visiblePills, visibleSeen, markChatSeen, context, prefsFor, setPrefsFor, notify, toggleNotify, drafts, viewed, consumed]);
+  }, [status, chats, allChats, popupOpen, chatId, visiblePills, visibleSeen, markChatSeen, context, prefsFor, setPrefsFor, defaultPrefs, setDefaultPrefs, adoptNewChatPrefs, notify, toggleNotify, drafts, viewed, consumed]);
 
   useApprovalNotifications(chatsQuery.isSuccess ? chats : null, notify === "on", value.openChat);
 

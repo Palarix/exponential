@@ -15,6 +15,7 @@ import {
   Package,
   Search,
   PanelLeft,
+  Settings,
   Tag,
   Clock,
   FilePen,
@@ -38,6 +39,7 @@ const VIEW_ICONS: Record<ViewId, ReactNode> = {
   inbox: <Bell size={16} />,
   drafts: <FilePen size={16} />,
   agent: <MousePointer2 size={16} />,
+  preferences: <Settings size={16} />,
 };
 
 interface SidebarProps {
@@ -314,13 +316,22 @@ export default function Sidebar({
       {/* Project selector + User */}
       <ProjectSelector instances={instances} collapsed={collapsed} />
       {user && (
-        <div className={`flex items-center py-3 ${collapsed ? "justify-center px-2" : "gap-3 px-4"}`}>
-          <Avatar name={`${user.name} <${user.email}>`} size={collapsed ? "sm" : "md"} />
-          {!collapsed && (
-            <span className="text-xs text-[var(--color-text-secondary)] truncate">
-              {user.name}
-            </span>
-          )}
+        <div className={`pb-2 pt-1 ${collapsed ? "px-1" : "px-2"}`}>
+          <button
+            onClick={() => onViewChange("preferences")}
+            title="Preferences"
+            aria-current={activeView === "preferences" ? "page" : undefined}
+            className={`flex items-center w-full rounded-[var(--radius-md)] py-2 transition-colors duration-[var(--duration-fast)] ${
+              collapsed ? "justify-center px-0" : "gap-3 px-2"
+            } ${
+              activeView === "preferences"
+                ? "bg-[var(--color-hover-surface)] text-[var(--color-text-primary)]"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]"
+            }`}
+          >
+            <Avatar name={`${user.name} <${user.email}>`} size={collapsed ? "sm" : "md"} />
+            {!collapsed && <span className="text-xs truncate">{user.name}</span>}
+          </button>
         </div>
       )}
     </aside>

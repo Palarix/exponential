@@ -7,8 +7,10 @@ import { ToastProvider } from './components/ui'
 import { KeyboardNavProvider } from './keyboard'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createQueryClient } from './api/queries'
+import { startMotionSync } from './preferences'
 
 const queryClient = createQueryClient()
+startMotionSync()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

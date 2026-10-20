@@ -51,7 +51,7 @@ async function attachmentFiles(chatId: string, list: ChatAttachment[] = []): Pro
  */
 export function useChatSession(chatId: string | null, onCreated: (id: string) => void) {
   const { thread, missing, expireApproval } = useChatThread(chatId);
-  const { prefsFor, drafts, allChats } = useAgentChat();
+  const { prefsFor, adoptNewChatPrefs, drafts, allChats } = useAgentChat();
   const qc = useQueryClient();
   const showToast = useToast();
   const running = isRunning(thread);
@@ -65,6 +65,7 @@ export function useChatSession(chatId: string | null, onCreated: (id: string) =>
       let id = chatId;
       if (!id) {
         id = (await createChat()).id;
+        adoptNewChatPrefs(id);
         onCreated(id);
       }
       const attachments = await Promise.all(files.map(toSendAttachment));

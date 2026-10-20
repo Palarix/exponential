@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Preferences page (`#/preferences`, `g ,`), opened from the user avatar at the bottom of the sidebar. Settings are kept in this browser.
+  - **My Profile:** your avatar, name and email.
+  - **Agent Chat:** the **Default model** (provider, model and effort) that every new chat starts with, and **Desktop notifications**. Picking a model in a chat's composer now changes that chat only, not the default.
+  - **Motion:** System default (follows the OS reduced-motion setting), On or Off. Animations fall into three tiers. Movement (slides, scale-ins, smooth scrolling) turns into a plain fade under reduced motion and stops when Motion is Off. Fades stop only when Motion is Off. Status animations (spinners, the agent's shimmer, the working pulse) always run, so the app never looks stuck.
+  - **Diff view:** Unified or Split, the way every Changes tab opens. The Changes tab's own toggle switches only the open view and no longer changes the default. A Split choice made before this release resets to Unified once.
+
+  (xpo-c80c0d)
+
 - Agent chat: the composer can queue messages, steer a running turn, and edit the last message.
   - **Queue:** a message sent while a turn runs waits in the chat's queue on the board, shown as chips above the composer in every open client. When the turn ends with a reply, the board sends the queue as one message, even with no browser open. Stop, an error or an interrupted turn keeps the queue. The queue lives in the board's memory; archive, delete and a board restart drop it.
   - **Steer:** a queued chip's **Steer** button sends the message into the running turn, and the agent changes course without stopping. Claude Code gets it as a mid-turn user message, and Codex through `turn/steer`.

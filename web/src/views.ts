@@ -10,7 +10,8 @@ export type ViewId =
   | "my-issues"
   | "timeline"
   | "drafts"
-  | "agent";
+  | "agent"
+  | "preferences";
 
 export interface ViewDef {
   id: ViewId;
@@ -22,8 +23,8 @@ export interface ViewDef {
   navLabel: string;
   /** Second key of the `g` chord. */
   goKey: string;
-  /** Sidebar section; `personal` views render below the divider. */
-  section: "main" | "personal";
+  /** Sidebar section; `personal` views render below the divider, `none` views are not listed. */
+  section: "main" | "personal" | "none";
   /** Hidden from the sidebar unless cycles are enabled, issue drafts exist, or agent chat is available. */
   requires?: "cycles" | "drafts" | "agent";
 }
@@ -42,6 +43,7 @@ export const VIEWS: readonly ViewDef[] = [
   { id: "my-issues", route: "my-issues", title: "My Issues", navLabel: "My Issues", goKey: "m", section: "personal" },
   { id: "inbox", route: "inbox", title: "Inbox", navLabel: "Notifications", goKey: "n", section: "personal" },
   { id: "drafts", route: "drafts", title: "Drafts", navLabel: "Drafts", goKey: "r", section: "personal", requires: "drafts" },
+  { id: "preferences", route: "preferences", title: "Preferences", navLabel: "Preferences", goKey: ",", section: "none" },
 ];
 
 export const VIEW_BY_ID = Object.fromEntries(VIEWS.map((v) => [v.id, v])) as Record<ViewId, ViewDef>;

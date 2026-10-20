@@ -2,13 +2,14 @@ import { useState } from "react";
 import { md5 } from "../../utils/md5";
 import { cn } from "../../utils/cn";
 
-type AvatarSize = "xs" | "sm" | "md" | "lg";
+type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 const SIZE_PX: Record<AvatarSize, number> = {
   xs: 14,
   sm: 16,
   md: 20,
   lg: 24,
+  xl: 40,
 };
 
 const failedEmails = new Set<string>();

@@ -640,11 +640,12 @@ export type StepDirection = "forward" | "back" | null;
 
 /**
  * The class that slides a new step in from its direction: from the right
- * going forward, from the left going back. None under reduced motion.
+ * going forward, from the left going back. index.css turns it into a fade
+ * under reduced motion and drops it when motion is off.
  */
 export function stepInClass(direction: StepDirection): string {
-  if (direction === "forward") return "motion-safe:animate-step-in-forward";
-  if (direction === "back") return "motion-safe:animate-step-in-back";
+  if (direction === "forward") return "animate-step-in-forward";
+  if (direction === "back") return "animate-step-in-back";
   return "";
 }
 

@@ -21,7 +21,7 @@ describe("VIEWS registry", () => {
 
   it("lists views in sidebar order", () => {
     expect(VIEWS.map((v) => v.id)).toEqual([
-      "dashboard", "backlog", "board", "cycles", "releases", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts",
+      "dashboard", "backlog", "board", "cycles", "releases", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts", "preferences",
     ]);
   });
 
@@ -36,7 +36,7 @@ describe("VIEWS registry", () => {
   it("maps go keys to views", () => {
     expect(VIEW_BY_GO_KEY).toEqual({
       o: "dashboard", i: "backlog", b: "board", n: "inbox", d: "dependencies",
-      l: "labels", c: "cycles", v: "releases", m: "my-issues", t: "timeline", r: "drafts", a: "agent",
+      l: "labels", c: "cycles", v: "releases", m: "my-issues", t: "timeline", r: "drafts", a: "agent", ",": "preferences",
     });
   });
 
@@ -49,6 +49,11 @@ describe("VIEWS registry", () => {
   it("puts Agent in the personal section", () => {
     expect(VIEW_BY_ID.agent.section).toBe("personal");
   });
+
+  it("keeps Preferences out of the sidebar nav", () => {
+    expect(VIEW_BY_ID.preferences.section).toBe("none");
+    expect(VIEW_BY_ID.preferences.title).toBe("Preferences");
+  });
 });
 
 describe("parseRoute", () => {
@@ -58,6 +63,7 @@ describe("parseRoute", () => {
     expect(parseRoute("#/my-issues")).toEqual(route({ view: "my-issues" }));
     expect(parseRoute("#timeline")).toEqual(route({ view: "timeline" }));
     expect(parseRoute("#/drafts")).toEqual(route({ view: "drafts" }));
+    expect(parseRoute("#/preferences")).toEqual(route({ view: "preferences" }));
   });
 
   it("falls back to dashboard for empty or unknown routes", () => {
@@ -94,6 +100,7 @@ describe("formatRoute", () => {
   it("formats bare views with their route", () => {
     expect(formatRoute(route({ view: "backlog" }))).toBe("#/issues");
     expect(formatRoute(route({ view: "inbox" }))).toBe("#/inbox");
+    expect(formatRoute(route({ view: "preferences" }))).toBe("#/preferences");
   });
 
   it("puts the issue ahead of any view", () => {

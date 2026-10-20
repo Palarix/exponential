@@ -22,6 +22,7 @@ const VIEW_COMPONENTS: Record<ViewId, ComponentType | LazyExoticComponent<Compon
   timeline: lazy(() => import("../Timeline/Timeline")),
   drafts: lazy(() => import("../Drafts/Drafts")),
   agent: lazy(() => import("../Agent/AgentView")),
+  preferences: lazy(() => import("../Preferences/Preferences")),
 };
 
 interface ViewRouterProps {

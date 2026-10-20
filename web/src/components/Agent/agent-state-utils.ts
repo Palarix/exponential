@@ -209,9 +209,9 @@ function str(v: unknown): string {
 }
 
 /**
- * The last provider, model and effort picked, used for new chats. They are
- * checked against the provider list with normalizePrefs. Prefs saved before
- * providers existed were for Claude.
+ * The default provider, model and effort, set on the Preferences page, that
+ * new chats start with. They are checked against the provider list with
+ * normalizePrefs. Prefs saved before providers existed were for Claude.
  */
 export function loadPrefs(storage: Storage | null): ChatPrefs {
   const value = readJSON(storage, PREFS_KEY) as Partial<Record<keyof ChatPrefs, unknown>> | null;
@@ -226,13 +226,23 @@ export function savePrefs(storage: Storage | null, prefs: ChatPrefs): void {
 
 /**
  * The prefs for a chat's composer: a pick made in this chat, else what the
- * chat's last message used (saved in its meta), else the remembered prefs.
- * A new chat, or one with no message yet, uses the remembered prefs.
+ * chat's last message used (saved in its meta), else the default prefs.
+ * A new chat, or one with no message yet, uses the default unless picked.
  */
 export function chatPrefs(meta: ChatMeta | undefined, picked: ChatPrefs | undefined, saved: ChatPrefs): ChatPrefs {
   if (picked) return picked;
   if (!meta?.agent) return saved;
   return { provider: meta.agent, model: meta.model ?? "", effort: meta.effort ?? "" };
+}
+
+/** The new chat, which has no ID yet, keeps its records (pick, consumed context) under this key. */
+export const NEW_CHAT = "";
+
+/** Moves the new chat's pick to the chat sending just created, so the next new chat starts from the default. */
+export function adoptNewChatPick(picked: Record<string, ChatPrefs>, id: string): Record<string, ChatPrefs> {
+  if (!(NEW_CHAT in picked)) return picked;
+  const { [NEW_CHAT]: pick, ...rest } = picked;
+  return { ...rest, [id]: pick };
 }
 
 /** Prefs that the provider list allows: unknown values fall back to the defaults. */
@@ -353,9 +363,6 @@ export function nextViewed(v: ViewedIssue, issueId: string | undefined): ViewedI
 export function pendingContextIssue(viewed: ViewedIssue, consumed: number | undefined, workIssue: string | undefined): string | undefined {
   return viewed.id && viewed.seq > (consumed ?? 0) && viewed.id !== workIssue ? viewed.id : undefined;
 }
-
-// The new chat, which has no ID yet, keeps its record under this key.
-const NEW_CHAT = "";
 
 /** By chat ID, the viewed issue seq up to which a chat sent or removed its context. */
 export type ConsumedContext = Record<string, number>;

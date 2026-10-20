@@ -86,7 +86,7 @@ export function Choice({
           }`}
         >
           {/* The pick lands: the dot or tick pops in as it mounts. */}
-          {checked && (multi ? <Check className="w-2.5 h-2.5 motion-safe:animate-pop-in" strokeWidth={3} /> : <span className="w-1.5 h-1.5 rounded-full bg-white motion-safe:animate-pop-in" />)}
+          {checked && (multi ? <Check className="w-2.5 h-2.5 animate-pop-in" strokeWidth={3} /> : <span className="w-1.5 h-1.5 rounded-full bg-white animate-pop-in" />)}
         </span>
         <span className="flex-1 min-w-0">
           <span className="block text-sm text-[var(--color-text-primary)] break-words">{label}</span>
@@ -139,7 +139,7 @@ export function QuestionTabs({ questions, picks, current, disabled, onSelect }: 
         return (
           <Tab key={i} selected={selected} label={`${label}, ${answered ? "answered" : selected ? "current" : "not answered"}`} title={label} disabled={disabled} onClick={() => onSelect(i)}>
             {/* Pops in as the question gets its answer. */}
-            {answered && <Check aria-hidden className="w-3 h-3 shrink-0 motion-safe:animate-pop-in" strokeWidth={2.5} />}
+            {answered && <Check aria-hidden className="w-3 h-3 shrink-0 animate-pop-in" strokeWidth={2.5} />}
             <span className="truncate">{label}</span>
           </Tab>
         );

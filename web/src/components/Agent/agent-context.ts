@@ -21,8 +21,13 @@ export interface AgentChat {
   context: ChatContext;
   /** The composer's provider, model and effort for a chat; null is a new chat. */
   prefsFor(chatId: string | null): ChatPrefs;
-  /** Records a pick in a chat's composer and remembers it for new chats. */
+  /** Records a pick in a chat's composer; it overrides the default for that chat only. */
   setPrefsFor(chatId: string | null, prefs: ChatPrefs): void;
+  /** The provider, model and effort new chats start with: the Preferences page's Default model. */
+  defaultPrefs: ChatPrefs;
+  setDefaultPrefs(prefs: ChatPrefs): void;
+  /** Moves the new chat's pick to the chat that sending just created. */
+  adoptNewChatPrefs(chatId: string): void;
   /** Desktop notifications for chats that wait on the viewer. */
   notify: NotifyState;
   /** Turns them on, asking the browser for permission first, or off. */

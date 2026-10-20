@@ -47,6 +47,7 @@ import { commentAuthor, formatRelativeTime } from "../../utils/format";
 import { useSpinOnce, useSpinner } from "../../hooks/useSpinner";
 import { firstQueryError } from "../../api/query-utils";
 import { useToast } from "../ui/ToastContext";
+import { scrollBehavior, usePreferences, type DiffView } from "../../preferences";
 
 const NO_COMMITS: CommitInfo[] = [];
 
@@ -1073,7 +1074,7 @@ const FilesTab = memo(function FilesTab({
           if (el) {
             const container = diffRef.current;
             const offset = el.offsetTop - container.offsetTop - 50;
-            container.scrollTo({ top: offset, behavior: "smooth" });
+            container.scrollTo({ top: offset, behavior: scrollBehavior() });
           }
         });
       }
@@ -1198,7 +1199,6 @@ function ConversationTab({
 }
 
 /* ─── Diff viewer with line numbers + collapsible cards ─── */
-type DiffMode = "unified" | "split";
 
 const DiffViewer = memo(function DiffViewer({
   diffs,
@@ -1209,10 +1209,10 @@ const DiffViewer = memo(function DiffViewer({
   collapsed: Set<string>;
   setCollapsed: React.Dispatch<React.SetStateAction<Set<string>>>;
 }) {
-  const [mode, setMode] = useState<DiffMode>(
-    () =>
-      (localStorage.getItem("exponential-diff-mode") as DiffMode) || "unified",
-  );
+  // The preference is the default; the toolbar's toggle overrides it for this view only.
+  const { diffView } = usePreferences();
+  const [override, setOverride] = useState<DiffView | null>(null);
+  const mode = override ?? diffView;
 
   const toggleFile = useCallback(
     (file: string) => {
@@ -1226,10 +1226,7 @@ const DiffViewer = memo(function DiffViewer({
     [setCollapsed],
   );
 
-  const setDiffMode = useCallback((m: DiffMode) => {
-    setMode(m);
-    localStorage.setItem("exponential-diff-mode", m);
-  }, []);
+  const setDiffMode = (m: DiffView) => setOverride(m);
 
   const expandAll = useCallback(() => setCollapsed(new Set()), [setCollapsed]);
   const collapseAll = useCallback(
@@ -1311,7 +1308,7 @@ const DiffFileCard = memo(function DiffFileCard({
   file: string;
   lines: string[];
   collapsed: boolean;
-  mode: DiffMode;
+  mode: DiffView;
   onToggle: (file: string) => void;
 }) {
   const { add, del } = useMemo(
