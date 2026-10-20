@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Command palette (⌘K) finds agent chats. Typing matches a chat's title, any issue ID it worked on in Work Mode, or its linked issue's title; an empty query lists the 5 newest chats. Each row shows the chat's state, title, linked issue ID and last activity, and Enter or click opens the chat. (xpo-0628f4)
+
 - Preferences page (`#/preferences`, `g ,`), opened from the user avatar at the bottom of the sidebar. Settings are kept in this browser.
   - **My Profile:** your avatar, name and email.
   - **Agent Chat:** the **Default model** (provider, model and effort) that every new chat starts with, and **Desktop notifications**. Picking a model in a chat's composer now changes that chat only, not the default.

@@ -6,6 +6,10 @@ import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard, Packa
 import { useReleaseAssign } from '../Releases/release-assign-context';
 import { fuzzyMatch, fuzzyScore } from '../../utils/format';
 import type { ViewId } from '../../views';
+import { useOptionalAgentChat } from '../Agent/agent-context';
+import { searchChats } from './chat-search';
+import { chatCommandItems } from './chat-items';
+import type { CommandItem } from './types';
 
 type View = Extract<ViewId, 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline'>;
 
@@ -20,16 +24,6 @@ interface CommandPaletteProps {
   contextIssue?: Issue;
 }
 
-interface CommandItem {
-  id: string;
-  group: string;
-  icon: React.ReactNode;
-  label: string;
-  meta?: React.ReactNode;
-  shortcut?: string;
-  action: () => void;
-}
-
 const NAV_ICONS: Record<string, React.ReactNode> = {
   backlog: <List size={16} />,
   board: <Columns3 size={16} />,
@@ -41,6 +35,9 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 
 export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue, contextIssue }: CommandPaletteProps) {
   const { openPicker } = useReleaseAssign();
+  const agent = useOptionalAgentChat();
+  const chats = agent?.chats;
+  const openChat = agent?.openChat;
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -134,8 +131,12 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
       });
     }
 
+    if (chats && openChat) {
+      results.push(...chatCommandItems(searchChats(chats, issues, query), query, (id) => { onClose(); openChat(id); }));
+    }
+
     return results;
-  }, [query, issues, onClose, onIssueSelect, onViewChange, onNewIssue, contextIssue, openPicker]);
+  }, [query, issues, onClose, onIssueSelect, onViewChange, onNewIssue, contextIssue, openPicker, chats, openChat]);
 
   // Group items for display
   const groups = useMemo(() => {
@@ -191,7 +192,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search issues, actions, navigation..."
+            placeholder="Search issues, chats, actions, navigation..."
             className="flex-1 bg-transparent text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
           />
           <kbd className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-1)] px-2 py-1 rounded-[var(--radius-sm)]">ESC</kbd>
