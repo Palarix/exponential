@@ -6,6 +6,7 @@ import { Button, ConfirmDialog, Menu, MenuItem, MenuLabel, Popover, useToast } f
 import { agentQueryKeys, useAgentChat } from "./agent-context";
 import { archiveBlocker } from "./chat-history-utils";
 import { useArchiveChat } from "./useArchiveChat";
+import WorkedIssuesLink from "./WorkedIssuesLink";
 
 interface ChatTitleBarProps {
   /** The chat; undefined for a new chat, which has no menu. */
@@ -16,7 +17,10 @@ interface ChatTitleBarProps {
   onDeleted?: (id: string) => void;
 }
 
-/** A chat title that turns into an input for Rename, plus the "⋯" menu with Rename, Archive and Delete. */
+/**
+ * A chat title that turns into an input for Rename, a link to the issues the
+ * chat worked on, and the "⋯" menu with Rename, Archive and Delete.
+ */
 export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarProps) {
   const { chatDeleted } = useAgentChat();
   const qc = useQueryClient();
@@ -78,6 +82,8 @@ export default function ChatTitleBar({ chat, title, onDeleted }: ChatTitleBarPro
       ) : (
         <div className="min-w-0 flex">{title}</div>
       )}
+
+      {chat && draft === null && <WorkedIssuesLink chat={chat} />}
 
       {chat && draft === null && (
         <button

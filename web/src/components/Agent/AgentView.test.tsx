@@ -9,12 +9,15 @@ import { createComposerDrafts } from "./composer-drafts";
 
 const chat: ChatMeta = { id: "c1", title: "A chat", created_at: "", updated_at: "", agent: "claude", state: "idle" };
 const archived: ChatMeta = { ...chat, id: "c2", title: "Old chat", archived_at: "2026-10-01T00:00:00Z" };
+const working: ChatMeta = { ...chat, id: "c3", title: "Working chat", mode: "work", work: { issue_id: "xpo-abc123", worktree: "/wt" }, worked_issues: ["xpo-abc123"] };
+const leftWork: ChatMeta = { ...chat, id: "c4", title: "Left chat", mode: "chat", worked_issues: ["xpo-abc123"] };
+const several: ChatMeta = { ...working, id: "c5", title: "Busy chat", worked_issues: ["xpo-111111", "xpo-abc123"] };
 
 function render(chatId: string | null, history: AppNav["chatHistory"] = null): string {
   const agent = {
     status: { available: true, default_provider: "claude", providers: [] },
     chats: [chat],
-    allChats: [chat, archived],
+    allChats: [chat, archived, working, leftWork, several],
     seen: {},
     markSeen: () => {},
     prefsFor: () => ({ provider: "", model: "", effort: "" }),
@@ -66,6 +69,29 @@ describe("AgentView", () => {
     expect(html).toContain("This chat is archived");
     expect(html).toContain("Unarchive");
     expect(html).not.toContain("<textarea");
+  });
+
+  it("links to the Work Mode issue with an icon right after the title", () => {
+    const html = render("c3");
+    const header = html.slice(0, html.indexOf('aria-label="Chat actions"'));
+    expect(header).toMatch(/Working chat.*<a[^>]*href="#\/issues\/xpo-abc123"[^>]*aria-label="Go to xpo-abc123"[^>]*><svg[^>]*lucide-link/s);
+  });
+
+  it("keeps the issue link after the chat leaves Work Mode", () => {
+    expect(render("c4")).toMatch(/<a[^>]*href="#\/issues\/xpo-abc123"[^>]*aria-label="Go to xpo-abc123"/);
+  });
+
+  it("opens a menu of worked-on issues when there are several", () => {
+    const html = render("c5");
+    const header = html.slice(0, html.indexOf('aria-label="Chat actions"'));
+    expect(header).toMatch(/Busy chat.*<button[^>]*aria-label="Worked-on issues"[^>]*><svg[^>]*lucide-link/s);
+    expect(header).not.toContain('aria-label="Go to');
+  });
+
+  it("shows no issue link for a chat that never worked on an issue", () => {
+    const html = render("c1");
+    expect(html).not.toContain('aria-label="Go to');
+    expect(html).not.toContain('aria-label="Worked-on issues"');
   });
 
   it("shows the composer for an active chat", () => {

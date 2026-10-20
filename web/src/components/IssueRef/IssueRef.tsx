@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { useConfig, useIssues } from "../../api/queries";
-import { issueHref, issueIdFromHref, splitIssueIds } from "../../utils/issue-refs";
-import { createHoverIntent } from "../IssueDetail/hover-intent";
+import type { ComponentProps, ReactNode } from "react";
+import { useConfig } from "../../api/queries";
+import { issueIdFromHref, splitIssueIds } from "../../utils/issue-refs";
 import StatusIcon from "../ui/StatusIcon";
-import { IssuePreview } from "./IssuePreview";
-
-const PREVIEW_DELAY = 250;
+import { useIssueLink } from "./useIssueLink";
 
 /**
  * An issue ID as a chip that links to the issue and previews it on hover.
@@ -14,33 +11,18 @@ const PREVIEW_DELAY = 250;
  * link such as `[the epic](#/issues/…)`) the chip shows that text instead.
  */
 export function IssueRef({ id, label }: { id: string; label?: ReactNode }) {
-  const { data: issues } = useIssues();
-  const issue = issues?.find((i) => i.id === id);
-  const ref = useRef<HTMLAnchorElement>(null);
-  const [preview, setPreview] = useState(false);
-  const [intent] = useState(() => createHoverIntent(PREVIEW_DELAY, setPreview));
-  useEffect(() => () => intent.cancel(), [intent]);
+  const { issues, issue, linkProps, preview } = useIssueLink(id);
 
   if (issues && !issue && label === undefined) {
     return <span className="issue-ref issue-ref-missing" title="Issue not found">{id}</span>;
   }
   return (
     <>
-      <a
-        ref={ref}
-        href={issueHref(id)}
-        className={label === undefined ? "issue-ref" : "issue-ref issue-ref-label"}
-        data-issue-ref
-        onMouseEnter={() => issue && intent.enter()}
-        onMouseLeave={() => intent.leave()}
-        onFocus={() => issue && intent.enter()}
-        onBlur={() => intent.leave()}
-        onClick={() => intent.leave()}
-      >
+      <a {...linkProps} className={label === undefined ? "issue-ref" : "issue-ref issue-ref-label"} data-issue-ref>
         {issue && <StatusIcon status={issue.status} size={11} />}
         <span className="issue-ref-text">{label ?? id}</span>
       </a>
-      {preview && issue && <IssuePreview anchorRef={ref} issue={issue} placement="bottom-start" />}
+      {preview}
     </>
   );
 }
