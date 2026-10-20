@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Release, ReleasesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import {
-  acceptsIssueDrop, childProgress, findRelease, matchesIssueSearch, parentContext, issuesInRelease, openReleases, orderWarnings, releaseDropRef, reorderMove, savedOrder, timeBar,
-  noReleaseIssues, releaseLink,
+  acceptsIssueDrop, childProgress, matchesIssueSearch, parentContext, issuesInRelease, openReleases, orderWarnings, releaseDropRef, reorderMove, savedOrder, timeBar,
+  noReleaseIssues, releaseFilter,
 } from "./releases-utils";
 
 const rel = (number: number, overrides: Partial<Release> = {}): Release => ({
@@ -44,16 +44,6 @@ describe("savedOrder", () => {
   it("leaves placeholders out", () => {
     expect(savedOrder(board({ next: placeholder(2, "next") })).map((r) => r.number)).toEqual([1]);
     expect(savedOrder(board({ current: placeholder(1, "current"), next: placeholder(2, "next", true) }))).toEqual([]);
-  });
-});
-
-describe("findRelease", () => {
-  it("finds open, placeholder and past releases by number", () => {
-    const b = board({ next: placeholder(2, "next"), upcoming: [], past: [rel(9, { state: "RELEASED" })] });
-    expect(findRelease(b, 1)?.number).toBe(1);
-    expect(findRelease(b, 2)?.placeholder).toBe(true);
-    expect(findRelease(b, 9)?.state).toBe("RELEASED");
-    expect(findRelease(b, 42)).toBeNull();
   });
 });
 
@@ -256,17 +246,17 @@ describe("childProgress", () => {
   });
 });
 
-describe("releaseLink", () => {
+describe("releaseFilter", () => {
   it("opens Current and Next in Issues by slot, so the filter follows them", () => {
-    expect(releaseLink(rel(1, { slot: "current" }))).toEqual({ filter: "@current" });
-    expect(releaseLink(placeholder(2, "next"))).toEqual({ filter: "@next" });
+    expect(releaseFilter(rel(1, { slot: "current" }))).toBe("@current");
+    expect(releaseFilter(placeholder(2, "next"))).toBe("@next");
   });
 
   it("opens an Upcoming release in Issues by number", () => {
-    expect(releaseLink(rel(3, { slot: "upcoming" }))).toEqual({ filter: "#3" });
+    expect(releaseFilter(rel(3, { slot: "upcoming" }))).toBe("#3");
   });
 
-  it("opens a Past release on its detail page", () => {
-    expect(releaseLink(rel(4, { slot: "past", state: "RELEASED" }))).toEqual({ detail: 4 });
+  it("has no filter for a Past release: it expands in place", () => {
+    expect(releaseFilter(rel(4, { slot: "past", state: "RELEASED" }))).toBeNull();
   });
 });

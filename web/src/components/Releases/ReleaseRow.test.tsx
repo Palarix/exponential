@@ -74,6 +74,15 @@ describe("ReleaseRowBody", () => {
     expect(html).toContain("Show issues");
     expect(html).not.toMatch(/>Current</);
   });
+
+  it("makes a past release's title a toggle for its issues, not a link", () => {
+    const html = row({ ...current, state: "RELEASED", slot: "past", released_at: "2026-10-02T10:00:00Z" }, { handle: null, expanded: true });
+    expect(html).toMatch(/<button[^>]*aria-expanded="true"[^>]*><span class="flex items-center gap-2 min-w-0">/);
+  });
+
+  it("keeps an open release's title a link", () => {
+    expect(row(current)).not.toMatch(/<button[^>]*aria-expanded="[a-z]+"[^>]*><span class="flex items-center gap-2 min-w-0">/);
+  });
 });
 
 describe("ReleaseSummaryCard", () => {
@@ -96,5 +105,12 @@ describe("ReleaseSummaryCard", () => {
     const html = render(<ReleaseSummaryCard release={{ ...current, slot: "next", started_at: undefined }} today="2026-10-20" />);
     expect(html).not.toMatch(/aria-label="Burndown"/);
     expect(html).toContain("Starts when this release becomes Current.");
+  });
+
+  it("shows a past release's final stats; its burndown is in the expanded row", () => {
+    const released = { ...current, state: "RELEASED" as const, slot: "past" as const, released_at: "2026-10-09T10:00:00Z" };
+    const html = render(<ReleaseSummaryCard release={released} today="2026-10-20" />);
+    expect(html).toContain("In progress");
+    expect(html).not.toContain("Burndown");
   });
 });

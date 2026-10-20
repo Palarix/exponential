@@ -181,7 +181,11 @@ export function ReleaseProgress({ release, today }: { release: Release; today: s
   );
 }
 
-/** The full breakdown of a release: status counts, target date and burndown. */
+/**
+ * The full breakdown of a release: status counts, target date and, for an
+ * open release, the burndown. A past release's counts are its final snapshot;
+ * its burndown is in its expanded row.
+ */
 export function ReleaseSummaryCard({ release, today }: { release: Release; today: string }) {
   const started = !!release.started_at && !release.placeholder;
   const days = useReleaseProgress(`#${release.number}`, started)?.days ?? [];
@@ -219,6 +223,35 @@ export function ReleaseSummaryCard({ release, today }: { release: Release; today
   );
 }
 
+/**
+ * A past release's burndown from its start to its release, with both dates
+ * and a legend, for the top of its expanded row. Nothing for a release that
+ * was never Current or shipped within a day.
+ */
+export function PastBurndown({ release }: { release: Release }) {
+  const days = useReleaseProgress(`#${release.number}`, !!release.started_at)?.days ?? [];
+  if (!release.started_at || days.length < 2) return null;
+  return (
+    <div className="border-t border-[var(--color-border-subtle)] px-3 pt-3 pb-2">
+      <Burndown days={days} height={96} />
+      <div className="mt-1 flex items-center gap-3 text-xs tabular-nums text-[var(--color-text-muted)]">
+        <span>{formatShortDate(days[0].date)}</span>
+        <span className="flex-1 flex items-center justify-center gap-3">
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-0.5 bg-[var(--color-accent-primary)]" />
+            Open
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-3 border-t border-dashed border-[var(--color-text-muted)] opacity-50" />
+            Scope
+          </span>
+        </span>
+        <span>{formatShortDate(days[days.length - 1].date)}</span>
+      </div>
+    </div>
+  );
+}
+
 interface ReleaseRowBodyProps {
   release: Release;
   today: string;
@@ -227,6 +260,7 @@ interface ReleaseRowBodyProps {
   warning?: string[];
   expanded: boolean;
   onToggle: () => void;
+  /** Opens an open release in Issues; on a past release it toggles the issues like the chevron. */
   onOpen: () => void;
   highlight?: DropHighlight;
   /** The release's issues, shown while expanded. */
@@ -252,7 +286,12 @@ export function ReleaseRowBody({
     >
       <div className={cn(RELEASE_ROW_GRID, "px-3 h-11")}>
         <span className="flex">{handle}</span>
-        <button type="button" onClick={onOpen} className="min-w-0 text-left hover:[&_span.truncate]:underline underline-offset-2">
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-expanded={past ? expanded : undefined}
+          className={cn("min-w-0 text-left", !past && "hover:[&_span.truncate]:underline underline-offset-2")}
+        >
           <ReleaseTitle release={release} />
         </button>
         <span className="flex"><OrderWarning names={warning} /></span>

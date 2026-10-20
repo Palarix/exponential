@@ -33,7 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Planning:** drag releases by their handle to reorder them, which changes Current and Next. Expand a release to see its issues, and drag issues between releases and No release. Past releases expand to show what they delivered, read-only.
   - **Issue rows:** compact, in the backlog's style: ID, status, a "Parent ›" breadcrumb whose tooltip says where the parent is, the title, and sub-issue progress. Hovering shows the issue card.
   - **Top bar:** issue search and the issue filter, which narrow every list and open the rows with matches. **New Release** creates a release.
-  - **Detail:** clicking a release opens `#/releases/<number>`, a basic page until the full release page lands.
   - **API:** `POST /api/draft` now answers a refused release assignment (unknown release, released release, Next locked while Current is unsaved) with 400 and the reason, which the app shows, instead of a generic 500.
 
   (xpo-9a7a77)
@@ -51,9 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Releases in the web app: a **Release** filter, and links from open releases to the Issues view.
   - **Filter:** the Filter menu has **Release** with Current, Next, No release and each release, with counts. Current and Next are looked up each time the filter runs, so a saved filter follows them as releases complete. A specific release is saved by its number; a deleted one matches nothing. The filter works in Issues, My Issues, Inbox and Releases.
-  - **Links:** clicking Current, Next or an upcoming release in the Releases view opens Issues on All Issues with that release's filter. Past releases still open their page.
+  - **Links:** clicking Current, Next or an upcoming release in the Releases view opens Issues on All Issues with that release's filter.
 
   (xpo-325f73)
+
+- Releases in the web app: past releases are read in place, with no page of their own. Clicking a past release's title expands it like the chevron. The expanded row shows the release's burndown from the day it became Current to the day it shipped, then the issues it delivered. The burndown hides while a search or filter narrows the lists, and a release that was never Current has none. (xpo-e6ff99)
 
 ### Changed
 

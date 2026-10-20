@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import { QueryClient } from "@tanstack/react-query";
 import { renderMarkup } from "../../render-markup";
+import { queryKeys } from "../../api/query-keys";
 import type { Release, ReleasesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import { ReleaseStack } from "./Releases";
@@ -142,5 +144,54 @@ describe("ReleaseStack", () => {
     expect(html).toContain(">0.7<");
     expect(html).not.toContain(">0.6<");
     expect(html).toContain("Show 2 older releases");
+  });
+
+  describe("an expanded past release", () => {
+    const shipped = { ...past(1), started_at: "2026-08-20T09:00:00Z" };
+    const withShipped = { ...board, past: [shipped] };
+    const days = [
+      { date: "2026-08-20", scope: 2, open: 2, completed: 0 },
+      { date: "2026-09-01", scope: 2, open: 0, completed: 2 },
+    ];
+    function expanded(b: ReleasesResponse, query = "") {
+      const client = new QueryClient();
+      client.setQueryData(queryKeys.releaseProgress("#1"), { days });
+      return renderMarkup(
+        <TooltipPrimitive.Provider>
+          <ReleaseStack
+            board={b}
+            issues={[delivered]}
+            today="2026-10-20"
+            query={query}
+            onOpen={noop}
+            onIssueClick={noop}
+            onReorder={noop}
+            onAssign={noop}
+            initialExpanded={[1]}
+          />
+        </TooltipPrimitive.Provider>,
+        client,
+      );
+    }
+
+    it("shows its burndown from start to release above the delivered issues", () => {
+      const html = expanded(withShipped);
+      expect(html).toMatch(/aria-label="Burndown"/);
+      expect(html).toContain("Aug 20");
+      expect(html.indexOf('aria-label="Burndown"')).toBeLessThan(html.indexOf("Delivered thing"));
+    });
+
+    it("shows no burndown for a release that was never Current", () => {
+      const html = expanded(board);
+      expect(html).toContain("Delivered thing");
+      expect(html).not.toMatch(/aria-label="Burndown"/);
+      expect(html).not.toContain("no burndown");
+    });
+
+    it("hides the burndown while the search narrows the lists", () => {
+      const html = expanded(withShipped, "Delivered");
+      expect(html).toContain("Delivered thing");
+      expect(html).not.toMatch(/aria-label="Burndown"/);
+    });
   });
 });

@@ -11,21 +11,16 @@ export function savedOrder(board: ReleasesResponse): Release[] {
   return openReleases(board).filter((r) => !r.placeholder);
 }
 
-/** The release with `number` anywhere on the board, placeholders included. */
-export function findRelease(board: ReleasesResponse, number: number): Release | null {
-  return [board.current, board.next, ...board.upcoming, ...board.past].find((r) => r.number === number) ?? null;
-}
-
 /**
- * Where clicking a release goes. A Past release opens its detail page. An
- * open release opens Issues with a release filter: Current and Next by slot,
- * so the filter follows them as releases complete, Upcoming by number.
+ * The release filter clicking an open release opens Issues with: Current and
+ * Next by slot, so the filter follows them as releases complete, Upcoming by
+ * number. Null for a Past release, which expands in place instead.
  */
-export function releaseLink(release: Release): { detail: number } | { filter: string } {
-  if (release.state === "RELEASED") return { detail: release.number };
-  if (release.slot === "current") return { filter: "@current" };
-  if (release.slot === "next") return { filter: "@next" };
-  return { filter: `#${release.number}` };
+export function releaseFilter(release: Release): string | null {
+  if (release.state === "RELEASED") return null;
+  if (release.slot === "current") return "@current";
+  if (release.slot === "next") return "@next";
+  return `#${release.number}`;
 }
 
 /**

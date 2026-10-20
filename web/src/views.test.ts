@@ -5,7 +5,6 @@ const route = (overrides: Partial<Route>): Route => ({
   view: "dashboard",
   issueId: null,
   cycleId: null,
-  releaseNumber: null,
   depFocusId: null,
   chatId: null,
   chatHistory: null,
@@ -74,9 +73,9 @@ describe("parseRoute", () => {
     expect(parseRoute("#/dependencies/xpo-abc123")).toEqual(route({ view: "dependencies", depFocusId: "xpo-abc123" }));
   });
 
-  it("parses release links by number, ignoring anything else", () => {
+  it("opens the Releases list for any release link: releases have no page", () => {
     expect(parseRoute("#/releases")).toEqual(route({ view: "releases" }));
-    expect(parseRoute("#/releases/7")).toEqual(route({ view: "releases", releaseNumber: 7 }));
+    expect(parseRoute("#/releases/7")).toEqual(route({ view: "releases" }));
     expect(parseRoute("#/releases/rel-3fa9c1")).toEqual(route({ view: "releases" }));
   });
 
@@ -106,11 +105,6 @@ describe("formatRoute", () => {
     expect(formatRoute(route({ view: "board", cycleId: "c1" }))).toBe("#/board");
     expect(formatRoute(route({ view: "dependencies", depFocusId: "xpo-2" }))).toBe("#/dependencies/xpo-2");
     expect(formatRoute(route({ view: "labels", depFocusId: "xpo-2" }))).toBe("#/labels");
-  });
-
-  it("only includes the release number on the releases view", () => {
-    expect(formatRoute(route({ view: "releases", releaseNumber: 7 }))).toBe("#/releases/7");
-    expect(formatRoute(route({ view: "board", releaseNumber: 7 }))).toBe("#/board");
   });
 
   it("only includes the chat on the agent view", () => {

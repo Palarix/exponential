@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes } from "react";
+import { useMemo, useState, type HTMLAttributes } from "react";
 import {
   closestCenter, DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent,
@@ -12,18 +12,14 @@ import { useAppNav, useIssueClick, useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
 import { EMPTY_FILTERS, FILTERS_CODEC, hasActiveFilters, matchesFilters, type BacklogFilters } from "../Backlog/filters";
 import FilterChips from "../Backlog/FilterChips";
-import { isTerminal } from "../../constants";
 import { cn } from "../../utils/cn";
-import { CopyableId, FilterButton, Heading, indicatorPill, SearchInput, StatusIcon, SubProgress, TopBar, ViewContainer } from "../ui";
-import Tooltip from "../ui/Tooltip";
+import { FilterButton, Heading, indicatorPill, SearchInput, TopBar, ViewContainer } from "../ui";
 import { DragOverlayCard } from "../Backlog/DndComponents";
-import { createHoverIntent } from "../IssueDetail/hover-intent";
-import { IssuePreview } from "../IssueRef/IssuePreview";
 import NewReleaseDialog from "./NewReleaseDialog";
-import ReleaseDetail from "./ReleaseDetail";
-import { ExpandToggle, RELEASE_ROW_GRID, ReleaseRowBody } from "./ReleaseRow";
+import { ExpandToggle, PastBurndown, RELEASE_ROW_GRID, ReleaseRowBody } from "./ReleaseRow";
+import { IssueRow, ReleaseIssueList } from "./ReleaseIssues";
 import {
-  acceptsIssueDrop, childProgress, dropHighlightClass, findRelease, parentContext, releaseLink, issuesInRelease, openReleases, orderWarnings,
+  acceptsIssueDrop, dropHighlightClass, releaseFilter, issuesInRelease, openReleases, orderWarnings,
   reorderMove, savedOrder, noReleaseIssues, type DropHighlight,
 } from "./releases-utils";
 
@@ -31,8 +27,6 @@ import {
 const PAST_SHOWN = 3;
 /** At most this many No release issues render; the search narrows the rest. */
 const NO_RELEASE_LIMIT = 100;
-/** How long the pointer rests on an issue row before its hover card opens (as on issue chips). */
-const PREVIEW_DELAY = 250;
 
 // Drag data. Releases drag by their handle and drop on other releases'
 // targets; issues drag by their row and drop on any open release or on No release.
@@ -62,7 +56,7 @@ function todayISO(): string {
 
 export default function Releases() {
   const { data: board, isPending, isError } = useReleases();
-  const { releaseNumber, setReleaseNumber, navigate } = useAppNav();
+  const { navigate } = useAppNav();
 
   if (isPending) {
     return (
@@ -74,13 +68,9 @@ export default function Releases() {
   if (isError || !board) {
     return <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">Couldn't load releases.</div>;
   }
-  if (releaseNumber != null) {
-    return <ReleaseDetail number={releaseNumber} release={findRelease(board, releaseNumber)} today={todayISO()} onBack={() => setReleaseNumber(null)} />;
-  }
   const onOpen = (release: Release) => {
-    const link = releaseLink(release);
-    if ("detail" in link) setReleaseNumber(link.detail);
-    else navigate("backlog", { tab: "all", filters: { releases: [link.filter] } });
+    const filter = releaseFilter(release);
+    if (filter) navigate("backlog", { tab: "all", filters: { releases: [filter] } });
   };
   return <ReleasesBoard board={board} onOpen={onOpen} />;
 }
@@ -148,6 +138,7 @@ export interface ReleaseStackProps {
   query: string;
   /** The top bar filters: narrow the issue lists like the search. */
   filters?: BacklogFilters;
+  /** Opens an open release in Issues; past releases toggle in place. */
   onOpen: (release: Release) => void;
   onIssueClick: (issue: Issue) => void;
   onReorder: (move: { id: string; before?: string; after?: string }) => void;
@@ -259,7 +250,6 @@ export function ReleaseStack({
           today={today}
           expanded={expanded}
           onToggle={toggle}
-          onOpen={onOpen}
           onIssueClick={onIssueClick}
         />
       </div>
@@ -326,31 +316,14 @@ function ReleaseItem({ release, issues, listed, query, narrowing, expanded, onIs
   return (
     <div ref={setNodeRef} className={cn(isDragging && "opacity-40")}>
       <ReleaseRowBody {...props} release={release} handle={handle} expanded={shownExpanded(expanded, narrowing, releaseIssues)}>
-        <ReleaseIssueList issues={releaseIssues} all={issues} onIssueClick={onIssueClick} />
+        <ReleaseIssueList
+          issues={releaseIssues}
+          all={issues}
+          onIssueClick={onIssueClick}
+          empty="No issues yet. Drag issues here from No release."
+          renderRow={(issue) => <DraggableIssueRow key={issue.id} issue={issue} all={issues} onIssueClick={onIssueClick} />}
+        />
       </ReleaseRowBody>
-    </div>
-  );
-}
-
-/** A release's issues, flat. A past release's list is read-only: what it delivered, not to be moved. */
-function ReleaseIssueList({ issues, all, onIssueClick, readOnly = false }: {
-  issues: Issue[];
-  all: Issue[];
-  onIssueClick: (issue: Issue) => void;
-  readOnly?: boolean;
-}) {
-  if (issues.length === 0) {
-    return (
-      <p className="px-2 py-2 text-xs text-[var(--color-text-muted)]">
-        {readOnly ? "No issues yet." : "No issues yet. Drag issues here from No release."}
-      </p>
-    );
-  }
-  return (
-    <div className="border-t border-[var(--color-border-subtle)] pt-2 space-y-px">
-      {issues.map((issue) => readOnly
-        ? <IssueRow key={issue.id} issue={issue} all={all} onIssueClick={onIssueClick} />
-        : <DraggableIssueRow key={issue.id} issue={issue} all={all} onIssueClick={onIssueClick} />)}
     </div>
   );
 }
@@ -362,88 +335,6 @@ function DraggableIssueRow(props: { issue: Issue; all: Issue[]; onIssueClick: (i
     data: { kind: "issue", issue: props.issue } satisfies DragData,
   });
   return <IssueRow {...props} setNodeRef={setNodeRef} dragProps={{ ...attributes, ...listeners } as HTMLAttributes<HTMLDivElement>} dragging={isDragging} />;
-}
-
-/**
- * One issue, compact for the half-width lists but in the backlog's order and
- * styles: ID, status, the parent as a "Parent ›" breadcrumb, the title, and
- * the sub-issue progress pill. Priority, labels and the work indicators stay
- * in the backlog; the hover card has the details. The breadcrumb gives way
- * before the title does. A click opens the issue. The row is a div, not a
- * button: it holds CopyableId, which is a button itself. Resting on the row
- * shows the issue hover card beside it, which closes when a drag starts.
- */
-function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, dragging = false }: {
-  issue: Issue;
-  /** Every issue, for the parent breadcrumb and the child progress. */
-  all: Issue[];
-  onIssueClick: (issue: Issue) => void;
-  setNodeRef?: (el: HTMLElement | null) => void;
-  dragProps?: HTMLAttributes<HTMLDivElement>;
-  dragging?: boolean;
-}) {
-  const parent = parentContext(issue, all);
-  const children = childProgress(issue, all);
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const [preview, setPreview] = useState(false);
-  const [intent] = useState(() => createHoverIntent(PREVIEW_DELAY, setPreview));
-  useEffect(() => () => intent.cancel(), [intent]);
-  const setRefs = useCallback((el: HTMLDivElement | null) => {
-    rowRef.current = el;
-    setNodeRef?.(el);
-  }, [setNodeRef]);
-  const open = () => { intent.leave(); onIssueClick(issue); };
-  return (
-    <>
-      <div
-        ref={setRefs}
-        role="button"
-        tabIndex={0}
-        onClick={open}
-        onKeyDown={(e) => { if (e.key === "Enter") open(); }}
-        onMouseEnter={() => intent.enter()}
-        onMouseLeave={() => intent.leave()}
-        onPointerDownCapture={() => intent.leave()}
-        className={cn(
-          "w-full flex items-center gap-3 px-3 h-10 rounded-[var(--radius-md)] cursor-pointer select-none transition-colors hover:bg-[var(--color-hover-surface-1)]",
-          dragProps && "touch-none",
-          isTerminal(issue.status) && "opacity-60",
-          dragging && "opacity-30",
-        )}
-        {...dragProps}
-      >
-        <CopyableId id={issue.id} className="text-xs text-left shrink-0 tabular-nums" />
-        <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
-        <span className="flex items-center gap-2 flex-1 min-w-0">
-          {parent && <ParentCrumb parent={parent.parent} where={parent.where} />}
-          <span className="text-sm text-[var(--color-text-primary)] truncate min-w-0 flex-1">{issue.title}</span>
-        </span>
-        {children && (
-          <span className={indicatorPill}>
-            <SubProgress done={children.done} total={children.total} size={12} />
-            {children.done}/{children.total}
-          </span>
-        )}
-      </div>
-      {preview && !dragging && <IssuePreview anchorRef={rowRef} issue={issue} />}
-    </>
-  );
-}
-
-/**
- * A sub-issue's parent as the backlog shows it, "Parent ›" before the title;
- * the tooltip names the parent and the release it is in.
- */
-function ParentCrumb({ parent, where }: { parent: Issue; where: string }) {
-  const text = `Parent: ${parent.id} ${parent.title} · ${where}`;
-  return (
-    <Tooltip content={text}>
-      <span aria-label={text} className="flex items-center gap-2 min-w-0 max-w-[40%] shrink-[3]">
-        <span className="text-sm text-[var(--color-text-muted)] truncate">{parent.title}</span>
-        <ChevronRight className="w-3 h-3 text-[var(--color-text-muted)] shrink-0" />
-      </span>
-    </Tooltip>
-  );
 }
 
 /**
@@ -510,10 +401,12 @@ function NoReleaseRow({ issues, listed, query, narrowing, onIssueClick, highligh
 
 /**
  * Released releases, newest first, as faded rows. They are neither dragged
- * nor drop targets, but expand to list what they delivered. Only the most
+ * nor drop targets, but expand (by the chevron or the title) to their record:
+ * the burndown (hidden while the search or filters narrow the lists), then
+ * what they delivered. Only the most
  * recent few show until "Show N older".
  */
-function PastReleases({ releases, issues, listed, query, narrowing, today, expanded, onToggle, onOpen, onIssueClick }: {
+function PastReleases({ releases, issues, listed, query, narrowing, today, expanded, onToggle, onIssueClick }: {
   releases: Release[];
   issues: Issue[];
   listed: Issue[];
@@ -522,7 +415,6 @@ function PastReleases({ releases, issues, listed, query, narrowing, today, expan
   today: string;
   expanded: Set<number>;
   onToggle: (number: number) => void;
-  onOpen: (release: Release) => void;
   onIssueClick: (issue: Issue) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
@@ -540,9 +432,10 @@ function PastReleases({ releases, issues, listed, query, narrowing, today, expan
             handle={<CircleCheck size={14} className="text-[var(--color-text-muted)]" />}
             expanded={shownExpanded(expanded.has(r.number), narrowing, delivered)}
             onToggle={() => onToggle(r.number)}
-            onOpen={() => onOpen(r)}
+            onOpen={() => onToggle(r.number)}
           >
-            <ReleaseIssueList issues={delivered} all={issues} onIssueClick={onIssueClick} readOnly />
+            {!narrowing && <PastBurndown release={r} />}
+            <ReleaseIssueList issues={delivered} all={issues} onIssueClick={onIssueClick} />
           </ReleaseRowBody>
         );
       })}

@@ -52,8 +52,6 @@ export interface Route {
   view: ViewId;
   issueId: string | null;
   cycleId: string | null;
-  /** The release open in the Releases view; the number also names placeholders. */
-  releaseNumber: number | null;
   depFocusId: string | null;
   chatId: string | null;
   /** The Agent view's chat history page, optionally filtered to one issue's chats. */
@@ -66,13 +64,12 @@ const CHAT_HISTORY = "history";
 export function parseRoute(hash: string): Route {
   const [path, query = ""] = hash.replace(/^#\/?/, "").split("?");
   const [head, param] = path.split("/");
-  const empty: Route = { view: "dashboard", issueId: null, cycleId: null, releaseNumber: null, depFocusId: null, chatId: null, chatHistory: null };
+  const empty: Route = { view: "dashboard", issueId: null, cycleId: null, depFocusId: null, chatId: null, chatHistory: null };
   if (head === "agent" && param === CHAT_HISTORY) {
     return { ...empty, view: "agent", chatHistory: { issueId: new URLSearchParams(query).get("issue") || null } };
   }
   if (head === "issues" && param) return { ...empty, view: "backlog", issueId: param };
   if (head === "cycles" && param) return { ...empty, view: "cycles", cycleId: param };
-  if (head === "releases" && /^\d+$/.test(param ?? "")) return { ...empty, view: "releases", releaseNumber: Number(param) };
   if (head === "dependencies" && param) return { ...empty, view: "dependencies", depFocusId: param };
   if (head === "agent" && param) return { ...empty, view: "agent", chatId: param };
   return { ...empty, view: VIEW_BY_ROUTE[head] ?? "dashboard" };
@@ -85,10 +82,9 @@ export function routeTitle(route: Route): string {
   return VIEW_BY_ID[route.view].title;
 }
 
-export function formatRoute({ view, issueId, cycleId, releaseNumber, depFocusId, chatId, chatHistory }: Route): string {
+export function formatRoute({ view, issueId, cycleId, depFocusId, chatId, chatHistory }: Route): string {
   if (issueId) return `#/issues/${issueId}`;
   if (view === "cycles" && cycleId) return `#/cycles/${cycleId}`;
-  if (view === "releases" && releaseNumber != null) return `#/releases/${releaseNumber}`;
   if (view === "dependencies" && depFocusId) return `#/dependencies/${depFocusId}`;
   if (view === "agent" && chatHistory) {
     return chatHistory.issueId ? `#/agent/${CHAT_HISTORY}?issue=${encodeURIComponent(chatHistory.issueId)}` : `#/agent/${CHAT_HISTORY}`;
