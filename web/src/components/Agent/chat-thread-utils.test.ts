@@ -278,7 +278,7 @@ describe("turnSeconds", () => {
 describe("toolSummary", () => {
   it("describes code tools in words", () => {
     expect(toolSummary("Read", "/repo/internal/server/board.go")).toEqual({ text: "Read", detail: "board.go" });
-    expect(toolSummary("Grep", '"estimate":\\s*\\{')).toEqual({ text: "Searched the code for", detail: '"estimate":\\s*\\{' });
+    expect(toolSummary("Grep", '"estimate":\\s*\\{')).toEqual({ text: "Searched for", detail: '"estimate":\\s*\\{' });
     expect(toolSummary("Glob", "**/*.tsx")).toEqual({ text: "Found files matching", detail: "**/*.tsx" });
   });
 
@@ -290,7 +290,7 @@ describe("toolSummary", () => {
   it("describes xpo tools in words", () => {
     expect(toolSummary("mcp__xpo__list", "")).toEqual({ text: "Listed issues", detail: "" });
     expect(toolSummary("mcp__xpo__list", "login")).toEqual({ text: "Listed issues matching", detail: "login" });
-    expect(toolSummary("mcp__xpo__show", "xpo-abc123")).toEqual({ text: "Opened", detail: "xpo-abc123" });
+    expect(toolSummary("mcp__xpo__show", "xpo-abc123")).toEqual({ text: "Read", detail: "xpo-abc123" });
     expect(toolSummary("mcp__xpo__add", "Login times out")).toEqual({ text: "Created issue", detail: "Login times out" });
     expect(toolSummary("mcp__xpo__update", "xpo-abc123")).toEqual({ text: "Updated", detail: "xpo-abc123" });
     expect(toolSummary("mcp__xpo__comment", "xpo-abc123")).toEqual({ text: "Commented on", detail: "xpo-abc123" });
@@ -306,15 +306,15 @@ describe("toolSummary", () => {
   });
 
   it("names the operation of the spec, walkthrough and artifact tools", () => {
-    expect(toolSummary("mcp__xpo__spec", "write xpo-1")).toEqual({ text: "Wrote the spec of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__spec", "write xpo-1")).toEqual({ text: "Wrote the spec for", detail: "xpo-1" });
     expect(toolSummary("mcp__xpo__spec", "read xpo-1")).toEqual({ text: "Read the spec of", detail: "xpo-1" });
-    expect(toolSummary("mcp__xpo__walkthrough", "write xpo-1")).toEqual({ text: "Wrote the walkthrough of", detail: "xpo-1" });
+    expect(toolSummary("mcp__xpo__walkthrough", "write xpo-1")).toEqual({ text: "Wrote the walkthrough for", detail: "xpo-1" });
     expect(toolSummary("mcp__xpo__walkthrough", "delete xpo-1")).toEqual({ text: "Deleted the walkthrough of", detail: "xpo-1" });
     expect(toolSummary("mcp__xpo__artifact", "add xpo-1")).toEqual({ text: "Added an artifact to", detail: "xpo-1" });
     expect(toolSummary("mcp__xpo__artifact", "list xpo-1")).toEqual({ text: "Listed the artifacts of", detail: "xpo-1" });
-    expect(approvalTitle("mcp__xpo__spec", "write xpo-1")).toEqual({ action: "Write the spec of", detail: "xpo-1" });
+    expect(approvalTitle("mcp__xpo__spec", "write xpo-1")).toEqual({ action: "Write the spec for", detail: "xpo-1" });
     expect(approvalTitle("mcp__xpo__artifact", "delete xpo-1")).toEqual({ action: "Delete an artifact of", detail: "xpo-1" });
-    expect(stepSummary({ kind: "tool", name: "mcp__xpo__spec", arg: "write xpo-1", done: true, status: "error" })).toEqual({ text: "Write the spec of", detail: "xpo-1" });
+    expect(stepSummary({ kind: "tool", name: "mcp__xpo__spec", arg: "write xpo-1", done: true, status: "error" })).toEqual({ text: "Write the spec for", detail: "xpo-1" });
   });
 
   it("keeps the old wording for chats saved without an operation", () => {
@@ -358,7 +358,7 @@ describe("toolSummary", () => {
 describe("stepIcon", () => {
   const tool = (name: string, arg = "", extra: Partial<ToolStep> = {}): ToolStep => ({ kind: "tool", name, arg, done: true, status: "done", ...extra });
 
-  it("gives every known tool an icon, labelled with its verb", () => {
+  it("gives every known tool an icon and its verb", () => {
     // Mostly one icon per kind of action (look, change, search); some xpo tools keep their own.
     const icons: [string, ToolIconId][] = [
       ["Read", "read"], ["mcp__xpo__show", "read"], ["mcp__xpo__history", "read"], ["mcp__xpo__git_log", "read"], ["mcp__xpo__git_show", "read"], ["mcp__xpo__code_history", "read"],
@@ -377,25 +377,44 @@ describe("stepIcon", () => {
       expect(got.icon, name).toBe(icon);
       expect(got.name, name).toBeUndefined();
     }
-    expect(stepIcon(tool("Read", "/r/board.go"))).toEqual({ icon: "read", label: "Read", detail: "board.go" });
-    expect(stepIcon(tool("Grep", "TODO"))).toEqual({ icon: "search", label: "Searched the code for", detail: "TODO" });
-    expect(stepIcon(tool("mcp__xpo__list"))).toEqual({ icon: "search", label: "Listed issues", detail: "" });
+    expect(stepIcon(tool("Read", "/r/board.go"))).toEqual({ icon: "read", verb: "Read", detail: "board.go" });
+    expect(stepIcon(tool("Grep", "TODO"))).toEqual({ icon: "search", verb: "Searched for", detail: "TODO" });
+    expect(stepIcon(tool("mcp__xpo__list"))).toEqual({ icon: "search", verb: "Listed issues", detail: "" });
   });
 
-  it("labels a shell call with its verb, not the tool name", () => {
-    expect(stepIcon(tool("Bash", "Run the tests"))).toEqual({ icon: "shell", label: "Ran a shell command", detail: "Run the tests" });
+  it("shows a shell call's description without a verb", () => {
+    expect(stepIcon(tool("Bash", "Run the tests"))).toEqual({ icon: "shell", detail: "Run the tests" });
+    expect(stepIcon(tool("Bash"))).toEqual({ icon: "shell", verb: "Ran a shell command", detail: "" });
+    expect(stepIcon(tool("Bash", "", { done: false }))).toEqual({ icon: "shell", verb: "Running a shell command", detail: "" });
+    expect(stepIcon(tool("Bash", "Run the tests", { done: false }))).toEqual({ icon: "shell", detail: "Run the tests" });
     expect(toolSummary("Bash", "Run the tests")).toEqual({ text: "Ran a shell command", detail: "Run the tests" });
   });
 
   it("labels a call that did not run with what was asked", () => {
-    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { status: "error" }))).toEqual({ icon: "merge", label: "Merge", detail: "upe-1" });
-    expect(stepIcon(tool("Bash", "rm", { status: "denied" }))).toEqual({ icon: "shell", label: "Run a shell command", detail: "rm" });
-    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { approval: { id: "a", decision: "deny" } })).label).toBe("Merge");
+    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { status: "error" }))).toEqual({ icon: "merge", verb: "Merge", detail: "upe-1" });
+    expect(stepIcon(tool("Bash", "rm", { status: "denied" }))).toEqual({ icon: "shell", detail: "rm" });
+    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { approval: { id: "a", decision: "deny" } })).verb).toBe("Merge");
+  });
+
+  it("uses the progressive verb while a call runs", () => {
+    expect(stepIcon(tool("Read", "/r/CHANGELOG.md", { done: false, status: undefined }))).toEqual({ icon: "read", verb: "Reading", detail: "CHANGELOG.md" });
+    expect(stepIcon(tool("mcp__xpo__list", "", { done: false, status: undefined }))).toEqual({ icon: "search", verb: "Listing issues", detail: "" });
+    expect(stepIcon(tool("mcp__xpo__walkthrough", "write xpo-1", { done: false, status: undefined }))).toEqual({ icon: "walkthrough", verb: "Writing the walkthrough for", detail: "xpo-1" });
+  });
+
+  it("keeps the progressive verb for a finished call shown live", () => {
+    expect(stepIcon(tool("Read", "/r/CHANGELOG.md"), true)).toEqual({ icon: "read", verb: "Reading", detail: "CHANGELOG.md" });
+    // A call that did not run still reads as what was asked.
+    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { status: "error" }), true).verb).toBe("Merge");
+  });
+
+  it("reads a call waiting for approval as what is asked", () => {
+    expect(stepIcon(tool("mcp__xpo__merge", "upe-1", { done: false, status: undefined, approval: { id: "a" } })).verb).toBe("Merge");
   });
 
   it("gives unknown tools a generic icon and their name", () => {
-    expect(stepIcon(tool("NotebookEdit", "a.ipynb"))).toEqual({ icon: "tool", label: "NotebookEdit", name: "NotebookEdit", detail: "a.ipynb" });
-    expect(stepIcon(tool("mcp__other__thing", "x", { status: "error" }))).toEqual({ icon: "tool", label: "other thing", name: "other thing", detail: "x" });
+    expect(stepIcon(tool("NotebookEdit", "a.ipynb"))).toEqual({ icon: "tool", name: "NotebookEdit", detail: "a.ipynb" });
+    expect(stepIcon(tool("mcp__other__thing", "x", { status: "error" }))).toEqual({ icon: "tool", name: "other thing", detail: "x" });
   });
 });
 
@@ -650,7 +669,7 @@ describe("approvalArgs", () => {
 describe("stepSummary for failed calls", () => {
   it("reads a failed call as what was asked", () => {
     expect(stepSummary({ kind: "tool", name: "mcp__xpo__merge", arg: "upe-1", done: true, status: "error", approval: { id: "a", decision: "allow" } })).toEqual({ text: "Merge", detail: "upe-1" });
-    expect(stepSummary({ kind: "tool", name: "Grep", arg: "TODO", done: true, status: "error" })).toEqual({ text: "Search the code for", detail: "TODO" });
+    expect(stepSummary({ kind: "tool", name: "Grep", arg: "TODO", done: true, status: "error" })).toEqual({ text: "Search for", detail: "TODO" });
     expect(stepSummary({ kind: "tool", name: "mcp__xpo__list", arg: "", done: true, status: "denied" })).toEqual({ text: "List issues", detail: "" });
     expect(stepSummary({ kind: "tool", name: "Read", arg: "/r/board.go", done: true, status: "error" })).toEqual({ text: "Read", detail: "board.go" });
   });
@@ -660,7 +679,7 @@ describe("stepSummary for failed calls", () => {
   });
 
   it("keeps the past tense for a call that ran", () => {
-    expect(stepSummary({ kind: "tool", name: "Grep", arg: "TODO", done: true, status: "done" })).toEqual({ text: "Searched the code for", detail: "TODO" });
+    expect(stepSummary({ kind: "tool", name: "Grep", arg: "TODO", done: true, status: "done" })).toEqual({ text: "Searched for", detail: "TODO" });
   });
 });
 
@@ -1166,5 +1185,48 @@ describe("queue", () => {
   it("takes the queue the chat loaded with", () => {
     const item = { id: "q1", text: "two", time: T0 };
     expect(chatThreadReducer(emptyThread, { type: "queue", queue: [item] }).queue).toEqual([item]);
+  });
+});
+
+describe("toolSummary while running", () => {
+  // Every known tool and op: [name, arg, running text].
+  const cases: [string, string, string][] = [
+    ["Bash", "", "Running a shell command"],
+    ["Edit", "a.go", "Editing"], ["Write", "a.go", "Writing"], ["Read", "a.go", "Reading"],
+    ["Grep", "TODO", "Searching for"], ["Grep", "", "Searching the code"],
+    ["Glob", "*.go", "Finding files matching"], ["Glob", "", "Listing files"],
+    ["Skill", "xpo", "Loading the skill"],
+    ["WebSearch", "go", "Searching the web for"], ["WebSearch", "", "Searching the web"],
+    ["WebFetch", "https://go.dev", "Fetching"], ["WebFetch", "", "Fetching a page"],
+    ["LSP", "a.go", "Looking up symbols in"], ["LSP", "", "Looking up symbols"],
+    ["TaskCreate", "x", "Adding the to-do"], ["TaskCreate", "", "Adding a to-do"],
+    ["TaskUpdate", "3", "Updating to-do"], ["TaskUpdate", "", "Updating a to-do"],
+    ["TaskList", "", "Listing the to-dos"],
+    ["TaskGet", "3", "Reading to-do"], ["TaskGet", "", "Reading a to-do"],
+    ["Agent", "x", "Delegating"], ["Agent", "", "Delegating to a subagent"], ["Task", "x", "Delegating"],
+    ["AskUserQuestion", "Which?", "Asking"], ["AskUserQuestion", "", "Asking a question"],
+    ["mcp__xpo__list", "login", "Listing issues matching"], ["mcp__xpo__list", "", "Listing issues"],
+    ["mcp__xpo__show", "xpo-1", "Reading"], ["mcp__xpo__history", "xpo-1", "Reading the history of"],
+    ["mcp__xpo__add", "x", "Creating issue"], ["mcp__xpo__update", "xpo-1", "Updating"],
+    ["mcp__xpo__comment", "xpo-1", "Commenting on"], ["mcp__xpo__link", "xpo-1", "Linking"], ["mcp__xpo__unlink", "xpo-1", "Unlinking"],
+    ["mcp__xpo__start", "xpo-1", "Starting"], ["mcp__xpo__merge", "xpo-1", "Merging"],
+    ["mcp__xpo__spec", "xpo-1", "Reading the spec of"], ["mcp__xpo__spec", "read xpo-1", "Reading the spec of"],
+    ["mcp__xpo__spec", "write xpo-1", "Writing the spec for"], ["mcp__xpo__spec", "delete xpo-1", "Deleting the spec of"],
+    ["mcp__xpo__walkthrough", "write xpo-1", "Writing the walkthrough for"],
+    ["mcp__xpo__artifact", "xpo-1", "Reading an artifact of"], ["mcp__xpo__artifact", "read xpo-1", "Reading an artifact of"],
+    ["mcp__xpo__artifact", "add xpo-1", "Adding an artifact to"], ["mcp__xpo__artifact", "delete xpo-1", "Deleting an artifact of"],
+    ["mcp__xpo__artifact", "list xpo-1", "Listing the artifacts of"],
+    ["mcp__xpo__rationale", "x", "Searching design notes for"], ["mcp__xpo__rationale", "", "Searching design notes"],
+    ["mcp__xpo__git_status", "xpo-1", "Checking the git status of"], ["mcp__xpo__git_diff", "xpo-1", "Reading the diff of"],
+    ["mcp__xpo__git_log", "xpo-1", "Listing commits of"], ["mcp__xpo__git_log", "", "Listing commits"],
+    ["mcp__xpo__git_show", "abc", "Reading commit"], ["mcp__xpo__code_history", "a.go", "Tracing the history of"],
+  ];
+
+  it("has a progressive verb for every known tool and op", () => {
+    for (const [name, arg, text] of cases) expect(toolSummary(name, arg, true).text, `${name} ${arg}`).toBe(text);
+  });
+
+  it("keeps the tool name for unknown tools", () => {
+    expect(toolSummary("NotebookEdit", "a.ipynb", true)).toEqual({ text: "NotebookEdit", detail: "a.ipynb" });
   });
 });

@@ -339,81 +339,87 @@ export function turnSeconds(t: ChatTurn, now: number): number {
   return Math.max(0, Math.floor((end - Date.parse(t.user.time)) / 1000));
 }
 
-// Readable verbs for known tools: `verb` for a call that ran, `action` for
-// one that was only asked for (an approval card, a failed or denied call).
-// A tool without a detail uses `bare` / `bareAction`. `icon` stands in for the
-// verb on a work-list row; ToolIcon draws it.
+// Readable verbs for known tools: `verb` for a call that ran, `doing` for one
+// that runs, `action` for one that was only asked for (an approval card, a
+// failed or denied call). A tool without a detail uses `bare` / `bareDoing` /
+// `bareAction`. `icon` stands before the verb on a work-list row; ToolIcon draws it.
 // Icons group tools by what they do: `read` looks at something known, `edit`
 // changes something, `search` finds things. A few xpo tools keep their own.
 export type ToolIconId = "read" | "edit" | "search" | "shell" | "skill" | "add" | "comment" | "link" | "unlink" | "artifact" | "git_status" | "git_diff" | "spec" | "walkthrough" | "start" | "merge" | "agent" | "question" | "tool";
 
-interface ToolVerbs {
-  icon: ToolIconId;
+interface Verbs {
   verb: string;
-  bare?: string;
+  doing: string;
   action: string;
+}
+
+interface ToolVerbs extends Verbs {
+  icon: ToolIconId;
+  bare?: string;
+  bareDoing?: string;
   bareAction?: string;
   /** Verbs per operation, for tools whose detail starts with one: "write xpo-1". */
-  ops?: Record<string, { verb: string; action: string }>;
+  ops?: Record<string, Verbs>;
 }
 
 function fileOps(thing: string): ToolVerbs["ops"] {
   return {
-    read: { verb: `Read the ${thing} of`, action: `Read the ${thing} of` },
-    write: { verb: `Wrote the ${thing} of`, action: `Write the ${thing} of` },
-    delete: { verb: `Deleted the ${thing} of`, action: `Delete the ${thing} of` },
+    read: { verb: `Read the ${thing} of`, doing: `Reading the ${thing} of`, action: `Read the ${thing} of` },
+    write: { verb: `Wrote the ${thing} for`, doing: `Writing the ${thing} for`, action: `Write the ${thing} for` },
+    delete: { verb: `Deleted the ${thing} of`, doing: `Deleting the ${thing} of`, action: `Delete the ${thing} of` },
   };
 }
 // A subagent call. Claude Code names the tool Agent; older versions, Task.
-const AGENT_VERBS: ToolVerbs = { icon: "agent", verb: "Delegated", bare: "Delegated to a subagent", action: "Delegate", bareAction: "Delegate to a subagent" };
+const AGENT_VERBS: ToolVerbs = { icon: "agent", verb: "Delegated", doing: "Delegating", bare: "Delegated to a subagent", bareDoing: "Delegating to a subagent", action: "Delegate", bareAction: "Delegate to a subagent" };
 
 const TOOL_VERBS: Record<string, ToolVerbs> = {
-  Bash: { icon: "shell", verb: "Ran a shell command", action: "Run a shell command" },
-  Edit: { icon: "edit", verb: "Edited", action: "Edit" },
-  Write: { icon: "edit", verb: "Wrote", action: "Write" },
-  Read: { icon: "read", verb: "Read", action: "Read" },
-  Grep: { icon: "search", verb: "Searched the code for", bare: "Searched the code", action: "Search the code for", bareAction: "Search the code" },
-  Glob: { icon: "search", verb: "Found files matching", bare: "Listed files", action: "Find files matching", bareAction: "List files" },
-  Skill: { icon: "skill", verb: "Loaded the skill", action: "Load the skill" },
-  WebSearch: { icon: "search", verb: "Searched the web for", bare: "Searched the web", action: "Search the web for", bareAction: "Search the web" },
-  WebFetch: { icon: "read", verb: "Fetched", bare: "Fetched a page", action: "Fetch", bareAction: "Fetch a page" },
-  LSP: { icon: "search", verb: "Looked up symbols in", bare: "Looked up symbols", action: "Look up symbols in", bareAction: "Look up symbols" },
-  TaskCreate: { icon: "add", verb: "Added the to-do", bare: "Added a to-do", action: "Add the to-do", bareAction: "Add a to-do" },
-  TaskUpdate: { icon: "edit", verb: "Updated to-do", bare: "Updated a to-do", action: "Update to-do", bareAction: "Update a to-do" },
-  TaskList: { icon: "read", verb: "Listed the to-dos", action: "List the to-dos" },
-  TaskGet: { icon: "read", verb: "Read to-do", bare: "Read a to-do", action: "Read to-do", bareAction: "Read a to-do" },
+  Bash: { icon: "shell", verb: "Ran a shell command", doing: "Running a shell command", action: "Run a shell command" },
+  Edit: { icon: "edit", verb: "Edited", doing: "Editing", action: "Edit" },
+  Write: { icon: "edit", verb: "Wrote", doing: "Writing", action: "Write" },
+  Read: { icon: "read", verb: "Read", doing: "Reading", action: "Read" },
+  Grep: { icon: "search", verb: "Searched for", doing: "Searching for", bare: "Searched the code", bareDoing: "Searching the code", action: "Search for", bareAction: "Search the code" },
+  Glob: { icon: "search", verb: "Found files matching", doing: "Finding files matching", bare: "Listed files", bareDoing: "Listing files", action: "Find files matching", bareAction: "List files" },
+  Skill: { icon: "skill", verb: "Loaded the skill", doing: "Loading the skill", action: "Load the skill" },
+  WebSearch: { icon: "search", verb: "Searched the web for", doing: "Searching the web for", bare: "Searched the web", bareDoing: "Searching the web", action: "Search the web for", bareAction: "Search the web" },
+  WebFetch: { icon: "read", verb: "Fetched", doing: "Fetching", bare: "Fetched a page", bareDoing: "Fetching a page", action: "Fetch", bareAction: "Fetch a page" },
+  LSP: { icon: "search", verb: "Looked up symbols in", doing: "Looking up symbols in", bare: "Looked up symbols", bareDoing: "Looking up symbols", action: "Look up symbols in", bareAction: "Look up symbols" },
+  TaskCreate: { icon: "add", verb: "Added the to-do", doing: "Adding the to-do", bare: "Added a to-do", bareDoing: "Adding a to-do", action: "Add the to-do", bareAction: "Add a to-do" },
+  TaskUpdate: { icon: "edit", verb: "Updated to-do", doing: "Updating to-do", bare: "Updated a to-do", bareDoing: "Updating a to-do", action: "Update to-do", bareAction: "Update a to-do" },
+  TaskList: { icon: "read", verb: "Listed the to-dos", doing: "Listing the to-dos", action: "List the to-dos" },
+  TaskGet: { icon: "read", verb: "Read to-do", doing: "Reading to-do", bare: "Read a to-do", bareDoing: "Reading a to-do", action: "Read to-do", bareAction: "Read a to-do" },
   Agent: AGENT_VERBS,
   Task: AGENT_VERBS,
-  AskUserQuestion: { icon: "question", verb: "Asked", bare: "Asked a question", action: "Ask", bareAction: "Ask a question" },
-  "xpo list": { icon: "search", verb: "Listed issues matching", bare: "Listed issues", action: "List issues matching", bareAction: "List issues" },
-  "xpo show": { icon: "read", verb: "Opened", action: "Open" },
-  "xpo history": { icon: "read", verb: "Read the history of", action: "Read the history of" },
-  "xpo add": { icon: "add", verb: "Created issue", action: "Create issue" },
-  "xpo update": { icon: "edit", verb: "Updated", action: "Update" },
-  "xpo comment": { icon: "comment", verb: "Commented on", action: "Comment on" },
-  "xpo link": { icon: "link", verb: "Linked", action: "Link" },
-  "xpo unlink": { icon: "unlink", verb: "Unlinked", action: "Unlink" },
-  "xpo start": { icon: "start", verb: "Started", action: "Enter Work Mode on" },
-  "xpo merge": { icon: "merge", verb: "Merged", action: "Merge" },
-  "xpo spec": { icon: "spec", verb: "Read the spec of", action: "Read the spec of", ops: fileOps("spec") },
-  "xpo walkthrough": { icon: "walkthrough", verb: "Read the walkthrough of", action: "Read the walkthrough of", ops: fileOps("walkthrough") },
+  AskUserQuestion: { icon: "question", verb: "Asked", doing: "Asking", bare: "Asked a question", bareDoing: "Asking a question", action: "Ask", bareAction: "Ask a question" },
+  "xpo list": { icon: "search", verb: "Listed issues matching", doing: "Listing issues matching", bare: "Listed issues", bareDoing: "Listing issues", action: "List issues matching", bareAction: "List issues" },
+  "xpo show": { icon: "read", verb: "Read", doing: "Reading", action: "Read" },
+  "xpo history": { icon: "read", verb: "Read the history of", doing: "Reading the history of", action: "Read the history of" },
+  "xpo add": { icon: "add", verb: "Created issue", doing: "Creating issue", action: "Create issue" },
+  "xpo update": { icon: "edit", verb: "Updated", doing: "Updating", action: "Update" },
+  "xpo comment": { icon: "comment", verb: "Commented on", doing: "Commenting on", action: "Comment on" },
+  "xpo link": { icon: "link", verb: "Linked", doing: "Linking", action: "Link" },
+  "xpo unlink": { icon: "unlink", verb: "Unlinked", doing: "Unlinking", action: "Unlink" },
+  "xpo start": { icon: "start", verb: "Started", doing: "Starting", action: "Enter Work Mode on" },
+  "xpo merge": { icon: "merge", verb: "Merged", doing: "Merging", action: "Merge" },
+  "xpo spec": { icon: "spec", verb: "Read the spec of", doing: "Reading the spec of", action: "Read the spec of", ops: fileOps("spec") },
+  "xpo walkthrough": { icon: "walkthrough", verb: "Read the walkthrough of", doing: "Reading the walkthrough of", action: "Read the walkthrough of", ops: fileOps("walkthrough") },
   "xpo artifact": {
     icon: "artifact",
     verb: "Read an artifact of",
+    doing: "Reading an artifact of",
     action: "Read an artifact of",
     ops: {
-      read: { verb: "Read an artifact of", action: "Read an artifact of" },
-      add: { verb: "Added an artifact to", action: "Add an artifact to" },
-      delete: { verb: "Deleted an artifact of", action: "Delete an artifact of" },
-      list: { verb: "Listed the artifacts of", action: "List the artifacts of" },
+      read: { verb: "Read an artifact of", doing: "Reading an artifact of", action: "Read an artifact of" },
+      add: { verb: "Added an artifact to", doing: "Adding an artifact to", action: "Add an artifact to" },
+      delete: { verb: "Deleted an artifact of", doing: "Deleting an artifact of", action: "Delete an artifact of" },
+      list: { verb: "Listed the artifacts of", doing: "Listing the artifacts of", action: "List the artifacts of" },
     },
   },
-  "xpo rationale": { icon: "search", verb: "Searched design notes for", bare: "Searched design notes", action: "Search design notes for", bareAction: "Search design notes" },
-  "xpo git_status": { icon: "git_status", verb: "Checked the git status of", action: "Check the git status of" },
-  "xpo git_diff": { icon: "git_diff", verb: "Read the diff of", action: "Read the diff of" },
-  "xpo git_log": { icon: "read", verb: "Listed commits of", bare: "Listed commits", action: "List commits of", bareAction: "List commits" },
-  "xpo git_show": { icon: "read", verb: "Read commit", action: "Read commit" },
-  "xpo code_history": { icon: "read", verb: "Traced the history of", action: "Trace the history of" },
+  "xpo rationale": { icon: "search", verb: "Searched design notes for", doing: "Searching design notes for", bare: "Searched design notes", bareDoing: "Searching design notes", action: "Search design notes for", bareAction: "Search design notes" },
+  "xpo git_status": { icon: "git_status", verb: "Checked the git status of", doing: "Checking the git status of", action: "Check the git status of" },
+  "xpo git_diff": { icon: "git_diff", verb: "Read the diff of", doing: "Reading the diff of", action: "Read the diff of" },
+  "xpo git_log": { icon: "read", verb: "Listed commits of", doing: "Listing commits of", bare: "Listed commits", bareDoing: "Listing commits", action: "List commits of", bareAction: "List commits" },
+  "xpo git_show": { icon: "read", verb: "Read commit", doing: "Reading commit", action: "Read commit" },
+  "xpo code_history": { icon: "read", verb: "Traced the history of", doing: "Tracing the history of", action: "Trace the history of" },
 };
 
 /** The detail shown next to a tool's verb: file names, not paths; short SHAs. */
@@ -436,12 +442,14 @@ function callVerbs(key: string, arg: string): { known?: ToolVerbs; arg: string }
   return { known: { icon: known.icon, ...op }, arg: m[2] ?? "" };
 }
 
-export function toolSummary(name: string, arg: string): { text: string; detail: string } {
+/** A call that ran, in words: "Read board.go". A running call reads "Reading board.go". */
+export function toolSummary(name: string, arg: string, running = false): { text: string; detail: string } {
   const key = toolLabel(name);
   const call = callVerbs(key, arg);
   const detail = toolDetail(key, call.arg);
   const known = call.known;
   if (!known) return { text: key, detail };
+  if (running) return { text: detail || !known.bareDoing ? known.doing : known.bareDoing, detail };
   return { text: detail || !known.bare ? known.verb : known.bare, detail };
 }
 
@@ -706,11 +714,14 @@ export function approvalTitle(name: string, arg: string): { action: string; deta
 
 /**
  * A work-list row in words. A call that did not run (the user denied it, or it
- * failed) reads as what was asked: "Merge upe-1", not "Merged upe-1".
+ * failed) reads as what was asked: "Merge upe-1", not "Merged upe-1". So does
+ * a call waiting for approval. A running call reads "Merging upe-1", and so
+ * does a `live` one: the active group's line, which is still working.
  */
-export function stepSummary(step: ToolStep): { text: string; detail: string } {
-  const ran = !userDenied(step) && step.status !== "error" && step.status !== "denied";
-  if (ran) return toolSummary(step.name, step.arg);
+export function stepSummary(step: ToolStep, live = false): { text: string; detail: string } {
+  const waiting = !!step.approval && !step.approval.decision;
+  const ran = !waiting && !userDenied(step) && step.status !== "error" && step.status !== "denied";
+  if (ran) return toolSummary(step.name, step.arg, live || !step.done);
   const key = toolLabel(step.name);
   if (!TOOL_VERBS[key]) return { text: key, detail: toolDetail(key, step.arg) };
   const { action, detail } = approvalTitle(step.name, step.arg);
@@ -718,15 +729,17 @@ export function stepSummary(step: ToolStep): { text: string; detail: string } {
 }
 
 /**
- * A work-list row's icon. `label` is the row's verb, for the icon's tooltip
- * and accessible name. An unknown tool gets the generic icon, and its `name`
- * is shown on the row.
+ * A work-list row: its icon, then its `verb`, then the detail. An unknown tool
+ * gets the generic icon and its `name` in place of a verb. A shell call's
+ * detail is its description, a sentence of its own, so it has no verb.
+ * `live` keeps the progressive verb for the active group's line.
  */
-export function stepIcon(step: ToolStep): { icon: ToolIconId; label: string; name?: string; detail: string } {
-  const { text, detail } = stepSummary(step);
+export function stepIcon(step: ToolStep, live = false): { icon: ToolIconId; verb?: string; name?: string; detail: string } {
+  const { text, detail } = stepSummary(step, live);
   const known = TOOL_VERBS[toolLabel(step.name)];
-  if (!known) return { icon: "tool", label: text, name: text, detail };
-  return { icon: known.icon, label: text, detail };
+  if (!known) return { icon: "tool", name: text, detail };
+  if (step.name === "Bash" && detail) return { icon: known.icon, detail };
+  return { icon: known.icon, verb: text, detail };
 }
 
 function argText(v: unknown): string {

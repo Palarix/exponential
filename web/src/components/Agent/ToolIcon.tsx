@@ -44,25 +44,12 @@ const ICONS: Record<ToolIconId, LucideIcon> = {
   tool: Wrench,
 };
 
-/** A tool's icon in place of its verb. The verb stays as tooltip and accessible name. */
-export default function ToolIcon({
-  icon,
-  label,
-  className = "",
-}: {
-  icon: ToolIconId;
-  label: string;
-  className?: string;
-}) {
+/** A tool's icon, before its verb on the row. Decorative: the verb is the row's text. */
+export default function ToolIcon({ icon, className = "" }: { icon: ToolIconId; className?: string }) {
   const Icon = ICONS[icon];
   return (
-    <span
-      role="img"
-      aria-label={label}
-      title={label}
-      className={`inline-flex shrink-0 ${className}`}
-    >
-      <Icon className="w-3.5 h-3.5" aria-hidden />
+    <span aria-hidden className={`inline-flex shrink-0 ${className}`}>
+      <Icon className="w-3.5 h-3.5" />
     </span>
   );
 }

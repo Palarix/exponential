@@ -65,14 +65,23 @@ describe("ChatThread live turn", () => {
     const html = render(<ChatThread thread={running} />);
     const line = html.match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0];
     expect(line).toBeDefined();
-    expect(line).toContain('aria-label="Searched the code for"');
-    expect(line).toContain("TODO");
+    expect(line).toMatch(/>Searching for<.*TODO/);
     expect(line).toMatch(/>(\d+m )?\d+s<|>\d+m</);
     // One icon, the call's; the text shimmers instead of a spinner.
     expect(line).not.toContain("animate-spin");
     expect(line).toContain("text-shimmer");
     // The group before the narration is done.
     expect(html).toContain("1 action");
+  });
+
+  it("keeps the current call in the progressive form after it finishes", () => {
+    const between = thread([
+      { type: "user_message", seq: 1, text: "go" },
+      { type: "tool_call", seq: 2, name: "Read", tool_id: "t1", arg: "/r/board.go", status: "done" },
+    ]);
+    const line = render(<ChatThread thread={between} />).match(/<button[^>]*data-active-group[^>]*>.*?<\/button>/)?.[0];
+    expect(line).toMatch(/>Reading<.*board\.go/);
+    expect(line).not.toContain(">Read<");
   });
 
   it("has nothing to expand while the active group has only its current call", () => {
@@ -161,18 +170,19 @@ describe("ToolTimeline", () => {
     { type: "tool_call", seq: 5, name: "mcp__xpo__merge", tool_id: "t4", arg: "upe-1", status: "error", message: "no branch" },
   ]).turns[0].steps as ToolStep[];
 
-  it("draws each call as a branch with an icon labelled with its verb", () => {
+  it("draws each call as a branch: icon, verb, detail", () => {
     const html = render(<ToolTimeline steps={steps} />);
     expect(html.match(/data-step="tool"/g)).toHaveLength(4);
-    expect(html).toContain('role="img" aria-label="Read" title="Read"');
-    expect(html).toContain('aria-label="Ran a shell command"');
-    expect(html).not.toContain(">Ran a shell command<");
-    expect(html).toContain("board.go");
+    // The icon is decorative: the verb is on the row.
+    expect(html).not.toContain('role="img"');
+    expect(html).toMatch(/>Read<.*board\.go/);
+    // A shell call shows its description only.
+    expect(html).not.toContain("Ran a shell command");
+    expect(html).toContain("Run the tests");
     // An unknown tool keeps its name next to the generic icon.
-    expect(html).toContain('aria-label="NotebookEdit"');
     expect(html).toContain(">NotebookEdit<");
     // A failed call reads as what was asked, with its reason.
-    expect(html).toContain('aria-label="Merge"');
+    expect(html).toMatch(/>Merge<.*upe-1/);
     expect(html).toContain("failed: no branch");
   });
 
@@ -180,14 +190,14 @@ describe("ToolTimeline", () => {
     const failed = steps.filter((st) => st.status === "error");
     const html = render(<ToolTimeline steps={failed} />);
     expect(html.match(/color-error/g)).toHaveLength(1);
-    expect(html).toMatch(/<span role="img" aria-label="Merge" title="Merge" class="[^"]*color-error/);
+    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*color-error/);
     expect(html).toContain("failed: no branch");
   });
 
   it("shows a running call with its icon and shimmering text, not a spinner", () => {
     const running: ToolStep = { kind: "tool", id: "r", name: "Grep", arg: "TODO", done: false };
     const html = render(<ToolTimeline steps={[running]} />);
-    expect(html).toContain('aria-label="Searched the code for"');
+    expect(html).toMatch(/>Searching for<.*TODO/);
     expect(html).toContain("text-shimmer");
     expect(html).not.toContain("animate-spin");
   });

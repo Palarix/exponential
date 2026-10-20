@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: each action row shows its verb between the icon and the detail, for example "Read CHANGELOG.md", "Searched for `^### Fixed`" or "Merged xpo-1". A running call reads "Reading CHANGELOG.md", and the collapsed line of an active group stays in that form until the call moves into the list. Shell rows keep their command description, and unknown tools keep their name. The icon is decorative and no longer has a tooltip. Wording changes: Grep reads "Searched for", reading an issue reads "Read xpo-1" instead of "Opened xpo-1", and writing a spec or walkthrough reads "Wrote the walkthrough for xpo-1". (xpo-6c4a1b)
+
 - Agent chat: while the chat follows new output, the view glides to the bottom instead of jumping, and new messages, tool groups, cards and status lines fade in. Opening or switching a chat still lands at the bottom at once, with nothing fading. The glide follows the Motion preference as movement (it jumps under reduced motion or Off); the fade is a fade (it stops only when Motion is Off). (xpo-50b9d9)
 
 - Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)

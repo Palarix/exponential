@@ -104,9 +104,9 @@ export function ToolTimeline({ steps }: { steps: ToolStep[] }) {
   );
 }
 
-/** A tool call: its icon, then what it worked on. A failed call carries its reason on the row. */
+/** A tool call: its icon, its verb, then what it worked on. A failed call carries its reason on the row. */
 function ToolRow({ step }: { step: ToolStep }) {
-  const { icon, label, name, detail } = stepIcon(step);
+  const { icon, verb, name, detail } = stepIcon(step);
   // Search patterns read best as code; file names and titles as text.
   const code = step.name === "Grep" || step.name === "Glob";
   // A call the user denied shows its approval outcome, not a failure.
@@ -117,16 +117,17 @@ function ToolRow({ step }: { step: ToolStep }) {
     <div className="flex items-center gap-1.5 text-xs min-w-0" title={failed ? undefined : step.arg || undefined}>
       {/* The slot keeps its width so the rows stay aligned. */}
       <span className="w-3.5 shrink-0 flex justify-center">
-        <ToolIcon icon={icon} label={label} className={failed ? "text-[var(--color-error)]" : "text-[var(--color-text-muted)]"} />
+        <ToolIcon icon={icon} className={failed ? "text-[var(--color-error)]" : "text-[var(--color-text-muted)]"} />
       </span>
       {name && <span className={`shrink-0 ${text}`}>{name}</span>}
+      {/* The verb stays whole; the detail truncates. */}
+      {verb && <span className={`shrink-0 ${step.done ? "text-[var(--color-text-muted)]" : "text-shimmer"}`}>{verb}</span>}
       {/* The detail gives way to a failure reason, but keeps a readable minimum. */}
       {detail && (
         <span className={`min-w-0 truncate ${text} ${failed ? "shrink-0 max-w-[40%]" : ""} ${code ? "font-mono" : ""}`}>
           <IssueRefText text={detail} />
         </span>
       )}
-      {!name && !detail && <span className={`shrink-0 ${text}`}>{label}</span>}
       {step.approval?.decision && (
         <span className="shrink-0 px-1.5 rounded-[var(--radius-sm)] bg-[var(--color-surface-ai-2)] text-[11px] text-[var(--color-text-muted)]">
           {approvalOutcomeLabel(step.approval.decision, isQuestion(step))}
@@ -138,16 +139,17 @@ function ToolRow({ step }: { step: ToolStep }) {
   );
 }
 
-/** What the active group is doing: its latest call, as icon and detail. The text shimmers while it works. */
+/**
+ * What the active group is doing: its latest call, as icon, verb and detail.
+ * The verb stays progressive until the call moves into the list. The text shimmers while it works.
+ */
 function CurrentCall({ step }: { step: ToolStep }) {
-  const { icon, label, name, detail } = stepIcon(step);
+  const { icon, verb, name, detail } = stepIcon(step, true);
   return (
     <>
-      <ToolIcon icon={icon} label={label} />
-      <span className="min-w-0 truncate text-shimmer">
-        {name && `${name} `}
-        {detail || (name ? "" : label)}
-      </span>
+      <ToolIcon icon={icon} />
+      {(name || verb) && <span className="shrink-0 text-shimmer">{name || verb}</span>}
+      {detail && <span className="min-w-0 truncate text-shimmer">{detail}</span>}
     </>
   );
 }
