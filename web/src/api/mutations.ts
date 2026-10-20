@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useMutation, useQueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
-  addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions,
+  addCommentOptions, addLabelOptions, assignReleaseOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions,
   deleteIssueOptions, deleteIssueToast, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
   updateLabelOptions, type IssuePatch,
 } from "./mutation-options";
@@ -41,6 +41,12 @@ export function useUpdateIssue() {
       mutate([{ issueId, patch }], callbacks),
     [mutate],
   );
+}
+
+/** Moves issues to a release (see `assignReleaseOptions`). */
+export function useAssignRelease() {
+  const qc = useQueryClient();
+  return useMutation(useWithErrorToast(assignReleaseOptions(qc)));
 }
 
 export function useCreateIssue() {

@@ -205,7 +205,7 @@ export default function Backlog() {
   const showToast = useToast();
   const [openPopover, setOpenPopover] = useState<{
     rowIndex: number;
-    type: "status" | "estimate" | "labels" | "priority" | "assignee";
+    type: "status" | "estimate" | "labels" | "priority" | "assignee" | "release";
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     issueId: string;
@@ -1206,7 +1206,7 @@ export default function Backlog() {
   }, []);
 
   const handleOpenPopover = useCallback(
-    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority" | "assignee") => {
+    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority" | "assignee" | "release") => {
       setOpenPopover({ rowIndex, type });
     },
     [],
@@ -1349,6 +1349,11 @@ export default function Backlog() {
           setOpenPopover({ rowIndex: ri, type: "assignee" });
           return;
         }
+        if (e.key === "r") {
+          e.preventDefault();
+          setOpenPopover({ rowIndex: ri, type: "release" });
+          return;
+        }
       }
     }, [showToast]);
 
@@ -1362,7 +1367,7 @@ export default function Backlog() {
         ["Escape", "Close menu"], ["j", "Next issue"],
         ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
         ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
-        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"], ["r", "Move to release"],
       ].map(([key, label]) => ({
         id: `backlog.${key}`, key, label,
         group: "Backlog",

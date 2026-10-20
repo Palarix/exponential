@@ -27,8 +27,10 @@ import type { TreeGuide, HierarchyMode } from "./useBacklogRows";
 import { nodeIndicator } from "./backlog-row-utils";
 import { popoverTriggerProps } from "../../utils/popover-trigger";
 import { IssueChatIcon } from "../Agent/IssueChats";
+import ReleaseChip from "../Releases/ReleaseChip";
+import ReleasePickerPopover from "../Releases/ReleasePickerPopover";
 
-type PopoverType = "status" | "labels" | "estimate" | "priority" | "assignee";
+type PopoverType = "status" | "labels" | "estimate" | "priority" | "assignee" | "release";
 
 interface Props {
   issue: Issue;
@@ -110,6 +112,9 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   canCreateLabels,
 }: Props) {
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
+  // The release picker anchors to the chip, or to the row when there is no release.
+  const releaseChipRef = useRef<HTMLButtonElement>(null);
+  const rowAnchorRef = useRef<HTMLDivElement>(null);
   const indent = depth * 24;
   const isGhostRow = !!isGhostParent || !!isGhostChild;
   const indicator = nodeIndicator({
@@ -120,7 +125,7 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   });
 
   return (
-    <div className="relative" data-context-issue={issue.id} data-depth={depth}>
+    <div ref={rowAnchorRef} className="relative" data-context-issue={issue.id} data-depth={depth}>
       <IssueRowDnd id={dndId} canDrag={canDrag} enabled={isDropTarget}>
         {(setRowRef, dragProps) => (
           <div
@@ -273,7 +278,16 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
               {issue.branch_stats && <BranchBadge stats={issue.branch_stats} />}
               <IssueChatIcon issueId={issue.id} />
               {issue.artifacts && issue.artifacts.length > 0 && <AttachmentIndicator count={issue.artifacts.length} />}
+              <ReleaseChip
+                ref={releaseChipRef}
+                issue={issue}
+                expanded={popoverType === "release"}
+                onOpen={() => (popoverType === "release" ? onClosePopover() : onOpenPopover(rowIndex, "release"))}
+              />
             </span>
+            {popoverType === "release" && (
+              <ReleasePickerPopover issue={issue} anchorRef={issue.release_id ? releaseChipRef : rowAnchorRef} onClose={onClosePopover} />
+            )}
             <div className="flex-1" />
             {issue.is_pending && (
               <span className="w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" />

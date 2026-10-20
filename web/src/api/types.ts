@@ -171,6 +171,8 @@ export interface IssueDraftPayload {
   estimate?: number;
   parent_id?: string;
   assignee?: string;
+  /** The picked release ref, or "none". */
+  release?: string;
 }
 
 export interface IssueDraft {

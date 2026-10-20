@@ -429,10 +429,13 @@ interface MenuItemProps extends MenuItemInternalProps {
   suffix?: ReactNode;
   /** Keep the label on one line, ending in an ellipsis. */
   truncate?: boolean;
+  /** Rich content shown in place of the label; the label stays the accessible name. */
+  content?: ReactNode;
 }
 
 export function MenuItem({
   label,
+  content,
   icon,
   shortcut,
   disabled,
@@ -468,6 +471,7 @@ export function MenuItem({
       role={isCheckbox ? (radio ? "menuitemradio" : "menuitemcheckbox") : "menuitem"}
       aria-checked={isCheckbox ? checked : undefined}
       aria-disabled={disabled || undefined}
+      aria-label={content ? label : undefined}
       data-menu-index={_menuIndex}
       tabIndex={_focused ? 0 : -1}
       onClick={handleClick}
@@ -479,7 +483,7 @@ export function MenuItem({
           {icon}
         </span>
       )}
-      <span className={cn("flex-1 text-left min-w-0", truncate && "truncate")}>{label}</span>
+      <span className={cn("flex-1 text-left min-w-0", truncate && "truncate")}>{content ?? label}</span>
       {/* At least a checkmark wide; grows for a shortcut or suffix so it never overflows the row. */}
       <span className="ml-auto min-w-4 flex items-center justify-center shrink-0 whitespace-nowrap">
         {isCheckbox && checked ? (

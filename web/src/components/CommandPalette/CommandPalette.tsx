@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Issue } from '../../api/client';
 import { StatusIcon, LabelBadge } from '../ui';
-import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard } from "lucide-react";
+import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard, Package } from "lucide-react";
+import { useReleaseAssign } from '../Releases/release-assign-context';
 import { fuzzyMatch, fuzzyScore } from '../../utils/format';
 import type { ViewId } from '../../views';
 
@@ -15,6 +16,8 @@ interface CommandPaletteProps {
   onIssueSelect: (issue: Issue) => void;
   onViewChange: (view: ViewId) => void;
   onNewIssue: () => void;
+  /** The open issue, which issue actions act on. */
+  contextIssue?: Issue;
 }
 
 interface CommandItem {
@@ -36,7 +39,8 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   timeline: <Clock size={16} />,
 };
 
-export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue }: CommandPaletteProps) {
+export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue, contextIssue }: CommandPaletteProps) {
+  const { openPicker } = useReleaseAssign();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +66,18 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
         label: 'Create new issue',
         shortcut: 'C',
         action: () => { onClose(); onNewIssue(); },
+      });
+    }
+
+    if (contextIssue && (!query || fuzzyMatch('move to release', query))) {
+      results.push({
+        id: 'action:release',
+        group: 'Actions',
+        icon: <Package size={16} />,
+        label: 'Move to release…',
+        meta: <span className="font-mono text-xs text-[var(--color-text-muted)]">{contextIssue.id}</span>,
+        shortcut: 'R',
+        action: () => { onClose(); openPicker([contextIssue.id]); },
       });
     }
 
@@ -119,7 +135,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     }
 
     return results;
-  }, [query, issues, onClose, onIssueSelect, onViewChange, onNewIssue]);
+  }, [query, issues, onClose, onIssueSelect, onViewChange, onNewIssue, contextIssue, openPicker]);
 
   // Group items for display
   const groups = useMemo(() => {

@@ -13,4 +13,10 @@ describe("cardPopoverAnchorSelector", () => {
       '[data-board-card="xpo-aaa111"] [data-assignee-trigger]',
     );
   });
+
+  it("anchors the release popover to the card's release chip", () => {
+    expect(cardPopoverAnchorSelector("xpo-aaa111", "release")).toBe(
+      '[data-board-card="xpo-aaa111"] [data-release-trigger]',
+    );
+  });
 });

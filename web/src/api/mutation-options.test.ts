@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
   addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions, deleteIssueOptions, deleteIssueToast,
-  deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions, updateLabelOptions,
+  assignReleaseOptions, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions, updateLabelOptions,
   type MutationApi,
 } from "./mutation-options";
 import { queryKeys } from "./query-keys";
@@ -57,6 +57,40 @@ beforeEach(() => {
     makeIssue({ id: "b", status: "PLANNED", sort_order: "a1" }),
   ]);
   qc.setQueryData(queryKeys.config, rawConfig);
+});
+
+describe("assignReleaseOptions", () => {
+  const vars = {
+    moves: [{ issueId: "a", ref: "rel-2", withChildren: true }],
+    optimistic: [{ issueId: "a", patch: { release_id: "rel-2", release: "1.2" } }, { issueId: "b", patch: { release_id: "rel-2", release: "1.2" } }],
+  };
+
+  it("sends one UPDATE per move, with with_children", async () => {
+    await run(assignReleaseOptions(qc, api), vars);
+    expect(vi.mocked(api.addDraft).mock.calls).toEqual([["a", "UPDATE", { release_id: "rel-2" }, { withChildren: true }]]);
+  });
+
+  it("shows the release on every moved issue before the server answers", async () => {
+    const gate = deferred();
+    vi.mocked(api.addDraft).mockReturnValue(gate.promise);
+    const pending = run(assignReleaseOptions(qc, api), vars);
+    await vi.waitFor(() => expect(api.addDraft).toHaveBeenCalled());
+    expect(issues()?.map((i) => i.release)).toEqual(["1.2", "1.2"]);
+    gate.resolve();
+    await pending;
+  });
+
+  it("rolls back when the server refuses", async () => {
+    vi.mocked(api.addDraft).mockRejectedValue(new Error("release 1.2 is released"));
+    await expect(run(assignReleaseOptions(qc, api), vars)).rejects.toThrow("released");
+    expect(issues()?.map((i) => i.release)).toEqual([undefined, undefined]);
+  });
+
+  it("refetches issues and releases", async () => {
+    await run(assignReleaseOptions(qc, api), vars);
+    expect(invalidated).toContainEqual([...queryKeys.issues]);
+    expect(invalidated).toContainEqual([...queryKeys.releases]);
+  });
 });
 
 describe("updateIssuesOptions", () => {

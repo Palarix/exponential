@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReactElement } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
 import type { Issue } from "../../api/client";
@@ -75,5 +76,17 @@ describe("Board card chat icon", () => {
       </AgentChatContext.Provider>,
     );
     expect(html).toContain(`aria-label="2 chats on ${issue.id}"`);
+  });
+});
+
+describe("Board card release chip", () => {
+  it("shows the release chip, even with nothing else in the footer", () => {
+    const issue = makeIssue({ labels: [], release_id: "rel-2", release: "1.2" });
+    const html = renderMarkup(<TooltipPrimitive.Provider><BoardCard issue={issue} meta={meta} /></TooltipPrimitive.Provider>);
+    expect(html).toContain('aria-label="Release 1.2, change release"');
+  });
+
+  it("shows no chip without a release", () => {
+    expect(renderMarkup(<BoardCard issue={makeIssue()} meta={meta} />)).not.toContain("Release ");
   });
 });

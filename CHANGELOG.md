@@ -38,6 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   (xpo-9a7a77)
 
+- Releases in the web app: assign issues to releases from wherever you work on them.
+  - **Picker:** a **Release** row in the issue sidebar. It lists the open releases as the Releases view does (name – goal, Current/Next badge). A locked Next is disabled. An issue still in a shipped release sees that release checked but disabled.
+  - **Chip:** backlog rows and board cards show the issue's release (Package icon and name). A click opens the picker, like the row's other chips.
+  - **Shortcut and menus:** `r` opens the picker on the focused row, card or open issue. The context menu has **Release ▸**, and the command palette has **Move to release…** for the open issue.
+  - **Sub-issues:** changing an epic's release, including a drop in the Releases view, asks whether to move its open sub-issues too. Done sub-issues never move. "Move all" makes one activity entry.
+  - **Reopen hint:** an open issue in a shipped release shows "In released release 1.5" with **Move to Current**.
+  - **New issue:** **More options** has a release button. A sub-issue shows the release it copies from its parent, and you can change it or pick "No release". Drafts keep the choice.
+  - **API:** `POST /api/draft` takes `with_children` for an UPDATE, and issue drafts store `release`.
+
+  (xpo-974eba)
+
 ### Changed
 
 - Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)

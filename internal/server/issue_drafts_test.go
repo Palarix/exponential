@@ -62,11 +62,11 @@ func TestIssueDrafts_CRUD(t *testing.T) {
 		t.Errorf("unexpected draft: %+v", created)
 	}
 
-	w = draftRequest(t, mux, "PUT", "/api/issue-drafts/"+created.ID, model.IssueDraftPayload{Title: "second"})
+	w = draftRequest(t, mux, "PUT", "/api/issue-drafts/"+created.ID, model.IssueDraftPayload{Title: "second", Release: "none"})
 	if w.Code != http.StatusOK {
 		t.Fatalf("update: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	if u := decodeDraft(t, w); u.ID != created.ID || u.Payload.Title != "second" {
+	if u := decodeDraft(t, w); u.ID != created.ID || u.Payload.Title != "second" || u.Payload.Release != "none" {
 		t.Errorf("update wrong: %+v", u)
 	}
 

@@ -76,6 +76,46 @@ export function updateIssuesOptions(
   };
 }
 
+/** One release update: `ref` is a release ID, `@current`/`@next`, or "" for No release. */
+export interface ReleaseMoveVars {
+  moves: { issueId: string; ref: string; withChildren: boolean }[];
+  /** What the cache shows until the refetch, for the moved issues and the children that follow. */
+  optimistic: IssuePatch[];
+}
+
+/**
+ * Moves issues to a release. Like `updateIssuesOptions`, but a move can take
+ * the issue's open children along (one feed entry), and a pick can save a
+ * placeholder, so the releases refetch too.
+ */
+export function assignReleaseOptions(
+  qc: QueryClient,
+  api: MutationApi = clientApi,
+): MutationOptions<void, Error, ReleaseMoveVars, UpdateIssuesContext> {
+  return {
+    mutationKey: ISSUES_MUTATION_KEY,
+    mutationFn: async ({ moves }) => {
+      for (const { issueId, ref, withChildren } of moves) {
+        await api.addDraft(issueId, "UPDATE", { release_id: ref }, { withChildren });
+      }
+    },
+    onMutate: async ({ optimistic }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.issues });
+      const { next, undo } = applyIssuePatches(qc.getQueryData<Issue[]>(queryKeys.issues), optimistic);
+      qc.setQueryData(queryKeys.issues, next);
+      return { undo };
+    },
+    onError: (_err, _vars, context) => {
+      if (!context) return;
+      qc.setQueryData<Issue[]>(queryKeys.issues, (prev) => applyIssuePatches(prev, context.undo).next);
+    },
+    onSettled: async () => {
+      await qc.invalidateQueries({ queryKey: queryKeys.releases });
+      await invalidateIssuesWhenIdle(qc);
+    },
+  };
+}
+
 export type CreateIssuePayload = Parameters<typeof createIssue>[0];
 
 interface CreateIssueVars {

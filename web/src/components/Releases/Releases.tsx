@@ -6,7 +6,8 @@ import {
 import { ChevronRight, CircleCheck, GripVertical, Inbox, Plus } from "lucide-react";
 import type { Issue, Release, ReleasesResponse } from "../../api/types";
 import { useIssueList, useReleases } from "../../api/queries";
-import { useReorderRelease, useUpdateIssue } from "../../api/mutations";
+import { useReorderRelease } from "../../api/mutations";
+import { useReleaseAssign } from "./release-assign-context";
 import { useAppNav, useIssueClick, useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
 import { EMPTY_FILTERS, FILTERS_CODEC, hasActiveFilters, matchesFilters, type BacklogFilters } from "../Backlog/filters";
@@ -22,7 +23,7 @@ import NewReleaseDialog from "./NewReleaseDialog";
 import ReleaseDetail from "./ReleaseDetail";
 import { ExpandToggle, RELEASE_ROW_GRID, ReleaseRowBody } from "./ReleaseRow";
 import {
-  acceptsIssueDrop, childProgress, dropHighlightClass, findRelease, parentContext, issuesInRelease, openReleases, orderWarnings, releaseDropRef,
+  acceptsIssueDrop, childProgress, dropHighlightClass, findRelease, parentContext, issuesInRelease, openReleases, orderWarnings,
   reorderMove, savedOrder, noReleaseIssues, type DropHighlight,
 } from "./releases-utils";
 
@@ -81,7 +82,7 @@ export default function Releases() {
 
 function ReleasesBoard({ board, onOpen }: { board: ReleasesResponse; onOpen: (release: Release) => void }) {
   const issues = useIssueList();
-  const updateIssue = useUpdateIssue();
+  const { assign: assignRelease } = useReleaseAssign();
   const reorder = useReorderRelease();
   const onIssueClick = useIssueClick();
   const [showNew, setShowNew] = useState(false);
@@ -126,7 +127,7 @@ function ReleasesBoard({ board, onOpen }: { board: ReleasesResponse; onOpen: (re
           onOpen={onOpen}
           onIssueClick={onIssueClick}
           onReorder={(move) => reorder.mutate(move)}
-          onAssign={(issue, releaseId) => updateIssue(issue.id, { release_id: releaseId })}
+          onAssign={(issue, target) => assignRelease([issue.id], target)}
         />
         {showNew && <NewReleaseDialog onClose={() => setShowNew(false)} />}
       </ViewContainer>
@@ -145,7 +146,8 @@ export interface ReleaseStackProps {
   onOpen: (release: Release) => void;
   onIssueClick: (issue: Issue) => void;
   onReorder: (move: { id: string; before?: string; after?: string }) => void;
-  onAssign: (issue: Issue, releaseId: string) => void;
+  /** Moves a dropped issue to `target` (null is No release). */
+  onAssign: (issue: Issue, target: Release | null) => void;
   /** Releases (by number) expanded at first. */
   initialExpanded?: number[];
 }
@@ -205,7 +207,7 @@ export function ReleaseStack({
       return;
     }
     const target = drop.kind === "target" ? drop.release : null;
-    if (acceptsIssueDrop(target, drag.issue)) onAssign(drag.issue, releaseDropRef(target));
+    if (acceptsIssueDrop(target, drag.issue)) onAssign(drag.issue, target);
   };
 
   return (

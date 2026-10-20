@@ -97,6 +97,9 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		IssueID string          `json:"issue_id"`
 		Type    string          `json:"type"`
 		Payload json.RawMessage `json:"payload"`
+		// WithChildren (UPDATE with a release) also moves the issue's open
+		// descendants, in one feed entry.
+		WithChildren bool `json:"with_children"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
@@ -140,7 +143,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if _, err := client.UpdateIssue(req.IssueID, p, "update"); err != nil {
+		if _, err := client.UpdateIssueOpts(req.IssueID, p, "update", exponential.UpdateOptions{WithChildren: req.WithChildren}); err != nil {
 			var refusal *exponential.ReleaseRefusal
 			if errors.As(err, &refusal) {
 				respondError(w, http.StatusBadRequest, err.Error())

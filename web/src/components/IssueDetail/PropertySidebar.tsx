@@ -1,13 +1,16 @@
 import { useState, useMemo, useCallback, useContext, useRef } from "react";
 import type { Issue } from "../../api/client";
-import { useCycles } from "../../api/queries";
+import { useCycles, useReleases } from "../../api/queries";
 import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
 import { useStartWorkChat } from "../Agent/useWorkMode";
 import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
 import { noGitHint } from "../Agent/issue-chats";
 import { chatCount, useIssueChats } from "../Agent/useIssueChats";
 import { ActorName, Avatar, Button, DeleteIssueDialog, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
-import { Flag, UserRound, RefreshCw, Trash2, FlagOff } from "lucide-react";
+import { Flag, UserRound, RefreshCw, Trash2, FlagOff, Package } from "lucide-react";
+import { useReleaseAssign } from "../Releases/release-assign-context";
+import { reopenHint } from "../Releases/release-assign-utils";
+import ReleasePickerPopover from "../Releases/ReleasePickerPopover";
 import Tooltip from "../ui/Tooltip";
 import { GitBranch, GitMerge } from "lucide-react";
 import { cn } from "../../utils/cn";
@@ -47,6 +50,9 @@ export default function PropertySidebar({
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { cycles } = useCycles();
+  const { data: releases } = useReleases();
+  const { assign: assignRelease } = useReleaseAssign();
+  const releasedIn = reopenHint(issue, releases);
   const defaultLabels = useContext(DefaultLabelsContext);
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
@@ -234,6 +240,23 @@ export default function PropertySidebar({
             </Tooltip>
           ) : button;
         })()}
+
+        {/* An open issue left in a shipped release: offer the way out, move nothing on its own. */}
+        {releasedIn && releases && (
+          <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-surface-2)] px-4 py-3 text-sm">
+            <p className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+              <Package size={14} className="shrink-0 text-[var(--color-text-muted)]" />
+              <span>In released release {releasedIn.name}.</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => assignRelease([issue.id], releases.current)}
+              className="mt-2 px-2.5 py-1 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
+            >
+              Move to Current
+            </button>
+          </div>
+        )}
 
         {/* Properties card */}
         <div className="rounded-[var(--radius-md)] bg-[var(--color-surface-2)] border border-[var(--color-border-default)] px-4 py-3">
@@ -434,6 +457,29 @@ export default function PropertySidebar({
                         />
                       </PopoverPanel>
                     </Popover>
+                  )}
+                </div>
+              </PropertyRow>
+            )}
+
+            {/* Release */}
+            {releases && (
+              <PropertyRow>
+                <div className="relative" ref={openPopover === "release" ? popoverAnchorRef : undefined}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    {...popoverTriggerProps("release", openPopover)}
+                    onClick={() => setOpenPopover(openPopover === "release" ? null : "release")}
+                    className="w-full justify-start"
+                  >
+                    <Package className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                    <span className="text-sm text-[var(--color-text-primary)] truncate">
+                      {issue.release || "No release"}
+                    </span>
+                  </Button>
+                  {openPopover === "release" && (
+                    <ReleasePickerPopover issue={issue} anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)} />
                   )}
                 </div>
               </PropertyRow>

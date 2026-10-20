@@ -57,15 +57,16 @@ export async function fetchPending(): Promise<PendingState> {
   return request(`${API_BASE}/pending`);
 }
 
-export async function addDraft(issueId: string, type: string, payload: unknown): Promise<void> {
+/** `withChildren` (an UPDATE of the release) also moves the issue's open descendants. */
+export async function addDraft(issueId: string, type: string, payload: unknown, options?: { withChildren?: boolean }): Promise<void> {
   return request(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ issue_id: issueId, type, payload }),
+    body: JSON.stringify({ issue_id: issueId, type, payload, ...(options?.withChildren && { with_children: true }) }),
   });
 }
 
-export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string; sort_order?: string }): Promise<string> {
+export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string; release_id?: string; sort_order?: string }): Promise<string> {
   const data = await request<{ issue_id: string }>(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

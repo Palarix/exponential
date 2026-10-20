@@ -28,6 +28,7 @@ import { cardPopoverAnchorSelector, type BoardPopoverType } from './board-popove
 import { navigableColumnIds, resolveFocusColumn, stepColumn } from './board-nav';
 import { isEditableTarget } from '../../utils/keyboard';
 import { useKeyboardHandler } from '../../keyboard';
+import ReleasePickerPopover from '../Releases/ReleasePickerPopover';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
 import { useConfig, useIssueList } from '../../api/queries';
@@ -310,7 +311,9 @@ export default function Board() {
   const popoverAnchorRef = useRef<HTMLElement | null>(null);
   const openCardPopover = useCallback((issueId: string, type: BoardPopoverType) => {
     popoverAnchorRef.current =
-      boardRef.current?.querySelector<HTMLElement>(cardPopoverAnchorSelector(issueId, type)) ?? boardRef.current;
+      boardRef.current?.querySelector<HTMLElement>(cardPopoverAnchorSelector(issueId, type))
+      ?? boardRef.current?.querySelector<HTMLElement>(cardPopoverAnchorSelector(issueId, "status"))
+      ?? boardRef.current;
     setOpenPopover({ issueId, type });
   }, [setOpenPopover]);
 
@@ -401,6 +404,11 @@ export default function Board() {
           openCardPopover(focusedIssueId, "assignee");
           return;
         }
+        if (e.key === "r") {
+          e.preventDefault();
+          openCardPopover(focusedIssueId, "release");
+          return;
+        }
         const col = COLUMNS.find(c => c.shortcut === e.key);
         if (col) {
           const issue = issuesById.get(focusedIssueId);
@@ -421,7 +429,7 @@ export default function Board() {
       ...[
         ["j", "Next card"], ["ArrowDown", "Next card"], ["k", "Previous card"], ["ArrowUp", "Previous card"],
         ["ArrowRight", "Next column"], ["ArrowLeft", "Previous column"], ["Enter", "Open issue"], [".", "Copy issue ID"],
-        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["a", "Set assignee"], ["1", "Move to Backlog"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["a", "Set assignee"], ["r", "Move to release"], ["1", "Move to Backlog"],
         ["2", "Move to Planned"], ["3", "Move to In Progress"], ["4", "Move to Blocked"], ["5", "Move to Done"],
         ["6", "Move to Canceled"], ["7", "Move to Duplicate"],
       ].map(([key, label]) => ({
@@ -522,6 +530,12 @@ export default function Board() {
                   ? setOpenPopover(null)
                   : openCardPopover(issue.id, "assignee")
               }
+              openReleaseId={openPopover?.type === "release" ? openPopover.issueId : null}
+              onReleaseOpen={(issue) =>
+                openPopover?.type === "release" && openPopover.issueId === issue.id
+                  ? setOpenPopover(null)
+                  : openCardPopover(issue.id, "release")
+              }
             />
           ))}
         </div>
@@ -577,6 +591,9 @@ export default function Board() {
                   <EstimatePicker current={issue.estimate || 0} onSelect={v => handleQuickUpdate(issue.id, { estimate: v })} onClose={() => setOpenPopover(null)} />
                 </PopoverPanel>
               </Popover>
+            )}
+            {openPopover.type === "release" && (
+              <ReleasePickerPopover issue={issue} anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)} />
             )}
             {openPopover.type === "labels" && (
               <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>

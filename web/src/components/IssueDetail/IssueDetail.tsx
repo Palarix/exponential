@@ -138,6 +138,7 @@ export default function IssueDetail({
       if (e.key === "e") setOpenPopover("estimate");
       if (e.key === "p") setOpenPopover("priority");
       if (e.key === "a") setOpenPopover("assignee");
+      if (e.key === "r") setOpenPopover("release");
       if (e.key === "m") {
         e.preventDefault();
         commentRef.current?.focus();
@@ -174,7 +175,7 @@ export default function IssueDetail({
     shortcuts: [
       ["Escape", "Close issue"],
       ["ArrowLeft", "Previous issue"], ["k", "Previous issue"], ["ArrowRight", "Next issue"], ["j", "Next issue"],
-      ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"],
+      ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"], ["r", "Move to release"],
       ["m", "Add comment"], [".", "Copy issue ID"], ["1", "Move to Backlog"], ["2", "Move to Planned"],
       ["3", "Move to In Progress"], ["4", "Move to Blocked"], ["5", "Move to Done"],
     ].map(([key, label]) => ({

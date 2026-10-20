@@ -22,6 +22,8 @@ export default function BoardColumn({
   onIssueContextMenu,
   openAssigneeId,
   onAssigneeOpen,
+  openReleaseId,
+  onReleaseOpen,
 }: {
   column: { id: string; label: string; shortcut?: string; isBacklog?: boolean };
   itemIds: string[];
@@ -36,6 +38,9 @@ export default function BoardColumn({
   /** The card whose assignee picker is open, if any. */
   openAssigneeId?: string | null;
   onAssigneeOpen?: (issue: Issue) => void;
+  /** The card whose release picker is open, if any. */
+  openReleaseId?: string | null;
+  onReleaseOpen?: (issue: Issue) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${column.id}` });
   const [showAll, setShowAll] = useState(false);
@@ -112,6 +117,8 @@ export default function BoardColumn({
                 onContextMenu={(x, y) => onIssueContextMenu?.(issue, x, y)}
                 assigneeOpen={openAssigneeId === id}
                 onAssigneeOpen={onAssigneeOpen && (() => onAssigneeOpen(issue))}
+                releaseOpen={openReleaseId === id}
+                onReleaseOpen={onReleaseOpen && (() => onReleaseOpen(issue))}
               />
             );
           })}

@@ -204,6 +204,9 @@ type IssueDraftPayload struct {
 	Estimate         int      `json:"estimate,omitempty"`
 	ParentID         string   `json:"parent_id,omitempty"`
 	Assignee         string   `json:"assignee,omitempty"`
+	// Release is the release ref picked in the form ("none" for no release).
+	// Empty lets a sub-issue copy its parent's release.
+	Release string `json:"release,omitempty"`
 }
 
 type CommentPayload struct {

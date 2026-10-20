@@ -122,6 +122,43 @@ func TestHandleDraft_UpdateReleaseRefusalIs400(t *testing.T) {
 	}
 }
 
+// with_children next to the payload also moves the epic's open children,
+// as the MCP and CLI option does; without it only the epic moves.
+func TestHandleDraft_UpdateWithChildren(t *testing.T) {
+	for _, withChildren := range []bool{false, true} {
+		srv := setupTestServer(t)
+		mux := srv.SetupRoutes()
+		epic := seedIssue(t, "Epic")
+		post := func(req map[string]interface{}) {
+			t.Helper()
+			body, _ := json.Marshal(req)
+			w := httptest.NewRecorder()
+			mux.ServeHTTP(w, httptest.NewRequest("POST", "/api/draft", bytes.NewReader(body)))
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+		}
+		post(map[string]interface{}{"issue_id": "", "type": "CREATE", "payload": model.CreatePayload{Title: "Child", ParentID: epic, Labels: []string{"feature"}}})
+
+		ref := "@current"
+		post(map[string]interface{}{"issue_id": epic, "type": "UPDATE", "payload": model.UpdatePayload{ReleaseID: &ref}, "with_children": withChildren})
+
+		issues, _ := srv.GetProjectedIssues()
+		if issues[epic].ReleaseID == "" {
+			t.Fatalf("with_children=%v: the epic should be in a release", withChildren)
+		}
+		for _, iss := range issues {
+			if iss.ParentID != epic {
+				continue
+			}
+			moved := iss.ReleaseID == issues[epic].ReleaseID
+			if moved != withChildren {
+				t.Errorf("with_children=%v: child moved = %v", withChildren, moved)
+			}
+		}
+	}
+}
+
 func TestHandleDraft_UpdateNonexistent(t *testing.T) {
 	srv := setupTestServer(t)
 	mux := srv.SetupRoutes()

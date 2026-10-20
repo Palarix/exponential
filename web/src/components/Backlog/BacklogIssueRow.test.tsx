@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ComponentProps } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { DndContext } from "@dnd-kit/core";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
@@ -8,8 +9,8 @@ import { BacklogIssueRow } from "./BacklogIssueRow";
 
 const noop = () => {};
 
-function renderRow(overrides: Partial<ComponentProps<typeof BacklogIssueRow>> = {}, agent: AgentChat | null = null): string {
-  const props: ComponentProps<typeof BacklogIssueRow> = {
+function rowProps(overrides: Partial<ComponentProps<typeof BacklogIssueRow>> = {}): ComponentProps<typeof BacklogIssueRow> {
+  return {
     issue: makeIssue(),
     depth: 0,
     hasChildren: false,
@@ -43,6 +44,10 @@ function renderRow(overrides: Partial<ComponentProps<typeof BacklogIssueRow>> = 
     onQuickLabelToggle: noop,
     ...overrides,
   };
+}
+
+function renderRow(overrides: Partial<ComponentProps<typeof BacklogIssueRow>> = {}, agent: AgentChat | null = null): string {
+  const props = rowProps(overrides);
   return renderMarkup(
     <AgentChatContext.Provider value={agent}>
       <DndContext>
@@ -97,5 +102,22 @@ describe("BacklogIssueRow sub-issue progress", () => {
     expect(html).toMatch(/<span[^>]*rounded-full[^>]*>(?:(?!<\/span><\/span>).)*1(?:<!-- -->)?\/(?:<!-- -->)?6/);
     // The progress ring matches the 12px pill icons.
     expect(html).toMatch(/rounded-full[^>]*><svg width="12" height="12"/);
+  });
+});
+
+describe("BacklogIssueRow release chip", () => {
+  it("shows the release chip for an issue in a release", () => {
+    const html = renderMarkup(
+      <TooltipPrimitive.Provider>
+        <DndContext>
+          <BacklogIssueRow {...rowProps({ issue: makeIssue({ release_id: "rel-2", release: "1.2" }) })} />
+        </DndContext>
+      </TooltipPrimitive.Provider>,
+    );
+    expect(html).toContain('aria-label="Release 1.2, change release"');
+  });
+
+  it("shows no chip without a release", () => {
+    expect(renderRow()).not.toContain("Release ");
   });
 });

@@ -5,6 +5,7 @@ import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
 import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import AgentChatProvider from './components/Agent/AgentChatProvider';
+import ReleaseAssignProvider from './components/Releases/ReleaseAssign';
 import TabStatus from './components/Agent/TabStatus';
 import { chatContextFor } from './components/Agent/agent-state-utils';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
@@ -162,6 +163,7 @@ function App() {
     <ViewStateContext.Provider value={viewStateStore}>
     <AppNavContext.Provider value={nav}>
     <AgentChatProvider context={chatContext}>
+    <ReleaseAssignProvider>
       <TabStatus title={tabTitle} />
       <Layout
         sidebar={{
@@ -208,12 +210,14 @@ function App() {
         onIssueSelect={(issue) => openIssue(issue.id)}
         onViewChange={navigate}
         onNewIssue={() => openNewIssue()}
+        contextIssue={issues.find((i) => i.id === route.issueId)}
       />
       <KeyboardHelp
         isOpen={showKeyboardHelp}
         onToggle={() => setShowKeyboardHelp((visible) => !visible)}
         onClose={() => setShowKeyboardHelp(false)}
       />
+    </ReleaseAssignProvider>
     </AgentChatProvider>
     </AppNavContext.Provider>
     </ViewStateContext.Provider>
