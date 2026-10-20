@@ -682,7 +682,7 @@ code .issue-ref,
    Tier      Utilities                           full   reduced  off
    Movement  slide-up, scale-in, step-in-*,      play   fade     none
              pop-in
-   Fade      fade-in                             play   play     none
+   Fade      fade-in, stream-in                  play   play     none
    Status    spin, pulse, .text-shimmer          play   play     play
 
    Movement is what WCAG 2.3.3 asks to be able to turn off; opacity is not
@@ -733,6 +733,12 @@ code .issue-ref,
 
 .animate-scale-in {
   animation: scale-in var(--duration-normal) ease-out;
+}
+
+/* A block that streams into the agent chat. Fade tier, a little slower
+   than fade-in so it reads as arriving. */
+.animate-stream-in {
+  animation: fade-in var(--duration-normal) ease-out;
 }
 
 /* A wizard step slides in from its direction: from the right going forward,
@@ -811,7 +817,7 @@ code .issue-ref,
   animation-timing-function: ease-out;
 }
 
-[data-motion="off"] :is(.animate-slide-up, .animate-scale-in, .animate-step-in-forward, .animate-step-in-back, .animate-pop-in, .animate-fade-in) {
+[data-motion="off"] :is(.animate-slide-up, .animate-scale-in, .animate-step-in-forward, .animate-step-in-back, .animate-pop-in, .animate-fade-in, .animate-stream-in) {
   animation: none;
 }
 

@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Agent chat: while the chat follows new output, the view glides to the bottom instead of jumping, and new messages, tool groups, cards and status lines fade in. Opening or switching a chat still lands at the bottom at once, with nothing fading. The glide follows the Motion preference as movement (it jumps under reduced motion or Off); the fade is a fade (it stops only when Motion is Off). (xpo-50b9d9)
+
 - Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)
 
 - Issues view: the tabs share one set of filters, so a filter stays on when you switch between All Issues, Active, Backlog and Completed. Each tab applies only the statuses it shows: in the Filter menu, statuses outside the tab are disabled (the whole Status entry on Backlog), the chip greys them with "Not on this tab", and a Status filter never empties a tab. Filters saved per tab by earlier versions are dropped. (xpo-325f73)

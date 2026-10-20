@@ -66,6 +66,8 @@ export interface ChatThread {
   background: BackgroundTask[];
   /** Messages sent while a turn ran, waiting on the board. */
   queue: QueuedMessage[];
+  /** The chat's history is in: what arrives from now on is new. */
+  loaded: boolean;
 }
 
 export type ChatThreadAction =
@@ -77,6 +79,8 @@ export type ChatThreadAction =
   | { type: "background"; tasks: BackgroundTask[] }
   /** The queue when the chat loaded. */
   | { type: "queue"; queue: QueuedMessage[] }
+  /** The chat's history is in, or there is none: a new chat. */
+  | { type: "loaded" }
   | { type: "reset" };
 
 // Events that change a chat's title, state or mode in the chat list.
@@ -87,7 +91,7 @@ export function changesChatMeta(type: ChatEvent["type"]): boolean {
   return META_EVENTS.has(type);
 }
 
-export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0, background: [], queue: [] };
+export const emptyThread: ChatThread = { turns: [], dividers: [], lastSeq: 0, background: [], queue: [], loaded: false };
 
 /**
  * The background banner's title: how many agents work, or how many shells
@@ -122,6 +126,7 @@ export function chatThreadReducer(state: ChatThread, action: ChatThreadAction): 
   }
   if (action.type === "background") return { ...state, background: action.tasks };
   if (action.type === "queue") return { ...state, queue: action.queue };
+  if (action.type === "loaded") return { ...state, loaded: true };
 
   const e = action.event;
   if (e.seq !== undefined && e.seq > 0) {

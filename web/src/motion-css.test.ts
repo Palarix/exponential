@@ -20,7 +20,7 @@ describe("motion tiers in index.css", () => {
 
   it("stops movement and fades when motion is off", () => {
     const off = rule('[data-motion="off"] :is(');
-    for (const cls of [...MOVEMENT, "animate-fade-in"]) expect(off).toContain(`.${cls}`);
+    for (const cls of [...MOVEMENT, "animate-fade-in", "animate-stream-in"]) expect(off).toContain(`.${cls}`);
     expect(off).toMatch(/animation:\s*none/);
   });
 

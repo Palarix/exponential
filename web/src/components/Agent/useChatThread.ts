@@ -21,7 +21,10 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
 
   useEffect(() => {
     dispatch({ type: "reset" });
-    if (!chatId) return;
+    if (!chatId) {
+      dispatch({ type: "loaded" });
+      return;
+    }
 
     let stop: (() => void) | null = null;
     let cancelled = false;
@@ -39,6 +42,7 @@ export function useChatThread(chatId: string | null): { thread: ChatThread; miss
         if (!running) dispatch({ type: "interrupted" });
         dispatch({ type: "background", tasks: background ?? [] });
         dispatch({ type: "queue", queue: queue ?? [] });
+        dispatch({ type: "loaded" });
         const after = events.length > 0 ? events[events.length - 1].seq ?? 0 : 0;
         stop = live.follow(`chat:${chatId}`, after, (data) => onEvent(data as ChatEvent), () => setReloads((n) => n + 1));
       })

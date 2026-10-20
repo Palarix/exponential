@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { ChatEvent } from "../../api/chat";
 import { renderMarkup } from "../../render-markup";
-import ChatThread, { ToolTimeline } from "./ChatThread";
+import ChatThread, { ToolTimeline, Turn } from "./ChatThread";
+import { StreamIn } from "./stream-in";
 import { chatThreadReducer, emptyThread, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-13T10:00:00Z";
@@ -383,5 +384,33 @@ describe("ChatThread edit action", () => {
   it("offers no Edit without a target", () => {
     const html = render(<ChatThread thread={s} editTarget={null} onEditMessage={() => {}} />);
     expect(html).not.toContain("Edit message");
+  });
+});
+
+describe("ChatThread stream-in fade", () => {
+  const done = thread([
+    { type: "user_message", seq: 1, text: "go" },
+    { type: "assistant_text", seq: 2, text: "Let me look." },
+    { type: "tool_call", seq: 3, name: "Read", tool_id: "t1", arg: "/r/board.go", status: "done" },
+    { type: "turn_done", seq: 4, duration_ms: 1000 },
+  ]);
+
+  it("shows a thread that is already there without fading", () => {
+    expect(render(<ChatThread thread={done} />)).not.toContain("animate-stream-in");
+  });
+
+  it("fades in blocks that appear after the thread is live", () => {
+    const html = render(
+      <StreamIn.Provider value={{ current: true }}>
+        <Turn index={0} turn={done.turns[0]} />
+      </StreamIn.Provider>,
+    );
+    // The user message, the text, the tool group and the footer.
+    const tags = html.match(/<div[^>]*animate-stream-in[^>]*>/g) ?? [];
+    expect(tags).toHaveLength(4);
+    expect(tags[0]).toContain("data-user-message");
+    expect(tags[1]).toContain("prose-activity");
+    expect(html).toMatch(/<div class="animate-stream-in"><button[^>]*aria-expanded/);
+    expect(html).toMatch(/animate-stream-in"><span[^>]*title="Time the agent worked/);
   });
 });

@@ -1,5 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { hasMoreBelow, nextStick } from "./scroll";
+import { easeToward, hasMoreBelow, nextStick, parseDuration } from "./scroll";
+
+describe("easeToward", () => {
+  it("moves part of the way, more for a longer frame", () => {
+    const short = easeToward(0, 100, 16, 150);
+    const long = easeToward(0, 100, 32, 150);
+    expect(short).toBeGreaterThan(0);
+    expect(short).toBeLessThan(100);
+    expect(long).toBeGreaterThan(short);
+  });
+
+  it("does not depend on frame rate: two half frames land where one full frame does", () => {
+    const once = easeToward(0, 100, 32, 150);
+    const twice = easeToward(easeToward(0, 100, 16, 150), 100, 16, 150);
+    expect(twice).toBeCloseTo(once, 6);
+  });
+
+  it("snaps to the target within 1px", () => {
+    expect(easeToward(99.5, 100, 1, 150)).toBe(100);
+  });
+
+  it("moves at least 1px, so a scroller that rounds scrollTop never stalls", () => {
+    expect(easeToward(197, 200, 1, 150)).toBe(198);
+    expect(easeToward(200, 197, 1, 150)).toBe(199);
+  });
+
+  it("never overshoots", () => {
+    expect(easeToward(0, 100, 10_000, 150)).toBe(100);
+  });
+
+  it("jumps when there is no time constant", () => {
+    expect(easeToward(0, 100, 16, 0)).toBe(100);
+  });
+});
+
+describe("parseDuration", () => {
+  it("reads milliseconds and seconds", () => {
+    expect(parseDuration(" 150ms", 1)).toBe(150);
+    expect(parseDuration("0.2s", 1)).toBe(200);
+  });
+
+  it("falls back on anything else", () => {
+    expect(parseDuration("", 150)).toBe(150);
+    expect(parseDuration("fast", 150)).toBe(150);
+  });
+});
 
 describe("nextStick", () => {
   // A 500px viewport over 1000px of content: the end is at scrollTop 500.

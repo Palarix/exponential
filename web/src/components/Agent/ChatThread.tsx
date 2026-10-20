@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { Bot, ChevronRight, Copy, Check, CornerDownRight, FileText, Lightbulb, Pencil } from "lucide-react";
 import type { ChatAttachment } from "../../api/chat";
@@ -12,6 +12,7 @@ import ToolIcon from "./ToolIcon";
 import Tooltip from "../ui/Tooltip";
 import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 import { scrollBehavior } from "../../preferences";
+import { StreamIn, useStreamIn } from "./stream-in";
 
 function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -23,11 +24,17 @@ function useNow(active: boolean): number {
   return now;
 }
 
+/** A div of the thread that fades in when it appears in a live thread. */
+function Block({ className, ...props }: ComponentProps<"div">) {
+  const fade = useStreamIn();
+  return <div {...props} className={[className, fade].filter(Boolean).join(" ") || undefined} />;
+}
+
 function AnswerText({ text }: { text: string }) {
   return (
-    <div className="prose-exponential prose-activity">
+    <Block className="prose-exponential prose-activity">
       <IssueMarkdown>{text}</IssueMarkdown>
-    </div>
+    </Block>
   );
 }
 
@@ -157,7 +164,7 @@ function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; act
   const listed = timelineSteps(steps, active);
   const expandable = listed.length > 0;
   return (
-    <div>
+    <Block>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -185,7 +192,7 @@ function ToolGroup({ steps, active, waiting, seconds }: { steps: ToolStep[]; act
         {active && <span className="ml-auto shrink-0 pl-2 tabular-nums">{formatDuration(seconds)}</span>}
       </button>
       {open && expandable && <ToolTimeline steps={listed} />}
-    </div>
+    </Block>
   );
 }
 
@@ -196,25 +203,25 @@ function AnsweredQuestion({ step }: { step: ToolStep }) {
   // A question the input no longer names still shows with its answer.
   const shown = asked.length > 0 ? asked : Object.keys(answers);
   return (
-    <div data-answered-question className="flex flex-col gap-2 pl-3 border-l-2 border-[var(--color-border-ai)] min-w-0">
+    <Block data-answered-question className="flex flex-col gap-2 pl-3 border-l-2 border-[var(--color-border-ai)] min-w-0">
       {shown.map((q) => (
         <div key={q} className="min-w-0">
           <div className="text-xs text-[var(--color-text-muted)] break-words">{q}</div>
           <div className="text-sm text-[var(--color-text-primary)] break-words">{answers[q] ?? "No answer"}</div>
         </div>
       ))}
-    </div>
+    </Block>
   );
 }
 
 /** While the agent thinks between groups, before its next message. */
 function ThinkingLine({ seconds }: { seconds: number }) {
   return (
-    <div data-thinking className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+    <Block data-thinking className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
       <Lightbulb className="w-3.5 h-3.5 shrink-0" aria-hidden />
       <span className="text-shimmer">Thinking</span>
       <span className="ml-auto shrink-0 pl-2 tabular-nums">{formatDuration(seconds)}</span>
-    </div>
+    </Block>
   );
 }
 
@@ -240,7 +247,7 @@ function CopyButton({ text }: { text: string }) {
 /** A message's attachments: image thumbnails that open the full image, and file chips that download. */
 function MessageAttachments({ chatId, attachments }: { chatId: string; attachments: ChatAttachment[] }) {
   return (
-    <div data-message-attachments className="self-end flex flex-wrap justify-end gap-1.5 max-w-[85%]">
+    <Block data-message-attachments className="self-end flex flex-wrap justify-end gap-1.5 max-w-[85%]">
       {attachments.map((a) => {
         const url = attachmentUrl(chatId, a.id);
         const name = a.name || "attachment";
@@ -256,11 +263,11 @@ function MessageAttachments({ chatId, attachments }: { chatId: string; attachmen
           </a>
         );
       })}
-    </div>
+    </Block>
   );
 }
 
-function Turn({
+export function Turn({
   index,
   turn,
   chatId,
@@ -301,18 +308,18 @@ function Turn({
   return (
     <div data-turn={index} className="flex flex-col gap-3">
       {turn.byAgent && (
-        <div data-agent-turn className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] min-w-0">
+        <Block data-agent-turn className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] min-w-0">
           <Bot className="w-3.5 h-3.5 shrink-0" aria-hidden />
           <span className="truncate">{turn.user.text || "The agent continued on its own"}</span>
-        </div>
+        </Block>
       )}
       {!turn.continued && !turn.byAgent && chatId && turn.user.attachments && (
         <MessageAttachments chatId={chatId} attachments={turn.user.attachments} />
       )}
       {!turn.continued && !turn.byAgent && (turn.user.text || !turn.user.attachments) && (
-        <div data-user-message className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+        <Block data-user-message className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
           <IssueRefText text={turn.user.text} />
-        </div>
+        </Block>
       )}
       {onEdit && (
         <div className="self-end -mt-2">
@@ -339,12 +346,12 @@ function Turn({
           <Fragment key={i}>
             {chatId && seg.attachments && <MessageAttachments chatId={chatId} attachments={seg.attachments} />}
             {seg.text && (
-              <div data-steer-message className="self-end max-w-[85%] flex gap-1.5 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+              <Block data-steer-message className="self-end max-w-[85%] flex gap-1.5 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
                 <CornerDownRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--color-text-muted)]" aria-label="Sent during the turn" />
                 <span className="min-w-0">
                   <IssueRefText text={seg.text} />
                 </span>
-              </div>
+              </Block>
             )}
           </Fragment>
         ) : (
@@ -362,23 +369,23 @@ function Turn({
             onExpired: onApprovalExpired,
             onFocusChange: (focused: boolean) => setFocusedCard((id) => (focused ? step.approval.id : id === step.approval.id ? null : id)),
           };
-          return isQuestion(step) ? <QuestionCard key={step.approval.id} {...card} /> : <ApprovalCard key={step.approval.id} {...card} />;
+          return <Block key={step.approval.id}>{isQuestion(step) ? <QuestionCard {...card} /> : <ApprovalCard {...card} />}</Block>;
         })}
 
-      {turn.status === "stopped" && <div className="text-xs text-[var(--color-text-muted)]">Stopped</div>}
+      {turn.status === "stopped" && <Block className="text-xs text-[var(--color-text-muted)]">Stopped</Block>}
       {turn.status === "interrupted" && (
-        <div className="text-xs text-[var(--color-text-muted)]">Interrupted. Send a message to continue.</div>
+        <Block className="text-xs text-[var(--color-text-muted)]">Interrupted. Send a message to continue.</Block>
       )}
       {turn.status === "error" && (
-        <div className="px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-error-bg)] text-xs text-[var(--color-error)] whitespace-pre-wrap break-words">
+        <Block className="px-3 py-2 rounded-[var(--radius-md)] bg-[var(--color-error-bg)] text-xs text-[var(--color-error)] whitespace-pre-wrap break-words">
           {turn.error}
-        </div>
+        </Block>
       )}
       {!running && turn.status !== "interrupted" && (
-        <div className="flex items-center min-h-[1.375rem] text-xs text-[var(--color-text-muted)]">
+        <Block className="flex items-center min-h-[1.375rem] text-xs text-[var(--color-text-muted)]">
           {lastText && <CopyButton text={lastText} />}
           <span className="ml-auto tabular-nums" title="Time the agent worked on this turn">{formatDuration(seconds)}</span>
-        </div>
+        </Block>
       )}
     </div>
   );
@@ -394,13 +401,13 @@ function Divider({ text, title, dashed }: { text: string; title?: string; dashed
     ? "flex-1 border-t border-dashed border-[var(--color-border-ai)]"
     : "h-px flex-1 bg-[var(--color-border-ai-subtle)]";
   return (
-    <div role="separator" title={title} className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
+    <Block role="separator" title={title} className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
       <span className={line} />
       <span className="shrink min-w-0 text-center">
         <IssueRefText text={text} />
       </span>
       <span className={line} />
-    </div>
+    </Block>
   );
 }
 
@@ -538,7 +545,13 @@ export default function ChatThread({
   editTarget?: number | null;
   onEditMessage?: () => void;
 }) {
-  const { ref: scrollRef, pin } = useStickToBottom<HTMLDivElement>();
+  // Live once the commit that brought the history in has painted: from then
+  // on, new blocks fade in and following glides. Until then, both jump.
+  const live = useRef(false);
+  useEffect(() => {
+    live.current = thread.loaded;
+  }, [thread.loaded]);
+  const { ref: scrollRef, pin } = useStickToBottom<HTMLDivElement>(live);
   const cold = usePassed(cacheExpiresAt) && thread.turns.length > 0 && !isRunning(thread);
 
   // Follow new output, and the cold cache marker, while the user is at the bottom.
@@ -546,6 +559,7 @@ export default function ChatThread({
 
   const first = thread.turns[0];
   return (
+    <StreamIn.Provider value={live}>
     <div className="relative flex-1 min-h-0 flex flex-col">
     {wide && <TurnRail thread={thread} scrollRef={scrollRef} />}
     <div
@@ -569,5 +583,6 @@ export default function ChatThread({
       </div>
     </div>
     </div>
+    </StreamIn.Provider>
   );
 }

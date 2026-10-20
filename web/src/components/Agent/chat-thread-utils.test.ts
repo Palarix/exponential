@@ -187,6 +187,14 @@ describe("chatThreadReducer", () => {
     const s = chatThreadReducer(reduce([ev({ type: "user_message", seq: 1, text: "a" })]), { type: "reset" });
     expect(s).toEqual(emptyThread);
   });
+
+  it("is not loaded until the chat's history is in, and not again after a reset", () => {
+    expect(emptyThread.loaded).toBe(false);
+    const s = chatThreadReducer(reduce([ev({ type: "user_message", seq: 1, text: "a" })]), { type: "loaded" });
+    expect(s.loaded).toBe(true);
+    expect(s.turns).toHaveLength(1);
+    expect(chatThreadReducer(s, { type: "reset" }).loaded).toBe(false);
+  });
 });
 
 describe("turnSegments", () => {
