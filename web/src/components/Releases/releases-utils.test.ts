@@ -3,7 +3,7 @@ import type { Release, ReleasesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import {
   acceptsIssueDrop, childProgress, findRelease, matchesIssueSearch, parentContext, issuesInRelease, openReleases, orderWarnings, releaseDropRef, reorderMove, savedOrder, timeBar,
-  noReleaseIssues,
+  noReleaseIssues, releaseLink,
 } from "./releases-utils";
 
 const rel = (number: number, overrides: Partial<Release> = {}): Release => ({
@@ -253,5 +253,20 @@ describe("childProgress", () => {
 
   it("has nothing for an issue without children", () => {
     expect(childProgress(makeIssue({ id: "solo" }), [makeIssue({ id: "solo" })])).toBeNull();
+  });
+});
+
+describe("releaseLink", () => {
+  it("opens Current and Next in Issues by slot, so the filter follows them", () => {
+    expect(releaseLink(rel(1, { slot: "current" }))).toEqual({ filter: "@current" });
+    expect(releaseLink(placeholder(2, "next"))).toEqual({ filter: "@next" });
+  });
+
+  it("opens an Upcoming release in Issues by number", () => {
+    expect(releaseLink(rel(3, { slot: "upcoming" }))).toEqual({ filter: "#3" });
+  });
+
+  it("opens a Past release on its detail page", () => {
+    expect(releaseLink(rel(4, { slot: "past", state: "RELEASED" }))).toEqual({ detail: 4 });
   });
 });

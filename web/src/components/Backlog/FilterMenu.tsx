@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Bot, Hand } from "lucide-react";
-import type { Issue } from "../../api/client";
+import { Bot, Hand, Package } from "lucide-react";
+import type { Issue, ReleasesResponse } from "../../api/client";
+import { useReleases } from "../../api/queries";
 import { StatusIcon, Avatar, PriorityIcon } from "../ui";
 import { labelColor } from "../../utils/labels";
 import { shortName } from "../../utils/format";
 import { LabelColorsContext } from "../ui/BadgeContexts";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
-import { getSelected, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
+import { dimensionDisabled, getSelected, outOfScope, releaseFilterOptions, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
 import { Menu, MenuItem, MenuLabel, MenuDivider } from "../ui/Menu";
 import { SubMenu } from "../ui/SubMenu";
 
@@ -17,6 +18,8 @@ interface FilterMenuProps {
   onChange: (filters: BacklogFilters) => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
+  /** The tab's status scope; status values outside it show greyed but stay toggleable. */
+  scope?: string[];
 }
 
 type Dimension = FilterDimension;
@@ -33,6 +36,7 @@ const DIMENSIONS: { key: Dimension; label: string; icon: React.ReactNode }[] = [
     key: "labels", label: "Labels",
     icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /></svg>,
   },
+  { key: "release", label: "Release", icon: <Package className="w-3.5 h-3.5" /> },
   {
     key: "epic", label: "Epic",
     icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" /></svg>,
@@ -46,7 +50,7 @@ interface FilterOption {
   count: number;
 }
 
-function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Record<string, string>): FilterOption[] {
+function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Record<string, string>, releases?: ReleasesResponse): FilterOption[] {
   switch (dim) {
     case "status":
       return STATUS_OPTIONS.map((s) => ({
@@ -96,6 +100,8 @@ function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Re
         };
       });
     }
+    case "release":
+      return releaseFilterOptions(releases, issues);
     case "epic":
       return issues.filter((i) => i.labels?.includes("epic")).map((i) => ({
         value: i.id, label: i.title, count: issues.filter((c) => c.parent_id === i.id).length,
@@ -103,16 +109,17 @@ function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Re
   }
 }
 
-export default function FilterMenu({ issues, filters, onChange, anchorRef, onClose }: FilterMenuProps) {
+export default function FilterMenu({ issues, filters, onChange, anchorRef, onClose, scope }: FilterMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const configColors = useContext(LabelColorsContext);
+  const { data: releases } = useReleases();
   const [searches, setSearches] = useState<Partial<Record<Dimension, string>>>({});
 
   const allOptions = useMemo(() => {
     const result: Record<Dimension, FilterOption[]> = {} as Record<Dimension, FilterOption[]>;
-    for (const dim of DIMENSIONS) result[dim.key] = computeFilterOptions(dim.key, issues, configColors);
+    for (const dim of DIMENSIONS) result[dim.key] = computeFilterOptions(dim.key, issues, configColors, releases);
     return result;
-  }, [issues, configColors]);
+  }, [issues, configColors, releases]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -182,6 +189,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
               key={dim.key}
               label={dim.label}
               icon={dim.icon}
+              disabled={dimensionDisabled(dim.key, scope)}
               maxHeight={showSearch ? "24rem" : undefined}
               suffix={selected.length > 0 ? <span className="text-xs text-[var(--color-accent-primary)] tabular-nums">{selected.length}</span> : undefined}
             >
@@ -198,16 +206,21 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
                 </MenuLabel>
               )}
               {showSearch && <MenuDivider />}
-              {filtered.map((opt) => (
-                <MenuItem
-                  key={opt.value}
-                  label={opt.label}
-                  icon={opt.icon}
-                  checked={selected.includes(opt.value)}
-                  onClick={() => handleToggle(dim.key, opt.value)}
-                  suffix={<span className="text-[var(--color-text-muted)] tabular-nums shrink-0 text-xs">{opt.count}</span>}
-                />
-              ))}
+              {filtered.map((opt) => {
+                const muted = outOfScope(dim.key, opt.value, scope);
+                return (
+                  <MenuItem
+                    key={opt.value}
+                    label={opt.label}
+                    content={muted ? <span title="Not on this tab">{opt.label}</span> : undefined}
+                    icon={opt.icon}
+                    disabled={muted}
+                    checked={selected.includes(opt.value)}
+                    onClick={() => handleToggle(dim.key, opt.value)}
+                    suffix={<span className="text-[var(--color-text-muted)] tabular-nums shrink-0 text-xs">{opt.count}</span>}
+                  />
+                );
+              })}
               {filtered.length === 0 && <MenuLabel>No matches</MenuLabel>}
             </SubMenu>
           );

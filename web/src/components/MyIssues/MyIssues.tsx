@@ -24,7 +24,7 @@ import { FILTERS_CODEC, hasActiveFilters, matchesFilters, matchesSearch } from "
 import FilterChips from "../Backlog/FilterChips";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
-import { useConfig, useIssueList, useUser } from "../../api/queries";
+import { useConfig, useIssueList, useReleases, useUser } from "../../api/queries";
 import { useIssueClick, useIssueNavOrder, useViewState } from "../../app/hooks";
 import { stringCodec } from "../../app/view-state-utils";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
@@ -40,6 +40,7 @@ const TAB_CODEC = stringCodec<MyIssuesTab>("assigned");
 
 export default function MyIssues() {
   const issues = useIssueList();
+  const { data: releases } = useReleases();
   const onIssueClick = useIssueClick();
   const { contributors } = useConfig();
   const user = useUser();
@@ -82,9 +83,9 @@ export default function MyIssues() {
   const filtered = useMemo(
     () =>
       searching || hasActiveFilters(filters)
-        ? tabIssues.filter((i) => matchesSearch(i, search) && matchesFilters(i, filters))
+        ? tabIssues.filter((i) => matchesSearch(i, search) && matchesFilters(i, filters, releases))
         : tabIssues,
-    [tabIssues, filters, search, searching],
+    [tabIssues, filters, search, searching, releases],
   );
   const navOrder = useMemo(() => filtered.map((i) => i.id), [filtered]);
   useIssueNavOrder(navOrder);

@@ -59,6 +59,11 @@ export function closesOnActivate({ isCheckbox, keepOpen }: { isCheckbox: boolean
   return !isCheckbox && !keepOpen;
 }
 
+/** Whether hovering an item opens it as a submenu: only an enabled submenu does (xpo-a71a45). */
+export function opensOnHover({ isSubMenu, navigable }: { isSubMenu: boolean; navigable: boolean }): boolean {
+  return isSubMenu && navigable;
+}
+
 /** The inset a framed menu keeps on every side, in px (p-2). */
 const MENU_INSET = 8;
 

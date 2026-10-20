@@ -1,12 +1,15 @@
 import { createContext } from "react";
 import type { ViewId } from "../views";
 import type { BacklogFilters } from "../components/Backlog/filters";
+import type { Tab } from "../components/Backlog/Backlog";
 import type { ViewStateStore } from "./view-state-utils";
 import type { IssueDraft } from "../api/types";
 
 /** One-shot payload handed to the target view of a `navigate` call. */
 export interface NavIntent {
-  /** Merged into the target view's filters for its active tab. */
+  /** The backlog tab to open; the open tab when unset. */
+  tab?: Tab;
+  /** Merged into the target view's filters for that tab. */
   filters?: Partial<BacklogFilters>;
 }
 

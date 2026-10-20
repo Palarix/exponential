@@ -49,9 +49,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   (xpo-974eba)
 
+- Releases in the web app: a **Release** filter, and links from open releases to the Issues view.
+  - **Filter:** the Filter menu has **Release** with Current, Next, No release and each release, with counts. Current and Next are looked up each time the filter runs, so a saved filter follows them as releases complete. A specific release is saved by its number; a deleted one matches nothing. The filter works in Issues, My Issues, Inbox and Releases.
+  - **Links:** clicking Current, Next or an upcoming release in the Releases view opens Issues on All Issues with that release's filter. Past releases still open their page.
+
+  (xpo-325f73)
+
 ### Changed
 
 - Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)
+
+- Issues view: the tabs share one set of filters, so a filter stays on when you switch between All Issues, Active, Backlog and Completed. Each tab applies only the statuses it shows: in the Filter menu, statuses outside the tab are disabled (the whole Status entry on Backlog), the chip greys them with "Not on this tab", and a Status filter never empties a tab. Filters saved per tab by earlier versions are dropped. (xpo-325f73)
+
+- Filter chips start with a **Clear filters** text button, which replaces the ✕ icon after the chips. The bottom status bar now lines up with the main card on both sides. (xpo-325f73)
+
+### Fixed
+
+- Menus: hovering a disabled submenu no longer opens it. (xpo-a71a45)
 
 ## [1.5.0] — 2026-10-18
 

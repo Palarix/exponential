@@ -23,7 +23,7 @@ import NewReleaseDialog from "./NewReleaseDialog";
 import ReleaseDetail from "./ReleaseDetail";
 import { ExpandToggle, RELEASE_ROW_GRID, ReleaseRowBody } from "./ReleaseRow";
 import {
-  acceptsIssueDrop, childProgress, dropHighlightClass, findRelease, parentContext, issuesInRelease, openReleases, orderWarnings,
+  acceptsIssueDrop, childProgress, dropHighlightClass, findRelease, parentContext, releaseLink, issuesInRelease, openReleases, orderWarnings,
   reorderMove, savedOrder, noReleaseIssues, type DropHighlight,
 } from "./releases-utils";
 
@@ -62,7 +62,7 @@ function todayISO(): string {
 
 export default function Releases() {
   const { data: board, isPending, isError } = useReleases();
-  const { releaseNumber, setReleaseNumber } = useAppNav();
+  const { releaseNumber, setReleaseNumber, navigate } = useAppNav();
 
   if (isPending) {
     return (
@@ -77,7 +77,12 @@ export default function Releases() {
   if (releaseNumber != null) {
     return <ReleaseDetail number={releaseNumber} release={findRelease(board, releaseNumber)} today={todayISO()} onBack={() => setReleaseNumber(null)} />;
   }
-  return <ReleasesBoard board={board} onOpen={(r) => setReleaseNumber(r.number)} />;
+  const onOpen = (release: Release) => {
+    const link = releaseLink(release);
+    if ("detail" in link) setReleaseNumber(link.detail);
+    else navigate("backlog", { tab: "all", filters: { releases: [link.filter] } });
+  };
+  return <ReleasesBoard board={board} onOpen={onOpen} />;
 }
 
 function ReleasesBoard({ board, onOpen }: { board: ReleasesResponse; onOpen: (release: Release) => void }) {
@@ -161,7 +166,7 @@ export function ReleaseStack({
   board, issues, today, query, filters = EMPTY_FILTERS, onOpen, onIssueClick, onReorder, onAssign, initialExpanded = [],
 }: ReleaseStackProps) {
   // Search and filters narrow the lists; counts, breadcrumbs and child progress keep using all issues.
-  const listed = useMemo(() => hasActiveFilters(filters) ? issues.filter((i) => matchesFilters(i, filters)) : issues, [issues, filters]);
+  const listed = useMemo(() => hasActiveFilters(filters) ? issues.filter((i) => matchesFilters(i, filters, board)) : issues, [issues, filters, board]);
   const narrowing = query.trim() !== "" || hasActiveFilters(filters);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(initialExpanded));
   const [active, setActive] = useState<DragData | null>(null);

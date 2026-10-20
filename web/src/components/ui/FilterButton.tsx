@@ -10,9 +10,11 @@ interface FilterButtonProps {
   issues: Issue[];
   filters: BacklogFilters;
   onFiltersChange: (filters: BacklogFilters) => void;
+  /** The tab's status scope; status values outside it show greyed. */
+  scope?: string[];
 }
 
-export function FilterButton({ issues, filters, onFiltersChange }: FilterButtonProps) {
+export function FilterButton({ issues, filters, onFiltersChange, scope }: FilterButtonProps) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -67,6 +69,7 @@ export function FilterButton({ issues, filters, onFiltersChange }: FilterButtonP
           issues={issues}
           filters={filters}
           onChange={onFiltersChange}
+          scope={scope}
           anchorRef={btnRef}
           onClose={() => setOpen(false)}
         />

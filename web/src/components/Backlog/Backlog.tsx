@@ -51,7 +51,8 @@ import { computeAppendKey, SORT_CODEC, SORT_OPTIONS, SORT_STATE_KEY } from "../.
 import { isTerminal } from "../../constants";
 import { buildChildrenByParent, collectKnownPeople } from "../../utils/issues";
 import { isEditableTarget } from "../../utils/keyboard";
-import { FILTERS_CODEC, hasActiveFilters, matchesFilters, matchesSearch } from "./filters";
+import { FILTERS_CODEC, filtersForScope, hasActiveFilters, matchesFilters, matchesSearch } from "./filters";
+import { intentTarget } from "./backlog-intent";
 import FilterChips from "./FilterChips";
 import { expandedNodeIds } from "./backlog-row-utils";
 import { DragOverlayCard } from "./DndComponents";
@@ -67,7 +68,7 @@ import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
 import { SearchInput } from "../ui/SearchInput";
-import { useConfig, useCycles, useIssueList } from "../../api/queries";
+import { useConfig, useCycles, useIssueList, useReleases } from "../../api/queries";
 import { useCreateIssue, useUpdateIssue, useUpdateIssues } from "../../api/mutations";
 import { useAppNav, useIssueClick, useIssueNavOrder, useNavIntent, useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
@@ -177,10 +178,12 @@ export default function Backlog() {
   const { contributors } = useConfig();
   const [sortKey, onSortChange] = useViewState(SORT_STATE_KEY, SORT_CODEC);
   const [activeTab, onTabChange] = useViewState<Tab>("backlog.tab", () => "all");
-  // Keyed per tab, so switching tabs loads that tab's saved filters (xpo-0c0556).
-  const [filters, onFiltersChange] = useViewState(`exponential-backlog-filters-${activeTab}`, FILTERS_CODEC);
+  // One filter set for all tabs; each tab applies it within its status scope (xpo-325f73).
+  const [filters, onFiltersChange] = useViewState("exponential-backlog-filters", FILTERS_CODEC);
   useNavIntent("backlog", (intent) => {
-    if (intent.filters) onFiltersChange({ ...filters, ...intent.filters });
+    const target = intentTarget(intent, activeTab, filters);
+    if (target.tab !== activeTab) onTabChange(target.tab);
+    if (target.filters) onFiltersChange(target.filters);
   });
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
@@ -213,6 +216,7 @@ export default function Backlog() {
     y: number;
   } | null>(null);
   const { cycles } = useCycles();
+  const { data: releases } = useReleases();
   const cycleMap = useMemo(() => new Map(cycles.map((c) => [c.id, c.number])), [cycles]);
   const [showStoryPoints, setShowStoryPoints] = useState(
     () => localStorage.getItem("exponential-backlog-show-points") === "true",
@@ -428,16 +432,17 @@ export default function Backlog() {
 
   const visibleStatuses = TAB_CONFIGS[activeTab].statuses;
   const query = search.trim().toLowerCase();
+  const tabFilters = filtersForScope(filters, visibleStatuses);
   const filteredIssues = issues.filter((i) => {
     if (!visibleStatuses.includes(i.status)) return false;
     if (!matchesSearch(i, query)) return false;
-    return matchesFilters(i, filters);
+    return matchesFilters(i, tabFilters, releases);
   });
 
   const childrenByParent = useMemo(() => buildChildrenByParent(issues), [issues]);
 
-  const filtering = query !== "" || hasActiveFilters(filters);
-  const filterKey = filtering ? JSON.stringify([query, filters]) : "";
+  const filtering = query !== "" || hasActiveFilters(tabFilters);
+  const filterKey = filtering ? JSON.stringify([query, tabFilters]) : "";
   const transientCollapsed = useMemo(
     () =>
       transientNodes.key === filterKey
@@ -1403,7 +1408,7 @@ export default function Backlog() {
 
   const statusChips = hasActiveFilters(filters) && (
     <StatusBarSlot>
-      <FilterChips filters={filters} onChange={onFiltersChange} />
+      <FilterChips filters={filters} onChange={onFiltersChange} scope={visibleStatuses} />
     </StatusBarSlot>
   );
 
@@ -1503,7 +1508,7 @@ export default function Backlog() {
               }
               right={
                 <div className="flex items-center gap-2">
-                  <FilterButton issues={filteredIssues} filters={filters} onFiltersChange={onFiltersChange} />
+                  <FilterButton issues={filteredIssues} filters={filters} onFiltersChange={onFiltersChange} scope={visibleStatuses} />
                   <div>
                     <IconButton
                       ref={viewBtnRef}
@@ -1566,7 +1571,7 @@ export default function Backlog() {
           {filteredIssues.length === 0 ? (
             <EmptyState
               title={
-                hasActiveFilters(filters) || search
+                hasActiveFilters(tabFilters) || search
                   ? "No matching issues"
                   : activeTab === "backlog"
                     ? "No issues in the backlog"
@@ -1577,7 +1582,7 @@ export default function Backlog() {
                         : "No issues"
               }
               description={
-                hasActiveFilters(filters) || search
+                hasActiveFilters(tabFilters) || search
                   ? "Try adjusting your filters or search."
                   : activeTab === "backlog"
                     ? "Issues with Backlog status will appear here."

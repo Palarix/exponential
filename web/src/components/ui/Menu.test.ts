@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass } from './menu-utils';
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, opensOnHover } from './menu-utils';
 
 describe('nextIndex', () => {
   const skip = new Set<number>();
@@ -158,5 +158,19 @@ describe("menuItemClass", () => {
     expect(rest).toContain("text-[var(--color-text-secondary)]");
     expect(rest).toContain("hover:bg-[var(--color-hover-surface-3)] hover:text-[var(--color-text-primary)]");
     expect(menuItemClass({ ...base, disabled: true })).not.toContain("hover:");
+  });
+});
+
+describe('opensOnHover', () => {
+  it('opens an enabled submenu', () => {
+    expect(opensOnHover({ isSubMenu: true, navigable: true })).toBe(true);
+  });
+
+  it('does not open a disabled submenu (xpo-a71a45)', () => {
+    expect(opensOnHover({ isSubMenu: true, navigable: false })).toBe(false);
+  });
+
+  it('does not open plain items', () => {
+    expect(opensOnHover({ isSubMenu: false, navigable: true })).toBe(false);
   });
 });

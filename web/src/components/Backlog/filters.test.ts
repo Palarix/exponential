@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, EMPTY_FILTERS, type BacklogFilters } from "./filters";
+import type { Release, ReleasesResponse } from "../../api/types";
+import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, filtersForScope, outOfScope, dimensionDisabled, releaseFilterOptions, releaseRefName, EMPTY_FILTERS, type BacklogFilters } from "./filters";
 
 describe("hasActiveFilters", () => {
   it("returns false for empty filters", () => {
@@ -34,6 +35,7 @@ describe("hasActiveFilters", () => {
       priorities: [],
       epicId: null,
       workedBy: [],
+      releases: [],
     };
     expect(hasActiveFilters(f)).toBe(true);
   });
@@ -97,6 +99,7 @@ describe("matchesFilters", () => {
       priorities: [2],
       epicId: "epic-1",
       workedBy: [],
+      releases: [],
     };
     expect(matchesFilters(base, filters)).toBe(true);
 
@@ -134,6 +137,7 @@ describe("getSelected", () => {
     priorities: [1, 2],
     epicId: "epic-1",
     workedBy: [],
+    releases: [],
   };
 
   it("gets statuses", () => {
@@ -194,7 +198,7 @@ describe("setSelected", () => {
   });
 
   it("preserves other fields", () => {
-    const base: BacklogFilters = { statuses: ["DONE"], labels: ["bug"], assignees: [], priorities: [], epicId: null, workedBy: [] };
+    const base: BacklogFilters = { statuses: ["DONE"], labels: ["bug"], assignees: [], priorities: [], epicId: null, workedBy: [], releases: [] };
     const result = setSelected("assignee", base, ["alice"]);
     expect(result.statuses).toEqual(["DONE"]);
     expect(result.labels).toEqual(["bug"]);
@@ -230,11 +234,134 @@ describe("workedBy filter", () => {
   });
 });
 
+describe("releases filter", () => {
+  const rel = (number: number, overrides: Partial<Release> = {}): Release => ({
+    id: `rel-${number}`, number, name: `#${number}`, state: "OPEN", counts: {}, total: 0, done: 0, ...overrides,
+  });
+  const board: ReleasesResponse = {
+    current: rel(1, { slot: "current", name: "1.5" }),
+    next: rel(2, { slot: "next", name: "1.6" }),
+    upcoming: [rel(3, { slot: "upcoming" })],
+    past: [rel(4, { slot: "past", name: "1.4", state: "RELEASED" })],
+  };
+  const inRel = (id?: string) => ({ status: "PLANNED", priority: 0, release_id: id });
+  const f = (...releases: string[]) => ({ ...EMPTY_FILTERS, releases });
+
+  it("counts as an active filter", () => {
+    expect(hasActiveFilters(f("@current"))).toBe(true);
+  });
+
+  it("resolves @current and @next against the board", () => {
+    expect(matchesFilters(inRel("rel-1"), f("@current"), board)).toBe(true);
+    expect(matchesFilters(inRel("rel-2"), f("@current"), board)).toBe(false);
+    expect(matchesFilters(inRel("rel-2"), f("@next"), board)).toBe(true);
+  });
+
+  it("follows Current when it changes", () => {
+    const after: ReleasesResponse = { ...board, current: board.next, next: board.upcoming[0], upcoming: [] };
+    expect(matchesFilters(inRel("rel-1"), f("@current"), after)).toBe(false);
+    expect(matchesFilters(inRel("rel-2"), f("@current"), after)).toBe(true);
+  });
+
+  it("matches issues without a release with none", () => {
+    expect(matchesFilters(inRel(undefined), f("none"), board)).toBe(true);
+    expect(matchesFilters(inRel(""), f("none"))).toBe(true);
+    expect(matchesFilters(inRel("rel-1"), f("none"), board)).toBe(false);
+  });
+
+  it("matches a release by number, past releases included", () => {
+    expect(matchesFilters(inRel("rel-3"), f("#3"), board)).toBe(true);
+    expect(matchesFilters(inRel("rel-4"), f("#4"), board)).toBe(true);
+    expect(matchesFilters(inRel("rel-1"), f("#3"), board)).toBe(false);
+  });
+
+  it("matches any of several refs", () => {
+    expect(matchesFilters(inRel("rel-2"), f("@current", "@next"), board)).toBe(true);
+    expect(matchesFilters(inRel(undefined), f("@current", "none"), board)).toBe(true);
+  });
+
+  it("matches nothing for a deleted number, a placeholder slot or a missing board", () => {
+    expect(matchesFilters(inRel("rel-9"), f("#9"), board)).toBe(false);
+    const empty: ReleasesResponse = { ...board, next: rel(5, { id: undefined, placeholder: true, slot: "next" }) };
+    expect(matchesFilters(inRel(undefined), f("@next"), empty)).toBe(false);
+    expect(matchesFilters(inRel("rel-1"), f("@current"))).toBe(false);
+  });
+
+  it("does not put an issue reopened in a past release in @current", () => {
+    expect(matchesFilters({ ...inRel("rel-4"), status: "DOING" }, f("@current"), board)).toBe(false);
+  });
+
+  it("round-trips through getSelected/setSelected", () => {
+    expect(getSelected("release", setSelected("release", EMPTY_FILTERS, ["@next", "#3"]))).toEqual(["@next", "#3"]);
+  });
+
+  it("offers Current, Next, No release, then Upcoming and Past releases, with counts", () => {
+    const issues = [inRel("rel-1"), inRel("rel-1"), inRel("rel-3"), inRel(undefined)];
+    expect(releaseFilterOptions(board, issues)).toEqual([
+      { value: "@current", label: "Current · 1.5", count: 2 },
+      { value: "@next", label: "Next · 1.6", count: 0 },
+      { value: "none", label: "No release", count: 1 },
+      { value: "#3", label: "#3", count: 1 },
+      { value: "#4", label: "1.4", count: 0 },
+    ]);
+  });
+
+  it("offers only No release before the board loads", () => {
+    expect(releaseFilterOptions(undefined, [inRel(undefined)])).toEqual([{ value: "none", label: "No release", count: 1 }]);
+  });
+
+  it("names refs for chips and menus", () => {
+    expect(releaseRefName("@current", board)).toBe("Current");
+    expect(releaseRefName("@next", board)).toBe("Next");
+    expect(releaseRefName("none", board)).toBe("No release");
+    expect(releaseRefName("#4", board)).toBe("1.4");
+    expect(releaseRefName("#9", board)).toBe("#9");
+    expect(releaseRefName("#4")).toBe("#4");
+  });
+});
+
+describe("filtersForScope", () => {
+  const ACTIVE = ["PLANNED", "DOING", "BLOCKED"];
+
+  it("keeps the selected statuses inside the tab's scope", () => {
+    expect(filtersForScope({ ...EMPTY_FILTERS, statuses: ["DONE", "DOING"] }, ACTIVE).statuses).toEqual(["DOING"]);
+  });
+
+  it("ignores the Status filter when none of its values are in scope", () => {
+    expect(filtersForScope({ ...EMPTY_FILTERS, statuses: ["DONE"] }, ACTIVE).statuses).toEqual([]);
+  });
+
+  it("leaves the other dimensions alone", () => {
+    const f = { ...EMPTY_FILTERS, statuses: ["DONE"], labels: ["bug"], releases: ["@current"] };
+    expect(filtersForScope(f, ACTIVE)).toEqual({ ...f, statuses: [] });
+  });
+
+  it("marks only status values outside the scope as not applying", () => {
+    expect(outOfScope("status", "DONE", ACTIVE)).toBe(true);
+    expect(outOfScope("status", "DOING", ACTIVE)).toBe(false);
+    expect(outOfScope("labels", "DONE", ACTIVE)).toBe(false);
+    expect(outOfScope("status", "DONE")).toBe(false);
+  });
+
+  it("disables the Status entry only for a single-status scope", () => {
+    expect(dimensionDisabled("status", ["BACKLOG"])).toBe(true);
+    expect(dimensionDisabled("status", ACTIVE)).toBe(false);
+    expect(dimensionDisabled("status")).toBe(false);
+    expect(dimensionDisabled("labels", ["BACKLOG"])).toBe(false);
+  });
+
+  it("returns the same filters without a status filter", () => {
+    const f = { ...EMPTY_FILTERS, labels: ["bug"] };
+    expect(filtersForScope(f, ACTIVE)).toBe(f);
+  });
+});
+
 describe("parseStoredFilters", () => {
   it("fills dimensions missing from filters saved by older versions", () => {
     const f = parseStoredFilters(JSON.stringify({ statuses: ["DOING"], labels: [], assignees: [], priorities: [], epicId: null }));
     expect(f.statuses).toEqual(["DOING"]);
     expect(f.workedBy).toEqual([]);
+    expect(f.releases).toEqual([]);
   });
 
   it("falls back to empty filters on missing or corrupt input", () => {

@@ -13,7 +13,7 @@ import {
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useKeyboardHandler } from "../../keyboard";
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass } from "./menu-utils";
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, opensOnHover } from "./menu-utils";
 
 // ─── Internal props injected by Menu via cloneElement ──
 
@@ -208,7 +208,7 @@ export function Menu({
           if (pending !== null) {
             setFocusIndex(pending);
             const m = metasRef.current[pending];
-            if (m?.isSubMenu) {
+            if (m && opensOnHover(m)) {
               setOpenSubMenuIndex(pending);
             } else {
               setOpenSubMenuIndex(null);
@@ -222,7 +222,7 @@ export function Menu({
     pendingHover.current = null;
     setFocusIndex(index);
     const meta = metasRef.current[index];
-    if (meta?.isSubMenu) {
+    if (meta && opensOnHover(meta)) {
       setOpenSubMenuIndex(index);
     } else {
       setOpenSubMenuIndex(null);

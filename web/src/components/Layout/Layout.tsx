@@ -29,7 +29,7 @@ export default function Layout({
             {children}
           </StatusBarSlotContext.Provider>
         </main>
-        <div className="flex items-center px-4 py-2 shrink-0 gap-3">
+        <div className="flex items-center py-2 shrink-0 gap-3">
           {/* Views fill this through <StatusBarSlot> */}
           <div ref={setStatusSlot} className="flex-1 min-w-0" />
           <AgentStatusBar />

@@ -17,6 +17,18 @@ export function findRelease(board: ReleasesResponse, number: number): Release | 
 }
 
 /**
+ * Where clicking a release goes. A Past release opens its detail page. An
+ * open release opens Issues with a release filter: Current and Next by slot,
+ * so the filter follows them as releases complete, Upcoming by number.
+ */
+export function releaseLink(release: Release): { detail: number } | { filter: string } {
+  if (release.state === "RELEASED") return { detail: release.number };
+  if (release.slot === "current") return { filter: "@current" };
+  if (release.slot === "next") return { filter: "@next" };
+  return { filter: `#${release.number}` };
+}
+
+/**
  * The releases whose target date contradicts the manual order, keyed by
  * number, with the names of the releases each one conflicts with. A pair
  * conflicts when the later release has the earlier target date; releases
