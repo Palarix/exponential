@@ -137,6 +137,19 @@ describe("ChatThread answered question", () => {
     expect(html).not.toContain('aria-label="Question"');
     expect(html).not.toContain("1 action");
   });
+
+  it("keeps the line breaks in a multi-line question", () => {
+    const question = "Two groups:\n• A\n• B\nWhere?";
+    const multi = thread([
+      { type: "user_message", seq: 1, text: "ask me" },
+      { type: "approval_requested", seq: 2, approval_id: "a1", name: "AskUserQuestion", arg: question, tool_id: "t1", input: JSON.stringify({ questions: [{ question, header: "Place", options: [{ label: "Here" }] }] }) },
+      { type: "approval_resolved", seq: 3, approval_id: "a1", decision: "answer", answers: { [question]: "Here" } },
+      { type: "tool_call", seq: 4, name: "AskUserQuestion", tool_id: "t1", arg: question, status: "done" },
+      { type: "turn_done", seq: 5, duration_ms: 1000 },
+    ]);
+    const html = render(<ChatThread thread={multi} chatId="c1" />);
+    expect(html).toMatch(/<div[^>]*class="[^"]*\bwhitespace-pre-line\b[^"]*"[^>]*>Two groups:\n• A\n• B\nWhere\?</);
+  });
 });
 
 describe("ToolTimeline", () => {

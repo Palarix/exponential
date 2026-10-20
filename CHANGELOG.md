@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: a multi-line question from the agent keeps its line breaks on the question card, on the Review step and in the answered question in the thread. (xpo-f90406)
 - Menus: hovering a disabled submenu no longer opens it. (xpo-a71a45)
 
 ## [1.5.0] — 2026-10-18

@@ -44,6 +44,11 @@ describe("QuestionCard with one question", () => {
     expect(html.indexOf("<kbd")).toBeGreaterThan(html.indexOf(">Red<"));
   });
 
+  it("keeps the line breaks in a multi-line question", () => {
+    const multi = card(JSON.stringify({ questions: [{ question: "Two groups:\n• A\n• B\nWhere?", header: "Place", options: [{ label: "Here" }] }] }));
+    expect(multi).toMatch(/<span[^>]*class="[^"]*\bwhitespace-pre-line\b[^"]*"[^>]*>Two groups:\n• A\n• B\nWhere\?/);
+  });
+
   it("shows the field at once for a question without options", () => {
     const open = card('{"questions":[{"question":"Why?","header":"Reason"}]}');
     expect(open).toContain("<input");
@@ -231,6 +236,12 @@ describe("QuestionReview", () => {
     const rows = reviewRows(html);
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => /\bpx-2\.5\b/.test(r))).toBe(true);
+  });
+
+  it("keeps the line breaks in a multi-line question", () => {
+    const multi = parseQuestions(JSON.stringify({ questions: [{ question: "Two groups:\n• A\n• B\nWhere?", header: "Place", options: [{ label: "Here" }] }] }));
+    const html = renderMarkup(<QuestionReview questions={multi} picks={emptyPicks(multi)} disabled={false} onSelect={noop} />);
+    expect(html).toMatch(/<div[^>]*class="[^"]*\bwhitespace-pre-line\b[^"]*"[^>]*>Two groups:\n• A\n• B\nWhere\?</);
   });
 
   it("disables Change while the card sends", () => {

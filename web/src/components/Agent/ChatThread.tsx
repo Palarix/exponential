@@ -206,7 +206,7 @@ function AnsweredQuestion({ step }: { step: ToolStep }) {
     <Block data-answered-question className="flex flex-col gap-2 pl-3 border-l-2 border-[var(--color-border-ai)] min-w-0">
       {shown.map((q) => (
         <div key={q} className="min-w-0">
-          <div className="text-xs text-[var(--color-text-muted)] break-words">{q}</div>
+          <div className="text-xs text-[var(--color-text-muted)] whitespace-pre-line break-words">{q}</div>
           <div className="text-sm text-[var(--color-text-primary)] break-words">{answers[q] ?? "No answer"}</div>
         </div>
       ))}

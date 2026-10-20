@@ -172,7 +172,7 @@ export function QuestionReview({ questions, picks, disabled, onSelect }: { quest
             className="group flex items-center gap-2.5 px-2.5 py-2 rounded-[var(--radius-md)] hover:bg-[var(--color-hover-surface-ai-2)] focus-within:bg-[var(--color-hover-surface-ai-2)] transition-colors"
           >
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-[var(--color-text-secondary)] break-words">{q.question}</div>
+              <div className="text-sm text-[var(--color-text-secondary)] whitespace-pre-line break-words">{q.question}</div>
               {/* A status mark in one slot: ✓ for an answer, a muted ? for an open question. */}
               <div className="mt-1 flex items-start gap-1.5">
                 <span aria-hidden className="w-3.5 h-5 shrink-0 flex items-center">
@@ -400,7 +400,7 @@ export default function QuestionCard({
           <div role={q.multiSelect ? "group" : "radiogroup"} aria-labelledby={labelId} className="min-w-0">
             {/* The header is metadata at the line's right end; with tabs, the tab shows it. */}
             <div className="flex items-start gap-2 min-w-0">
-              <span id={labelId} className="flex-1 min-w-0 text-sm font-semibold text-[var(--color-text-primary)] break-words">
+              <span id={labelId} className="flex-1 min-w-0 text-sm font-semibold text-[var(--color-text-primary)] whitespace-pre-line break-words">
                 {q.question}
               </span>
               {q.header && !tabbed && (
