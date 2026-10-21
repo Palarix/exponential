@@ -483,9 +483,10 @@ export function activeCardId(pending: (ToolStep & { approval: StepApproval })[],
   return (pending.find((s) => s.approval.id === focusedId) ?? pending[0])?.approval.id ?? null;
 }
 
-/** A text field with something in it: the user is typing there. */
+/** A text field, or a rich-text editor such as the composer, with something in it: the user is typing there. */
 export function typing(el: Element | null): boolean {
-  return (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) && el.value.trim() !== "";
+  if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) return el.value.trim() !== "";
+  return el?.getAttribute("contenteditable") === "true" && (el.textContent ?? "").trim() !== "";
 }
 
 /**

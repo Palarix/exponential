@@ -4,6 +4,7 @@ import { ArrowUp, CornerDownRight, FileText, Paperclip, Pencil, Square, X } from
 import type { AgentStatus, BackgroundTask } from "../../api/chat";
 import type { ChatPrefs } from "./agent-state-utils";
 import Tooltip from "../ui/Tooltip";
+import ChatMarkdownInput, { type ChatMarkdownInputHandle } from "./ChatMarkdownInput";
 import ComposerPickers, { type WorkModeInfo } from "./ComposerPickers";
 import { composerArrowUp, composerEscapeBlurs } from "./chat-thread-utils";
 import { formatSize } from "./attachment-utils";
@@ -202,7 +203,7 @@ export default function ChatComposer({
 }: ChatComposerProps) {
   const { text, attachments, prefilled, editing } = useComposerDraft(drafts, draftKey);
   const [sending, setSending] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<ChatMarkdownInputHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [attachError, setAttachError] = useState<string | undefined>();
   const [dragging, setDragging] = useState(false);
@@ -227,28 +228,13 @@ export default function ChatComposer({
     if (focusSignal) inputRef.current?.focus();
   }, [focusSignal]);
 
-  // Another chat's draft, or this one's in a new place: the caret goes to its end.
-  useEffect(() => {
-    const el = inputRef.current;
-    el?.setSelectionRange(el.value.length, el.value.length);
-  }, [draftKey]);
-
   // A prefill fills the input but sends nothing: the user can add to it first.
+  // The input puts the caret at the end of each draft it shows.
   useEffect(() => {
     if (!prefilled) return;
-    const el = inputRef.current;
-    el?.focus();
-    el?.setSelectionRange(el.value.length, el.value.length);
+    inputRef.current?.focus();
     drafts.prefillUsed(draftKey);
   }, [prefilled, draftKey, drafts]);
-
-  // Grow with the text, up to about eight lines.
-  useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-  }, [text]);
 
   const hasContent = text.trim() !== "" || attachments.length > 0;
   const canSend = !sending && !disabled && hasContent;
@@ -340,24 +326,18 @@ export default function ChatComposer({
             {attachError}
           </p>
         )}
-        <textarea
+        <ChatMarkdownInput
           ref={inputRef}
-          rows={1}
           value={text}
           placeholder={placeholder}
-          onChange={(e) => drafts.setText(draftKey, e.target.value)}
-          onPaste={(e) => {
-            // Files on the clipboard become attachments; text pastes as text.
-            const files = Array.from(e.clipboardData.files);
-            if (files.length === 0) return;
-            e.preventDefault();
-            addFiles(files);
-          }}
+          onChange={(md) => drafts.setText(draftKey, md)}
+          // Files on the clipboard become attachments; text pastes as Markdown.
+          onPasteFiles={addFiles}
           onKeyDown={(e) => {
             const up = composerArrowUp({
               key: e.key,
               empty: !hasContent,
-              composing: e.nativeEvent.isComposing,
+              composing: e.isComposing,
               modified: e.shiftKey || e.altKey || e.metaKey || e.ctrlKey,
               queued: !!queue?.items.length,
               canEdit: !!onEditLast && !running,
@@ -366,19 +346,27 @@ export default function ChatComposer({
               e.preventDefault();
               if (up === "pull" && queue) queue.edit(queue.items[queue.items.length - 1].id);
               else onEditLast?.();
-            } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              return true;
+            }
+            if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
               e.preventDefault();
               void send();
-            } else if (editing && e.key === "Escape" && !e.nativeEvent.isComposing) {
+              return true;
+            }
+            if (editing && e.key === "Escape" && !e.isComposing) {
               // Esc ends edit mode first; the popup stays open.
               e.preventDefault();
               e.stopPropagation();
               drafts.cancelEdit(draftKey);
-            } else if (composerEscapeBlurs({ key: e.key, enabled: !!blurOnEscape, composing: e.nativeEvent.isComposing, handled: e.defaultPrevented })) {
-              inputRef.current?.blur();
+              return true;
             }
+            if (composerEscapeBlurs({ key: e.key, enabled: !!blurOnEscape, composing: e.isComposing, handled: e.defaultPrevented })) {
+              inputRef.current?.blur();
+              return true;
+            }
+            return false;
           }}
-          className={`block w-full resize-none bg-transparent px-3 pt-3 pb-1 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none ${wide ? "min-h-16" : ""}`}
+          className={`prose-exponential prose-activity prose-bubble max-h-[180px] overflow-y-auto px-3 pt-3 pb-1 break-words ${wide ? "[&_.tiptap]:min-h-12" : ""}`}
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 min-w-0">
           <ComposerPickers

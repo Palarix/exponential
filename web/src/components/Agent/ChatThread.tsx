@@ -319,8 +319,8 @@ export function Turn({
         <MessageAttachments chatId={chatId} attachments={turn.user.attachments} />
       )}
       {!turn.continued && !turn.byAgent && (turn.user.text || !turn.user.attachments) && (
-        <Block data-user-message className="self-end max-w-[85%] px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
-          <IssueRefText text={turn.user.text} />
+        <Block data-user-message className="self-end max-w-[85%] min-w-0 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] prose-exponential prose-activity prose-bubble break-words">
+          <IssueMarkdown>{turn.user.text}</IssueMarkdown>
         </Block>
       )}
       {onEdit && (
@@ -348,11 +348,11 @@ export function Turn({
           <Fragment key={i}>
             {chatId && seg.attachments && <MessageAttachments chatId={chatId} attachments={seg.attachments} />}
             {seg.text && (
-              <Block data-steer-message className="self-end max-w-[85%] flex gap-1.5 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] whitespace-pre-wrap break-words">
+              <Block data-steer-message className="self-end max-w-[85%] flex gap-1.5 px-3 py-2 rounded-[var(--radius-lg)] bg-[var(--color-surface-ai-2)] text-sm text-[var(--color-text-primary)] break-words">
                 <CornerDownRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-[var(--color-text-muted)]" aria-label="Sent during the turn" />
-                <span className="min-w-0">
-                  <IssueRefText text={seg.text} />
-                </span>
+                <div className="min-w-0 prose-exponential prose-activity prose-bubble">
+                  <IssueMarkdown>{seg.text}</IssueMarkdown>
+                </div>
               </Block>
             )}
           </Fragment>

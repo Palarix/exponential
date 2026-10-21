@@ -317,6 +317,16 @@ body {
   font-size: 0.875rem;
 }
 
+/* User message bubbles in agent chat: a one-line message keeps the
+   height of a plain text-sm line, and no block adds space at the edges. */
+.prose-exponential.prose-bubble {
+  line-height: 1.25rem;
+}
+
+.prose-exponential.prose-bubble > :last-child {
+  margin-bottom: 0;
+}
+
 .prose-exponential p {
   margin: 0.875em 0;
 }

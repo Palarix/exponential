@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Agent chat: your messages render as Markdown, and the composer formats Markdown as you type.
+  - **Transcript:** your messages, and messages steered into a running turn, show lists, code, links and emphasis, with issue IDs as chips, like the agent's replies.
+  - **Composer:** typing `**bold**`, `` `code` ``, `- `, `1. `, `> ` or `# ` formats as you go, and ⌘B, ⌘I and ⌘E work. "```" (or "```lang") then Enter opens a code block, and a closing "```" then Shift+Enter leaves it. Shift+Enter adds a list item in a list and a new paragraph elsewhere. The agent still receives plain Markdown. Enter, ↑, Esc, drafts, attachments, queue/steer and edit-last-message work as before.
+
+  (xpo-c35d83)
+
 - Command palette (⌘K) finds agent chats. Typing matches a chat's title, any issue ID it worked on in Work Mode, or its linked issue's title; an empty query lists the 5 newest chats. Each row shows the chat's state, title, linked issue ID and last activity, and Enter or click opens the chat. (xpo-0628f4)
 
 - Preferences page (`#/preferences`, `g ,`), opened from the user avatar at the bottom of the sidebar. Settings are kept in this browser.

@@ -45,7 +45,7 @@ describe("AgentView", () => {
   it("greets with building, not just asking, on the new chat home", () => {
     const html = render(null);
     expect(html).toMatch(/<h1[^>]*>What should we build in this project\?<\/h1>/);
-    expect(html).toContain('placeholder="Ask a question, or describe what to build…"');
+    expect(html).toContain('data-placeholder="Ask a question, or describe what to build…"');
     expect(html).not.toContain("What do you want to know");
   });
 
@@ -68,7 +68,7 @@ describe("AgentView", () => {
     const html = render("c2");
     expect(html).toContain("This chat is archived");
     expect(html).toContain("Unarchive");
-    expect(html).not.toContain("<textarea");
+    expect(html).not.toContain('aria-label="Attach files"');
   });
 
   it("links to the Work Mode issue with an icon right after the title", () => {
@@ -96,7 +96,7 @@ describe("AgentView", () => {
 
   it("shows the composer for an active chat", () => {
     const html = render("c1");
-    expect(html).toContain("<textarea");
+    expect(html).toContain('aria-label="Attach files"');
     expect(html).not.toContain("This chat is archived");
   });
 

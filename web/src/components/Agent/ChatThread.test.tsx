@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ReactNode } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import type { ChatEvent } from "../../api/chat";
+import { createQueryClient, queryKeys } from "../../api/queries";
 import { renderMarkup } from "../../render-markup";
 import ChatThread, { ToolTimeline, Turn } from "./ChatThread";
 import { StreamIn } from "./stream-in";
@@ -387,6 +388,41 @@ describe("ChatThread steer", () => {
     expect(html.match(/data-turn=/g)).toHaveLength(1);
     expect(html).toMatch(/data-steer-message[^>]*>[\s\S]*also check y/);
     expect(html.indexOf("Checking.")).toBeLessThan(html.indexOf("also check y"));
+  });
+});
+
+describe("ChatThread user message Markdown", () => {
+  const md = "Please:\n\n- fix **xpo-a1b2c3**\n- run `make test`\n\nthen\nreport";
+  function renderMd(events: Partial<ChatEvent>[]): string {
+    const client = createQueryClient();
+    client.setQueryData(queryKeys.config, { prefix: "xpo" });
+    return renderMarkup(<TooltipPrimitive.Provider><ChatThread thread={thread(events)} /></TooltipPrimitive.Provider>, client);
+  }
+  const bubble = (html: string, attr: string) => html.slice(html.indexOf(attr));
+
+  it("renders a user message as Markdown with issue chips", () => {
+    const html = bubble(renderMd([{ type: "user_message", seq: 1, text: md }]), "data-user-message");
+    expect(html).toMatch(/^data-user-message[^>]*class="[^"]*prose-exponential/);
+    expect(html).toContain("<li>");
+    expect(html).toContain("<strong>");
+    expect(html).toContain("<code>make test</code>");
+    expect(html).toContain("data-issue-ref");
+    // A single newline stays a line break.
+    expect(html).toMatch(/then<br\/?>\s*report/);
+    expect(html.match(/^data-user-message[^>]*>/)?.[0]).not.toContain("whitespace-pre-wrap");
+  });
+
+  it("renders a steer message as Markdown with issue chips", () => {
+    const html = bubble(
+      renderMd([
+        { type: "user_message", seq: 1, text: "go" },
+        { type: "steer", seq: 2, text: md },
+      ]),
+      "data-steer-message",
+    );
+    expect(html).toContain("<li>");
+    expect(html).toContain("data-issue-ref");
+    expect(html.match(/^data-steer-message[^>]*>/)?.[0]).not.toContain("whitespace-pre-wrap");
   });
 });
 

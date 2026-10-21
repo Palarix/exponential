@@ -118,21 +118,7 @@ describe("ChatComposer pickers", () => {
     expect(trigger(html, "xpo-1")).toMatch(disabledAttr);
   });
 
-  it("shows the open chat's own draft", () => {
-    const drafts = createComposerDrafts();
-    drafts.prefill("c1", "Let's implement xpo-1.");
-    drafts.setText("c2", "Something else");
-    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, false, { drafts, draftKey: "c1" });
-    expect(html).toMatch(/<textarea[^>]*>Let&#x27;s implement xpo-1\.<\/textarea>/);
-    expect(html).not.toContain("Something else");
-  });
-
-  it("shows an empty input for a chat without a draft", () => {
-    const drafts = createComposerDrafts();
-    drafts.setText("c1", "Draft for c1");
-    const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, false, { drafts, draftKey: "c2" });
-    expect(html).not.toContain("Draft for c1");
-  });
+  // The input's draft is covered in ChatComposer.dom.test.tsx: TipTap needs a DOM.
 
   it("separates the segments with rules", () => {
     const html = renderComposer(both, { provider: "claude", model: "", effort: "" });
@@ -277,7 +263,6 @@ describe("ChatComposer edit mode", () => {
     const html = renderComposer(both, { provider: "claude", model: "", effort: "" }, true, { drafts });
     expect(html).toContain("Editing your last message");
     expect(html).toContain('aria-label="Cancel editing"');
-    expect(html).toContain(">the last message</textarea>");
   });
 
   it("shows no edit bar for a normal draft", () => {
