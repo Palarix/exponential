@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useContext, useRef } from "react";
+import { useId, useState, useMemo, useCallback, useContext, useRef } from "react";
 import type { Issue } from "../../api/client";
 import { useCycles, useReleases } from "../../api/queries";
 import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
@@ -6,7 +6,7 @@ import { useStartWorkChat } from "../Agent/useWorkMode";
 import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
 import { noGitHint } from "../Agent/issue-chats";
 import { chatCount, useIssueChats } from "../Agent/useIssueChats";
-import { ActorName, Avatar, Button, DeleteIssueDialog, LabelBadge, DefaultLabelsContext, Modal, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
+import { ActorName, Avatar, Button, DeleteIssueDialog, LabelBadge, DefaultLabelsContext, Dialog, DialogOverlay, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
 import { Flag, UserRound, RefreshCw, Trash2, FlagOff, Package } from "lucide-react";
 import { useReleaseAssign } from "../Releases/release-assign-context";
 import { reopenHint } from "../Releases/release-assign-utils";
@@ -60,6 +60,7 @@ export default function PropertySidebar({
     doneCount: number;
     children: { id: string; title: string; status: string }[];
   } | null>(null);
+  const moveChildrenDialogId = useId();
 
   const { startWork, starting, canChat, noGitRoot } = useStartWorkChat();
   const issueChats = useIssueChats(issue.id);
@@ -605,22 +606,44 @@ export default function PropertySidebar({
           )}
         </div>
       </div>
-      <Modal
-        isOpen={!!moveChildrenPrompt}
-        onClose={() => setMoveChildrenPrompt(null)}
-        title="Update sub-issues?"
-        size="xl"
-        showCloseButton={false}
-      >
-        {moveChildrenPrompt && (() => {
-          const targetLabel = STATUS_OPTIONS.find((s) => s.value === moveChildrenPrompt.status)?.label || moveChildrenPrompt.status;
-          const fullChildren = moveChildrenPrompt.children.map((c) => {
-            const full = issues.find((i) => i.id === c.id);
-            return full || c;
-          });
-          return (
-            <>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-6">
+      {moveChildrenPrompt && (() => {
+        const targetLabel = STATUS_OPTIONS.find((s) => s.value === moveChildrenPrompt.status)?.label || moveChildrenPrompt.status;
+        const fullChildren = moveChildrenPrompt.children.map((c) => {
+          const full = issues.find((i) => i.id === c.id);
+          return full || c;
+        });
+        return (
+          <DialogOverlay scope="issue.move-children" onClose={() => setMoveChildrenPrompt(null)}>
+            <Dialog
+              id={moveChildrenDialogId}
+              title="Update sub-issues?"
+              size="xl"
+              footerLeft={<Button variant="ghost" size="sm" className="-ml-3" onClick={() => setMoveChildrenPrompt(null)}>Abort</Button>}
+              footer={<>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const { status } = moveChildrenPrompt;
+                    setMoveChildrenPrompt(null);
+                    applyStatusChange(status, false);
+                  }}
+                >
+                  Just this issue
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const { status } = moveChildrenPrompt;
+                    setMoveChildrenPrompt(null);
+                    applyStatusChange(status, true);
+                  }}
+                >
+                  Update all
+                </Button>
+              </>}
+            >
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4 leading-6">
                 <span className="text-text-primary">{issue.title}</span>{" "}
                 has {moveChildrenPrompt.children.length}{" "}
                 {moveChildrenPrompt.children.length === 1 ? "sub-issue " : "sub-issues "}
@@ -632,7 +655,7 @@ export default function PropertySidebar({
                   <>{" "}{moveChildrenPrompt.doneCount} completed {moveChildrenPrompt.doneCount === 1 ? "issue" : "issues"} will not be updated.</>
                 )}
               </p>
-              <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8 max-h-64 overflow-y-auto">
+              <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden max-h-64 overflow-y-auto">
                 {fullChildren.map((child, i) => {
                   const rawLabels = "labels" in child ? (child as Issue).labels || [] : [];
                   const { primary: pl, metadata: ml } = splitLabels(rawLabels, defaultLabels);
@@ -655,39 +678,10 @@ export default function PropertySidebar({
                   );
                 })}
               </div>
-              <div className="flex items-center gap-4">
-                <button
-                  className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                  onClick={() => setMoveChildrenPrompt(null)}
-                >
-                  Abort
-                </button>
-                <div className="flex-1" />
-                <button
-                  className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                  onClick={() => {
-                    const { status } = moveChildrenPrompt;
-                    setMoveChildrenPrompt(null);
-                    applyStatusChange(status, false);
-                  }}
-                >
-                  Just this issue
-                </button>
-                <button
-                  className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
-                  onClick={() => {
-                    const { status } = moveChildrenPrompt;
-                    setMoveChildrenPrompt(null);
-                    applyStatusChange(status, true);
-                  }}
-                >
-                  Update all
-                </button>
-              </div>
-            </>
-          );
-        })()}
-      </Modal>
+            </Dialog>
+          </DialogOverlay>
+        );
+      })()}
     </div>
   );
 }

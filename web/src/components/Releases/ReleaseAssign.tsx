@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useId, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Issue, Release } from "../../api/types";
 import { useIssueList, useReleases } from "../../api/queries";
 import { useAssignRelease } from "../../api/mutations";
-import { Modal, StatusIcon, useToast } from "../ui";
+import { Button, Dialog, DialogOverlay, StatusIcon, useToast } from "../ui";
 import ReleasePicker from "./ReleasePicker";
 import { ReleaseAssignContext, type ReleaseAssign } from "./release-assign-context";
 import { childrenPrompt, pickerOptions, planReleaseMoves, type ChildrenPrompt } from "./release-assign-utils";
@@ -21,6 +21,7 @@ export default function ReleaseAssignProvider({ children }: { children: ReactNod
   const showToast = useToast();
   const [prompt, setPrompt] = useState<{ ids: string[]; target: Release | null; plan: ChildrenPrompt } | null>(null);
   const [pickerIds, setPickerIds] = useState<string[] | null>(null);
+  const promptId = useId();
 
   const run = useCallback((ids: string[], target: Release | null, withChildren: boolean) => {
     const { moves, optimistic } = planReleaseMoves(issues, ids, target, withChildren);
@@ -64,23 +65,25 @@ export default function ReleaseAssignProvider({ children }: { children: ReactNod
         </div>,
         document.body,
       )}
-      <Modal isOpen={!!prompt} onClose={() => setPrompt(null)} title="Move sub-issues too?" size="xl" showCloseButton={false}>
-        {prompt && (
-          <MoveChildrenBody
+      {prompt && (
+        <DialogOverlay scope="release.move-children" onClose={() => setPrompt(null)}>
+          <MoveChildrenPanel
+            id={promptId}
             prompt={prompt.plan}
             target={prompt.target}
             onAbort={() => setPrompt(null)}
             onJustThis={() => decide(false)}
             onMoveAll={() => decide(true)}
           />
-        )}
-      </Modal>
+        </DialogOverlay>
+      )}
     </ReleaseAssignContext.Provider>
   );
 }
 
-/** The prompt's text, its sub-issues and the choices, as the status prompt shows them. */
-export function MoveChildrenBody({ prompt, target, onAbort, onJustThis, onMoveAll }: {
+/** The prompt without its overlay: the text, the sub-issues, and the choices in the footer. */
+export function MoveChildrenPanel({ id, prompt, target, onAbort, onJustThis, onMoveAll }: {
+  id: string;
   prompt: ChildrenPrompt;
   target: Release | null;
   onAbort: () => void;
@@ -90,8 +93,17 @@ export function MoveChildrenBody({ prompt, target, onAbort, onJustThis, onMoveAl
   const { epics, children, doneCount } = prompt;
   const owner = epics.length === 1 ? epics[0].title : `${epics.length} issues`;
   return (
-    <>
-      <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-6">
+    <Dialog
+      id={id}
+      title="Move sub-issues too?"
+      size="xl"
+      footerLeft={<Button variant="ghost" size="sm" className="-ml-3" onClick={onAbort}>Abort</Button>}
+      footer={<>
+        <Button variant="secondary" size="sm" onClick={onJustThis}>{epics.length === 1 ? "Just this issue" : "Just these issues"}</Button>
+        <Button size="sm" onClick={onMoveAll}>Move all</Button>
+      </>}
+    >
+      <p className="text-sm text-[var(--color-text-secondary)] mb-4 leading-6">
         <span className="text-[var(--color-text-primary)]">{owner}</span>{" "}
         {epics.length === 1 ? "has" : "have"} {plural(children.length, "open sub-issue", "open sub-issues")}{" "}
         {target ? (
@@ -103,7 +115,7 @@ export function MoveChildrenBody({ prompt, target, onAbort, onJustThis, onMoveAl
           <>{" "}{doneCount === 1 ? "1 completed issue stays where it is." : `${doneCount} completed issues stay where they are.`}</>
         )}
       </p>
-      <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8 max-h-64 overflow-y-auto">
+      <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden max-h-64 overflow-y-auto">
         {children.map((child: Issue, i) => (
           <div key={child.id} className={`flex items-center gap-3 px-4 py-2.5 text-sm ${i > 0 ? "border-t border-[var(--color-border-subtle)]" : ""}`}>
             <StatusIcon status={child.status} size={14} />
@@ -112,27 +124,6 @@ export function MoveChildrenBody({ prompt, target, onAbort, onJustThis, onMoveAl
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-4">
-        <button
-          className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-          onClick={onAbort}
-        >
-          Abort
-        </button>
-        <div className="flex-1" />
-        <button
-          className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-          onClick={onJustThis}
-        >
-          {epics.length === 1 ? "Just this issue" : "Just these issues"}
-        </button>
-        <button
-          className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
-          onClick={onMoveAll}
-        >
-          Move all
-        </button>
-      </div>
-    </>
+    </Dialog>
   );
 }

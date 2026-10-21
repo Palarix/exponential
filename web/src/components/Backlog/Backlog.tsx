@@ -5,6 +5,7 @@ import {
   useCallback,
   useMemo,
   useContext,
+  useId,
 } from "react";
 
 import { generateKeyBetween } from "fractional-indexing";
@@ -30,7 +31,9 @@ import {
   PriorityIcon,
   ContextMenu,
   useToast,
-  Modal,
+  Button,
+  Dialog,
+  DialogOverlay,
   TopBar,
   ViewContainer,
   IconButton,
@@ -327,6 +330,7 @@ export default function Backlog() {
     children: { id: string; title: string; status: string }[];
     pendingUpdate?: Partial<Issue>;
   } | null>(null);
+  const moveChildrenDialogId = useId();
 
   const applyStatusChange = useCallback(
     (
@@ -1786,25 +1790,51 @@ export default function Backlog() {
             />
           );
         })()}
-      <Modal
-        isOpen={!!moveChildrenPrompt}
-        onClose={() => setMoveChildrenPrompt(null)}
-        title="Update sub-issues?"
-        size="xl"
-        showCloseButton={false}
-      >
-        {moveChildrenPrompt &&
-          (() => {
-            const targetLabel =
-              STATUS_LABELS[moveChildrenPrompt.status] ||
-              moveChildrenPrompt.status;
-            const fullChildren = moveChildrenPrompt.children.map((c) => {
-              const full = issues.find((i) => i.id === c.id);
-              return full || c;
-            });
-            return (
-              <>
-                <p className="text-sm text-[var(--color-text-secondary)] mb-5 leading-6">
+      {moveChildrenPrompt &&
+        (() => {
+          const targetLabel =
+            STATUS_LABELS[moveChildrenPrompt.status] ||
+            moveChildrenPrompt.status;
+          const fullChildren = moveChildrenPrompt.children.map((c) => {
+            const full = issues.find((i) => i.id === c.id);
+            return full || c;
+          });
+          return (
+            <DialogOverlay scope="backlog.move-children" onClose={() => setMoveChildrenPrompt(null)}>
+              <Dialog
+                id={moveChildrenDialogId}
+                title="Update sub-issues?"
+                size="xl"
+                footerLeft={<Button variant="ghost" size="sm" className="-ml-3" onClick={() => setMoveChildrenPrompt(null)}>Abort</Button>}
+                footer={<>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const { issueId, status, pendingUpdate } =
+                        moveChildrenPrompt;
+                      setMoveChildrenPrompt(null);
+                      applyStatusChange(issueId, status, false, pendingUpdate, () => showToast("Status changed"));
+                    }}
+                  >
+                    Just this issue
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const { issueId, status, children, pendingUpdate } =
+                        moveChildrenPrompt;
+                      setMoveChildrenPrompt(null);
+                      applyStatusChange(issueId, status, true, pendingUpdate, () =>
+                        showToast(`Updated ${children.length + 1} issues to ${targetLabel}`),
+                      );
+                    }}
+                  >
+                    Update all
+                  </Button>
+                </>}
+              >
+                <p className="text-sm text-[var(--color-text-secondary)] mb-4 leading-6">
                   <span className="text-text-primary">
                     {moveChildrenPrompt.title}
                   </span>{" "}
@@ -1831,7 +1861,7 @@ export default function Backlog() {
                     </>
                   )}
                 </p>
-                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden mb-8 max-h-64 overflow-y-auto">
+                <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] overflow-hidden max-h-64 overflow-y-auto">
                   {fullChildren.map((child, i) => {
                     const rawLabels =
                       "labels" in child ? (child as Issue).labels || [] : [];
@@ -1873,44 +1903,10 @@ export default function Backlog() {
                     );
                   })}
                 </div>
-                <div className="flex items-center gap-4">
-                  <button
-                    className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                    onClick={() => setMoveChildrenPrompt(null)}
-                  >
-                    Abort
-                  </button>
-                  <div className="flex-1" />
-                  <button
-                    className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                    onClick={() => {
-                      const { issueId, status, pendingUpdate } =
-                        moveChildrenPrompt;
-                      setMoveChildrenPrompt(null);
-                      applyStatusChange(issueId, status, false, pendingUpdate, () => showToast("Status changed"));
-                    }}
-                  >
-                    Just this issue
-                  </button>
-
-                  <button
-                    className="px-3 py-1.5 text-sm rounded-[var(--radius-sm)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-colors"
-                    onClick={() => {
-                      const { issueId, status, children, pendingUpdate } =
-                        moveChildrenPrompt;
-                      setMoveChildrenPrompt(null);
-                      applyStatusChange(issueId, status, true, pendingUpdate, () =>
-                        showToast(`Updated ${children.length + 1} issues to ${targetLabel}`),
-                      );
-                    }}
-                  >
-                    Update all
-                  </button>
-                </div>
-              </>
-            );
-          })()}
-      </Modal>
+              </Dialog>
+            </DialogOverlay>
+          );
+        })()}
     </>
   );
 }

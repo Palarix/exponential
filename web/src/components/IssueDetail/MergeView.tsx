@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useMemo, useRef } from "react";
+import { memo, useId, useState, useCallback, useMemo, useRef } from "react";
 import {
   buildFileTree,
   flattenSingleChildDirs,
@@ -41,8 +41,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { ActorName, StatusIcon, Avatar, Text, TopBar, ViewContainer } from "../ui";
-import Modal from "../ui/Modal";
+import { ActorName, StatusIcon, Avatar, Button, Dialog, DialogOverlay, Text, TopBar, ViewContainer } from "../ui";
 import { commentAuthor, formatRelativeTime } from "../../utils/format";
 import { useSpinOnce, useSpinner } from "../../hooks/useSpinner";
 import { firstQueryError } from "../../api/query-utils";
@@ -179,6 +178,8 @@ export default function MergeView({
   const [commitMessage, setCommitMessage] = useState("");
   const [deleteBranch, setDeleteBranch] = useState(false);
   const [blockerDetailOpen, setBlockerDetailOpen] = useState(false);
+  const confirmDialogId = useId();
+  const blockerDialogId = useId();
 
   const bs = issue.branch_stats;
   // Each mode reads only its own data: a merged issue's branch is usually
@@ -483,40 +484,39 @@ export default function MergeView({
                           ? "Merging will close this issue"
                           : "Nothing to merge yet"}
                   </span>
-                  <Modal
-                    isOpen={blockerDetailOpen}
-                    onClose={() => setBlockerDetailOpen(false)}
-                    title="Unable to merge"
-                    size="xl"
-                  >
-                    <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                      This branch cannot be merged because the worktree contains
-                      uncommitted or untracked files that would be lost.
-                    </p>
-                    {mergeability?.blockers?.map((b, i) => (
-                      <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
-                        <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
-                          <AlertTriangle size={14} className="shrink-0" />
-                          {b.message}
-                        </div>
-                        {b.files?.length ? (
-                          <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
-                            {b.files.map((f) => (
-                              <li
-                                key={f}
-                                className="text-sm font-mono text-[var(--color-text-muted)]"
-                              >
-                                {f}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                    ))}
-                    <p className="mt-5 text-sm text-[var(--color-text-muted)]">
-                      Commit, move, or remove these files before merging.
-                    </p>
-                  </Modal>
+                  {blockerDetailOpen && (
+                    <DialogOverlay scope="merge.blockers" onClose={() => setBlockerDetailOpen(false)}>
+                      <Dialog id={blockerDialogId} title="Unable to merge" size="xl" onClose={() => setBlockerDetailOpen(false)}>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+                          This branch cannot be merged because the worktree contains
+                          uncommitted or untracked files that would be lost.
+                        </p>
+                        {mergeability?.blockers?.map((b, i) => (
+                          <div key={i} className={i > 0 ? "mt-4 pt-4 border-t border-[var(--color-border-subtle)]" : ""}>
+                            <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-3">
+                              <AlertTriangle size={14} className="shrink-0" />
+                              {b.message}
+                            </div>
+                            {b.files?.length ? (
+                              <ul className="space-y-2 max-h-54 overflow-y-auto rounded-lg bg-[var(--color-surface-1)] p-3">
+                                {b.files.map((f) => (
+                                  <li
+                                    key={f}
+                                    className="text-sm font-mono text-[var(--color-text-muted)]"
+                                  >
+                                    {f}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </div>
+                        ))}
+                        <p className="mt-5 text-sm text-[var(--color-text-muted)]">
+                          Commit, move, or remove these files before merging.
+                        </p>
+                      </Dialog>
+                    </DialogOverlay>
+                  )}
                 </div>
 
                 {/* Right: merge button + strategy */}
@@ -705,92 +705,73 @@ export default function MergeView({
 
     {/* ── Merge confirmation dialog (closes if the issue is merged elsewhere) ── */}
     {confirmOpen && isBranch && (
-      <>
-        <div
-          className="fixed inset-0 z-50 bg-black/50"
-          onClick={() => setConfirmOpen(false)}
-        />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] shadow-[var(--shadow-xl)]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-subtle)]">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
-                <GitMerge
-                  size={16}
-                  className="text-[var(--color-accent-primary)]"
-                />
-                Confirm merge
-              </div>
-              <button
-                onClick={() => setConfirmOpen(false)}
-                className="p-1 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)]"
-              >
-                <X size={16} />
-              </button>
+      <DialogOverlay scope="merge.confirm" onClose={() => setConfirmOpen(false)}>
+        <Dialog
+          id={confirmDialogId}
+          title="Confirm merge"
+          icon={<GitMerge size={16} className="text-[var(--color-accent-primary)]" />}
+          size="xl"
+          onClose={() => setConfirmOpen(false)}
+          footerLeft={
+            <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={deleteBranch}
+                onChange={(e) => setDeleteBranch(e.target.checked)}
+                className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0 accent-[var(--color-accent-primary)]"
+              />
+              <span className="leading-none">
+                Delete branch after merge
+              </span>
+            </label>
+          }
+          footer={<>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              icon={<GitMerge size={14} />}
+              onClick={handleMerge}
+              loading={merging}
+              disabled={!commitMessage.trim()}
+            >
+              {merging ? "Merging..." : "Merge and close issue"}
+            </Button>
+          </>}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+              <Text size="xs">
+                Strategy:
+              </Text>
+              <span className="font-medium">{strategyLabel}</span>
             </div>
-            <div className="px-5 py-4 space-y-4">
-              <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                <Text size="xs">
-                  Strategy:
-                </Text>
-                <span className="font-medium">{strategyLabel}</span>
-              </div>
-              <div className="text-xs text-[var(--color-text-muted)]">
-                {mergeStrategy === "squash"
-                  ? "All commits will be combined into a single commit on main. The branch history is not preserved."
-                  : mergeStrategy === "merge"
-                    ? "A merge commit will be created on main. The full branch commit history is preserved."
-                    : "Main will be fast-forwarded to the branch tip. No merge commit is created. Only possible if main has no new commits since the branch was created."}{" "}
-                The issue will be marked as done.
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
-                  Commit message
-                </label>
-                <textarea
-                  value={commitMessage}
-                  onChange={(e) => setCommitMessage(e.target.value)}
-                  rows={6}
-                  className="w-full text-sm font-mono bg-[var(--color-surface-1)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
-                />
-              </div>
-              {mergeError && (
-                <div className="text-sm text-[var(--color-error)]">
-                  {mergeError}
-                </div>
-              )}
+            <div className="text-xs text-[var(--color-text-muted)]">
+              {mergeStrategy === "squash"
+                ? "All commits will be combined into a single commit on main. The branch history is not preserved."
+                : mergeStrategy === "merge"
+                  ? "A merge commit will be created on main. The full branch commit history is preserved."
+                  : "Main will be fast-forwarded to the branch tip. No merge commit is created. Only possible if main has no new commits since the branch was created."}{" "}
+              The issue will be marked as done.
             </div>
-            <div className="flex items-center px-5 py-3 border-t border-[var(--color-border-subtle)]">
-              <label className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={deleteBranch}
-                  onChange={(e) => setDeleteBranch(e.target.checked)}
-                  className="h-4 w-4 rounded border-[var(--color-border-default)] shrink-0 accent-[var(--color-accent-primary)]"
-                />
-                <span className="leading-none">
-                  Delete branch after merge
-                </span>
+            <div>
+              <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1.5">
+                Commit message
               </label>
-              <div className="ml-auto flex items-center gap-2">
-                <button
-                  onClick={() => setConfirmOpen(false)}
-                  className="px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-surface)] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleMerge}
-                  disabled={merging || !commitMessage.trim()}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-                >
-                  <GitMerge size={14} />
-                  {merging ? "Merging..." : "Merge and close issue"}
-                </button>
-              </div>
+              <textarea
+                value={commitMessage}
+                onChange={(e) => setCommitMessage(e.target.value)}
+                rows={6}
+                className="w-full text-sm font-mono bg-[var(--color-surface-1)] text-[var(--color-text-primary)] rounded-[var(--radius-md)] border border-[var(--color-border-default)] focus:border-[var(--color-border-focus)] px-3 py-2 outline-none resize-none"
+              />
             </div>
+            {mergeError && (
+              <div className="text-sm text-[var(--color-error)]">
+                {mergeError}
+              </div>
+            )}
           </div>
-        </div>
-      </>
+        </Dialog>
+      </DialogOverlay>
     )}
     </ViewContainer>
   );

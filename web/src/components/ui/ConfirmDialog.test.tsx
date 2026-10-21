@@ -21,8 +21,8 @@ describe("ConfirmDialog", () => {
     expect(html.indexOf("the card")).toBeLessThan(html.indexOf("This can&#x27;t be undone."));
   });
 
-  it("puts the buttons in a footer bar after an esc hint", () => {
-    const footer = html.match(/<div class="[^"]*border-t[^"]*bg-\[var\(--color-surface-2\)\][^"]*">.*$/s)?.[0];
+  it("puts the buttons in the footer after an esc hint", () => {
+    const footer = html.match(/<div[^>]*data-slot="footer"[^>]*>.*$/s)?.[0];
     expect(footer).toBeDefined();
     expect(footer).toMatch(/<kbd[^>]*>esc<\/kbd>.*to cancel.*>Cancel<.*>Delete</s);
   });

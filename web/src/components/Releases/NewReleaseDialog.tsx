@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
 import type { Release } from "../../api/types";
 import { useCreateRelease, useUpdateRelease } from "../../api/mutations";
-import { Button, DialogOverlay, DialogPanel, useToast } from "../ui";
+import { Button, DialogOverlay, Dialog, useToast } from "../ui";
 
 const INPUT_CLASS =
   "w-full h-8 px-3 text-sm bg-[var(--color-surface-2)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]";
@@ -49,7 +49,7 @@ export default function NewReleaseDialog({ release, onClose }: { release?: Relea
 
   return (
     <DialogOverlay scope={release ? "release.edit" : "release.new"} onClose={onClose}>
-      <DialogPanel
+      <Dialog
         id={id}
         title={release ? "Edit release" : "New release"}
         footer={<>
@@ -57,7 +57,7 @@ export default function NewReleaseDialog({ release, onClose }: { release?: Relea
           <Button variant="primary" size="sm" onClick={submit} loading={pending}>{release ? "Save" : "Create release"}</Button>
         </>}
       >
-        <div className="mt-4 grid grid-cols-[80px_1fr] items-center gap-x-3 gap-y-3">
+        <div className="grid grid-cols-[80px_1fr] items-center gap-x-3 gap-y-3">
           <FieldName>Label</FieldName>
           <input
             value={label}
@@ -87,7 +87,7 @@ export default function NewReleaseDialog({ release, onClose }: { release?: Relea
             className={INPUT_CLASS}
           />
         </div>
-      </DialogPanel>
+      </Dialog>
     </DialogOverlay>
   );
 }

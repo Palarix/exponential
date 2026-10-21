@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
 import type { Issue } from "../../api/client";
-import { Button, ConfirmDialog, DialogOverlay, DialogPanel, LabelBadge, StatusIcon } from "../ui";
+import { Button, ConfirmDialog, DialogOverlay, Dialog, LabelBadge, StatusIcon } from "../ui";
 import { LabelColorsContext } from "../ui/BadgeContexts";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { cn } from "../../utils/cn";
@@ -84,7 +84,7 @@ export function EditLabelPanel({
 }: EditLabelPanelProps) {
   const canSave = name.trim().length > 0 && color !== "";
   return (
-    <DialogPanel
+    <Dialog
       id={id}
       title="Edit label"
       footerLeft={<Button variant="ghost" tone="danger" size="sm" className="-ml-3" onClick={onDelete}>Delete label</Button>}
@@ -93,7 +93,7 @@ export function EditLabelPanel({
         <Button variant="primary" size="sm" onClick={onSave} disabled={!canSave}>Save</Button>
       </>}
     >
-      <div className="mt-4 grid grid-cols-[56px_1fr] items-center gap-x-3 gap-y-3">
+      <div className="grid grid-cols-[56px_1fr] items-center gap-x-3 gap-y-3">
         <FieldName>Name</FieldName>
         <input
           value={name}
@@ -127,7 +127,7 @@ export function EditLabelPanel({
         </div>
       </div>
       <LabelPreview name={name} color={color} issues={sampleIssues} />
-    </DialogPanel>
+    </Dialog>
   );
 }
 
