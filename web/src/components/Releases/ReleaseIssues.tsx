@@ -39,7 +39,8 @@ export function ReleaseIssueList({ issues, all, onIssueClick, empty = "No issues
  * One issue, compact for the half-width lists but in the backlog's order and
  * styles: ID, status, the parent as a "Parent ›" breadcrumb, the title, and
  * the sub-issue progress pill. Priority, labels and the work indicators stay
- * in the backlog; the hover card has the details. The breadcrumb gives way
+ * in the backlog; the hover card shows them (assignee, priority, estimate,
+ * labels) without repeating what the row shows. The breadcrumb gives way
  * before the title does. A click opens the issue. The row is a div, not a
  * button: it holds CopyableId, which is a button itself. Resting on the row
  * shows the issue hover card beside it, which closes when a drag starts.
@@ -96,7 +97,7 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
           </span>
         )}
       </div>
-      {preview && !dragging && <IssuePreview anchorRef={rowRef} issue={issue} />}
+      {preview && !dragging && <IssuePreview anchorRef={rowRef} issue={issue} variant="details" />}
     </>
   );
 }

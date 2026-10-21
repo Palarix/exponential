@@ -1,20 +1,38 @@
 import { useId, useState, type ReactNode } from "react";
-import { useCreateRelease } from "../../api/mutations";
+import type { Release } from "../../api/types";
+import { useCreateRelease, useUpdateRelease } from "../../api/mutations";
 import { Button, DialogOverlay, DialogPanel, useToast } from "../ui";
 
 const INPUT_CLASS =
   "w-full h-8 px-3 text-sm bg-[var(--color-surface-2)] text-[var(--color-text-primary)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] outline-none focus:border-[var(--color-border-focus)] placeholder:text-[var(--color-text-muted)]";
 
-/** Creates a release at the end of the open releases. Every field is optional. */
-export default function NewReleaseDialog({ onClose }: { onClose: () => void }) {
+/**
+ * Creates a release at the end of the open releases, or with `release` edits
+ * that one. Every field is optional; on an edit, an emptied field clears it.
+ */
+export default function NewReleaseDialog({ release, onClose }: { release?: Release; onClose: () => void }) {
   const id = useId();
-  const [label, setLabel] = useState("");
-  const [goal, setGoal] = useState("");
-  const [targetDate, setTargetDate] = useState("");
+  const [label, setLabel] = useState(release?.label ?? "");
+  const [goal, setGoal] = useState(release?.goal ?? "");
+  const [targetDate, setTargetDate] = useState(release?.target_date ?? "");
   const create = useCreateRelease();
+  const update = useUpdateRelease();
+  const pending = create.isPending || update.isPending;
   const showToast = useToast();
 
   const submit = () => {
+    if (release) {
+      update.mutate(
+        { id: release.id!, label: label.trim(), goal: goal.trim(), target_date: targetDate },
+        {
+          onSuccess: (saved) => {
+            showToast(`Saved release ${saved.name}`);
+            onClose();
+          },
+        },
+      );
+      return;
+    }
     create.mutate(
       { label: label.trim() || undefined, goal: goal.trim() || undefined, target_date: targetDate || undefined },
       {
@@ -26,17 +44,17 @@ export default function NewReleaseDialog({ onClose }: { onClose: () => void }) {
     );
   };
   const onEnter = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !create.isPending) submit();
+    if (e.key === "Enter" && !pending) submit();
   };
 
   return (
-    <DialogOverlay scope="release.new" onClose={onClose}>
+    <DialogOverlay scope={release ? "release.edit" : "release.new"} onClose={onClose}>
       <DialogPanel
         id={id}
-        title="New release"
+        title={release ? "Edit release" : "New release"}
         footer={<>
           <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={submit} loading={create.isPending}>Create release</Button>
+          <Button variant="primary" size="sm" onClick={submit} loading={pending}>{release ? "Save" : "Create release"}</Button>
         </>}
       >
         <div className="mt-4 grid grid-cols-[80px_1fr] items-center gap-x-3 gap-y-3">

@@ -286,6 +286,33 @@ export async function createRelease(fields: { label?: string; goal?: string; tar
   });
 }
 
+/** What completing or deleting a release does with its issues: move them (to `to`, or the neighbour), or take them out of the release. */
+export type ReleaseIssuesMode = 'move_to_next' | 'remove';
+
+/** Sets a release's label, goal and target date; an empty string clears a field. */
+export async function updateRelease({ id, ...fields }: { id: string; label: string; goal: string; target_date: string }): Promise<Release> {
+  return request(`${API_BASE}/releases/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+}
+
+/** Marks release `id` RELEASED; its open issues move to `to` (default: its neighbour) or leave the release. */
+export async function completeRelease({ id, issues, to }: { id: string; issues: ReleaseIssuesMode; to?: string }): Promise<{ release: Release; messages: string[] }> {
+  return request(`${API_BASE}/releases/${encodeURIComponent(id)}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ issues, to }),
+  });
+}
+
+/** Deletes open release `id`; all its issues move to `to` (default: its neighbour) or leave the release. */
+export async function deleteRelease({ id, issues, to }: { id: string; issues: ReleaseIssuesMode; to?: string }): Promise<{ messages: string[] }> {
+  const query = new URLSearchParams({ issues, ...(to && { to }) });
+  return request(`${API_BASE}/releases/${encodeURIComponent(id)}?${query}`, { method: 'DELETE' });
+}
+
 /** Moves release `id` directly before or after another open release. */
 export async function reorderRelease(move: { id: string; before?: string; after?: string }): Promise<Release> {
   return request(`${API_BASE}/releases/reorder`, {

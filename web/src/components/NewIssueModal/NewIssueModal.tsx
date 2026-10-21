@@ -10,6 +10,8 @@ import { pickerOptions } from "../Releases/release-assign-utils";
 import ReleasePicker from "../Releases/ReleasePicker";
 import { releaseDropRef } from "../Releases/releases-utils";
 import type { DropdownOption } from "../ui";
+import { fieldTriggerClass } from "../ui/field-trigger";
+import { cn } from "../../utils/cn";
 import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
 import MarkdownEditor from "../MarkdownEditor";
@@ -156,7 +158,7 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
       <div className="space-y-4 relative" onKeyDown={handleModalKeyDown}>
         <div className="flex items-center gap-2">
           <div>
-            <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${labels.length === 0 ? "border-[var(--color-error)]/40" : ""}`}>
+            <button ref={labelBtnRef} type="button" onClick={handleLabelOpen} className={cn("flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors", fieldTriggerClass(labels.length === 0))}>
               {labels[0] ? <LabelBadge label={labels[0]} borderless /> : <span className="text-[var(--color-text-muted)]">Label *</span>}
               <ChevronDown className="w-3 h-3 text-[var(--color-text-muted)]" />
             </button>

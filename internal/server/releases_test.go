@@ -117,7 +117,7 @@ func TestReleasesAPI_Lifecycle(t *testing.T) {
 		t.Error("1.6 should be Current after the reorder")
 	}
 
-	// Complete 1.5 (now Next): its open issue moves on to the slot after it.
+	// Complete 1.5 (now Next, the last release): its open issue moves to the release before it.
 	w = releaseReq(t, mux, "POST", "/api/releases/"+created.ID+"/complete", map[string]string{"issues": model.ReleaseMoveToNext})
 	if w.Code != http.StatusOK {
 		t.Fatalf("complete: %d %s", w.Code, w.Body.String())
@@ -133,13 +133,13 @@ func TestReleasesAPI_Lifecycle(t *testing.T) {
 		t.Errorf("deleting a released release: %d", w.Code)
 	}
 
-	// 1.5 was Next, so its open issue moved to the slot after it: a saved #3.
-	if board.Next.Number != 3 || board.Next.Placeholder || board.Next.Total != 1 {
-		t.Errorf("next = %+v", board.Next)
+	// Nothing came after 1.5, so its open issue moved to 1.6 and no release was saved for it.
+	if board.Current.Name != "1.6" || board.Current.Total != 1 || !board.Next.Placeholder {
+		t.Errorf("current = %+v, next = %+v", board.Current, board.Next)
 	}
 
-	// Delete #3 and remove its issues.
-	w = releaseReq(t, mux, "DELETE", "/api/releases/"+url.PathEscape("#3")+"?issues=remove", nil)
+	// Delete 1.6 and remove its issues.
+	w = releaseReq(t, mux, "DELETE", "/api/releases/1.6?issues=remove", nil)
 	if w.Code != http.StatusOK {
 		t.Fatalf("delete: %d %s", w.Code, w.Body.String())
 	}
@@ -148,6 +148,43 @@ func TestReleasesAPI_Lifecycle(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &issue)
 	if issue.ReleaseID != "" {
 		t.Errorf("issue should be in no release, got %q", issue.ReleaseID)
+	}
+}
+
+func TestReleasesAPI_CompleteAndDeleteMoveTo(t *testing.T) {
+	srv := setupTestServer(t)
+	mux := srv.SetupRoutes()
+	for _, label := range []string{"1.5", "1.6", "1.7"} {
+		releaseReq(t, mux, "POST", "/api/releases", map[string]string{"label": label})
+	}
+	id := seedIssue(t, "x")
+	releaseReq(t, mux, "POST", "/api/draft", map[string]interface{}{
+		"issue_id": id, "type": "UPDATE", "payload": map[string]string{"release_id": "1.5"},
+	})
+	releaseOf := func() string {
+		w := releaseReq(t, mux, "GET", "/api/issues/"+id, nil)
+		var issue IssueResponse
+		json.Unmarshal(w.Body.Bytes(), &issue)
+		return issue.Release
+	}
+	if got := releaseOf(); got != "1.5" {
+		t.Fatalf("issue should start in 1.5, got %q", got)
+	}
+
+	if w := releaseReq(t, mux, "POST", "/api/releases/1.5/complete", map[string]string{"to": "1.7"}); w.Code != http.StatusOK {
+		t.Fatalf("complete to: %d %s", w.Code, w.Body.String())
+	}
+	if got := releaseOf(); got != "1.7" {
+		t.Errorf("after complete to 1.7 the issue is in %q", got)
+	}
+	if w := releaseReq(t, mux, "DELETE", "/api/releases/1.7?to=1.6", nil); w.Code != http.StatusOK {
+		t.Fatalf("delete to: %d %s", w.Code, w.Body.String())
+	}
+	if got := releaseOf(); got != "1.6" {
+		t.Errorf("after delete to 1.6 the issue is in %q", got)
+	}
+	if w := releaseReq(t, mux, "DELETE", "/api/releases/1.6?issues=remove&to=1.6", nil); w.Code != http.StatusBadRequest {
+		t.Errorf("to with remove: %d", w.Code)
 	}
 }
 

@@ -30,7 +30,7 @@ func TestAddIssue_PlaceholderRefSavesIt(t *testing.T) {
 func TestAddIssue_ReleasedReleaseRejected(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
-	tr.CompleteRelease(a.ID, model.ReleaseRemove)
+	tr.CompleteRelease(a.ID, model.ReleaseRemove, "")
 	if _, err := tr.AddIssue(model.CreatePayload{Title: "x", ReleaseID: a.ID}); err == nil {
 		t.Error("assigning to a RELEASED release must fail")
 	}
@@ -69,7 +69,7 @@ func TestAddIssue_ChildOfReleasedParentGetsNoRelease(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	epic := addIssueIn(t, tr, "epic", "DONE", a.ID)
-	tr.CompleteRelease(a.ID, model.ReleaseRemove)
+	tr.CompleteRelease(a.ID, model.ReleaseRemove, "")
 
 	child, err := tr.AddIssue(model.CreatePayload{Title: "child", ParentID: epic.ID})
 	if err != nil {
@@ -113,7 +113,7 @@ func TestUpdateIssue_ReleasedReleaseRejected(t *testing.T) {
 	a := mustCreateRelease(t, tr, "a")
 	done := addIssueIn(t, tr, "done", "DONE", a.ID)
 	other := addIssueIn(t, tr, "other", "", "")
-	tr.CompleteRelease(a.ID, model.ReleaseRemove)
+	tr.CompleteRelease(a.ID, model.ReleaseRemove, "")
 
 	if _, err := tr.UpdateIssue(other.ID, model.UpdatePayload{ReleaseID: sp(a.ID)}, "update"); err == nil {
 		t.Error("assigning to a RELEASED release must fail")
@@ -128,7 +128,7 @@ func TestUpdateIssue_ReopenKeepsReleasedRelease(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	done := addIssueIn(t, tr, "done", "DONE", a.ID)
-	tr.CompleteRelease(a.ID, model.ReleaseRemove)
+	tr.CompleteRelease(a.ID, model.ReleaseRemove, "")
 	if _, err := tr.UpdateIssue(done.ID, model.UpdatePayload{Status: sp("PLANNED")}, "reopen"); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestComputeReleaseProgress_ReleasedUsesSnapshot(t *testing.T) {
 	a := mustCreateRelease(t, tr, "a")
 	addIssueIn(t, tr, "d1", "DONE", a.ID)
 	addIssueIn(t, tr, "d2", "DONE", a.ID)
-	tr.CompleteRelease(a.ID, model.ReleaseRemove)
+	tr.CompleteRelease(a.ID, model.ReleaseRemove, "")
 
 	// Simulate `xpo archive`: the done issues' events are gone.
 	var kept []model.Event
@@ -325,7 +325,7 @@ func TestCompleteRelease_MovesAreCausedAndCounted(t *testing.T) {
 	b := mustCreateRelease(t, tr, "1.6")
 	addIssueIn(t, tr, "o1", "", a.ID)
 	addIssueIn(t, tr, "o2", "", a.ID)
-	tr.CompleteRelease(a.ID, "")
+	tr.CompleteRelease(a.ID, "", "")
 
 	events := mustReadEvents(t)
 	var moves int
@@ -357,7 +357,7 @@ func TestDeleteRelease_MovesAreCausedAndCounted(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "1.5")
 	addIssueIn(t, tr, "o1", "DONE", a.ID)
-	tr.DeleteRelease(a.ID, model.ReleaseRemove)
+	tr.DeleteRelease(a.ID, model.ReleaseRemove, "")
 	for _, e := range mustReadEvents(t) {
 		if e.Type == model.EventTypeReleaseDelete {
 			if p := payloadOf[model.ReleaseDeletePayload](t, e); p.Moved != 1 || p.MovedTo != "" {
@@ -437,7 +437,7 @@ func TestBuildInbox_ReleaseIsTeamWideAndMovesAreQuiet(t *testing.T) {
 	mustCreateRelease(t, tr, "1.6")
 	mine := addIssueIn(t, tr, "mine", "", a.ID)
 	tr.UpdateIssue(mine.ID, model.UpdatePayload{Assignee: sp("Me <me@example.com>")}, "update")
-	tr.CompleteRelease(a.ID, "")
+	tr.CompleteRelease(a.ID, "", "")
 
 	events := mustReadEvents(t)
 	items := BuildInbox(events, ProjectIssues(events), "Me <me@example.com>", time.Time{})

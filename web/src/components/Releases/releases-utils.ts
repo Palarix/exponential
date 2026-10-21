@@ -1,4 +1,5 @@
 import type { Issue, Release, ReleasesResponse } from "../../api/types";
+import type { ReleaseIssuesMode } from "../../api/client";
 import { isCompleted, isTerminal } from "../../constants";
 
 /** The open releases in order: Current, Next (either may be a placeholder), then Upcoming. */
@@ -152,4 +153,54 @@ export function childProgress(issue: Issue, all: Issue[]): { done: number; total
   const children = all.filter((i) => i.parent_id === issue.id);
   if (children.length === 0) return null;
   return { done: children.filter((c) => isCompleted(c.status)).length, total: children.length };
+}
+
+/** Where the move picker can send a release's issues: a release ID, "new" (a new release) or "none" (No release). */
+export interface MoveOption { value: string; label: string }
+
+/**
+ * The move picker of the complete and delete dialogs: the other saved open
+ * releases in board order, labelled by slot, then No release. Without any,
+ * "A new release" takes their place. The default is the server's: the release
+ * right after this one, else the one right before it, else a new release.
+ */
+export function moveOptions(board: ReleasesResponse, release: Release): { options: MoveOption[]; value: string } {
+  const saved = savedOrder(board);
+  const others = saved.filter((r) => r.id !== release.id);
+  const none: MoveOption = { value: "none", label: "No release" };
+  if (others.length === 0) return { options: [{ value: "new", label: "A new release" }, none], value: "new" };
+  const slotName = (r: Release) => (r.slot === "current" ? " (Current)" : r.slot === "next" ? " (Next)" : "");
+  const at = saved.findIndex((r) => r.id === release.id);
+  const neighbour = saved[at + 1] ?? saved[at - 1] ?? others[0];
+  return {
+    options: [...others.map((r) => ({ value: r.id!, label: `${r.name}${slotName(r)}` })), none],
+    value: neighbour.id!,
+  };
+}
+
+/** The complete or delete request for a picked move option. */
+export function moveRequest(value: string): { issues: ReleaseIssuesMode; to?: string } {
+  if (value === "none") return { issues: "remove" };
+  if (value === "new") return { issues: "move_to_next" };
+  return { issues: "move_to_next", to: value };
+}
+
+/** The issues a complete moves (open ones) and a delete moves (all), counted as the server does: parents included. */
+export function releaseMemberCounts(issues: Issue[], releaseId: string | undefined): { open: number; all: number } {
+  if (!releaseId) return { open: 0, all: 0 };
+  const members = issues.filter((i) => i.release_id === releaseId);
+  return { open: members.filter((i) => !isTerminal(i.status)).length, all: members.length };
+}
+
+/**
+ * Whether a click on a release row's header toggles its issues: not when it
+ * lands on one of the header's buttons, and not when it bubbles through React
+ * from a portal (menu, popover or dialog) outside the header's DOM.
+ */
+export function headerClickToggles(
+  target: { closest(selector: string): unknown } | null,
+  header: { contains(node: unknown): boolean },
+): boolean {
+  if (!target || !header.contains(target)) return false;
+  return !target.closest("button, a, input, [role='menu']");
 }

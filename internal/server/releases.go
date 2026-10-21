@@ -242,12 +242,13 @@ func (s *Server) handleReorderRelease(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCompleteRelease(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Issues string `json:"issues"`
+		To     string `json:"to"`
 	}
 	if err := decodeOptional(r, &req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid JSON in request body")
 		return
 	}
-	release, msgs, err := s.releaseClient().CompleteRelease(r.PathValue("id"), req.Issues)
+	release, msgs, err := s.releaseClient().CompleteRelease(r.PathValue("id"), req.Issues, req.To)
 	if err != nil {
 		respondReleaseError(w, err)
 		return
@@ -260,7 +261,7 @@ func (s *Server) handleCompleteRelease(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteRelease(w http.ResponseWriter, r *http.Request) {
-	msgs, err := s.releaseClient().DeleteRelease(r.PathValue("id"), r.URL.Query().Get("issues"))
+	msgs, err := s.releaseClient().DeleteRelease(r.PathValue("id"), r.URL.Query().Get("issues"), r.URL.Query().Get("to"))
 	if err != nil {
 		respondReleaseError(w, err)
 		return

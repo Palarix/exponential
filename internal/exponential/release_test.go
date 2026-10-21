@@ -141,7 +141,7 @@ func TestCreateRelease_NumbersAreSequentialAndNeverReused(t *testing.T) {
 	if a.Number != 1 || b.Number != 2 {
 		t.Fatalf("numbers = %d, %d", a.Number, b.Number)
 	}
-	if _, err := tr.DeleteRelease(b.ID, model.ReleaseRemove); err != nil {
+	if _, err := tr.DeleteRelease(b.ID, model.ReleaseRemove, ""); err != nil {
 		t.Fatal(err)
 	}
 	c := mustCreateRelease(t, tr, "c")
@@ -170,7 +170,7 @@ func TestCreateRelease_DuplicateOpenLabelFails(t *testing.T) {
 func TestCreateRelease_LabelOfReleasedReleaseCanBeReused(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "1.5")
-	if _, _, err := tr.CompleteRelease(a.ID, model.ReleaseRemove); err != nil {
+	if _, _, err := tr.CompleteRelease(a.ID, model.ReleaseRemove, ""); err != nil {
 		t.Fatal(err)
 	}
 	mustCreateRelease(t, tr, "1.5")
@@ -290,10 +290,10 @@ func TestUpdateRelease_ChangesFields(t *testing.T) {
 func TestPlaceholders_CannotBeCompletedReorderedOrDeleted(t *testing.T) {
 	tr := setupLocalTransport(t)
 	mustCreateRelease(t, tr, "a")
-	if _, _, err := tr.CompleteRelease("@next", model.ReleaseMoveToNext); err == nil {
+	if _, _, err := tr.CompleteRelease("@next", model.ReleaseMoveToNext, ""); err == nil {
 		t.Error("complete placeholder should fail")
 	}
-	if _, err := tr.DeleteRelease("@next", model.ReleaseMoveToNext); err == nil {
+	if _, err := tr.DeleteRelease("@next", model.ReleaseMoveToNext, ""); err == nil {
 		t.Error("delete placeholder should fail")
 	}
 	if _, err := tr.ReorderRelease("@next", "a", ""); err == nil {
@@ -368,7 +368,7 @@ func TestCompleteRelease_MovesOpenIssuesToNextAndKeepsDone(t *testing.T) {
 	open := addIssueIn(t, tr, "open", "DOING", a.ID)
 	canceled := addIssueIn(t, tr, "canceled", "CANCELED", a.ID)
 
-	r, msgs, err := tr.CompleteRelease("a", "")
+	r, msgs, err := tr.CompleteRelease("a", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,10 +393,10 @@ func TestCompleteRelease_MovesOpenIssuesToNextAndKeepsDone(t *testing.T) {
 		t.Error("Next became Current and gets started_at")
 	}
 
-	if _, _, err := tr.CompleteRelease(a.ID, ""); err == nil {
+	if _, _, err := tr.CompleteRelease(a.ID, "", ""); err == nil {
 		t.Error("a RELEASED release cannot be completed again")
 	}
-	if _, err := tr.DeleteRelease(a.ID, ""); err == nil {
+	if _, err := tr.DeleteRelease(a.ID, "", ""); err == nil {
 		t.Error("a RELEASED release cannot be deleted")
 	}
 	if _, err := tr.ReorderRelease(a.ID, "b", ""); err == nil {
@@ -408,7 +408,7 @@ func TestCompleteRelease_RemoveClearsOpenIssues(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	open := addIssueIn(t, tr, "open", "PLANNED", a.ID)
-	if _, _, err := tr.CompleteRelease(a.ID, model.ReleaseRemove); err != nil {
+	if _, _, err := tr.CompleteRelease(a.ID, model.ReleaseRemove, ""); err != nil {
 		t.Fatal(err)
 	}
 	if readAllIssues(t)[open.ID].ReleaseID != "" {
@@ -423,7 +423,7 @@ func TestCompleteRelease_MoveToPlaceholderNextSavesIt(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	open := addIssueIn(t, tr, "open", "BACKLOG", a.ID)
-	if _, _, err := tr.CompleteRelease(a.ID, model.ReleaseMoveToNext); err != nil {
+	if _, _, err := tr.CompleteRelease(a.ID, model.ReleaseMoveToNext, ""); err != nil {
 		t.Fatal(err)
 	}
 	saved := releaseByNumber(t, 2)
@@ -439,7 +439,7 @@ func TestCompleteRelease_MoveToPlaceholderNextSavesIt(t *testing.T) {
 func TestCompleteRelease_InvalidMode(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
-	if _, _, err := tr.CompleteRelease(a.ID, "shred"); err == nil {
+	if _, _, err := tr.CompleteRelease(a.ID, "shred", ""); err == nil {
 		t.Error("unknown mode should fail")
 	}
 }
@@ -453,7 +453,7 @@ func TestDeleteRelease_MovesAllIssuesIncludingDone(t *testing.T) {
 	done := addIssueIn(t, tr, "done", "DONE", a.ID)
 	open := addIssueIn(t, tr, "open", "DOING", a.ID)
 
-	if _, err := tr.DeleteRelease("a", ""); err != nil {
+	if _, err := tr.DeleteRelease("a", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	issues := readAllIssues(t)
@@ -474,7 +474,7 @@ func TestDeleteRelease_NextMovesToTheReleaseAfterIt(t *testing.T) {
 	b := mustCreateRelease(t, tr, "b")
 	c := mustCreateRelease(t, tr, "c")
 	iss := addIssueIn(t, tr, "x", "BACKLOG", b.ID)
-	if _, err := tr.DeleteRelease(b.ID, model.ReleaseMoveToNext); err != nil {
+	if _, err := tr.DeleteRelease(b.ID, model.ReleaseMoveToNext, ""); err != nil {
 		t.Fatal(err)
 	}
 	if readAllIssues(t)[iss.ID].ReleaseID != c.ID {
@@ -482,11 +482,108 @@ func TestDeleteRelease_NextMovesToTheReleaseAfterIt(t *testing.T) {
 	}
 }
 
+func TestDeleteRelease_LastMovesToTheReleaseBeforeIt(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a := mustCreateRelease(t, tr, "a")
+	b := mustCreateRelease(t, tr, "b")
+	iss := addIssueIn(t, tr, "x", "BACKLOG", b.ID)
+	msgs, err := tr.DeleteRelease(b.ID, model.ReleaseMoveToNext, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readAllIssues(t)[iss.ID].ReleaseID != a.ID {
+		t.Error("issues of a deleted last release move to the release before it, not to a new one")
+	}
+	if _, next := CurrentNext(readReleases(t)); !next.Placeholder {
+		t.Errorf("no release is saved for the move: next = %+v (%v)", next, msgs)
+	}
+}
+
+func TestDeleteRelease_UpcomingMovesToItsNeighbour(t *testing.T) {
+	tr := setupLocalTransport(t)
+	mustCreateRelease(t, tr, "a")
+	mustCreateRelease(t, tr, "b")
+	c := mustCreateRelease(t, tr, "c")
+	d := mustCreateRelease(t, tr, "d")
+	iss := addIssueIn(t, tr, "x", "BACKLOG", c.ID)
+	if _, err := tr.DeleteRelease(c.ID, model.ReleaseMoveToNext, ""); err != nil {
+		t.Fatal(err)
+	}
+	if readAllIssues(t)[iss.ID].ReleaseID != d.ID {
+		t.Error("issues of a deleted Upcoming release move to the release after it")
+	}
+}
+
+func TestCompleteRelease_ToMovesToTheGivenRelease(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a := mustCreateRelease(t, tr, "a")
+	mustCreateRelease(t, tr, "b")
+	c := mustCreateRelease(t, tr, "c")
+	iss := addIssueIn(t, tr, "x", "BACKLOG", a.ID)
+	_, msgs, err := tr.CompleteRelease(a.ID, model.ReleaseMoveToNext, "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readAllIssues(t)[iss.ID].ReleaseID != c.ID {
+		t.Errorf("open issues move to the release given by to: %v", msgs)
+	}
+}
+
+func TestDeleteRelease_ToMovesToTheGivenRelease(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a := mustCreateRelease(t, tr, "a")
+	b := mustCreateRelease(t, tr, "b")
+	mustCreateRelease(t, tr, "c")
+	iss := addIssueIn(t, tr, "x", "DONE", b.ID)
+	if _, err := tr.DeleteRelease(b.ID, "", "#1"); err != nil {
+		t.Fatal(err)
+	}
+	if readAllIssues(t)[iss.ID].ReleaseID != a.ID {
+		t.Error("all issues move to the release given by to")
+	}
+}
+
+func TestDeleteRelease_ToPlaceholderSavesIt(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a := mustCreateRelease(t, tr, "a")
+	iss := addIssueIn(t, tr, "x", "BACKLOG", a.ID)
+	if _, _, err := tr.CompleteRelease(a.ID, "", "@next"); err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := CurrentNext(readReleases(t))
+	if cur.Placeholder || readAllIssues(t)[iss.ID].ReleaseID != cur.ID {
+		t.Errorf("the Next placeholder is saved and takes the issues: %+v", cur)
+	}
+}
+
+func TestReleaseMoveTo_Refusals(t *testing.T) {
+	tr := setupLocalTransport(t)
+	old := mustCreateRelease(t, tr, "old")
+	tr.CompleteRelease(old.ID, model.ReleaseRemove, "")
+	a := mustCreateRelease(t, tr, "a")
+	mustCreateRelease(t, tr, "b")
+	addIssueIn(t, tr, "x", "BACKLOG", a.ID)
+	for _, tc := range []struct{ mode, to, why string }{
+		{model.ReleaseMoveToNext, "a", "itself"},
+		{model.ReleaseMoveToNext, "old", "a released release"},
+		{model.ReleaseMoveToNext, "nope", "an unknown release"},
+		{model.ReleaseMoveToNext, "none", "no release (use remove)"},
+		{model.ReleaseRemove, "b", "to with remove"},
+	} {
+		if _, err := tr.DeleteRelease(a.ID, tc.mode, tc.to); err == nil {
+			t.Errorf("delete moving to %s should fail", tc.why)
+		}
+		if _, _, err := tr.CompleteRelease(a.ID, tc.mode, tc.to); err == nil {
+			t.Errorf("complete moving to %s should fail", tc.why)
+		}
+	}
+}
+
 func TestDeleteRelease_CurrentWithPlaceholderNext(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	iss := addIssueIn(t, tr, "x", "BACKLOG", a.ID)
-	if _, err := tr.DeleteRelease(a.ID, model.ReleaseMoveToNext); err != nil {
+	if _, err := tr.DeleteRelease(a.ID, model.ReleaseMoveToNext, ""); err != nil {
 		t.Fatal(err)
 	}
 	cur, next := CurrentNext(readReleases(t))
@@ -502,7 +599,7 @@ func TestDeleteRelease_RemoveClearsAllIssues(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	done := addIssueIn(t, tr, "done", "DONE", a.ID)
-	if _, err := tr.DeleteRelease(a.ID, model.ReleaseRemove); err != nil {
+	if _, err := tr.DeleteRelease(a.ID, model.ReleaseRemove, ""); err != nil {
 		t.Fatal(err)
 	}
 	if readAllIssues(t)[done.ID].ReleaseID != "" {
@@ -555,7 +652,7 @@ func TestResolveRelease_PlaceholderRefs(t *testing.T) {
 func TestResolveRelease_OpenLabelBeatsReleased(t *testing.T) {
 	tr := setupLocalTransport(t)
 	old := mustCreateRelease(t, tr, "beta")
-	tr.CompleteRelease(old.ID, model.ReleaseRemove)
+	tr.CompleteRelease(old.ID, model.ReleaseRemove, "")
 	cur := mustCreateRelease(t, tr, "beta")
 	r, err := ResolveRelease(readReleases(t), "Beta")
 	if err != nil || r.ID != cur.ID {

@@ -262,14 +262,14 @@ func (c *Client) ReorderRelease(ref, before, after string) (*model.Release, erro
 	return c.Transport.ReorderRelease(ref, before, after)
 }
 
-func (c *Client) CompleteRelease(ref, mode string) (*model.Release, []string, error) {
+func (c *Client) CompleteRelease(ref, mode, to string) (*model.Release, []string, error) {
 	c.syncLocal()
-	return c.Transport.CompleteRelease(ref, mode)
+	return c.Transport.CompleteRelease(ref, mode, to)
 }
 
-func (c *Client) DeleteRelease(ref, mode string) ([]string, error) {
+func (c *Client) DeleteRelease(ref, mode, to string) ([]string, error) {
 	c.syncLocal()
-	return c.Transport.DeleteRelease(ref, mode)
+	return c.Transport.DeleteRelease(ref, mode, to)
 }
 
 func (c *Client) ReleaseProgress(ref string) (ReleaseProgress, error) {

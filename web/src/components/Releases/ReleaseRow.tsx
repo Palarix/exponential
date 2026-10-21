@@ -6,7 +6,7 @@ import { formatShortDate } from "../../utils/format";
 import { cn } from "../../utils/cn";
 import { indicatorPill, Popover, PopoverPanel, StatusIcon, SubProgress } from "../ui";
 import Tooltip from "../ui/Tooltip";
-import { dropHighlightClass, timeBar, type DropHighlight } from "./releases-utils";
+import { dropHighlightClass, headerClickToggles, timeBar, type DropHighlight } from "./releases-utils";
 
 const STAT_ORDER = ["DOING", "BLOCKED", "PLANNED", "BACKLOG", "DONE"];
 const STATUS_NAMES: Record<string, string> = {
@@ -15,10 +15,11 @@ const STATUS_NAMES: Record<string, string> = {
 
 /**
  * The columns every release row shares, so the stack reads as a table:
- * handle, title, warning, target date, progress, expand.
+ * handle, title (with the progress), warning, target date, Current/Next
+ * badge, actions menu, and the expand chevron always rightmost.
  */
 export const RELEASE_ROW_GRID =
-  "grid grid-cols-[16px_minmax(0,1fr)_16px_4.5rem_5rem_20px] items-center gap-x-3";
+  "grid grid-cols-[16px_minmax(0,1fr)_16px_4.5rem_4rem_20px_20px] items-center gap-x-3";
 
 /** The scope of a release by status, one line per status. Counts are leaf issues only (server). */
 export function ReleaseStats({ release }: { release: Release }) {
@@ -117,19 +118,28 @@ export function SlotBadge({ slot }: { slot?: string }) {
  * The release as one title: its name in medium weight (the label, or `#4`
  * until it has one), then " – " and the goal in a muted tone, then the
  * Current/Next badge. Only the text truncates; the badge stays visible.
+ * `name` replaces the plain name, so a row can make just the name a button;
+ * `extra` (the row's progress) sits between the text and the badge.
  */
-export function ReleaseTitle({ release, badge = true }: { release: Release; badge?: boolean }) {
+export function ReleaseTitle({ release, badge = true, name, extra }: { release: Release; badge?: boolean; name?: ReactNode; extra?: ReactNode }) {
   return (
     <span className="flex items-center gap-2 min-w-0">
       <span className="text-sm truncate">
-        <span className={cn("font-medium", release.label ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] tabular-nums")}>
-          {release.name}
-        </span>
+        {name ?? <ReleaseName release={release} />}
         {release.goal && <span className="text-[var(--color-text-muted)]"> – {release.goal}</span>}
       </span>
+      {extra}
       {badge && <SlotBadge slot={release.slot} />}
     </span>
   );
+}
+
+function releaseNameClass(release: Release): string {
+  return cn("font-medium", release.label ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] tabular-nums");
+}
+
+function ReleaseName({ release }: { release: Release }) {
+  return <span className={releaseNameClass(release)}>{release.name}</span>;
 }
 
 /**
@@ -165,7 +175,7 @@ export function ReleaseProgress({ release, today }: { release: Release; today: s
         onClick={() => setOpen(!open)}
         aria-label={`${release.done} of ${release.total} done. Show breakdown`}
         aria-expanded={open}
-        className={cn(indicatorPill, "justify-self-end hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)] transition-colors")}
+        className={cn(indicatorPill, "shrink-0 hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)] transition-colors")}
       >
         <SubProgress done={release.done} total={release.total} size={12} />
         {release.done}/{release.total}
@@ -260,9 +270,11 @@ interface ReleaseRowBodyProps {
   warning?: string[];
   expanded: boolean;
   onToggle: () => void;
-  /** Opens an open release in Issues; on a past release it toggles the issues like the chevron. */
+  /** A click on the name: opens an open release in Issues; on a past release it toggles the issues like the chevron. */
   onOpen: () => void;
   highlight?: DropHighlight;
+  /** The last column: the actions menu of an open release. */
+  actions?: ReactNode;
   /** The release's issues, shown while expanded. */
   children?: ReactNode;
 }
@@ -270,10 +282,11 @@ interface ReleaseRowBodyProps {
 /**
  * One saved release in the stack; a past release is a faded row with a
  * checkmark instead of the handle. Placeholders don't get a row; the top
- * bar's "New Release" button creates releases.
+ * bar's "New Release" button creates releases. A click anywhere on the header
+ * toggles the issues; only the name opens the release.
  */
 export function ReleaseRowBody({
-  release, today, handle, warning, expanded, onToggle, onOpen, highlight = null, children,
+  release, today, handle, warning, expanded, onToggle, onOpen, highlight = null, actions, children,
 }: ReleaseRowBodyProps) {
   const past = release.state === "RELEASED";
   return (
@@ -284,19 +297,31 @@ export function ReleaseRowBody({
         dropHighlightClass(highlight),
       )}
     >
-      <div className={cn(RELEASE_ROW_GRID, "px-3 h-11")}>
+      <div
+        className={cn(RELEASE_ROW_GRID, "px-3 h-11 cursor-pointer")}
+        onClick={(e) => { if (headerClickToggles(e.target as Element, e.currentTarget)) onToggle(); }}
+      >
         <span className="flex">{handle}</span>
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-expanded={past ? expanded : undefined}
-          className={cn("min-w-0 text-left", !past && "hover:[&_span.truncate]:underline underline-offset-2")}
-        >
-          <ReleaseTitle release={release} />
-        </button>
+        <ReleaseTitle
+          release={release}
+          badge={false}
+          name={
+            <button
+              type="button"
+              onClick={onOpen}
+              title={past ? undefined : "Show in Issues"}
+              aria-expanded={past ? expanded : undefined}
+              className={cn(releaseNameClass(release), !past && "hover:underline underline-offset-2")}
+            >
+              {release.name}
+            </button>
+          }
+          extra={<ReleaseProgress release={release} today={today} />}
+        />
         <span className="flex"><OrderWarning names={warning} /></span>
         <ReleaseDate release={release} today={today} />
-        <ReleaseProgress release={release} today={today} />
+        <span className="flex justify-end"><SlotBadge slot={release.slot} /></span>
+        <span className="flex">{actions}</span>
         <ExpandToggle expanded={expanded} onToggle={onToggle} />
       </div>
       {expanded && <div className="px-3 pb-3">{children}</div>}

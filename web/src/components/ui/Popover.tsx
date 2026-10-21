@@ -1,8 +1,9 @@
-import { useRef, useEffect, useLayoutEffect, type RefObject, type ReactNode } from "react";
+import { useRef, useEffect, useLayoutEffect, type CSSProperties, type RefObject, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { cn } from "../../utils/cn";
 import { computePopoverPosition, type Placement } from "./popover-utils";
+import { POPOVER_LAYER } from "./layers";
 
 interface PopoverProps {
   anchorRef: RefObject<HTMLElement | null>;
@@ -79,7 +80,7 @@ export default function Popover({
     <div
       ref={popRef}
       style={{ position: "fixed", visibility: "hidden" }}
-      className={cn("z-50", className)}
+      className={cn(POPOVER_LAYER, className)}
     >
       {children}
     </div>,
@@ -87,9 +88,9 @@ export default function Popover({
   );
 }
 
-export function PopoverPanel({ children, className }: { children: ReactNode; className?: string }) {
+export function PopoverPanel({ children, className, style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
   return (
-    <div className={cn(
+    <div style={style} className={cn(
       "min-w-50 bg-[var(--color-surface-3)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-popover)] py-1",
       // A bare Menu brings its own even inset; don't stack the panel's on top of it.
       "has-[>[role=menu]]:py-0",

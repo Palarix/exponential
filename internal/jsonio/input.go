@@ -355,5 +355,6 @@ type ReleaseToolInput struct {
 	TargetDate *string `json:"target_date,omitempty" jsonschema:"Optional target date (YYYY-MM-DD), for display only. Pass \"\" to clear"`
 	Before     string  `json:"before,omitempty" jsonschema:"reorder: move the release directly above this open release. Mutually exclusive with after"`
 	After      string  `json:"after,omitempty" jsonschema:"reorder: move the release directly below this open release. Mutually exclusive with before"`
-	Issues     string  `json:"issues,omitempty" jsonschema:"complete and delete: what happens to the release's issues. move_to_next (default) moves them to Next; remove takes them out of the release. complete moves only open issues: done issues stay as the record. delete moves all issues"`
+	Issues     string  `json:"issues,omitempty" jsonschema:"complete and delete: what happens to the release's issues. move_to_next (default) moves them to to, or without it to the open release after this one (else the one before it, else a new release); remove takes them out of the release. complete moves only open issues: done issues stay as the record. delete moves all issues"`
+	To         string  `json:"to,omitempty" jsonschema:"complete and delete: the open release to move the issues to: #7, a label, @current or @next. Not with issues remove"`
 }

@@ -1,6 +1,7 @@
 import { useState, useRef, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import Popover, { PopoverPanel } from "./Popover";
+import { fieldTriggerClass } from "./field-trigger";
 
 export interface DropdownOption {
   value: string;
@@ -18,6 +19,7 @@ export default function InlineDropdown({
   borderless,
   disabled,
   title,
+  fullWidth,
 }: {
   placeholder: string;
   options: DropdownOption[];
@@ -28,20 +30,24 @@ export default function InlineDropdown({
   disabled?: boolean;
   /** Tooltip on the trigger, for example why it is disabled. */
   title?: string;
+  /** Spans its container; the option list matches the trigger's width. */
+  fullWidth?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // The trigger's width when the list opened, so a full-width list matches it.
+  const [width, setWidth] = useState<number>();
   const btnRef = useRef<HTMLButtonElement>(null);
   const selected = options.find((o) => o.value === value);
 
   return (
-    <div>
+    <div className={fullWidth ? "w-full" : undefined}>
       <button
         ref={btnRef}
         type="button"
         disabled={disabled}
         title={title}
-        onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm transition-colors disabled:opacity-60 disabled:cursor-default ${borderless ? "hover:bg-[var(--color-hover-surface-3)] disabled:hover:bg-transparent" : `border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] ${!selected && required ? "border-[var(--color-error)]/40" : ""}`}`}
+        onClick={() => { setWidth(btnRef.current?.offsetWidth); setOpen(!open); }}
+        className={`flex items-center gap-2 h-8 px-3 ${fullWidth ? "w-full [&>svg:last-child]:ml-auto" : ""} rounded-[var(--radius-md)] text-sm transition-colors disabled:opacity-60 disabled:cursor-default ${borderless ? "hover:bg-[var(--color-hover-surface-3)] disabled:hover:bg-transparent" : fieldTriggerClass(!selected && !!required)}`}
       >
         {selected ? (
           <>
@@ -55,7 +61,7 @@ export default function InlineDropdown({
       </button>
       {open && (
         <Popover anchorRef={btnRef} onClose={() => setOpen(false)}>
-          <PopoverPanel className="min-w-40">
+          <PopoverPanel className="min-w-40" style={fullWidth ? { width } : undefined}>
             {options.map((opt) => (
               <button
                 key={opt.value}

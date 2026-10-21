@@ -446,26 +446,55 @@ func (w *releaseWriter) saved(ref, verb string) (*model.Release, error) {
 	return r, nil
 }
 
-// moveTarget is where "move to Next" sends the issues of r when r is
-// completed or deleted: the new Current if r is Current, else the Next slot
-// once r is gone. A placeholder target is saved.
-func (w *releaseWriter) moveTarget(r *model.Release) (*model.Release, error) {
+// moveTarget is where "move" sends the issues of r when r is completed or
+// deleted. With to, it is that OPEN release; a placeholder is saved and a
+// locked Next refused. Without, it is the open release right after r, else
+// the one right before it, else a new release: the Current placeholder once
+// r is gone, saved.
+func (w *releaseWriter) moveTarget(r *model.Release, to string) (*model.Release, error) {
+	if to != "" {
+		target, err := ResolveRelease(w.releases, to)
+		if err != nil {
+			return nil, err
+		}
+		if target == nil {
+			return nil, fmt.Errorf("to must name a release: use issues=%s to take the issues out of the release", model.ReleaseRemove)
+		}
+		if target.ID == r.ID && !target.Placeholder {
+			return nil, fmt.Errorf("cannot move the issues of %s to itself", r.Display())
+		}
+		if target.State != model.ReleaseOpen {
+			return nil, fmt.Errorf("release %s is released: only open releases accept issues", target.Display())
+		}
+		return w.save(target, ReleaseInput{})
+	}
+
 	open := OpenReleases(w.releases)
-	idx := -1
-	var rest []*model.Release
 	for i, o := range open {
-		if o.ID == r.ID {
-			idx = i
+		if o.ID != r.ID {
 			continue
 		}
-		rest = append(rest, o)
+		if i+1 < len(open) {
+			return open[i+1], nil
+		}
+		if i > 0 {
+			return open[i-1], nil
+		}
 	}
-	slots := fillSlots(rest, NextReleaseNumber(w.releases))
-	target := slots[1]
-	if idx == 0 {
-		target = slots[0]
+	return w.save(fillSlots(nil, NextReleaseNumber(w.releases))[0], ReleaseInput{})
+}
+
+// moveMode checks a complete or delete's mode and target: to only goes with
+// a move.
+func moveMode(mode, to string) (string, error) {
+	mode, err := normalizeReleaseMode(mode)
+	if err != nil {
+		return "", err
 	}
-	return w.save(target, ReleaseInput{})
+	if mode == model.ReleaseRemove && strings.TrimSpace(to) != "" {
+		return "", fmt.Errorf("to cannot be combined with issues=%s", model.ReleaseRemove)
+	}
+	return mode, nil
 }
 
 // moveIssues emits one UPDATE per issue setting its release to dest. The
@@ -710,11 +739,12 @@ func parentIDs(issues map[string]*model.Issue) map[string]bool {
 	return parents
 }
 
-// CompleteRelease marks a release RELEASED. Its open issues move to Next
-// (mode move_to_next, the default) or leave the release (remove). Done
-// issues stay, and their counts are stored in the complete event.
-func (t *LocalTransport) CompleteRelease(ref, mode string) (*model.Release, []string, error) {
-	mode, err := normalizeReleaseMode(mode)
+// CompleteRelease marks a release RELEASED. Its open issues move (mode
+// move_to_next, the default) to the release to, or by default to its
+// neighbour (see moveTarget), or leave the release (remove). Done issues
+// stay, and their counts are stored in the complete event.
+func (t *LocalTransport) CompleteRelease(ref, mode, to string) (*model.Release, []string, error) {
+	mode, err := moveMode(mode, to)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -728,7 +758,7 @@ func (t *LocalTransport) CompleteRelease(ref, mode string) (*model.Release, []st
 
 		dest := ""
 		if mode == model.ReleaseMoveToNext && len(open) > 0 {
-			target, err := w.moveTarget(r)
+			target, err := w.moveTarget(r, to)
 			if err != nil {
 				return "", err
 			}
@@ -761,9 +791,10 @@ func (t *LocalTransport) CompleteRelease(ref, mode string) (*model.Release, []st
 }
 
 // DeleteRelease deletes an OPEN release. All its issues, done ones included,
-// move to Next (move_to_next, the default) or leave the release (remove).
-func (t *LocalTransport) DeleteRelease(ref, mode string) ([]string, error) {
-	mode, err := normalizeReleaseMode(mode)
+// move (move_to_next, the default) to to or its neighbour, as for
+// CompleteRelease, or leave the release (remove).
+func (t *LocalTransport) DeleteRelease(ref, mode, to string) ([]string, error) {
+	mode, err := moveMode(mode, to)
 	if err != nil {
 		return nil, err
 	}
@@ -777,7 +808,7 @@ func (t *LocalTransport) DeleteRelease(ref, mode string) ([]string, error) {
 
 		dest := ""
 		if mode == model.ReleaseMoveToNext && len(members) > 0 {
-			target, err := w.moveTarget(r)
+			target, err := w.moveTarget(r, to)
 			if err != nil {
 				return "", err
 			}

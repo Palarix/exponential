@@ -158,6 +158,9 @@
   --color-tint-hover:  color-mix(in srgb, currentColor 13%, transparent);
   --color-tint-active: color-mix(in srgb, currentColor 18%, transparent);
   --color-tint-border: color-mix(in srgb, currentColor 15%, transparent);
+  /* Dropdown fields: a lighter wash than buttons, so a field reads as an input. */
+  --color-field-rest:  color-mix(in srgb, currentColor 4%, transparent);
+  --color-field-hover: color-mix(in srgb, currentColor 7%, transparent);
 
   /* Issue ID chips — tints of the accent */
   --color-issue-ref: color-mix(in srgb, var(--color-accent-primary) 45%, white);

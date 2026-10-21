@@ -5,7 +5,7 @@ import {
   deleteIssueOptions, deleteIssueToast, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
   updateLabelOptions, type IssuePatch,
 } from "./mutation-options";
-import { ApiError, createRelease, reorderRelease } from "./client";
+import { ApiError, completeRelease, createRelease, deleteRelease, reorderRelease, updateRelease } from "./client";
 import { queryKeys } from "./query-keys";
 import type { Issue } from "./types";
 import { useToast } from "../components/ui/ToastContext";
@@ -139,4 +139,16 @@ export function useCreateRelease() {
 
 export function useReorderRelease() {
   return useReleaseMutation(reorderRelease);
+}
+
+export function useUpdateRelease() {
+  return useReleaseMutation(updateRelease);
+}
+
+export function useCompleteRelease() {
+  return useReleaseMutation(completeRelease);
+}
+
+export function useDeleteRelease() {
+  return useReleaseMutation(deleteRelease);
 }

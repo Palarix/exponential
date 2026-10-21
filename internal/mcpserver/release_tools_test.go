@@ -125,3 +125,23 @@ func TestUpdateTool_WithChildren(t *testing.T) {
 		t.Errorf("open child should follow with_children: %q", show.Release)
 	}
 }
+
+func TestReleaseTool_CompleteMovesTo(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+	for _, label := range []string{"1.5", "1.6", "1.7"} {
+		releaseOp(t, ts, jsonio.ReleaseToolInput{Operation: "create", Label: strp(label)})
+	}
+	_, add, err := ts.add(ctx, nil, jsonio.AddInput{Title: "a", Release: "1.5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	releaseOp(t, ts, jsonio.ReleaseToolInput{Operation: "complete", ID: "1.5", To: "1.7"})
+	if _, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: add.ID}); show.Release != "1.7" {
+		t.Errorf("complete with to: issue in %q, want 1.7", show.Release)
+	}
+	if _, _, err := ts.release(ctx, nil, jsonio.ReleaseToolInput{Operation: "delete", ID: "1.7", Issues: "remove", To: "1.6"}); err == nil {
+		t.Error("to with issues remove should fail")
+	}
+}

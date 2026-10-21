@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useKeyboardShortcuts } from "../../keyboard";
+import { cn } from "../../utils/cn";
+import { DIALOG_LAYER } from "./layers";
 
 interface DialogOverlayProps {
   /** Unique per call site; names the Escape shortcut scope. */
@@ -28,7 +30,7 @@ export function DialogOverlay({ scope, onClose, enabled = true, children }: Dial
   });
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className={cn("fixed inset-0 flex items-center justify-center p-4", DIALOG_LAYER)}>
       <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
       {children}
     </div>,

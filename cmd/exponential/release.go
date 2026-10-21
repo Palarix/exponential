@@ -21,6 +21,7 @@ var (
 	releaseBeforeFlag string
 	releaseAfterFlag  string
 	releaseRemoveFlag bool
+	releaseToFlag     string
 )
 
 var releaseCmd = &cobra.Command{
@@ -127,10 +128,10 @@ var releaseReorderCmd = &cobra.Command{
 
 var releaseCompleteCmd = &cobra.Command{
 	Use:   "complete <release>",
-	Short: "Mark a release RELEASED (final); open issues move to Next",
+	Short: "Mark a release RELEASED (final); open issues move to the next release",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		r, msgs, err := exponential.NewClient(cfg).CompleteRelease(args[0], releaseMode())
+		r, msgs, err := exponential.NewClient(cfg).CompleteRelease(args[0], releaseMode(), releaseToFlag)
 		if err != nil {
 			releaseFail(err)
 		}
@@ -140,10 +141,10 @@ var releaseCompleteCmd = &cobra.Command{
 
 var releaseDeleteCmd = &cobra.Command{
 	Use:   "delete <release>",
-	Short: "Delete an open release; all its issues move to Next",
+	Short: "Delete an open release; all its issues move to the next release",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		msgs, err := exponential.NewClient(cfg).DeleteRelease(args[0], releaseMode())
+		msgs, err := exponential.NewClient(cfg).DeleteRelease(args[0], releaseMode(), releaseToFlag)
 		if err != nil {
 			releaseFail(err)
 		}
@@ -257,6 +258,9 @@ func init() {
 	releaseReorderCmd.Flags().StringVar(&releaseAfterFlag, "after", "", "Move directly below this open release")
 	releaseCompleteCmd.Flags().BoolVar(&releaseRemoveFlag, "remove", false, "Remove open issues from the release instead of moving them to Next")
 	releaseDeleteCmd.Flags().BoolVar(&releaseRemoveFlag, "remove", false, "Remove the issues from the release instead of moving them to Next")
+	for _, c := range []*cobra.Command{releaseCompleteCmd, releaseDeleteCmd} {
+		c.Flags().StringVar(&releaseToFlag, "to", "", "Move the issues to this open release (default: the release after it, else the one before it)")
+	}
 
 	releaseCmd.AddCommand(releaseListCmd, releaseShowCmd, releaseCreateCmd, releaseUpdateCmd,
 		releaseReorderCmd, releaseCompleteCmd, releaseDeleteCmd)

@@ -444,14 +444,14 @@ func (t *toolset) release(ctx context.Context, req *mcp.CallToolRequest, in json
 		if err := needID(); err != nil {
 			return nil, jsonio.ReleaseOutput{}, err
 		}
-		r, msgs, err := c.CompleteRelease(in.ID, in.Issues)
+		r, msgs, err := c.CompleteRelease(in.ID, in.Issues, in.To)
 		return one(r, msgs, err)
 
 	case "delete":
 		if err := needID(); err != nil {
 			return nil, jsonio.ReleaseOutput{}, err
 		}
-		msgs, err := c.DeleteRelease(in.ID, in.Issues)
+		msgs, err := c.DeleteRelease(in.ID, in.Issues, in.To)
 		if err != nil {
 			return nil, jsonio.ReleaseOutput{}, err
 		}

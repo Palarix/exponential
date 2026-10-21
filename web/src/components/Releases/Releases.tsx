@@ -1,9 +1,9 @@
-import { useMemo, useState, type HTMLAttributes } from "react";
+import { useMemo, useRef, useState, type HTMLAttributes } from "react";
 import {
   closestCenter, DndContext, DragOverlay, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { ChevronRight, CircleCheck, GripVertical, Inbox, Plus } from "lucide-react";
+import { ChevronRight, CircleCheck, CircleCheckBig, GripVertical, Inbox, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Issue, Release, ReleasesResponse } from "../../api/types";
 import { useIssueList, useReleases } from "../../api/queries";
 import { useReorderRelease } from "../../api/mutations";
@@ -13,14 +13,16 @@ import { StatusBarSlot } from "../../app/StatusBarSlot";
 import { EMPTY_FILTERS, FILTERS_CODEC, hasActiveFilters, matchesFilters, type BacklogFilters } from "../Backlog/filters";
 import FilterChips from "../Backlog/FilterChips";
 import { cn } from "../../utils/cn";
-import { FilterButton, Heading, indicatorPill, SearchInput, TopBar, ViewContainer } from "../ui";
+import { FilterButton, Heading, indicatorPill, Menu, MenuItem, Popover, SearchInput, TopBar, ViewContainer } from "../ui";
 import { DragOverlayCard } from "../Backlog/DndComponents";
 import NewReleaseDialog from "./NewReleaseDialog";
+import ReleaseActionDialog from "./ReleaseActionDialog";
+import { releaseMenuItems, type ReleaseAction } from "./release-action-utils";
 import { ExpandToggle, PastBurndown, RELEASE_ROW_GRID, ReleaseRowBody } from "./ReleaseRow";
 import { IssueRow, ReleaseIssueList } from "./ReleaseIssues";
 import {
-  acceptsIssueDrop, dropHighlightClass, releaseFilter, issuesInRelease, openReleases, orderWarnings,
-  reorderMove, savedOrder, noReleaseIssues, type DropHighlight,
+  acceptsIssueDrop, dropHighlightClass, headerClickToggles, releaseFilter, issuesInRelease, openReleases, orderWarnings,
+  releaseMemberCounts, reorderMove, savedOrder, noReleaseIssues, type DropHighlight,
 } from "./releases-utils";
 
 /** Past releases shown before "Show N older". */
@@ -219,6 +221,7 @@ export function ReleaseStack({
         {stack.map((release) => (
           <ReleaseItem
             key={release.number}
+            board={board}
             release={release}
             today={today}
             issues={issues}
@@ -268,6 +271,7 @@ export function ReleaseStack({
 }
 
 interface ReleaseItemProps {
+  board: ReleasesResponse;
   release: Release;
   today: string;
   issues: Issue[];
@@ -284,7 +288,6 @@ interface ReleaseItemProps {
   highlight: DropHighlight;
 }
 
-/** An open release: a drop target and, unless it is a placeholder, draggable by its handle. */
 /**
  * While the search or the filters narrow the lists, a row with matches opens
  * and lists only them; one without stays collapsed. Clearing both restores
@@ -294,7 +297,9 @@ function shownExpanded(expanded: boolean, narrowing: boolean, matches: Issue[]):
   return narrowing ? matches.length > 0 : expanded;
 }
 
-function ReleaseItem({ release, issues, listed, query, narrowing, expanded, onIssueClick, ...props }: ReleaseItemProps) {
+/** A saved open release: a drop target, draggable by its handle, with its actions. */
+function ReleaseItem({ board, release, issues, listed, query, narrowing, expanded, onIssueClick, ...props }: ReleaseItemProps) {
+  const [dialog, setDialog] = useState<ReleaseAction | "edit" | null>(null);
   const releaseIssues = issuesInRelease(listed, release.id, query);
   const { setNodeRef } = useDroppable({ id: `target:${release.number}`, data: { kind: "target", release } satisfies DropData });
   const { attributes, listeners, isDragging } = useDraggable({
@@ -315,7 +320,13 @@ function ReleaseItem({ release, issues, listed, query, narrowing, expanded, onIs
   );
   return (
     <div ref={setNodeRef} className={cn(isDragging && "opacity-40")}>
-      <ReleaseRowBody {...props} release={release} handle={handle} expanded={shownExpanded(expanded, narrowing, releaseIssues)}>
+      <ReleaseRowBody
+        {...props}
+        release={release}
+        handle={handle}
+        expanded={shownExpanded(expanded, narrowing, releaseIssues)}
+        actions={<ReleaseMenu release={release} onPick={setDialog} />}
+      >
         <ReleaseIssueList
           issues={releaseIssues}
           all={issues}
@@ -324,7 +335,52 @@ function ReleaseItem({ release, issues, listed, query, narrowing, expanded, onIs
           renderRow={(issue) => <DraggableIssueRow key={issue.id} issue={issue} all={issues} onIssueClick={onIssueClick} />}
         />
       </ReleaseRowBody>
+      {dialog === "edit" && <NewReleaseDialog release={release} onClose={() => setDialog(null)} />}
+      {(dialog === "complete" || dialog === "delete") && (
+        <ReleaseActionDialog
+          action={dialog}
+          board={board}
+          release={release}
+          count={releaseMemberCounts(issues, release.id)[dialog === "complete" ? "open" : "all"]}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** The `⋯` menu of a saved open release: Edit, Complete release, Delete; on Current, Complete release first. */
+function ReleaseMenu({ release, onPick }: { release: Release; onPick: (action: ReleaseAction | "edit") => void }) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const pick = (action: ReleaseAction | "edit") => { setOpen(false); onPick(action); };
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-label={`Actions for ${release.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      {open && (
+        <Popover anchorRef={anchorRef} onClose={() => setOpen(false)} placement="bottom-end">
+          <Menu onClose={() => setOpen(false)} aria-label={`Actions for ${release.name}`}>
+            {releaseMenuItems(release).map((item) => {
+              switch (item) {
+                case "complete": return <MenuItem key={item} label="Complete release" icon={<CircleCheckBig size={14} />} onClick={() => pick(item)} />;
+                case "edit": return <MenuItem key={item} label="Edit" icon={<Pencil size={14} />} onClick={() => pick(item)} />;
+                case "delete": return <MenuItem key={item} label="Delete" icon={<Trash2 size={14} />} destructive onClick={() => pick(item)} />;
+              }
+            })}
+          </Menu>
+        </Popover>
+      )}
+    </>
   );
 }
 
@@ -340,7 +396,7 @@ function DraggableIssueRow(props: { issue: Issue; all: Issue[]; onIssueClick: (i
 /**
  * Open issues in no release, as the row under Current: an inbox icon
  * where releases have their handle, the count where they have progress. It
- * starts expanded and lists the issues in the same rows as the releases; under
+ * starts expanded, toggles on a header click like the releases, and lists the issues in the same rows; under
  * a search it opens only when something matches. The whole row is the drop
  * target that takes an issue out of its release.
  */
@@ -366,15 +422,22 @@ function NoReleaseRow({ issues, listed, query, narrowing, onIssueClick, highligh
         dropHighlightClass(highlight),
       )}
     >
-      <div className={cn(RELEASE_ROW_GRID, "px-3 h-11")}>
+      <div
+        className={cn(RELEASE_ROW_GRID, "px-3 h-11 cursor-pointer")}
+        onClick={(e) => { if (headerClickToggles(e.target as Element, e.currentTarget)) setExpanded(!expanded); }}
+      >
         <Inbox size={14} className="text-[var(--color-text-muted)]" />
-        <button type="button" onClick={() => setExpanded(!expanded)} className="min-w-0 text-left text-sm truncate">
-          <span className="font-medium text-[var(--color-text-primary)]">No release</span>
-          <span className="text-[var(--color-text-muted)]"> – Open issues in no release</span>
-        </button>
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="min-w-0 text-sm truncate">
+            <span className="font-medium text-[var(--color-text-primary)]">No release</span>
+            <span className="text-[var(--color-text-muted)]"> – Open issues in no release</span>
+          </span>
+          <span title={`${all.length} open issues in no release`} className={cn(indicatorPill, "shrink-0")}>{all.length}</span>
+        </span>
         <span />
         <span />
-        <span title={`${all.length} open issues in no release`} className={cn(indicatorPill, "justify-self-end")}>{all.length}</span>
+        <span />
+        <span />
         <ExpandToggle expanded={open} onToggle={() => setExpanded(!expanded)} />
       </div>
       {open && (

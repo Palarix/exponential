@@ -43,7 +43,9 @@ function row(release: Release, extra: Partial<Parameters<typeof ReleaseRowBody>[
 describe("ReleaseRowBody", () => {
   it("reads as one title: the label, the goal, then the slot badge", () => {
     const html = row(current);
-    expect(html).toMatch(/>1\.1<\/span><span[^>]*> – Live courier tracking<\/span><\/span><span[^>]*>Current</);
+    expect(html).toMatch(/>1\.1<\/button><span[^>]*> – Live courier tracking<\/span><\/span>/);
+    expect(html.indexOf("Live courier tracking")).toBeLessThan(html.indexOf(">Current<"));
+    expect(html.indexOf("Nov 15")).toBeLessThan(html.indexOf(">Current<"));
   });
 
   it("shows the number as the name until the release has a label", () => {
@@ -75,13 +77,36 @@ describe("ReleaseRowBody", () => {
     expect(html).not.toMatch(/>Current</);
   });
 
-  it("makes a past release's title a toggle for its issues, not a link", () => {
+  it("makes a past release's name a toggle for its issues, not a link", () => {
     const html = row({ ...current, state: "RELEASED", slot: "past", released_at: "2026-10-02T10:00:00Z" }, { handle: null, expanded: true });
-    expect(html).toMatch(/<button[^>]*aria-expanded="true"[^>]*><span class="flex items-center gap-2 min-w-0">/);
+    expect(html).toMatch(/<button[^>]*aria-expanded="true"[^>]*>1\.1<\/button>/);
   });
 
-  it("keeps an open release's title a link", () => {
-    expect(row(current)).not.toMatch(/<button[^>]*aria-expanded="[a-z]+"[^>]*><span class="flex items-center gap-2 min-w-0">/);
+  it("makes only an open release's name a link, not the goal or the badge", () => {
+    const html = row(current);
+    expect(html).toMatch(/<button[^>]*title="Show in Issues"[^>]*>1\.1<\/button><span[^>]*> – Live courier tracking/);
+    expect(html).not.toMatch(/<button[^>]*><span class="flex items-center gap-2 min-w-0">/);
+  });
+
+  it("puts the progress right after the title", () => {
+    const html = row(current);
+    const progress = html.indexOf('aria-label="3 of 6 done. Show breakdown"');
+    expect(html.indexOf("Live courier tracking")).toBeLessThan(progress);
+    expect(progress).toBeLessThan(html.indexOf("Nov 15"));
+  });
+
+  it("puts the slot badge at the far right, just before the actions", () => {
+    const html = row(current, { actions: <span aria-label="Release actions" /> });
+    expect(html.indexOf("Nov 15")).toBeLessThan(html.indexOf(">Current<"));
+    expect(html.indexOf(">Current<")).toBeLessThan(html.indexOf('aria-label="Release actions"'));
+  });
+
+  it("keeps the chevron rightmost, with the actions just left of it", () => {
+    const html = row(current, { actions: <span aria-label="Release actions" /> });
+    expect(html.indexOf("Nov 15")).toBeLessThan(html.indexOf('aria-label="Release actions"'));
+    expect(html.indexOf('aria-label="Release actions"')).toBeLessThan(html.indexOf('aria-label="Show issues"'));
+    const afterChevron = html.slice(html.indexOf('aria-label="Show issues"'));
+    expect(afterChevron.slice(afterChevron.indexOf("</button>"))).toMatch(/^<\/button><\/div>/);
   });
 });
 

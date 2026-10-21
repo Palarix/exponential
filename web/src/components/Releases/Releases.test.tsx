@@ -95,6 +95,24 @@ describe("ReleaseStack", () => {
     expect(html).toMatch(/<div[^>]*aria-roledescription="draggable"[^>]*>(?:(?!role="button").)*In 1\.1/s);
   });
 
+  it("gives every open release an actions menu and past releases none", () => {
+    const html = stack(board);
+    for (const name of ["1.1", "1.2", "Team Mode"]) expect(html).toContain(`aria-label="Actions for ${name}"`);
+    expect(html).not.toContain('aria-label="Actions for 0.1"');
+  });
+
+  it("has no inline Complete button", () => {
+    expect(stack(board)).not.toMatch(/<button[^>]*>Complete<\/button>/);
+  });
+
+  it("keeps the No release count in the title and its chevron rightmost", () => {
+    const html = stack(board);
+    const header = html.slice(html.indexOf(">No release<"), html.indexOf("Loose one"));
+    expect(header.indexOf('open issues in no release"')).toBeLessThan(header.indexOf('aria-label="Hide issues"'));
+    const afterChevron = header.slice(header.indexOf('aria-label="Hide issues"'));
+    expect(afterChevron.slice(afterChevron.indexOf("</button>"))).toMatch(/^<\/button><\/div>/);
+  });
+
   it("calls the no-release row No release", () => {
     const html = stack(board);
     expect(html).toContain(">No release<");

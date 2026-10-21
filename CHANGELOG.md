@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Releases view: edit, complete and delete releases from their rows.
+  - **`⋯` menu** on every open release: Edit, Complete release and Delete. On Current, Complete release comes first. Past releases have no menu.
+  - **Edit** opens the release dialog filled in with label, goal and target date; emptying a field clears it.
+  - **Complete** and **Delete** confirm first, name the release and how many issues are affected, and offer a picker for where the issues go: any other open release (shown with its slot, e.g. "1.0 (Current)") or No release. The help text says where the issues go, whether done issues move too, and that the action can't be undone.
+
+  (xpo-88f633)
+
+- `xpo release complete` and `xpo release delete` take `--to <release>`, and the MCP `release` tool and the server API take `to`, to move the issues to a chosen open release. (xpo-88f633)
+
 - Agent chat: your messages render as Markdown, and the composer formats Markdown as you type.
   - **Transcript:** your messages, and messages steered into a running turn, show lists, code, links and emphasis, with issue IDs as chips, like the agent's replies.
   - **Composer:** typing `**bold**`, `` `code` ``, `- `, `1. `, `> ` or `# ` formats as you go, and ⌘B, ⌘I and ⌘E work. "```" (or "```lang") then Enter opens a code block, and a closing "```" then Shift+Enter leaves it. Shift+Enter adds a list item in a list and a new paragraph elsewhere. The agent still receives plain Markdown. Enter, ↑, Esc, drafts, attachments, queue/steer and edit-last-message work as before.
@@ -76,6 +85,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Completing or deleting a release without `to` moves its issues to the open release right after it, else the one right before it. A new release is created only when there is no other open release. Before, deleting or completing a Next with nothing behind it created a new empty release, and an Upcoming release's issues went to Next. (xpo-88f633)
+
+- Releases view: a click anywhere on a row's header expands or collapses it; only the release name opens the release in Issues. The progress ring follows the title, the Current/Next badge sits just left of the `⋯` menu, and the chevron is always rightmost. (xpo-88f633)
+
+- Releases view: the hover card on an issue row shows what the row doesn't (assignee, priority, estimate and labels) instead of repeating the ID, title and status. Issue links and relation chips keep the full card. (xpo-88f633)
+
+- Bordered dropdowns (the release picker and the New issue modal's Label, Status and Estimate pickers) share one field style: a light tint of the text colour with a tint border, so they show on any surface. (xpo-88f633)
+
 - Agent chat: each action row shows its verb between the icon and the detail, for example "Read CHANGELOG.md", "Searched for `^### Fixed`" or "Merged xpo-1". A running call reads "Reading CHANGELOG.md", and the collapsed line of an active group stays in that form until the call moves into the list. Shell rows keep their command description, and unknown tools keep their name. The icon is decorative and no longer has a tooltip. Wording changes: Grep reads "Searched for", reading an issue reads "Read xpo-1" instead of "Opened xpo-1", and writing a spec or walkthrough reads "Wrote the walkthrough for xpo-1". (xpo-6c4a1b)
 
 - Agent chat: while the chat follows new output, the view glides to the bottom instead of jumping, and new messages, tool groups, cards and status lines fade in. Opening or switching a chat still lands at the bottom at once, with nothing fading. The glide follows the Motion preference as movement (it jumps under reduced motion or Off); the fade is a fade (it stops only when Motion is Off). (xpo-50b9d9)
@@ -88,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Popovers opened inside a dialog, such as a dropdown, now show above the dialog instead of behind it. (xpo-17f094)
 - Agent chat: a multi-line question from the agent keeps its line breaks on the question card, on the Review step and in the answered question in the thread. (xpo-f90406)
 - Menus: hovering a disabled submenu no longer opens it. (xpo-a71a45)
 

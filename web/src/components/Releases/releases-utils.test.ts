@@ -3,7 +3,7 @@ import type { Release, ReleasesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import {
   acceptsIssueDrop, childProgress, matchesIssueSearch, parentContext, issuesInRelease, openReleases, orderWarnings, releaseDropRef, reorderMove, savedOrder, timeBar,
-  noReleaseIssues, releaseFilter,
+  noReleaseIssues, releaseFilter, moveOptions, moveRequest, releaseMemberCounts, headerClickToggles,
 } from "./releases-utils";
 
 const rel = (number: number, overrides: Partial<Release> = {}): Release => ({
@@ -258,5 +258,79 @@ describe("releaseFilter", () => {
 
   it("has no filter for a Past release: it expands in place", () => {
     expect(releaseFilter(rel(4, { slot: "past", state: "RELEASED" }))).toBeNull();
+  });
+});
+
+describe("moveOptions", () => {
+  const b = board({
+    current: rel(1, { slot: "current", name: "1.5" }),
+    next: rel(2, { slot: "next", name: "1.6" }),
+    upcoming: [rel(3, { slot: "upcoming", name: "1.7" })],
+  });
+  const labels = (r: Release, x = b) => moveOptions(x, r).options.map((o) => o.label);
+
+  it("lists the other open releases by slot, then No release, never the release itself", () => {
+    expect(labels(b.next)).toEqual(["1.5 (Current)", "1.7", "No release"]);
+    expect(labels(b.current)).toEqual(["1.6 (Next)", "1.7", "No release"]);
+  });
+
+  it("defaults to the release after it", () => {
+    expect(moveOptions(b, b.current).value).toBe("rel-2");
+    expect(moveOptions(b, b.next).value).toBe("rel-3");
+  });
+
+  it("defaults to the release before it when it is the last one", () => {
+    expect(moveOptions(b, b.upcoming[0]).value).toBe("rel-2");
+  });
+
+  it("offers a new release when there is no other open release", () => {
+    const alone = board({ current: rel(1, { slot: "current", name: "1.5" }), next: placeholder(2, "next"), upcoming: [] });
+    const { options, value } = moveOptions(alone, alone.current);
+    expect(options.map((o) => o.label)).toEqual(["A new release", "No release"]);
+    expect(value).toBe("new");
+  });
+});
+
+describe("moveRequest", () => {
+  it("removes for No release, moves by default for a new release, and moves to a picked release", () => {
+    expect(moveRequest("none")).toEqual({ issues: "remove" });
+    expect(moveRequest("new")).toEqual({ issues: "move_to_next" });
+    expect(moveRequest("rel-3")).toEqual({ issues: "move_to_next", to: "rel-3" });
+  });
+});
+
+describe("releaseMemberCounts", () => {
+  it("counts the open members and all members, parents included", () => {
+    const issues = [
+      makeIssue({ id: "xpo-a", release_id: "rel-1", status: "DOING" }),
+      makeIssue({ id: "xpo-b", release_id: "rel-1", status: "DONE" }),
+      makeIssue({ id: "xpo-c", release_id: "rel-1", status: "CANCELED" }),
+      makeIssue({ id: "xpo-d", release_id: "rel-1", status: "BACKLOG", parent_id: "xpo-a" }),
+      makeIssue({ id: "xpo-e", release_id: "rel-2", status: "DOING" }),
+    ];
+    expect(releaseMemberCounts(issues, "rel-1")).toEqual({ open: 2, all: 4 });
+  });
+
+  it("counts nothing for a release without an ID", () => {
+    expect(releaseMemberCounts([makeIssue({ id: "xpo-a" })], undefined)).toEqual({ open: 0, all: 0 });
+  });
+});
+
+describe("headerClickToggles", () => {
+  const header = { contains: (n: unknown) => n === inside || n === inButton };
+  const inside = { closest: () => null };
+  const inButton = { closest: (sel: string) => (sel.includes("button") ? {} : null) };
+  const portal = { closest: () => null };
+
+  it("toggles on a click on the header itself", () => {
+    expect(headerClickToggles(inside as never, header as never)).toBe(true);
+  });
+
+  it("leaves clicks on the header's buttons to the buttons", () => {
+    expect(headerClickToggles(inButton as never, header as never)).toBe(false);
+  });
+
+  it("ignores clicks that bubble from portals: menus, popovers and dialogs", () => {
+    expect(headerClickToggles(portal as never, header as never)).toBe(false);
   });
 });
