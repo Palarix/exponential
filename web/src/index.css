@@ -320,6 +320,21 @@ body {
   font-size: 0.875rem;
 }
 
+/* Description excerpts in issue hover cards: xs text on xs lines, so a
+   fixed number of lines fits the clamp box; headings stay at text size. */
+.prose-exponential.prose-preview {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+/* :where keeps this below `.prose-exponential > :first-child`, which follows. */
+.prose-exponential.prose-preview :where(h1, h2, h3, h4) {
+  font-size: 1em;
+  line-height: inherit;
+  margin: 0.5em 0;
+}
+
 /* User message bubbles in agent chat: a one-line message keeps the
    height of a plain text-sm line, and no block adds space at the edges. */
 .prose-exponential.prose-bubble {
