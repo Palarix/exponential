@@ -3,11 +3,11 @@ import { ChevronRight } from "lucide-react";
 import type { Issue } from "../../api/types";
 import { isTerminal } from "../../constants";
 import { cn } from "../../utils/cn";
-import { CopyableId, indicatorPill, StatusIcon, SubProgress } from "../ui";
+import { Avatar, CopyableId, EstimateBadge, indicatorPill, OverflowLabels, StatusIcon, SubProgress } from "../ui";
 import Tooltip from "../ui/Tooltip";
 import { createHoverIntent } from "../IssueDetail/hover-intent";
 import { IssuePreview } from "../IssueRef/IssuePreview";
-import { childProgress, parentContext } from "./releases-utils";
+import { childProgress, parentContext, rowEstimate } from "./releases-utils";
 
 /** How long the pointer rests on an issue row before its hover card opens (as on issue chips). */
 const PREVIEW_DELAY = 250;
@@ -36,10 +36,12 @@ export function ReleaseIssueList({ issues, all, onIssueClick, empty = "No issues
 }
 
 /**
- * One issue, compact for the half-width lists but in the backlog's order and
- * styles: ID, status, the parent as a "Parent ›" breadcrumb, the title, and
- * the sub-issue progress pill. The hover card names the issue and shows what
- * the row leaves out: a description excerpt and counts of comments,
+ * One issue in the backlog's order and styles: ID, status, the parent as a
+ * "Parent ›" breadcrumb, the title and the sub-issue progress pill, then on
+ * the far right labels, estimate and assignee. Those are read-only here: the
+ * backlog's pickers belong to its keyboard navigation and popovers. The hover
+ * card names the issue and shows what the row leaves out: a description
+ * excerpt and counts of comments,
  * attachments, sub-issues, commits and open blockers. The breadcrumb gives way
  * before the title does. A click opens the issue. The row is a div, not a
  * button: it holds CopyableId, which is a button itself. Resting on the row
@@ -69,6 +71,8 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
     <>
       <div
         ref={setRefs}
+        // OverflowLabels fits the labels to a share of this row's width.
+        data-backlog-row
         role="button"
         tabIndex={0}
         onClick={open}
@@ -86,16 +90,34 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
       >
         <CopyableId id={issue.id} className="text-xs text-left shrink-0 tabular-nums" />
         <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
-        <span className="flex items-center gap-2 flex-1 min-w-0">
+        <span className="flex items-center gap-2 min-w-0">
           {parent && <ParentCrumb parent={parent.parent} where={parent.where} />}
-          <span className="text-sm text-[var(--color-text-primary)] truncate min-w-0 flex-1">{issue.title}</span>
+          <span className="text-sm text-[var(--color-text-primary)] truncate min-w-0">{issue.title}</span>
         </span>
         {children && (
-          <span className={indicatorPill}>
+          <span className={cn(indicatorPill, "shrink-0")}>
             <SubProgress done={children.done} total={children.total} size={12} />
             {children.done}/{children.total}
           </span>
         )}
+        <div className="flex-1" />
+        {issue.labels && issue.labels.length > 0 && (
+          <span className="shrink-0">
+            <OverflowLabels labels={issue.labels} />
+          </span>
+        )}
+        <span className="flex items-center w-10 justify-end shrink-0">
+          <EstimateBadge value={rowEstimate(issue, all)} />
+        </span>
+        <span className="flex shrink-0">
+          {issue.assignee ? (
+            <Avatar name={issue.assignee} size="sm" />
+          ) : (
+            <span className="flex opacity-50" title="No assignee">
+              <Avatar size="sm" />
+            </span>
+          )}
+        </span>
       </div>
       {preview && !dragging && <IssuePreview anchorRef={rowRef} issue={issue} />}
     </>

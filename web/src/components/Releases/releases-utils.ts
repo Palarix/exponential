@@ -155,6 +155,19 @@ export function childProgress(issue: Issue, all: Issue[]): { done: number; total
   return { done: children.filter((c) => isCompleted(c.status)).length, total: children.length };
 }
 
+/**
+ * The estimate an issue row shows, as backlog rows show it: a parent's open
+ * child points (its done ones once the parent is closed), each child counting
+ * its estimate or 1; otherwise the issue's own estimate.
+ */
+export function rowEstimate(issue: Issue, all: Issue[]): number {
+  const children = all.filter((i) => i.parent_id === issue.id);
+  if (children.length === 0) return issue.estimate;
+  const points = (list: Issue[]) => list.reduce((s, c) => s + (c.estimate || 1), 0);
+  const done = points(children.filter((c) => isCompleted(c.status)));
+  return isTerminal(issue.status) ? done : points(children) - done;
+}
+
 /** Where the move picker can send a release's issues: a release ID, "new" (a new release) or "none" (No release). */
 export interface MoveOption { value: string; label: string }
 

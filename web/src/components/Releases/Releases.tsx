@@ -94,8 +94,7 @@ function ReleasesBoard({ board, onOpen }: { board: ReleasesResponse; onOpen: (re
         </StatusBarSlot>
       )}
       <ViewContainer
-        maxWidth="7xl"
-        innerClassName="px-6 pt-5 pb-10"
+        contentClassName="px-6 pt-5 pb-10"
         topBar={
           <TopBar
             left={<Heading title="Releases" />}

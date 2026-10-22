@@ -15,6 +15,9 @@ const rel = (number: number, o: Partial<Release> = {}): Release => ({
 const past = (number: number) =>
   rel(number, { label: `0.${number}`, state: "RELEASED", slot: "past", released_at: "2026-09-01T10:00:00Z" });
 
+const inOneOne = makeIssue({
+  id: "xpo-in1", title: "In 1.1", release_id: "rel-2", labels: ["backend"], estimate: 3, assignee: "Ada Lovelace <ada@example.com>",
+});
 const delivered = makeIssue({ id: "xpo-dl1", title: "Delivered thing", status: "DONE", release_id: "rel-1" });
 const epic = makeIssue({ id: "xpo-ep1", title: "Courier app", release_id: "rel-3", release: "1.2" });
 const epicKids = [
@@ -28,7 +31,7 @@ function stack(board: ReleasesResponse, query = "", filters: BacklogFilters = EM
     <TooltipPrimitive.Provider>
       <ReleaseStack
         board={board}
-        issues={[makeIssue({ id: "xpo-un1", title: "Loose one" }), makeIssue({ id: "xpo-in1", title: "In 1.1", release_id: "rel-2" }), delivered, epic, ...epicKids]}
+        issues={[makeIssue({ id: "xpo-un1", title: "Loose one" }), inOneOne, delivered, epic, ...epicKids]}
         today="2026-10-20"
         query={query}
         filters={filters}
@@ -135,12 +138,44 @@ describe("ReleaseStack", () => {
     expect(html).toMatch(/Courier app(?:(?!role="button").)*0\/3/s);
   });
 
-  it("keeps issue rows compact: ID, status and title in the backlog's order, no priority or labels", () => {
-    const html = stack(board, "in 1.1");
-    const row = html.match(/<div[^>]*role="button"[^>]*>(?:(?!role="button").)*In 1\.1.*?<\/div>/s)?.[0] ?? "";
+  /** The issue row holding `title`, up to the next row. */
+  const rowOf = (html: string, title: string) => {
+    const start = html.lastIndexOf('role="button"', html.indexOf(title));
+    const end = html.indexOf('role="button"', start + 1);
+    return html.slice(start, end < 0 ? undefined : end);
+  };
+
+  it("shows issue rows in the backlog's order: ID, status, title, then labels, estimate and assignee, no priority", () => {
+    const row = rowOf(stack(board, "in 1.1"), "In 1.1");
     expect(row).toMatch(/title="Copy issue ID"[^>]*>xpo-in1</);
-    expect(row.indexOf("xpo-in1")).toBeLessThan(row.indexOf("In 1.1"));
+    const at = (s: string) => row.indexOf(s);
+    expect(at("xpo-in1")).toBeLessThan(at(">In 1.1<"));
+    expect(at(">In 1.1<")).toBeLessThan(at("Backend<"));
+    expect(at("Backend<")).toBeLessThan(at(">3<"));
+    expect(at(">3<")).toBeLessThan(at('title="Ada Lovelace &lt;ada@example.com&gt;"'));
     expect(row).not.toMatch(/aria-label="[^"]*[Pp]riority/);
+  });
+
+  it("shows labels, estimate and assignee read-only: no pickers in the row", () => {
+    const row = rowOf(stack(board, "in 1.1"), "In 1.1");
+    // The only button is the copyable ID.
+    expect(row.match(/<button/g)).toHaveLength(1);
+    expect(row).not.toMatch(/aria-haspopup|change assignee|\+ label/);
+  });
+
+  it("shows an unassigned issue as the empty avatar", () => {
+    const row = rowOf(stack(board), "Loose one");
+    expect(row).toContain("border-dashed");
+  });
+
+  it("puts a parent's child progress right after its title, before its remaining child points", () => {
+    const row = rowOf(stack(board, "courier"), "Courier app");
+    const at = (s: string) => row.indexOf(s);
+    expect(at(">Courier app<")).toBeLessThan(at("0/3"));
+    // The pill sits with the title, not pushed right: a spacer follows it.
+    expect(at("0/3")).toBeLessThan(at('class="flex-1"'));
+    // Three open children without estimates: 3 points left.
+    expect(at('class="flex-1"')).toBeLessThan(at(">3<"));
   });
 
   it("narrows every list with the filters and opens the rows with matches", () => {

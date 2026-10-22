@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Releases view: issue rows show labels, estimate and assignee on the far right, like the backlog, read-only. A parent's estimate is its remaining child points. The sub-issue progress pill sits right after the title, and the view is full width. (xpo-df162c)
+
 - One issue hover card everywhere: issue links and chips (in Markdown, chat and the chat title), relation chips and release rows. It shows the status icon, ID and assignee avatar, the title (up to two lines), the description as Markdown (up to six lines, fading out when longer), and icons with counts for comments, attachments, spec, walkthrough, sub-issues done, commits and open blockers, each only when there is one. Priority, estimate and labels are no longer on the card. (xpo-73dfc5)
 
 - Dialogs share one frame: a title, a body that scrolls, and buttons at the bottom right, with even 16px spacing and no dividers. Every dialog shows "esc to cancel" (or its own control) at the bottom left, keeps Tab inside, and returns focus to where you were when it closes. New issue, the merge dialogs and the "Update/Move sub-issues?" prompts now match the confirmation dialogs, and Confirm merge closes on Escape. (xpo-c6bb65)

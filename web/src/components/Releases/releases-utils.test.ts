@@ -3,7 +3,7 @@ import type { Release, ReleasesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import {
   acceptsIssueDrop, childProgress, matchesIssueSearch, parentContext, issuesInRelease, openReleases, orderWarnings, releaseDropRef, reorderMove, savedOrder, timeBar,
-  noReleaseIssues, releaseFilter, moveOptions, moveRequest, releaseMemberCounts, headerClickToggles,
+  noReleaseIssues, releaseFilter, moveOptions, moveRequest, releaseMemberCounts, headerClickToggles, rowEstimate,
 } from "./releases-utils";
 
 const rel = (number: number, overrides: Partial<Release> = {}): Release => ({
@@ -243,6 +243,28 @@ describe("childProgress", () => {
 
   it("has nothing for an issue without children", () => {
     expect(childProgress(makeIssue({ id: "solo" }), [makeIssue({ id: "solo" })])).toBeNull();
+  });
+});
+
+describe("rowEstimate", () => {
+  const kids = [
+    makeIssue({ id: "a", parent_id: "epic", status: "DONE", estimate: 3 }),
+    makeIssue({ id: "b", parent_id: "epic", estimate: 5 }),
+    makeIssue({ id: "c", parent_id: "epic" }),
+  ];
+
+  it("is the issue's own estimate without children", () => {
+    expect(rowEstimate(makeIssue({ id: "solo", estimate: 2 }), [])).toBe(2);
+  });
+
+  it("is an open parent's remaining child points, an unestimated child counting 1", () => {
+    const epic = makeIssue({ id: "epic", estimate: 8 });
+    expect(rowEstimate(epic, [epic, ...kids])).toBe(6);
+  });
+
+  it("is a closed parent's points done", () => {
+    const epic = makeIssue({ id: "epic", status: "DONE" });
+    expect(rowEstimate(epic, [epic, ...kids])).toBe(3);
   });
 });
 
