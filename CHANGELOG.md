@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Releases view: a click on a release's progress pill switches every row between issues done (`3/6`, with the ring) and story points done (`▲ 5/13`). The choice is kept in this browser. Points count the release's leaf issues, without canceled and duplicate ones, and unestimated issues count as 0.
+  - **Breakdown on hover:** the status breakdown now opens when you rest the pointer on the pill. Its header shows the points too.
+  - **Raised pill:** the release pill sits raised off the row, so it reads as a button, apart from the issue and epic count pills.
+  - **Past releases:** completing a release now saves its points with its counts. Releases completed earlier have no points and show no pill in points mode.
+  - **API:** releases have `points: {total, done}` in the server API, `xpo release --json` and the MCP `release` tool.
+
+  (xpo-483245)
+
 - Releases view: edit, complete and delete releases from their rows.
   - **`⋯` menu** on every open release: Edit, Complete release and Delete. On Current, Complete release comes first. Past releases have no menu.
   - **Edit** opens the release dialog filled in with label, goal and target date; emptying a field clears it.

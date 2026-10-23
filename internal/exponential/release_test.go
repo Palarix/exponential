@@ -364,9 +364,15 @@ func TestCompleteRelease_MovesOpenIssuesToNextAndKeepsDone(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateRelease(t, tr, "a")
 	b := mustCreateRelease(t, tr, "b")
-	done := addIssueIn(t, tr, "done", "DONE", a.ID)
+	done, err := tr.AddIssue(model.CreatePayload{Title: "done", Status: "DONE", ReleaseID: a.ID, Estimate: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
 	open := addIssueIn(t, tr, "open", "DOING", a.ID)
-	canceled := addIssueIn(t, tr, "canceled", "CANCELED", a.ID)
+	canceled, err := tr.AddIssue(model.CreatePayload{Title: "canceled", Status: "CANCELED", ReleaseID: a.ID, Estimate: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	r, msgs, err := tr.CompleteRelease("a", "", "")
 	if err != nil {
@@ -386,8 +392,11 @@ func TestCompleteRelease_MovesOpenIssuesToNextAndKeepsDone(t *testing.T) {
 	if got.Stats == nil || got.Stats.Counts["DONE"] != 1 || len(got.Stats.Counts) != 1 || len(got.Stats.LeafIDs) != 1 || got.Stats.LeafIDs[0] != done.ID {
 		t.Errorf("the snapshot holds only the scope (canceled left out): %+v", got.Stats)
 	}
-	if _, total, doneN := ReleaseCounts(readAllIssues(t), got); total != 1 || doneN != 1 {
-		t.Errorf("a release whose remaining issues are done reads as complete: %d/%d", doneN, total)
+	if got.Stats.Points == nil || *got.Stats.Points != (model.ReleasePoints{Total: 3, Done: 3}) {
+		t.Errorf("the snapshot holds the scope's points (canceled left out): %+v", got.Stats.Points)
+	}
+	if s := ReleaseCounts(readAllIssues(t), got); s.Total != 1 || s.Done != 1 || s.Points == nil || s.Points.Total != 3 {
+		t.Errorf("a release whose remaining issues are done reads as complete: %+v", s)
 	}
 	if releaseByNumber(t, 2).StartedAt == nil {
 		t.Error("Next became Current and gets started_at")

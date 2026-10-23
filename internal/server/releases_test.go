@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/model"
 )
 
@@ -93,7 +94,7 @@ func TestReleasesAPI_Lifecycle(t *testing.T) {
 	if issue.ReleaseID != created.ID || issue.Release != "1.5" {
 		t.Errorf("issue release = %q / %q", issue.ReleaseID, issue.Release)
 	}
-	if got := getBoard(t, mux).Current; got.Total != 1 || got.Counts["BACKLOG"] != 1 {
+	if got := getBoard(t, mux).Current; got.Total != 1 || got.Counts["BACKLOG"] != 1 || got.Points == nil || got.Points.Total != 0 {
 		t.Errorf("current counts = %+v", got)
 	}
 
@@ -148,6 +149,18 @@ func TestReleasesAPI_Lifecycle(t *testing.T) {
 	json.Unmarshal(w.Body.Bytes(), &issue)
 	if issue.ReleaseID != "" {
 		t.Errorf("issue should be in no release, got %q", issue.ReleaseID)
+	}
+}
+
+func TestReleaseResponse_PointsOnlyWhenKnown(t *testing.T) {
+	r := &model.Release{ID: "rel-a", Number: 1, State: model.ReleaseReleased}
+	with, _ := json.Marshal(releaseToResponse(r, "past", exponential.ReleaseScope{Points: &model.ReleasePoints{Total: 8, Done: 3}}))
+	if !bytes.Contains(with, []byte(`"points":{"total":8,"done":3}`)) {
+		t.Errorf("points missing: %s", with)
+	}
+	without, _ := json.Marshal(releaseToResponse(r, "past", exponential.ReleaseScope{}))
+	if bytes.Contains(without, []byte(`"points"`)) {
+		t.Errorf("a release without points leaves the field out: %s", without)
 	}
 }
 

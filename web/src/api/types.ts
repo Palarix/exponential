@@ -97,6 +97,8 @@ export interface Release {
   counts: Record<string, number>;
   total: number;
   done: number;
+  /** Story points of the scope; missing on a past release completed before points were recorded. */
+  points?: { total: number; done: number };
 }
 
 export interface ReleasesResponse {

@@ -21,6 +21,7 @@ const current: Release = {
   counts: { DOING: 2, PLANNED: 1, DONE: 3 },
   total: 6,
   done: 3,
+  points: { total: 13, done: 5 },
 };
 
 const render = (el: ReactElement, client?: QueryClient) =>
@@ -57,8 +58,38 @@ describe("ReleaseRowBody", () => {
   it("puts the target date and the done/total progress on the title line", () => {
     const html = row(current);
     expect(html).toContain("Nov 15");
-    expect(html).toMatch(/aria-label="3 of 6 done\. Show breakdown"/);
+    expect(html).toMatch(/aria-label="3 of 6 issues done\. Click for story points"/);
     expect(html).toMatch(/aria-expanded="false"[^>]*aria-label="Show issues"/);
+  });
+
+  it("shows story points done of total in points mode", () => {
+    const html = row(current, { progressMode: "points" });
+    expect(html).toMatch(/aria-label="5 of 13 story points done\. Click for issue count"/);
+    expect(html).toContain("5/13");
+    expect(html).not.toContain("3/6");
+  });
+
+  it("shows the ring in issues mode and the triangle instead in points mode", () => {
+    const pill = (html: string) => {
+      const start = html.indexOf(" done. Click for");
+      return html.slice(start, html.indexOf("</button>", start));
+    };
+    expect(pill(row(current))).toContain("<circle");
+    const points = pill(row(current, { progressMode: "points" }));
+    expect(points).toContain("lucide-triangle");
+    expect(points).not.toContain("<circle");
+    expect(pill(row({ ...current, points: { total: 13, done: 13 } }, { progressMode: "points" }))).not.toContain("circle-check");
+  });
+
+  it("raises the progress pill, a button, off the row", () => {
+    const html = row(current);
+    expect(html).toMatch(/<button[^>]*aria-label="3 of 6 issues done[^"]*" class="[^"]*bg-\[var\(--color-surface-2\)\]/);
+  });
+
+  it("hides the pill in points mode for a past release without stored points", () => {
+    const old = { ...current, state: "RELEASED" as const, slot: "past" as const, released_at: "2026-10-02T10:00:00Z", points: undefined };
+    expect(row(old, { handle: null, progressMode: "points" })).not.toMatch(/story points done/);
+    expect(row(old, { handle: null })).toMatch(/aria-label="3 of 6 issues done/);
   });
 
   it("marks a target date that passed with open scope", () => {
@@ -90,7 +121,7 @@ describe("ReleaseRowBody", () => {
 
   it("puts the progress right after the title", () => {
     const html = row(current);
-    const progress = html.indexOf('aria-label="3 of 6 done. Show breakdown"');
+    const progress = html.indexOf('aria-label="3 of 6 issues done. Click for story points"');
     expect(html.indexOf("Live courier tracking")).toBeLessThan(progress);
     expect(progress).toBeLessThan(html.indexOf("Nov 15"));
   });
@@ -121,7 +152,7 @@ describe("ReleaseSummaryCard", () => {
     });
     const html = render(<ReleaseSummaryCard release={current} today="2026-10-20" />, client);
     expect(html).toContain("In progress");
-    expect(html).toContain("3/6 done");
+    expect(html).toContain("3/6 done · 5/13 pts");
     expect(html).toMatch(/aria-label="Time to target date"/);
     expect(html).toMatch(/aria-label="Burndown"/);
   });
@@ -137,5 +168,11 @@ describe("ReleaseSummaryCard", () => {
     const html = render(<ReleaseSummaryCard release={released} today="2026-10-20" />);
     expect(html).toContain("In progress");
     expect(html).not.toContain("Burndown");
+  });
+
+  it("leaves the points out of the header when the release has none", () => {
+    const html = render(<ReleaseSummaryCard release={{ ...current, points: undefined }} today="2026-10-20" />);
+    expect(html).toContain("3/6 done");
+    expect(html).not.toContain("pts");
   });
 });

@@ -1,11 +1,12 @@
-import { useRef, useState, type ReactNode } from "react";
-import { ChevronRight, TriangleAlert } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronRight, Triangle, TriangleAlert } from "lucide-react";
 import type { Release, ReleaseDay } from "../../api/types";
 import { useReleaseProgress } from "../../api/queries";
 import { formatShortDate } from "../../utils/format";
 import { cn } from "../../utils/cn";
-import { indicatorPill, Popover, PopoverPanel, StatusIcon, SubProgress } from "../ui";
+import { Popover, PopoverPanel, raisedIndicatorPill, StatusIcon, SubProgress } from "../ui";
 import Tooltip from "../ui/Tooltip";
+import { createHoverIntent } from "../IssueDetail/hover-intent";
 import { dropHighlightClass, headerClickToggles, timeBar, type DropHighlight } from "./releases-utils";
 
 const STAT_ORDER = ["DOING", "BLOCKED", "PLANNED", "BACKLOG", "DONE"];
@@ -163,27 +164,51 @@ function ReleaseDate({ release, today }: { release: Release; today: string }) {
   );
 }
 
-/** Done of total as the epic progress ring; a click opens the full breakdown. */
-export function ReleaseProgress({ release, today }: { release: Release; today: string }) {
+/** What the progress pill counts: issues, or story points. */
+export type ProgressMode = "issues" | "points";
+
+const BREAKDOWN_DELAY = 250;
+
+/**
+ * Done of total: issues with the epic progress ring, or story points with
+ * the estimate triangle; a click switches every row between the two. Resting
+ * the pointer on it opens the full breakdown. In points mode a past release
+ * without stored points shows nothing.
+ */
+export function ReleaseProgress({ release, today, mode = "issues", onToggleMode }: {
+  release: Release;
+  today: string;
+  mode?: ProgressMode;
+  onToggleMode?: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [intent] = useState(() => createHoverIntent(BREAKDOWN_DELAY, setOpen));
+  useEffect(() => () => intent.cancel(), [intent]);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const points = mode === "points";
+  if (points && !release.points) return null;
+  const { done, total } = points ? release.points! : release;
+  const label = points
+    ? `${done} of ${total} story points done. Click for issue count`
+    : `${done} of ${total} issues done. Click for story points`;
   return (
     <>
       <button
         ref={anchorRef}
         type="button"
-        onClick={() => setOpen(!open)}
-        aria-label={`${release.done} of ${release.total} done. Show breakdown`}
-        aria-expanded={open}
-        className={cn(indicatorPill, "shrink-0 hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)] transition-colors")}
+        onClick={() => { intent.leave(); onToggleMode?.(); }}
+        onMouseEnter={() => intent.enter()}
+        onMouseLeave={() => intent.leave()}
+        aria-label={label}
+        className={raisedIndicatorPill}
       >
-        <SubProgress done={release.done} total={release.total} size={12} />
-        {release.done}/{release.total}
+        {points ? <Triangle size={10} fill="currentColor" strokeWidth={0} aria-hidden /> : <SubProgress done={done} total={total} size={12} />}
+        {done}/{total}
       </button>
       {open && (
-        <Popover anchorRef={anchorRef} onClose={() => setOpen(false)} placement="bottom-end">
+        <Popover anchorRef={anchorRef} onClose={() => setOpen(false)} placement="bottom-end" className="pointer-events-none">
           <PopoverPanel className="w-72 py-0">
-            <ReleaseSummaryCard release={release} today={today} />
+            <div role="tooltip"><ReleaseSummaryCard release={release} today={today} /></div>
           </PopoverPanel>
         </Popover>
       )}
@@ -204,7 +229,9 @@ export function ReleaseSummaryCard({ release, today }: { release: Release; today
     <div className="text-sm">
       <div className={cn(section, "flex items-center gap-3")}>
         <span className="flex-1 min-w-0"><ReleaseTitle release={release} badge={false} /></span>
-        <span className="text-[var(--color-text-muted)] tabular-nums shrink-0">{release.done}/{release.total} done</span>
+        <span className="text-[var(--color-text-muted)] tabular-nums shrink-0">
+          {release.done}/{release.total} done{release.points && ` · ${release.points.done}/${release.points.total} pts`}
+        </span>
       </div>
       <div className={section}><ReleaseStats release={release} /></div>
       {release.target_date && (
@@ -275,6 +302,9 @@ interface ReleaseRowBodyProps {
   highlight?: DropHighlight;
   /** The last column: the actions menu of an open release. */
   actions?: ReactNode;
+  /** What the progress pill counts, and the click that switches it. */
+  progressMode?: ProgressMode;
+  onToggleProgressMode?: () => void;
   /** The release's issues, shown while expanded. */
   children?: ReactNode;
 }
@@ -286,7 +316,7 @@ interface ReleaseRowBodyProps {
  * toggles the issues; only the name opens the release.
  */
 export function ReleaseRowBody({
-  release, today, handle, warning, expanded, onToggle, onOpen, highlight = null, actions, children,
+  release, today, handle, warning, expanded, onToggle, onOpen, highlight = null, actions, progressMode, onToggleProgressMode, children,
 }: ReleaseRowBodyProps) {
   const past = release.state === "RELEASED";
   return (
@@ -316,7 +346,7 @@ export function ReleaseRowBody({
               {release.name}
             </button>
           }
-          extra={<ReleaseProgress release={release} today={today} />}
+          extra={<ReleaseProgress release={release} today={today} mode={progressMode} onToggleMode={onToggleProgressMode} />}
         />
         <span className="flex"><OrderWarning names={warning} /></span>
         <ReleaseDate release={release} today={today} />

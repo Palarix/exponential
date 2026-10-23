@@ -770,12 +770,16 @@ func (t *LocalTransport) CompleteRelease(ref, mode, to string) (*model.Release, 
 		w.moveIssues(open, dest, r.ID)
 
 		parents := parentIDs(issues)
-		stats := model.ReleaseStats{Counts: map[string]int{}, LeafIDs: []string{}}
+		stats := model.ReleaseStats{Counts: map[string]int{}, Points: &model.ReleasePoints{}, LeafIDs: []string{}}
 		for _, iss := range terminal {
 			if parents[iss.ID] || !inScope(iss.Status) {
 				continue
 			}
 			stats.Counts[string(iss.Status)]++
+			stats.Points.Total += iss.Estimate
+			if model.IsCompleted(iss.Status) {
+				stats.Points.Done += iss.Estimate
+			}
 			stats.LeafIDs = append(stats.LeafIDs, iss.ID)
 		}
 		sort.Strings(stats.LeafIDs)
@@ -834,13 +838,21 @@ func pluralIssues(n int) string {
 
 // --- Reading ---
 
-// ReleaseView is a release with its position on the board and its counts.
+// ReleaseView is a release with its position on the board and its scope.
 type ReleaseView struct {
 	*model.Release
-	Slot   string // current, next, upcoming or past
+	Slot string // current, next, upcoming or past
+	ReleaseScope
+}
+
+// ReleaseScope is the size of a release: its scope's counts by status, their
+// total and done sums, and its story points. Points is nil for a past
+// release whose snapshot has none.
+type ReleaseScope struct {
 	Counts map[string]int
 	Total  int
 	Done   int
+	Points *model.ReleasePoints
 }
 
 // Board slots.
@@ -881,34 +893,44 @@ func BuildReleaseViews(events []model.Event) []ReleaseView {
 }
 
 func newReleaseView(r *model.Release, slot string, issues map[string]*model.Issue) ReleaseView {
-	counts, total, done := ReleaseCounts(issues, r)
-	return ReleaseView{Release: r, Slot: slot, Counts: counts, Total: total, Done: done}
+	return ReleaseView{Release: r, Slot: slot, ReleaseScope: ReleaseCounts(issues, r)}
 }
 
 // ReleaseCounts counts the scope of a release (leaf issues, not CANCELED or
-// DUPLICATE) by status. A RELEASED release uses the snapshot stored when it
-// was completed.
-func ReleaseCounts(issues map[string]*model.Issue, r *model.Release) (counts map[string]int, total, done int) {
-	counts = map[string]int{}
+// DUPLICATE) by status and sums its story points. A RELEASED release uses
+// the snapshot stored when it was completed.
+func ReleaseCounts(issues map[string]*model.Issue, r *model.Release) ReleaseScope {
+	s := ReleaseScope{Counts: map[string]int{}}
 	if r.Stats != nil {
 		for status, n := range r.Stats.Counts {
-			counts[status] = n
+			s.Counts[status] = n
 		}
-	} else if !r.Placeholder {
-		parents := parentIDs(issues)
-		for _, iss := range issues {
-			if iss.ReleaseID == r.ID && !parents[iss.ID] && inScope(iss.Status) {
-				counts[string(iss.Status)]++
+		if r.Stats.Points != nil {
+			points := *r.Stats.Points
+			s.Points = &points
+		}
+	} else {
+		s.Points = &model.ReleasePoints{}
+		if !r.Placeholder {
+			parents := parentIDs(issues)
+			for _, iss := range issues {
+				if iss.ReleaseID == r.ID && !parents[iss.ID] && inScope(iss.Status) {
+					s.Counts[string(iss.Status)]++
+					s.Points.Total += iss.Estimate
+					if model.IsCompleted(iss.Status) {
+						s.Points.Done += iss.Estimate
+					}
+				}
 			}
 		}
 	}
-	for status, n := range counts {
-		total += n
+	for status, n := range s.Counts {
+		s.Total += n
 		if model.IsCompleted(model.IssueStatus(status)) {
-			done += n
+			s.Done += n
 		}
 	}
-	return counts, total, done
+	return s
 }
 
 // ListReleases returns the release board views.
@@ -941,21 +963,18 @@ type ReleaseDay struct {
 	Completed int    `json:"completed"`
 }
 
-// ReleaseProgress holds the counts and burndown of a release.
+// ReleaseProgress holds the scope and burndown of a release.
 type ReleaseProgress struct {
 	Release *model.Release
-	Counts  map[string]int
-	Total   int
-	Done    int
-	Days    []ReleaseDay
+	ReleaseScope
+	Days []ReleaseDay
 }
 
 // ComputeReleaseProgress counts the scope of r and replays events into a
 // daily burndown of it, from started_at to released_at (or now). A
 // release that was never Current has no burndown.
 func ComputeReleaseProgress(events []model.Event, r *model.Release, now time.Time) ReleaseProgress {
-	p := ReleaseProgress{Release: r, Days: []ReleaseDay{}}
-	p.Counts, p.Total, p.Done = ReleaseCounts(ProjectIssues(events), r)
+	p := ReleaseProgress{Release: r, ReleaseScope: ReleaseCounts(ProjectIssues(events), r), Days: []ReleaseDay{}}
 	if r.StartedAt == nil || r.Placeholder {
 		return p
 	}

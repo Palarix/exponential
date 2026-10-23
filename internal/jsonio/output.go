@@ -492,6 +492,8 @@ type ReleaseSummary struct {
 	Counts      map[string]int `json:"counts,omitempty"`
 	Total       int            `json:"total"`
 	Done        int            `json:"done"`
+	// Points is left out for a past release completed before points were recorded.
+	Points *model.ReleasePoints `json:"points,omitempty"`
 }
 
 type ReleaseOutput struct {
@@ -500,8 +502,8 @@ type ReleaseOutput struct {
 	Messages []string         `json:"messages,omitempty"`
 }
 
-// ToReleaseSummary converts a release; slot and counts are optional.
-func ToReleaseSummary(r *model.Release, slot string, counts map[string]int, total, done int) ReleaseSummary {
+// ToReleaseSummary converts a release; slot, counts and points are optional.
+func ToReleaseSummary(r *model.Release, slot string, counts map[string]int, total, done int, points *model.ReleasePoints) ReleaseSummary {
 	out := ReleaseSummary{
 		ID:          r.ID,
 		Number:      r.Number,
@@ -517,6 +519,7 @@ func ToReleaseSummary(r *model.Release, slot string, counts map[string]int, tota
 		Counts:      counts,
 		Total:       total,
 		Done:        done,
+		Points:      points,
 	}
 	if r.StartedAt != nil {
 		out.StartedAt = r.StartedAt.Format(time.RFC3339)

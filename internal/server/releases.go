@@ -34,6 +34,8 @@ type ReleaseResponse struct {
 	Counts      map[string]int `json:"counts"`
 	Total       int            `json:"total"`
 	Done        int            `json:"done"`
+	// Points is left out for a past release completed before points were recorded.
+	Points *model.ReleasePoints `json:"points,omitempty"`
 }
 
 // ReleasesResponse is the release board: Current and Next always exist.
@@ -52,7 +54,8 @@ type ReleaseProgressResponse struct {
 	Days    []exponential.ReleaseDay `json:"days"`
 }
 
-func releaseToResponse(r *model.Release, slot string, counts map[string]int, total, done int) ReleaseResponse {
+func releaseToResponse(r *model.Release, slot string, scope exponential.ReleaseScope) ReleaseResponse {
+	counts := scope.Counts
 	if counts == nil {
 		counts = map[string]int{}
 	}
@@ -71,8 +74,9 @@ func releaseToResponse(r *model.Release, slot string, counts map[string]int, tot
 		StartedAt:   r.StartedAt,
 		ReleasedAt:  r.ReleasedAt,
 		Counts:      counts,
-		Total:       total,
-		Done:        done,
+		Total:       scope.Total,
+		Done:        scope.Done,
+		Points:      scope.Points,
 	}
 	if !r.CreatedAt.IsZero() {
 		at := r.CreatedAt
@@ -109,7 +113,7 @@ func (s *Server) respondRelease(w http.ResponseWriter, id string) {
 	}
 	for _, v := range exponential.BuildReleaseViews(events) {
 		if v.ID == id {
-			respondJSON(w, http.StatusOK, releaseToResponse(v.Release, v.Slot, v.Counts, v.Total, v.Done))
+			respondJSON(w, http.StatusOK, releaseToResponse(v.Release, v.Slot, v.ReleaseScope))
 			return
 		}
 	}
@@ -124,7 +128,7 @@ func (s *Server) handleGetReleases(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := ReleasesResponse{Upcoming: []ReleaseResponse{}, Past: []ReleaseResponse{}}
 	for _, v := range exponential.BuildReleaseViews(events) {
-		rr := releaseToResponse(v.Release, v.Slot, v.Counts, v.Total, v.Done)
+		rr := releaseToResponse(v.Release, v.Slot, v.ReleaseScope)
 		switch v.Slot {
 		case exponential.SlotCurrent:
 			resp.Current = &rr
@@ -161,7 +165,7 @@ func (s *Server) handleReleaseProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	p := exponential.ComputeReleaseProgress(append(archived, events...), release, time.Now())
 	respondJSON(w, http.StatusOK, ReleaseProgressResponse{
-		Release: releaseToResponse(p.Release, "", p.Counts, p.Total, p.Done),
+		Release: releaseToResponse(p.Release, "", p.ReleaseScope),
 		Counts:  p.Counts,
 		Total:   p.Total,
 		Done:    p.Done,
@@ -255,7 +259,7 @@ func (s *Server) handleCompleteRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	s.notify(TopicIssues)
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"release":  releaseToResponse(release, exponential.SlotPast, nil, 0, 0),
+		"release":  releaseToResponse(release, exponential.SlotPast, exponential.ReleaseScope{}),
 		"messages": msgs,
 	})
 }

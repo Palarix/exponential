@@ -18,12 +18,15 @@ import { DragOverlayCard } from "../Backlog/DndComponents";
 import NewReleaseDialog from "./NewReleaseDialog";
 import ReleaseActionDialog from "./ReleaseActionDialog";
 import { releaseMenuItems, type ReleaseAction } from "./release-action-utils";
-import { ExpandToggle, PastBurndown, RELEASE_ROW_GRID, ReleaseRowBody } from "./ReleaseRow";
+import { ExpandToggle, PastBurndown, RELEASE_ROW_GRID, ReleaseRowBody, type ProgressMode } from "./ReleaseRow";
 import { IssueRow, ReleaseIssueList } from "./ReleaseIssues";
 import {
   acceptsIssueDrop, dropHighlightClass, headerClickToggles, releaseFilter, issuesInRelease, openReleases, orderWarnings,
   releaseMemberCounts, reorderMove, savedOrder, noReleaseIssues, type DropHighlight,
 } from "./releases-utils";
+
+/** Where the progress pills' issues/points choice is saved. */
+const PROGRESS_MODE_KEY = "exponential-releases-show-points";
 
 /** Past releases shown before "Show N older". */
 const PAST_SHOWN = 3;
@@ -85,6 +88,14 @@ function ReleasesBoard({ board, onOpen }: { board: ReleasesResponse; onOpen: (re
   const [showNew, setShowNew] = useState(false);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useViewState("exponential-releases-filters", FILTERS_CODEC);
+  const [progressMode, setProgressMode] = useState<ProgressMode>(
+    () => localStorage.getItem(PROGRESS_MODE_KEY) === "true" ? "points" : "issues",
+  );
+  const toggleProgressMode = () => setProgressMode((mode) => {
+    const next = mode === "points" ? "issues" : "points";
+    localStorage.setItem(PROGRESS_MODE_KEY, String(next === "points"));
+    return next;
+  });
 
   return (
     <>
@@ -124,6 +135,8 @@ function ReleasesBoard({ board, onOpen }: { board: ReleasesResponse; onOpen: (re
           onIssueClick={onIssueClick}
           onReorder={(move) => reorder.mutate(move)}
           onAssign={(issue, target) => assignRelease([issue.id], target)}
+          progressMode={progressMode}
+          onToggleProgressMode={toggleProgressMode}
         />
         {showNew && <NewReleaseDialog onClose={() => setShowNew(false)} />}
       </ViewContainer>
@@ -147,6 +160,9 @@ export interface ReleaseStackProps {
   onAssign: (issue: Issue, target: Release | null) => void;
   /** Releases (by number) expanded at first. */
   initialExpanded?: number[];
+  /** What every progress pill counts; a click on one calls onToggleProgressMode. */
+  progressMode?: ProgressMode;
+  onToggleProgressMode?: () => void;
 }
 
 /**
@@ -156,6 +172,7 @@ export interface ReleaseStackProps {
  */
 export function ReleaseStack({
   board, issues, today, query, filters = EMPTY_FILTERS, onOpen, onIssueClick, onReorder, onAssign, initialExpanded = [],
+  progressMode = "issues", onToggleProgressMode = () => {},
 }: ReleaseStackProps) {
   // Search and filters narrow the lists; counts, breadcrumbs and child progress keep using all issues.
   const listed = useMemo(() => hasActiveFilters(filters) ? issues.filter((i) => matchesFilters(i, filters, board)) : issues, [issues, filters, board]);
@@ -233,6 +250,8 @@ export function ReleaseStack({
             onOpen={() => onOpen(release)}
             onIssueClick={onIssueClick}
             highlight={highlightFor(release)}
+            progressMode={progressMode}
+            onToggleProgressMode={onToggleProgressMode}
           />
         ))}
         <NoReleaseRow
@@ -253,6 +272,8 @@ export function ReleaseStack({
           expanded={expanded}
           onToggle={toggle}
           onIssueClick={onIssueClick}
+          progressMode={progressMode}
+          onToggleProgressMode={onToggleProgressMode}
         />
       </div>
 
@@ -285,6 +306,8 @@ interface ReleaseItemProps {
   onOpen: () => void;
   onIssueClick: (issue: Issue) => void;
   highlight: DropHighlight;
+  progressMode: ProgressMode;
+  onToggleProgressMode: () => void;
 }
 
 /**
@@ -468,7 +491,9 @@ function NoReleaseRow({ issues, listed, query, narrowing, onIssueClick, highligh
  * what they delivered. Only the most
  * recent few show until "Show N older".
  */
-function PastReleases({ releases, issues, listed, query, narrowing, today, expanded, onToggle, onIssueClick }: {
+function PastReleases({
+  releases, issues, listed, query, narrowing, today, expanded, onToggle, onIssueClick, progressMode, onToggleProgressMode,
+}: {
   releases: Release[];
   issues: Issue[];
   listed: Issue[];
@@ -478,6 +503,8 @@ function PastReleases({ releases, issues, listed, query, narrowing, today, expan
   expanded: Set<number>;
   onToggle: (number: number) => void;
   onIssueClick: (issue: Issue) => void;
+  progressMode: ProgressMode;
+  onToggleProgressMode: () => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const older = releases.length - PAST_SHOWN;
@@ -495,6 +522,8 @@ function PastReleases({ releases, issues, listed, query, narrowing, today, expan
             expanded={shownExpanded(expanded.has(r.number), narrowing, delivered)}
             onToggle={() => onToggle(r.number)}
             onOpen={() => onToggle(r.number)}
+            progressMode={progressMode}
+            onToggleProgressMode={onToggleProgressMode}
           >
             {!narrowing && <PastBurndown release={r} />}
             <ReleaseIssueList issues={delivered} all={issues} onIssueClick={onIssueClick} />

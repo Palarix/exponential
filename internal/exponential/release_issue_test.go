@@ -221,6 +221,41 @@ func TestListIssues_ReleaseFilter(t *testing.T) {
 
 // --- progress ---
 
+func TestReleaseCounts_SumsPointsOfTheScope(t *testing.T) {
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	rid := "rel-a"
+	events := []model.Event{
+		relEvent(rid, model.EventTypeReleaseCreate, at, model.ReleaseCreatePayload{Number: 1}),
+		// The epic's points are its children's: it is left out.
+		{ID: "x-epic", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "epic", ReleaseID: rid, Estimate: 8}, CreatedAt: at},
+		{ID: "x-1", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "1", ParentID: "x-epic", ReleaseID: rid, Status: "DONE", Estimate: 3}, CreatedAt: at},
+		{ID: "x-2", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "2", ReleaseID: rid, Status: "DOING", Estimate: 5}, CreatedAt: at},
+		// Unestimated: adds 0.
+		{ID: "x-3", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "3", ReleaseID: rid}, CreatedAt: at},
+		{ID: "x-4", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "4", ReleaseID: rid, Status: "CANCELED", Estimate: 13}, CreatedAt: at},
+		{ID: "x-5", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "5", Estimate: 21}, CreatedAt: at},
+	}
+	r := ProjectReleases(events)[0]
+	s := ReleaseCounts(ProjectIssues(events), r)
+	if s.Points == nil || *s.Points != (model.ReleasePoints{Total: 8, Done: 3}) {
+		t.Errorf("points = %+v, want 3/8 (no epic, no canceled, no other release)", s.Points)
+	}
+}
+
+func TestReleaseCounts_PastReleaseReadsPointsFromItsSnapshot(t *testing.T) {
+	r := &model.Release{ID: "rel-a", State: model.ReleaseReleased, Stats: &model.ReleaseStats{
+		Counts: map[string]int{"DONE": 2},
+		Points: &model.ReleasePoints{Total: 5, Done: 5},
+	}}
+	if s := ReleaseCounts(map[string]*model.Issue{}, r); s.Points == nil || *s.Points != (model.ReleasePoints{Total: 5, Done: 5}) {
+		t.Errorf("points = %+v, want the snapshot's 5/5", s.Points)
+	}
+	r.Stats.Points = nil
+	if s := ReleaseCounts(map[string]*model.Issue{}, r); s.Points != nil {
+		t.Errorf("a snapshot without points has none, got %+v", s.Points)
+	}
+}
+
 func TestComputeReleaseProgress_CountsLeavesAndBurnsDown(t *testing.T) {
 	day := func(d int, h int) time.Time { return time.Date(2026, 10, d, h, 0, 0, 0, time.UTC) }
 	started := day(1, 9)

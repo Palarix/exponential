@@ -388,10 +388,10 @@ func (t *toolset) release(ctx context.Context, req *mcp.CallToolRequest, in json
 		if err != nil {
 			return nil, jsonio.ReleaseOutput{}, err
 		}
-		summary := jsonio.ToReleaseSummary(r, "", nil, 0, 0)
+		summary := jsonio.ToReleaseSummary(r, "", nil, 0, 0, nil)
 		for _, v := range views {
 			if v.ID == r.ID {
-				summary = jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done)
+				summary = jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done, v.Points)
 			}
 		}
 		text := fmt.Sprintf("%s (%s) %s", summary.Name, summary.Ref, summary.State)
@@ -416,7 +416,7 @@ func (t *toolset) release(ctx context.Context, req *mcp.CallToolRequest, in json
 		out := jsonio.ReleaseOutput{Releases: make([]jsonio.ReleaseSummary, 0, len(views))}
 		lines := make([]string, 0, len(views))
 		for _, v := range views {
-			s := jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done)
+			s := jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done, v.Points)
 			out.Releases = append(out.Releases, s)
 			lines = append(lines, fmt.Sprintf("%s: %s (%s) %d/%d done", v.Slot, s.Name, s.Ref, s.Done, s.Total))
 		}

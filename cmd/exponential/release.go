@@ -58,7 +58,7 @@ var releaseShowCmd = &cobra.Command{
 			releaseFail(err)
 		}
 		if releaseJSONFlag {
-			s := jsonio.ToReleaseSummary(p.Release, "", p.Counts, p.Total, p.Done)
+			s := jsonio.ToReleaseSummary(p.Release, "", p.Counts, p.Total, p.Done, p.Points)
 			printReleaseJSON(jsonio.ReleaseOutput{Release: &s})
 			return
 		}
@@ -166,7 +166,7 @@ func runReleaseList() {
 	if releaseJSONFlag {
 		out := jsonio.ReleaseOutput{Releases: make([]jsonio.ReleaseSummary, 0, len(views))}
 		for _, v := range views {
-			out.Releases = append(out.Releases, jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done))
+			out.Releases = append(out.Releases, jsonio.ToReleaseSummary(v.Release, v.Slot, v.Counts, v.Total, v.Done, v.Points))
 		}
 		printReleaseJSON(out)
 		return
@@ -224,7 +224,7 @@ func releaseMode() string {
 
 func printRelease(r *model.Release, msgs []string) {
 	if releaseJSONFlag {
-		s := jsonio.ToReleaseSummary(r, "", nil, 0, 0)
+		s := jsonio.ToReleaseSummary(r, "", nil, 0, 0, nil)
 		printReleaseJSON(jsonio.ReleaseOutput{Release: &s, Messages: msgs})
 		return
 	}

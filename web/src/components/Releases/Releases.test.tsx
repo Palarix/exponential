@@ -6,6 +6,7 @@ import { queryKeys } from "../../api/query-keys";
 import type { Release, ReleasesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import { ReleaseStack } from "./Releases";
+import type { ProgressMode } from "./ReleaseRow";
 import { EMPTY_FILTERS, type BacklogFilters } from "../Backlog/filters";
 
 const noop = () => {};
@@ -26,7 +27,7 @@ const epicKids = [
   makeIssue({ id: "xpo-ck3", title: "Kid in 1.2", parent_id: "xpo-ep1", release_id: "rel-3" }),
 ];
 
-function stack(board: ReleasesResponse, query = "", filters: BacklogFilters = EMPTY_FILTERS) {
+function stack(board: ReleasesResponse, query = "", filters: BacklogFilters = EMPTY_FILTERS, progressMode: ProgressMode = "issues") {
   return renderMarkup(
     <TooltipPrimitive.Provider>
       <ReleaseStack
@@ -39,6 +40,7 @@ function stack(board: ReleasesResponse, query = "", filters: BacklogFilters = EM
         onIssueClick={noop}
         onReorder={noop}
         onAssign={noop}
+        progressMode={progressMode}
       />
     </TooltipPrimitive.Provider>,
   );
@@ -61,6 +63,15 @@ describe("ReleaseStack", () => {
     expect(at(">1.1<")).toBeLessThan(at(">No release<"));
     expect(at(">No release<")).toBeLessThan(at(">0.1<"));
     expect(html).not.toContain("grid-cols-2");
+  });
+
+  it("shows every row's progress, open and past, in story points in points mode", () => {
+    const points = { total: 8, done: 3 };
+    const pointsBoard = { ...board, current: { ...board.current, points }, past: [{ ...past(1), points }] };
+    expect(stack(pointsBoard)).not.toMatch(/story points done/);
+    const html = stack(pointsBoard, "", EMPTY_FILTERS, "points");
+    expect(html.match(/aria-label="3 of 8 story points done/g)).toHaveLength(2);
+    expect(html).not.toMatch(/issues done/);
   });
 
   it("gives placeholders no row and no badge", () => {

@@ -64,11 +64,20 @@ type ReleaseUpdatePayload struct {
 	StartedAt  *time.Time `json:"started_at,omitempty"`
 }
 
-// ReleaseStats is the final record of a completed release: counts by status
-// and the IDs of its leaf issues. It survives `xpo archive`.
+// ReleaseStats is the final record of a completed release: counts by status,
+// story points and the IDs of its leaf issues. It survives `xpo archive`.
+// Releases completed before points were recorded have no Points.
 type ReleaseStats struct {
 	Counts  map[string]int `json:"counts"`
+	Points  *ReleasePoints `json:"points,omitempty"`
 	LeafIDs []string       `json:"leaf_ids"`
+}
+
+// ReleasePoints is the story points of a release's scope, all of it and the
+// done part. Unestimated issues count as 0.
+type ReleasePoints struct {
+	Total int `json:"total"`
+	Done  int `json:"done"`
 }
 
 // Moved counts the issues the operation moved (or removed, when MovedTo is
