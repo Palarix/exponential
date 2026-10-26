@@ -417,42 +417,100 @@ func TestStartWork_Worktree_ExistingBranch(t *testing.T) {
 	}
 }
 
-func TestStartWork_Worktree_ForceRemovesExisting(t *testing.T) {
+// Force takes the issue over but keeps its worktree: it may hold work that
+// isn't committed yet.
+func TestStartWork_Worktree_ForceKeepsExisting(t *testing.T) {
 	_, client := setupWorktreeTestRepo(t)
+	client.Config.WorktreeSetup = "touch .setup-ran"
 	createTestIssue(t, "test-force01", "Force Takeover", "PLANNED")
 
-	// First start creates the worktree
 	_, wtPath1, _, err := client.StartWork("test-force01", false)
 	if err != nil {
 		t.Fatalf("first StartWork() failed: %v", err)
 	}
-	if _, err := os.Stat(wtPath1); os.IsNotExist(err) {
-		t.Fatal("first worktree should exist")
-	}
+	os.WriteFile(filepath.Join(wtPath1, ".marker"), []byte("uncommitted"), 0644)
+	os.Remove(filepath.Join(wtPath1, ".setup-ran"))
+	alice := "Alice <alice@example.com>"
+	client.Transport.UpdateIssue("test-force01", model.UpdatePayload{Assignee: &alice}, "test")
 
-	// Force start should remove and recreate
 	_, wtPath2, msgs, err := client.StartWork("test-force01", true)
 	if err != nil {
 		t.Fatalf("force StartWork() failed: %v", err)
 	}
-
-	foundRemoveMsg := false
-	for _, msg := range msgs {
-		if strings.Contains(msg, "Removed existing worktree") {
-			foundRemoveMsg = true
-		}
+	if wtPath2 != wtPath1 {
+		t.Errorf("worktree path = %q, want the existing %q", wtPath2, wtPath1)
 	}
-	if !foundRemoveMsg {
-		t.Errorf("expected 'Removed existing worktree' message in %v", msgs)
+	if _, err := os.Stat(filepath.Join(wtPath2, ".marker")); err != nil {
+		t.Error("force must keep the worktree's uncommitted files")
 	}
-
-	if wtPath2 == "" {
-		t.Fatal("expected non-empty worktree path after force")
+	if _, err := os.Stat(filepath.Join(wtPath2, ".setup-ran")); !os.IsNotExist(err) {
+		t.Error("setup hook should not run for a kept worktree")
 	}
+	if strings.Contains(strings.Join(msgs, "\n"), "Removed") {
+		t.Errorf("force must not remove the worktree, got %v", msgs)
+	}
+	issue, _ := client.GetIssue("test-force01")
+	if issue.Assignee != "Test User <test@test.com>" {
+		t.Errorf("assignee = %q, want the starter after force takeover", issue.Assignee)
+	}
+}
 
-	// Verify the recreated worktree exists on disk
-	if _, err := os.Stat(wtPath2); os.IsNotExist(err) {
-		t.Errorf("recreated worktree should exist at %s", wtPath2)
+// Force on a DOING issue whose worktree is gone adds it back.
+func TestStartWork_Worktree_ForceAddsMissing(t *testing.T) {
+	tmpDir, client := setupWorktreeTestRepo(t)
+	runGit(t, tmpDir, "branch", "test-abc123-fix-login")
+	createAssignedTestIssue(t, "test-abc123", "DOING", "Alice <alice@example.com>")
+
+	_, wtPath, _, err := client.StartWork("test-abc123", true)
+	if err != nil {
+		t.Fatalf("force StartWork() failed: %v", err)
+	}
+	if found, ok := FindWorktreeForBranch("test-abc123-fix-login"); !ok || found != wtPath {
+		t.Errorf("worktree = (%q, %v), want %q", found, ok, wtPath)
+	}
+}
+
+// Resuming your own DOING issue from outside its worktree (an MCP server
+// runs in the hub) returns the worktree instead of asking for force.
+func TestStartWork_Worktree_ResumeOwnDoingFromHub(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+	client.Config.WorktreeSetup = "touch .setup-ran"
+	createTestIssue(t, "test-res01", "Resume Own", "PLANNED")
+
+	_, wtPath, _, err := client.StartWork("test-res01", false)
+	if err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+	os.Remove(filepath.Join(wtPath, ".setup-ran"))
+
+	_, wtPath2, msgs, err := client.StartWork("test-res01", false)
+	if err != nil {
+		t.Fatalf("resume StartWork() failed: %v", err)
+	}
+	if wtPath2 != wtPath {
+		t.Errorf("worktree path = %q, want %q", wtPath2, wtPath)
+	}
+	if !strings.Contains(strings.Join(msgs, "\n"), "Resuming existing worktree") {
+		t.Errorf("expected 'Resuming existing worktree' in %v", msgs)
+	}
+	if _, err := os.Stat(filepath.Join(wtPath, ".setup-ran")); !os.IsNotExist(err) {
+		t.Error("setup hook should not re-run on resume")
+	}
+}
+
+func TestStartWork_Worktree_OthersDoingStillNeedsForce(t *testing.T) {
+	_, client := setupWorktreeTestRepo(t)
+	createTestIssue(t, "test-res02", "Resume Other", "PLANNED")
+
+	if _, _, _, err := client.StartWork("test-res02", false); err != nil {
+		t.Fatalf("first StartWork() failed: %v", err)
+	}
+	alice := "Alice <alice@example.com>"
+	client.Transport.UpdateIssue("test-res02", model.UpdatePayload{Assignee: &alice}, "test")
+
+	_, _, _, err := client.StartWork("test-res02", false)
+	if err == nil || !strings.Contains(err.Error(), "already in progress") {
+		t.Errorf("expected 'already in progress' error, got %v", err)
 	}
 }
 
@@ -673,41 +731,6 @@ func TestStartWork_Worktree_Idempotent_Subdirectory(t *testing.T) {
 	}
 	if !foundResume {
 		t.Errorf("expected 'Resuming existing worktree' message in %v", msgs)
-	}
-}
-
-func TestStartWork_Worktree_Idempotent_ForceStillDestroys(t *testing.T) {
-	_, client := setupWorktreeTestRepo(t)
-
-	createTestIssue(t, "test-idem05", "Idempotent Force", "PLANNED")
-
-	_, wtPath, _, err := client.StartWork("test-idem05", false)
-	if err != nil {
-		t.Fatalf("first StartWork() failed: %v", err)
-	}
-
-	// Create a marker file to verify worktree gets recreated
-	os.WriteFile(filepath.Join(wtPath, ".marker"), []byte("original"), 0644)
-
-	// Force start should NOT take idempotent path — it should destroy and recreate
-	_, wtPath2, msgs, err := client.StartWork("test-idem05", true)
-	if err != nil {
-		t.Fatalf("force StartWork() failed: %v", err)
-	}
-
-	foundRemove := false
-	for _, msg := range msgs {
-		if strings.Contains(msg, "Removed existing worktree") {
-			foundRemove = true
-		}
-	}
-	if !foundRemove {
-		t.Errorf("expected 'Removed existing worktree' message in %v", msgs)
-	}
-
-	// Marker file should be gone (worktree was recreated)
-	if _, err := os.Stat(filepath.Join(wtPath2, ".marker")); !os.IsNotExist(err) {
-		t.Error("marker file should not exist after force takeover")
 	}
 }
 

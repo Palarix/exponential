@@ -281,7 +281,7 @@ document the question, the answer you chose, and your reasoning. Use a dedicated
 
 Call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree for it. Never set ` + "`assignee`" + ` to yourself — xpo records that an agent did the work.
 
-All file reads, edits, builds, and test runs must happen inside the worktree path returned by ` + "`start`" + ` — not the main checkout. To resume an issue already in DOING, call ` + "`start`" + ` with ` + "`force: true`" + `.
+All file reads, edits, builds, and test runs must happen inside the worktree path returned by ` + "`start`" + ` — not the main checkout. If you are already working in the issue's worktree (for example in Work Mode), don't call ` + "`start`" + ` again. Use ` + "`force: true`" + ` only to take over an issue someone else is working on, and only after the user approves.
 
 ### 5. Implement & Test
 

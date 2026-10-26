@@ -32,10 +32,11 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 		return "", "", nil, fmt.Errorf("branch %s is checked out in the hub — check out %s there first, then start again", candidateBranch, DefaultBranch())
 	}
 
-	// Idempotent path: cwd is already inside the worktree for this issue.
+	// Resume: cwd is already inside the issue's worktree, or the issue is
+	// DOING for the same person (an MCP server runs in the hub, not there).
 	if !force {
 		if wtPath, found := FindWorktreeForBranch(candidateBranch); found {
-			if cwdInsidePath(wtPath) {
+			if cwdInsidePath(wtPath) || (issue.Status == model.StatusDoing && c.startersOwn(issue)) {
 				if model.IsTerminal(issue.Status) {
 					return "", "", nil, fmt.Errorf("issue %s is %s — reopen it first", id, issue.Status)
 				}
@@ -91,16 +92,16 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 
 	branchName = candidateBranch
 	wtPath := WorktreeDir(branchName)
+	kept := false
 
 	gitErr := WithGitLock(func() error {
-		// Force takeover: remove existing worktree for this branch
-		if force {
-			if existing, ok := FindWorktreeForBranch(branchName); ok {
-				if err := WorktreeRemove(existing); err != nil {
-					return fmt.Errorf("failed to remove existing worktree %s: %w", existing, err)
-				}
-				msgs = append(msgs, fmt.Sprintf("Removed existing worktree at %s", existing))
-			}
+		// Force takeover keeps an existing worktree: it may hold work that
+		// isn't committed yet.
+		if existing, ok := FindWorktreeForBranch(branchName); ok {
+			wtPath = existing
+			kept = true
+			msgs = append(msgs, "Reusing existing worktree")
+			return nil
 		}
 
 		if BranchExists(branchName) {
@@ -126,7 +127,7 @@ func (c *Client) StartWork(id string, force bool) (branchName, worktreePath stri
 
 	EnsureGitignoreEntry(".xpo/worktrees/")
 
-	if c.Config.WorktreeSetup != "" {
+	if c.Config.WorktreeSetup != "" && !kept {
 		var hookOut bytes.Buffer
 		cmd := exec.Command("sh", "-c", c.Config.WorktreeSetup)
 		cmd.Dir = absPath
@@ -157,10 +158,7 @@ func (c *Client) startPayload(issue *model.Issue, force bool) (model.UpdatePaylo
 		payload.Status = &status
 	}
 
-	principal := c.OnBehalfOf
-	if principal == "" {
-		principal = c.GetUser()
-	}
+	principal := c.principal()
 	switch {
 	case principal == "" || identity.Same(issue.Assignee, principal):
 		return payload, nil
@@ -170,6 +168,22 @@ func (c *Client) startPayload(issue *model.Issue, force bool) (model.UpdatePaylo
 	default:
 		return payload, []string{fmt.Sprintf("Assigned to %s, left unchanged", identity.Name(issue.Assignee))}
 	}
+}
+
+// principal is the person the starter works for.
+func (c *Client) principal() string {
+	if c.OnBehalfOf != "" {
+		return c.OnBehalfOf
+	}
+	return c.GetUser()
+}
+
+// startersOwn reports whether starting the issue needs no takeover: it is
+// unassigned, assigned to an agent, or assigned to the starter's principal.
+func (c *Client) startersOwn(issue *model.Issue) bool {
+	principal := c.principal()
+	return principal == "" || issue.Assignee == "" || identity.IsAgent(issue.Assignee) ||
+		identity.Same(issue.Assignee, principal)
 }
 
 func cwdInsidePath(target string) bool {
