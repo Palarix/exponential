@@ -20,7 +20,7 @@ const (
 {"method":"account/updated","params":{"authMode":"chatgpt","planType":"plus"}}
 `
 	codexThreadFixture = `{"method":"remoteControl/status/changed","params":{"status":"disabled"}}
-{"id":2,"result":{"thread":{"id":"thr-1","sessionId":"thr-1"},"model":"gpt-6.1-sol","reasoningEffort":"low"}}
+{"id":2,"result":{"thread":{"id":"thr-1","sessionId":"thr-1"},"model":"gpt-6-luna","reasoningEffort":"low"}}
 {"method":"thread/started","params":{"thread":{"id":"thr-1"}}}
 `
 	// The turn includes a stale usage update for the previous turn, which
@@ -190,7 +190,7 @@ func TestCodexDriver_Turn(t *testing.T) {
 		t.Fatalf("events =\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	if meta.ResolvedModel != "gpt-6.1-sol" || meta.ContextWindow != 258400 {
-		t.Errorf("resolved = %q, %d; want the thread's model and its context window", meta.ResolvedModel, meta.ContextWindow)
+		t.Errorf("resolved = %q, %d; want the picked model, not the thread's default, and its context window", meta.ResolvedModel, meta.ContextWindow)
 	}
 	done := events[len(events)-1]
 	if done.TokensIn != 300 || done.TokensOut != 30 || done.DurationMS != 7521 || done.CostUSD != 0 {
@@ -328,6 +328,70 @@ func TestCodexDriver_ResumesThreadAfterAgentEnds(t *testing.T) {
 	turn := params(sent["turn/start"][0])
 	if _, ok := turn["model"]; ok {
 		t.Errorf("turn/start sent a model although none was picked: %v", turn)
+	}
+	if meta, _ := store.Meta(m.ID); meta.ResolvedModel != "gpt-6-luna" {
+		t.Errorf("resolved = %q, want the thread's default", meta.ResolvedModel)
+	}
+}
+
+// A model picked in the composer is what the turn runs, what the chat meta
+// records, and what the composer then names the pick, even when the
+// thread's default (~/.codex/config.toml) is another model.
+func TestCodexDriver_PickedModelOverThreadDefault(t *testing.T) {
+	r, store, dir := newCodexRunner(t, "")
+	c := NewCatalog("codex", lookPathFor("codex"))
+	c.SetModels("codex", []ModelOption{
+		{ID: "", Label: "Default model"},
+		{ID: "gpt-6-luna", Label: "GPT-6-Luna"},
+		{ID: "gpt-6.1-sol", Label: "GPT-6.1-Sol"},
+	})
+	r.cfg.Learner = c
+	m, _ := store.Create()
+
+	r.Send(m.ID, SendRequest{Text: "one", Provider: "codex", Model: "gpt-6.1-sol"})
+	r.Wait()
+
+	if meta, _ := store.Meta(m.ID); meta.ResolvedModel != "gpt-6.1-sol" {
+		t.Errorf("resolved = %q, want the picked gpt-6.1-sol", meta.ResolvedModel)
+	}
+	if turn := params(sentRequests(t, dir)["turn/start"][0]); turn["model"] != "gpt-6.1-sol" {
+		t.Errorf("turn/start params = %v", turn)
+	}
+	if sol := provider(c.Status(), "codex").Models[2]; sol.Name != "GPT-6.1-Sol" {
+		t.Errorf("composer names the pick %q, want GPT-6.1-Sol", sol.Name)
+	}
+
+	// Codex keeps a turn's model for the turns after it, so Default sends
+	// the thread's default model to run it again.
+	r.Send(m.ID, SendRequest{Text: "two", Provider: "codex"})
+	r.Wait()
+
+	if turn := params(sentRequests(t, dir)["turn/start"][1]); turn["model"] != "gpt-6-luna" {
+		t.Errorf("Default turn/start params = %v, want the thread's default model", turn)
+	}
+	if meta, _ := store.Meta(m.ID); meta.ResolvedModel != "gpt-6-luna" {
+		t.Errorf("resolved = %q, want the thread's default", meta.ResolvedModel)
+	}
+	if def := provider(c.Status(), "codex").Models[0]; def.Name != "GPT-6-Luna" {
+		t.Errorf("composer names Default %q, want GPT-6-Luna", def.Name)
+	}
+}
+
+// When Codex moves a turn to another model, the turn reports that model.
+func TestCodexDriver_ModelRerouted(t *testing.T) {
+	r, store, dir := newCodexRunner(t, "")
+	rerouted := strings.Replace(codexTurnFixture,
+		`{"method":"turn/completed"`,
+		`{"method":"model/rerouted","params":{"threadId":"thr-1","turnId":"turn-1","fromModel":"gpt-6.1-sol","toModel":"gpt-6-astra","reason":"highRiskCyberActivity"}}
+{"method":"turn/completed"`, 1)
+	writeCodexFixtures(t, dir, codexInitFixture, codexThreadFixture, rerouted)
+	m, _ := store.Create()
+
+	r.Send(m.ID, SendRequest{Text: "one", Provider: "codex", Model: "gpt-6.1-sol"})
+	r.Wait()
+
+	if meta, _ := store.Meta(m.ID); meta.ResolvedModel != "gpt-6-astra" {
+		t.Errorf("resolved = %q, want the model Codex rerouted to", meta.ResolvedModel)
 	}
 }
 

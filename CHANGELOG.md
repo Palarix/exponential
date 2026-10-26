@@ -122,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Popovers opened inside a dialog, such as a dropdown, now show above the dialog instead of behind it. (xpo-17f094)
 - Agent chat: a multi-line question from the agent keeps its line breaks on the question card, on the Review step and in the answered question in the thread. (xpo-f90406)
 - Menus: hovering a disabled submenu no longer opens it. (xpo-a71a45)
+- Agent chat: a Codex chat records and shows the model each turn actually ran. Before, it showed the default from `~/.codex/config.toml`, for example GPT-6-Luna when GPT-6.1-Sol was picked. Picking Default after another model runs the default again, and a turn Codex moves to another model reports that model. (xpo-804704)
 
 ## [1.5.0] — 2026-10-18
 

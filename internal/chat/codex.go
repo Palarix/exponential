@@ -125,8 +125,9 @@ type codexSession struct {
 	turnID              string
 	approveCtx          context.Context
 	endApprovals        context.CancelFunc
-	model               string                    // from the thread response
-	window              int                       // the latest modelContextWindow
+	defaultModel        string                    // the thread's default, from the thread response
+	model               string                    // the model the thread runs now
+	window              int                     // the latest modelContextWindow
 	usage               map[string][2]int         // input and output tokens by turn ID
 	streamed            map[string]bool           // agent message items that sent deltas
 	commands            map[string]BackgroundTask // commands of the running turn still in progress
@@ -166,13 +167,23 @@ func (s *codexSession) Send(prompt Prompt, model, effort string) error {
 }
 
 // startTurn sends turn/start. s.mu must be held.
+//
+// A turn's model sticks to the thread for the turns after it, so a turn
+// with the default model ("") after a picked one sends the thread's
+// default to run it again. The thread response's model is the default, not
+// what a turn runs: s.model follows each turn's model.
 func (s *codexSession) startTurn(in *codexInput) {
 	params := map[string]any{
 		"threadId": s.threadID,
 		"input":    codexUserInput(in.prompt),
 	}
-	if in.model != "" {
-		params["model"] = in.model
+	model := in.model
+	if model == "" && s.model != s.defaultModel {
+		model = s.defaultModel
+	}
+	if model != "" {
+		params["model"] = model
+		s.model = model
 	}
 	if in.effort != "" {
 		params["effort"] = in.effort
@@ -414,6 +425,7 @@ func (s *codexSession) handle(line []byte) {
 		}
 		json.Unmarshal(msg.Result, &res)
 		s.threadID = res.Thread.ID
+		s.defaultModel = res.Model
 		s.model = res.Model
 		if s.in.Rewind != "" {
 			s.revertReqID = s.p.call("thread/revert", map[string]string{"threadId": s.threadID, "beforeTurnId": s.in.Rewind})
@@ -481,6 +493,7 @@ func (s *codexSession) notification(method string, raw json.RawMessage) {
 		ItemID     string    `json:"itemId"`
 		Delta      string    `json:"delta"`
 		TurnID     string    `json:"turnId"`
+		ToModel    string    `json:"toModel"`
 		TokenUsage struct {
 			Last struct {
 				InputTokens  int `json:"inputTokens"`
@@ -543,6 +556,11 @@ func (s *codexSession) notification(method string, raw json.RawMessage) {
 		s.itemStarted(p.Item)
 	case "item/completed":
 		s.itemCompleted(p.Item)
+	case "model/rerouted":
+		// Codex moved the turn to another model; that one answers.
+		if p.ToModel != "" {
+			s.model = p.ToModel
+		}
 	case "turn/completed":
 		if s.turnID != "" && p.Turn.ID != s.turnID {
 			return
