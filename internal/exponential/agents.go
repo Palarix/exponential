@@ -349,8 +349,13 @@ Then, in the issue's worktree:
    branch, records a MERGE event, closes the issue, and removes the worktree and branch.
    It refuses to run while the worktree has uncommitted or untracked files.
 
-Committing on the issue's worktree is your job. Merging is ` + "`merge`" + `'s job: never run
-` + "`git merge`" + `, ` + "`git rebase`" + `, ` + "`git push`" + `, or commit on the default branch yourself.
+If it fails because the default branch moved on (conflicts), bring the default branch into the
+issue's branch from the worktree (` + "`git rebase <default-branch>`" + `, or ` + "`git merge <default-branch>`" + `),
+resolve any conflicts, re-run the tests, commit, and call ` + "`merge`" + ` again.
+
+Committing on the issue's worktree is your job. Merging is ` + "`merge`" + `'s job: never run ` + "`git push`" + `,
+or merge, rebase or commit on the default branch yourself. Rebasing the issue's branch onto the
+default branch (or merging the default branch into it) from the worktree is allowed.
 
 ---
 

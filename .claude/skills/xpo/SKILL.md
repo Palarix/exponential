@@ -141,8 +141,13 @@ Then, in the issue's worktree:
    branch, records a MERGE event, closes the issue, and removes the worktree and branch.
    It refuses to run while the worktree has uncommitted or untracked files.
 
-Committing on the issue's worktree is your job. Merging is `merge`'s job: never run
-`git merge`, `git rebase`, `git push`, or commit on the default branch yourself.
+If it fails because the default branch moved on (conflicts), bring the default branch into the
+issue's branch from the worktree (`git rebase <default-branch>`, or `git merge <default-branch>`),
+resolve any conflicts, re-run the tests, commit, and call `merge` again.
+
+Committing on the issue's worktree is your job. Merging is `merge`'s job: never run `git push`,
+or merge, rebase or commit on the default branch yourself. Rebasing the issue's branch onto the
+default branch (or merging the default branch into it) from the worktree is allowed.
 
 ---
 
@@ -211,4 +216,4 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 
-<!-- xpo:skill 1.5.0 sha256:567df440ffe7 -->
+<!-- xpo:skill 1.5.0 sha256:e89784ecd6c3 -->
