@@ -23,7 +23,7 @@ var (
 	addLabelFlag    []string
 	addAssigneeFlag string
 	addCycleFlag    string
-	addReleaseFlag  string
+	addMilestoneFlag  string
 	addJSONFlag     bool
 	addBeforeFlag   string
 	addAfterFlag    string
@@ -144,7 +144,7 @@ var addCmd = &cobra.Command{
 			Estimate:    addEstimateFlag,
 			Assignee:    addAssigneeFlag,
 			CycleID:     resolveCycleID(addCycleFlag),
-			ReleaseID:   addReleaseFlag,
+			MilestoneID:   addMilestoneFlag,
 			Labels:      addLabelFlag,
 		}
 
@@ -181,9 +181,9 @@ func showConfirmation(issue *model.Issue) {
 	if issue.ParentID != "" {
 		fmt.Printf("  Parent: %s\n", issue.ParentID)
 	}
-	if issue.ReleaseID != "" {
-		if r, err := exponential.NewClient(cfg).GetRelease(issue.ReleaseID); err == nil {
-			fmt.Printf("  Release: %s\n", r.Display())
+	if issue.MilestoneID != "" {
+		if r, err := exponential.NewClient(cfg).GetMilestone(issue.MilestoneID); err == nil {
+			fmt.Printf("  Milestone: %s\n", r.Display())
 		}
 	}
 }
@@ -196,7 +196,7 @@ func init() {
 	addCmd.Flags().StringSliceVar(&addLabelFlag, "label", nil, "Labels (can be specified multiple times)")
 	addCmd.Flags().StringVar(&addAssigneeFlag, "assignee", "", "Issue assignee")
 	addCmd.Flags().StringVar(&addCycleFlag, "cycle", "", "Assign to cycle (current, next, or YYYY-MM-DD)")
-	addCmd.Flags().StringVar(&addReleaseFlag, "release", "", "Put in a release (#7, a label, @current, @next, none)")
+	addCmd.Flags().StringVar(&addMilestoneFlag, "milestone", "", "Put in a milestone (#7, a label, @current, @next, none)")
 	addCmd.Flags().StringVar(&addBeforeFlag, "before", "", "Place the new issue directly above this issue")
 	addCmd.Flags().StringVar(&addAfterFlag, "after", "", "Place the new issue directly below this issue")
 	addCmd.Flags().BoolVar(&addJSONFlag, "json", false, "Read a structured payload as JSON from stdin")

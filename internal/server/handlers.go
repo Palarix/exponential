@@ -97,7 +97,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 		IssueID string          `json:"issue_id"`
 		Type    string          `json:"type"`
 		Payload json.RawMessage `json:"payload"`
-		// WithChildren (UPDATE with a release) also moves the issue's open
+		// WithChildren (UPDATE with a milestone) also moves the issue's open
 		// descendants, in one feed entry.
 		WithChildren bool `json:"with_children"`
 	}
@@ -144,7 +144,7 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := client.UpdateIssueOpts(req.IssueID, p, "update", exponential.UpdateOptions{WithChildren: req.WithChildren}); err != nil {
-			var refusal *exponential.ReleaseRefusal
+			var refusal *exponential.MilestoneRefusal
 			if errors.As(err, &refusal) {
 				respondError(w, http.StatusBadRequest, err.Error())
 				return
@@ -719,11 +719,11 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 		CreatedAt  time.Time   `json:"created_at"`
 		CreatedBy  string      `json:"created_by"`
 		OnBehalfOf string      `json:"on_behalf_of,omitempty"`
-		Release    string      `json:"release,omitempty"`  // display name of the release the event sets or is about
-		MovedTo    string      `json:"moved_to,omitempty"` // release events: where the issues moved
+		Milestone    string      `json:"milestone,omitempty"`  // display name of the milestone the event sets or is about
+		MovedTo    string      `json:"moved_to,omitempty"` // milestone events: where the issues moved
 	}
 
-	notes := exponential.ReleaseNoter(allEvents)
+	notes := exponential.MilestoneNoter(allEvents)
 	out := make([]activityItem, 0, maxItems)
 	for i := len(allEvents) - 1; i >= 0 && len(out) < maxItems; i-- {
 		evt := allEvents[i]
@@ -732,11 +732,11 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 		}
 		n := notes(evt)
 		title := titles[evt.ID]
-		if model.IsReleaseEvent(evt.Type) {
-			title = n.Release
+		if model.IsMilestoneEvent(evt.Type) {
+			title = n.Milestone
 		}
 		out = append(out, activityItem{
-			Release:    n.Release,
+			Milestone:    n.Milestone,
 			MovedTo:    n.MovedTo,
 			IssueID:    evt.ID,
 			IssueTitle: title,

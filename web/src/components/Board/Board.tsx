@@ -28,7 +28,7 @@ import { cardPopoverAnchorSelector, type BoardPopoverType } from './board-popove
 import { navigableColumnIds, resolveFocusColumn, stepColumn } from './board-nav';
 import { isEditableTarget } from '../../utils/keyboard';
 import { useKeyboardHandler } from '../../keyboard';
-import ReleasePickerPopover from '../Releases/ReleasePickerPopover';
+import MilestonePickerPopover from '../Milestones/MilestonePickerPopover';
 import BoardColumn from './BoardColumn';
 import { BoardCard, type CardMeta } from './BoardCard';
 import { useConfig, useIssueList } from '../../api/queries';
@@ -406,7 +406,7 @@ export default function Board() {
         }
         if (e.key === "r") {
           e.preventDefault();
-          openCardPopover(focusedIssueId, "release");
+          openCardPopover(focusedIssueId, "milestone");
           return;
         }
         const col = COLUMNS.find(c => c.shortcut === e.key);
@@ -429,7 +429,7 @@ export default function Board() {
       ...[
         ["j", "Next card"], ["ArrowDown", "Next card"], ["k", "Previous card"], ["ArrowUp", "Previous card"],
         ["ArrowRight", "Next column"], ["ArrowLeft", "Previous column"], ["Enter", "Open issue"], [".", "Copy issue ID"],
-        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["a", "Set assignee"], ["r", "Move to release"], ["1", "Move to Backlog"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["a", "Set assignee"], ["r", "Move to milestone"], ["1", "Move to Backlog"],
         ["2", "Move to Planned"], ["3", "Move to In Progress"], ["4", "Move to Blocked"], ["5", "Move to Done"],
         ["6", "Move to Canceled"], ["7", "Move to Duplicate"],
       ].map(([key, label]) => ({
@@ -530,11 +530,11 @@ export default function Board() {
                   ? setOpenPopover(null)
                   : openCardPopover(issue.id, "assignee")
               }
-              openReleaseId={openPopover?.type === "release" ? openPopover.issueId : null}
-              onReleaseOpen={(issue) =>
-                openPopover?.type === "release" && openPopover.issueId === issue.id
+              openMilestoneId={openPopover?.type === "milestone" ? openPopover.issueId : null}
+              onMilestoneOpen={(issue) =>
+                openPopover?.type === "milestone" && openPopover.issueId === issue.id
                   ? setOpenPopover(null)
-                  : openCardPopover(issue.id, "release")
+                  : openCardPopover(issue.id, "milestone")
               }
             />
           ))}
@@ -592,8 +592,8 @@ export default function Board() {
                 </PopoverPanel>
               </Popover>
             )}
-            {openPopover.type === "release" && (
-              <ReleasePickerPopover issue={issue} anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)} />
+            {openPopover.type === "milestone" && (
+              <MilestonePickerPopover issue={issue} anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)} />
             )}
             {openPopover.type === "labels" && (
               <Popover anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)}>

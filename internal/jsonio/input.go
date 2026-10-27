@@ -20,7 +20,7 @@ type AddInput struct {
 	Assignee    string      `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format"`
 	Labels      []string    `json:"labels,omitempty" jsonschema:"Labels such as feature, bug, epic"`
 	CycleID     string      `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to"`
-	Release     string      `json:"release,omitempty" jsonschema:"Release to put the issue in: #7 (number), a label, @current, @next, or none. Only open releases accept issues. If omitted, a new child copies its parent's open release"`
+	Milestone   string      `json:"milestone,omitempty" jsonschema:"Milestone to put the issue in: #7 (number), a label, @current, @next, or none. Only open milestones accept issues. If omitted, a new child copies its parent's open milestone"`
 	Links       []LinkInput `json:"links,omitempty" jsonschema:"Dependencies/relationships to other issues, set at creation time. At most one link per target issue. Links are bidirectional (A blocks B also means B blocked_by A); only blocked_by gates start, other kinds are informational"`
 	Before      string      `json:"before,omitempty" jsonschema:"Place the new issue directly above this issue ID in the manual order. Mutually exclusive with after"`
 	After       string      `json:"after,omitempty" jsonschema:"Place the new issue directly below this issue ID in the manual order. Mutually exclusive with before"`
@@ -36,8 +36,8 @@ type UpdateInput struct {
 	Assignee     *string     `json:"assignee,omitempty" jsonschema:"Assignee in 'Name <email>' format. Pass null or \"\" to unassign"`
 	Labels       []string    `json:"labels,omitempty" jsonschema:"Replace the full label list"`
 	CycleID      *string     `json:"cycle_id,omitempty" jsonschema:"Cycle ID (YYYY-MM-DD start date) to assign this issue to. Pass null or \"\" to remove the issue from its cycle"`
-	Release      *string     `json:"release,omitempty" jsonschema:"Move the issue to a release: #7 (number), a label, @current or @next. Pass none, null or \"\" to remove it from its release. Only open releases accept issues"`
-	WithChildren bool        `json:"with_children,omitempty" jsonschema:"With release: also move the issue's open children (done children never move). Without it, only this issue changes"`
+	Milestone    *string     `json:"milestone,omitempty" jsonschema:"Move the issue to a milestone: #7 (number), a label, @current or @next. Pass none, null or \"\" to remove it from its milestone. Only open milestones accept issues"`
+	WithChildren bool        `json:"with_children,omitempty" jsonschema:"With milestone: also move the issue's open children (done children never move). Without it, only this issue changes"`
 	Links        []LinkInput `json:"links,omitempty" jsonschema:"Replace the issue's full relationship set, including derived links stored on the other issue (as returned by show); a link left out is removed from whichever side stores it; pass [] to remove all links. At most one link per target issue: to change a link's kind, send the set with the new kind in place of the old. Only blocked_by gates start; other kinds are informational"`
 	Before       string      `json:"before,omitempty" jsonschema:"Move the issue directly above this issue ID in the manual order. Mutually exclusive with after"`
 	After        string      `json:"after,omitempty" jsonschema:"Move the issue directly below this issue ID in the manual order. Mutually exclusive with before"`
@@ -128,7 +128,7 @@ func (in AddInput) ToCreatePayload() (model.CreatePayload, error) {
 		Priority:     in.Priority,
 		Assignee:     in.Assignee,
 		CycleID:      in.CycleID,
-		ReleaseID:    strings.TrimSpace(in.Release),
+		MilestoneID:  strings.TrimSpace(in.Milestone),
 		Labels:       in.Labels,
 		Dependencies: deps,
 	}, nil
@@ -156,7 +156,7 @@ func (in UpdateInput) ToUpdatePayload() (model.UpdatePayload, error) {
 		Priority:     in.Priority,
 		Assignee:     in.Assignee,
 		CycleID:      in.CycleID,
-		ReleaseID:    in.Release,
+		MilestoneID:  in.Milestone,
 		Labels:       in.Labels,
 		Dependencies: deps,
 	}, nil
@@ -170,7 +170,7 @@ var nullClears = map[string]func(*UpdateInput){
 	"parent":       func(in *UpdateInput) { in.Parent = ptr("") },
 	"assignee":     func(in *UpdateInput) { in.Assignee = ptr("") },
 	"cycle_id":     func(in *UpdateInput) { in.CycleID = ptr("") },
-	"release":      func(in *UpdateInput) { in.Release = ptr("") },
+	"milestone":    func(in *UpdateInput) { in.Milestone = ptr("") },
 	"priority":     func(in *UpdateInput) { in.Priority = ptr(0) },
 	"story_points": func(in *UpdateInput) { in.StoryPoints = ptr(0) },
 }
@@ -214,7 +214,7 @@ func normalizeParent(p *string) *string {
 func UpdatePayloadEmpty(p model.UpdatePayload) bool {
 	return p.Title == nil && p.Description == nil && p.Status == nil &&
 		p.ParentID == nil && p.Estimate == nil && p.Priority == nil &&
-		p.Assignee == nil && p.CycleID == nil && p.ReleaseID == nil && p.Labels == nil && p.Dependencies == nil && p.SortOrder == nil
+		p.Assignee == nil && p.CycleID == nil && p.MilestoneID == nil && p.Labels == nil && p.Dependencies == nil && p.SortOrder == nil
 }
 
 // --- MCP tool parameter types (add ID or other tool-specific fields) ---
@@ -225,7 +225,7 @@ type ListToolInput struct {
 	Assignee    string      `json:"assignee,omitempty" jsonschema:"Substring match on assignee"`
 	Parent      string      `json:"parent,omitempty" jsonschema:"Only return sub-issues of this parent ID"`
 	Match       string      `json:"match,omitempty" jsonschema:"Substring match across id, title, status, parent, assignee, labels"`
-	Release     string      `json:"release,omitempty" jsonschema:"Only issues in this release: #7 (number), a label, @current, @next, or none for issues in no release"`
+	Milestone   string      `json:"milestone,omitempty" jsonschema:"Only issues in this milestone: #7 (number), a label, @current, @next, or none for issues in no milestone"`
 	IncludeDone bool        `json:"include_done,omitempty" jsonschema:"Include DONE issues (otherwise only recent DONE are shown)"`
 }
 
@@ -347,14 +347,14 @@ type RationaleToolInput struct {
 	Limit int    `json:"limit,omitempty" jsonschema:"Max results to return (default 5, max 20)"`
 }
 
-type ReleaseToolInput struct {
+type MilestoneToolInput struct {
 	Operation  string  `json:"operation" jsonschema:"Operation: list, create, update, reorder, complete, or delete"`
-	ID         string  `json:"id,omitempty" jsonschema:"Release for update, reorder, complete and delete: #7 (number), a label, @current or @next. Updating an unsaved Current or Next saves it"`
-	Label      *string `json:"label,omitempty" jsonschema:"Optional label, such as a version (1.5.0) or a name (Team Mode). Unique among open releases. Pass \"\" to clear"`
-	Goal       *string `json:"goal,omitempty" jsonschema:"One-line goal of the release"`
+	ID         string  `json:"id,omitempty" jsonschema:"Milestone for update, reorder, complete and delete: #7 (number), a label, @current or @next. Updating an unsaved Current or Next saves it"`
+	Label      *string `json:"label,omitempty" jsonschema:"Optional label, such as a version (1.5.0) or a name (Team Mode). Unique among open milestones. Pass \"\" to clear"`
+	Goal       *string `json:"goal,omitempty" jsonschema:"One-line goal of the milestone"`
 	TargetDate *string `json:"target_date,omitempty" jsonschema:"Optional target date (YYYY-MM-DD), for display only. Pass \"\" to clear"`
-	Before     string  `json:"before,omitempty" jsonschema:"reorder: move the release directly above this open release. Mutually exclusive with after"`
-	After      string  `json:"after,omitempty" jsonschema:"reorder: move the release directly below this open release. Mutually exclusive with before"`
-	Issues     string  `json:"issues,omitempty" jsonschema:"complete and delete: what happens to the release's issues. move_to_next (default) moves them to to, or without it to the open release after this one (else the one before it, else a new release); remove takes them out of the release. complete moves only open issues: done issues stay as the record. delete moves all issues"`
-	To         string  `json:"to,omitempty" jsonschema:"complete and delete: the open release to move the issues to: #7, a label, @current or @next. Not with issues remove"`
+	Before     string  `json:"before,omitempty" jsonschema:"reorder: move the milestone directly above this open milestone. Mutually exclusive with after"`
+	After      string  `json:"after,omitempty" jsonschema:"reorder: move the milestone directly below this open milestone. Mutually exclusive with before"`
+	Issues     string  `json:"issues,omitempty" jsonschema:"complete and delete: what happens to the milestone's issues. move_to_next (default) moves them to to, or without it to the open milestone after this one (else the one before it, else a new milestone); remove takes them out of the milestone. complete moves only open issues: done issues stay as the record. delete moves all issues"`
+	To         string  `json:"to,omitempty" jsonschema:"complete and delete: the open milestone to move the issues to: #7, a label, @current or @next. Not with issues remove"`
 }

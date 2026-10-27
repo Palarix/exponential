@@ -65,11 +65,11 @@ func RenderIssueDetails(issue *model.Issue, children []*model.Issue, isArchived 
 			lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render(issue.Assignee)))
 	}
 
-	// Release
-	if issue.ReleaseName != "" {
+	// Milestone
+	if issue.MilestoneName != "" {
 		sb.WriteString(fmt.Sprintf("  %s  %s\n",
-			MutedStyle.Render("Release:"),
-			AccentStyle.Render(issue.ReleaseName)))
+			MutedStyle.Render("Milestone:"),
+			AccentStyle.Render(issue.MilestoneName)))
 	}
 
 	// Estimate

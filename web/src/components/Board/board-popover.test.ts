@@ -14,9 +14,9 @@ describe("cardPopoverAnchorSelector", () => {
     );
   });
 
-  it("anchors the release popover to the card's release chip", () => {
-    expect(cardPopoverAnchorSelector("xpo-aaa111", "release")).toBe(
-      '[data-board-card="xpo-aaa111"] [data-release-trigger]',
+  it("anchors the milestone popover to the card's milestone chip", () => {
+    expect(cardPopoverAnchorSelector("xpo-aaa111", "milestone")).toBe(
+      '[data-board-card="xpo-aaa111"] [data-milestone-trigger]',
     );
   });
 });

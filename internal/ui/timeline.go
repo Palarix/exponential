@@ -22,19 +22,19 @@ func FormatActor(createdBy, onBehalfOf string) string {
 // DescribeEvent returns a human-readable description for an event.
 // Returns empty string for unrecognized or empty updates (caller should skip).
 func DescribeEvent(evt model.Event) string {
-	return DescribeEventNamed(evt, ReleaseNames{})
+	return DescribeEventNamed(evt, MilestoneNames{})
 }
 
-// ReleaseNames carries the display names an event's payload refers to by
-// ID only (see exponential.ReleaseNotes).
-type ReleaseNames struct {
-	Release string // the release an UPDATE sets, or a release event's own release
-	MovedTo string // release events: where the issues moved
-	Cause   string // caused events: e.g. "when 1.5 was released"
+// MilestoneNames carries the display names an event's payload refers to by
+// ID only (see exponential.MilestoneNotes).
+type MilestoneNames struct {
+	Milestone string // the milestone an UPDATE sets, or a milestone event's own milestone
+	MovedTo   string // milestone events: where the issues moved
+	Cause     string // caused events: e.g. "when 1.5 was completed"
 }
 
-// DescribeEventNamed is DescribeEvent with release names filled in.
-func DescribeEventNamed(evt model.Event, names ReleaseNames) string {
+// DescribeEventNamed is DescribeEvent with milestone names filled in.
+func DescribeEventNamed(evt model.Event, names MilestoneNames) string {
 	desc := describeEvent(evt, names)
 	if desc != "" && names.Cause != "" {
 		desc += " " + names.Cause
@@ -42,7 +42,7 @@ func DescribeEventNamed(evt model.Event, names ReleaseNames) string {
 	return desc
 }
 
-func describeEvent(evt model.Event, names ReleaseNames) string {
+func describeEvent(evt model.Event, names MilestoneNames) string {
 	switch evt.Type {
 	case model.EventTypeCreate:
 		return "created this issue"
@@ -55,13 +55,13 @@ func describeEvent(evt model.Event, names ReleaseNames) string {
 	case model.EventTypeArtifact:
 		return describeArtifact(evt.Payload)
 	case model.EventTypeUpdate:
-		return describeUpdate(evt.Payload, names.Release)
-	case model.EventTypeReleaseComplete:
-		p := coercePayload[model.ReleaseCompletePayload](evt.Payload)
-		return "released " + names.Release + describeMoved(p.Moved, "open issue", names.MovedTo, p.MovedTo)
-	case model.EventTypeReleaseDelete:
-		p := coercePayload[model.ReleaseDeletePayload](evt.Payload)
-		return "deleted release " + names.Release + describeMoved(p.Moved, "issue", names.MovedTo, p.MovedTo)
+		return describeUpdate(evt.Payload, names.Milestone)
+	case model.EventTypeMilestoneComplete:
+		p := coercePayload[model.MilestoneCompletePayload](evt.Payload)
+		return "completed " + names.Milestone + describeMoved(p.Moved, "open issue", names.MovedTo, p.MovedTo)
+	case model.EventTypeMilestoneDelete:
+		p := coercePayload[model.MilestoneDeletePayload](evt.Payload)
+		return "deleted milestone " + names.Milestone + describeMoved(p.Moved, "issue", names.MovedTo, p.MovedTo)
 	default:
 		return ""
 	}
@@ -94,7 +94,7 @@ func describeArtifact(payload interface{}) string {
 	return fmt.Sprintf("%s %s", action, filename)
 }
 
-func describeUpdate(payload interface{}, release string) string {
+func describeUpdate(payload interface{}, milestone string) string {
 	p := coercePayload[model.UpdatePayload](payload)
 	var fragments []string
 
@@ -152,18 +152,18 @@ func describeUpdate(payload interface{}, release string) string {
 	case p.Children != nil:
 		kids := fmt.Sprintf("%d open %s", p.Children.Count, plural(p.Children.Count, "child", "children"))
 		subject := kids
-		if p.ReleaseID != nil {
+		if p.MilestoneID != nil {
 			subject = "this issue and " + kids
 		}
-		if p.Children.ReleaseID == "" {
-			fragments = append(fragments, fmt.Sprintf("removed %s from the release", subject))
+		if p.Children.MilestoneID == "" {
+			fragments = append(fragments, fmt.Sprintf("removed %s from the milestone", subject))
 		} else {
-			fragments = append(fragments, fmt.Sprintf("moved %s to %s", subject, releaseRef(release)))
+			fragments = append(fragments, fmt.Sprintf("moved %s to %s", subject, milestoneRef(milestone)))
 		}
-	case p.ReleaseID != nil && *p.ReleaseID == "":
-		fragments = append(fragments, "removed this issue from its release")
-	case p.ReleaseID != nil:
-		fragments = append(fragments, fmt.Sprintf("moved this issue to %s", releaseRef(release)))
+	case p.MilestoneID != nil && *p.MilestoneID == "":
+		fragments = append(fragments, "removed this issue from its milestone")
+	case p.MilestoneID != nil:
+		fragments = append(fragments, fmt.Sprintf("moved this issue to %s", milestoneRef(milestone)))
 	}
 
 	if len(fragments) == 0 {
@@ -172,11 +172,11 @@ func describeUpdate(payload interface{}, release string) string {
 	return strings.Join(fragments, " and ")
 }
 
-func releaseRef(name string) string {
+func milestoneRef(name string) string {
 	if name == "" {
-		return "a release"
+		return "a milestone"
 	}
-	return "release " + name
+	return "milestone " + name
 }
 
 func plural(n int, one, many string) string {
@@ -186,7 +186,7 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// describeMoved is the " · moved 12 open issues to #3" tail of a release
+// describeMoved is the " · moved 12 open issues to #3" tail of a milestone
 // complete or delete entry; movedToID "" means the issues were removed.
 func describeMoved(n int, noun, movedTo, movedToID string) string {
 	if n == 0 {
@@ -194,10 +194,10 @@ func describeMoved(n int, noun, movedTo, movedToID string) string {
 	}
 	what := fmt.Sprintf("%d %s", n, plural(n, noun, noun+"s"))
 	if movedToID == "" {
-		return fmt.Sprintf(" · removed %s from the release", what)
+		return fmt.Sprintf(" · removed %s from the milestone", what)
 	}
 	if movedTo == "" {
-		movedTo = "another release"
+		movedTo = "another milestone"
 	}
 	return fmt.Sprintf(" · moved %s to %s", what, movedTo)
 }
@@ -304,8 +304,8 @@ func renderIssueEventEntry(w io.Writer, entry model.TimelineEntry, termWidth int
 	dot := timelineDot(entry)
 
 	var idPart string
-	if model.IsReleaseEvent(model.EventType(entry.EventType)) {
-		idPart = "" // the description names the release
+	if model.IsMilestoneEvent(model.EventType(entry.EventType)) {
+		idPart = "" // the description names the milestone
 	} else if entry.IssueID != "" {
 		idPart = fmt.Sprintf("%s %s ",
 			AccentStyle.Render(entry.IssueID),
@@ -326,7 +326,7 @@ func renderIssueEventEntry(w io.Writer, entry model.TimelineEntry, termWidth int
 		Type:    model.EventType(entry.EventType),
 		Payload: entry.Payload,
 	}
-	desc := DescribeEventNamed(evt, ReleaseNames{Release: entry.Release, MovedTo: entry.MovedTo, Cause: entry.CauseNote})
+	desc := DescribeEventNamed(evt, MilestoneNames{Milestone: entry.Milestone, MovedTo: entry.MovedTo, Cause: entry.CauseNote})
 	if desc == "" {
 		return false
 	}

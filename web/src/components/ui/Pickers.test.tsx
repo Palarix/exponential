@@ -136,9 +136,9 @@ describe("LabelPicker", () => {
 
 describe("MenuItem content", () => {
   it("renders rich content in place of the label, which stays the accessible name", () => {
-    const html = render(<Menu><MenuItem label="Release 1.2" content={<b>1.2</b>} radio checked={false} /></Menu>);
+    const html = render(<Menu><MenuItem label="Milestone 1.2" content={<b>1.2</b>} radio checked={false} /></Menu>);
     const [item] = byRole(html, "menuitemradio");
-    expect(item).toContain('aria-label="Release 1.2"');
+    expect(item).toContain('aria-label="Milestone 1.2"');
     expect(html).toContain("<b>1.2</b>");
   });
 });

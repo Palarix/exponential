@@ -24,8 +24,8 @@ type IssueSummary struct {
 	AssigneeVia      string             `json:"assignee_via,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
-	ReleaseID        string             `json:"release_id,omitempty"`
-	Release          string             `json:"release,omitempty"`
+	MilestoneID      string             `json:"milestone_id,omitempty"`
+	Milestone        string             `json:"milestone,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
 	UpdatedAt        string             `json:"updated_at"`
 }
@@ -61,8 +61,8 @@ type ShowOutput struct {
 	AssigneeVia      string             `json:"assignee_via,omitempty"`
 	CycleID          string             `json:"cycle_id,omitempty"`
 	EffectiveCycleID string             `json:"effective_cycle_id,omitempty"`
-	ReleaseID        string             `json:"release_id,omitempty"`
-	Release          string             `json:"release,omitempty"`
+	MilestoneID      string             `json:"milestone_id,omitempty"`
+	Milestone        string             `json:"milestone,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
 	CreatedBy        string             `json:"created_by"`
 	CreatedAt        string             `json:"created_at"`
@@ -95,7 +95,7 @@ type TimelineEntry struct {
 	CreatedBy  string      `json:"created_by,omitempty"`
 	OnBehalfOf string      `json:"on_behalf_of,omitempty"`
 	Source     string      `json:"source,omitempty"`
-	Release    string      `json:"release,omitempty"`
+	Milestone  string      `json:"milestone,omitempty"`
 	MovedTo    string      `json:"moved_to,omitempty"`
 	Cause      string      `json:"cause,omitempty"`
 	CauseNote  string      `json:"cause_note,omitempty"`
@@ -368,8 +368,8 @@ func ToIssueSummary(i *model.Issue) IssueSummary {
 		AssigneeVia:      i.AssigneeVia,
 		CycleID:          i.CycleID,
 		EffectiveCycleID: i.EffectiveCycleID,
-		ReleaseID:        i.ReleaseID,
-		Release:          i.ReleaseName,
+		MilestoneID:      i.MilestoneID,
+		Milestone:        i.MilestoneName,
 		BranchStats:      i.BranchStats,
 		UpdatedAt:        i.UpdatedAt.Format(time.RFC3339),
 	}
@@ -440,7 +440,7 @@ func ToTimelineEntries(entries []model.TimelineEntry) []TimelineEntry {
 			CreatedBy:  e.CreatedBy,
 			OnBehalfOf: e.OnBehalfOf,
 			Source:     e.Source,
-			Release:    e.Release,
+			Milestone:  e.Milestone,
 			MovedTo:    e.MovedTo,
 			Cause:      e.Cause,
 			CauseNote:  e.CauseNote,
@@ -474,8 +474,8 @@ func EventsToTimelineEntries(es []model.Event) []TimelineEntry {
 	return out
 }
 
-// ReleaseSummary is one release in tool and CLI output.
-type ReleaseSummary struct {
+// MilestoneSummary is one milestone in tool and CLI output.
+type MilestoneSummary struct {
 	ID          string         `json:"id,omitempty"`
 	Number      int            `json:"number"`
 	Ref         string         `json:"ref"`
@@ -488,23 +488,23 @@ type ReleaseSummary struct {
 	Locked      bool           `json:"locked,omitempty"`
 	TargetDate  string         `json:"target_date,omitempty"`
 	StartedAt   string         `json:"started_at,omitempty"`
-	ReleasedAt  string         `json:"released_at,omitempty"`
+	CompletedAt string         `json:"completed_at,omitempty"`
 	Counts      map[string]int `json:"counts,omitempty"`
 	Total       int            `json:"total"`
 	Done        int            `json:"done"`
-	// Points is left out for a past release completed before points were recorded.
-	Points *model.ReleasePoints `json:"points,omitempty"`
+	// Points is left out for a past milestone completed before points were recorded.
+	Points *model.MilestonePoints `json:"points,omitempty"`
 }
 
-type ReleaseOutput struct {
-	Releases []ReleaseSummary `json:"releases,omitempty"`
-	Release  *ReleaseSummary  `json:"release,omitempty"`
-	Messages []string         `json:"messages,omitempty"`
+type MilestoneOutput struct {
+	Milestones []MilestoneSummary `json:"milestones,omitempty"`
+	Milestone  *MilestoneSummary  `json:"milestone,omitempty"`
+	Messages   []string           `json:"messages,omitempty"`
 }
 
-// ToReleaseSummary converts a release; slot, counts and points are optional.
-func ToReleaseSummary(r *model.Release, slot string, counts map[string]int, total, done int, points *model.ReleasePoints) ReleaseSummary {
-	out := ReleaseSummary{
+// ToMilestoneSummary converts a milestone; slot, counts and points are optional.
+func ToMilestoneSummary(r *model.Milestone, slot string, counts map[string]int, total, done int, points *model.MilestonePoints) MilestoneSummary {
+	out := MilestoneSummary{
 		ID:          r.ID,
 		Number:      r.Number,
 		Ref:         r.Ref(),
@@ -524,8 +524,8 @@ func ToReleaseSummary(r *model.Release, slot string, counts map[string]int, tota
 	if r.StartedAt != nil {
 		out.StartedAt = r.StartedAt.Format(time.RFC3339)
 	}
-	if r.ReleasedAt != nil {
-		out.ReleasedAt = r.ReleasedAt.Format(time.RFC3339)
+	if r.CompletedAt != nil {
+		out.CompletedAt = r.CompletedAt.Format(time.RFC3339)
 	}
 	return out
 }

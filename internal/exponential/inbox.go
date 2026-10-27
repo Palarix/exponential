@@ -55,7 +55,7 @@ func identityMatches(a, b string) bool {
 // BuildInbox filters the full event log down to events relevant to `me` that
 // occurred after `since`, newest-first. Relevance = events on issues where
 // the user is the creator or current assignee — plus all MERGE events and
-// release completes and deletes (team-wide visibility). The user's own actions are excluded so the inbox
+// milestone completes and deletes (team-wide visibility). The user's own actions are excluded so the inbox
 // shows what others did. A zero `since` returns all matching events.
 func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string, since time.Time) []InboxItem {
 	participates := make(map[string]bool, len(issues))
@@ -72,7 +72,7 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 		}
 	}
 
-	notes := ReleaseNoter(events)
+	notes := MilestoneNoter(events)
 	var items []InboxItem
 	for _, evt := range events {
 		if !since.IsZero() && !evt.CreatedAt.After(since) {
@@ -88,13 +88,13 @@ func BuildInbox(events []model.Event, issues map[string]*model.Issue, me string,
 		if !isMeaningfulInboxEvent(evt) {
 			continue // skip bookkeeping noise (e.g. sort-order-only updates)
 		}
-		teamWide := evt.Type == model.EventTypeMerge || isReleaseBulkEvent(evt.Type)
+		teamWide := evt.Type == model.EventTypeMerge || isMilestoneBulkEvent(evt.Type)
 		if !participates[evt.ID] && !teamWide {
 			continue
 		}
 		title := titles[evt.ID]
-		if model.IsReleaseEvent(evt.Type) {
-			title = notes(evt).Release
+		if model.IsMilestoneEvent(evt.Type) {
+			title = notes(evt).Milestone
 		}
 		items = append(items, InboxItem{
 			IssueID:    evt.ID,
@@ -122,7 +122,7 @@ func isMeaningfulInboxEvent(evt model.Event) bool {
 		return false // a move made by a bulk operation; the operation itself is the entry
 	}
 	switch evt.Type {
-	case model.EventTypeReleaseComplete, model.EventTypeReleaseDelete:
+	case model.EventTypeMilestoneComplete, model.EventTypeMilestoneDelete:
 		return true
 	case model.EventTypeCreate, model.EventTypeComment, model.EventTypeMerge, model.EventTypeArtifact:
 		return true

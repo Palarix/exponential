@@ -79,14 +79,14 @@ describe("Board card chat icon", () => {
   });
 });
 
-describe("Board card release chip", () => {
-  it("shows the release chip, even with nothing else in the footer", () => {
-    const issue = makeIssue({ labels: [], release_id: "rel-2", release: "1.2" });
+describe("Board card milestone chip", () => {
+  it("shows the milestone chip, even with nothing else in the footer", () => {
+    const issue = makeIssue({ labels: [], milestone_id: "ms-2", milestone: "1.2" });
     const html = renderMarkup(<TooltipPrimitive.Provider><BoardCard issue={issue} meta={meta} /></TooltipPrimitive.Provider>);
-    expect(html).toContain('aria-label="Release 1.2, change release"');
+    expect(html).toContain('aria-label="Milestone 1.2, change milestone"');
   });
 
-  it("shows no chip without a release", () => {
-    expect(renderMarkup(<BoardCard issue={makeIssue()} meta={meta} />)).not.toContain("Release ");
+  it("shows no chip without a milestone", () => {
+    expect(renderMarkup(<BoardCard issue={makeIssue()} meta={meta} />)).not.toContain("Milestone ");
   });
 });

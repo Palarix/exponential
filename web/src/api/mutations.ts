@@ -1,11 +1,11 @@
 import { useCallback } from "react";
 import { useMutation, useQueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
-  addCommentOptions, addLabelOptions, assignReleaseOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions,
+  addCommentOptions, addLabelOptions, assignMilestoneOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions,
   deleteIssueOptions, deleteIssueToast, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions,
   updateLabelOptions, type IssuePatch,
 } from "./mutation-options";
-import { ApiError, completeRelease, createRelease, deleteRelease, reorderRelease, updateRelease } from "./client";
+import { ApiError, completeMilestone, createMilestone, deleteMilestone, reorderMilestone, updateMilestone } from "./client";
 import { queryKeys } from "./query-keys";
 import type { Issue } from "./types";
 import { useToast } from "../components/ui/ToastContext";
@@ -43,10 +43,10 @@ export function useUpdateIssue() {
   );
 }
 
-/** Moves issues to a release (see `assignReleaseOptions`). */
-export function useAssignRelease() {
+/** Moves issues to a milestone (see `assignMilestoneOptions`). */
+export function useAssignMilestone() {
   const qc = useQueryClient();
-  return useMutation(useWithErrorToast(assignReleaseOptions(qc)));
+  return useMutation(useWithErrorToast(assignMilestoneOptions(qc)));
 }
 
 export function useCreateIssue() {
@@ -119,36 +119,36 @@ export function useDeleteLabel() {
   return useMutation(useWithErrorToast(deleteLabelOptions(qc)));
 }
 
-// --- Releases ---
+// --- Milestones ---
 
-/** Release writes change the board and can save placeholders, so both refetch. */
-function useReleaseMutation<TData, TVars>(mutationFn: (vars: TVars) => Promise<TData>) {
+/** Milestone writes change the board and can save placeholders, so both refetch. */
+function useMilestoneMutation<TData, TVars>(mutationFn: (vars: TVars) => Promise<TData>) {
   const qc = useQueryClient();
   return useMutation(useWithErrorToast<TData, TVars, unknown>({
     mutationFn,
     onSettled: async () => {
-      await qc.invalidateQueries({ queryKey: queryKeys.releases });
+      await qc.invalidateQueries({ queryKey: queryKeys.milestones });
       await qc.invalidateQueries({ queryKey: queryKeys.issues });
     },
   }));
 }
 
-export function useCreateRelease() {
-  return useReleaseMutation(createRelease);
+export function useCreateMilestone() {
+  return useMilestoneMutation(createMilestone);
 }
 
-export function useReorderRelease() {
-  return useReleaseMutation(reorderRelease);
+export function useReorderMilestone() {
+  return useMilestoneMutation(reorderMilestone);
 }
 
-export function useUpdateRelease() {
-  return useReleaseMutation(updateRelease);
+export function useUpdateMilestone() {
+  return useMilestoneMutation(updateMilestone);
 }
 
-export function useCompleteRelease() {
-  return useReleaseMutation(completeRelease);
+export function useCompleteMilestone() {
+  return useMilestoneMutation(completeMilestone);
 }
 
-export function useDeleteRelease() {
-  return useReleaseMutation(deleteRelease);
+export function useDeleteMilestone() {
+  return useMilestoneMutation(deleteMilestone);
 }

@@ -13,9 +13,9 @@ describe("intentTarget", () => {
   });
 
   it("switches to the intent's tab and merges into the shared filters", () => {
-    expect(intentTarget({ tab: "all", filters: { releases: ["@current"] } }, "active", current)).toEqual({
+    expect(intentTarget({ tab: "all", filters: { milestones: ["@current"] } }, "active", current)).toEqual({
       tab: "all",
-      filters: { ...current, releases: ["@current"] },
+      filters: { ...current, milestones: ["@current"] },
     });
   });
 

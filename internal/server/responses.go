@@ -27,8 +27,8 @@ type IssueResponse struct {
 	AssigneeVia  string               `json:"assignee_via,omitempty"`
 	CycleID          string               `json:"cycle_id,omitempty"`
 	EffectiveCycleID string               `json:"effective_cycle_id,omitempty"`
-	ReleaseID        string               `json:"release_id,omitempty"`
-	Release          string               `json:"release,omitempty"`
+	MilestoneID        string               `json:"milestone_id,omitempty"`
+	Milestone          string               `json:"milestone,omitempty"`
 	BranchStats      *model.BranchStats   `json:"branch_stats,omitempty"`
 	Merged           bool                 `json:"merged,omitempty"`
 	Labels         []string             `json:"labels,omitempty"`
@@ -94,8 +94,8 @@ func issueToResponse(issue *model.Issue) IssueResponse {
 		AssigneeVia: issue.AssigneeVia,
 		CycleID:          issue.CycleID,
 		EffectiveCycleID: issue.EffectiveCycleID,
-		ReleaseID:        issue.ReleaseID,
-		Release:          issue.ReleaseName,
+		MilestoneID:        issue.MilestoneID,
+		Milestone:          issue.MilestoneName,
 		BranchStats:      issue.BranchStats,
 		Labels:           issue.Labels,
 		CreatedAt:   issue.CreatedAt,

@@ -9,22 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Releases view: a click on a release's progress pill switches every row between issues done (`3/6`, with the ring) and story points done (`▲ 5/13`). The choice is kept in this browser. Points count the release's leaf issues, without canceled and duplicate ones, and unestimated issues count as 0.
-  - **Breakdown on hover:** the status breakdown now opens when you rest the pointer on the pill. Its header shows the points too.
-  - **Raised pill:** the release pill sits raised off the row, so it reads as a button, apart from the issue and epic count pills.
-  - **Past releases:** completing a release now saves its points with its counts. Releases completed earlier have no points and show no pill in points mode.
-  - **API:** releases have `points: {total, done}` in the server API, `xpo release --json` and the MCP `release` tool.
-
-  (xpo-483245)
-
-- Releases view: edit, complete and delete releases from their rows.
-  - **`⋯` menu** on every open release: Edit, Complete release and Delete. On Current, Complete release comes first. Past releases have no menu.
-  - **Edit** opens the release dialog filled in with label, goal and target date; emptying a field clears it.
-  - **Complete** and **Delete** confirm first, name the release and how many issues are affected, and offer a picker for where the issues go: any other open release (shown with its slot, e.g. "1.0 (Current)") or No release. The help text says where the issues go, whether done issues move too, and that the action can't be undone.
-
-  (xpo-88f633)
-
-- `xpo release complete` and `xpo release delete` take `--to <release>`, and the MCP `release` tool and the server API take `to`, to move the issues to a chosen open release. (xpo-88f633)
+- Milestones: group issues that are done together, scope-boxed where Cycles are time-boxed. (xpo-f89e55, xpo-9a7a77, xpo-974eba, xpo-325f73, xpo-e6ff99, xpo-88f633, xpo-483245, xpo-df162c, xpo-d12b64)
+  - **Model:** milestones are numbered `#1`, `#2`, … (never reused) and may have a label, unique among open milestones. A milestone is OPEN until it is completed (COMPLETED, final) or deleted. Current and Next are the first two open milestones in order. They always exist, as placeholders that the first write saves, and Next is locked while Current is unsaved.
+  - **Issues:** `milestone` on `add`, `update` and `list` takes `#7`, a label, `@current`, `@next` or `none`. A new child copies its parent's open milestone. `with_children` also moves an epic's open children. Only open milestones accept issues.
+  - **Complete and delete:** completing moves open issues to another open milestone or removes them, keeps done issues, and stores final counts and story points that survive `xpo archive`. Deleting moves all issues or removes them. Without `to`, the issues go to the open milestone right after, else the one right before; a new milestone is created only when there is no other open one.
+  - **Stats:** counts, story points and a daily burndown from the day a milestone became Current. Only issues without children count, canceled and duplicate issues leave the scope, and unestimated issues count as 0 points.
+  - **Surfaces:** the `milestone` MCP tool; `xpo milestone list|show|create|update|reorder|complete|delete` with `--to`; `--milestone` and `--with-children` flags; `/api/milestones` endpoints; `milestone_id` and `milestone` in issue output; `points: {total, done}` on every milestone.
+  - **Feeds:** completing or deleting a milestone, or moving an epic with its children, makes one activity and inbox entry. Each issue's own history keeps its move.
+  - **Milestones view** (sidebar entry, `g v`): one column, future on top: upcoming milestones, Next, Current, then **No milestone** (open issues in no milestone) and the 3 latest completed milestones ("Show N older" for the rest). Each row has the label (or `#N`) and goal, a Current or Next badge, the target date (in the warning colour when overdue), and a progress pill. Hovering the pill shows the status breakdown, a time bar and the burndown; a click switches every row between issues done and story points done, kept in this browser. A warning icon marks milestones whose target dates contradict their order.
+  - **Planning:** drag milestones by their handle to reorder them, which changes Current and Next. Expand a milestone to see its issues, with labels, estimate and assignee like the backlog, and drag issues between milestones and No milestone. Completed milestones expand in place to show their burndown and what they delivered, read-only. Search and the issue filter narrow every list. **New Milestone** creates one, and the `⋯` menu on an open milestone edits, completes or deletes it, with a confirmation that names the issues affected and where they go.
+  - **Assigning:** a **Milestone** row in the issue sidebar, a chip on backlog rows and board cards (Lucide's `Milestone` sign-post icon and the name), `r` on the focused row, card or open issue, **Milestone ▸** in the context menu, **Move to milestone…** in the command palette, and a milestone button in the new-issue modal (drafts keep it). Changing an epic's milestone asks whether to move its open sub-issues too. An open issue in a completed milestone shows "In completed milestone 1.5" with **Move to Current**.
+  - **Filter:** the Filter menu has **Milestone** with Current, Next, No milestone and each milestone, with counts, in Issues, My Issues, Inbox and Milestones. Current and Next are looked up each time, so a saved filter follows them. Clicking an open milestone's name opens Issues with its filter.
+  - **API:** `POST /api/draft` takes `with_children` for an UPDATE, issue drafts store `milestone`, and a refused milestone assignment answers 400 with the reason.
+  - **Migration:** boards that used this feature under its earlier name, Releases, need `xpo doctor --fix` once. It rewrites `issues.db`, `archive.db` and issue drafts in place (`RELEASE_*` events, `rel-` IDs, `release_id` and the drafts' `release`), keeps a `.bak` copy of each changed file, and drops the duplicate lines a pre-migration branch leaves after a union merge. Until then, reads fail with "This board has Release data from before 1.6. Run `xpo doctor --fix` to migrate it." Saved Release filters and the points setting reset.
 
 - Agent chat: your messages render as Markdown, and the composer formats Markdown as you type.
   - **Transcript:** your messages, and messages steered into a running turn, show lists, code, links and emphasis, with issue IDs as chips, like the agent's replies.
@@ -52,60 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Agent chat: a link icon after the chat title, in the Agent view and the chat popup, leads to the issues the chat worked on in Work Mode. With one issue, hovering shows its preview card and a click opens it. With several, a click opens a menu, newest first, with the current Work Mode issue marked "Working". The link stays after the chat leaves Work Mode. (xpo-c53912)
 
-- Releases (backend, MCP and CLI): group issues that ship together. The web UI follows in later stories.
-  - **Model:** releases are numbered `#1`, `#2`, … (never reused) and may have a label, unique among open releases. A release is OPEN until it is completed (RELEASED, final) or deleted. Current and Next are the first two open releases in order. They always exist, as placeholders that the first write saves, and Next is locked while Current is unsaved.
-  - **Issues:** `release` on `add`, `update` and `list` takes `#7`, a label, `@current`, `@next` or `none`. A new child copies its parent's open release. `with_children` also moves an epic's open children. Only open releases accept issues.
-  - **Complete and delete:** completing moves open issues to Next or removes them, keeps done issues, and stores final stats that survive `xpo archive`. Deleting moves all issues to Next or removes them.
-  - **Stats:** counts and a daily burndown from the day a release became Current. Only issues without children count, and canceled or duplicate issues leave the scope.
-  - **Surfaces:** the `release` MCP tool; `xpo release list|show|create|update|reorder|complete|delete`; `--release` and `--with-children` flags; `/api/releases` endpoints; `release_id` and `release` in issue output.
-  - **Feeds:** completing or deleting a release, or moving an epic with its children, makes one activity and inbox entry. Each issue's own history keeps its move.
-
-  (xpo-f89e55)
-
-- Releases in the web app: a **Releases** view (sidebar entry, `g v`) to plan releases and sort work into them.
-  - **Layout:** one column, future on top: the upcoming releases, Next, Current, then **No release** (open issues in no release) and the 3 latest past releases ("Show N older" for the rest).
-  - **Release rows:** the label (or `#N`) and goal, a Current or Next badge, the target date (in the warning colour when overdue), and a progress pill. The pill opens the status breakdown, a time bar to the target date, and the burndown. A warning icon marks releases whose target dates contradict their order.
-  - **Planning:** drag releases by their handle to reorder them, which changes Current and Next. Expand a release to see its issues, and drag issues between releases and No release. Past releases expand to show what they delivered, read-only.
-  - **Issue rows:** compact, in the backlog's style: ID, status, a "Parent ›" breadcrumb whose tooltip says where the parent is, the title, and sub-issue progress. Hovering shows the issue card.
-  - **Top bar:** issue search and the issue filter, which narrow every list and open the rows with matches. **New Release** creates a release.
-  - **API:** `POST /api/draft` now answers a refused release assignment (unknown release, released release, Next locked while Current is unsaved) with 400 and the reason, which the app shows, instead of a generic 500.
-
-  (xpo-9a7a77)
-
-- Releases in the web app: assign issues to releases from wherever you work on them.
-  - **Picker:** a **Release** row in the issue sidebar. It lists the open releases as the Releases view does (name – goal, Current/Next badge). A locked Next is disabled. An issue still in a shipped release sees that release checked but disabled.
-  - **Chip:** backlog rows and board cards show the issue's release (Package icon and name). A click opens the picker, like the row's other chips.
-  - **Shortcut and menus:** `r` opens the picker on the focused row, card or open issue. The context menu has **Release ▸**, and the command palette has **Move to release…** for the open issue.
-  - **Sub-issues:** changing an epic's release, including a drop in the Releases view, asks whether to move its open sub-issues too. Done sub-issues never move. "Move all" makes one activity entry.
-  - **Reopen hint:** an open issue in a shipped release shows "In released release 1.5" with **Move to Current**.
-  - **New issue:** **More options** has a release button. A sub-issue shows the release it copies from its parent, and you can change it or pick "No release". Drafts keep the choice.
-  - **API:** `POST /api/draft` takes `with_children` for an UPDATE, and issue drafts store `release`.
-
-  (xpo-974eba)
-
-- Releases in the web app: a **Release** filter, and links from open releases to the Issues view.
-  - **Filter:** the Filter menu has **Release** with Current, Next, No release and each release, with counts. Current and Next are looked up each time the filter runs, so a saved filter follows them as releases complete. A specific release is saved by its number; a deleted one matches nothing. The filter works in Issues, My Issues, Inbox and Releases.
-  - **Links:** clicking Current, Next or an upcoming release in the Releases view opens Issues on All Issues with that release's filter.
-
-  (xpo-325f73)
-
-- Releases in the web app: past releases are read in place, with no page of their own. Clicking a past release's title expands it like the chevron. The expanded row shows the release's burndown from the day it became Current to the day it shipped, then the issues it delivered. The burndown hides while a search or filter narrows the lists, and a release that was never Current has none. (xpo-e6ff99)
-
 ### Changed
 
-- Releases view: issue rows show labels, estimate and assignee on the far right, like the backlog, read-only. A parent's estimate is its remaining child points. The sub-issue progress pill sits right after the title, and the view is full width. (xpo-df162c)
-
-- One issue hover card everywhere: issue links and chips (in Markdown, chat and the chat title), relation chips and release rows. It shows the status icon, ID and assignee avatar, the title (up to two lines), the description as Markdown (up to six lines, fading out when longer), and icons with counts for comments, attachments, spec, walkthrough, sub-issues done, commits and open blockers, each only when there is one. Priority, estimate and labels are no longer on the card. (xpo-73dfc5)
+- One issue hover card everywhere: issue links and chips (in Markdown, chat and the chat title), relation chips and milestone rows. It shows the status icon, ID and assignee avatar, the title (up to two lines), the description as Markdown (up to six lines, fading out when longer), and icons with counts for comments, attachments, spec, walkthrough, sub-issues done, commits and open blockers, each only when there is one. Priority, estimate and labels are no longer on the card. (xpo-73dfc5)
 
 - Dialogs share one frame: a title, a body that scrolls, and buttons at the bottom right, with even 16px spacing and no dividers. Every dialog shows "esc to cancel" (or its own control) at the bottom left, keeps Tab inside, and returns focus to where you were when it closes. New issue, the merge dialogs and the "Update/Move sub-issues?" prompts now match the confirmation dialogs, and Confirm merge closes on Escape. (xpo-c6bb65)
 
-- Completing or deleting a release without `to` moves its issues to the open release right after it, else the one right before it. A new release is created only when there is no other open release. Before, deleting or completing a Next with nothing behind it created a new empty release, and an Upcoming release's issues went to Next. (xpo-88f633)
-
-- Releases view: a click anywhere on a row's header expands or collapses it; only the release name opens the release in Issues. The progress ring follows the title, the Current/Next badge sits just left of the `⋯` menu, and the chevron is always rightmost. (xpo-88f633)
-
-- Releases view: the hover card on an issue row shows what the row doesn't (assignee, priority, estimate and labels) instead of repeating the ID, title and status. Issue links and relation chips keep the full card. (xpo-88f633)
-
-- Bordered dropdowns (the release picker and the New issue modal's Label, Status and Estimate pickers) share one field style: a light tint of the text colour with a tint border, so they show on any surface. (xpo-88f633)
+- Bordered dropdowns (the milestone picker and the New issue modal's Label, Status and Estimate pickers) share one field style: a light tint of the text colour with a tint border, so they show on any surface. (xpo-88f633)
 
 - Agent chat: each action row shows its verb between the icon and the detail, for example "Read CHANGELOG.md", "Searched for `^### Fixed`" or "Merged xpo-1". A running call reads "Reading CHANGELOG.md", and the collapsed line of an active group stays in that form until the call moves into the list. Shell rows keep their command description, and unknown tools keep their name. The icon is decorative and no longer has a tooltip. Wording changes: Grep reads "Searched for", reading an issue reads "Read xpo-1" instead of "Opened xpo-1", and writing a spec or walkthrough reads "Wrote the walkthrough for xpo-1". (xpo-6c4a1b)
 

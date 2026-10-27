@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useContext, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Bot, Hand, Package } from "lucide-react";
-import type { Issue, ReleasesResponse } from "../../api/client";
-import { useReleases } from "../../api/queries";
+import { Bot, Hand, Milestone as MilestoneIcon } from "lucide-react";
+import type { Issue, MilestonesResponse } from "../../api/client";
+import { useMilestones } from "../../api/queries";
 import { StatusIcon, Avatar, PriorityIcon } from "../ui";
 import { labelColor } from "../../utils/labels";
 import { shortName } from "../../utils/format";
 import { LabelColorsContext } from "../ui/BadgeContexts";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
-import { dimensionDisabled, getSelected, outOfScope, releaseFilterOptions, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
+import { dimensionDisabled, getSelected, outOfScope, milestoneFilterOptions, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
 import { Menu, MenuItem, MenuLabel, MenuDivider } from "../ui/Menu";
 import { SubMenu } from "../ui/SubMenu";
 
@@ -36,7 +36,7 @@ const DIMENSIONS: { key: Dimension; label: string; icon: React.ReactNode }[] = [
     key: "labels", label: "Labels",
     icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /></svg>,
   },
-  { key: "release", label: "Release", icon: <Package className="w-3.5 h-3.5" /> },
+  { key: "milestone", label: "Milestone", icon: <MilestoneIcon className="w-3.5 h-3.5" /> },
   {
     key: "epic", label: "Epic",
     icon: <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" /></svg>,
@@ -50,7 +50,7 @@ interface FilterOption {
   count: number;
 }
 
-function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Record<string, string>, releases?: ReleasesResponse): FilterOption[] {
+function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Record<string, string>, milestones?: MilestonesResponse): FilterOption[] {
   switch (dim) {
     case "status":
       return STATUS_OPTIONS.map((s) => ({
@@ -100,8 +100,8 @@ function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Re
         };
       });
     }
-    case "release":
-      return releaseFilterOptions(releases, issues);
+    case "milestone":
+      return milestoneFilterOptions(milestones, issues);
     case "epic":
       return issues.filter((i) => i.labels?.includes("epic")).map((i) => ({
         value: i.id, label: i.title, count: issues.filter((c) => c.parent_id === i.id).length,
@@ -112,14 +112,14 @@ function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Re
 export default function FilterMenu({ issues, filters, onChange, anchorRef, onClose, scope }: FilterMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const configColors = useContext(LabelColorsContext);
-  const { data: releases } = useReleases();
+  const { data: milestones } = useMilestones();
   const [searches, setSearches] = useState<Partial<Record<Dimension, string>>>({});
 
   const allOptions = useMemo(() => {
     const result: Record<Dimension, FilterOption[]> = {} as Record<Dimension, FilterOption[]>;
-    for (const dim of DIMENSIONS) result[dim.key] = computeFilterOptions(dim.key, issues, configColors, releases);
+    for (const dim of DIMENSIONS) result[dim.key] = computeFilterOptions(dim.key, issues, configColors, milestones);
     return result;
-  }, [issues, configColors, releases]);
+  }, [issues, configColors, milestones]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;

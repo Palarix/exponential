@@ -1,16 +1,16 @@
 import { useId, useState, useMemo, useCallback, useContext, useRef } from "react";
 import type { Issue } from "../../api/client";
-import { useCycles, useReleases } from "../../api/queries";
+import { useCycles, useMilestones } from "../../api/queries";
 import { useDeleteIssue, type IssuePatch } from "../../api/mutations";
 import { useStartWorkChat } from "../Agent/useWorkMode";
 import { IssueChatsPopover, IssueChatStateIcon } from "../Agent/IssueChats";
 import { noGitHint } from "../Agent/issue-chats";
 import { chatCount, useIssueChats } from "../Agent/useIssueChats";
 import { ActorName, Avatar, Button, DeleteIssueDialog, LabelBadge, DefaultLabelsContext, Dialog, DialogOverlay, StatusIcon, Popover, PopoverPanel, LabelPicker, CyclePicker, StatusPicker, EstimatePicker, PriorityPicker, AssigneePicker, Text } from "../ui";
-import { Flag, UserRound, RefreshCw, Trash2, FlagOff, Package } from "lucide-react";
-import { useReleaseAssign } from "../Releases/release-assign-context";
-import { reopenHint } from "../Releases/release-assign-utils";
-import ReleasePickerPopover from "../Releases/ReleasePickerPopover";
+import { Flag, UserRound, RefreshCw, Trash2, FlagOff, Milestone as MilestoneIcon } from "lucide-react";
+import { useMilestoneAssign } from "../Milestones/milestone-assign-context";
+import { reopenHint } from "../Milestones/milestone-assign-utils";
+import MilestonePickerPopover from "../Milestones/MilestonePickerPopover";
 import Tooltip from "../ui/Tooltip";
 import { GitBranch, GitMerge } from "lucide-react";
 import { cn } from "../../utils/cn";
@@ -50,9 +50,9 @@ export default function PropertySidebar({
 }: PropertySidebarProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { cycles } = useCycles();
-  const { data: releases } = useReleases();
-  const { assign: assignRelease } = useReleaseAssign();
-  const releasedIn = reopenHint(issue, releases);
+  const { data: milestones } = useMilestones();
+  const { assign: assignMilestone } = useMilestoneAssign();
+  const completedIn = reopenHint(issue, milestones);
   const defaultLabels = useContext(DefaultLabelsContext);
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
   const [moveChildrenPrompt, setMoveChildrenPrompt] = useState<{
@@ -242,16 +242,16 @@ export default function PropertySidebar({
           ) : button;
         })()}
 
-        {/* An open issue left in a shipped release: offer the way out, move nothing on its own. */}
-        {releasedIn && releases && (
+        {/* An open issue left in a completed milestone: offer the way out, move nothing on its own. */}
+        {completedIn && milestones && (
           <div className="rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-surface-2)] px-4 py-3 text-sm">
             <p className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-              <Package size={14} className="shrink-0 text-[var(--color-text-muted)]" />
-              <span>In released release {releasedIn.name}.</span>
+              <MilestoneIcon size={14} className="shrink-0 text-[var(--color-text-muted)]" />
+              <span>In completed milestone {completedIn.name}.</span>
             </p>
             <button
               type="button"
-              onClick={() => assignRelease([issue.id], releases.current)}
+              onClick={() => assignMilestone([issue.id], milestones.current)}
               className="mt-2 px-2.5 py-1 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-surface-3)] border border-[var(--color-border-default)] text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface-2)] transition-colors"
             >
               Move to Current
@@ -463,24 +463,24 @@ export default function PropertySidebar({
               </PropertyRow>
             )}
 
-            {/* Release */}
-            {releases && (
+            {/* Milestone */}
+            {milestones && (
               <PropertyRow>
-                <div className="relative" ref={openPopover === "release" ? popoverAnchorRef : undefined}>
+                <div className="relative" ref={openPopover === "milestone" ? popoverAnchorRef : undefined}>
                   <Button
                     variant="ghost"
                     size="sm"
-                    {...popoverTriggerProps("release", openPopover)}
-                    onClick={() => setOpenPopover(openPopover === "release" ? null : "release")}
+                    {...popoverTriggerProps("milestone", openPopover)}
+                    onClick={() => setOpenPopover(openPopover === "milestone" ? null : "milestone")}
                     className="w-full justify-start"
                   >
-                    <Package className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                    <MilestoneIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
                     <span className="text-sm text-[var(--color-text-primary)] truncate">
-                      {issue.release || "No release"}
+                      {issue.milestone || "No milestone"}
                     </span>
                   </Button>
-                  {openPopover === "release" && (
-                    <ReleasePickerPopover issue={issue} anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)} />
+                  {openPopover === "milestone" && (
+                    <MilestonePickerPopover issue={issue} anchorRef={popoverAnchorRef} onClose={() => setOpenPopover(null)} />
                   )}
                 </div>
               </PropertyRow>

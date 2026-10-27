@@ -105,19 +105,19 @@ describe("BacklogIssueRow sub-issue progress", () => {
   });
 });
 
-describe("BacklogIssueRow release chip", () => {
-  it("shows the release chip for an issue in a release", () => {
+describe("BacklogIssueRow milestone chip", () => {
+  it("shows the milestone chip for an issue in a milestone", () => {
     const html = renderMarkup(
       <TooltipPrimitive.Provider>
         <DndContext>
-          <BacklogIssueRow {...rowProps({ issue: makeIssue({ release_id: "rel-2", release: "1.2" }) })} />
+          <BacklogIssueRow {...rowProps({ issue: makeIssue({ milestone_id: "ms-2", milestone: "1.2" }) })} />
         </DndContext>
       </TooltipPrimitive.Provider>,
     );
-    expect(html).toContain('aria-label="Release 1.2, change release"');
+    expect(html).toContain('aria-label="Milestone 1.2, change milestone"');
   });
 
-  it("shows no chip without a release", () => {
-    expect(renderRow()).not.toContain("Release ");
+  it("shows no chip without a milestone", () => {
+    expect(renderRow()).not.toContain("Milestone ");
   });
 });

@@ -27,10 +27,10 @@ import type { TreeGuide, HierarchyMode } from "./useBacklogRows";
 import { nodeIndicator } from "./backlog-row-utils";
 import { popoverTriggerProps } from "../../utils/popover-trigger";
 import { IssueChatIcon } from "../Agent/IssueChats";
-import ReleaseChip from "../Releases/ReleaseChip";
-import ReleasePickerPopover from "../Releases/ReleasePickerPopover";
+import MilestoneChip from "../Milestones/MilestoneChip";
+import MilestonePickerPopover from "../Milestones/MilestonePickerPopover";
 
-type PopoverType = "status" | "labels" | "estimate" | "priority" | "assignee" | "release";
+type PopoverType = "status" | "labels" | "estimate" | "priority" | "assignee" | "milestone";
 
 interface Props {
   issue: Issue;
@@ -112,8 +112,8 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
   canCreateLabels,
 }: Props) {
   const popoverAnchorRef = useRef<HTMLDivElement>(null);
-  // The release picker anchors to the chip, or to the row when there is no release.
-  const releaseChipRef = useRef<HTMLButtonElement>(null);
+  // The milestone picker anchors to the chip, or to the row when there is no milestone.
+  const milestoneChipRef = useRef<HTMLButtonElement>(null);
   const rowAnchorRef = useRef<HTMLDivElement>(null);
   const indent = depth * 24;
   const isGhostRow = !!isGhostParent || !!isGhostChild;
@@ -278,15 +278,15 @@ export const BacklogIssueRow = memo(function BacklogIssueRow({
               {issue.branch_stats && <BranchBadge stats={issue.branch_stats} />}
               <IssueChatIcon issueId={issue.id} />
               {issue.artifacts && issue.artifacts.length > 0 && <AttachmentIndicator count={issue.artifacts.length} />}
-              <ReleaseChip
-                ref={releaseChipRef}
+              <MilestoneChip
+                ref={milestoneChipRef}
                 issue={issue}
-                expanded={popoverType === "release"}
-                onOpen={() => (popoverType === "release" ? onClosePopover() : onOpenPopover(rowIndex, "release"))}
+                expanded={popoverType === "milestone"}
+                onOpen={() => (popoverType === "milestone" ? onClosePopover() : onOpenPopover(rowIndex, "milestone"))}
               />
             </span>
-            {popoverType === "release" && (
-              <ReleasePickerPopover issue={issue} anchorRef={issue.release_id ? releaseChipRef : rowAnchorRef} onClose={onClosePopover} />
+            {popoverType === "milestone" && (
+              <MilestonePickerPopover issue={issue} anchorRef={issue.milestone_id ? milestoneChipRef : rowAnchorRef} onClose={onClosePopover} />
             )}
             <div className="flex-1" />
             {issue.is_pending && (

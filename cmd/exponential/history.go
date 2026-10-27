@@ -37,9 +37,9 @@ var historyCmd = &cobra.Command{
 		client := exponential.NewClient(cfg)
 
 		var entries []model.TimelineEntry
-		// The full log names the releases events refer to by ID.
+		// The full log names the milestones events refer to by ID.
 		logEvents, _ := storage.ReadEvents()
-		notes := exponential.ReleaseNoter(logEvents)
+		notes := exponential.MilestoneNoter(logEvents)
 
 		if len(args) == 1 {
 			issue, _, archived, err := client.FindIssue(args[0])
@@ -64,7 +64,7 @@ var historyCmd = &cobra.Command{
 				}
 				n := notes(evt)
 				entries = append(entries, model.TimelineEntry{
-					Release:    n.Release,
+					Milestone:    n.Milestone,
 					Cause:      evt.Cause,
 					CauseNote:  n.CauseNote,
 					Kind:       "issue_event",
@@ -115,7 +115,7 @@ var historyCmd = &cobra.Command{
 				issueMap[iss.ID] = iss
 			}
 			for _, evt := range logEvents {
-				if model.IsReleaseEvent(evt.Type) {
+				if model.IsMilestoneEvent(evt.Type) {
 					allEvents = append(allEvents, evt)
 				}
 			}

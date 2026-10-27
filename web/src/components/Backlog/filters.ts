@@ -1,5 +1,5 @@
 import { jsonCodec } from "../../app/view-state-utils";
-import type { ReleasesResponse } from "../../api/types";
+import type { MilestonesResponse } from "../../api/types";
 
 export interface BacklogFilters {
   statuses: string[];
@@ -8,8 +8,8 @@ export interface BacklogFilters {
   priorities: number[];
   epicId: string | null;
   workedBy: string[]; // "agent" | "human"
-  /** Release refs: `@current`, `@next`, `none` or `#7`. Current and Next resolve each time the filter runs. */
-  releases: string[];
+  /** Milestone refs: `@current`, `@next`, `none` or `#7`. Current and Next resolve each time the filter runs. */
+  milestones: string[];
 }
 
 export const EMPTY_FILTERS: BacklogFilters = {
@@ -19,7 +19,7 @@ export const EMPTY_FILTERS: BacklogFilters = {
   priorities: [],
   epicId: null,
   workedBy: [],
-  releases: [],
+  milestones: [],
 };
 
 // Filters saved by older versions lack newer dimensions; fill them in.
@@ -43,7 +43,7 @@ export function hasActiveFilters(f: BacklogFilters): boolean {
     f.priorities.length > 0 ||
     f.epicId !== null ||
     f.workedBy.length > 0 ||
-    f.releases.length > 0
+    f.milestones.length > 0
   );
 }
 
@@ -67,56 +67,56 @@ export function dimensionDisabled(dim: FilterDimension, scope?: string[]): boole
   return dim === "status" && !!scope && scope.length <= 1;
 }
 
-const releaseByNumber = (ref: string, board: ReleasesResponse) =>
+const milestoneByNumber = (ref: string, board: MilestonesResponse) =>
   [board.current, board.next, ...board.upcoming, ...board.past].find((r) => `#${r.number}` === ref);
 
 /**
- * The release a ref names on `board`: its ID, "" for `none`, or null when
+ * The milestone a ref names on `board`: its ID, "" for `none`, or null when
  * nothing matches (an unknown number, a placeholder slot, no board yet).
  */
-export function resolveReleaseRef(ref: string, board?: ReleasesResponse): string | null {
+export function resolveMilestoneRef(ref: string, board?: MilestonesResponse): string | null {
   if (ref === "none") return "";
   if (!board) return null;
-  const release =
+  const milestone =
     ref === "@current" ? board.current
       : ref === "@next" ? board.next
-        : releaseByNumber(ref, board);
-  return release?.id ?? null;
+        : milestoneByNumber(ref, board);
+  return milestone?.id ?? null;
 }
 
-/** How a release ref reads in chips and menus: Current, Next, No release, or the release's name. */
-export function releaseRefName(ref: string, board?: ReleasesResponse): string {
+/** How a milestone ref reads in chips and menus: Current, Next, No milestone, or the milestone's name. */
+export function milestoneRefName(ref: string, board?: MilestonesResponse): string {
   if (ref === "@current") return "Current";
   if (ref === "@next") return "Next";
-  if (ref === "none") return "No release";
-  return (board && releaseByNumber(ref, board)?.name) ?? ref;
+  if (ref === "none") return "No milestone";
+  return (board && milestoneByNumber(ref, board)?.name) ?? ref;
 }
 
 /**
- * The Release filter's menu: Current, Next, No release, then the Upcoming
- * and Past releases by number, each with the count of `issues` it matches.
+ * The Milestone filter's menu: Current, Next, No milestone, then the Upcoming
+ * and Past milestones by number, each with the count of `issues` it matches.
  */
-export function releaseFilterOptions(
-  board: ReleasesResponse | undefined,
-  issues: { release_id?: string }[],
+export function milestoneFilterOptions(
+  board: MilestonesResponse | undefined,
+  issues: { milestone_id?: string }[],
 ): { value: string; label: string; count: number }[] {
   const option = (value: string, label: string) => {
-    const id = resolveReleaseRef(value, board);
-    return { value, label, count: id === null ? 0 : issues.filter((i) => (i.release_id ?? "") === id).length };
+    const id = resolveMilestoneRef(value, board);
+    return { value, label, count: id === null ? 0 : issues.filter((i) => (i.milestone_id ?? "") === id).length };
   };
-  if (!board) return [option("none", "No release")];
+  if (!board) return [option("none", "No milestone")];
   return [
     option("@current", `Current · ${board.current.name}`),
     option("@next", `Next · ${board.next.name}`),
-    option("none", "No release"),
+    option("none", "No milestone"),
     ...[...board.upcoming, ...board.past].map((r) => option(`#${r.number}`, r.name)),
   ];
 }
 
 export function matchesFilters(
-  issue: { status: string; labels?: string[]; assignee?: string; assignee_via?: string; priority: number; parent_id?: string; release_id?: string },
+  issue: { status: string; labels?: string[]; assignee?: string; assignee_via?: string; priority: number; parent_id?: string; milestone_id?: string },
   filters: BacklogFilters,
-  releases?: ReleasesResponse,
+  milestones?: MilestonesResponse,
 ): boolean {
   if (filters.statuses.length > 0 && !filters.statuses.includes(issue.status))
     return false;
@@ -141,9 +141,9 @@ export function matchesFilters(
     if (!issue.assignee) return false;
     if (!filters.workedBy.includes(issue.assignee_via ? "agent" : "human")) return false;
   }
-  if (filters.releases.length > 0) {
-    const own = issue.release_id ?? "";
-    if (!filters.releases.some((ref) => resolveReleaseRef(ref, releases) === own)) return false;
+  if (filters.milestones.length > 0) {
+    const own = issue.milestone_id ?? "";
+    if (!filters.milestones.some((ref) => resolveMilestoneRef(ref, milestones) === own)) return false;
   }
   return true;
 }
@@ -158,7 +158,7 @@ export function matchesSearch(issue: { id: string; title: string; labels?: strin
   );
 }
 
-export type FilterDimension = "status" | "assignee" | "workedBy" | "priority" | "labels" | "epic" | "release";
+export type FilterDimension = "status" | "assignee" | "workedBy" | "priority" | "labels" | "epic" | "milestone";
 
 export function chipLabel(dimension: string, values: string[], lookup?: Map<string, string>): string {
   const names = lookup ? values.map((v) => lookup.get(v) || v) : values;
@@ -174,7 +174,7 @@ export function getSelected(dim: FilterDimension, filters: BacklogFilters): stri
     case "priority": return filters.priorities.map(String);
     case "labels": return filters.labels;
     case "epic": return filters.epicId ? [filters.epicId] : [];
-    case "release": return filters.releases;
+    case "milestone": return filters.milestones;
   }
 }
 
@@ -186,6 +186,6 @@ export function setSelected(dim: FilterDimension, filters: BacklogFilters, value
     case "priority": return { ...filters, priorities: values.map(Number) };
     case "labels": return { ...filters, labels: values };
     case "epic": return { ...filters, epicId: values[0] || null };
-    case "release": return { ...filters, releases: values };
+    case "milestone": return { ...filters, milestones: values };
   }
 }

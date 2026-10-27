@@ -176,17 +176,17 @@ func (t *LocalTransport) buildUpdate(id string, payload model.UpdatePayload, iss
 	return eventsToAppend, messages, nil
 }
 
-// ReleaseRefusal is an update refused because of its release: an unknown
-// ref, a RELEASED release or a locked Next. The caller can fix it, so the
+// MilestoneRefusal is an update refused because of its milestone: an unknown
+// ref, a COMPLETED milestone or a locked Next. The caller can fix it, so the
 // server reports it as a bad request with its message.
-type ReleaseRefusal struct{ error }
+type MilestoneRefusal struct{ error }
 
-func (r *ReleaseRefusal) Unwrap() error { return r.error }
+func (r *MilestoneRefusal) Unwrap() error { return r.error }
 
 // UpdateOptions changes how an update applies beyond the payload itself.
 type UpdateOptions struct {
 	// WithChildren also moves the issue's open descendants to its new
-	// release. Terminal descendants never move.
+	// milestone. Terminal descendants never move.
 	WithChildren bool
 }
 
@@ -196,34 +196,34 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload, opt
 	var messages []string
 	err := t.writeBatch(func(current []model.Event) ([]model.Event, error) {
 		issues := ProjectIssues(current)
-		w := t.newReleaseWriter(current)
+		w := t.newMilestoneWriter(current)
 
-		// payload.ReleaseID holds a release ref until it is resolved here.
+		// payload.MilestoneID holds a milestone ref until it is resolved here.
 		var childMoves []*model.Issue
 		var epicID string
-		if payload.ReleaseID != nil {
+		if payload.MilestoneID != nil {
 			target, err := t.resolveIssue(issues, id)
 			if err != nil {
 				return nil, err
 			}
-			rid, err := w.assign(*payload.ReleaseID, target.ReleaseID)
+			rid, err := w.assign(*payload.MilestoneID, target.MilestoneID)
 			if err != nil {
-				return nil, &ReleaseRefusal{err}
+				return nil, &MilestoneRefusal{err}
 			}
-			payload.ReleaseID = &rid
+			payload.MilestoneID = &rid
 			epicID = target.ID
 			if opts.WithChildren {
 				for _, child := range openDescendants(issues, target.ID) {
-					if child.ReleaseID != rid {
+					if child.MilestoneID != rid {
 						childMoves = append(childMoves, child)
 					}
 				}
 			}
 			// The epic's own update records the child moves, so the feeds can
 			// show the whole move as one entry. It survives pruning even when
-			// the epic's release itself is unchanged.
+			// the epic's milestone itself is unchanged.
 			if len(childMoves) > 0 {
-				payload.Children = &model.ChildrenMove{Count: len(childMoves), ReleaseID: rid}
+				payload.Children = &model.ChildrenMove{Count: len(childMoves), MilestoneID: rid}
 			}
 		}
 
@@ -234,7 +234,7 @@ func (t *LocalTransport) applyUpdate(id string, payload model.UpdatePayload, opt
 		w.emit(toAppend...)
 		w.messages = append(w.messages, msgs...)
 		if len(childMoves) > 0 {
-			w.moveIssues(childMoves, *payload.ReleaseID, epicID)
+			w.moveIssues(childMoves, *payload.MilestoneID, epicID)
 			w.messages = append(w.messages, fmt.Sprintf("Moved %d open %s", len(childMoves), pluralChildren(len(childMoves))))
 		}
 		batch := w.finish()

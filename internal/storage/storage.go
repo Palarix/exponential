@@ -41,7 +41,7 @@ func AppendEvent(event model.Event) error {
 
 // AppendEvents runs build on the current log and appends the events it
 // returns, all under one hold of the events lock. Writes that span several
-// events (a release complete moving many issues) land whole or not at all,
+// events (a milestone complete moving many issues) land whole or not at all,
 // and no other writer can change the log between the read and the write.
 // With collapse, the batch folds into the uncommitted tail as
 // AppendEventCollapsed does; without it, the lines go out in one write.

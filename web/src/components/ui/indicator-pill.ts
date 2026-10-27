@@ -9,7 +9,7 @@ export const indicatorPill =
 
 /**
  * The indicator pill as a control: raised off the row instead of inset into
- * it, so a pill that does something on click (the release progress) reads
+ * it, so a pill that does something on click (the milestone progress) reads
  * apart from the static counts.
  */
 export const raisedIndicatorPill =

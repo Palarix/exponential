@@ -1,109 +1,93 @@
-# Lightweight Telemetry via CDN Logo + Version Header
+# Telemetry: anonymous daily heartbeat with an update check
 
-## Overview
+## What
 
-The web UI loads its logo from the Cloudflare-hosted landing page instead of the local bundle. The response includes an `X-Latest` header with the latest release version (fetched from the GitHub API and cached). The web app compares it against its own version and can show an "update available" indicator.
+Every xpo process (CLI, MCP server, board) sends at most one small heartbeat per install per day to `https://exponential.dev/api/ping`. The heartbeat carries the version, OS, architecture, the surface that sent it, and a random install ID. The response carries the latest released version, and the board shows "Update available" when it is newer. Telemetry is opt-out. xpo shows a notice before it sends the first heartbeat.
 
-No cookies, no persistent identifiers, no PII. Standard CDN access logs provide adoption data (version distribution, rough usage frequency). Telemetry is opt-out.
+## Why
 
-## Architecture
+Adoption is growing, and we know little about who uses which version. The August draft of this spec used the web UI's logo as a beacon. That draft had three gaps:
 
-```
-Web UI ──GET /beacon/xpo.svg?v=1.0.3──> CF Pages Function
-                                           │
-                                           ├─ Serve xpo.svg from static assets
-                                           ├─ Add X-Latest: <version> header
-                                           └─ Cache GitHub API response (~1h)
-                                                │
-                                                └─ github.com/repos/palarix/exponential/releases/latest
-```
+- **Blind spots:** it counted only the web UI. Users who use only the CLI, or whose agents use only MCP, were never counted.
+- **No install count:** every page load was one request, and the browser cached the logo for 24 h. Access logs gave versions and rough activity, not the number of installs.
+- **Privacy claims:** CDN access logs keep IP addresses, so "no personal data" was not true by default.
 
-## Work Items
-
-### Landing Page Repo (`palarix/expo-landing`)
-
-#### 1. Add the logo asset
-
-Copy `xpo.svg` into `public/beacon/xpo.svg` so it's served as a static asset.
-
-#### 2. Create a Cloudflare Pages Function
-
-Create `functions/beacon/xpo.svg.ts` — a Pages Function that:
-
-1. Fetches the static `xpo.svg` from the origin (the built Pages output)
-2. Calls `https://api.github.com/repos/palarix/exponential/releases/latest` to get `tag_name`
-3. Caches the GitHub response in the Worker Cache API with `max-age=3600` (1 hour)
-4. Returns the SVG with headers:
-   - `X-Latest: <tag_name>` (e.g. `v1.0.3`)
-   - `Access-Control-Allow-Origin: *` (so the web UI can read the header)
-   - `Access-Control-Expose-Headers: X-Latest` (required for cross-origin header access)
-   - `Cache-Control: public, max-age=86400` (client caches the SVG for 24h — the version header is a bonus, not critical)
-   - `Content-Type: image/svg+xml`
-
-The function intercepts requests to `/beacon/xpo.svg`, so the static file at that path serves as fallback if Functions are unavailable.
-
-#### 3. CORS headers
-
-Add `X-Latest` to `Access-Control-Expose-Headers` in the `_headers` file as a belt-and-suspenders fallback:
-
-```
-/beacon/*
-  Access-Control-Allow-Origin: *
-  Access-Control-Expose-Headers: X-Latest
-```
-
-### Exponential Repo (`palarix/exponential`)
-
-#### 4. Config: telemetry opt-out
-
-Add `Telemetry bool` field to `config.Config` (default `true`). Also respect `EXPONENTIAL_DISABLE_TELEMETRY` env var.
-
-The server's `/api/config` response should include:
-- `telemetry: true/false`
-- `telemetry_url: "https://exponential.dev/beacon/xpo.svg"` (only when telemetry is enabled)
-
-#### 5. Web UI: load logo from CDN
-
-In `Layout.tsx`, when telemetry is enabled:
-- Change the logo `<img src="/xpo.svg">` to `<img src="https://exponential.dev/beacon/xpo.svg?v={version}">` with `crossOrigin="anonymous"`
-- On `onLoad`, read the `X-Latest` response header via a parallel `fetch()` (can't read headers from `<img>`)
-- Compare `X-Latest` against the app's current version
-- If newer, show a subtle indicator (e.g. a dot on the logo, or a small "Update available" text in the sidebar footer)
-
-When telemetry is disabled, keep using the local `/xpo.svg`.
-
-Fallback: if the CDN fetch fails (network error, timeout), silently fall back to the local logo. The telemetry ping is best-effort.
-
-#### 6. `xpo init` messaging
-
-After project initialization, print a message:
-
-```
-Telemetry: Exponential collects anonymous usage data (version + platform)
-via a CDN image request. No personal data is collected.
-Opt out: set EXPONENTIAL_DISABLE_TELEMETRY=1 or add 'telemetry: false'
-to .xpo/config.yml
-```
-
-#### 7. README update
-
-Add a "Telemetry" section explaining:
-- What is collected (version string appended to a CDN image URL, standard HTTP access logs)
-- What is NOT collected (no PII, no cookies, no fingerprinting, no tracking across sessions)
-- How to opt out (env var or config)
-
-## Opt-out Mechanism
-
-Telemetry is disabled when ANY of these are true:
-- `EXPONENTIAL_DISABLE_TELEMETRY` env var is set (any value)
-- `telemetry: false` in `.xpo/config.yml`
+A Go-side heartbeat fixes all three. It reaches every surface, counts installs, and sends only fields we choose. We store only what we choose to store.
 
 ## Acceptance Criteria
 
-- [ ] Logo loads from CDN when telemetry is enabled
-- [ ] `X-Latest` header is present and contains latest GitHub release tag
-- [ ] Web UI shows "update available" indicator when a newer version exists
-- [ ] Falls back to local logo on CDN failure
-- [ ] Telemetry is disabled by env var or config
-- [ ] `xpo init` prints telemetry notice
-- [ ] README documents telemetry
+- [ ] On the first run on a machine, xpo prints the telemetry notice to stderr and sends no heartbeat.
+- [ ] Each later run, from any surface, sends at most one heartbeat per UTC day per install.
+- [ ] The heartbeat runs in the background, times out after 3 s, and never delays or fails a command.
+- [ ] The heartbeat body contains only `install_id`, `version`, `os`, `arch` and `surface`.
+- [ ] `XPO_TELEMETRY=false`, `DO_NOT_TRACK=1`, or `telemetry: false` in `~/.config/xpo/config.yaml` disables telemetry.
+- [ ] `telemetry: false` in `.xpo/config.yaml` disables telemetry for everyone working on that project.
+- [ ] xpo sends no heartbeat when `CI` is set.
+- [ ] With telemetry disabled, xpo opens no network connection to exponential.dev.
+- [ ] `xpo telemetry` prints the status, the reason for the status, the install ID and the last heartbeat date.
+- [ ] `xpo telemetry off` and `xpo telemetry on` write the user-level setting.
+- [ ] The board shows "Update available: vX.Y.Z" in the sidebar footer when the latest release is newer, with a link to the release notes.
+- [ ] Preferences has a **Telemetry** section that shows the status and the opt-out commands.
+- [ ] The README has a Telemetry section: what is sent, what is stored, what is not, and how to opt out.
+- [ ] `xpo init` prints the notice.
+- [ ] The Worker stores no IP address and no request headers.
+
+## Flow
+
+### Exponential repo
+
+1. Add `Telemetry *bool` (`telemetry`) to `config.Config` in `internal/config/config.go`. Nil means enabled.
+2. Add `internal/telemetry/telemetry.go` with `Enabled(cfg) (bool, reason string)`. It checks `DO_NOT_TRACK`, `CI`, `XPO_TELEMETRY` and the config, in that order.
+3. Add `InstallID`, `NoticeShown` and `LastPing` to `UserConfig` in `internal/config/user.go`. These values live in `~/.config/xpo/user.yaml`.
+4. Add `telemetry.Heartbeat(surface string)`. It returns at once when telemetry is disabled or `LastPing` is today.
+5. In `Heartbeat`, show the notice on stderr when `NoticeShown` is false. Then set `NoticeShown`, and do not send.
+6. In `Heartbeat`, create a random UUIDv4 `InstallID` when it is empty.
+7. Send the POST in a goroutine with a 3 s timeout. On a 2xx response, store `LastPing` and the returned `latest` version.
+8. Call `Heartbeat("cli")` from the root command's `PersistentPreRun` in `cmd/exponential`. Skip the `telemetry` subcommand.
+9. Call `Heartbeat("mcp")` when the MCP server starts in `internal/mcpserver/server.go`.
+10. Call `Heartbeat("board")` when the board server starts. Repeat the call every 24 h while the board runs.
+11. Add `telemetry` and `latest_version` to the config response in `internal/server/handlers.go`.
+12. Show "Update available" in the sidebar footer in `web/src/components/Layout/Sidebar.tsx` when `latest_version` is newer.
+13. Add the Telemetry section to `web/src/components/Preferences/Preferences.tsx`. It is read-only.
+14. Add the `xpo telemetry [on|off]` command.
+15. Print the notice in `cmd/exponential/init.go`.
+16. Add the README Telemetry section.
+
+### Landing repo (`palarix/expo-landing`)
+
+17. Add a Cloudflare Pages Function at `functions/api/ping.ts`.
+18. In the Function, validate the body and write one data point to Workers Analytics Engine: `install_id`, `version`, `os`, `arch`, `surface`.
+19. In the Function, return `{ "latest": "<tag>" }`. Cache the GitHub `releases/latest` response for 1 h.
+
+## Decisions
+
+- **A Go heartbeat, not the logo beacon.** It counts CLI and MCP users, counts installs, and keeps browser headers out of the data. The logo goes back to being a local file.
+- **A random install ID, not a hash of machine data.** A random ID cannot be traced back to a machine or a person. Deleting `user.yaml` resets it. The README says this.
+- **One heartbeat per day.** That is enough for daily and monthly active installs and version spread. It keeps traffic and data small.
+- **A notice before the first heartbeat.** Nobody is counted before they could have seen how to opt out.
+- **Opt-out at user level and project level.** A user opts out on their machine. A team can opt out a whole project through the committed `.xpo/config.yaml`.
+- **`DO_NOT_TRACK` and `CI` are respected.** These are common conventions, and CI runs would inflate the install count.
+- **Workers Analytics Engine, not access logs.** Analytics Engine stores only the fields we write. Pages Functions do not keep IP logs unless Logpush is set up.
+- **We do not store country.** It is useful, but we can add it later with a README update.
+- **The update check rides on the heartbeat.** With telemetry off, there is no update check. A separate check would be a second network call that users did not opt out of.
+
+## Edge Cases
+
+- **HIGH:** an MCP server writes the notice to stdout and breaks the protocol. The notice always goes to stderr.
+- **HIGH:** the endpoint is down or slow, and commands hang. The send runs in a goroutine with a 3 s timeout, and the CLI does not wait for it on exit.
+- **MEDIUM:** several processes start at the same moment and each sends a heartbeat. Accept duplicates. The analysis counts distinct install IDs per day.
+- **MEDIUM:** `user.yaml` is not writable. xpo then sends no heartbeat, because without a saved `NoticeShown` it would show the notice every run.
+- **LOW:** dev builds. They send their version string as-is, and the analysis filters them out.
+
+## Assumptions
+
+- The landing site runs on Cloudflare Pages at `exponential.dev`, and we can deploy Functions there.
+- GitHub Releases is the source of truth for the latest version.
+- Releases are public, so the update link points to `github.com/palarix/exponential/releases`.
+
+## Open Questions
+
+1. Is a random install ID acceptable to you, or do you want counts only, with no ID at all?
+2. Should we also store a coarse country from Cloudflare's `cf.country`?
+3. Should the CLI also print "update available" (for example in `xpo version` and `xpo doctor`), or only the board?
+4. The landing repo is outside this worktree. Should its part be a separate issue?

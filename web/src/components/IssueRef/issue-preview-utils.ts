@@ -1,6 +1,6 @@
 import type { Issue } from "../../api/types";
 import { unresolvedBlockers } from "../IssueDetail/relation-utils";
-import { childProgress } from "../Releases/releases-utils";
+import { childProgress } from "../Milestones/milestones-utils";
 
 /** What the issue hover card's footer counts. */
 export interface PreviewCounts {

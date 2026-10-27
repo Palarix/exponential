@@ -44,7 +44,7 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 				Priority:     p.Priority,
 				SortOrder:    p.SortOrder,
 				CycleID:      p.CycleID,
-				ReleaseID:    p.ReleaseID,
+				MilestoneID:  p.MilestoneID,
 				Status:       status,
 				CreatedAt:    evt.CreatedAt,
 				CreatedBy:    principalOf(evt),
@@ -93,8 +93,8 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 			if p.CycleID != nil {
 				issue.CycleID = *p.CycleID
 			}
-			if p.ReleaseID != nil {
-				issue.ReleaseID = *p.ReleaseID
+			if p.MilestoneID != nil {
+				issue.MilestoneID = *p.MilestoneID
 			}
 			if p.Dependencies != nil {
 				issue.Dependencies = p.Dependencies
@@ -202,32 +202,32 @@ func ProjectIssues(events []model.Event) map[string]*model.Issue {
 
 	backfillSortOrder(finalIssues)
 	deriveLinks(finalIssues)
-	fillReleaseNames(finalIssues, events)
+	fillMilestoneNames(finalIssues, events)
 
 	return finalIssues
 }
 
-// fillReleaseNames sets ReleaseName on every issue in a release. Release
-// events themselves are skipped by the loop above: their rel- IDs are not
+// fillMilestoneNames sets MilestoneName on every issue in a milestone. Milestone
+// events themselves are skipped by the loop above: their ms- IDs are not
 // issues.
-func fillReleaseNames(issues map[string]*model.Issue, events []model.Event) {
-	inRelease := false
+func fillMilestoneNames(issues map[string]*model.Issue, events []model.Event) {
+	inMilestone := false
 	for _, issue := range issues {
-		if issue.ReleaseID != "" {
-			inRelease = true
+		if issue.MilestoneID != "" {
+			inMilestone = true
 			break
 		}
 	}
-	if !inRelease {
+	if !inMilestone {
 		return
 	}
 	names := make(map[string]string)
-	for _, r := range ProjectReleases(events) {
+	for _, r := range ProjectMilestones(events) {
 		names[r.ID] = r.Display()
 	}
 	for _, issue := range issues {
-		if issue.ReleaseID != "" {
-			issue.ReleaseName = names[issue.ReleaseID]
+		if issue.MilestoneID != "" {
+			issue.MilestoneName = names[issue.MilestoneID]
 		}
 	}
 }

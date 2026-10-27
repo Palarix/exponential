@@ -26,6 +26,9 @@ func ReadEvents() ([]model.Event, error) {
 	for len(data) > 0 {
 		line, rest, terminated := bytes.Cut(data, []byte("\n"))
 		data = rest
+		if lineHasOldReleaseData(line) {
+			return nil, ErrOldReleaseData
+		}
 		var evt model.Event
 		if err := json.Unmarshal(line, &evt); err != nil {
 			if !terminated {
@@ -79,6 +82,9 @@ func ReadArchivedEvents() ([]model.Event, error) {
 	var events []model.Event
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
+		if lineHasOldReleaseData(scanner.Bytes()) {
+			return nil, ErrOldReleaseData
+		}
 		var evt model.Event
 		if err := json.Unmarshal(scanner.Bytes(), &evt); err != nil {
 			return nil, err

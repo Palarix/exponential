@@ -4,11 +4,11 @@ import { useCreateIssue, useCreateIssueFromDraft, useDeleteIssueDraft, useSaveIs
 import type { Issue, IssueDraft } from "../../api/client";
 import { computeAppendKey } from "../../utils/sort";
 import { Dialog, DialogOverlay, Button, ConfirmDialog, LabelBadge, LabelPicker, Avatar, Popover, PopoverPanel, StatusIcon, InlineDropdown } from "../ui";
-import { ChevronDown, Folder, UserRound, Tag, Package } from "lucide-react";
-import { useReleases } from "../../api/queries";
-import { pickerOptions } from "../Releases/release-assign-utils";
-import ReleasePicker from "../Releases/ReleasePicker";
-import { releaseDropRef } from "../Releases/releases-utils";
+import { ChevronDown, Folder, UserRound, Tag, Milestone as MilestoneIcon } from "lucide-react";
+import { useMilestones } from "../../api/queries";
+import { pickerOptions } from "../Milestones/milestone-assign-utils";
+import MilestonePicker from "../Milestones/MilestonePicker";
+import { milestoneDropRef } from "../Milestones/milestones-utils";
 import type { DropdownOption } from "../ui";
 import { fieldTriggerClass } from "../ui/field-trigger";
 import { cn } from "../../utils/cn";
@@ -16,7 +16,7 @@ import { isTerminal } from "../../constants";
 import { collectKnownPeople } from "../../utils/issues";
 import MarkdownEditor from "../MarkdownEditor";
 import { useAllLabels } from "../../hooks/useLabels";
-import { EMPTY_ISSUE_FORM, draftPayloadFromForm, formFromDraftPayload, formHasContent, formsEqual, shownRelease, type IssueForm } from "./issue-form";
+import { EMPTY_ISSUE_FORM, draftPayloadFromForm, formFromDraftPayload, formHasContent, formsEqual, shownMilestone, type IssueForm } from "./issue-form";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "BACKLOG", label: "Backlog", icon: <StatusIcon status="BACKLOG" size={14} /> },
@@ -48,7 +48,7 @@ interface NewIssueModalProps {
 export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated, onDraftSaved, issues, contributors }: NewIssueModalProps) {
   const [baseline] = useState<IssueForm>(() => (draft ? formFromDraftPayload(draft.payload) : EMPTY_ISSUE_FORM));
   const [form, setForm] = useState<IssueForm>(baseline);
-  const { title, description, labels, status, estimate, parentId, assignee, additionalLabels, release } = form;
+  const { title, description, labels, status, estimate, parentId, assignee, additionalLabels, milestone } = form;
   const setField = <K extends keyof IssueForm>(key: K) => (value: IssueForm[K]) => setForm((f) => ({ ...f, [key]: value }));
   const setTitle = setField("title");
   const setDescription = setField("description");
@@ -56,9 +56,9 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
   const setEstimate = setField("estimate");
   const setParentId = setField("parentId");
   const setAssignee = setField("assignee");
-  const setRelease = setField("release");
-  const { data: releases } = useReleases();
-  const releaseShown = shownRelease(form, issues, releases);
+  const setMilestone = setField("milestone");
+  const { data: milestones } = useMilestones();
+  const milestoneShown = shownMilestone(form, issues, milestones);
 
   const { mutate: createIssue, isPending: creatingIssue } = useCreateIssue();
   const { mutate: createFromDraft, isPending: creatingFromDraft } = useCreateIssueFromDraft();
@@ -71,8 +71,8 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
   const labelMenuRef = useRef<HTMLDivElement>(null);
   const [labelPos, setLabelPos] = useState({ top: 0, left: 0 });
 
-  const [moreOpen, setMoreOpen] = useState(() => !!(baseline.parentId || baseline.assignee || baseline.additionalLabels.length || baseline.release));
-  const [morePopover, setMorePopover] = useState<"parent" | "assignee" | "labels" | "release" | null>(null);
+  const [moreOpen, setMoreOpen] = useState(() => !!(baseline.parentId || baseline.assignee || baseline.additionalLabels.length || baseline.milestone));
+  const [morePopover, setMorePopover] = useState<"parent" | "assignee" | "labels" | "milestone" | null>(null);
   const morePopoverAnchorRef = useRef<HTMLDivElement>(null);
   const [parentSearch, setParentSearch] = useState("");
   const [assigneeSearch, setAssigneeSearch] = useState("");
@@ -142,7 +142,7 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
     const estimateNum = parseInt(estimate, 10);
     if (estimateNum > 0) update.estimate = estimateNum;
     const vars = {
-      issue: { title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, release_id: release || undefined, sort_order: sortOrder },
+      issue: { title: title.trim(), description: description.trim() || undefined, labels: combinedLabels, parent_id: parentId || undefined, assignee: assignee || undefined, milestone_id: milestone || undefined, sort_order: sortOrder },
       update,
     };
     if (draft) createFromDraft({ ...vars, draftId: draft.id }, { onSuccess: onCreated });
@@ -236,19 +236,19 @@ export default function NewIssueModal({ isOpen, draft = null, onClose, onCreated
                       </Popover>
                     )}
                   </div>
-                  {releases && (
-                    <div className="relative" ref={morePopover === "release" ? morePopoverAnchorRef : undefined}>
-                      <button type="button" onClick={() => setMorePopover(morePopover === "release" ? null : "release")} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
-                        <Package className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
-                        <span className={`truncate max-w-40 ${releaseShown ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{releaseShown?.name ?? "No release"}</span>
+                  {milestones && (
+                    <div className="relative" ref={morePopover === "milestone" ? morePopoverAnchorRef : undefined}>
+                      <button type="button" onClick={() => setMorePopover(morePopover === "milestone" ? null : "milestone")} className="flex items-center gap-2 h-8 px-3 rounded-[var(--radius-md)] text-sm border border-[var(--color-border-default)] hover:border-[var(--color-border-focus)] transition-colors">
+                        <MilestoneIcon className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+                        <span className={`truncate max-w-40 ${milestoneShown ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}`}>{milestoneShown?.name ?? "No milestone"}</span>
                       </button>
-                      {morePopover === "release" && (
+                      {morePopover === "milestone" && (
                         <Popover anchorRef={morePopoverAnchorRef} onClose={() => setMorePopover(null)}>
                           <PopoverPanel>
-                            <ReleasePicker
-                              options={pickerOptions(releases)}
-                              current={releaseShown?.id}
-                              onSelect={(r) => setRelease(r ? releaseDropRef(r) : "none")}
+                            <MilestonePicker
+                              options={pickerOptions(milestones)}
+                              current={milestoneShown?.id}
+                              onSelect={(r) => setMilestone(r ? milestoneDropRef(r) : "none")}
                               onClose={() => setMorePopover(null)}
                             />
                           </PopoverPanel>

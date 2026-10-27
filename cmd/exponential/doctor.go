@@ -182,6 +182,7 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 				})
 			} else {
 				counts.pass("Issues database (%d events)", lineNum)
+				localFixes = doctorMilestoneData(counts, localFixes)
 				doctorEventOrder(counts)
 			}
 		}
@@ -226,6 +227,33 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 			os.Exit(1)
 		}
 	},
+}
+
+// doctorMilestoneData finds Milestone data still under the names it had
+// before 1.6, when the feature was called Releases. Reads refuse such a
+// board, so it is an error; --fix migrates issues.db, archive.db and the
+// issue drafts in place, keeping a .bak copy of each changed file.
+func doctorMilestoneData(c *doctorCounts, localFixes []string) []string {
+	old, err := storage.HasOldReleaseData()
+	if err != nil {
+		c.err("Could not check milestone data: %v", err)
+		return localFixes
+	}
+	if !old {
+		c.pass("Milestone data uses the new names")
+		return localFixes
+	}
+	if !doctorFix {
+		c.err("Milestone data uses the old Release names")
+		fmt.Printf("    Run xpo doctor --fix to migrate it\n")
+		return localFixes
+	}
+	res, err := storage.MigrateMilestones()
+	if err != nil {
+		c.err("Could not migrate Release data: %v", err)
+		return localFixes
+	}
+	return append(localFixes, fmt.Sprintf("Migrated Release data to Milestones in %s (a .bak copy of each is kept)", strings.Join(res.Files, ", ")))
 }
 
 // doctorEventOrder reports issues.db lines whose created_at does not strictly

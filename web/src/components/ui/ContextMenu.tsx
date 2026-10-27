@@ -1,19 +1,19 @@
 import { useRef, useEffect, useState, useLayoutEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { Issue } from "../../api/client";
-import { useCycles, useReleases } from "../../api/queries";
+import { useCycles, useMilestones } from "../../api/queries";
 import { useDeleteIssue, useUpdateIssue } from "../../api/mutations";
 import LabelPicker from "./LabelPicker";
 import StatusPicker from "./StatusPicker";
 import PriorityPicker from "./PriorityPicker";
 import EstimatePicker from "./EstimatePicker";
 import CyclePicker from "./CyclePicker";
-import ReleasePicker from "../Releases/ReleasePicker";
+import MilestonePicker from "../Milestones/MilestonePicker";
 import AssigneePicker from "./AssigneePicker";
 import DeleteIssueDialog from "./DeleteIssueDialog";
-import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink, MessageSquare, Package } from "lucide-react";
-import { useReleaseAssign } from "../Releases/release-assign-context";
-import { pickerOptions } from "../Releases/release-assign-utils";
+import { UserRound, Triangle, RefreshCw, Trash2, Tag, Unlink, MessageSquare, Milestone as MilestoneIcon } from "lucide-react";
+import { useMilestoneAssign } from "../Milestones/milestone-assign-context";
+import { pickerOptions } from "../Milestones/milestone-assign-utils";
 import { toggleLabel } from "../../utils/labels";
 import { collectKnownPeople } from "../../utils/issues";
 import { useKeyboardShortcuts } from "../../keyboard";
@@ -74,8 +74,8 @@ export default function ContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { cycles } = useCycles();
-  const { data: releases } = useReleases();
-  const { assign: assignRelease } = useReleaseAssign();
+  const { data: milestones } = useMilestones();
+  const { assign: assignMilestone } = useMilestoneAssign();
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
@@ -173,13 +173,13 @@ export default function ContextMenu({
         <SubMenu label="Cycle" icon={<RefreshCw size={16} />} shortcut="C"
           renderPanel={(close) => <CyclePicker cycles={cycles} current={issue.cycle_id} onSelect={id => handleUpdate({ cycle_id: id })} onClose={close} />}
         />
-        {releases && (
-          <SubMenu label="Release" icon={<Package size={16} />} shortcut="R"
+        {milestones && (
+          <SubMenu label="Milestone" icon={<MilestoneIcon size={16} />} shortcut="R"
             renderPanel={(close) => (
-              <ReleasePicker
-                options={pickerOptions(releases, issue.release_id)}
-                current={issue.release_id}
-                onSelect={(release) => { closeAll(); assignRelease([issue.id], release); }}
+              <MilestonePicker
+                options={pickerOptions(milestones, issue.milestone_id)}
+                current={issue.milestone_id}
+                onSelect={(milestone) => { closeAll(); assignMilestone([issue.id], milestone); }}
                 onClose={close}
               />
             )}

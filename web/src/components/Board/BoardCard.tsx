@@ -9,7 +9,7 @@ import { splitLabels } from "../../utils/labels";
 import { popoverTriggerProps } from "../../utils/popover-trigger";
 import { IssueChatIcon } from "../Agent/IssueChats";
 import { useIssueChats } from "../Agent/useIssueChats";
-import ReleaseChip from "../Releases/ReleaseChip";
+import MilestoneChip from "../Milestones/MilestoneChip";
 
 export interface CardMeta {
   parentTitle?: string;
@@ -25,8 +25,8 @@ export function SortableBoardCard({
   onContextMenu,
   assigneeOpen = false,
   onAssigneeOpen,
-  releaseOpen = false,
-  onReleaseOpen,
+  milestoneOpen = false,
+  onMilestoneOpen,
 }: {
   issue: Issue;
   meta: CardMeta;
@@ -35,8 +35,8 @@ export function SortableBoardCard({
   onContextMenu?: (x: number, y: number) => void;
   assigneeOpen?: boolean;
   onAssigneeOpen?: () => void;
-  releaseOpen?: boolean;
-  onReleaseOpen?: () => void;
+  milestoneOpen?: boolean;
+  onMilestoneOpen?: () => void;
 }) {
   const {
     attributes,
@@ -73,7 +73,7 @@ export function SortableBoardCard({
         issue={issue}
         meta={meta}
         assignee={onAssigneeOpen ? { open: assigneeOpen, onOpen: onAssigneeOpen } : undefined}
-        release={onReleaseOpen ? { open: releaseOpen, onOpen: onReleaseOpen } : undefined}
+        milestone={onMilestoneOpen ? { open: milestoneOpen, onOpen: onMilestoneOpen } : undefined}
       />
     </div>
   );
@@ -111,14 +111,14 @@ function BoardCardContent({
   issue,
   meta,
   assignee,
-  release,
+  milestone,
 }: {
   issue: Issue;
   meta: CardMeta;
   /** Makes the avatar a picker trigger; omitted on the drag overlay. */
   assignee?: { open: boolean; onOpen: () => void };
-  /** Opens the release picker from the release chip; omitted on the drag overlay. */
-  release?: { open: boolean; onOpen: () => void };
+  /** Opens the milestone picker from the milestone chip; omitted on the drag overlay. */
+  milestone?: { open: boolean; onOpen: () => void };
 }) {
   const defaultLabels = useContext(DefaultLabelsContext);
   const { primary: primaryLabels, metadata: metaLabels } = splitLabels(issue.labels || [], defaultLabels);
@@ -128,7 +128,7 @@ function BoardCardContent({
   const cycleId = issue.effective_cycle_id || issue.cycle_id;
   const artifactCount = issue.artifacts?.length ?? 0;
   const hasChats = useIssueChats(issue.id).state !== null;
-  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId || artifactCount > 0 || hasChats || !!issue.release;
+  const hasBottom = hasChildren || hasLabels || hasBranch || cycleId || artifactCount > 0 || hasChats || !!issue.milestone;
   return (
     <>
       {/* NW: ID + parent | NE: pending, priority, assignee */}
@@ -188,7 +188,7 @@ function BoardCardContent({
               {hasBranch && <BranchBadge stats={issue.branch_stats!} />}
               <IssueChatIcon issueId={issue.id} />
               {artifactCount > 0 && <AttachmentIndicator count={artifactCount} />}
-              <ReleaseChip issue={issue} expanded={!!release?.open} onOpen={() => release?.onOpen()} />
+              <MilestoneChip issue={issue} expanded={!!milestone?.open} onOpen={() => milestone?.onOpen()} />
             </span>
             {(() => {
               const all = [...metaLabels, ...primaryLabels];

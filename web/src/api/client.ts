@@ -1,8 +1,8 @@
-import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload, Release, ReleasesResponse, ReleaseDay, ReleaseProgressResponse } from './types';
+import type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload, Milestone, MilestonesResponse, MilestoneDay, MilestoneProgressResponse } from './types';
 
 const API_BASE = '/api';
 
-export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload, Release, ReleasesResponse, ReleaseDay, ReleaseProgressResponse };
+export type { Issue, Dependency, Comment, PendingState, Event, Cycle, CyclesResponse, CycleProgressDay, CycleProgressResponse, InboxItem, InboxStatus, TimelineEntry, CommitDetail, CommitFile, IssueDraft, IssueDraftPayload, Milestone, MilestonesResponse, MilestoneDay, MilestoneProgressResponse };
 
 export class ApiError extends Error {
   status: number;
@@ -57,7 +57,7 @@ export async function fetchPending(): Promise<PendingState> {
   return request(`${API_BASE}/pending`);
 }
 
-/** `withChildren` (an UPDATE of the release) also moves the issue's open descendants. */
+/** `withChildren` (an UPDATE of the milestone) also moves the issue's open descendants. */
 export async function addDraft(issueId: string, type: string, payload: unknown, options?: { withChildren?: boolean }): Promise<void> {
   return request(`${API_BASE}/draft`, {
     method: 'POST',
@@ -66,7 +66,7 @@ export async function addDraft(issueId: string, type: string, payload: unknown, 
   });
 }
 
-export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string; release_id?: string; sort_order?: string }): Promise<string> {
+export async function createIssue(payload: { title: string; description?: string; labels?: string[]; parent_id?: string; assignee?: string; milestone_id?: string; sort_order?: string }): Promise<string> {
   const data = await request<{ issue_id: string }>(`${API_BASE}/draft`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -269,53 +269,53 @@ export async function fetchCycleProgress(cycleId: string): Promise<CycleProgress
   return request(`${API_BASE}/cycles/${cycleId}/progress`);
 }
 
-export async function fetchReleases(): Promise<ReleasesResponse> {
-  return request(`${API_BASE}/releases`);
+export async function fetchMilestones(): Promise<MilestonesResponse> {
+  return request(`${API_BASE}/milestones`);
 }
 
-/** `ref` is a `#7` number ref, a `rel-` ID or a label. */
-export async function fetchReleaseProgress(ref: string): Promise<ReleaseProgressResponse> {
-  return request(`${API_BASE}/releases/${encodeURIComponent(ref)}/progress`);
+/** `ref` is a `#7` number ref, a `ms-` ID or a label. */
+export async function fetchMilestoneProgress(ref: string): Promise<MilestoneProgressResponse> {
+  return request(`${API_BASE}/milestones/${encodeURIComponent(ref)}/progress`);
 }
 
-export async function createRelease(fields: { label?: string; goal?: string; target_date?: string }): Promise<Release> {
-  return request(`${API_BASE}/releases`, {
+export async function createMilestone(fields: { label?: string; goal?: string; target_date?: string }): Promise<Milestone> {
+  return request(`${API_BASE}/milestones`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
   });
 }
 
-/** What completing or deleting a release does with its issues: move them (to `to`, or the neighbour), or take them out of the release. */
-export type ReleaseIssuesMode = 'move_to_next' | 'remove';
+/** What completing or deleting a milestone does with its issues: move them (to `to`, or the neighbour), or take them out of the milestone. */
+export type MilestoneIssuesMode = 'move_to_next' | 'remove';
 
-/** Sets a release's label, goal and target date; an empty string clears a field. */
-export async function updateRelease({ id, ...fields }: { id: string; label: string; goal: string; target_date: string }): Promise<Release> {
-  return request(`${API_BASE}/releases/${encodeURIComponent(id)}`, {
+/** Sets a milestone's label, goal and target date; an empty string clears a field. */
+export async function updateMilestone({ id, ...fields }: { id: string; label: string; goal: string; target_date: string }): Promise<Milestone> {
+  return request(`${API_BASE}/milestones/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(fields),
   });
 }
 
-/** Marks release `id` RELEASED; its open issues move to `to` (default: its neighbour) or leave the release. */
-export async function completeRelease({ id, issues, to }: { id: string; issues: ReleaseIssuesMode; to?: string }): Promise<{ release: Release; messages: string[] }> {
-  return request(`${API_BASE}/releases/${encodeURIComponent(id)}/complete`, {
+/** Marks milestone `id` COMPLETED; its open issues move to `to` (default: its neighbour) or leave the milestone. */
+export async function completeMilestone({ id, issues, to }: { id: string; issues: MilestoneIssuesMode; to?: string }): Promise<{ milestone: Milestone; messages: string[] }> {
+  return request(`${API_BASE}/milestones/${encodeURIComponent(id)}/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ issues, to }),
   });
 }
 
-/** Deletes open release `id`; all its issues move to `to` (default: its neighbour) or leave the release. */
-export async function deleteRelease({ id, issues, to }: { id: string; issues: ReleaseIssuesMode; to?: string }): Promise<{ messages: string[] }> {
+/** Deletes open milestone `id`; all its issues move to `to` (default: its neighbour) or leave the milestone. */
+export async function deleteMilestone({ id, issues, to }: { id: string; issues: MilestoneIssuesMode; to?: string }): Promise<{ messages: string[] }> {
   const query = new URLSearchParams({ issues, ...(to && { to }) });
-  return request(`${API_BASE}/releases/${encodeURIComponent(id)}?${query}`, { method: 'DELETE' });
+  return request(`${API_BASE}/milestones/${encodeURIComponent(id)}?${query}`, { method: 'DELETE' });
 }
 
-/** Moves release `id` directly before or after another open release. */
-export async function reorderRelease(move: { id: string; before?: string; after?: string }): Promise<Release> {
-  return request(`${API_BASE}/releases/reorder`, {
+/** Moves milestone `id` directly before or after another open milestone. */
+export async function reorderMilestone(move: { id: string; before?: string; after?: string }): Promise<Milestone> {
+  return request(`${API_BASE}/milestones/reorder`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(move),

@@ -31,41 +31,41 @@ func IsMeaningfulActivityEvent(evt model.Event) bool {
 }
 
 // IsFeedEvent reports whether an event gets its own entry in the activity
-// feed and the project timeline. A bulk operation shows once: a release
+// feed and the project timeline. A bulk operation shows once: a milestone
 // complete or delete is an entry, and the issue moves it caused are not.
 func IsFeedEvent(evt model.Event) bool {
 	if evt.Cause != "" {
 		return false
 	}
-	if isReleaseBulkEvent(evt.Type) {
+	if isMilestoneBulkEvent(evt.Type) {
 		return true
 	}
 	return IsMeaningfulActivityEvent(evt)
 }
 
-func isReleaseBulkEvent(t model.EventType) bool {
-	return t == model.EventTypeReleaseComplete || t == model.EventTypeReleaseDelete
+func isMilestoneBulkEvent(t model.EventType) bool {
+	return t == model.EventTypeMilestoneComplete || t == model.EventTypeMilestoneDelete
 }
 
-// ReleaseNotes names the releases an event refers to, by their current
+// MilestoneNotes names the milestones an event refers to, by their current
 // display names.
-type ReleaseNotes struct {
-	Release   string // the release an UPDATE sets (or moves children to), or a release event's own release
-	MovedTo   string // release events: where the issues moved
-	CauseNote string // caused events: e.g. "when 1.5 was released"
+type MilestoneNotes struct {
+	Milestone   string // the milestone an UPDATE sets (or moves children to), or a milestone event's own milestone
+	MovedTo   string // milestone events: where the issues moved
+	CauseNote string // caused events: e.g. "when 1.5 was completed"
 }
 
-// ReleaseNoter returns a function that gives the ReleaseNotes of an event.
-// The releases are projected on first use.
-func ReleaseNoter(events []model.Event) func(model.Event) ReleaseNotes {
-	var byID map[string]*model.Release
-	find := func(id string) *model.Release {
+// MilestoneNoter returns a function that gives the MilestoneNotes of an event.
+// The milestones are projected on first use.
+func MilestoneNoter(events []model.Event) func(model.Event) MilestoneNotes {
+	var byID map[string]*model.Milestone
+	find := func(id string) *model.Milestone {
 		if id == "" {
 			return nil
 		}
 		if byID == nil {
-			byID = make(map[string]*model.Release)
-			for _, r := range ProjectReleases(events) {
+			byID = make(map[string]*model.Milestone)
+			for _, r := range ProjectMilestones(events) {
 				byID[r.ID] = r
 			}
 		}
@@ -77,32 +77,32 @@ func ReleaseNoter(events []model.Event) func(model.Event) ReleaseNotes {
 		}
 		return ""
 	}
-	return func(evt model.Event) ReleaseNotes {
-		var n ReleaseNotes
+	return func(evt model.Event) MilestoneNotes {
+		var n MilestoneNotes
 		switch evt.Type {
 		case model.EventTypeUpdate:
 			var p model.UpdatePayload
 			decodePayload(evt.Payload, &p)
-			if p.ReleaseID != nil {
-				n.Release = name(*p.ReleaseID)
+			if p.MilestoneID != nil {
+				n.Milestone = name(*p.MilestoneID)
 			} else if p.Children != nil {
-				n.Release = name(p.Children.ReleaseID)
+				n.Milestone = name(p.Children.MilestoneID)
 			}
-		case model.EventTypeReleaseComplete:
-			var p model.ReleaseCompletePayload
+		case model.EventTypeMilestoneComplete:
+			var p model.MilestoneCompletePayload
 			decodePayload(evt.Payload, &p)
-			n.Release, n.MovedTo = name(evt.ID), name(p.MovedTo)
-		case model.EventTypeReleaseDelete:
-			var p model.ReleaseDeletePayload
+			n.Milestone, n.MovedTo = name(evt.ID), name(p.MovedTo)
+		case model.EventTypeMilestoneDelete:
+			var p model.MilestoneDeletePayload
 			decodePayload(evt.Payload, &p)
-			n.Release, n.MovedTo = name(evt.ID), name(p.MovedTo)
+			n.Milestone, n.MovedTo = name(evt.ID), name(p.MovedTo)
 		}
 		switch {
-		case strings.HasPrefix(evt.Cause, model.ReleaseIDPrefix):
+		case strings.HasPrefix(evt.Cause, model.MilestoneIDPrefix):
 			if r := find(evt.Cause); r != nil && r.Deleted {
 				n.CauseNote = fmt.Sprintf("when %s was deleted", r.Display())
 			} else if r != nil {
-				n.CauseNote = fmt.Sprintf("when %s was released", r.Display())
+				n.CauseNote = fmt.Sprintf("when %s was completed", r.Display())
 			}
 		case evt.Cause != "":
 			n.CauseNote = fmt.Sprintf("with %s", evt.Cause)
@@ -204,7 +204,7 @@ func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit i
 	var entries []model.TimelineEntry
 
 	if kindFilter == "" || kindFilter == "issue_event" {
-		notes := ReleaseNoter(events)
+		notes := MilestoneNoter(events)
 		for i := len(events) - 1; i >= 0; i-- {
 			evt := events[i]
 			if !IsFeedEvent(evt) {
@@ -212,11 +212,11 @@ func BuildTimeline(events []model.Event, issues map[string]*model.Issue, limit i
 			}
 			n := notes(evt)
 			title := titles[evt.ID]
-			if model.IsReleaseEvent(evt.Type) {
-				title = n.Release
+			if model.IsMilestoneEvent(evt.Type) {
+				title = n.Milestone
 			}
 			entries = append(entries, model.TimelineEntry{
-				Release:    n.Release,
+				Milestone:    n.Milestone,
 				MovedTo:    n.MovedTo,
 				Kind:       "issue_event",
 				Timestamp:  evt.CreatedAt,

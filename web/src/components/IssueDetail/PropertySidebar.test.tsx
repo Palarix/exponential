@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../api/query-keys";
-import type { Issue, Release } from "../../api/types";
+import type { Issue, Milestone } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import { renderMarkup } from "../../render-markup";
 import { AgentChatContext, type AgentChat } from "../Agent/agent-context";
@@ -282,38 +282,38 @@ describe("BlockerList", () => {
   });
 });
 
-describe("PropertySidebar release", () => {
-  const rel = (number: number, o: Partial<Release> = {}): Release => ({
-    id: `rel-${number}`, number, name: o.label ?? `#${number}`, state: "OPEN", counts: {}, total: 0, done: 0, ...o,
+describe("PropertySidebar milestone", () => {
+  const rel = (number: number, o: Partial<Milestone> = {}): Milestone => ({
+    id: `ms-${number}`, number, name: o.label ?? `#${number}`, state: "OPEN", counts: {}, total: 0, done: 0, ...o,
   });
-  function releasesClient(): QueryClient {
+  function milestonesClient(): QueryClient {
     const client = new QueryClient();
-    client.setQueryData(queryKeys.releases, {
+    client.setQueryData(queryKeys.milestones, {
       current: rel(1, { label: "1.1", slot: "current" }),
       next: rel(2, { slot: "next", placeholder: true, id: undefined }),
       upcoming: [],
-      past: [rel(9, { label: "1.0", state: "RELEASED", slot: "past" })],
+      past: [rel(9, { label: "1.0", state: "COMPLETED", slot: "past" })],
     });
     return client;
   }
 
-  it("shows the issue's release as a picker trigger", () => {
-    const html = renderSidebar(makeIssue({ release_id: "rel-1", release: "1.1" }), null, [], releasesClient());
+  it("shows the issue's milestone as a picker trigger", () => {
+    const html = renderSidebar(makeIssue({ milestone_id: "ms-1", milestone: "1.1" }), null, [], milestonesClient());
     expect(html).toMatch(/aria-haspopup="menu"[^>]*>(?:(?!<\/button>).)*1\.1/);
   });
 
-  it("says No release without one", () => {
-    expect(renderSidebar(makeIssue(), null, [], releasesClient())).toContain("No release");
+  it("says No milestone without one", () => {
+    expect(renderSidebar(makeIssue(), null, [], milestonesClient())).toContain("No milestone");
   });
 
-  it("offers Move to Current for an open issue in a released release", () => {
-    const html = renderSidebar(makeIssue({ release_id: "rel-9", release: "1.0" }), null, [], releasesClient());
-    expect(html).toContain("In released release 1.0.");
+  it("offers Move to Current for an open issue in a completed milestone", () => {
+    const html = renderSidebar(makeIssue({ milestone_id: "ms-9", milestone: "1.0" }), null, [], milestonesClient());
+    expect(html).toContain("In completed milestone 1.0.");
     expect(html).toContain("Move to Current");
   });
 
-  it("gives a done issue in a released release no hint", () => {
-    const html = renderSidebar(makeIssue({ release_id: "rel-9", release: "1.0", status: "DONE" }), null, [], releasesClient());
+  it("gives a done issue in a completed milestone no hint", () => {
+    const html = renderSidebar(makeIssue({ milestone_id: "ms-9", milestone: "1.0", status: "DONE" }), null, [], milestonesClient());
     expect(html).not.toContain("Move to Current");
   });
 });

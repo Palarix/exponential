@@ -21,7 +21,7 @@ describe("VIEWS registry", () => {
 
   it("lists views in sidebar order", () => {
     expect(VIEWS.map((v) => v.id)).toEqual([
-      "dashboard", "backlog", "board", "cycles", "releases", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts", "preferences",
+      "dashboard", "backlog", "board", "cycles", "milestones", "timeline", "labels", "dependencies", "agent", "my-issues", "inbox", "drafts", "preferences",
     ]);
   });
 
@@ -36,7 +36,7 @@ describe("VIEWS registry", () => {
   it("maps go keys to views", () => {
     expect(VIEW_BY_GO_KEY).toEqual({
       o: "dashboard", i: "backlog", b: "board", n: "inbox", d: "dependencies",
-      l: "labels", c: "cycles", v: "releases", m: "my-issues", t: "timeline", r: "drafts", a: "agent", ",": "preferences",
+      l: "labels", c: "cycles", v: "milestones", m: "my-issues", t: "timeline", r: "drafts", a: "agent", ",": "preferences",
     });
   });
 
@@ -79,10 +79,10 @@ describe("parseRoute", () => {
     expect(parseRoute("#/dependencies/xpo-abc123")).toEqual(route({ view: "dependencies", depFocusId: "xpo-abc123" }));
   });
 
-  it("opens the Releases list for any release link: releases have no page", () => {
-    expect(parseRoute("#/releases")).toEqual(route({ view: "releases" }));
-    expect(parseRoute("#/releases/7")).toEqual(route({ view: "releases" }));
-    expect(parseRoute("#/releases/rel-3fa9c1")).toEqual(route({ view: "releases" }));
+  it("opens the Milestones list for any milestone link: milestones have no page", () => {
+    expect(parseRoute("#/milestones")).toEqual(route({ view: "milestones" }));
+    expect(parseRoute("#/milestones/7")).toEqual(route({ view: "milestones" }));
+    expect(parseRoute("#/milestones/ms-3fa9c1")).toEqual(route({ view: "milestones" }));
   });
 
   it("parses agent chat links", () => {

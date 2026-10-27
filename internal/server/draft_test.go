@@ -90,9 +90,9 @@ func TestHandleDraft_Delete(t *testing.T) {
 	}
 }
 
-// A refused release assignment is the user's to fix, so it answers 400
+// A refused milestone assignment is the user's to fix, so it answers 400
 // with the server's reason instead of a generic 500.
-func TestHandleDraft_UpdateReleaseRefusalIs400(t *testing.T) {
+func TestHandleDraft_UpdateMilestoneRefusalIs400(t *testing.T) {
 	srv := setupTestServer(t)
 	mux := srv.SetupRoutes()
 	id := seedIssue(t, "Assignable")
@@ -107,7 +107,7 @@ func TestHandleDraft_UpdateReleaseRefusalIs400(t *testing.T) {
 		body, _ := json.Marshal(map[string]interface{}{
 			"issue_id": id,
 			"type":     "UPDATE",
-			"payload":  model.UpdatePayload{ReleaseID: &ref},
+			"payload":  model.UpdatePayload{MilestoneID: &ref},
 		})
 		req := httptest.NewRequest("POST", "/api/draft", bytes.NewReader(body))
 		w := httptest.NewRecorder()
@@ -141,17 +141,17 @@ func TestHandleDraft_UpdateWithChildren(t *testing.T) {
 		post(map[string]interface{}{"issue_id": "", "type": "CREATE", "payload": model.CreatePayload{Title: "Child", ParentID: epic, Labels: []string{"feature"}}})
 
 		ref := "@current"
-		post(map[string]interface{}{"issue_id": epic, "type": "UPDATE", "payload": model.UpdatePayload{ReleaseID: &ref}, "with_children": withChildren})
+		post(map[string]interface{}{"issue_id": epic, "type": "UPDATE", "payload": model.UpdatePayload{MilestoneID: &ref}, "with_children": withChildren})
 
 		issues, _ := srv.GetProjectedIssues()
-		if issues[epic].ReleaseID == "" {
-			t.Fatalf("with_children=%v: the epic should be in a release", withChildren)
+		if issues[epic].MilestoneID == "" {
+			t.Fatalf("with_children=%v: the epic should be in a milestone", withChildren)
 		}
 		for _, iss := range issues {
 			if iss.ParentID != epic {
 				continue
 			}
-			moved := iss.ReleaseID == issues[epic].ReleaseID
+			moved := iss.MilestoneID == issues[epic].MilestoneID
 			if moved != withChildren {
 				t.Errorf("with_children=%v: child moved = %v", withChildren, moved)
 			}

@@ -5,7 +5,7 @@ import CommandPalette from './components/CommandPalette/CommandPalette';
 import NewIssueModal from './components/NewIssueModal/NewIssueModal';
 import KeyboardHelp from './components/KeyboardHelp/KeyboardHelp';
 import AgentChatProvider from './components/Agent/AgentChatProvider';
-import ReleaseAssignProvider from './components/Releases/ReleaseAssign';
+import MilestoneAssignProvider from './components/Milestones/MilestoneAssign';
 import TabStatus from './components/Agent/TabStatus';
 import { chatContextFor } from './components/Agent/agent-state-utils';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
@@ -161,7 +161,7 @@ function App() {
     <ViewStateContext.Provider value={viewStateStore}>
     <AppNavContext.Provider value={nav}>
     <AgentChatProvider context={chatContext}>
-    <ReleaseAssignProvider>
+    <MilestoneAssignProvider>
       <TabStatus title={tabTitle} />
       <Layout
         sidebar={{
@@ -215,7 +215,7 @@ function App() {
         onToggle={() => setShowKeyboardHelp((visible) => !visible)}
         onClose={() => setShowKeyboardHelp(false)}
       />
-    </ReleaseAssignProvider>
+    </MilestoneAssignProvider>
     </AgentChatProvider>
     </AppNavContext.Provider>
     </ViewStateContext.Provider>

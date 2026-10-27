@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { Release, ReleasesResponse } from "../../api/types";
-import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, filtersForScope, outOfScope, dimensionDisabled, releaseFilterOptions, releaseRefName, EMPTY_FILTERS, type BacklogFilters } from "./filters";
+import type { Milestone, MilestonesResponse } from "../../api/types";
+import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, filtersForScope, outOfScope, dimensionDisabled, milestoneFilterOptions, milestoneRefName, EMPTY_FILTERS, type BacklogFilters } from "./filters";
 
 describe("hasActiveFilters", () => {
   it("returns false for empty filters", () => {
@@ -35,7 +35,7 @@ describe("hasActiveFilters", () => {
       priorities: [],
       epicId: null,
       workedBy: [],
-      releases: [],
+      milestones: [],
     };
     expect(hasActiveFilters(f)).toBe(true);
   });
@@ -99,7 +99,7 @@ describe("matchesFilters", () => {
       priorities: [2],
       epicId: "epic-1",
       workedBy: [],
-      releases: [],
+      milestones: [],
     };
     expect(matchesFilters(base, filters)).toBe(true);
 
@@ -137,7 +137,7 @@ describe("getSelected", () => {
     priorities: [1, 2],
     epicId: "epic-1",
     workedBy: [],
-    releases: [],
+    milestones: [],
   };
 
   it("gets statuses", () => {
@@ -198,7 +198,7 @@ describe("setSelected", () => {
   });
 
   it("preserves other fields", () => {
-    const base: BacklogFilters = { statuses: ["DONE"], labels: ["bug"], assignees: [], priorities: [], epicId: null, workedBy: [], releases: [] };
+    const base: BacklogFilters = { statuses: ["DONE"], labels: ["bug"], assignees: [], priorities: [], epicId: null, workedBy: [], milestones: [] };
     const result = setSelected("assignee", base, ["alice"]);
     expect(result.statuses).toEqual(["DONE"]);
     expect(result.labels).toEqual(["bug"]);
@@ -234,89 +234,89 @@ describe("workedBy filter", () => {
   });
 });
 
-describe("releases filter", () => {
-  const rel = (number: number, overrides: Partial<Release> = {}): Release => ({
-    id: `rel-${number}`, number, name: `#${number}`, state: "OPEN", counts: {}, total: 0, done: 0, ...overrides,
+describe("milestones filter", () => {
+  const rel = (number: number, overrides: Partial<Milestone> = {}): Milestone => ({
+    id: `ms-${number}`, number, name: `#${number}`, state: "OPEN", counts: {}, total: 0, done: 0, ...overrides,
   });
-  const board: ReleasesResponse = {
+  const board: MilestonesResponse = {
     current: rel(1, { slot: "current", name: "1.5" }),
     next: rel(2, { slot: "next", name: "1.6" }),
     upcoming: [rel(3, { slot: "upcoming" })],
-    past: [rel(4, { slot: "past", name: "1.4", state: "RELEASED" })],
+    past: [rel(4, { slot: "past", name: "1.4", state: "COMPLETED" })],
   };
-  const inRel = (id?: string) => ({ status: "PLANNED", priority: 0, release_id: id });
-  const f = (...releases: string[]) => ({ ...EMPTY_FILTERS, releases });
+  const inRel = (id?: string) => ({ status: "PLANNED", priority: 0, milestone_id: id });
+  const f = (...milestones: string[]) => ({ ...EMPTY_FILTERS, milestones });
 
   it("counts as an active filter", () => {
     expect(hasActiveFilters(f("@current"))).toBe(true);
   });
 
   it("resolves @current and @next against the board", () => {
-    expect(matchesFilters(inRel("rel-1"), f("@current"), board)).toBe(true);
-    expect(matchesFilters(inRel("rel-2"), f("@current"), board)).toBe(false);
-    expect(matchesFilters(inRel("rel-2"), f("@next"), board)).toBe(true);
+    expect(matchesFilters(inRel("ms-1"), f("@current"), board)).toBe(true);
+    expect(matchesFilters(inRel("ms-2"), f("@current"), board)).toBe(false);
+    expect(matchesFilters(inRel("ms-2"), f("@next"), board)).toBe(true);
   });
 
   it("follows Current when it changes", () => {
-    const after: ReleasesResponse = { ...board, current: board.next, next: board.upcoming[0], upcoming: [] };
-    expect(matchesFilters(inRel("rel-1"), f("@current"), after)).toBe(false);
-    expect(matchesFilters(inRel("rel-2"), f("@current"), after)).toBe(true);
+    const after: MilestonesResponse = { ...board, current: board.next, next: board.upcoming[0], upcoming: [] };
+    expect(matchesFilters(inRel("ms-1"), f("@current"), after)).toBe(false);
+    expect(matchesFilters(inRel("ms-2"), f("@current"), after)).toBe(true);
   });
 
-  it("matches issues without a release with none", () => {
+  it("matches issues without a milestone with none", () => {
     expect(matchesFilters(inRel(undefined), f("none"), board)).toBe(true);
     expect(matchesFilters(inRel(""), f("none"))).toBe(true);
-    expect(matchesFilters(inRel("rel-1"), f("none"), board)).toBe(false);
+    expect(matchesFilters(inRel("ms-1"), f("none"), board)).toBe(false);
   });
 
-  it("matches a release by number, past releases included", () => {
-    expect(matchesFilters(inRel("rel-3"), f("#3"), board)).toBe(true);
-    expect(matchesFilters(inRel("rel-4"), f("#4"), board)).toBe(true);
-    expect(matchesFilters(inRel("rel-1"), f("#3"), board)).toBe(false);
+  it("matches a milestone by number, past milestones included", () => {
+    expect(matchesFilters(inRel("ms-3"), f("#3"), board)).toBe(true);
+    expect(matchesFilters(inRel("ms-4"), f("#4"), board)).toBe(true);
+    expect(matchesFilters(inRel("ms-1"), f("#3"), board)).toBe(false);
   });
 
   it("matches any of several refs", () => {
-    expect(matchesFilters(inRel("rel-2"), f("@current", "@next"), board)).toBe(true);
+    expect(matchesFilters(inRel("ms-2"), f("@current", "@next"), board)).toBe(true);
     expect(matchesFilters(inRel(undefined), f("@current", "none"), board)).toBe(true);
   });
 
   it("matches nothing for a deleted number, a placeholder slot or a missing board", () => {
-    expect(matchesFilters(inRel("rel-9"), f("#9"), board)).toBe(false);
-    const empty: ReleasesResponse = { ...board, next: rel(5, { id: undefined, placeholder: true, slot: "next" }) };
+    expect(matchesFilters(inRel("ms-9"), f("#9"), board)).toBe(false);
+    const empty: MilestonesResponse = { ...board, next: rel(5, { id: undefined, placeholder: true, slot: "next" }) };
     expect(matchesFilters(inRel(undefined), f("@next"), empty)).toBe(false);
-    expect(matchesFilters(inRel("rel-1"), f("@current"))).toBe(false);
+    expect(matchesFilters(inRel("ms-1"), f("@current"))).toBe(false);
   });
 
-  it("does not put an issue reopened in a past release in @current", () => {
-    expect(matchesFilters({ ...inRel("rel-4"), status: "DOING" }, f("@current"), board)).toBe(false);
+  it("does not put an issue reopened in a past milestone in @current", () => {
+    expect(matchesFilters({ ...inRel("ms-4"), status: "DOING" }, f("@current"), board)).toBe(false);
   });
 
   it("round-trips through getSelected/setSelected", () => {
-    expect(getSelected("release", setSelected("release", EMPTY_FILTERS, ["@next", "#3"]))).toEqual(["@next", "#3"]);
+    expect(getSelected("milestone", setSelected("milestone", EMPTY_FILTERS, ["@next", "#3"]))).toEqual(["@next", "#3"]);
   });
 
-  it("offers Current, Next, No release, then Upcoming and Past releases, with counts", () => {
-    const issues = [inRel("rel-1"), inRel("rel-1"), inRel("rel-3"), inRel(undefined)];
-    expect(releaseFilterOptions(board, issues)).toEqual([
+  it("offers Current, Next, No milestone, then Upcoming and Past milestones, with counts", () => {
+    const issues = [inRel("ms-1"), inRel("ms-1"), inRel("ms-3"), inRel(undefined)];
+    expect(milestoneFilterOptions(board, issues)).toEqual([
       { value: "@current", label: "Current · 1.5", count: 2 },
       { value: "@next", label: "Next · 1.6", count: 0 },
-      { value: "none", label: "No release", count: 1 },
+      { value: "none", label: "No milestone", count: 1 },
       { value: "#3", label: "#3", count: 1 },
       { value: "#4", label: "1.4", count: 0 },
     ]);
   });
 
-  it("offers only No release before the board loads", () => {
-    expect(releaseFilterOptions(undefined, [inRel(undefined)])).toEqual([{ value: "none", label: "No release", count: 1 }]);
+  it("offers only No milestone before the board loads", () => {
+    expect(milestoneFilterOptions(undefined, [inRel(undefined)])).toEqual([{ value: "none", label: "No milestone", count: 1 }]);
   });
 
   it("names refs for chips and menus", () => {
-    expect(releaseRefName("@current", board)).toBe("Current");
-    expect(releaseRefName("@next", board)).toBe("Next");
-    expect(releaseRefName("none", board)).toBe("No release");
-    expect(releaseRefName("#4", board)).toBe("1.4");
-    expect(releaseRefName("#9", board)).toBe("#9");
-    expect(releaseRefName("#4")).toBe("#4");
+    expect(milestoneRefName("@current", board)).toBe("Current");
+    expect(milestoneRefName("@next", board)).toBe("Next");
+    expect(milestoneRefName("none", board)).toBe("No milestone");
+    expect(milestoneRefName("#4", board)).toBe("1.4");
+    expect(milestoneRefName("#9", board)).toBe("#9");
+    expect(milestoneRefName("#4")).toBe("#4");
   });
 });
 
@@ -332,7 +332,7 @@ describe("filtersForScope", () => {
   });
 
   it("leaves the other dimensions alone", () => {
-    const f = { ...EMPTY_FILTERS, statuses: ["DONE"], labels: ["bug"], releases: ["@current"] };
+    const f = { ...EMPTY_FILTERS, statuses: ["DONE"], labels: ["bug"], milestones: ["@current"] };
     expect(filtersForScope(f, ACTIVE)).toEqual({ ...f, statuses: [] });
   });
 
@@ -361,7 +361,7 @@ describe("parseStoredFilters", () => {
     const f = parseStoredFilters(JSON.stringify({ statuses: ["DOING"], labels: [], assignees: [], priorities: [], epicId: null }));
     expect(f.statuses).toEqual(["DOING"]);
     expect(f.workedBy).toEqual([]);
-    expect(f.releases).toEqual([]);
+    expect(f.milestones).toEqual([]);
   });
 
   it("falls back to empty filters on missing or corrupt input", () => {

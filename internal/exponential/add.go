@@ -99,19 +99,19 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 			}
 		}
 
-		// payload.ReleaseID holds a release ref until it is resolved here.
-		// With none given, a new child copies its parent's release if that
-		// release is OPEN (copy-on-create; nothing is inherited later).
-		w := t.newReleaseWriter(current)
-		if payload.ReleaseID != "" {
-			rid, err := w.assign(payload.ReleaseID, "")
+		// payload.MilestoneID holds a milestone ref until it is resolved here.
+		// With none given, a new child copies its parent's milestone if that
+		// milestone is OPEN (copy-on-create; nothing is inherited later).
+		w := t.newMilestoneWriter(current)
+		if payload.MilestoneID != "" {
+			rid, err := w.assign(payload.MilestoneID, "")
 			if err != nil {
 				return nil, err
 			}
-			payload.ReleaseID = rid
-		} else if parent, ok := issues[payload.ParentID]; ok && parent.ReleaseID != "" {
-			if r := w.find(parent.ReleaseID); r != nil && !r.Deleted && r.State == model.ReleaseOpen {
-				payload.ReleaseID = r.ID
+			payload.MilestoneID = rid
+		} else if parent, ok := issues[payload.ParentID]; ok && parent.MilestoneID != "" {
+			if r := w.find(parent.MilestoneID); r != nil && !r.Deleted && r.State == model.MilestoneOpen {
+				payload.MilestoneID = r.ID
 			}
 		}
 
@@ -151,7 +151,7 @@ func (t *LocalTransport) AddIssue(payload model.CreatePayload) (*model.Issue, er
 		Priority:     payload.Priority,
 		SortOrder:    payload.SortOrder,
 		Assignee:     payload.Assignee,
-		ReleaseID:    payload.ReleaseID,
+		MilestoneID:    payload.MilestoneID,
 		Dependencies: payload.Dependencies,
 		Labels:       payload.Labels,
 		CreatedAt:    event.CreatedAt,

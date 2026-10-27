@@ -4,7 +4,7 @@ export type ViewId =
   | "backlog"
   | "board"
   | "cycles"
-  | "releases"
+  | "milestones"
   | "dependencies"
   | "labels"
   | "my-issues"
@@ -35,7 +35,7 @@ export const VIEWS: readonly ViewDef[] = [
   { id: "backlog", route: "issues", title: "Issues", navLabel: "Issues", goKey: "i", section: "main" },
   { id: "board", route: "board", title: "Board", navLabel: "Board", goKey: "b", section: "main" },
   { id: "cycles", route: "cycles", title: "Cycles", navLabel: "Cycles", goKey: "c", section: "main", requires: "cycles" },
-  { id: "releases", route: "releases", title: "Releases", navLabel: "Releases", goKey: "v", section: "main" },
+  { id: "milestones", route: "milestones", title: "Milestones", navLabel: "Milestones", goKey: "v", section: "main" },
   { id: "timeline", route: "timeline", title: "Timeline", navLabel: "Timeline", goKey: "t", section: "main" },
   { id: "labels", route: "labels", title: "Labels", navLabel: "Labels", goKey: "l", section: "main" },
   { id: "dependencies", route: "dependencies", title: "Dependencies", navLabel: "Dependencies", goKey: "d", section: "main" },

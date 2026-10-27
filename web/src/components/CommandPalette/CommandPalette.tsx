@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Issue } from '../../api/client';
 import { StatusIcon, LabelBadge } from '../ui';
-import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard, Package } from "lucide-react";
-import { useReleaseAssign } from '../Releases/release-assign-context';
+import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard, Milestone as MilestoneIcon } from "lucide-react";
+import { useMilestoneAssign } from '../Milestones/milestone-assign-context';
 import { fuzzyMatch, fuzzyScore } from '../../utils/format';
 import type { ViewId } from '../../views';
 import { useOptionalAgentChat } from '../Agent/agent-context';
@@ -34,7 +34,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue, contextIssue }: CommandPaletteProps) {
-  const { openPicker } = useReleaseAssign();
+  const { openPicker } = useMilestoneAssign();
   const agent = useOptionalAgentChat();
   const chats = agent?.chats;
   const openChat = agent?.openChat;
@@ -66,12 +66,12 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
       });
     }
 
-    if (contextIssue && (!query || fuzzyMatch('move to release', query))) {
+    if (contextIssue && (!query || fuzzyMatch('move to milestone', query))) {
       results.push({
-        id: 'action:release',
+        id: 'action:milestone',
         group: 'Actions',
-        icon: <Package size={16} />,
-        label: 'Move to release…',
+        icon: <MilestoneIcon size={16} />,
+        label: 'Move to milestone…',
         meta: <span className="font-mono text-xs text-[var(--color-text-muted)]">{contextIssue.id}</span>,
         shortcut: 'R',
         action: () => { onClose(); openPicker([contextIssue.id]); },

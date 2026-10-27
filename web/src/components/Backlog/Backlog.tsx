@@ -71,7 +71,7 @@ import "./backlog-dnd.css";
 import { useKeyboardHandler } from "../../keyboard";
 import { Tabs } from "../ui/Tabs";
 import { SearchInput } from "../ui/SearchInput";
-import { useConfig, useCycles, useIssueList, useReleases } from "../../api/queries";
+import { useConfig, useCycles, useIssueList, useMilestones } from "../../api/queries";
 import { useCreateIssue, useUpdateIssue, useUpdateIssues } from "../../api/mutations";
 import { useAppNav, useIssueClick, useIssueNavOrder, useNavIntent, useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
@@ -211,7 +211,7 @@ export default function Backlog() {
   const showToast = useToast();
   const [openPopover, setOpenPopover] = useState<{
     rowIndex: number;
-    type: "status" | "estimate" | "labels" | "priority" | "assignee" | "release";
+    type: "status" | "estimate" | "labels" | "priority" | "assignee" | "milestone";
   } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     issueId: string;
@@ -219,7 +219,7 @@ export default function Backlog() {
     y: number;
   } | null>(null);
   const { cycles } = useCycles();
-  const { data: releases } = useReleases();
+  const { data: milestones } = useMilestones();
   const cycleMap = useMemo(() => new Map(cycles.map((c) => [c.id, c.number])), [cycles]);
   const [showStoryPoints, setShowStoryPoints] = useState(
     () => localStorage.getItem("exponential-backlog-show-points") === "true",
@@ -440,7 +440,7 @@ export default function Backlog() {
   const filteredIssues = issues.filter((i) => {
     if (!visibleStatuses.includes(i.status)) return false;
     if (!matchesSearch(i, query)) return false;
-    return matchesFilters(i, tabFilters, releases);
+    return matchesFilters(i, tabFilters, milestones);
   });
 
   const childrenByParent = useMemo(() => buildChildrenByParent(issues), [issues]);
@@ -1215,7 +1215,7 @@ export default function Backlog() {
   }, []);
 
   const handleOpenPopover = useCallback(
-    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority" | "assignee" | "release") => {
+    (rowIndex: number, type: "status" | "labels" | "estimate" | "priority" | "assignee" | "milestone") => {
       setOpenPopover({ rowIndex, type });
     },
     [],
@@ -1360,7 +1360,7 @@ export default function Backlog() {
         }
         if (e.key === "r") {
           e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "release" });
+          setOpenPopover({ rowIndex: ri, type: "milestone" });
           return;
         }
       }
@@ -1376,7 +1376,7 @@ export default function Backlog() {
         ["Escape", "Close menu"], ["j", "Next issue"],
         ["ArrowDown", "Next issue"], ["k", "Previous issue"], ["ArrowUp", "Previous issue"], ["Enter", "Open issue"],
         ["ArrowRight", "Expand group or sub-issues"], ["ArrowLeft", "Collapse group or sub-issues"], [".", "Copy issue ID"],
-        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"], ["r", "Move to release"],
+        ["s", "Set status"], ["l", "Set labels"], ["e", "Set estimate"], ["p", "Set priority"], ["a", "Set assignee"], ["r", "Move to milestone"],
       ].map(([key, label]) => ({
         id: `backlog.${key}`, key, label,
         group: "Backlog",

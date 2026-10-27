@@ -15,7 +15,7 @@ const VIEW_COMPONENTS: Record<ViewId, ComponentType | LazyExoticComponent<Compon
   backlog: Backlog,
   board: lazy(() => import("../Board/Board")),
   cycles: lazy(() => import("../Cycles/Cycles")),
-  releases: lazy(() => import("../Releases/Releases")),
+  milestones: lazy(() => import("../Milestones/Milestones")),
   dependencies: lazy(() => import("../Dependencies/Dependencies")),
   labels: lazy(() => import("../Labels/Labels")),
   "my-issues": lazy(() => import("../MyIssues/MyIssues")),

@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
-import { EMPTY_FILTERS, chipLabel, outOfScope, releaseRefName, type BacklogFilters } from "./filters";
-import { useReleases } from "../../api/queries";
+import { EMPTY_FILTERS, chipLabel, outOfScope, milestoneRefName, type BacklogFilters } from "./filters";
+import { useMilestones } from "../../api/queries";
 import { shortName } from "../../utils/format";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
 
@@ -16,7 +16,7 @@ const PRIORITY_LABELS = new Map(PRIORITY_OPTIONS.map((p) => [String(p.value), p.
 const WORKED_BY_LABELS = new Map([["agent", "Agent"], ["human", "Human"]]);
 
 export default function FilterChips({ filters, onChange, scope }: FilterChipsProps) {
-  const { data: releases } = useReleases();
+  const { data: milestones } = useMilestones();
   const chips: { key: string; label: ReactNode; muted?: boolean; onClear: () => void }[] = [];
 
   if (filters.statuses.length > 0) {
@@ -68,11 +68,11 @@ export default function FilterChips({ filters, onChange, scope }: FilterChipsPro
       onClear: () => onChange({ ...filters, labels: [] }),
     });
   }
-  if (filters.releases.length > 0) {
+  if (filters.milestones.length > 0) {
     chips.push({
-      key: "release",
-      label: chipLabel("Release", filters.releases.map((r) => releaseRefName(r, releases))),
-      onClear: () => onChange({ ...filters, releases: [] }),
+      key: "milestone",
+      label: chipLabel("Milestone", filters.milestones.map((r) => milestoneRefName(r, milestones))),
+      onClear: () => onChange({ ...filters, milestones: [] }),
     });
   }
   if (filters.epicId) {

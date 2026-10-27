@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, type MutationOptions } from "@tanstack/react-query";
 import {
   addCommentOptions, addLabelOptions, createIssueFromDraftOptions, createIssueOptions, deleteIssueDraftOptions, deleteIssueOptions, deleteIssueToast,
-  assignReleaseOptions, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions, updateLabelOptions,
+  assignMilestoneOptions, deleteLabelOptions, mergeIssueOptions, saveIssueDraftOptions, startWorkOptions, updateIssuesOptions, updateLabelOptions,
   type MutationApi,
 } from "./mutation-options";
 import { queryKeys } from "./query-keys";
@@ -59,37 +59,37 @@ beforeEach(() => {
   qc.setQueryData(queryKeys.config, rawConfig);
 });
 
-describe("assignReleaseOptions", () => {
+describe("assignMilestoneOptions", () => {
   const vars = {
-    moves: [{ issueId: "a", ref: "rel-2", withChildren: true }],
-    optimistic: [{ issueId: "a", patch: { release_id: "rel-2", release: "1.2" } }, { issueId: "b", patch: { release_id: "rel-2", release: "1.2" } }],
+    moves: [{ issueId: "a", ref: "ms-2", withChildren: true }],
+    optimistic: [{ issueId: "a", patch: { milestone_id: "ms-2", milestone: "1.2" } }, { issueId: "b", patch: { milestone_id: "ms-2", milestone: "1.2" } }],
   };
 
   it("sends one UPDATE per move, with with_children", async () => {
-    await run(assignReleaseOptions(qc, api), vars);
-    expect(vi.mocked(api.addDraft).mock.calls).toEqual([["a", "UPDATE", { release_id: "rel-2" }, { withChildren: true }]]);
+    await run(assignMilestoneOptions(qc, api), vars);
+    expect(vi.mocked(api.addDraft).mock.calls).toEqual([["a", "UPDATE", { milestone_id: "ms-2" }, { withChildren: true }]]);
   });
 
-  it("shows the release on every moved issue before the server answers", async () => {
+  it("shows the milestone on every moved issue before the server answers", async () => {
     const gate = deferred();
     vi.mocked(api.addDraft).mockReturnValue(gate.promise);
-    const pending = run(assignReleaseOptions(qc, api), vars);
+    const pending = run(assignMilestoneOptions(qc, api), vars);
     await vi.waitFor(() => expect(api.addDraft).toHaveBeenCalled());
-    expect(issues()?.map((i) => i.release)).toEqual(["1.2", "1.2"]);
+    expect(issues()?.map((i) => i.milestone)).toEqual(["1.2", "1.2"]);
     gate.resolve();
     await pending;
   });
 
   it("rolls back when the server refuses", async () => {
-    vi.mocked(api.addDraft).mockRejectedValue(new Error("release 1.2 is released"));
-    await expect(run(assignReleaseOptions(qc, api), vars)).rejects.toThrow("released");
-    expect(issues()?.map((i) => i.release)).toEqual([undefined, undefined]);
+    vi.mocked(api.addDraft).mockRejectedValue(new Error("milestone 1.2 is completed"));
+    await expect(run(assignMilestoneOptions(qc, api), vars)).rejects.toThrow("completed");
+    expect(issues()?.map((i) => i.milestone)).toEqual([undefined, undefined]);
   });
 
-  it("refetches issues and releases", async () => {
-    await run(assignReleaseOptions(qc, api), vars);
+  it("refetches issues and milestones", async () => {
+    await run(assignMilestoneOptions(qc, api), vars);
     expect(invalidated).toContainEqual([...queryKeys.issues]);
-    expect(invalidated).toContainEqual([...queryKeys.releases]);
+    expect(invalidated).toContainEqual([...queryKeys.milestones]);
   });
 });
 

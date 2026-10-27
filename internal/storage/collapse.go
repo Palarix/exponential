@@ -71,7 +71,7 @@ func appendEventsCollapsed(batch []model.Event) error {
 		case model.EventTypeComment:
 			uncommitted = collapseComment(uncommitted, event)
 		default:
-			// Release events are never folded or pruned.
+			// Milestone events are never folded or pruned.
 			uncommitted = append(uncommitted, event)
 		}
 	}
@@ -131,7 +131,7 @@ func collapseComment(uncommitted []model.Event, incoming model.Event) []model.Ev
 	return append(uncommitted, incoming)
 }
 
-// sameActor also compares causes: an edit and a move caused by a release
+// sameActor also compares causes: an edit and a move caused by a milestone
 // operation stay separate events, so the feeds can tell them apart.
 func sameActor(a, b model.Event) bool {
 	return a.CreatedBy == b.CreatedBy && a.OnBehalfOf == b.OnBehalfOf && a.Source == b.Source && a.Cause == b.Cause
@@ -172,8 +172,8 @@ func mergeUpdatePayloads(existing *model.Event, incoming model.Event) {
 	if newP.CycleID != nil {
 		oldP.CycleID = newP.CycleID
 	}
-	if newP.ReleaseID != nil {
-		oldP.ReleaseID = newP.ReleaseID
+	if newP.MilestoneID != nil {
+		oldP.MilestoneID = newP.MilestoneID
 	}
 	if newP.Children != nil {
 		oldP.Children = newP.Children
@@ -235,7 +235,7 @@ func applyStateEvent(issues map[string]*model.Issue, evt model.Event) {
 			SortOrder:    p.SortOrder,
 			Assignee:     p.Assignee,
 			CycleID:      p.CycleID,
-			ReleaseID:    p.ReleaseID,
+			MilestoneID:  p.MilestoneID,
 			Labels:       p.Labels,
 			Dependencies: p.Dependencies,
 		}
@@ -274,8 +274,8 @@ func applyStateEvent(issues map[string]*model.Issue, evt model.Event) {
 		if p.CycleID != nil {
 			issue.CycleID = *p.CycleID
 		}
-		if p.ReleaseID != nil {
-			issue.ReleaseID = *p.ReleaseID
+		if p.MilestoneID != nil {
+			issue.MilestoneID = *p.MilestoneID
 		}
 		if p.Labels != nil {
 			issue.Labels = p.Labels
@@ -335,8 +335,8 @@ func pruneNoopUpdates(uncommitted []model.Event, state map[string]*model.Issue) 
 		if p.CycleID != nil && *p.CycleID == issue.CycleID {
 			p.CycleID = nil
 		}
-		if p.ReleaseID != nil && *p.ReleaseID == issue.ReleaseID {
-			p.ReleaseID = nil
+		if p.MilestoneID != nil && *p.MilestoneID == issue.MilestoneID {
+			p.MilestoneID = nil
 		}
 		if p.Labels != nil && strSlicesEqual(p.Labels, issue.Labels) {
 			p.Labels = nil
@@ -348,7 +348,7 @@ func pruneNoopUpdates(uncommitted []model.Event, state map[string]*model.Issue) 
 		if p.Title == nil && p.Description == nil && p.Status == nil &&
 			p.ParentID == nil && p.Estimate == nil && p.Priority == nil &&
 			p.SortOrder == nil && p.Assignee == nil && p.CycleID == nil &&
-			p.ReleaseID == nil && p.Children == nil && p.Labels == nil && p.Dependencies == nil {
+			p.MilestoneID == nil && p.Children == nil && p.Labels == nil && p.Dependencies == nil {
 			continue
 		}
 

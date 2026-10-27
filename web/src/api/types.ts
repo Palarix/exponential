@@ -30,9 +30,9 @@ export interface Issue {
   assignee_via?: string;
   cycle_id?: string;
   effective_cycle_id?: string;
-  release_id?: string;
-  /** Display name of the release. */
-  release?: string;
+  milestone_id?: string;
+  /** Display name of the milestone. */
+  milestone?: string;
   labels?: string[];
   dependencies?: Dependency[];
   artifacts?: ArtifactSummary[];
@@ -73,54 +73,54 @@ export interface CycleProgressResponse {
   days: CycleProgressDay[];
 }
 
-export type ReleaseSlot = 'current' | 'next' | 'upcoming' | 'past';
+export type MilestoneSlot = 'current' | 'next' | 'upcoming' | 'past';
 
-/** A release on the board. A placeholder has a number but no ID; the first write saves it. */
-export interface Release {
+/** A milestone on the board. A placeholder has a number but no ID; the first write saves it. */
+export interface Milestone {
   id?: string;
   number: number;
   /** The label, or `#7` without one. */
   name: string;
   label?: string;
   goal?: string;
-  state: 'OPEN' | 'RELEASED';
-  slot?: ReleaseSlot;
+  state: 'OPEN' | 'COMPLETED';
+  slot?: MilestoneSlot;
   placeholder?: boolean;
   /** A Next placeholder that refuses writes until Current is saved. */
   locked?: boolean;
   sort_order?: string;
   target_date?: string;
   started_at?: string;
-  released_at?: string;
+  completed_at?: string;
   created_at?: string;
-  /** Scope (leaf issues, not CANCELED/DUPLICATE) by status; a past release's snapshot. */
+  /** Scope (leaf issues, not CANCELED/DUPLICATE) by status; a past milestone's snapshot. */
   counts: Record<string, number>;
   total: number;
   done: number;
-  /** Story points of the scope; missing on a past release completed before points were recorded. */
+  /** Story points of the scope; missing on a past milestone completed before points were recorded. */
   points?: { total: number; done: number };
 }
 
-export interface ReleasesResponse {
-  current: Release;
-  next: Release;
-  upcoming: Release[];
-  past: Release[];
+export interface MilestonesResponse {
+  current: Milestone;
+  next: Milestone;
+  upcoming: Milestone[];
+  past: Milestone[];
 }
 
-export interface ReleaseDay {
+export interface MilestoneDay {
   date: string;
   scope: number;
   open: number;
   completed: number;
 }
 
-export interface ReleaseProgressResponse {
-  release: Release;
+export interface MilestoneProgressResponse {
+  milestone: Milestone;
   counts: Record<string, number>;
   total: number;
   done: number;
-  days: ReleaseDay[];
+  days: MilestoneDay[];
 }
 
 export interface Dependency {
@@ -173,8 +173,8 @@ export interface IssueDraftPayload {
   estimate?: number;
   parent_id?: string;
   assignee?: string;
-  /** The picked release ref, or "none". */
-  release?: string;
+  /** The picked milestone ref, or "none". */
+  milestone?: string;
 }
 
 export interface IssueDraft {

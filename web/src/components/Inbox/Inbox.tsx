@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
 import { isEditableTarget } from "../../utils/keyboard";
-import type { Issue, ReleasesResponse } from "../../api/client";
+import type { Issue, MilestonesResponse } from "../../api/client";
 import {
   ActorName,
   StatusIcon,
@@ -17,17 +17,17 @@ import { type BacklogFilters, FILTERS_CODEC, hasActiveFilters, matchesFilters } 
 import FilterChips from "../Backlog/FilterChips";
 import { groupByIssue, buildChangeSummary, type IssueGroup } from "./inbox-utils";
 import { useKeyboardHandler } from "../../keyboard";
-import { useConfig, useInbox, useIssueList, useMarkInboxRead, useReleases, useUser } from "../../api/queries";
+import { useConfig, useInbox, useIssueList, useMarkInboxRead, useMilestones, useUser } from "../../api/queries";
 import { useViewState } from "../../app/hooks";
 import { StatusBarSlot } from "../../app/StatusBarSlot";
 
 const IssueDetail = lazy(() => import("../IssueDetail/IssueDetail"));
 
-function applyFilters(groups: IssueGroup[], issues: Issue[], filters: BacklogFilters, releases?: ReleasesResponse): IssueGroup[] {
+function applyFilters(groups: IssueGroup[], issues: Issue[], filters: BacklogFilters, milestones?: MilestonesResponse): IssueGroup[] {
   return groups.filter(group => {
     const issue = issues.find(i => i.id === group.issueId);
     if (!issue) return true;
-    return matchesFilters(issue, filters, releases);
+    return matchesFilters(issue, filters, milestones);
   });
 }
 
@@ -38,7 +38,7 @@ const GROUPS_PER_PAGE = 30;
 export default function Inbox() {
   const { items, lastRead } = useInbox();
   const issues = useIssueList();
-  const { data: releases } = useReleases();
+  const { data: milestones } = useMilestones();
   const onMarkAllRead = useMarkInboxRead();
   const { contributors } = useConfig();
   const [filters, onFiltersChange] = useViewState("exponential-inbox-filters", FILTERS_CODEC);
@@ -53,8 +53,8 @@ export default function Inbox() {
   const groups = useMemo(() => groupByIssue(items, lastReadTime), [items, lastReadTime]);
   const unreadGroups = useMemo(() => groups.filter(g => g.hasUnread), [groups]);
   const filteredGroups = useMemo(
-    () => hasActiveFilters(filters) ? applyFilters(unreadGroups, issues, filters, releases) : unreadGroups,
-    [unreadGroups, issues, filters, releases],
+    () => hasActiveFilters(filters) ? applyFilters(unreadGroups, issues, filters, milestones) : unreadGroups,
+    [unreadGroups, issues, filters, milestones],
   );
   const notificationIssues = useMemo(() => {
     const ids = new Set(unreadGroups.map(g => g.issueId));

@@ -12,18 +12,18 @@ import (
 
 // FilterOptions contains parameters for filtering issues.
 type FilterOptions struct {
-	Statuses []string
-	Since    string
-	Before   string
-	Match    string
-	Mine     bool
-	ParentID string
-	Label    string
-	Assignee string
-	CycleID  string
-	Release  string // release ref: R7, #7, 7, a label, @current, @next or none
-	All      bool
-	Archived bool
+	Statuses  []string
+	Since     string
+	Before    string
+	Match     string
+	Mine      bool
+	ParentID  string
+	Label     string
+	Assignee  string
+	CycleID   string
+	Milestone string // milestone ref: R7, #7, 7, a label, @current, @next or none
+	All       bool
+	Archived  bool
 }
 
 // ListIssues retrieves and filters issues based on options.
@@ -44,13 +44,13 @@ func (t *LocalTransport) ListIssues(opts FilterOptions) ([]*model.Issue, error) 
 	issuesMap := ProjectIssuesWithConfig(events, t.Config)
 	issues := SortIssues(issuesMap)
 
-	if opts.Release != "" {
-		r, err := ResolveRelease(ProjectReleases(events), opts.Release)
+	if opts.Milestone != "" {
+		r, err := ResolveMilestone(ProjectMilestones(events), opts.Milestone)
 		if err != nil {
 			return nil, err
 		}
 		if r != nil && r.Placeholder {
-			return []*model.Issue{}, nil // an unsaved release holds no issues
+			return []*model.Issue{}, nil // an unsaved milestone holds no issues
 		}
 		want := ""
 		if r != nil {
@@ -58,7 +58,7 @@ func (t *LocalTransport) ListIssues(opts FilterOptions) ([]*model.Issue, error) 
 		}
 		kept := issues[:0]
 		for _, i := range issues {
-			if i.ReleaseID == want {
+			if i.MilestoneID == want {
 				kept = append(kept, i)
 			}
 		}

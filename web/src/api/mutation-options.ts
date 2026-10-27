@@ -76,27 +76,27 @@ export function updateIssuesOptions(
   };
 }
 
-/** One release update: `ref` is a release ID, `@current`/`@next`, or "" for No release. */
-export interface ReleaseMoveVars {
+/** One milestone update: `ref` is a milestone ID, `@current`/`@next`, or "" for No milestone. */
+export interface MilestoneMoveVars {
   moves: { issueId: string; ref: string; withChildren: boolean }[];
   /** What the cache shows until the refetch, for the moved issues and the children that follow. */
   optimistic: IssuePatch[];
 }
 
 /**
- * Moves issues to a release. Like `updateIssuesOptions`, but a move can take
+ * Moves issues to a milestone. Like `updateIssuesOptions`, but a move can take
  * the issue's open children along (one feed entry), and a pick can save a
- * placeholder, so the releases refetch too.
+ * placeholder, so the milestones refetch too.
  */
-export function assignReleaseOptions(
+export function assignMilestoneOptions(
   qc: QueryClient,
   api: MutationApi = clientApi,
-): MutationOptions<void, Error, ReleaseMoveVars, UpdateIssuesContext> {
+): MutationOptions<void, Error, MilestoneMoveVars, UpdateIssuesContext> {
   return {
     mutationKey: ISSUES_MUTATION_KEY,
     mutationFn: async ({ moves }) => {
       for (const { issueId, ref, withChildren } of moves) {
-        await api.addDraft(issueId, "UPDATE", { release_id: ref }, { withChildren });
+        await api.addDraft(issueId, "UPDATE", { milestone_id: ref }, { withChildren });
       }
     },
     onMutate: async ({ optimistic }) => {
@@ -110,7 +110,7 @@ export function assignReleaseOptions(
       qc.setQueryData<Issue[]>(queryKeys.issues, (prev) => applyIssuePatches(prev, context.undo).next);
     },
     onSettled: async () => {
-      await qc.invalidateQueries({ queryKey: queryKeys.releases });
+      await qc.invalidateQueries({ queryKey: queryKeys.milestones });
       await invalidateIssuesWhenIdle(qc);
     },
   };

@@ -237,44 +237,44 @@ func (c *Client) UpdateIssueOpts(id string, payload model.UpdatePayload, action 
 	return c.Transport.UpdateIssueOpts(id, payload, action, opts)
 }
 
-func (c *Client) ListReleases() ([]ReleaseView, error) {
+func (c *Client) ListMilestones() ([]MilestoneView, error) {
 	c.syncLocal()
-	return c.Transport.ListReleases()
+	return c.Transport.ListMilestones()
 }
 
-func (c *Client) GetRelease(ref string) (*model.Release, error) {
+func (c *Client) GetMilestone(ref string) (*model.Milestone, error) {
 	c.syncLocal()
-	return c.Transport.GetRelease(ref)
+	return c.Transport.GetMilestone(ref)
 }
 
-func (c *Client) CreateRelease(in ReleaseInput) (*model.Release, error) {
+func (c *Client) CreateMilestone(in MilestoneInput) (*model.Milestone, error) {
 	c.syncLocal()
-	return c.Transport.CreateRelease(in)
+	return c.Transport.CreateMilestone(in)
 }
 
-func (c *Client) UpdateRelease(ref string, in ReleaseInput) (*model.Release, error) {
+func (c *Client) UpdateMilestone(ref string, in MilestoneInput) (*model.Milestone, error) {
 	c.syncLocal()
-	return c.Transport.UpdateRelease(ref, in)
+	return c.Transport.UpdateMilestone(ref, in)
 }
 
-func (c *Client) ReorderRelease(ref, before, after string) (*model.Release, error) {
+func (c *Client) ReorderMilestone(ref, before, after string) (*model.Milestone, error) {
 	c.syncLocal()
-	return c.Transport.ReorderRelease(ref, before, after)
+	return c.Transport.ReorderMilestone(ref, before, after)
 }
 
-func (c *Client) CompleteRelease(ref, mode, to string) (*model.Release, []string, error) {
+func (c *Client) CompleteMilestone(ref, mode, to string) (*model.Milestone, []string, error) {
 	c.syncLocal()
-	return c.Transport.CompleteRelease(ref, mode, to)
+	return c.Transport.CompleteMilestone(ref, mode, to)
 }
 
-func (c *Client) DeleteRelease(ref, mode, to string) ([]string, error) {
+func (c *Client) DeleteMilestone(ref, mode, to string) ([]string, error) {
 	c.syncLocal()
-	return c.Transport.DeleteRelease(ref, mode, to)
+	return c.Transport.DeleteMilestone(ref, mode, to)
 }
 
-func (c *Client) ReleaseProgress(ref string) (ReleaseProgress, error) {
+func (c *Client) MilestoneProgress(ref string) (MilestoneProgress, error) {
 	c.syncLocal()
-	return c.Transport.ReleaseProgress(ref)
+	return c.Transport.MilestoneProgress(ref)
 }
 
 const MaxCommentLen = 100 * 1024
