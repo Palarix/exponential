@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { act, createRef } from "react";
+import { act, createRef, StrictMode, useEffect, useRef } from "react";
 import { editorIn, mountDom, pressKey as key, setupDom, typeInto as type } from "../../test-dom";
 import ChatMarkdownInput, { type ChatMarkdownInputHandle } from "./ChatMarkdownInput";
 import { typing } from "./chat-thread-utils";
@@ -171,5 +171,70 @@ describe("ChatMarkdownInput", () => {
     expect(focus).toHaveBeenCalled();
     act(() => ref.current?.blur());
     expect(blur).toHaveBeenCalled();
+  });
+
+  // AgentView swaps the placeholder once the thread loads; a rebuild there dropped the focus.
+  it("keeps its editor when the placeholder changes, and shows the new one", () => {
+    const { editor, dom, rerender } = mount({ placeholder: "Ask a question" });
+    rerender({ placeholder: "Reply…" });
+    expect(editorIn(dom.parentElement!).editor).toBe(editor);
+    expect(editor.isDestroyed).toBe(false);
+    expect(dom.getAttribute("aria-label")).toBe("Reply…");
+    expect(dom.getAttribute("aria-placeholder")).toBe("Reply…");
+    expect(dom.querySelector("p")?.getAttribute("data-placeholder")).toBe("Reply…");
+  });
+
+  // The editor exists before EditorContent mounts its view, and again while it is rebuilt.
+  it("does not throw on focus or blur before the view is mounted", () => {
+    const { ref, editor } = mount({ value: "hi" });
+    act(() => editor.unmount());
+    expect(() => act(() => ref.current?.focus())).not.toThrow();
+    expect(() => act(() => ref.current?.blur())).not.toThrow();
+  });
+
+  it("focuses once the view mounts when asked before", () => {
+    const { ref, editor } = mount({ value: "hi" });
+    act(() => editor.unmount());
+    act(() => ref.current?.focus());
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      act(() => editor.mount(document.createElement("div")));
+      expect(focus.mock.contexts).toContain(editor.view.dom);
+    } finally {
+      focus.mockRestore();
+    }
+  });
+
+  // As the composer does on page load; StrictMode re-creates the editor, which mounts its view detached first.
+  it("focuses the editor on the page when its parent asks from a mount effect", () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      function Parent() {
+        const ref = useRef<ChatMarkdownInputHandle>(null);
+        useEffect(() => ref.current?.focus(), []);
+        return <ChatMarkdownInput ref={ref} value="hi" onChange={() => {}} placeholder="Ask" />;
+      }
+      const m = mountDom(<StrictMode><Parent /></StrictMode>);
+      cleanup = m.cleanup;
+      const { dom } = editorIn(m.host);
+      const onPage = focus.mock.contexts.filter((el) => (el as HTMLElement).isConnected);
+      expect(onPage).toContain(dom);
+    } finally {
+      focus.mockRestore();
+    }
+  });
+
+  it("does not focus on mount when blurred after asking", () => {
+    const { ref, editor } = mount({ value: "hi" });
+    act(() => editor.unmount());
+    act(() => ref.current?.focus());
+    act(() => ref.current?.blur());
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      act(() => editor.mount(document.createElement("div")));
+      expect(focus.mock.contexts).not.toContain(editor.view.dom);
+    } finally {
+      focus.mockRestore();
+    }
   });
 });

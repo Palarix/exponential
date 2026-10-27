@@ -9,7 +9,7 @@ import ChatComposer from "./ChatComposer";
 import ChatThread from "./ChatThread";
 import ChatTitleBar from "./ChatTitleBar";
 import { NEW_CHAT_POPUP, NEW_CHAT_VIEW } from "./composer-drafts";
-import { isEmptyThread } from "./chat-thread-utils";
+import { asksFirstMessage, isEmptyThread } from "./chat-thread-utils";
 import { useChatSession } from "./useChatSession";
 import { useMarkSeen } from "./useMarkSeen";
 import { useWorkMode } from "./useWorkMode";
@@ -134,7 +134,7 @@ export default function ChatPopup({ anchor }: { anchor(): HTMLElement | null }) 
         running={running}
         background={background}
         disabled={!agent.status?.available}
-        placeholder={empty ? "Ask about issues, or the code behind them…" : "Reply…"}
+        placeholder={asksFirstMessage(thread, chatId) ? "Ask about issues, or the code behind them…" : "Reply…"}
         contextIssue={issueId ? { id: issueId, title: issueTitle } : undefined}
         onDismissContext={() => consumeContext(chatId)}
         status={agent.status}

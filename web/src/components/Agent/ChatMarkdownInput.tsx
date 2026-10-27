@@ -6,6 +6,7 @@ import { Selection, type Transaction } from "@tiptap/pm/state";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
+import { viewMounted } from "../tiptap-view";
 
 export interface ChatMarkdownInputHandle {
   focus(): void;
@@ -83,6 +84,14 @@ function shiftEnter(editor: Editor): boolean {
   ]);
 }
 
+function attributesFor(placeholder: string): Record<string, string> {
+  return { class: "outline-none", "aria-label": placeholder, "aria-placeholder": placeholder, "aria-multiline": "true", role: "textbox" };
+}
+
+function placeholderOf(editor: Editor): string {
+  return (editor.options.editorProps.attributes as Record<string, string> | undefined)?.["aria-placeholder"] ?? "";
+}
+
 /**
  * The agent chat's input: formats Markdown as the user types and reports
  * plain Markdown. It follows value like a textarea: a value it did not
@@ -96,15 +105,16 @@ export default function ChatMarkdownInput({ value, onChange, placeholder, onKeyD
   // The Markdown the editor holds, so value changes from outside stand out.
   const shown = useRef(value);
 
+  // The placeholder changes in place, through the editor's attributes: rebuilding the editor would drop its focus.
   const extensions = useMemo(
     () => [
       StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: { openOnClick: false } }),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: ({ editor: ed }) => placeholderOf(ed) }),
       TaskList,
       TaskItem.configure({ nested: true }),
       TiptapMarkdown.configure({ html: false, breaks: true, transformPastedText: true, transformCopiedText: true }),
     ],
-    [placeholder],
+    [],
   );
 
   const editor = useEditor(
@@ -113,7 +123,7 @@ export default function ChatMarkdownInput({ value, onChange, placeholder, onKeyD
       content: value,
       immediatelyRender: typeof window !== "undefined",
       editorProps: {
-        attributes: { class: "outline-none", "aria-label": placeholder, "aria-placeholder": placeholder, "aria-multiline": "true", role: "textbox" },
+        attributes: attributesFor(placeholder),
         handleKeyDown: (view, event) => {
           const ed = (view.dom as HTMLElement & { editor?: Editor }).editor;
           const enter = event.key === "Enter" && !event.isComposing && !event.altKey && !event.metaKey && !event.ctrlKey;
@@ -142,17 +152,44 @@ export default function ChatMarkdownInput({ value, onChange, placeholder, onKeyD
   );
 
   useEffect(() => {
+    // setOptions redraws the view, so the placeholder decoration shows the new text.
+    if (editor && viewMounted(editor)) editor.setOptions({ editorProps: { ...editor.options.editorProps, attributes: attributesFor(placeholder) } });
+  }, [editor, placeholder]);
+
+  useEffect(() => {
     if (!editor || value === shown.current) return;
     shown.current = value;
     editor.chain().setContent(value, { emitUpdate: false }).command(caretToEnd).run();
   }, [editor, value]);
 
+  // A focus asked for before the view is mounted (first render, a rebuild) runs once it is.
+  const wantFocus = useRef(false);
+  useEffect(() => {
+    if (!editor) return;
+    const focusIfWanted = () => {
+      if (!wantFocus.current || !viewMounted(editor)) return;
+      wantFocus.current = false;
+      editor.view.focus();
+    };
+    focusIfWanted();
+    editor.on("mount", focusIfWanted);
+    return () => {
+      editor.off("mount", focusIfWanted);
+    };
+  }, [editor]);
+
   useImperativeHandle(
     ref,
     () => ({
       // Right away, as a textarea does; the focus and blur commands wait a frame.
-      focus: () => editor?.view.focus(),
-      blur: () => editor?.view.dom.blur(),
+      focus: () => {
+        if (editor && viewMounted(editor)) editor.view.focus();
+        else wantFocus.current = true;
+      },
+      blur: () => {
+        wantFocus.current = false;
+        if (editor && viewMounted(editor)) editor.view.dom.blur();
+      },
     }),
     [editor],
   );

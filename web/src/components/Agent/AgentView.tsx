@@ -15,7 +15,7 @@ import ChatTitleBar from "./ChatTitleBar";
 import { NEW_CHAT_VIEW } from "./composer-drafts";
 import NotifyBell from "./NotifyBell";
 import { chatStateIcon, idleChatIcon, recentChatItems } from "./recent-chats";
-import { focusComposerShortcut, isEmptyThread } from "./chat-thread-utils";
+import { asksFirstMessage, focusComposerShortcut, isEmptyThread } from "./chat-thread-utils";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { useChatSession } from "./useChatSession";
 import { useMarkSeen } from "./useMarkSeen";
@@ -138,7 +138,7 @@ export default function AgentView() {
       blurOnEscape
       running={running}
       background={background}
-      placeholder={empty ? "Ask a question, or describe what to build…" : "Reply…"}
+      placeholder={asksFirstMessage(thread, chatId) ? "Ask a question, or describe what to build…" : "Reply…"}
       onDismissContext={() => {}}
       status={agent.status}
       prefs={agent.prefsFor(chatId)}

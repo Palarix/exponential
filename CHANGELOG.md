@@ -119,6 +119,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: loading or reloading the Agent view no longer sometimes crashes into "Something went wrong" with `[tiptap error]: The editor view is not available`.
+  - **Focus:** the composer has focus once the page has loaded.
+  - **Placeholder:** opening an existing chat shows "Reply…" right away, without first flashing the new-chat placeholder.
+  - **Issue descriptions:** a click into an issue description waits for the editor to be ready before it places the caret.
+
+  (xpo-ea2c99)
 - `xpo start --force` no longer deletes the issue's worktree. It keeps the existing worktree and its uncommitted work, and adds the worktree only if it is missing. Starting your own DOING issue again, without force and from any directory, resumes its worktree. The xpo skill and the Work Mode prompt now tell agents not to call `start` again once they are in the issue's worktree. (xpo-3b48b1)
 - Popovers opened inside a dialog, such as a dropdown, now show above the dialog instead of behind it. (xpo-17f094)
 - Agent chat: a multi-line question from the agent keeps its line breaks on the question card, on the Review step and in the answered question in the thread. (xpo-f90406)

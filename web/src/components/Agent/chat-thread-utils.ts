@@ -109,6 +109,15 @@ export function isEmptyThread(state: ChatThread): boolean {
   return state.turns.length === 0 && state.dividers.length === 0;
 }
 
+/**
+ * Whether the composer asks for a first message: a new chat, or a loaded one
+ * with nothing in it. An existing chat is a reply while it loads, so its
+ * placeholder does not flash the new chat's.
+ */
+export function asksFirstMessage(state: ChatThread, chatId: string | null | undefined): boolean {
+  return isEmptyThread(state) && (!chatId || state.loaded);
+}
+
 /** A divider in words. */
 export function modeDividerText(d: ModeDivider): string {
   if (d.message) return d.message;

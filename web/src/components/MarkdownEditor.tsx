@@ -13,6 +13,7 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { Markdown as TiptapMarkdown } from "tiptap-markdown";
 import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import FormattingBar from "./FormattingBar";
+import { focusAt } from "./tiptap-view";
 
 type BlurEvent = React.FocusEvent<HTMLDivElement>;
 
@@ -157,11 +158,7 @@ export default function MarkdownEditor({
 
   useEffect(() => {
     if (!editor || !clickEvent) return;
-    editor.commands.focus();
-    const pos = editor.view.posAtCoords({ left: clickEvent.clientX, top: clickEvent.clientY });
-    if (pos) {
-      editor.commands.setTextSelection(pos.pos);
-    }
+    return focusAt(editor, clickEvent);
   }, [editor, clickEvent]);
 
   return (

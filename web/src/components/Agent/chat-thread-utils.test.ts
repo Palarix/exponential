@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, editTarget, composerArrowUp, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, asksFirstMessage, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, editTarget, composerArrowUp, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -717,6 +717,28 @@ describe("failureReason", () => {
   it("skips blank leading lines and handles a missing message", () => {
     expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error", message: "\n\n  boom  " })).toEqual({ label: "failed", text: "boom", more: false });
     expect(failureReason({ kind: "tool", name: "Read", arg: "", done: true, status: "error" })).toEqual({ label: "failed", text: "", more: false });
+  });
+});
+
+describe("asksFirstMessage", () => {
+  const loaded = { ...emptyThread, loaded: true };
+  it("asks for a first message in a new chat", () => {
+    expect(asksFirstMessage(emptyThread, null)).toBe(true);
+    expect(asksFirstMessage(loaded, undefined)).toBe(true);
+  });
+
+  // An existing chat's thread is empty until its history arrives: it is a reply from the start.
+  it("treats an existing chat as a reply while it loads", () => {
+    expect(asksFirstMessage(emptyThread, "c1")).toBe(false);
+  });
+
+  it("asks for a first message in a loaded chat with nothing in it", () => {
+    expect(asksFirstMessage(loaded, "c1")).toBe(true);
+  });
+
+  it("is a reply once the chat has turns", () => {
+    const s = reduce([ev({ type: "user_message", seq: 1, text: "hi" })], loaded);
+    expect(asksFirstMessage(s, "c1")).toBe(false);
   });
 });
 
