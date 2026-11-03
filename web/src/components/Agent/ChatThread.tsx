@@ -10,7 +10,7 @@ import { attachmentUrl, formatSize, isAgentImage } from "./attachment-utils";
 import QuestionCard from "./QuestionCard";
 import ToolIcon from "./ToolIcon";
 import Tooltip from "../ui/Tooltip";
-import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
+import { activeCardId, approvalOutcomeLabel, cardsDone, userTurns, visibleTurns, failureReason, followsNewTurn, formatDuration, groupSummary, isFailed, isQuestion, isRunning, modeDividerText, parseQuestions, pendingApprovals, stepIcon, timelineSteps, turnSeconds, turnSegments, type ToolStep, type ChatThread as Thread, type ChatTurn } from "./chat-thread-utils";
 import { scrollBehavior } from "../../preferences";
 import { StreamIn, useStreamIn } from "./stream-in";
 
@@ -553,11 +553,18 @@ export default function ChatThread({
   useEffect(() => {
     live.current = thread.loaded;
   }, [thread.loaded]);
-  const { ref: scrollRef, pin } = useStickToBottom<HTMLDivElement>(live);
+  const { ref: scrollRef, pin, follow } = useStickToBottom<HTMLDivElement>(live);
   const cold = usePassed(cacheExpiresAt) && thread.turns.length > 0 && !isRunning(thread);
 
   // Follow new output, and the cold cache marker, while the user is at the bottom.
-  useLayoutEffect(pin, [pin, thread, cold]);
+  // A message the user sends follows even if they scrolled up; the history coming in jumps as before.
+  const turnCount = useRef(thread.turns.length);
+  useLayoutEffect(() => {
+    const sent = live.current && followsNewTurn(turnCount.current, thread.turns);
+    turnCount.current = thread.turns.length;
+    if (sent) follow();
+    else pin();
+  }, [pin, follow, thread, cold]);
 
   const first = thread.turns[0];
   return (

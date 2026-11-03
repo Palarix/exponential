@@ -13,7 +13,14 @@ describe("easeToward", () => {
   it("does not depend on frame rate: two half frames land where one full frame does", () => {
     const once = easeToward(0, 100, 32, 150);
     const twice = easeToward(easeToward(0, 100, 16, 150), 100, 16, 150);
-    expect(twice).toBeCloseTo(once, 6);
+    expect(Math.abs(twice - once)).toBeLessThanOrEqual(1);
+  });
+
+  it("returns whole pixels, so the browser cannot round the position back up", () => {
+    for (const dt of [1, 7, 16, 33]) {
+      expect(Number.isInteger(easeToward(0, 1000, dt, 150))).toBe(true);
+      expect(Number.isInteger(easeToward(1000, 0, dt, 150))).toBe(true);
+    }
   });
 
   it("snaps to the target within 1px", () => {
@@ -57,6 +64,12 @@ describe("nextStick", () => {
 
   it("unsticks when the user scrolls up out of the grace zone", () => {
     expect(nextStick(true, 500, at(300))).toBe(false);
+    expect(nextStick(true, 300, at(298))).toBe(false);
+  });
+
+  it("stays stuck when the browser rounds the position up by less than a pixel", () => {
+    // A glide set 300.6; the browser snapped it to device pixels at 300.
+    expect(nextStick(true, 300.6, at(300))).toBe(true);
   });
 
   it("stays stuck when content grows below without an upward scroll", () => {

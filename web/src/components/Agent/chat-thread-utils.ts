@@ -275,6 +275,17 @@ function updateLast(state: ChatThread, fn: (t: ChatTurn) => ChatTurn): ChatThrea
   return { ...state, turns: [...state.turns.slice(0, -1), next] };
 }
 
+/**
+ * Whether the thread should follow to the end, even if the user scrolled up:
+ * a turn was added since the last render, and the user started it (sent,
+ * queued, or steered a message). A turn the agent started on its own does
+ * not pull the user away from what they are reading.
+ */
+export function followsNewTurn(prevCount: number, turns: ChatTurn[]): boolean {
+  if (turns.length <= prevCount) return false;
+  return !turns[turns.length - 1].byAgent;
+}
+
 export function isRunning(state: ChatThread): boolean {
   return state.turns[state.turns.length - 1]?.status === "running";
 }

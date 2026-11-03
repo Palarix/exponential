@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChatEvent } from "../../api/chat";
-import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, asksFirstMessage, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, editTarget, composerArrowUp, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
+import { activeCardId, changesChatMeta, approvalKeyDecision, composerEscapeBlurs, focusComposerShortcut, approvalArgs, cardsDone, approvalOutcomeLabel, approvalTitle, backgroundBanner, chatThreadReducer, emptyPicks, formatDuration, groupSummary, asksFirstMessage, isEmptyThread, isQuestion, modeDividerText, failedSteps, failureReason, parseQuestions, pickOption, questionAdvance, questionAnswered, questionAnswerText, questionAnswers, reviewStep, questionKeyAction, questionTabLabel, autoAdvanceTo, setOtherText, stepIcon, stepSummary, emptyThread, isRunning, pendingApprovals, toggleOther, toolLabel, timelineSteps, toolSummary, turnSeconds, turnSegments, userTurns, visibleTurns, editTarget, composerArrowUp, followsNewTurn, type ChatThread, type ToolIconId, type ToolStep } from "./chat-thread-utils";
 
 const T0 = "2026-10-12T10:00:00Z";
 
@@ -1250,5 +1250,22 @@ describe("toolSummary while running", () => {
 
   it("keeps the tool name for unknown tools", () => {
     expect(toolSummary("NotebookEdit", "a.ipynb", true)).toEqual({ text: "NotebookEdit", detail: "a.ipynb" });
+  });
+});
+
+describe("followsNewTurn", () => {
+  const turn = (byAgent = false) => ({ user: { text: "hi" }, steps: [], status: "running", thinking: false, ...(byAgent && { byAgent }) }) as ChatThread["turns"][number];
+
+  it("follows when the user's message starts a new turn", () => {
+    expect(followsNewTurn(1, [turn(), turn()])).toBe(true);
+  });
+
+  it("does not follow when no turn was added", () => {
+    expect(followsNewTurn(2, [turn(), turn()])).toBe(false);
+    expect(followsNewTurn(3, [turn(), turn()])).toBe(false);
+  });
+
+  it("does not follow a turn the agent started on its own", () => {
+    expect(followsNewTurn(1, [turn(), turn(true)])).toBe(false);
   });
 });

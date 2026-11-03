@@ -15,7 +15,8 @@ function glideMs(): number {
  * grow. It follows when the scroller or its content resizes: cards that grow
  * after render, a taller composer, a resized popup. Scrolling up stops it,
  * scrolling back to the end resumes it. Attach the ref to the scroller, and
- * call pin() after rendering new content.
+ * call pin() after rendering new content. follow() resumes following and
+ * goes to the end even when the user scrolled up, as after they send a message.
  *
  * While the `glide` ref is true and movement is allowed, it eases to the end instead
  * of jumping: one frame loop that aims at the current end each frame, so new
@@ -59,6 +60,11 @@ export function useStickToBottom<T extends HTMLElement>(glide: RefObject<boolean
     lastTop.current = el.scrollTop;
   }, [glide, stop]);
 
+  const follow = useCallback(() => {
+    stuck.current = true;
+    pin();
+  }, [pin]);
+
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -83,5 +89,5 @@ export function useStickToBottom<T extends HTMLElement>(glide: RefObject<boolean
     };
   }, [pin, stop]);
 
-  return { ref, pin };
+  return { ref, pin, follow };
 }
