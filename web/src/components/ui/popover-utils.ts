@@ -1,4 +1,4 @@
-export type Placement = 'bottom-start' | 'bottom-center' | 'bottom-end' | 'right-start';
+export type Placement = 'bottom-start' | 'bottom-center' | 'bottom-end' | 'right-start' | 'left-start';
 
 interface Rect {
   top: number;
@@ -36,6 +36,12 @@ export function computePopoverPosition(
     left = anchor.right + offset;
     if (left + popover.width > viewport.width - PAD) {
       left = anchor.left - popover.width - offset;
+    }
+  } else if (placement === 'left-start') {
+    top = anchor.top;
+    left = anchor.left - popover.width - offset;
+    if (left < PAD) {
+      left = anchor.right + offset;
     }
   } else {
     top = anchor.bottom + offset;

@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Milestones view** (sidebar entry, `g v`): one column, future on top: upcoming milestones, Next, Current, then **No milestone** (open issues in no milestone) and the 3 latest completed milestones ("Show N older" for the rest). Each row has the label (or `#N`) and goal, a Current or Next badge, the target date (in the warning colour when overdue), and a progress pill. Hovering the pill shows the status breakdown, a time bar and the burndown; a click switches every row between issues done and story points done, kept in this browser. A warning icon marks milestones whose target dates contradict their order.
   - **Planning:** drag milestones by their handle to reorder them, which changes Current and Next. Expand a milestone to see its issues, with labels, estimate and assignee like the backlog, and drag issues between milestones and No milestone. Completed milestones expand in place to show their burndown and what they delivered, read-only. Search and the issue filter narrow every list. **New Milestone** creates one, and the `⋯` menu on an open milestone edits, completes or deletes it, with a confirmation that names the issues affected and where they go.
   - **Assigning:** a **Milestone** row in the issue sidebar, a chip on backlog rows and board cards (Lucide's `Milestone` sign-post icon and the name), `r` on the focused row, card or open issue, **Milestone ▸** in the context menu, **Move to milestone…** in the command palette, and a milestone button in the new-issue modal (drafts keep it). Changing an epic's milestone asks whether to move its open sub-issues too. An open issue in a completed milestone shows "In completed milestone 1.5" with **Move to Current**.
-  - **Filter:** the Filter menu has **Milestone** with Current, Next, No milestone and each milestone, with counts, in Issues, My Issues, Inbox and Milestones. Current and Next are looked up each time, so a saved filter follows them. Clicking an open milestone's name opens Issues with its filter.
+  - **Filter:** the Filter menu has **Milestone**, in Issues, My Issues, Inbox and Milestones: No milestone, Current and Next with a badge after the name, then **Upcoming** (nearest first) and **Past** (newest first) submenus. Each row has a count, a submenu row shows how many of its milestones are checked, and the search box finds milestones in all of them. Current and Next are looked up each time, so a saved filter follows them. Clicking an open milestone's name opens Issues with its filter. (xpo-c5d3ff)
   - **API:** `POST /api/draft` takes `with_children` for an UPDATE, issue drafts store `milestone`, and a refused milestone assignment answers 400 with the reason.
   - **Migration:** boards that used this feature under its earlier name, Releases, need `xpo doctor --fix` once. It rewrites `issues.db`, `archive.db` and issue drafts in place (`RELEASE_*` events, `rel-` IDs, `release_id` and the drafts' `release`), keeps a `.bak` copy of each changed file, and drops the duplicate lines a pre-migration branch leaves after a union merge. Until then, reads fail with "This board has Release data from before 1.6. Run `xpo doctor --fix` to migrate it." Saved Release filters and the points setting reset.
 
@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Menus: a mouse move toward an open submenu no longer switches to another submenu row on the way, while a move along the rows still switches at once. Menus can nest a submenu inside a submenu, and a nested one opens on the same side as its parent. (xpo-c5d3ff)
+
 - Agent skill: when `merge` fails because the default branch moved on, the agent brings the default branch into the issue's branch from the worktree (`git rebase <default-branch>` or `git merge <default-branch>`), resolves the conflicts, re-runs the tests, commits, and calls `merge` again. The ban on merging, rebasing and committing now covers only the default branch. (xpo-8e922f)
 
 - One issue hover card everywhere: issue links and chips (in Markdown, chat and the chat title), relation chips and milestone rows. It shows the status icon, ID and assignee avatar, the title (up to two lines), the description as Markdown (up to six lines, fading out when longer), and icons with counts for comments, attachments, spec, walkthrough, sub-issues done, commits and open blockers, each only when there is one. Priority, estimate and labels are no longer on the card. (xpo-73dfc5)
@@ -70,6 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Filter chips start with a **Clear filters** text button, which replaces the ✕ icon after the chips. The bottom status bar now lines up with the main card on both sides. (xpo-325f73)
 
 ### Fixed
+
+- Filter menu: checking a value no longer zeroes the counts of the other values or removes rows from its own list. Each dimension's counts ignore its own selection and follow the selections in the other dimensions, in Issues, My Issues, Inbox and Milestones. (xpo-c5d3ff)
+
+- Menus: separators are visible on every surface. They use the tint border, a wash of the text colour, in place of a fixed colour almost equal to the menu's background. (xpo-c5d3ff)
+
+- `make frontend` builds again. A test fixture failed the type check. (xpo-8fc8ba)
 
 - Agent chat: with Motion "On", the thread again follows new output after you send a message, without scrolling to the bottom by hand. The smooth scroll moves in whole pixels, so the browser rounding its position no longer reads as you scrolling up, and a message you send, queue or steer always brings following back. (xpo-397365)
 

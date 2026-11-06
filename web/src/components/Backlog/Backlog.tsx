@@ -437,11 +437,8 @@ export default function Backlog() {
   const visibleStatuses = TAB_CONFIGS[activeTab].statuses;
   const query = search.trim().toLowerCase();
   const tabFilters = filtersForScope(filters, visibleStatuses);
-  const filteredIssues = issues.filter((i) => {
-    if (!visibleStatuses.includes(i.status)) return false;
-    if (!matchesSearch(i, query)) return false;
-    return matchesFilters(i, tabFilters, milestones);
-  });
+  const tabIssues = issues.filter((i) => visibleStatuses.includes(i.status) && matchesSearch(i, query));
+  const filteredIssues = tabIssues.filter((i) => matchesFilters(i, tabFilters, milestones));
 
   const childrenByParent = useMemo(() => buildChildrenByParent(issues), [issues]);
 
@@ -1512,7 +1509,7 @@ export default function Backlog() {
               }
               right={
                 <div className="flex items-center gap-2">
-                  <FilterButton issues={filteredIssues} filters={filters} onFiltersChange={onFiltersChange} scope={visibleStatuses} />
+                  <FilterButton issues={tabIssues} filters={filters} onFiltersChange={onFiltersChange} scope={visibleStatuses} />
                   <div>
                     <IconButton
                       ref={viewBtnRef}

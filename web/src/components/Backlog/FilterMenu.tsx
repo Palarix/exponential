@@ -8,11 +8,13 @@ import { labelColor } from "../../utils/labels";
 import { shortName } from "../../utils/format";
 import { LabelColorsContext } from "../ui/BadgeContexts";
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from "../../constants";
-import { dimensionDisabled, getSelected, outOfScope, milestoneFilterOptions, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
+import { dimensionDisabled, facetIssues, filterOptionMatches, getSelected, outOfScope, milestoneFilterOptions, setSelected, type BacklogFilters, type FilterDimension } from "./filters";
 import { Menu, MenuItem, MenuLabel, MenuDivider } from "../ui/Menu";
 import { SubMenu } from "../ui/SubMenu";
+import { SlotBadge } from "../Milestones/MilestoneRow";
 
 interface FilterMenuProps {
+  /** The view's issues before `filters`; each dimension applies the others itself. */
   issues: Issue[];
   filters: BacklogFilters;
   onChange: (filters: BacklogFilters) => void;
@@ -48,7 +50,15 @@ interface FilterOption {
   label: string;
   icon?: ReactNode;
   count: number;
+  slot?: string;
+  group?: string;
 }
+
+/** Each submenu a dimension's rows can sit in, in menu order. */
+const OPTION_GROUPS = [{ key: "upcoming", label: "Upcoming" }, { key: "past", label: "Past" }];
+
+const checkedCount = (count: number) =>
+  count > 0 ? <span className="text-xs text-[var(--color-accent-primary)] tabular-nums">{count}</span> : undefined;
 
 function computeFilterOptions(dim: Dimension, issues: Issue[], configColors?: Record<string, string>, milestones?: MilestonesResponse): FilterOption[] {
   switch (dim) {
@@ -117,9 +127,11 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
 
   const allOptions = useMemo(() => {
     const result: Record<Dimension, FilterOption[]> = {} as Record<Dimension, FilterOption[]>;
-    for (const dim of DIMENSIONS) result[dim.key] = computeFilterOptions(dim.key, issues, configColors, milestones);
+    for (const dim of DIMENSIONS) {
+      result[dim.key] = computeFilterOptions(dim.key, facetIssues(issues, dim.key, filters, milestones, scope), configColors, milestones);
+    }
     return result;
-  }, [issues, configColors, milestones]);
+  }, [issues, filters, scope, configColors, milestones]);
 
   useLayoutEffect(() => {
     const menu = menuRef.current;
@@ -152,8 +164,8 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
       const target = e.target as Node;
       if (menuRef.current?.contains(target)) return;
       if (anchorRef.current?.contains(target)) return;
-      const flyout = document.querySelector("[data-submenu-flyout]");
-      if (flyout?.contains(target)) return;
+      // Any open flyout: the menu nests, and each level portals to the body.
+      if (target instanceof Element && target.closest("[data-submenu-flyout]")) return;
       onClose();
     };
     document.addEventListener("mousedown", handler);
@@ -180,10 +192,30 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
           const selected = getSelected(dim.key, filters);
           const options = allOptions[dim.key];
           const search = searches[dim.key] ?? "";
-          const filtered = search
-            ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-            : options;
+          const filtered = search ? options.filter(o => filterOptionMatches(o, search)) : options;
           const showSearch = options.length > 5;
+          // A search shows every match in one flat list; otherwise grouped rows sit in their submenus.
+          const rows = search ? filtered : options.filter(o => !o.group);
+          const groups = search ? [] : OPTION_GROUPS.filter(g => options.some(o => o.group === g.key));
+          const renderOption = (opt: FilterOption) => {
+            const muted = outOfScope(dim.key, opt.value, scope);
+            return (
+              <MenuItem
+                key={opt.value}
+                label={opt.label}
+                content={
+                  muted ? <span title="Not on this tab">{opt.label}</span>
+                    : opt.slot ? <span className="flex items-center gap-2 min-w-0"><span className="truncate">{opt.label}</span><SlotBadge slot={opt.slot} /></span>
+                      : undefined
+                }
+                icon={opt.icon}
+                disabled={muted}
+                checked={selected.includes(opt.value)}
+                onClick={() => handleToggle(dim.key, opt.value)}
+                suffix={<span className="text-[var(--color-text-muted)] tabular-nums shrink-0 text-xs">{opt.count}</span>}
+              />
+            );
+          };
           return (
             <SubMenu
               key={dim.key}
@@ -191,7 +223,7 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
               icon={dim.icon}
               disabled={dimensionDisabled(dim.key, scope)}
               maxHeight={showSearch ? "24rem" : undefined}
-              suffix={selected.length > 0 ? <span className="text-xs text-[var(--color-accent-primary)] tabular-nums">{selected.length}</span> : undefined}
+              suffix={checkedCount(selected.length)}
             >
               {showSearch && (
                 <MenuLabel className="px-3 py-1.5 normal-case tracking-normal font-normal">
@@ -206,19 +238,19 @@ export default function FilterMenu({ issues, filters, onChange, anchorRef, onClo
                 </MenuLabel>
               )}
               {showSearch && <MenuDivider />}
-              {filtered.map((opt) => {
-                const muted = outOfScope(dim.key, opt.value, scope);
+              {rows.map(renderOption)}
+              {groups.length > 0 && <MenuDivider />}
+              {groups.map((g) => {
+                const members = options.filter(o => o.group === g.key);
                 return (
-                  <MenuItem
-                    key={opt.value}
-                    label={opt.label}
-                    content={muted ? <span title="Not on this tab">{opt.label}</span> : undefined}
-                    icon={opt.icon}
-                    disabled={muted}
-                    checked={selected.includes(opt.value)}
-                    onClick={() => handleToggle(dim.key, opt.value)}
-                    suffix={<span className="text-[var(--color-text-muted)] tabular-nums shrink-0 text-xs">{opt.count}</span>}
-                  />
+                  <SubMenu
+                    key={g.key}
+                    label={g.label}
+                    maxHeight="24rem"
+                    suffix={checkedCount(members.filter(o => selected.includes(o.value)).length)}
+                  >
+                    {members.map(renderOption)}
+                  </SubMenu>
                 );
               })}
               {filtered.length === 0 && <MenuLabel>No matches</MenuLabel>}

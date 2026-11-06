@@ -25,6 +25,8 @@ interface SubMenuProps {
   _onMouseEnter?: (index: number) => void;
   _subMenuOpen?: boolean;
   _onSubMenuClose?: () => void;
+  _ownerId?: string;
+  _onFlyoutEnter?: () => void;
 }
 
 const CLOSE_DELAY = 300;
@@ -43,6 +45,8 @@ export function SubMenu({
   _onMouseEnter,
   _subMenuOpen,
   _onSubMenuClose,
+  _ownerId,
+  _onFlyoutEnter,
 }: SubMenuProps) {
   const triggerRef = useRef<HTMLDivElement>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
@@ -80,10 +84,13 @@ export function SubMenu({
     const firstItem = flyout.querySelector("[data-menu-index], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio']") as HTMLElement;
     const itemOffset = firstItem ? firstItem.getBoundingClientRect().top - fRect.top : 0;
 
+    // A nested flyout keeps its parent's side, so the menu never turns back over itself.
+    const parentSide = anchor.closest<HTMLElement>("[data-submenu-flyout]")?.dataset.submenuSide;
+
     const { top, left } = computePopoverPosition(
       aRect,
       { width: fRect.width, height: fRect.height },
-      "right-start",
+      parentSide === "left" ? "left-start" : "right-start",
       4,
       { width: window.innerWidth, height: window.innerHeight },
     );
@@ -95,13 +102,15 @@ export function SubMenu({
     flyout.style.top = `${clampedTop}px`;
     flyout.style.left = `${left}px`;
     flyout.style.visibility = "visible";
+    flyout.dataset.submenuSide = left < aRect.left ? "left" : "right";
   });
 
   const useMenu = !renderPanel && children;
 
   const handleFlyoutMouseEnter = useCallback(() => {
     cancelClose();
-  }, [cancelClose]);
+    _onFlyoutEnter?.();
+  }, [cancelClose, _onFlyoutEnter]);
 
   const handleFlyoutMouseLeave = useCallback(() => {
     scheduleClose();
@@ -136,6 +145,7 @@ export function SubMenu({
           <div
             ref={flyoutRef}
             data-submenu-flyout
+            data-submenu-owner={_ownerId}
             tabIndex={useMenu ? undefined : -1}
             style={{ position: "fixed", visibility: "hidden" }}
             className={useMenu

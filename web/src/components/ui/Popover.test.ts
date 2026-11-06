@@ -83,6 +83,21 @@ describe('computePopoverPosition', () => {
     });
   });
 
+  describe('left-start placement', () => {
+    const roomy = { top: 100, bottom: 130, left: 500, right: 580, width: 80, height: 30 };
+
+    it('positions to the left of the anchor, top-aligned', () => {
+      const { top, left } = pos('left-start', roomy);
+      expect(top).toBe(100); // anchor.top
+      expect(left).toBe(296); // 500 - 200 - 4
+    });
+
+    it('flips right when overflowing the left edge', () => {
+      const { left } = pos('left-start');
+      expect(left).toBe(284); // anchor.right + offset, since 200 - 200 - 4 is off screen
+    });
+  });
+
   describe('right-start placement', () => {
     it('positions to the right of the anchor, top-aligned', () => {
       const { top, left } = pos('right-start');

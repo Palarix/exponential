@@ -7,7 +7,7 @@ import type { Editor } from "@tiptap/core";
  * `// @vitest-environment jsdom`), such as the TipTap chat input.
  */
 
-/** Call once per file, in beforeAll: act() and ProseMirror's layout calls. */
+/** Call once per file, in beforeAll: act() and the layout calls jsdom lacks. */
 export function setupDom() {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   // jsdom has no layout; ProseMirror measures when it scrolls the selection into view.
@@ -15,6 +15,8 @@ export function setupDom() {
   Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect = rect;
   document.elementFromPoint = () => null;
+  // Nor does it scroll; Menu scrolls its focused row into view.
+  Element.prototype.scrollIntoView = () => {};
 }
 
 /** Renders into a fresh element on the page; cleanup unmounts it. */

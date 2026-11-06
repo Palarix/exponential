@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   cloneElement,
+  useId,
   useState,
   useCallback,
   useRef,
@@ -13,7 +14,7 @@ import {
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useKeyboardHandler } from "../../keyboard";
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, opensOnHover } from "./menu-utils";
+import { nextIndex, matchShortcut, movingTowardFlyout, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, opensOnHover } from "./menu-utils";
 
 // ─── Internal props injected by Menu via cloneElement ──
 
@@ -24,6 +25,8 @@ interface MenuItemInternalProps {
   _onClick?: (index: number) => void;
   _subMenuOpen?: boolean;
   _onSubMenuClose?: () => void;
+  _ownerId?: string;
+  _onFlyoutEnter?: () => void;
 }
 
 // ─── Child metadata collected during render ────────────
@@ -39,6 +42,8 @@ interface ChildMeta {
 }
 
 // ─── Menu ──────────────────────────────────────────────
+
+const TRAIL_MS = 150;
 
 interface MenuProps {
   children: ReactNode;
@@ -63,6 +68,7 @@ export function Menu({
 }: MenuProps) {
   const [focusIndex, setFocusIndex] = useState(-1);
   const [openSubMenuIndex, setOpenSubMenuIndex] = useState<number | null>(null);
+  const menuId = useId();
 
   const metas: ChildMeta[] = [];
   let childCount = 0;
@@ -87,6 +93,12 @@ export function Menu({
     });
     childCount++;
   });
+
+  // The rows changed under an open submenu, as a search does. The index now
+  // points at another row, and would swallow the keys while it stays set.
+  if (openSubMenuIndex !== null && !metas[openSubMenuIndex]?.isSubMenu) {
+    setOpenSubMenuIndex(null);
+  }
 
   const skipSet = new Set<number>();
   const shortcutMap = new Map<number, string>();
@@ -139,6 +151,9 @@ export function Menu({
   // ─── Safe triangle: suppress submenu switch during diagonal movement ──
 
   const mousePos = useRef<{ x: number; y: number } | null>(null);
+  // The last few recent positions: one small movement can't tell a direction,
+  // and positions from before a pause belong to an earlier move.
+  const mouseTrail = useRef<{ x: number; y: number; time: number }[]>([]);
   const safeTriangleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingHover = useRef<number | null>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
@@ -160,9 +175,16 @@ export function Menu({
     if (!container) return;
     const handleMouseMove = (e: MouseEvent) => {
       mousePos.current = { x: e.clientX, y: e.clientY };
+      const recent = mouseTrail.current.filter((p) => e.timeStamp - p.time < TRAIL_MS);
+      mouseTrail.current = [...recent.slice(-4), { ...mousePos.current, time: e.timeStamp }];
     };
     container.addEventListener("mousemove", handleMouseMove);
-    return () => container.removeEventListener("mousemove", handleMouseMove);
+    // A row's mouseenter fires before the mousemove that caused it, so record the step that entered it.
+    container.addEventListener("mouseover", handleMouseMove);
+    return () => {
+      container.removeEventListener("mousemove", handleMouseMove);
+      container.removeEventListener("mouseover", handleMouseMove);
+    };
   }, []);
 
   useEffect(() => {
@@ -173,7 +195,8 @@ export function Menu({
 
   const isInsideSafeTriangle = useCallback(() => {
     if (openSubMenuRef.current === null || !mousePos.current) return false;
-    const flyout = document.querySelector("[data-submenu-flyout]") as HTMLElement;
+    // This menu's own flyout: with nested submenus, several can be open.
+    const flyout = document.querySelector(`[data-submenu-owner="${menuId}"]`) as HTMLElement;
     if (!flyout) return false;
     const rect = flyout.getBoundingClientRect();
     const { x, y } = mousePos.current;
@@ -189,6 +212,22 @@ export function Menu({
       return pointInTriangle(x, y, menuRect.left, rect.top, menuRect.left, rect.bottom, x, y)
         || (x >= rect.left && x <= menuRect.right && y >= rect.top - 8 && y <= rect.bottom + 8);
     }
+  }, [menuId]);
+
+  const isHeadingForFlyout = useCallback(() => {
+    const flyout = document.querySelector(`[data-submenu-owner="${menuId}"]`);
+    const container = menuContainerRef.current;
+    if (!flyout || !container || !mousePos.current) return false;
+    const flyoutIsRight = flyout.getBoundingClientRect().left >= container.getBoundingClientRect().right - 10;
+    return movingTowardFlyout(mouseTrail.current[0], mousePos.current, flyoutIsRight);
+  }, [menuId]);
+
+  const cancelPendingHover = useCallback(() => {
+    if (safeTriangleTimer.current) {
+      clearTimeout(safeTriangleTimer.current);
+      safeTriangleTimer.current = null;
+    }
+    pendingHover.current = null;
   }, []);
 
   const handleItemMouseEnter = useCallback((index: number) => {
@@ -199,7 +238,8 @@ export function Menu({
 
     if (openSubMenuRef.current !== null && openSubMenuRef.current !== index) {
       const meta = metasRef.current[index];
-      if (!meta?.isSubMenu && isInsideSafeTriangle()) {
+      // A move along the rows switches submenus at once; one on its way to the flyout must not.
+      if ((!meta?.isSubMenu || isHeadingForFlyout()) && isInsideSafeTriangle()) {
         pendingHover.current = index;
         safeTriangleTimer.current = setTimeout(() => {
           safeTriangleTimer.current = null;
@@ -227,7 +267,7 @@ export function Menu({
     } else {
       setOpenSubMenuIndex(null);
     }
-  }, [isInsideSafeTriangle]);
+  }, [isHeadingForFlyout, isInsideSafeTriangle]);
 
   const handleKeyboard = useCallback((e: KeyboardEvent) => {
     if (openSubMenuRef.current !== null) {
@@ -370,6 +410,8 @@ export function Menu({
       _onClick: activateItem,
       _subMenuOpen: openSubMenuIndex === i,
       _onSubMenuClose: closeSubMenu,
+      _ownerId: menuId,
+      _onFlyoutEnter: cancelPendingHover,
     });
   });
 
@@ -507,7 +549,7 @@ export function MenuDivider({ _menuIndex }: MenuItemInternalProps) {
     <div
       role="separator"
       data-menu-index={_menuIndex}
-      className="my-0.5 border-t border-[var(--color-border-subtle)]"
+      className="my-0.5 border-t border-[var(--color-tint-border)]"
     />
   );
 }
@@ -560,7 +602,7 @@ export function MenuFilter({ value, onChange, placeholder, _menuIndex }: MenuFil
           className="w-full text-sm bg-transparent text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
         />
       </div>
-      <div className="my-0.5 border-t border-[var(--color-border-subtle)]" />
+      <MenuDivider />
     </>
   );
 }

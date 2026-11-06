@@ -34,6 +34,20 @@ export function matchShortcut(
 }
 
 /**
+ * Whether a mouse move heads for an open flyout, not along the menu's rows:
+ * toward the flyout's side, and at least a third as far sideways as vertically.
+ */
+export function movingTowardFlyout(
+  from: { x: number; y: number } | undefined,
+  to: { x: number; y: number },
+  flyoutIsRight: boolean,
+): boolean {
+  if (!from) return false;
+  const sideways = (to.x - from.x) * (flyoutIsRight ? 1 : -1);
+  return sideways > 0 && sideways * 3 >= Math.abs(to.y - from.y);
+}
+
+/**
  * Check if point (px,py) is inside the triangle formed by three vertices.
  * Uses barycentric coordinate method.
  */

@@ -92,25 +92,45 @@ export function milestoneRefName(ref: string, board?: MilestonesResponse): strin
   return (board && milestoneByNumber(ref, board)?.name) ?? ref;
 }
 
+export interface MilestoneFilterOption {
+  value: string;
+  label: string;
+  count: number;
+  /** Current and Next: the row shows this as a badge, and the search finds it. */
+  slot?: "current" | "next";
+  /** Upcoming and Past: the row sits in this group's submenu, until a search flattens the list. */
+  group?: "upcoming" | "past";
+}
+
 /**
- * The Milestone filter's menu: Current, Next, No milestone, then the Upcoming
- * and Past milestones by number, each with the count of `issues` it matches.
+ * The Milestone filter's rows: No milestone, Current and Next, the Upcoming
+ * milestones nearest first, then the Past ones newest first, each with the
+ * count of `issues` it matches. The board already holds both lists in that order.
  */
 export function milestoneFilterOptions(
   board: MilestonesResponse | undefined,
   issues: { milestone_id?: string }[],
-): { value: string; label: string; count: number }[] {
-  const option = (value: string, label: string) => {
+): MilestoneFilterOption[] {
+  const option = (value: string, label: string, extra?: Pick<MilestoneFilterOption, "slot" | "group">): MilestoneFilterOption => {
     const id = resolveMilestoneRef(value, board);
-    return { value, label, count: id === null ? 0 : issues.filter((i) => (i.milestone_id ?? "") === id).length };
+    return { value, label, ...extra, count: id === null ? 0 : issues.filter((i) => (i.milestone_id ?? "") === id).length };
   };
-  if (!board) return [option("none", "No milestone")];
+  const none = option("none", "No milestone");
+  if (!board) return [none];
+  const inGroup = (group: "upcoming" | "past") => (r: { number: number; name: string }) => option(`#${r.number}`, r.name, { group });
   return [
-    option("@current", `Current · ${board.current.name}`),
-    option("@next", `Next · ${board.next.name}`),
-    option("none", "No milestone"),
-    ...[...board.upcoming, ...board.past].map((r) => option(`#${r.number}`, r.name)),
+    none,
+    option("@current", board.current.name, { slot: "current" }),
+    option("@next", board.next.name, { slot: "next" }),
+    ...board.upcoming.map(inGroup("upcoming")),
+    ...board.past.map(inGroup("past")),
   ];
+}
+
+/** Whether a menu option matches the submenu's search box, by its label or its slot. */
+export function filterOptionMatches(option: { label: string; slot?: string }, search: string): boolean {
+  const q = search.toLowerCase();
+  return option.label.toLowerCase().includes(q) || (option.slot?.includes(q) ?? false);
 }
 
 export function matchesFilters(
@@ -188,4 +208,20 @@ export function setSelected(dim: FilterDimension, filters: BacklogFilters, value
     case "epic": return { ...filters, epicId: values[0] || null };
     case "milestone": return { ...filters, milestones: values };
   }
+}
+
+/**
+ * The issues a dimension's menu rows count: `issues` narrowed by every other
+ * dimension's selection, but not by its own. Checking one value then leaves
+ * the counts of its siblings real, and each count is what checking that row adds.
+ */
+export function facetIssues<T extends Parameters<typeof matchesFilters>[0]>(
+  issues: T[],
+  dim: FilterDimension,
+  filters: BacklogFilters,
+  board?: MilestonesResponse,
+  scope?: string[],
+): T[] {
+  const others = setSelected(dim, scope ? filtersForScope(filters, scope) : filters, []);
+  return issues.filter((i) => matchesFilters(i, others, board));
 }

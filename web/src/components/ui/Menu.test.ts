@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, opensOnHover } from './menu-utils';
+import { nextIndex, matchShortcut, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, movingTowardFlyout, opensOnHover } from './menu-utils';
 
 describe('nextIndex', () => {
   const skip = new Set<number>();
@@ -172,5 +172,33 @@ describe('opensOnHover', () => {
 
   it('does not open plain items', () => {
     expect(opensOnHover({ isSubMenu: false, navigable: true })).toBe(false);
+  });
+});
+
+describe('movingTowardFlyout', () => {
+  const at = (x: number, y: number) => ({ x, y });
+
+  it('is true for a diagonal move toward the flyout, on either side', () => {
+    expect(movingTowardFlyout(at(500, 100), at(440, 190), false)).toBe(true);
+    expect(movingTowardFlyout(at(500, 100), at(560, 190), true)).toBe(true);
+  });
+
+  it('is false for a move away from the flyout', () => {
+    expect(movingTowardFlyout(at(500, 100), at(560, 190), false)).toBe(false);
+    expect(movingTowardFlyout(at(500, 100), at(440, 190), true)).toBe(false);
+  });
+
+  it('is false for a move along the rows, even with a little sideways drift', () => {
+    expect(movingTowardFlyout(at(500, 100), at(500, 160), false)).toBe(false);
+    expect(movingTowardFlyout(at(500, 100), at(495, 160), false)).toBe(false);
+  });
+
+  it('is true for a move straight at the flyout', () => {
+    expect(movingTowardFlyout(at(500, 100), at(440, 100), false)).toBe(true);
+  });
+
+  it('is false without a move to measure', () => {
+    expect(movingTowardFlyout(undefined, at(440, 100), false)).toBe(false);
+    expect(movingTowardFlyout(at(440, 100), at(440, 100), false)).toBe(false);
   });
 });

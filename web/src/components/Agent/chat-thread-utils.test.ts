@@ -1254,7 +1254,7 @@ describe("toolSummary while running", () => {
 });
 
 describe("followsNewTurn", () => {
-  const turn = (byAgent = false) => ({ user: { text: "hi" }, steps: [], status: "running", thinking: false, ...(byAgent && { byAgent }) }) as ChatThread["turns"][number];
+  const turn = (byAgent = false) => ({ user: { text: "hi", time: "" }, steps: [], status: "running", thinking: false, ...(byAgent && { byAgent }) }) as ChatThread["turns"][number];
 
   it("follows when the user's message starts a new turn", () => {
     expect(followsNewTurn(1, [turn(), turn()])).toBe(true);

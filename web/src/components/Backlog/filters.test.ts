@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Milestone, MilestonesResponse } from "../../api/types";
-import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, filtersForScope, outOfScope, dimensionDisabled, milestoneFilterOptions, milestoneRefName, EMPTY_FILTERS, type BacklogFilters } from "./filters";
+import { hasActiveFilters, matchesFilters, matchesSearch, chipLabel, getSelected, setSelected, parseStoredFilters, filtersForScope, outOfScope, dimensionDisabled, facetIssues, filterOptionMatches, milestoneFilterOptions, milestoneRefName, EMPTY_FILTERS, type BacklogFilters, type FilterDimension } from "./filters";
 
 describe("hasActiveFilters", () => {
   it("returns false for empty filters", () => {
@@ -295,19 +295,77 @@ describe("milestones filter", () => {
     expect(getSelected("milestone", setSelected("milestone", EMPTY_FILTERS, ["@next", "#3"]))).toEqual(["@next", "#3"]);
   });
 
-  it("offers Current, Next, No milestone, then Upcoming and Past milestones, with counts", () => {
+  it("offers No milestone, Current and Next, then the Upcoming and Past groups, with counts", () => {
     const issues = [inRel("ms-1"), inRel("ms-1"), inRel("ms-3"), inRel(undefined)];
     expect(milestoneFilterOptions(board, issues)).toEqual([
-      { value: "@current", label: "Current · 1.5", count: 2 },
-      { value: "@next", label: "Next · 1.6", count: 0 },
       { value: "none", label: "No milestone", count: 1 },
-      { value: "#3", label: "#3", count: 1 },
-      { value: "#4", label: "1.4", count: 0 },
+      { value: "@current", label: "1.5", slot: "current", count: 2 },
+      { value: "@next", label: "1.6", slot: "next", count: 0 },
+      { value: "#3", label: "#3", group: "upcoming", count: 1 },
+      { value: "#4", label: "1.4", group: "past", count: 0 },
     ]);
+  });
+
+  it("keeps the board's order: Upcoming nearest first, Past newest first", () => {
+    const longer: MilestonesResponse = {
+      ...board,
+      upcoming: [rel(3, { slot: "upcoming" }), rel(7, { slot: "upcoming" })],
+      past: [rel(6, { slot: "past", state: "COMPLETED" }), rel(4, { slot: "past", state: "COMPLETED" })],
+    };
+    expect(milestoneFilterOptions(longer, []).map((o) => o.value)).toEqual(["none", "@current", "@next", "#3", "#7", "#6", "#4"]);
   });
 
   it("offers only No milestone before the board loads", () => {
     expect(milestoneFilterOptions(undefined, [inRel(undefined)])).toEqual([{ value: "none", label: "No milestone", count: 1 }]);
+  });
+
+  it("finds Current and Next by name and by slot when searching", () => {
+    const [none, current, next] = milestoneFilterOptions(board, []);
+    expect(filterOptionMatches(current, "1.5")).toBe(true);
+    expect(filterOptionMatches(current, "CURR")).toBe(true);
+    expect(filterOptionMatches(next, "next")).toBe(true);
+    expect(filterOptionMatches(current, "next")).toBe(false);
+    expect(filterOptionMatches(none, "current")).toBe(false);
+    expect(filterOptionMatches(none, "no mile")).toBe(true);
+  });
+
+  describe("facetIssues", () => {
+    const issues = [
+      { ...inRel("ms-1"), id: "a", labels: ["bug"] },
+      { ...inRel("ms-2"), id: "b", labels: ["bug"] },
+      { ...inRel("ms-2"), id: "c", labels: ["feature"], status: "DONE" },
+      { ...inRel(undefined), id: "d", labels: ["feature"] },
+    ];
+    const ids = (list: { id: string }[]) => list.map((i) => i.id);
+
+    it("ignores the dimension's own selection, so its counts stay real", () => {
+      const faceted = facetIssues(issues, "milestone", f("@current"), board);
+      expect(ids(faceted)).toEqual(["a", "b", "c", "d"]);
+      expect(milestoneFilterOptions(board, faceted).find((o) => o.value === "@next")?.count).toBe(2);
+    });
+
+    it("keeps the selections of the other dimensions", () => {
+      const filters = { ...f("@current"), labels: ["bug"] };
+      expect(ids(facetIssues(issues, "milestone", filters, board))).toEqual(["a", "b"]);
+      expect(ids(facetIssues(issues, "labels", filters, board))).toEqual(["a"]);
+      expect(ids(facetIssues(issues, "status", filters, board))).toEqual(["a"]);
+    });
+
+    it("clears every kind of dimension", () => {
+      const only = (dim: FilterDimension, values: string[]) => setSelected(dim, EMPTY_FILTERS, values);
+      const dims: [FilterDimension, string[]][] = [
+        ["status", ["BLOCKED"]], ["assignee", ["nobody"]], ["workedBy", ["agent"]],
+        ["priority", ["1"]], ["labels", ["none"]], ["epic", ["xpo-none"]], ["milestone", ["#9"]],
+      ];
+      for (const [dim, values] of dims) expect(ids(facetIssues(issues, dim, only(dim, values), board))).toEqual(["a", "b", "c", "d"]);
+    });
+
+    it("applies a Status filter inside the tab's scope only", () => {
+      const filters = { ...EMPTY_FILTERS, statuses: ["DONE"] };
+      expect(ids(facetIssues(issues, "labels", filters, board, ["PLANNED"]))).toEqual(["a", "b", "c", "d"]);
+      expect(ids(facetIssues(issues, "labels", filters, board, ["PLANNED", "DONE"]))).toEqual(["c"]);
+      expect(ids(facetIssues(issues, "labels", filters, board))).toEqual(["c"]);
+    });
   });
 
   it("names refs for chips and menus", () => {
