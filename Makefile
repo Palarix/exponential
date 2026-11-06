@@ -7,7 +7,7 @@ all: setup build
 # Build the frontend with Vite and copy to Go static folder
 frontend:
 	@echo "Building web UI..."
-	@cd web && bun install --silent && bun run build 2>&1 | tail -1
+	@cd web && bun install --silent && out=$$(bun run build 2>&1) || { echo "$$out"; echo "frontend build failed"; exit 1; }; echo "$$out" | tail -1
 	@rm -rf internal/server/static
 	@cp -r web/dist internal/server/static
 	@touch internal/server/static/.gitkeep
@@ -41,6 +41,7 @@ lint:
 	@go vet ./... 2>&1 || { echo "go vet failed"; exit 1; }
 	@GOOS=windows go vet ./... 2>&1 || { echo "go vet (windows) failed"; exit 1; }
 	@cd web && bun run --silent lint 2>&1 || { echo "eslint failed"; exit 1; }
+	@cd web && bun run --silent typecheck 2>&1 || { echo "tsc failed"; exit 1; }
 
 install: cli
 	sudo rm -f /usr/local/bin/xpo

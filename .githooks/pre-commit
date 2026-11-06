@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Pre-commit: run make lint (go vet + eslint) on staged changes.
+# Pre-commit: run make lint (go vet + eslint + tsc) on staged changes.
 # Skips if no relevant files are staged.
 #
 

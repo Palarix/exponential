@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `make lint` type checks the frontend with `tsc -b`, so `make test` and the pre-commit hook catch type errors, test files included. A commit that stages a Go file or a `web/` source file takes about 5 seconds longer. (xpo-a67011)
+
 - Menus: a mouse move toward an open submenu no longer switches to another submenu row on the way, while a move along the rows still switches at once. Menus can nest a submenu inside a submenu, and a nested one opens on the same side as its parent. (xpo-c5d3ff)
 
 - Agent skill: when `merge` fails because the default branch moved on, the agent brings the default branch into the issue's branch from the worktree (`git rebase <default-branch>` or `git merge <default-branch>`), resolves the conflicts, re-runs the tests, commits, and calls `merge` again. The ban on merging, rebasing and committing now covers only the default branch. (xpo-8e922f)
@@ -78,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menus: separators are visible on every surface. They use the tint border, a wash of the text colour, in place of a fixed colour almost equal to the menu's background. (xpo-c5d3ff)
 
 - `make frontend` builds again. A test fixture failed the type check. (xpo-8fc8ba)
+
+- `make frontend` fails when the build fails, prints the error, and keeps the existing assets. Before, a failed build with an old `web/dist` copied the old assets and exited 0. (xpo-a67011)
 
 - Agent chat: with Motion "On", the thread again follows new output after you send a message, without scrolling to the bottom by hand. The smooth scroll moves in whole pixels, so the browser rounding its position no longer reads as you scrolling up, and a message you send, queue or steer always brings following back. (xpo-397365)
 

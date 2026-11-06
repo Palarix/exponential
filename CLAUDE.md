@@ -27,9 +27,9 @@ Issue IDs in this project use the prefix `xpo` (e.g. `xpo-a1b2c3`).
 - `make frontend` — build the web application assets.
 - `make build` — build the CLI with the web assets embedded.
 - `make test` — run the test suite (includes lint).
-- `make lint` — run `go vet` and frontend eslint.
+- `make lint` — run `go vet`, frontend eslint and the frontend type check (`tsc -b`).
 - always use `bun` and `bunx` over `npm` and `npmx` when available
 
 ## Before declaring implementation done
 
-`make test` must pass. It runs lint (`go vet` + `bun run lint`) then Go tests.
+`make test` must pass. It runs lint (`go vet` + `bun run lint` + `bun run typecheck`), then frontend tests, then Go tests.
