@@ -71,7 +71,7 @@ setup for common issues. Use --fix to resolve what can be auto-fixed.`,
 
 		// Section: xpo
 		fmt.Printf("\nxpo\n")
-		counts.pass("Version %s", version.CLIVersion)
+		counts.pass("Version %s", version.Build())
 
 		// Section: Project
 		cwd, _ := os.Getwd()

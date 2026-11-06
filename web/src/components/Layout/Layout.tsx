@@ -39,7 +39,7 @@ export default function Layout({
             />
             {connected ? (
               <span className="text-[var(--color-text-muted)]">
-                Exponential {version && `v${version}`}
+                {version && `v${version}`}
               </span>
             ) : (
               <span className="text-[var(--color-error)]">Disconnected</span>

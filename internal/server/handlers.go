@@ -320,7 +320,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"auto_commit":         s.Config.AutoCommit,
 		"prefix":              prefix,
-		"version":             version.CLIVersion,
+		"version":             version.Build(),
 		"labels":              labels,
 		"name":                name,
 		"hide_default_labels": s.Config.HideDefaultLabels,

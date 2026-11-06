@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The running version now identifies the exact build: `1.5.0` on a release tag, `1.5.0-de0d346` past it, with a trailing `!` for uncommitted changes. `xpo version`, `xpo doctor`, the MCP server info and the board footer show it. The footer drops the word "Exponential" to make room. Integration stamps keep plain `x.y.z`. (xpo-c7a4cf)
+
 - Milestones: group issues that are done together, scope-boxed where Cycles are time-boxed. (xpo-f89e55, xpo-9a7a77, xpo-974eba, xpo-325f73, xpo-e6ff99, xpo-88f633, xpo-483245, xpo-df162c, xpo-d12b64, xpo-574cf5)
   - **Model:** milestones are numbered `#1`, `#2`, … (never reused) and may have a label, unique among open milestones. A milestone is OPEN until it is completed (COMPLETED, final) or deleted. Current and Next are the first two open milestones in order. They always exist, as placeholders that the first write saves, and Next is locked while Current is unsaved.
   - **Issues:** `milestone` on `add`, `update` and `list` takes `#7`, a label, `@current`, `@next` or `none`. A new child copies its parent's open milestone. `with_children` also moves an epic's open children. Only open milestones accept issues.

@@ -37,7 +37,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 func newStdioServer(cfg *config.Config) *mcp.Server {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "xpo",
-		Version: version.CLIVersion,
+		Version: version.Build(),
 	}, nil)
 	ts := newToolset(cfg)
 	ts.register(srv)

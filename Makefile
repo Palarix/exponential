@@ -1,4 +1,6 @@
 BINARY_NAME=xpo
+# The raw describe output. internal/version turns it into the display format.
+GIT_DESCRIBE=$(shell git describe --tags --match 'v[0-9]*' --dirty='!' 2>/dev/null)
 
 .PHONY: all build clean test lint frontend frontend-test install release-check-version release-prep release-tag stressgen setup
 
@@ -18,7 +20,7 @@ build: test frontend cli
 # Build Go binary only (skip frontend rebuild)
 cli:
 	@echo "Building CLI..."
-	@go build -o $(BINARY_NAME) ./cmd/exponential
+	@go build -ldflags "-X 'github.com/palarix/exponential/internal/version.gitDescribe=$(GIT_DESCRIBE)'" -o $(BINARY_NAME) ./cmd/exponential
 
 clean:
 	go clean
