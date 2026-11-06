@@ -1,6 +1,7 @@
 import type { Issue, Milestone, MilestonesResponse } from "../../api/types";
 import type { MilestoneIssuesMode } from "../../api/client";
 import { isCompleted, isTerminal } from "../../constants";
+import { cn } from "../../utils/cn";
 
 /** The open milestones in order: Current, Next (either may be a placeholder), then Upcoming. */
 export function openMilestones(board: MilestonesResponse): Milestone[] {
@@ -10,6 +11,22 @@ export function openMilestones(board: MilestonesResponse): Milestone[] {
 /** The saved open milestones in order. Placeholders can't be reordered. */
 export function savedOrder(board: MilestonesResponse): Milestone[] {
   return openMilestones(board).filter((r) => !r.placeholder);
+}
+
+/** A milestone name's text: a label reads stronger than the `#4` that stands in for one. */
+export function milestoneNameClass(milestone: Milestone): string {
+  return cn("font-medium", milestone.label ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] tabular-nums");
+}
+
+/** Today's local date as YYYY-MM-DD, the form target dates use. */
+export function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Whether the Dashboard shows `milestone`: it is saved and has scope. */
+export function showsOnDashboard(milestone: Milestone): boolean {
+  return !milestone.placeholder && milestone.total > 0;
 }
 
 /**

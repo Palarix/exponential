@@ -7,7 +7,7 @@ import { cn } from "../../utils/cn";
 import { Popover, PopoverPanel, raisedIndicatorPill, StatusIcon, SubProgress } from "../ui";
 import Tooltip from "../ui/Tooltip";
 import { createHoverIntent } from "../IssueDetail/hover-intent";
-import { dropHighlightClass, headerClickToggles, timeBar, type DropHighlight } from "./milestones-utils";
+import { dropHighlightClass, headerClickToggles, milestoneNameClass, timeBar, type DropHighlight } from "./milestones-utils";
 
 const STAT_ORDER = ["DOING", "BLOCKED", "PLANNED", "BACKLOG", "DONE"];
 const STATUS_NAMES: Record<string, string> = {
@@ -38,16 +38,20 @@ export function MilestoneStats({ milestone }: { milestone: Milestone }) {
   );
 }
 
-/** Open scope per day since started_at, with the scope as a dashed line. */
+/**
+ * Open scope per day since started_at, with the scope as a dashed line. The
+ * first day has one point, which draws as a flat line across the chart.
+ */
 export function Burndown({ days, height = 40 }: { days: MilestoneDay[]; height?: number }) {
-  if (days.length < 2) return null;
+  if (days.length === 0) return null;
+  const points = days.length === 1 ? [days[0], days[0]] : days;
   const w = 200;
   const h = height;
   const py = 3;
-  const max = Math.max(1, ...days.map((d) => d.scope));
-  const toX = (i: number) => (i / (days.length - 1)) * w;
+  const max = Math.max(1, ...points.map((d) => d.scope));
+  const toX = (i: number) => (i / (points.length - 1)) * w;
   const toY = (v: number) => py + (h - py * 2) * (1 - v / max);
-  const line = (pick: (d: MilestoneDay) => number) => days.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(pick(d))}`).join(" ");
+  const line = (pick: (d: MilestoneDay) => number) => points.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(pick(d))}`).join(" ");
   const open = line((d) => d.open);
   return (
     <svg role="img" aria-label="Burndown" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height }}>
@@ -135,10 +139,6 @@ export function MilestoneTitle({ milestone, badge = true, name, extra }: { miles
   );
 }
 
-function milestoneNameClass(milestone: Milestone): string {
-  return cn("font-medium", milestone.label ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)] tabular-nums");
-}
-
 function MilestoneName({ milestone }: { milestone: Milestone }) {
   return <span className={milestoneNameClass(milestone)}>{milestone.name}</span>;
 }
@@ -147,7 +147,7 @@ function MilestoneName({ milestone }: { milestone: Milestone }) {
  * The date column: the completion date of a past milestone, otherwise the target
  * date, in the warning colour once it has passed with open scope.
  */
-function MilestoneDate({ milestone, today }: { milestone: Milestone; today: string }) {
+export function MilestoneDate({ milestone, today }: { milestone: Milestone; today: string }) {
   if (milestone.completed_at) {
     return (
       <span title="Completed" className="text-sm tabular-nums text-right text-[var(--color-text-muted)]">
@@ -251,25 +251,18 @@ export function MilestoneSummaryCard({ milestone, today }: { milestone: Mileston
           </div>
           {!started ? (
             <p className="text-[var(--color-text-muted)]">Starts when this milestone becomes Current.</p>
-          ) : days.length >= 2 ? <Burndown days={days} height={48} /> : (
-            <p className="text-[var(--color-text-muted)]">Not enough days yet.</p>
-          )}
+          ) : <Burndown days={days} height={48} />}
         </div>
       )}
     </div>
   );
 }
 
-/**
- * A past milestone's burndown from its start to its completion, with both dates
- * and a legend, for the top of its expanded row. Nothing for a milestone that
- * was never Current or completed within a day.
- */
-export function PastBurndown({ milestone }: { milestone: Milestone }) {
-  const days = useMilestoneProgress(`#${milestone.number}`, !!milestone.started_at)?.days ?? [];
-  if (!milestone.started_at || days.length < 2) return null;
+/** The burndown with its legend, between the first date and, from the second day, the last. */
+export function BurndownWithLegend({ days }: { days: MilestoneDay[] }) {
+  if (days.length === 0) return null;
   return (
-    <div className="border-t border-[var(--color-border-subtle)] px-3 pt-3 pb-2">
+    <div>
       <Burndown days={days} height={96} />
       <div className="mt-1 flex items-center gap-3 text-xs tabular-nums text-[var(--color-text-muted)]">
         <span>{formatShortDate(days[0].date)}</span>
@@ -283,8 +276,23 @@ export function PastBurndown({ milestone }: { milestone: Milestone }) {
             Scope
           </span>
         </span>
-        <span>{formatShortDate(days[days.length - 1].date)}</span>
+        {days.length >= 2 && <span>{formatShortDate(days[days.length - 1].date)}</span>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A past milestone's burndown from its start to its completion, for the top of
+ * its expanded row. Nothing for a milestone that was never Current or completed
+ * within a day.
+ */
+export function PastBurndown({ milestone }: { milestone: Milestone }) {
+  const days = useMilestoneProgress(`#${milestone.number}`, !!milestone.started_at)?.days ?? [];
+  if (!milestone.started_at || days.length < 2) return null;
+  return (
+    <div className="border-t border-[var(--color-border-subtle)] px-3 pt-3 pb-2">
+      <BurndownWithLegend days={days} />
     </div>
   );
 }

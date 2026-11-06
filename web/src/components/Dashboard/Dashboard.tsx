@@ -10,6 +10,7 @@ import { SECTION_ICONS } from "./sectionIcons";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { DailyVelocityChart, CumulativeChart } from "./charts";
 import ActivityFeed from "./ActivityFeed";
+import CurrentMilestoneSection from "./CurrentMilestoneSection";
 import EpicRow from "./EpicRow";
 import { useActivity, useIssueList, useMetrics } from "../../api/queries";
 import { useAppNav, useIssueClick } from "../../app/hooks";
@@ -380,6 +381,8 @@ export default function Dashboard() {
           </div>
         </div>
       </Section>
+
+      <CurrentMilestoneSection />
 
       {/* Trends — hidden, superseded by Pulse charts */}
 

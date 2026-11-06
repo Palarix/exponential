@@ -3,7 +3,7 @@ import type { Milestone, MilestonesResponse } from "../../api/types";
 import { makeIssue } from "../../test-utils";
 import {
   acceptsIssueDrop, childProgress, matchesIssueSearch, parentContext, issuesInMilestone, openMilestones, orderWarnings, milestoneDropRef, reorderMove, savedOrder, timeBar,
-  noMilestoneIssues, milestoneFilter, moveOptions, moveRequest, milestoneMemberCounts, headerClickToggles, rowEstimate,
+  noMilestoneIssues, milestoneFilter, moveOptions, moveRequest, milestoneMemberCounts, headerClickToggles, rowEstimate, showsOnDashboard,
 } from "./milestones-utils";
 
 const rel = (number: number, overrides: Partial<Milestone> = {}): Milestone => ({
@@ -32,6 +32,24 @@ describe("openMilestones", () => {
   it("lists Current and Next, placeholders included, then Upcoming", () => {
     const b = board({ current: rel(1), next: placeholder(2, "next") });
     expect(openMilestones(b).map((r) => r.number)).toEqual([1, 2]);
+  });
+});
+
+describe("showsOnDashboard", () => {
+  it("shows a saved milestone with scope", () => {
+    expect(showsOnDashboard(rel(1, { total: 3 }))).toBe(true);
+  });
+
+  it("shows a saved milestone whose scope is all done", () => {
+    expect(showsOnDashboard(rel(1, { total: 3, done: 3 }))).toBe(true);
+  });
+
+  it("hides a milestone without scope", () => {
+    expect(showsOnDashboard(rel(1))).toBe(false);
+  });
+
+  it("hides a placeholder", () => {
+    expect(showsOnDashboard(placeholder(1, "current"))).toBe(false);
   });
 });
 

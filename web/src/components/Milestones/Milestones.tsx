@@ -22,7 +22,7 @@ import { ExpandToggle, PastBurndown, MILESTONE_ROW_GRID, MilestoneRowBody, type 
 import { IssueRow, MilestoneIssueList } from "./MilestoneIssues";
 import {
   acceptsIssueDrop, dropHighlightClass, headerClickToggles, milestoneFilter, issuesInMilestone, openMilestones, orderWarnings,
-  milestoneMemberCounts, reorderMove, savedOrder, noMilestoneIssues, type DropHighlight,
+  milestoneMemberCounts, reorderMove, savedOrder, noMilestoneIssues, todayISO, type DropHighlight,
 } from "./milestones-utils";
 
 /** Where the progress pills' issues/points choice is saved. */
@@ -53,11 +53,6 @@ const milestoneCollision: CollisionDetection = (args) => {
   if (hits.length > 0 || kind !== "milestone") return hits;
   return closestCenter({ ...args, droppableContainers });
 };
-
-function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export default function Milestones() {
   const { data: board, isPending, isError } = useMilestones();

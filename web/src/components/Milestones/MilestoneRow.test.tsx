@@ -157,6 +157,20 @@ describe("MilestoneSummaryCard", () => {
     expect(html).toMatch(/aria-label="Burndown"/);
   });
 
+  it("draws the burndown on the first day, as flat lines for open and scope", () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.milestoneProgress("#2"), {
+      days: [{ date: "2026-10-03", scope: 6, open: 4, completed: 2 }],
+    });
+    const html = render(<MilestoneSummaryCard milestone={current} today="2026-10-03" />, client);
+    expect(html).toMatch(/aria-label="Burndown"/);
+    expect(html).not.toContain("Not enough days");
+    const lines = [...html.matchAll(/<path d="M0,([\d.]+) L200,([\d.]+)"/g)];
+    expect(lines).toHaveLength(2);
+    for (const [, from, to] of lines) expect(from).toBe(to);
+    expect(lines[0][1]).not.toBe(lines[1][1]);
+  });
+
   it("has no burndown for a milestone that was never Current", () => {
     const html = render(<MilestoneSummaryCard milestone={{ ...current, slot: "next", started_at: undefined }} today="2026-10-20" />);
     expect(html).not.toMatch(/aria-label="Burndown"/);
