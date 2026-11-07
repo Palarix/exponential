@@ -58,32 +58,52 @@ describe("nextStick", () => {
   const at = (top: number) => ({ top, clientHeight: 500, scrollHeight: 1000 });
 
   it("sticks within 40px of the end", () => {
-    expect(nextStick(false, 400, at(470))).toBe(true);
-    expect(nextStick(false, 400, at(500))).toBe(true);
+    expect(nextStick(false, at(400), at(470))).toBe(true);
+    expect(nextStick(false, at(400), at(500))).toBe(true);
   });
 
   it("unsticks when the user scrolls up out of the grace zone", () => {
-    expect(nextStick(true, 500, at(300))).toBe(false);
-    expect(nextStick(true, 300, at(298))).toBe(false);
+    expect(nextStick(true, at(500), at(300))).toBe(false);
+    expect(nextStick(true, at(300), at(298))).toBe(false);
   });
 
   it("stays stuck when the browser rounds the position up by less than a pixel", () => {
     // A glide set 300.6; the browser snapped it to device pixels at 300.
-    expect(nextStick(true, 300.6, at(300))).toBe(true);
+    expect(nextStick(true, at(300.6), at(300))).toBe(true);
   });
 
   it("stays stuck when content grows below without an upward scroll", () => {
     // scrollTop unchanged, but the end moved 300px down.
-    expect(nextStick(true, 500, { top: 500, clientHeight: 500, scrollHeight: 1300 })).toBe(true);
+    expect(nextStick(true, at(500), { top: 500, clientHeight: 500, scrollHeight: 1300 })).toBe(true);
   });
 
   it("stays stuck on a downward scroll that has not reached the end yet", () => {
-    expect(nextStick(true, 100, at(200))).toBe(true);
+    expect(nextStick(true, at(100), at(200))).toBe(true);
   });
 
   it("stays unstuck while scrolled up outside the grace zone", () => {
-    expect(nextStick(false, 100, at(200))).toBe(false);
-    expect(nextStick(false, 300, at(200))).toBe(false);
+    expect(nextStick(false, at(100), at(200))).toBe(false);
+    expect(nextStick(false, at(300), at(200))).toBe(false);
+  });
+
+  it("stays stuck on an upward move when the content shrank", () => {
+    expect(nextStick(true, at(300), { top: 200, clientHeight: 500, scrollHeight: 900 })).toBe(true);
+  });
+
+  it("stays stuck on an upward move when the viewport grew", () => {
+    // The composer shrank and clamped the position, then a new turn grew the
+    // content past where it was: the end alone would not explain the move.
+    const before = { top: 1000, clientHeight: 500, scrollHeight: 1500 };
+    expect(nextStick(true, before, { top: 900, clientHeight: 600, scrollHeight: 1700 })).toBe(true);
+  });
+
+  it("unsticks when the viewport shrank or the content grew, which explain no upward move", () => {
+    expect(nextStick(true, at(300), { top: 200, clientHeight: 400, scrollHeight: 1000 })).toBe(false);
+    expect(nextStick(true, at(300), { top: 200, clientHeight: 500, scrollHeight: 1200 })).toBe(false);
+  });
+
+  it("does not resume following because the sizes changed", () => {
+    expect(nextStick(false, at(300), { top: 200, clientHeight: 500, scrollHeight: 900 })).toBe(false);
   });
 });
 

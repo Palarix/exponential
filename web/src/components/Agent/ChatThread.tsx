@@ -444,7 +444,7 @@ function contentSpan(scroller: HTMLElement, el: Element | null): { top: number; 
  * magnifies the bars, the hovered one most. A bar scrolls to its message;
  * a bar is highlighted while its message is in view.
  */
-function TurnRail({ thread, scrollRef }: { thread: Thread; scrollRef: RefObject<HTMLDivElement | null> }) {
+function TurnRail({ thread, scrollRef, onJump }: { thread: Thread; scrollRef: RefObject<HTMLDivElement | null>; onJump: () => void }) {
   const turns = userTurns(thread);
   const [shown, setShown] = useState<number[]>([]);
   const key = turns.join(",");
@@ -473,6 +473,7 @@ function TurnRail({ thread, scrollRef }: { thread: Thread; scrollRef: RefObject<
   if (turns.length < 2) return null;
   const jump = (turn: number) => {
     const scroller = scrollRef.current;
+    onJump();
     if (scroller) scroller.scrollTo({ top: contentSpan(scroller, scroller.querySelector(`[data-turn="${turn}"]`)).top - TURN_MARGIN, behavior: scrollBehavior() });
   };
   // left-6 lines the bars up with the chat title in the Agent view's top bar (px-6).
@@ -553,7 +554,7 @@ export default function ChatThread({
   useEffect(() => {
     live.current = thread.loaded;
   }, [thread.loaded]);
-  const { ref: scrollRef, pin, follow } = useStickToBottom<HTMLDivElement>(live);
+  const { ref: scrollRef, pin, follow, release } = useStickToBottom<HTMLDivElement>(live);
   const cold = usePassed(cacheExpiresAt) && thread.turns.length > 0 && !isRunning(thread);
 
   // Follow new output, and the cold cache marker, while the user is at the bottom.
@@ -570,11 +571,11 @@ export default function ChatThread({
   return (
     <StreamIn.Provider value={live}>
     <div className="relative flex-1 min-h-0 flex flex-col">
-    {wide && <TurnRail thread={thread} scrollRef={scrollRef} />}
+    {wide && <TurnRail thread={thread} scrollRef={scrollRef} onJump={release} />}
     <div
       ref={scrollRef}
       data-thread-scroller
-      className={`flex-1 scroll-stable px-4 ${wide ? "py-8" : "py-3"}`}
+      className={`flex-1 scroll-stable [overflow-anchor:none] px-4 ${wide ? "py-8" : "py-3"}`}
     >
       {/* The composer's box: its max-w-3xl column minus its px-4, so the thread and the reply box share both edges. */}
       <div className={wide ? "mx-auto max-w-[46rem]" : undefined}>

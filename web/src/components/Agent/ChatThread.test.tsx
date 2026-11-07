@@ -311,6 +311,14 @@ describe("ChatThread scroller", () => {
       expect(scroller).not.toMatch(/overflow-y-/);
     }
   });
+
+  // Anchoring moves the position without user input, which reads as a scroll up.
+  it("turns off the browser's scroll anchoring on the thread scroller", () => {
+    for (const wide of [true, false]) {
+      const scroller = render(<ChatThread thread={turn} wide={wide} />).match(/<div data-thread-scroller="true" class="([^"]*)"/)?.[1] ?? "";
+      expect(scroller).toContain("[overflow-anchor:none]");
+    }
+  });
 });
 
 describe("ChatThread turn rail", () => {

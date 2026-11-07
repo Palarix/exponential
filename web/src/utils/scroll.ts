@@ -33,17 +33,35 @@ export function parseDuration(value: string, fallback: number): number {
 /** How close to the end still counts as "at the bottom", in pixels. */
 export const STICK_GRACE = 40;
 
+/** A scroller's position and sizes at one moment. */
+export type ScrollReading = { top: number; clientHeight: number; scrollHeight: number };
+
 /**
  * Whether a follow-the-output scroller keeps following after a scroll event.
- * Within STICK_GRACE of the end it follows. Outside it, only an upward
- * scroll by the user stops following: content growth, clamping and the
- * browser rounding a fractional position (under 1px) never do.
+ * Within STICK_GRACE of the end it follows. Outside it, an upward move stops
+ * following, unless something other than the user explains it: content growth
+ * and clamping (the content shrank or the viewport grew) and the browser
+ * rounding a fractional position (under 1px) never do. The sizes are checked
+ * apart, not as the maximum position: a clamp followed by new content before
+ * the scroll event leaves that maximum higher than before.
  */
-export function nextStick(
-  stuck: boolean,
-  prevTop: number,
-  { top, clientHeight, scrollHeight }: { top: number; clientHeight: number; scrollHeight: number },
-): boolean {
+export function nextStick(stuck: boolean, prev: ScrollReading, { top, clientHeight, scrollHeight }: ScrollReading): boolean {
   if (scrollHeight - top - clientHeight < STICK_GRACE) return true;
-  return stuck && top > prevTop - 1;
+  return stuck && (top > prev.top - 1 || scrollHeight < prev.scrollHeight || clientHeight > prev.clientHeight);
+}
+
+/**
+ * Whether an inner scroller between target and scroller takes a move in the
+ * direction of deltaY: it can still scroll that way, or it doesn't pass the
+ * move on to the scroller.
+ */
+export function scrollsInside(target: EventTarget | null, scroller: HTMLElement, deltaY: number): boolean {
+  if (!(target instanceof Element)) return false;
+  for (let el: Element | null = target; el && el !== scroller; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    if (style.overflowY !== "auto" && style.overflowY !== "scroll") continue;
+    const canScroll = deltaY < 0 ? el.scrollTop > 0 : el.scrollTop < el.scrollHeight - el.clientHeight;
+    if (canScroll || style.overscrollBehaviorY === "contain" || style.overscrollBehaviorY === "none") return true;
+  }
+  return false;
 }

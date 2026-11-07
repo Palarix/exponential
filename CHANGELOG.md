@@ -90,6 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Agent chat: with Motion on, a message you send now jumps the thread to the bottom at once and follows the reply, where it could sometimes stay put and stop following. New output during the reply still glides. (xpo-ea5d6b)
 
+- Agent chat: the thread stops following a reply when you wheel up, touch, press a scroll key, press the scrollbar or click the turn rail, not on any upward move. An upward move that a shrinking composer or shrinking content explains no longer stops it. The thread also turns off the browser's scroll anchoring, so content changing height above the view can now shift what you're reading. (xpo-7ffcf5)
+
 - Agent chat: loading or reloading the Agent view no longer sometimes crashes into "Something went wrong" with `[tiptap error]: The editor view is not available`.
   - **Focus:** the composer has focus once the page has loaded.
   - **Placeholder:** opening an existing chat shows "Reply…" right away, without first flashing the new-chat placeholder.
