@@ -16,9 +16,11 @@ function glideMs(): number {
  * after render, a taller composer, a resized popup. Scrolling up stops it,
  * scrolling back to the end resumes it. Attach the ref to the scroller, and
  * call pin() after rendering new content. follow() resumes following and
- * goes to the end even when the user scrolled up, as after they send a message.
+ * jumps to the end even when the user scrolled up, as after they send a
+ * message. It never glides: a jump leaves no frames in which a scroll event
+ * from an earlier upward move can read as the user scrolling up.
  *
- * While the `glide` ref is true and movement is allowed, it eases to the end instead
+ * While the `glide` ref is true and movement is allowed, pin() eases to the end instead
  * of jumping: one frame loop that aims at the current end each frame, so new
  * output mid-glide only moves the target. Without `glide` it jumps, as when
  * a chat opens.
@@ -33,6 +35,14 @@ export function useStickToBottom<T extends HTMLElement>(glide: RefObject<boolean
     cancelAnimationFrame(frame.current);
     frame.current = 0;
   }, []);
+
+  const jump = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    stop();
+    el.scrollTop = el.scrollHeight;
+    lastTop.current = el.scrollTop;
+  }, [stop]);
 
   const pin = useCallback(() => {
     const el = ref.current;
@@ -55,15 +65,13 @@ export function useStickToBottom<T extends HTMLElement>(glide: RefObject<boolean
       frame.current = requestAnimationFrame(step);
       return;
     }
-    stop();
-    el.scrollTop = el.scrollHeight;
-    lastTop.current = el.scrollTop;
-  }, [glide, stop]);
+    jump();
+  }, [glide, jump]);
 
   const follow = useCallback(() => {
     stuck.current = true;
-    pin();
-  }, [pin]);
+    jump();
+  }, [jump]);
 
   useLayoutEffect(() => {
     const el = ref.current;

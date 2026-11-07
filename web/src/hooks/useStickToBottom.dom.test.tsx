@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, useLayoutEffect } from "react";
 import { mountDom, setupDom } from "../test-dom";
 import { useStickToBottom } from "./useStickToBottom";
+
+// Motion on. The tests choose gliding or jumping with the `glide` ref.
+vi.mock("../preferences", () => ({ motionAllowed: () => true }));
 
 beforeAll(() => {
   setupDom();
@@ -17,7 +20,29 @@ let cleanup: (() => void) | undefined;
 afterEach(() => {
   cleanup?.();
   cleanup = undefined;
+  vi.unstubAllGlobals();
 });
+
+/** Animation frames that run only when the test says so. */
+function stubFrames() {
+  const frames = new Map<number, FrameRequestCallback>();
+  let next = 1;
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    frames.set(next, cb);
+    return next++;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => {
+    frames.delete(id);
+  });
+  return {
+    pending: () => frames.size,
+    runOne: (now: number) => {
+      const due = [...frames.values()];
+      frames.clear();
+      for (const cb of due) cb(now);
+    },
+  };
+}
 
 /** jsdom has no layout: give the scroller a 500px viewport over 1000px of content. */
 function fakeLayout(el: HTMLElement) {
@@ -50,7 +75,7 @@ function mount() {
   cleanup = m.cleanup;
   const el = m.host.querySelector("[data-testid=scroller]") as HTMLDivElement;
   fakeLayout(el);
-  return { el, stick: () => api! };
+  return { el, glide, stick: () => api! };
 }
 
 function scrollTo(el: HTMLElement, top: number) {
@@ -79,5 +104,56 @@ describe("useStickToBottom", () => {
     // Following again: the next pin keeps it at the end.
     act(() => stick().pin());
     expect(el.scrollTop).toBe(500);
+  });
+
+  describe("with glide on and motion allowed", () => {
+    it("pin() glides: it moves on later frames, not in the call", () => {
+      const frames = stubFrames();
+      const { el, glide, stick } = mount();
+      glide.current = true;
+      act(() => stick().pin());
+      expect(el.scrollTop).toBe(0);
+      expect(frames.pending()).toBe(1);
+      frames.runOne(performance.now() + 16);
+      expect(el.scrollTop).toBeGreaterThan(0);
+      expect(el.scrollTop).toBeLessThan(500);
+    });
+
+    it("follow() goes to the end in the same call", () => {
+      const frames = stubFrames();
+      const { el, glide, stick } = mount();
+      scrollTo(el, 100);
+      glide.current = true;
+      act(() => stick().follow());
+      expect(el.scrollTop).toBe(500);
+      expect(frames.pending()).toBe(0);
+    });
+
+    it("follow() cancels a running glide", () => {
+      const frames = stubFrames();
+      const { el, glide, stick } = mount();
+      glide.current = true;
+      act(() => stick().pin());
+      expect(frames.pending()).toBe(1);
+      act(() => stick().follow());
+      expect(frames.pending()).toBe(0);
+      expect(el.scrollTop).toBe(500);
+    });
+
+    it("keeps following when a scroll event from an earlier upward move fires after follow()", () => {
+      const frames = stubFrames();
+      const { el, glide, stick } = mount();
+      scrollTo(el, 100);
+      glide.current = true;
+      // The browser moved the position up, and its scroll event is still pending.
+      el.scrollTop = 90;
+      act(() => stick().follow());
+      act(() => {
+        el.dispatchEvent(new Event("scroll"));
+      });
+      expect(el.scrollTop).toBe(500);
+      act(() => stick().pin());
+      expect(frames.pending()).toBe(1);
+    });
   });
 });
