@@ -13,20 +13,25 @@ import { StatusBarSlot } from "../../app/StatusBarSlot";
 import { EMPTY_FILTERS, FILTERS_CODEC, hasActiveFilters, matchesFilters, type BacklogFilters } from "../Backlog/filters";
 import FilterChips from "../Backlog/FilterChips";
 import { cn } from "../../utils/cn";
-import { FilterButton, Heading, indicatorPill, Menu, MenuItem, Popover, SearchInput, TopBar, ViewContainer } from "../ui";
+import { Button, FilterButton, Heading, indicatorPill, Menu, MenuItem, Popover, SearchInput, TopBar, ViewContainer } from "../ui";
 import { DragOverlayCard } from "../Backlog/DndComponents";
 import NewMilestoneDialog from "./NewMilestoneDialog";
 import MilestoneActionDialog from "./MilestoneActionDialog";
 import { milestoneMenuItems, type MilestoneAction } from "./milestone-action-utils";
-import { ExpandToggle, PastBurndown, MILESTONE_ROW_GRID, MilestoneRowBody, type ProgressMode } from "./MilestoneRow";
-import { IssueRow, MilestoneIssueList } from "./MilestoneIssues";
 import {
-  acceptsIssueDrop, dropHighlightClass, headerClickToggles, milestoneFilter, issuesInMilestone, openMilestones, orderWarnings,
-  milestoneMemberCounts, reorderMove, savedOrder, noMilestoneIssues, todayISO, type DropHighlight,
+  ExpandToggle, PastBurndown, MILESTONE_ROW_GRID, MilestoneRowBody, ROW_BODY, ROW_CELL, ROW_HEADER, ROW_ICON_BUTTON, type ProgressMode,
+} from "./MilestoneRow";
+import { IssueRow, ListNote, MilestoneIssueList } from "./MilestoneIssues";
+import {
+  acceptsIssueDrop, anyMatch, defaultExpanded, dropHighlightClass, headerClickToggles, milestoneFilter, issuesInMilestone, openMilestones,
+  orderWarnings, milestoneMemberCounts, parseExpanded, reorderMove, savedOrder, noMilestoneIssues, todayISO, type DropHighlight, type ExpandKey,
 } from "./milestones-utils";
 
 /** Where the progress pills' issues/points choice is saved. */
 const PROGRESS_MODE_KEY = "exponential-milestones-show-points";
+
+/** Where the rows the user expanded are saved. */
+const EXPANDED_KEY = "exponential-milestones-expanded";
 
 /** Past milestones shown before "Show N older". */
 const PAST_SHOWN = 3;
@@ -100,7 +105,9 @@ function MilestonesBoard({ board, onOpen }: { board: MilestonesResponse; onOpen:
         </StatusBarSlot>
       )}
       <ViewContainer
-        contentClassName="px-6 pt-5 pb-10"
+        // The scrollbar gutter (11px, both edges) plus this padding puts the cards under the
+        // topbar items: 20px from the left like the heading, 12px from the right like the button.
+        contentClassName="pl-[9px] pr-px pt-5 pb-10"
         topBar={
           <TopBar
             left={<Heading title="Milestones" />}
@@ -108,13 +115,9 @@ function MilestonesBoard({ board, onOpen }: { board: MilestonesResponse; onOpen:
             right={
               <div className="flex items-center gap-2">
                 <FilterButton issues={issues} filters={filters} onFiltersChange={setFilters} />
-                <button
-                  onClick={() => setShowNew(true)}
-                  className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
+                <Button variant="secondary" size="xs" icon={<Plus className="w-4 h-4" />} onClick={() => setShowNew(true)}>
                   New Milestone
-                </button>
+                </Button>
               </div>
             }
           />
@@ -132,6 +135,8 @@ function MilestonesBoard({ board, onOpen }: { board: MilestonesResponse; onOpen:
           onAssign={(issue, target) => assignMilestone([issue.id], target)}
           progressMode={progressMode}
           onToggleProgressMode={toggleProgressMode}
+          initialExpanded={parseExpanded(localStorage.getItem(EXPANDED_KEY)) ?? undefined}
+          onExpandedChange={(keys) => localStorage.setItem(EXPANDED_KEY, JSON.stringify(keys))}
         />
         {showNew && <NewMilestoneDialog onClose={() => setShowNew(false)} />}
       </ViewContainer>
@@ -153,8 +158,10 @@ export interface MilestoneStackProps {
   onReorder: (move: { id: string; before?: string; after?: string }) => void;
   /** Moves a dropped issue to `target` (null is No milestone). */
   onAssign: (issue: Issue, target: Milestone | null) => void;
-  /** Milestones (by number) expanded at first. */
-  initialExpanded?: number[];
+  /** Rows expanded at first: milestones by number, "none" for No milestone. Defaults to Current and No milestone. */
+  initialExpanded?: ExpandKey[];
+  /** Called with the expanded rows after the user expands or collapses one. */
+  onExpandedChange?: (keys: ExpandKey[]) => void;
   /** What every progress pill counts; a click on one calls onToggleProgressMode. */
   progressMode?: ProgressMode;
   onToggleProgressMode?: () => void;
@@ -166,13 +173,13 @@ export interface MilestoneStackProps {
  * milestone (to drag up into a milestone), then the past milestones.
  */
 export function MilestoneStack({
-  board, issues, today, query, filters = EMPTY_FILTERS, onOpen, onIssueClick, onReorder, onAssign, initialExpanded = [],
-  progressMode = "issues", onToggleProgressMode = () => {},
+  board, issues, today, query, filters = EMPTY_FILTERS, onOpen, onIssueClick, onReorder, onAssign, initialExpanded,
+  progressMode = "issues", onToggleProgressMode = () => {}, onExpandedChange,
 }: MilestoneStackProps) {
   // Search and filters narrow the lists; counts, breadcrumbs and child progress keep using all issues.
   const listed = useMemo(() => hasActiveFilters(filters) ? issues.filter((i) => matchesFilters(i, filters, board)) : issues, [issues, filters, board]);
   const narrowing = query.trim() !== "" || hasActiveFilters(filters);
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set(initialExpanded));
+  const [expanded, setExpanded] = useState<Set<ExpandKey>>(() => new Set(initialExpanded ?? defaultExpanded(board)));
   const [active, setActive] = useState<DragData | null>(null);
   const [over, setOver] = useState<DropData | null>(null);
 
@@ -181,11 +188,14 @@ export function MilestoneStack({
   const orderIds = useMemo(() => savedOrder(board).map((r) => r.id!), [board]);
   const warnings = useMemo(() => orderWarnings(open), [open]);
 
-  const toggle = (number: number) => setExpanded((prev) => {
-    const next = new Set(prev);
-    if (next.has(number)) next.delete(number); else next.add(number);
-    return next;
-  });
+  const toggle = (key: ExpandKey) => {
+    const next = new Set(expanded);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setExpanded(next);
+    onExpandedChange?.([...next]);
+  };
+  const listedIds = useMemo(() => new Set([...stack, ...board.past].map((r) => r.id!)), [stack, board.past]);
+  const noMatch = narrowing && !anyMatch(listed, query, listedIds);
 
   // The stack shows the order upside down: a milestone moved later in the
   // order lands above its target.
@@ -228,7 +238,8 @@ export function MilestoneStack({
       onDragEnd={onDragEnd}
       onDragCancel={onDragCancel}
     >
-      <div className="space-y-1.5">
+      <div className="@container space-y-1.5">
+        {noMatch && <p className="px-3 pb-1 text-sm text-[var(--color-text-muted)]">No issues match.</p>}
         {stack.map((milestone) => (
           <MilestoneItem
             key={milestone.number}
@@ -250,6 +261,8 @@ export function MilestoneStack({
           />
         ))}
         <NoMilestoneRow
+          expanded={expanded.has("none")}
+          onToggle={() => toggle("none")}
           issues={issues}
           listed={listed}
           query={query}
@@ -328,7 +341,7 @@ function MilestoneItem({ board, milestone, issues, listed, query, narrowing, exp
     <button
       type="button"
       aria-label="Drag to reorder"
-      className="-ml-1 p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] cursor-grab active:cursor-grabbing touch-none"
+      className={cn(ROW_ICON_BUTTON, "cursor-grab active:cursor-grabbing touch-none")}
       {...attributes}
       {...listeners}
     >
@@ -348,7 +361,7 @@ function MilestoneItem({ board, milestone, issues, listed, query, narrowing, exp
           issues={milestoneIssues}
           all={issues}
           onIssueClick={onIssueClick}
-          empty="No issues yet. Drag issues here from No milestone."
+          empty={<>No issues in this milestone yet.<br />Drag an issue here, or press R on an issue to move it.</>}
           renderRow={(issue) => <DraggableIssueRow key={issue.id} issue={issue} all={issues} onIssueClick={onIssueClick} />}
         />
       </MilestoneRowBody>
@@ -380,7 +393,7 @@ function MilestoneMenu({ milestone, onPick }: { milestone: Milestone; onPick: (a
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+        className={ROW_ICON_BUTTON}
       >
         <MoreHorizontal size={14} />
       </button>
@@ -413,11 +426,13 @@ function DraggableIssueRow(props: { issue: Issue; all: Issue[]; onIssueClick: (i
 /**
  * Open issues in no milestone, as the row under Current: an inbox icon
  * where milestones have their handle, the count where they have progress. It
- * starts expanded, toggles on a header click like the milestones, and lists the issues in the same rows; under
- * a search it opens only when something matches. The whole row is the drop
- * target that takes an issue out of its milestone.
+ * toggles on a header click like the milestones, and lists the issues in the
+ * same rows; under a search it opens only when something matches. The whole
+ * row is the drop target that takes an issue out of its milestone.
  */
-function NoMilestoneRow({ issues, listed, query, narrowing, onIssueClick, highlight }: {
+function NoMilestoneRow({ expanded, onToggle, issues, listed, query, narrowing, onIssueClick, highlight }: {
+  expanded: boolean;
+  onToggle: () => void;
   issues: Issue[];
   listed: Issue[];
   query: string;
@@ -425,7 +440,6 @@ function NoMilestoneRow({ issues, listed, query, narrowing, onIssueClick, highli
   onIssueClick: (issue: Issue) => void;
   highlight: DropHighlight;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const { setNodeRef } = useDroppable({ id: "no-milestone", data: { kind: "no-milestone" } satisfies DropData });
   const all = useMemo(() => noMilestoneIssues(issues, ""), [issues]);
   const shown = useMemo(() => noMilestoneIssues(listed, query), [listed, query]);
@@ -440,36 +454,33 @@ function NoMilestoneRow({ issues, listed, query, narrowing, onIssueClick, highli
       )}
     >
       <div
-        className={cn(MILESTONE_ROW_GRID, "px-3 h-11 cursor-pointer")}
-        onClick={(e) => { if (headerClickToggles(e.target as Element, e.currentTarget)) setExpanded(!expanded); }}
+        className={ROW_HEADER}
+        onClick={(e) => { if (headerClickToggles(e.target as Element, e.currentTarget)) onToggle(); }}
       >
-        <Inbox size={14} className="text-[var(--color-text-muted)]" />
-        <span className="flex items-center gap-2 min-w-0">
-          <span className="min-w-0 text-sm truncate">
-            <span className="font-medium text-[var(--color-text-primary)]">No milestone</span>
-            <span className="text-[var(--color-text-muted)]"> – Open issues in no milestone</span>
+        <span className={ROW_CELL}><Inbox size={14} className="text-[var(--color-text-muted)]" /></span>
+        <span className="min-w-0">
+          <span className={cn(ROW_CELL, "gap-2 min-w-0")}>
+            <span className="min-w-0 truncate text-sm font-medium text-[var(--color-text-primary)]">No milestone</span>
+            <span title={`${all.length} open issues in no milestone`} className={cn(indicatorPill, "shrink-0")}>{all.length}</span>
           </span>
-          <span title={`${all.length} open issues in no milestone`} className={cn(indicatorPill, "shrink-0")}>{all.length}</span>
         </span>
+        <span className="hidden @[40rem]:block" />
+        <span className="hidden @[40rem]:block" />
         <span />
         <span />
-        <span />
-        <span />
-        <ExpandToggle expanded={open} onToggle={() => setExpanded(!expanded)} />
+        <ExpandToggle expanded={open} onToggle={onToggle} />
       </div>
       {open && (
-        <div className="px-3 pb-3">
+        <div className={ROW_BODY}>
           {shown.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-[var(--color-text-muted)]">Every open issue is in a milestone.</p>
+            <ListNote>Every open issue is in a milestone.</ListNote>
           ) : (
-            <div className="border-t border-[var(--color-border-subtle)] pt-2 space-y-px">
+            <div className="space-y-px">
               {shown.slice(0, NO_MILESTONE_LIMIT).map((issue) => (
                 <DraggableIssueRow key={issue.id} issue={issue} all={issues} onIssueClick={onIssueClick} />
               ))}
               {shown.length > NO_MILESTONE_LIMIT && (
-                <p className="px-2 py-2 text-xs text-[var(--color-text-muted)]">
-                  {shown.length - NO_MILESTONE_LIMIT} more. Search to find them.
-                </p>
+                <ListNote>{shown.length - NO_MILESTONE_LIMIT} more. Search to find them.</ListNote>
               )}
             </div>
           )}
@@ -495,8 +506,8 @@ function PastMilestones({
   query: string;
   narrowing: boolean;
   today: string;
-  expanded: Set<number>;
-  onToggle: (number: number) => void;
+  expanded: Set<ExpandKey>;
+  onToggle: (key: ExpandKey) => void;
   onIssueClick: (issue: Issue) => void;
   progressMode: ProgressMode;
   onToggleProgressMode: () => void;
@@ -519,8 +530,8 @@ function PastMilestones({
             onOpen={() => onToggle(r.number)}
             progressMode={progressMode}
             onToggleProgressMode={onToggleProgressMode}
+            summary={!narrowing && <PastBurndown milestone={r} />}
           >
-            {!narrowing && <PastBurndown milestone={r} />}
             <MilestoneIssueList issues={delivered} all={issues} onIssueClick={onIssueClick} />
           </MilestoneRowBody>
         );

@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useContext, useRef, useEffect, type ReactNode } from "react";
 import { LabelBadge } from "../ui/Badge";
 import { LabelColorsContext, DefaultLabelsContext } from "../ui/BadgeContexts";
-import { TopBar, Heading, Text, SearchInput, ViewContainer } from "../ui";
+import { Plus } from "lucide-react";
+import { Button, TopBar, Heading, Text, SearchInput, ViewContainer } from "../ui";
 import { LABEL_PRESET_COLORS } from "../../constants";
 import { labelColor, canonicalLabel, filterLabelsByName, partitionBuiltinLabels, recentIssuesWithLabel } from "../../utils/labels";
 import { useIssueList } from "../../api/queries";
@@ -154,15 +155,9 @@ export default function Labels() {
           left={<Heading title="Labels" as="h1" />}
           center={<SearchInput value={search} onChange={setSearch} placeholder="Filter labels..." />}
           right={
-            <button
-              onClick={() => { setCreating(true); setEditing(null); }}
-              className="flex items-center gap-2 h-7 px-3 text-xs font-medium rounded-[var(--radius-md)] bg-[var(--color-accent-primary)] text-white hover:bg-[var(--color-accent-primary-hover)] transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
+            <Button variant="secondary" size="xs" icon={<Plus className="w-4 h-4" />} onClick={() => { setCreating(true); setEditing(null); }}>
               New Label
-            </button>
+            </Button>
           }
         />
       }

@@ -31,6 +31,19 @@ describe('computePopoverPosition', () => {
     });
   });
 
+  describe('top-start placement', () => {
+    it('sits above the anchor, left-aligned', () => {
+      const { top, left } = pos('top-start', { ...anchor, top: 400, bottom: 430 });
+      expect(top).toBe(246); // 400 - 150 - 4
+      expect(left).toBe(200);
+    });
+
+    it('flips below when there is no room above', () => {
+      const { top } = pos('top-start');
+      expect(top).toBe(134); // anchor.bottom + offset
+    });
+  });
+
   describe('flip above', () => {
     it('flips above when overflowing bottom', () => {
       const lowAnchor = { ...anchor, top: 600, bottom: 630 };

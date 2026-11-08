@@ -4,6 +4,7 @@ import { makeIssue } from "../../test-utils";
 import {
   acceptsIssueDrop, childProgress, matchesIssueSearch, parentContext, issuesInMilestone, openMilestones, orderWarnings, milestoneDropRef, reorderMove, savedOrder, timeBar,
   noMilestoneIssues, milestoneFilter, moveOptions, moveRequest, milestoneMemberCounts, headerClickToggles, rowEstimate, showsOnDashboard,
+  anyMatch, defaultExpanded, parseExpanded,
 } from "./milestones-utils";
 
 const rel = (number: number, overrides: Partial<Milestone> = {}): Milestone => ({
@@ -372,5 +373,50 @@ describe("headerClickToggles", () => {
 
   it("ignores clicks that bubble from portals: menus, popovers and dialogs", () => {
     expect(headerClickToggles(portal as never, header as never)).toBe(false);
+  });
+});
+
+describe("defaultExpanded", () => {
+  it("opens a saved Current and No milestone", () => {
+    expect(defaultExpanded(board())).toEqual([1, "none"]);
+  });
+
+  it("opens only No milestone while Current is a placeholder", () => {
+    expect(defaultExpanded(board({ current: placeholder(1, "current") }))).toEqual(["none"]);
+  });
+});
+
+describe("parseExpanded", () => {
+  it("reads the saved milestone numbers and No milestone", () => {
+    expect(parseExpanded('[3,"none",7]')).toEqual([3, "none", 7]);
+    expect(parseExpanded("[]")).toEqual([]);
+  });
+
+  it("returns null when nothing is saved or the value is not a list of keys", () => {
+    expect(parseExpanded(null)).toBeNull();
+    expect(parseExpanded("{")).toBeNull();
+    expect(parseExpanded('{"a":1}')).toBeNull();
+    expect(parseExpanded('[1,"other",true]')).toEqual([1]);
+  });
+});
+
+describe("anyMatch", () => {
+  const ids = new Set(["ms-1", "ms-9"]);
+  const issues = [
+    makeIssue({ id: "xpo-a", title: "Courier map", milestone_id: "ms-1" }),
+    makeIssue({ id: "xpo-b", title: "Hidden in a deleted milestone", milestone_id: "ms-5" }),
+    makeIssue({ id: "xpo-c", title: "Loose task" }),
+    makeIssue({ id: "xpo-d", title: "Closed loose task", status: "DONE" }),
+  ];
+
+  it("finds a match in a listed milestone or in No milestone", () => {
+    expect(anyMatch(issues, "courier", ids)).toBe(true);
+    expect(anyMatch(issues, "loose", ids)).toBe(true);
+  });
+
+  it("ignores issues the stack does not list", () => {
+    expect(anyMatch(issues, "hidden", ids)).toBe(false);
+    expect(anyMatch(issues, "closed loose", ids)).toBe(false);
+    expect(anyMatch(issues, "zzz", ids)).toBe(false);
   });
 });

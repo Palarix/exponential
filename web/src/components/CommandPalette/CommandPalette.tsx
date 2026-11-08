@@ -2,16 +2,15 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Issue } from '../../api/client';
 import { StatusIcon, LabelBadge } from '../ui';
-import { Search, Link, Bell, Plus, List, Columns3, Clock, LayoutDashboard, Milestone as MilestoneIcon } from "lucide-react";
+import { Search, Plus, Milestone as MilestoneIcon } from "lucide-react";
 import { useMilestoneAssign } from '../Milestones/milestone-assign-context';
 import { fuzzyMatch, fuzzyScore } from '../../utils/format';
 import type { ViewId } from '../../views';
 import { useOptionalAgentChat } from '../Agent/agent-context';
 import { searchChats } from './chat-search';
 import { chatCommandItems } from './chat-items';
+import { navCommandItems } from './nav-items';
 import type { CommandItem } from './types';
-
-type View = Extract<ViewId, 'dashboard' | 'inbox' | 'backlog' | 'board' | 'dependencies' | 'timeline'>;
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -20,20 +19,14 @@ interface CommandPaletteProps {
   onIssueSelect: (issue: Issue) => void;
   onViewChange: (view: ViewId) => void;
   onNewIssue: () => void;
+  /** Lists Cycles in Navigation, as the sidebar does. */
+  cyclesEnabled: boolean;
   /** The open issue, which issue actions act on. */
   contextIssue?: Issue;
 }
 
-const NAV_ICONS: Record<string, React.ReactNode> = {
-  backlog: <List size={16} />,
-  board: <Columns3 size={16} />,
-  dashboard: <LayoutDashboard size={16} />,
-  dependencies: <Link size={16} />,
-  inbox: <Bell size={16} />,
-  timeline: <Clock size={16} />,
-};
 
-export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue, contextIssue }: CommandPaletteProps) {
+export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue, cyclesEnabled, contextIssue }: CommandPaletteProps) {
   const { openPicker } = useMilestoneAssign();
   const agent = useOptionalAgentChat();
   const chats = agent?.chats;
@@ -79,25 +72,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     }
 
     // Navigation
-    const navItems: { id: View; label: string }[] = [
-      { id: 'backlog', label: 'Issues' },
-      { id: 'board', label: 'Board' },
-      { id: 'dashboard', label: 'Dashboard' },
-      { id: 'dependencies', label: 'Dependencies' },
-      { id: 'inbox', label: 'Notifications' },
-      { id: 'timeline', label: 'Timeline' },
-    ];
-    for (const nav of navItems) {
-      if (!query || fuzzyMatch(nav.label, query)) {
-        results.push({
-          id: `nav:${nav.id}`,
-          group: 'Navigation',
-          icon: NAV_ICONS[nav.id],
-          label: nav.label,
-          action: () => { onClose(); onViewChange(nav.id); },
-        });
-      }
-    }
+    results.push(...navCommandItems(query, cyclesEnabled, (view) => { onClose(); onViewChange(view); }));
 
     // Issues (only when there's a query, or show recent)
     const matchedIssues = query
@@ -136,7 +111,7 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     }
 
     return results;
-  }, [query, issues, onClose, onIssueSelect, onViewChange, onNewIssue, contextIssue, openPicker, chats, openChat]);
+  }, [query, issues, onClose, onIssueSelect, onViewChange, onNewIssue, cyclesEnabled, contextIssue, openPicker, chats, openChat]);
 
   // Group items for display
   const groups = useMemo(() => {

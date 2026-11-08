@@ -42,11 +42,32 @@ function row(milestone: Milestone, extra: Partial<Parameters<typeof MilestoneRow
 }
 
 describe("MilestoneRowBody", () => {
-  it("reads as one title: the label, the goal, then the slot badge", () => {
+  it("shows only the name and the progress while collapsed, with the goal as the name's tooltip", () => {
     const html = row(current);
-    expect(html).toMatch(/>1\.1<\/button><span[^>]*> – Live courier tracking<\/span><\/span>/);
-    expect(html.indexOf("Live courier tracking")).toBeLessThan(html.indexOf(">Current<"));
-    expect(html.indexOf("Nov 15")).toBeLessThan(html.indexOf(">Current<"));
+    expect(html).not.toContain("Live courier tracking");
+    expect(html).toMatch(/<button[^>]*data-state="closed"[^>]*>1\.1<\/button>/);
+    const at = (s: string) => html.indexOf(s);
+    expect(at(">1.1<")).toBeLessThan(at("issues done"));
+    expect(at("issues done")).toBeLessThan(at("Nov 15"));
+    expect(at("Nov 15")).toBeLessThan(at(">Current<"));
+  });
+
+  it("shows the goal on a second line under the name while expanded", () => {
+    const html = row(current, { expanded: true });
+    expect(html).toMatch(/<p[^>]*text-xs[^>]*>Live courier tracking<\/p>/);
+    expect(html.indexOf("issues done")).toBeLessThan(html.indexOf("Live courier tracking"));
+    expect(html.indexOf("Live courier tracking")).toBeLessThan(html.indexOf("Nov 15"));
+    expect(html).not.toMatch(/<button[^>]*data-state="closed"[^>]*>1\.1<\/button>/);
+  });
+
+  it("gives a milestone without a goal no tooltip and no second line", () => {
+    const noGoal = { ...current, goal: undefined };
+    expect(row(noGoal)).not.toMatch(/<button[^>]*data-state="closed"[^>]*>1\.1<\/button>/);
+    expect(row(noGoal, { expanded: true })).not.toMatch(/<p[^>]*text-xs/);
+  });
+
+  it("truncates a long name with an ellipsis", () => {
+    expect(row(current)).toMatch(/<button[^>]*class="[^"]*\btruncate\b[^"]*"[^>]*>1\.1<\/button>/);
   });
 
   it("shows the number as the name until the milestone has a label", () => {
@@ -108,21 +129,29 @@ describe("MilestoneRowBody", () => {
     expect(html).not.toMatch(/>Current</);
   });
 
+  it("shows an expanded past milestone at full opacity", () => {
+    const done = { ...current, state: "COMPLETED" as const, slot: "past" as const, completed_at: "2026-10-02T10:00:00Z" };
+    expect(row(done, { handle: null, expanded: true })).not.toContain("opacity-60");
+  });
+
   it("makes a past milestone's name a toggle for its issues, not a link", () => {
     const html = row({ ...current, state: "COMPLETED", slot: "past", completed_at: "2026-10-02T10:00:00Z" }, { handle: null, expanded: true });
     expect(html).toMatch(/<button[^>]*aria-expanded="true"[^>]*>1\.1<\/button>/);
   });
 
   it("makes only an open milestone's name a link, not the goal or the badge", () => {
-    const html = row(current);
-    expect(html).toMatch(/<button[^>]*title="Show in Issues"[^>]*>1\.1<\/button><span[^>]*> – Live courier tracking/);
-    expect(html).not.toMatch(/<button[^>]*><span class="flex items-center gap-2 min-w-0">/);
+    const html = row(current, { expanded: true });
+    expect(html).toMatch(/<button[^>]*title="Show in Issues"[^>]*>1\.1<\/button>/);
+    expect(html).not.toMatch(/<button[^>]*>[^<]*Live courier tracking/);
+    // Collapsed, the goal tooltip takes the place of the title.
+    expect(row(current)).not.toContain('title="Show in Issues"');
+    expect(row({ ...current, goal: undefined })).toContain('title="Show in Issues"');
   });
 
-  it("puts the progress right after the title", () => {
+  it("puts the progress right after the name", () => {
     const html = row(current);
     const progress = html.indexOf('aria-label="3 of 6 issues done. Click for story points"');
-    expect(html.indexOf("Live courier tracking")).toBeLessThan(progress);
+    expect(html.indexOf(">1.1<")).toBeLessThan(progress);
     expect(progress).toBeLessThan(html.indexOf("Nov 15"));
   });
 
@@ -152,7 +181,7 @@ describe("MilestoneSummaryCard", () => {
     });
     const html = render(<MilestoneSummaryCard milestone={current} today="2026-10-20" />, client);
     expect(html).toContain("In progress");
-    expect(html).toContain("3/6 done · 5/13 pts");
+    expect(html).toContain(">3/6 done<");
     expect(html).toMatch(/aria-label="Time to target date"/);
     expect(html).toMatch(/aria-label="Burndown"/);
   });
@@ -184,9 +213,15 @@ describe("MilestoneSummaryCard", () => {
     expect(html).not.toContain("Burndown");
   });
 
-  it("leaves the points out of the header when the milestone has none", () => {
-    const html = render(<MilestoneSummaryCard milestone={{ ...current, points: undefined }} today="2026-10-20" />);
-    expect(html).toContain("3/6 done");
+  it("shows only the issue count in issues mode", () => {
+    const html = render(<MilestoneSummaryCard milestone={current} today="2026-10-20" mode="issues" />);
+    expect(html).toContain(">3/6 done<");
     expect(html).not.toContain("pts");
+  });
+
+  it("shows only the story points in points mode", () => {
+    const html = render(<MilestoneSummaryCard milestone={current} today="2026-10-20" mode="points" />);
+    expect(html).toContain(">5/13 pts<");
+    expect(html).not.toContain("3/6 done");
   });
 });

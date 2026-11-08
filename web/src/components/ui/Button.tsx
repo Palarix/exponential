@@ -2,7 +2,7 @@ import { forwardRef, type ReactNode, type ButtonHTMLAttributes } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'warning';
 type ButtonTone = 'neutral' | 'danger' | 'warning';
-type ButtonSize = 'sm' | 'md' | 'lg';
+type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -42,6 +42,8 @@ const toneStyles: Record<'secondary' | 'ghost', Record<ButtonTone, string>> = {
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
+  // The height of the topbar's buttons (filter, view switches).
+  xs: 'h-7 px-3 text-xs gap-2',
   sm: 'h-8 px-3 text-sm gap-2',
   md: 'h-9 px-4 text-sm gap-2',
   lg: 'h-10 px-5 text-sm gap-2',
@@ -64,7 +66,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={`
-          inline-flex items-center justify-center font-medium
+          inline-flex items-center justify-center font-medium whitespace-nowrap
           rounded-[var(--radius-md)]
           transition-colors duration-[var(--duration-fast)]
           focus-visible:outline-none focus-visible:ring-2

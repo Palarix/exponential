@@ -113,6 +113,35 @@ export function issuesInMilestone(issues: Issue[], milestoneId: string | undefin
   return [...inMilestone.filter((i) => !isTerminal(i.status)), ...inMilestone.filter((i) => isTerminal(i.status))];
 }
 
+/**
+ * Whether the stack lists any issue of `listed` that matches `query`: one in a
+ * milestone of `milestoneIds`, or an open one in no milestone.
+ */
+export function anyMatch(listed: Issue[], query: string, milestoneIds: Set<string>): boolean {
+  return listed.some((i) =>
+    matchesIssueSearch(i, query) && (i.milestone_id ? milestoneIds.has(i.milestone_id) : !isTerminal(i.status)));
+}
+
+/** A row of the stack that can expand: a milestone by number, or "none" for No milestone. */
+export type ExpandKey = number | "none";
+
+/** The rows that start expanded until the user saves their own: a saved Current, and No milestone. */
+export function defaultExpanded(board: MilestonesResponse): ExpandKey[] {
+  return board.current.placeholder ? ["none"] : [board.current.number, "none"];
+}
+
+/** The saved expanded rows; null when nothing is saved or the value is not a list. Unknown entries are dropped. */
+export function parseExpanded(raw: string | null): ExpandKey[] | null {
+  if (raw === null) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return null;
+    return value.filter((k): k is ExpandKey => k === "none" || (typeof k === "number" && Number.isInteger(k)));
+  } catch {
+    return null;
+  }
+}
+
 /** Open issues without a milestone, matching `query` on title or ID. */
 export function noMilestoneIssues(issues: Issue[], query: string): Issue[] {
   return issues

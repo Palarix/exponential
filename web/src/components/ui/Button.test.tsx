@@ -45,6 +45,17 @@ describe("Button", () => {
     expect(warning).toContain("text-[var(--color-text-on-warning)]");
   });
 
+  it("has an xs size as high as the other topbar buttons", () => {
+    const b = html(<Button size="xs">New Milestone</Button>);
+    expect(b).toContain("h-7");
+    expect(b).toContain("text-xs");
+    expect(b).not.toContain("h-8");
+  });
+
+  it("keeps its label on one line", () => {
+    expect(html(<Button size="sm">New Milestone</Button>)).toContain("whitespace-nowrap");
+  });
+
   it("ignores tone on solid variants", () => {
     expect(html(<Button variant="danger" tone="warning">Delete</Button>)).not.toContain("text-[var(--color-warning)]");
   });

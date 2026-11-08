@@ -208,6 +208,7 @@ function App() {
         onIssueSelect={(issue) => openIssue(issue.id)}
         onViewChange={navigate}
         onNewIssue={() => openNewIssue()}
+        cyclesEnabled={config.cyclesEnabled}
         contextIssue={issues.find((i) => i.id === route.issueId)}
       />
       <KeyboardHelp

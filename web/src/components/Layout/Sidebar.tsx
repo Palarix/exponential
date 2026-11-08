@@ -2,45 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Instance } from "../../api/client";
 import { useInstances, useUser } from "../../api/queries";
 import { Avatar } from "../ui";
-import {
-  Bell,
-  Columns3,
-  ChevronUp,
-  RefreshCw,
-  LayoutDashboard,
-  Pencil,
-  Folder,
-  Link,
-  List,
-  Milestone as MilestoneIcon,
-  Search,
-  PanelLeft,
-  Settings,
-  Tag,
-  Clock,
-  FilePen,
-  MousePointer2,
-  User as UserIcon,
-} from "lucide-react";
+import { ChevronUp, Folder, PanelLeft, Pencil, Search } from "lucide-react";
 import { useAgentChat } from "../Agent/agent-context";
 import { useKeyboardShortcuts } from "../../keyboard";
 import { VIEWS, type ViewDef, type ViewId } from "../../views";
+import { VIEW_ICONS } from "./view-icons";
 
-const VIEW_ICONS: Record<ViewId, ReactNode> = {
-  dashboard: <LayoutDashboard size={16} />,
-  backlog: <List size={16} />,
-  board: <Columns3 size={16} />,
-  cycles: <RefreshCw size={16} />,
-  milestones: <MilestoneIcon size={16} />,
-  timeline: <Clock size={16} />,
-  labels: <Tag size={16} />,
-  dependencies: <Link size={16} />,
-  "my-issues": <UserIcon size={16} />,
-  inbox: <Bell size={16} />,
-  drafts: <FilePen size={16} />,
-  agent: <MousePointer2 size={16} />,
-  preferences: <Settings size={16} />,
-};
 
 interface SidebarProps {
   activeView: ViewId;

@@ -17,10 +17,44 @@ const STATUS_NAMES: Record<string, string> = {
 /**
  * The columns every milestone row shares, so the stack reads as a table:
  * handle, title (with the progress), warning, target date, Current/Next
- * badge, actions menu, and the expand chevron always rightmost.
+ * badge, actions menu, and the expand chevron always rightmost. Below a
+ * stack width of 40rem the warning and date columns drop out (their cells
+ * use NARROW_HIDDEN). Cells align to the first line: an expanded title can
+ * take a second line.
  */
 export const MILESTONE_ROW_GRID =
-  "grid grid-cols-[16px_minmax(0,1fr)_16px_4.5rem_4rem_20px_20px] items-center gap-x-3";
+  "grid grid-cols-[16px_minmax(0,1fr)_4rem_20px_20px] @[40rem]:grid-cols-[16px_minmax(0,1fr)_16px_4.5rem_4rem_20px_20px] items-start gap-x-3";
+
+/** A row cell: one line high, its content centred on that line. */
+export const ROW_CELL = "flex items-center min-h-6";
+
+/** A cell that only shows when the stack is at least 40rem wide. */
+export const NARROW_HIDDEN = "hidden @[40rem]:flex";
+
+/** The header of a stack row: MILESTONE_ROW_GRID, with room above and below the first line. */
+export const ROW_HEADER =
+  "grid grid-cols-[16px_minmax(0,1fr)_4rem_20px_20px] @[40rem]:grid-cols-[16px_minmax(0,1fr)_16px_4.5rem_4rem_20px_20px] items-start gap-x-3 px-3 py-2.5 cursor-pointer";
+
+/**
+ * A small icon button in a row: 24×24 to hit, but it takes only its icon's
+ * room in the layout.
+ */
+export const ROW_ICON_BUTTON =
+  "p-[5px] -mx-[5px] rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors";
+
+/**
+ * Where an expanded row shows its content: one surface below the card, so it
+ * reads as nested. Rows inside inset their content to the title column.
+ */
+export const ROW_BODY = "mx-2 mb-2 p-1 rounded-[var(--radius-md)] bg-[var(--color-surface)]";
+
+/**
+ * The second line of an expanded row's title: the goal, or a hint, muted and
+ * wrapping.
+ */
+export function TitleNote({ children }: { children: ReactNode }) {
+  return <p className="mt-0.5 mb-0.5 text-xs leading-snug text-[var(--color-text-muted)]">{children}</p>;
+}
 
 /** The scope of a milestone by status, one line per status. Counts are leaf issues only (server). */
 export function MilestoneStats({ milestone }: { milestone: Milestone }) {
@@ -95,7 +129,7 @@ export function ExpandToggle({ expanded, onToggle }: { expanded: boolean; onTogg
       onClick={onToggle}
       aria-expanded={expanded}
       aria-label={expanded ? "Hide issues" : "Show issues"}
-      className="p-0.5 rounded-[var(--radius-sm)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-surface)] transition-colors"
+      className={ROW_ICON_BUTTON}
     >
       <ChevronRight size={14} className={cn("transition-transform", expanded && "rotate-90")} />
     </button>
@@ -186,6 +220,8 @@ export function MilestoneProgress({ milestone, today, mode = "issues", onToggleM
   useEffect(() => () => intent.cancel(), [intent]);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const points = mode === "points";
+  // A milestone without issues has nothing to break down.
+  const breakdown = milestone.total > 0;
   if (points && !milestone.points) return null;
   const { done, total } = points ? milestone.points! : milestone;
   const label = points
@@ -197,7 +233,7 @@ export function MilestoneProgress({ milestone, today, mode = "issues", onToggleM
         ref={anchorRef}
         type="button"
         onClick={() => { intent.leave(); onToggleMode?.(); }}
-        onMouseEnter={() => intent.enter()}
+        onMouseEnter={() => { if (breakdown) intent.enter(); }}
         onMouseLeave={() => intent.leave()}
         aria-label={label}
         className={raisedIndicatorPill}
@@ -208,7 +244,7 @@ export function MilestoneProgress({ milestone, today, mode = "issues", onToggleM
       {open && (
         <Popover anchorRef={anchorRef} onClose={() => setOpen(false)} placement="bottom-end" className="pointer-events-none">
           <PopoverPanel className="w-72 py-0">
-            <div role="tooltip"><MilestoneSummaryCard milestone={milestone} today={today} /></div>
+            <div role="tooltip"><MilestoneSummaryCard milestone={milestone} today={today} mode={mode} /></div>
           </PopoverPanel>
         </Popover>
       )}
@@ -219,9 +255,10 @@ export function MilestoneProgress({ milestone, today, mode = "issues", onToggleM
 /**
  * The full breakdown of a milestone: status counts, target date and, for an
  * open milestone, the burndown. A past milestone's counts are its final snapshot;
- * its burndown is in its expanded row.
+ * its burndown is in its expanded row. The header counts what the pill counts
+ * (`mode`): issues done, or story points.
  */
-export function MilestoneSummaryCard({ milestone, today }: { milestone: Milestone; today: string }) {
+export function MilestoneSummaryCard({ milestone, today, mode = "issues" }: { milestone: Milestone; today: string; mode?: ProgressMode }) {
   const started = !!milestone.started_at && !milestone.placeholder;
   const days = useMilestoneProgress(`#${milestone.number}`, started)?.days ?? [];
   const section = "px-3 py-2.5 border-t border-[var(--color-border-subtle)] first:border-t-0";
@@ -230,7 +267,7 @@ export function MilestoneSummaryCard({ milestone, today }: { milestone: Mileston
       <div className={cn(section, "flex items-center gap-3")}>
         <span className="flex-1 min-w-0"><MilestoneTitle milestone={milestone} badge={false} /></span>
         <span className="text-[var(--color-text-muted)] tabular-nums shrink-0">
-          {milestone.done}/{milestone.total} done{milestone.points && ` · ${milestone.points.done}/${milestone.points.total} pts`}
+          {mode === "points" && milestone.points ? `${milestone.points.done}/${milestone.points.total} pts` : `${milestone.done}/${milestone.total} done`}
         </span>
       </div>
       <div className={section}><MilestoneStats milestone={milestone} /></div>
@@ -283,15 +320,16 @@ export function BurndownWithLegend({ days }: { days: MilestoneDay[] }) {
 }
 
 /**
- * A past milestone's burndown from its start to its completion, for the top of
- * its expanded row. Nothing for a milestone that was never Current or completed
+ * A past milestone's burndown from its start to its completion, for the
+ * summary slot of its expanded row. Nothing for a milestone that was never Current or completed
  * within a day.
  */
 export function PastBurndown({ milestone }: { milestone: Milestone }) {
   const days = useMilestoneProgress(`#${milestone.number}`, !!milestone.started_at)?.days ?? [];
   if (!milestone.started_at || days.length < 2) return null;
   return (
-    <div className="border-t border-[var(--color-border-subtle)] px-3 pt-3 pb-2">
+    // On the card, its left edge under the milestone name.
+    <div className="pl-10 pr-3 pt-1 pb-3">
       <BurndownWithLegend days={days} />
     </div>
   );
@@ -313,56 +351,64 @@ interface MilestoneRowBodyProps {
   /** What the progress pill counts, and the click that switches it. */
   progressMode?: ProgressMode;
   onToggleProgressMode?: () => void;
-  /** The milestone's issues, shown while expanded. */
+  /** Shown on the card while expanded, above the issue list: what sums up the milestone (a past milestone's burndown). */
+  summary?: ReactNode;
+  /** The milestone's issues, shown while expanded, one surface below the card. */
   children?: ReactNode;
 }
 
 /**
  * One saved milestone in the stack; a past milestone is a faded row with a
- * checkmark instead of the handle. Placeholders don't get a row; the top
- * bar's "New Milestone" button creates milestones. A click anywhere on the header
- * toggles the issues; only the name opens the milestone.
+ * checkmark instead of the handle while it is collapsed. Placeholders don't
+ * get a row; the top bar's "New Milestone" button creates milestones. A click
+ * anywhere on the header toggles the issues; only the name opens the
+ * milestone. Collapsed, the title is the name and the progress, with the goal
+ * as the name's tooltip; expanded, the goal is a second line under them.
  */
 export function MilestoneRowBody({
-  milestone, today, handle, warning, expanded, onToggle, onOpen, highlight = null, actions, progressMode, onToggleProgressMode, children,
+  milestone, today, handle, warning, expanded, onToggle, onOpen, highlight = null, actions, progressMode, onToggleProgressMode, summary, children,
 }: MilestoneRowBodyProps) {
   const past = milestone.state === "COMPLETED";
+  const goalTooltip = !expanded && !!milestone.goal;
+  const name = (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={past || goalTooltip ? undefined : "Show in Issues"}
+      aria-expanded={past ? expanded : undefined}
+      className={cn("min-w-0 truncate text-left text-sm", milestoneNameClass(milestone), !past && "hover:underline underline-offset-2")}
+    >
+      {milestone.name}
+    </button>
+  );
   return (
     <div
       className={cn(
         "rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-1)] transition-[box-shadow,opacity]",
-        past && "opacity-60 hover:opacity-100",
+        past && !expanded && "opacity-60 hover:opacity-100",
         dropHighlightClass(highlight),
       )}
     >
       <div
-        className={cn(MILESTONE_ROW_GRID, "px-3 h-11 cursor-pointer")}
+        className={ROW_HEADER}
         onClick={(e) => { if (headerClickToggles(e.target as Element, e.currentTarget)) onToggle(); }}
       >
-        <span className="flex">{handle}</span>
-        <MilestoneTitle
-          milestone={milestone}
-          badge={false}
-          name={
-            <button
-              type="button"
-              onClick={onOpen}
-              title={past ? undefined : "Show in Issues"}
-              aria-expanded={past ? expanded : undefined}
-              className={cn(milestoneNameClass(milestone), !past && "hover:underline underline-offset-2")}
-            >
-              {milestone.name}
-            </button>
-          }
-          extra={<MilestoneProgress milestone={milestone} today={today} mode={progressMode} onToggleMode={onToggleProgressMode} />}
-        />
-        <span className="flex"><OrderWarning names={warning} /></span>
-        <MilestoneDate milestone={milestone} today={today} />
-        <span className="flex justify-end"><SlotBadge slot={milestone.slot} /></span>
-        <span className="flex">{actions}</span>
+        <span className={ROW_CELL}>{handle}</span>
+        <span className="min-w-0">
+          <span className={cn(ROW_CELL, "gap-2 min-w-0")}>
+            {goalTooltip ? <Tooltip content={<span className="block max-w-sm">{milestone.goal}</span>}>{name}</Tooltip> : name}
+            <MilestoneProgress milestone={milestone} today={today} mode={progressMode} onToggleMode={onToggleProgressMode} />
+          </span>
+          {expanded && milestone.goal && <TitleNote>{milestone.goal}</TitleNote>}
+        </span>
+        <span className={cn(ROW_CELL, NARROW_HIDDEN)}><OrderWarning names={warning} /></span>
+        <span className={cn(ROW_CELL, NARROW_HIDDEN, "justify-end")}><MilestoneDate milestone={milestone} today={today} /></span>
+        <span className={cn(ROW_CELL, "justify-end")}><SlotBadge slot={milestone.slot} /></span>
+        <span className={ROW_CELL}>{actions}</span>
         <ExpandToggle expanded={expanded} onToggle={onToggle} />
       </div>
-      {expanded && <div className="px-3 pb-3">{children}</div>}
+      {expanded && summary}
+      {expanded && <div className={ROW_BODY}>{children}</div>}
     </div>
   );
 }

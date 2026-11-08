@@ -8,6 +8,7 @@ import { makeIssue } from "../../test-utils";
 import { MilestoneStack } from "./Milestones";
 import type { ProgressMode } from "./MilestoneRow";
 import { EMPTY_FILTERS, type BacklogFilters } from "../Backlog/filters";
+import type { ExpandKey } from "./milestones-utils";
 
 const noop = () => {};
 const rel = (number: number, o: Partial<Milestone> = {}): Milestone => ({
@@ -27,7 +28,9 @@ const epicKids = [
   makeIssue({ id: "xpo-ck3", title: "Kid in 1.2", parent_id: "xpo-ep1", milestone_id: "ms-3" }),
 ];
 
-function stack(board: MilestonesResponse, query = "", filters: BacklogFilters = EMPTY_FILTERS, progressMode: ProgressMode = "issues") {
+function stack(
+  board: MilestonesResponse, query = "", filters: BacklogFilters = EMPTY_FILTERS, progressMode: ProgressMode = "issues", initialExpanded?: ExpandKey[],
+) {
   return renderMarkup(
     <TooltipPrimitive.Provider>
       <MilestoneStack
@@ -41,6 +44,7 @@ function stack(board: MilestonesResponse, query = "", filters: BacklogFilters = 
         onReorder={noop}
         onAssign={noop}
         progressMode={progressMode}
+        initialExpanded={initialExpanded}
       />
     </TooltipPrimitive.Provider>,
   );
@@ -81,12 +85,50 @@ describe("MilestoneStack", () => {
     expect(html).toMatch(/>Current</);
   });
 
-  it("opens No milestone by default, with its open issues and their count", () => {
+  it("opens Current and No milestone by default, and nothing else", () => {
     const html = stack(board);
     const noMilestone = html.slice(html.indexOf(">No milestone<"), html.indexOf(">0.1<"));
     expect(noMilestone).toContain("Loose one");
     expect(noMilestone).toMatch(/aria-expanded="true"[^>]*aria-label="Hide issues"/);
+    expect(html).toContain("In 1.1");
+    // The 1.2 epic's own row is not listed (its children in 1.1 name it in their breadcrumb).
+    expect(html).not.toContain(">xpo-ep1<");
+    expect(html).not.toContain("Delivered thing");
+  });
+
+  it("opens the saved rows instead of the defaults", () => {
+    const html = stack(board, "", EMPTY_FILTERS, "issues", [3]);
+    expect(html).toContain(">xpo-ep1<");
     expect(html).not.toContain("In 1.1");
+    expect(html).not.toContain("Loose one");
+  });
+
+  it("gives No milestone no hint: only its name and count", () => {
+    const html = stack(board);
+    const header = html.slice(html.indexOf(">No milestone<"), html.indexOf("Loose one"));
+    expect(header).not.toMatch(/<p[^>]*text-xs/);
+    expect(html).not.toContain("Open issues in no milestone");
+    expect(html).not.toContain("Drag issues into a milestone");
+    // Collapsed, the name is plain text, not a tooltip trigger.
+    const collapsed = stack(board, "", EMPTY_FILTERS, "issues", []);
+    expect(collapsed).toMatch(/<span class="[^"]*">No milestone<\/span>/);
+    expect(collapsed).not.toMatch(/data-state="closed"[^>]*>No milestone</);
+  });
+
+  it("gives an expanded milestone without issues an empty state", () => {
+    const html = stack(board, "", EMPTY_FILTERS, "issues", [4]);
+    expect(html).toContain("No issues in this milestone yet.");
+    expect(html).toContain("Drag an issue here, or press R on an issue to move it.");
+  });
+
+  it("says so when the search matches no issue", () => {
+    expect(stack(board, "zzz")).toContain("No issues match.");
+    expect(stack(board, "loose")).not.toContain("No issues match.");
+    expect(stack(board)).not.toContain("No issues match.");
+  });
+
+  it("says so when the filters match no issue", () => {
+    expect(stack(board, "", { ...EMPTY_FILTERS, statuses: ["BLOCKED"] })).toContain("No issues match.");
   });
 
   it("opens the rows with search matches and collapses No milestone when nothing there matches", () => {
@@ -197,10 +239,10 @@ describe("MilestoneStack", () => {
     expect(html.slice(html.indexOf(">No milestone<"), html.indexOf(">0.1<"))).toMatch(/aria-expanded="false"[^>]*aria-label="Show issues"/);
   });
 
-  it("keeps milestones collapsed while there is no search", () => {
-    const html = stack(board);
+  it("keeps the rows the user collapsed collapsed while there is no search", () => {
+    const html = stack(board, "", EMPTY_FILTERS, "issues", []);
     expect(html).not.toContain("In 1.1");
-    expect(html.slice(0, html.indexOf(">No milestone<"))).not.toMatch(/aria-label="Hide issues"/);
+    expect(html).not.toMatch(/aria-label="Hide issues"/);
   });
 
   it("shows the three latest past milestones and offers the rest", () => {
@@ -243,6 +285,14 @@ describe("MilestoneStack", () => {
       expect(html).toMatch(/aria-label="Burndown"/);
       expect(html).toContain("Aug 20");
       expect(html.indexOf('aria-label="Burndown"')).toBeLessThan(html.indexOf("Delivered thing"));
+    });
+
+    it("draws the burndown on the card, outside the issue list's lower surface", () => {
+      const html = expanded(withCompleted);
+      const list = html.indexOf("bg-[var(--color-surface)]\"");
+      expect(list).toBeGreaterThan(0);
+      expect(html.indexOf('aria-label="Burndown"')).toBeLessThan(list);
+      expect(list).toBeLessThan(html.indexOf("Delivered thing"));
     });
 
     it("shows no burndown for a milestone that was never Current", () => {

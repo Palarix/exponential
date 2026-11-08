@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import type { Issue } from "../../api/types";
 import { isTerminal } from "../../constants";
@@ -9,25 +9,31 @@ import { createHoverIntent } from "../IssueDetail/hover-intent";
 import { IssuePreview } from "../IssueRef/IssuePreview";
 import { childProgress, parentContext, rowEstimate } from "./milestones-utils";
 
-/** How long the pointer rests on an issue row before its hover card opens (as on issue chips). */
+/** How long the pointer rests on an issue title before its hover card opens (as on issue chips). */
 const PREVIEW_DELAY = 250;
+
+/** Rows in an expanded milestone start their content in the milestone title's column. */
+export const ROW_INSET = "pl-7 pr-2";
+
+/** A muted note in the list of an expanded row, inset like the issue rows. */
+export function ListNote({ children }: { children: ReactNode }) {
+  return <div className={cn(ROW_INSET, "py-2 text-xs text-[var(--color-text-muted)]")}>{children}</div>;
+}
 
 /**
  * A milestone's issues, flat. Read-only rows by default: a past milestone's list
  * is what it delivered, not to be moved. `renderRow` swaps in draggable rows.
  */
-export function MilestoneIssueList({ issues, all, onIssueClick, empty = "No issues yet.", renderRow }: {
+export function MilestoneIssueList({ issues, all, onIssueClick, empty = "No issues.", renderRow }: {
   issues: Issue[];
   all: Issue[];
   onIssueClick: (issue: Issue) => void;
-  empty?: string;
+  empty?: ReactNode;
   renderRow?: (issue: Issue) => ReactNode;
 }) {
-  if (issues.length === 0) {
-    return <p className="px-2 py-2 text-xs text-[var(--color-text-muted)]">{empty}</p>;
-  }
+  if (issues.length === 0) return <ListNote>{empty}</ListNote>;
   return (
-    <div className="border-t border-[var(--color-border-subtle)] pt-2 space-y-px">
+    <div className="space-y-px">
       {issues.map((issue) => renderRow
         ? renderRow(issue)
         : <IssueRow key={issue.id} issue={issue} all={all} onIssueClick={onIssueClick} />)}
@@ -44,8 +50,8 @@ export function MilestoneIssueList({ issues, all, onIssueClick, empty = "No issu
  * excerpt and counts of comments,
  * attachments, sub-issues, commits and open blockers. The breadcrumb gives way
  * before the title does. A click opens the issue. The row is a div, not a
- * button: it holds CopyableId, which is a button itself. Resting on the row
- * shows the issue hover card beside it, which closes when a drag starts.
+ * button: it holds CopyableId, which is a button itself. Resting on the title
+ * shows the issue hover card above it, which closes when a drag starts.
  */
 export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, dragging = false }: {
   issue: Issue;
@@ -58,30 +64,25 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
 }) {
   const parent = parentContext(issue, all);
   const children = childProgress(issue, all);
-  const rowRef = useRef<HTMLDivElement | null>(null);
+  const titleRef = useRef<HTMLSpanElement | null>(null);
   const [preview, setPreview] = useState(false);
   const [intent] = useState(() => createHoverIntent(PREVIEW_DELAY, setPreview));
   useEffect(() => () => intent.cancel(), [intent]);
-  const setRefs = useCallback((el: HTMLDivElement | null) => {
-    rowRef.current = el;
-    setNodeRef?.(el);
-  }, [setNodeRef]);
   const open = () => { intent.leave(); onIssueClick(issue); };
   return (
     <>
       <div
-        ref={setRefs}
+        ref={setNodeRef}
         // OverflowLabels fits the labels to a share of this row's width.
         data-backlog-row
         role="button"
         tabIndex={0}
         onClick={open}
         onKeyDown={(e) => { if (e.key === "Enter") open(); }}
-        onMouseEnter={() => intent.enter()}
-        onMouseLeave={() => intent.leave()}
         onPointerDownCapture={() => intent.leave()}
         className={cn(
-          "w-full flex items-center gap-3 px-3 h-10 rounded-[var(--radius-md)] cursor-pointer select-none transition-colors hover:bg-[var(--color-hover-surface-1)]",
+          "w-full flex items-center gap-3 h-10 rounded-[var(--radius-md)] cursor-pointer select-none transition-colors hover:bg-[var(--color-hover-surface)]",
+          ROW_INSET,
           dragProps && "touch-none",
           isTerminal(issue.status) && "opacity-60",
           dragging && "opacity-30",
@@ -92,7 +93,14 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
         <StatusIcon status={issue.status} size={14} isInferred={issue.is_inferred} />
         <span className="flex items-center gap-2 min-w-0">
           {parent && <ParentCrumb parent={parent.parent} where={parent.where} />}
-          <span className="text-sm text-[var(--color-text-primary)] truncate min-w-0">{issue.title}</span>
+          <span
+            ref={titleRef}
+            onMouseEnter={() => intent.enter()}
+            onMouseLeave={() => intent.leave()}
+            className="text-sm text-[var(--color-text-primary)] truncate min-w-0"
+          >
+            {issue.title}
+          </span>
         </span>
         {children && (
           <span className={cn(indicatorPill, "shrink-0")}>
@@ -102,7 +110,8 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
         )}
         <div className="flex-1" />
         {issue.labels && issue.labels.length > 0 && (
-          <span className="shrink-0">
+          // Below a stack width of 40rem the title keeps the room.
+          <span className="shrink-0 hidden @[40rem]:inline-flex">
             <OverflowLabels labels={issue.labels} />
           </span>
         )}
@@ -119,7 +128,7 @@ export function IssueRow({ issue, all, onIssueClick, setNodeRef, dragProps, drag
           )}
         </span>
       </div>
-      {preview && !dragging && <IssuePreview anchorRef={rowRef} issue={issue} />}
+      {preview && !dragging && <IssuePreview anchorRef={titleRef} issue={issue} placement="top-start" />}
     </>
   );
 }
