@@ -17,6 +17,9 @@ type WorkflowTemplate struct {
 	// Inline is a "## Workflow" section appended below the managed block of
 	// agents without skill support.
 	Inline func() string
+	// References are extra files for the skill's references/ folder, by
+	// file name. nil means none. The inline workflow carries them itself.
+	References func() map[string]string
 }
 
 // WorkflowTemplates lists the workflows `xpo init` offers, in prompt order.
@@ -28,6 +31,14 @@ var WorkflowTemplates = []WorkflowTemplate{
 		Description: "The agent specs, implements, and stops for your review before it merges",
 		Skill:       guidedWorkflowSkill,
 		Inline:      guidedWorkflowInline,
+	},
+	{
+		Name:        "factory",
+		Title:       "Factory",
+		Description: "The agent delivers a whole milestone and stops for your tophat; needs an agent with sub-agents",
+		Skill:       factoryWorkflowSkill,
+		Inline:      factoryWorkflowInline,
+		References:  factoryReferences,
 	},
 }
 
@@ -82,18 +93,7 @@ it once and xpo never changes it. For how the xpo tools work, see the xpo sectio
 // guidedWorkflowBody is the guided workflow. ref names where the tool
 // mechanics are documented.
 func guidedWorkflowBody(ref string) string {
-	return guidedRules() + md(strings.ReplaceAll(`### Public by default
-
-Issues, comments, specs and walkthroughs are stored in the repository, and the repository
-may be public. Write them for a reader who has only this repository:
-
-- No local file paths (¦/Users/…¦, ¦~/…¦, ¦../other-repo¦). Use paths relative to the repository root.
-- No names of other private repositories or projects, and no internal hostnames or URLs.
-- No credentials, tokens or personal data.
-
-Describe the situation in general terms instead, for example "another project".
-
-### 1. Check existing work
+	return guidedRules() + publicByDefault() + md(strings.ReplaceAll(`### 1. Check existing work
 
 Understand what's on the board before doing anything. Call ¦list¦ to see current issues; use the
 ¦match¦ parameter to search for related work. Call ¦show¦ for full details on candidate issues.
@@ -218,6 +218,22 @@ When choosing what to work on next (and dependency links do not resolve the orde
 2. **Bugs** — correctness problems in existing functionality
 3. **Planned features** — by dependency order, then by story points (smaller first)
 `, "@REF@", ref))
+}
+
+// publicByDefault is the Public by default section every template carries.
+func publicByDefault() string {
+	return md(`### Public by default
+
+Issues, comments, specs and walkthroughs are stored in the repository, and the repository
+may be public. Write them for a reader who has only this repository:
+
+- No local file paths (¦/Users/…¦, ¦~/…¦, ¦../other-repo¦). Use paths relative to the repository root.
+- No names of other private repositories or projects, and no internal hostnames or URLs.
+- No credentials, tokens or personal data.
+
+Describe the situation in general terms instead, for example "another project".
+
+`)
 }
 
 // guidedRules is the guided workflow's Rules section: the hard rules that

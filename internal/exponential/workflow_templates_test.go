@@ -83,15 +83,19 @@ func TestReferenceSkill_RecoversFromMergeConflicts(t *testing.T) {
 // Public by default is policy, so it lives in the workflow, not the
 // managed reference.
 func TestPublicByDefault_InWorkflowNotReference(t *testing.T) {
-	tpl, _ := LookupWorkflow("guided")
-	for name, doc := range map[string]string{
-		"guided skill":  tpl.Skill(),
-		"guided inline": tpl.Inline(),
-	} {
-		d := flat(doc)
-		for _, want := range []string{"### Public by default", "local file paths", "private repositories or projects", "internal hostnames or URLs"} {
-			if !strings.Contains(d, want) {
-				t.Errorf("%s is missing %q", name, want)
+	for _, tpl := range WorkflowTemplates {
+		for name, doc := range map[string]string{
+			tpl.Name + " skill":  tpl.Skill(),
+			tpl.Name + " inline": tpl.Inline(),
+		} {
+			d := flat(doc)
+			for _, want := range []string{"### Public by default", "local file paths", "private repositories or projects", "internal hostnames or URLs"} {
+				if !strings.Contains(d, want) {
+					t.Errorf("%s is missing %q", name, want)
+				}
+			}
+			if strings.Contains(doc, "<!-- xpo:skill") {
+				t.Errorf("%s must not carry an xpo:skill marker", name)
 			}
 		}
 	}

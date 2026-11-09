@@ -58,9 +58,11 @@ func ComputeInitPlan(agents []AgentConfig, tpl *WorkflowTemplate) *ChangePlan {
 		}
 
 		// Workflow skill: first init only, never updated
-		if path := workflowSkillFile(agent); tpl != nil && agent.SkillDir != "" && !seen[path] && !HasWorkflowSkill(agent) {
-			seen[path] = true
-			plan.add(path, "create")
+		if tpl != nil && agent.SkillDir != "" && !seen[workflowSkillFile(agent)] && !HasWorkflowSkill(agent) {
+			for path := range workflowFiles(agent, tpl) {
+				seen[path] = true
+				plan.add(path, "create")
+			}
 		}
 	}
 

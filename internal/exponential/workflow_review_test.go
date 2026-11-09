@@ -139,13 +139,20 @@ func TestSpecGuide_NeutralWording(t *testing.T) {
 }
 
 func TestUSSpelling(t *testing.T) {
-	tpl, _ := LookupWorkflow("guided")
-	for name, doc := range map[string]string{
+	docs := map[string]string{
 		"skill":      GenerateSkillMD(),
 		"spec-guide": GenerateSpecGuide(),
-		"guided":     tpl.Skill(),
-		"inline":     tpl.Inline(),
-	} {
+	}
+	for _, tpl := range WorkflowTemplates {
+		docs[tpl.Name] = tpl.Skill()
+		docs[tpl.Name+" inline"] = tpl.Inline()
+		if tpl.References != nil {
+			for file, c := range tpl.References() {
+				docs[tpl.Name+" "+file] = c
+			}
+		}
+	}
+	for name, doc := range docs {
 		if strings.Contains(strings.ToLower(doc), "prioritis") {
 			t.Errorf("%s uses UK spelling", name)
 		}

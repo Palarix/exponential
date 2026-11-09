@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Factory workflow template:** `xpo init --workflow factory` writes a workflow for autonomous delivery, one milestone at a time. The human approves the milestone backlog (its issues then go to PLANNED) and tophats the milestone at the end. In between, a sub-agent answers the spec's open questions, a second sub-agent reviews each change, and approved work is merged. The review is calibrated: blockers and majors need a realistic trigger, except in security and data-loss code; "PASS, no findings" is a normal result; the implementer may reject unrealistic findings and lists them at the tophat; only a blocker starts another round, and later rounds check only the fixes (at most 3 rounds). Milestones plan targets; stories of 5 story points or fewer, and epics for bigger ones, decompose the work. The template ships both sub-agent briefs as `references/open-questions.md` and `references/code-review.md`; agents without skills get them inline. It needs an agent that can start sub-agents. Workflow templates can now carry reference files. (xpo-82ee77)
+
 - The running version now identifies the exact build: `1.5.0` on a release tag, `1.5.0-de0d346` past it, with a trailing `!` for uncommitted changes. `xpo version`, `xpo doctor`, the MCP server info and the board footer show it. The footer drops the word "Exponential" to make room. Integration stamps keep plain `x.y.z`. (xpo-c7a4cf)
 
 - Milestones: group issues that are done together, scope-boxed where Cycles are time-boxed. (xpo-f89e55, xpo-9a7a77, xpo-974eba, xpo-325f73, xpo-e6ff99, xpo-88f633, xpo-483245, xpo-df162c, xpo-d12b64, xpo-574cf5, xpo-8995e4)

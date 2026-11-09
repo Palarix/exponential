@@ -63,10 +63,31 @@ func InstallWorkflow(agent AgentConfig, tpl *WorkflowTemplate) (bool, error) {
 	if tpl == nil || agent.SkillDir == "" || HasWorkflowSkill(agent) {
 		return false, nil
 	}
-	if err := writeNewFile(workflowSkillFile(agent), tpl.Skill()); err != nil {
+	if err := writeWorkflowFiles(agent, tpl); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+// workflowFiles returns the files the template writes for the agent: the
+// SKILL.md and each reference file, by path.
+func workflowFiles(agent AgentConfig, tpl *WorkflowTemplate) map[string]string {
+	files := map[string]string{workflowSkillFile(agent): tpl.Skill()}
+	if tpl.References != nil {
+		for name, content := range tpl.References() {
+			files[filepath.Join(WorkflowSkillDir(agent), "references", name)] = content
+		}
+	}
+	return files
+}
+
+func writeWorkflowFiles(agent AgentConfig, tpl *WorkflowTemplate) error {
+	for path, content := range workflowFiles(agent, tpl) {
+		if err := writeNewFile(path, content); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // WorkflowTargets returns the agents that are set up in this project: they
@@ -122,7 +143,7 @@ func SetupWorkflow(agents []AgentConfig, tpl *WorkflowTemplate) (WorkflowSetupRe
 		if err := os.RemoveAll(dir); err != nil {
 			return res, fmt.Errorf("could not remove %s: %w", dir, err)
 		}
-		if err := writeNewFile(workflowSkillFile(a), tpl.Skill()); err != nil {
+		if err := writeWorkflowFiles(a, tpl); err != nil {
 			return res, err
 		}
 		res.Written = append(res.Written, workflowSkillFile(a))
