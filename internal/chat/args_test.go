@@ -120,11 +120,12 @@ func TestSystemPromptFor(t *testing.T) {
 		if strings.Contains(got, "{{") || !strings.Contains(got, codeAccess[p][ModeChat]) || !strings.Contains(got, codeAccess[p][ModeWork]) {
 			t.Errorf("%s prompt = %q", p, got)
 		}
-		// Both modes name the xpo skill, so the agent follows the project's
-		// workflow (xpo-a058b4), including its search before filing (xpo-ed312f).
+		// Both modes name the xpo skill and the project's workflow skill, so
+		// the agent follows the project's workflow (xpo-a058b4, xpo-f19bfa),
+		// including its search before filing (xpo-ed312f).
 		for _, want := range []string{
-			"Before you file, plan, spec or start work on an issue, load the `xpo` skill.",
-			"Before you change anything, load the `xpo` skill",
+			"Before you file, plan, spec or start work on an issue, load the `xpo` skill, and the `xpo-workflow` skill if the project has one.",
+			"Before you change anything, load the `xpo` skill, and the `xpo-workflow` skill if the project has one. Follow the workflow and the project's instructions, including where they say to stop and wait for the user.",
 		} {
 			if !strings.Contains(got, want) {
 				t.Errorf("%s prompt is missing %q", p, want)

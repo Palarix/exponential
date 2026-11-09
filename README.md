@@ -16,7 +16,7 @@ xpo add "Wire up login form" --label feature
 xpo board
 ```
 
-Run `xpo init` and you're tracking work in under a minute. It creates the issue database, configures `.mcp.json` for agent access, and generates agent instruction files with a portable development workflow skill for any detected agents (Claude Code, Gemini, Cursor, Aider, etc.).
+Run `xpo init` and you're tracking work in under a minute. It creates the issue database, configures `.mcp.json` for agent access, and generates agent instruction files for any detected agents (Claude Code, Gemini, Cursor, Aider, etc.): the `xpo` skill, a reference that xpo keeps up to date, and an `xpo-workflow` skill with the workflow you pick, which your project owns.
 
 ## Why Exponential
 
@@ -162,6 +162,14 @@ git clone https://github.com/palarix/exponential.git
 cd exponential
 make && make install
 ```
+
+## Upgrading from 1.5.x
+
+1.6.0 contains a breaking change for agent instructions. Read this before upgrading.
+
+**1. Set up the workflow again** (xpo-f19bfa). The managed `xpo` skill is now a reference: how the xpo tools behave. The workflow (rules, steps, when to stop for review) moved to a separate `xpo-workflow` skill that your project owns. `xpo init` or `xpo doctor --fix` replaces the old combined `xpo` skill with the reference and removes the Hard Rules from the managed block in CLAUDE.md / AGENTS.md, so **your agents have no workflow until you run `xpo init --workflow`**. It writes the guided workflow (today's steps) for every set-up agent and asks before it replaces an existing `xpo-workflow/` folder (`--yes` for CI).
+
+If you customized the `xpo` skill, the edits are not carried over. Port them to `<agent>/skills/xpo-workflow/` afterwards; the previous version is in git (`git show HEAD:.claude/skills/xpo/SKILL.md`). From then on, xpo never changes `xpo-workflow`.
 
 ## Upgrading from 1.4.x
 

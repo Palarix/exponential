@@ -57,7 +57,7 @@ func TestHealth_EditedBlock_IsManualNotFixable(t *testing.T) {
 
 	// Edit the managed block
 	content, _ := os.ReadFile("CLAUDE.md")
-	modified := strings.Replace(string(content), "Every code change must", "CUSTOM RULE", 1)
+	modified := strings.Replace(string(content), "never shell out", "CUSTOM RULE", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
 	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
@@ -242,7 +242,7 @@ func TestHealth_FixPlan_OnlyBrokenAgent(t *testing.T) {
 		fixAgents = append(fixAgents, testClaudeCode)
 	}
 
-	plan := ComputeInitPlan(fixAgents)
+	plan := ComputeInitPlan(fixAgents, nil)
 
 	for _, c := range plan.Changes {
 		if strings.Contains(c.Path, ".claude/") {
@@ -259,7 +259,7 @@ func TestHealth_FixPlan_OnlyBrokenAgent(t *testing.T) {
 func writeStaleBlock(t *testing.T, outside string) {
 	t.Helper()
 	old := strings.Replace(GeneratedInstructions(testClaudeCode, "test"),
-		"### Hard Rules", "### Agent Identity\n\nSet the assignee to yourself.\n\n### Hard Rules", 1)
+		"Issue IDs in this project", "### Agent Identity\n\nSet the assignee to yourself.\n\nIssue IDs in this project", 1)
 	wrapped := WrapManagedBlock(old, version.CLIVersion, "markdown")
 	if err := os.WriteFile("CLAUDE.md", []byte(outside+"\n\n"+wrapped+"\n"), 0644); err != nil {
 		t.Fatal(err)

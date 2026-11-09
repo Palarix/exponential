@@ -54,6 +54,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: the agent workflow is no longer part of the managed `xpo` skill.** The `xpo` skill is now a reference (how the xpo tools behave), and the workflow (when to do what) is a separate `xpo-workflow` skill that the project owns. (xpo-f19bfa)
+  - **What changes when you upgrade:** `xpo init` or `xpo doctor --fix` replaces `.claude/skills/xpo/`, `.codex/skills/xpo/`, `.opencode/skills/xpo/` and `.cursor/skills/xpo/` with the reference. The Hard Rules disappear from the managed block in CLAUDE.md and AGENTS.md. **Your agents have no workflow until you run `xpo init --workflow`.** Re-init prints a note when it replaces an old combined skill.
+  - **Customized `xpo` skills:** an edited skill gets the usual replace/keep prompt, or is replaced with a note when there is no terminal (`--yes`, CI). Edits are **not** carried over to `xpo-workflow`. Port them to `<agent>/skills/xpo-workflow/` after running `xpo init --workflow`; the previous version is in git (`git show HEAD:.claude/skills/xpo/SKILL.md`). Files you added to `xpo/references/` stay where they are.
+  - **Copilot and generic `AGENTS.md` agents:** the inline workflow inside the managed block is removed. `xpo init --workflow` adds a new `## Workflow` section below the block.
+  - **`xpo init --workflow [guided]`:** writes the workflow skill for every set-up agent. Existing `xpo-workflow/` folders are listed and replaced only after you confirm, or with `--yes`; without a terminal and without `--yes` it stops and changes nothing. On a new project, `xpo init` asks Guided or None; `--workflow guided|none` skips the question.
+  - **After that, xpo never touches the workflow:** re-init and `doctor` never read, create, update or report `xpo-workflow`, and only change instruction files between the `xpo:begin`/`xpo:end` markers. Edit it freely.
+  - **Leftover `xpo-workflow/` folders** from before the skill was renamed `xpo` hold the old combined skill. xpo now treats them as the project's workflow and leaves them alone; run `xpo init --workflow` to replace them.
+  - **Reference content:** a Milestones section; Linking and Starting Work describe the real gate (moving to DOING is refused while a blocking issue is not DONE; `start` refuses BACKLOG and BLOCKED); `references/mcp-tools.md` lists every tool, including `milestone`, `git_*` and `code_history`; the spec guide has no workflow concepts.
+  - **Guided workflow:** today's nine steps, with Rules (the former Hard Rules), a **Public by default** rule (no local paths or private project names in issues, specs and walkthroughs), in-scope bugs fixed as part of the issue and out-of-scope bugs filed, and a three-item gate in step 9.
+  - **Board chat:** agents load the `xpo` skill, and `xpo-workflow` if the project has one.
+
 - The ⌘K palette's Navigation group lists the sidebar's views, with the sidebar's names and icons: Overview (was Dashboard), Cycles (when enabled), Milestones, Labels and My Issues join the list. (xpo-8995e4)
 
 - View top bars: the search shrinks first, so it no longer overlaps the heading or the buttons, and button labels no longer wrap. **New Label** is a secondary button, 28px high like the other top bar buttons. (xpo-8995e4)

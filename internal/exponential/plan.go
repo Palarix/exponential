@@ -18,7 +18,8 @@ type ChangePlan struct {
 }
 
 // ComputeInitPlan determines which files will be created or modified by init.
-func ComputeInitPlan(agents []AgentConfig) *ChangePlan {
+// tpl is the workflow chosen on first init, nil for re-init, doctor, or none.
+func ComputeInitPlan(agents []AgentConfig, tpl *WorkflowTemplate) *ChangePlan {
 	plan := &ChangePlan{}
 
 	// .xpo/ directory
@@ -54,6 +55,12 @@ func ComputeInitPlan(agents []AgentConfig) *ChangePlan {
 			}
 			seen[f.Path] = true
 			plan.addFile(f.Path)
+		}
+
+		// Workflow skill: first init only, never updated
+		if path := workflowSkillFile(agent); tpl != nil && agent.SkillDir != "" && !seen[path] && !HasWorkflowSkill(agent) {
+			seen[path] = true
+			plan.add(path, "create")
 		}
 	}
 

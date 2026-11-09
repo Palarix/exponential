@@ -380,7 +380,7 @@ func doctorIntegrations(c *doctorCounts, prefix string, integrationVer string) {
 
 	// Auto-fixable agents: show change plan and apply
 	if len(autoFixAgents) > 0 {
-		plan := exponential.ComputeInitPlan(autoFixAgents)
+		plan := exponential.ComputeInitPlan(autoFixAgents, nil)
 		if len(plan.Changes) > 0 {
 			fmt.Printf("\nChanges\n")
 			for _, ch := range plan.Changes {
@@ -397,7 +397,7 @@ func doctorIntegrations(c *doctorCounts, prefix string, integrationVer string) {
 					os.Exit(1)
 				}
 			}
-			applyInit(prefix, autoFixAgents)
+			applyInit(prefix, autoFixAgents, nil)
 			c.fixed += len(autoFixAgents)
 			for _, agent := range autoFixAgents {
 				skillsHandled[agent.Name] = true

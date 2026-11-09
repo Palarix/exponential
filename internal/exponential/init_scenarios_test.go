@@ -562,7 +562,7 @@ func TestScenario_InitSkill_SkillAlreadyInstalled(t *testing.T) {
 	}
 
 	skillContent, _ := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
-	if !strings.Contains(string(skillContent), "xpo Development Workflow") {
+	if !strings.Contains(string(skillContent), "# xpo Reference") {
 		t.Fatal("SKILL.md content invalid after re-install")
 	}
 }
@@ -612,8 +612,8 @@ func TestScenario_InitSkill_AgentWithoutSkillSupport(t *testing.T) {
 	content, _ := os.ReadFile(".github/copilot-instructions.md")
 	s := string(content)
 
-	if !strings.Contains(s, "## Workflow") {
-		t.Fatal("agent without skill support should get full docs with Workflow section")
+	if !strings.Contains(s, "### Status Graph") {
+		t.Fatal("agent without skill support should get the reference inline")
 	}
 	if !strings.Contains(s, "## MCP Tools Reference") {
 		t.Fatal("agent without skill support should get MCP tools reference inline")

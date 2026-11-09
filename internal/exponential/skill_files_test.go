@@ -13,12 +13,13 @@ import (
 
 func step9(t *testing.T) string {
 	t.Helper()
-	s := GenerateSkillMD()
+	tpl, _ := LookupWorkflow("guided")
+	s := tpl.Skill()
 	start := strings.Index(s, "### 9. Complete")
 	if start == -1 {
-		t.Fatal("SKILL.md has no step 9")
+		t.Fatal("guided workflow has no step 9")
 	}
-	end := strings.Index(s[start:], "\n---\n")
+	end := strings.Index(s[start:], "### Backlog Review")
 	if end == -1 {
 		t.Fatal("step 9 has no terminating rule")
 	}
@@ -43,11 +44,13 @@ func TestSkillMD_Step9_CommitsBeforeMerge(t *testing.T) {
 	}
 }
 
-func TestSkillMD_Step9_GateRequiresCommit(t *testing.T) {
+func TestSkillMD_Step9_GateDoesNotRepeatCommit(t *testing.T) {
 	s := step9(t)
+	// The gate no longer lists the commit: the steps under it commit, and
+	// merge refuses uncommitted work (review round on xpo-f19bfa).
 	gates := s[:strings.Index(s, "If any are missing")]
-	if !strings.Contains(gates, "4. All changes are committed") {
-		t.Fatalf("gate list must require committed changes, got:\n%s", gates)
+	if strings.Contains(gates, "All changes are committed") {
+		t.Fatalf("gate list must not require a commit the steps below make:\n%s", gates)
 	}
 }
 
@@ -171,10 +174,6 @@ func ptr(s string) *string { return &s }
 
 // --- Writing ---
 
-func skillPath(agent AgentConfig) string {
-	return filepath.Join(agent.SkillDir, "xpo", "SKILL.md")
-}
-
 func TestWriteAgentSkill_WritesMarker(t *testing.T) {
 	setupProject(t, "test")
 	if _, err := WriteAgentSkill(testClaudeCode, "", false); err != nil {
@@ -283,7 +282,7 @@ func TestHealth_EditedSkill_IsInteractive(t *testing.T) {
 	setupAgentFull(t, testClaudeCode, "test")
 	path := skillPath(testClaudeCode)
 	data, _ := os.ReadFile(path)
-	writeFile(t, path, strings.Replace(string(data), "### 1. Check existing work", "### 1. My own step", 1))
+	writeFile(t, path, strings.Replace(string(data), "## Status Graph", "## My own statuses", 1))
 
 	h := CheckAgentHealth(testClaudeCode, version.CLIVersion, "test")
 
@@ -314,7 +313,7 @@ func TestChangePlan_SkipsUpToDateSkill(t *testing.T) {
 	setupProject(t, "test")
 	setupAgentFull(t, testClaudeCode, "test")
 
-	for _, c := range ComputeInitPlan([]AgentConfig{testClaudeCode}).Changes {
+	for _, c := range ComputeInitPlan([]AgentConfig{testClaudeCode}, nil).Changes {
 		if strings.HasPrefix(c.Path, ".claude/skills/") {
 			t.Fatalf("up-to-date skill must not be in the plan, found %s", c.Path)
 		}
@@ -322,7 +321,7 @@ func TestChangePlan_SkipsUpToDateSkill(t *testing.T) {
 
 	writeFile(t, skillPath(testClaudeCode), "legacy")
 	found := false
-	for _, c := range ComputeInitPlan([]AgentConfig{testClaudeCode}).Changes {
+	for _, c := range ComputeInitPlan([]AgentConfig{testClaudeCode}, nil).Changes {
 		if c.Path == skillPath(testClaudeCode) && c.Action == "modify" {
 			found = true
 		}

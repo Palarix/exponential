@@ -647,56 +647,6 @@ func TestAgentTemplates_DoNotAskAgentsToAssignThemselves(t *testing.T) {
 	}
 }
 
-// Step 1 searches issues and prior rationale before any add, and reports
-// what it found (xpo-ed312f).
-func TestSkillStep1SearchesBoardAndRationaleBeforeAdd(t *testing.T) {
-	s := GenerateSkillMD()
-	start := strings.Index(s, "### 1. Check existing work")
-	end := strings.Index(s, "### 2. Plan")
-	if start == -1 || end == -1 {
-		t.Fatal("SKILL.md has no step 1")
-	}
-	step := s[start:end]
-	for _, want := range []string{
-		"Before any `add`",
-		"`list` with `match`",
-		"`rationale`",
-		"tell the user what the searches found, or that they found nothing",
-	} {
-		if !strings.Contains(step, want) {
-			t.Errorf("step 1 is missing %q:\n%s", want, step)
-		}
-	}
-}
-
-// Step 9 lets the agent bring the default branch into the issue's branch
-// when merge fails with conflicts; the ban covers only the default branch
-// (xpo-8e922f).
-func TestSkillStep9RecoversFromMergeConflicts(t *testing.T) {
-	s := GenerateSkillMD()
-	start := strings.Index(s, "### 9. Complete")
-	end := strings.Index(s, "## Reference")
-	if start == -1 || end == -1 {
-		t.Fatal("SKILL.md has no step 9")
-	}
-	// Compare with line wraps folded to single spaces.
-	step := strings.Join(strings.Fields(s[start:end]), " ")
-	for _, want := range []string{
-		"If it fails because the default branch moved on (conflicts)",
-		"`git rebase <default-branch>`, or `git merge <default-branch>`",
-		"re-run the tests, commit, and call `merge` again",
-		"never run `git push`, or merge, rebase or commit on the default branch yourself",
-		"Rebasing the issue's branch onto the default branch (or merging the default branch into it) from the worktree is allowed.",
-	} {
-		if !strings.Contains(step, want) {
-			t.Errorf("step 9 is missing %q:\n%s", want, step)
-		}
-	}
-	if strings.Contains(step, "never run `git merge`, `git rebase`") {
-		t.Errorf("step 9 still bans git merge and git rebase outright:\n%s", step)
-	}
-}
-
 func TestMergeDocsTellAgentsToOmitStrategy(t *testing.T) {
 	for name, doc := range map[string]string{
 		"skill":     GenerateSkillMD(),

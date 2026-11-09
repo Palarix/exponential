@@ -112,57 +112,61 @@ func DetectAgentFiles() []AgentDetectionResult {
 	return results
 }
 
-// GenerateAgentStub generates the thin always-on stub for agent instruction files.
-// This contains only hard invariants and a directive to load the xpo skill.
-func GenerateAgentStub(prefix string) string {
-	return `## Exponential (xpo)
-
-This project uses ` + "`xpo`" + ` (Exponential) via the MCP server registered in ` + "`.mcp.json`" + `.
-Always use the MCP tools — never shell out to the ` + "`xpo`" + ` CLI.
-
-Issue IDs in this project use the prefix ` + "`" + prefix + "`" + ` (e.g. ` + "`" + prefix + "-a1b2c3`" + `).
-
-### Hard Rules
-
-1. Every code change must be backed by an xpo issue transitioned to DOING before any file is modified.
-2. Never start work on a BACKLOG issue without explicit user approval to transition it.
-3. Bugs discovered during implementation may be filed and fixed without approval — file the issue, link it to the current work, and fix it.
-4. Before beginning any implementation task, load the ` + "`xpo`" + ` skill and follow it.
-5. If an MCP tool call fails, report the error to the user. Never fall back to the CLI.
-`
+// md turns ¦ into backticks, so templates can be written as raw strings.
+func md(s string) string {
+	return strings.ReplaceAll(s, "¦", "`")
 }
 
-// GenerateAgentDocs generates the full xpo agent documentation for agents without skill support.
-// This is the complete document combining stub + workflow + references inline.
+// GenerateAgentStub generates the thin always-on stub for agent instruction
+// files. It holds only the rules that are true for every workflow, and points
+// to the project's workflow skill if there is one.
+func GenerateAgentStub(prefix string) string {
+	return agentStubHead(prefix) + md(`
+If the project has an ¦xpo-workflow¦ skill, load it before you plan, file or change anything, and follow it.
+For how the xpo tools work, load the ¦xpo¦ skill.
+`)
+}
+
+func agentStubHead(prefix string) string {
+	return md(`## Exponential (xpo)
+
+This project uses ¦xpo¦ (Exponential) via the MCP server registered in ¦.mcp.json¦.
+Always use the MCP tools — never shell out to the ¦xpo¦ CLI. If an MCP tool call fails,
+report the error to the user. Never fall back to the CLI.
+
+Issue IDs in this project use the prefix ¦` + prefix + `¦ (e.g. ¦` + prefix + `-a1b2c3¦).
+`)
+}
+
+// GenerateAgentDocs generates the inline xpo reference for agents without
+// skill support. The workflow is not part of it: xpo init writes that once,
+// below the managed block.
 func GenerateAgentDocs(prefix string) string {
-	return GenerateAgentStub(prefix) + `
-### Workflow
+	return agentStubHead(prefix) + `
+If this file has a Workflow section, follow it.
 
-Use the ` + "`xpo`" + ` MCP tools and follow this workflow when working on ` + "`xpo`" + ` issues:
-
-` + generateWorkflowBody() + `
+` + generateReferenceBody("###") + `
 ` + generateMCPToolsBody()
 }
 
-// GenerateSkillMD generates the SKILL.md content for the xpo skill.
+// GenerateSkillMD generates the SKILL.md content for the xpo reference skill.
 func GenerateSkillMD() string {
-	return `---
+	return md(`---
 name: xpo
 description: >-
-  Issue-tracking workflow for a repository using xpo (Exponential).
-  Use before planning, implementing, fixing, or completing any code
-  change; when creating or updating issues, specs, or walkthroughs;
-  or when the user mentions xpo, issues, epics, or the board.
-metadata:
-  author: exponential
-  version: "3.1"
+  How the xpo (Exponential) MCP tools work: statuses, labels, links,
+  milestones, specs, walkthroughs, and starting and merging work. Use
+  when you create, update, start or merge issues, write specs or
+  walkthroughs, or when the user mentions xpo, issues, epics,
+  milestones, or the board.
 ---
 
-# xpo Development Workflow
+# xpo Reference
 
-Use the ` + "`xpo`" + ` MCP tools and follow this workflow when working on ` + "`xpo`" + ` issues:
+How the xpo tools behave: statuses, labels, links, milestones, specs, walkthroughs, start and merge.
+When to use them is the project's call: if the project has an ¦xpo-workflow¦ skill, load it and follow it.
 
-` + generateWorkflowBody()
+`) + generateReferenceBody("##")
 }
 
 // GenerateSpecGuide generates the spec-guide.md reference content.
@@ -201,20 +205,19 @@ A spec that merely restates the issue title has failed.
   - LOW (agent handles silently)
 - **Assumptions** — what you are taking for granted; the user can correct these
 - **Open Questions** — unresolved branch points needing answers before implementation
-- **Agent Decisions** (non-interactive mode only) — choices the agent made on behalf of the user
-  where the answer was not obvious. For each: the question, the choice made, the reasoning, and
-  what to revisit if the choice was wrong. This section is the user's entry point for catching
-  assumptions they would not have made.
+- **Agent Decisions** (when no user is present to answer) — choices the agent made on behalf of
+  the user where the answer was not obvious. For each: the question, the choice made, the
+  reasoning, and what to revisit if the choice was wrong. This section is the user's entry point
+  for catching assumptions they would not have made.
 
 ## Key principles
 
 - Draft concrete content. Never present blank templates or ask the user to fill in sections.
 - Surface your assumptions explicitly — it is always easier for the user to react to a draft
   than to author from scratch.
-- When you encounter open questions that would significantly change the implementation,
-  stop and ask the user before proceeding.
-- The spec is the source of truth for implementation. If you later discover it is wrong or
-  incomplete, update the spec first, then change code.
+- Open questions that would significantly change the implementation need an answer before
+  implementing: ask the user, or record them as Agent Decisions when no user is present.
+- The spec is the source of truth for implementation, so it must match the final code.
 `
 }
 
@@ -223,207 +226,119 @@ func GenerateMCPToolsRef() string {
 	return generateMCPToolsBody()
 }
 
-func generateWorkflowBody() string {
-	return `### 1. Check existing work
+// generateReferenceBody is how xpo works, shared by the reference skill and
+// the inline docs. It holds no workflow: no steps, gates or stops. level is
+// the heading prefix for its sections ("##" in the skill, "###" inline).
+func generateReferenceBody(level string) string {
+	return strings.ReplaceAll(md(`@@ Status Graph
 
-Understand what's on the board before doing anything. Call ` + "`list`" + ` to see current issues; use the
-` + "`match`" + ` parameter to search for related work. Call ` + "`show`" + ` for full details on candidate issues.
+¦BACKLOG → PLANNED → DOING → DONE; DOING ⇄ BLOCKED; any → CANCELED; any → DUPLICATE¦
 
-Before any ` + "`add`" + `, search twice: ` + "`list`" + ` with ` + "`match`" + ` for issues that already cover the work, and
-` + "`rationale`" + ` for specs and walkthroughs of prior work in the same area. When you propose the issue,
-tell the user what the searches found, or that they found nothing.
+| Status      | Meaning                                           |
+| ----------- | ------------------------------------------------- |
+| ¦BACKLOG¦   | Captured but not yet prioritized                  |
+| ¦PLANNED¦   | Prioritized and ready to be worked on             |
+| ¦DOING¦     | Actively being worked on                          |
+| ¦BLOCKED¦   | Waiting on something external                     |
+| ¦DONE¦      | Completed                                         |
+| ¦CANCELED¦  | Will not be done (obsolete, out of scope, etc.)   |
+| ¦DUPLICATE¦ | Duplicate of another issue — link to the original |
 
-### 2. Plan (Write great issues)
+@@ Finding Work
 
-Decide what the issue title and description should be before filing it.
+¦list¦ shows issues: ¦match¦ searches ids, titles, statuses, labels and assignees, and ¦milestone¦
+narrows the list to one milestone. ¦show¦ gives one issue's description, links and comments, and
+¦history¦ its events. ¦rationale¦ searches the specs and walkthroughs of earlier work for design
+decisions, and ¦code_history¦ finds the issues that touched a file or lines.
+Full tool list: ¦references/mcp-tools.md¦.
 
-- **Features/design work:** propose the idea to the user. Discuss and iterate on the proposal. Only create an issue after the user approves.
-- **Bugs reported by the user:** investigate and understand the bug before filing. If possible, reproduce it or identify the root cause, then file the issue.
-- **Bugs found during implementation:** file immediately and link back to the originating issue. No approval needed.
+@@ Issue Creation
 
-See **Issue Creation** for labels, titles, descriptions, and parent linking.
+- Always set a primary label (see **Issue Labels**). Add secondary labels for area/domain when useful.
+- Descriptions and comments render as Markdown. Write literal newlines, not ¦\n¦ escape sequences.
+- Markdown checklists (¦- [ ] Title¦) can sub-divide task steps.
+- Keep titles under 100 characters.
+- When a new issue belongs to an epic, set ¦parent¦ to the epic's ID.
 
-### 3. Spec (Think Before You Build)
+@@ Issue Labels
 
-Before implementing, ensure the issue has an up-to-date spec. If none exists, write one using the
-xpo MCP server's ` + "`spec`" + ` tool. See ` + "`references/spec-guide.md`" + ` for the full spec template and scaling rules.
+Every issue MUST have exactly one **primary label** that classifies the type of work:
 
-**Check prior rationale** — if the issue modifies or extends behavior introduced by prior work,
-use the ` + "`rationale`" + ` tool to search for related specs and walkthroughs before writing the spec.
-This surfaces design decisions and constraints that should inform the new work. Skip this for
-greenfield features or bug fixes in code with no deliberate design history.
+| Primary label | When to use                                         |
+| ------------- | --------------------------------------------------- |
+| ¦bug¦         | Something is broken or behaving incorrectly         |
+| ¦feature¦     | A new capability that doesn't exist yet             |
+| ¦task¦        | A concrete piece of work (refactor, migration, etc) |
+| ¦epic¦        | A high-level goal that will be broken into subtasks |
 
-The spec is a thinking tool — it collapses the design space so the user can steer decisions
-instead of discovering unwanted choices after the code is written. Scale the depth to the task:
-a bug fix gets a brief What/Why/How/AC spec; a feature gets the full template.
+An issue MAY also carry **secondary labels** for area or domain (e.g. ¦backend¦, ¦frontend¦, ¦ux¦, ¦infra¦).
+Keep the set small — reuse existing labels before inventing new ones.
 
-**Interactive mode** (user present — CLI, IDE plugin): after writing the spec, surface open questions
-and uncertainties to the user and wait for answers before implementing. The spec is a conversation
-artifact — the user should confirm or redirect before code is written.
+@@ Linking
 
-**Non-interactive mode** (headless — xpo drive, piped prompts): implement from the spec without
-waiting, BUT the spec must explicitly mark where you made judgment calls. For every open question,
-document the question, the answer you chose, and your reasoning. Use a dedicated section:
+Use the ¦link¦ tool to express relationships. Supported types: ¦blocks¦, ¦blocked_by¦,
+¦depends_on¦, ¦dependency_of¦, ¦duplicates¦, ¦duplicated_by¦, ¦relates_to¦.
+Links are bidirectional: ¦A blocks B¦ also shows on B as ¦blocked_by A¦. Two issues can have at
+most one link, so pick the most specific kind. Linking an already-linked pair fails; pass
+¦overwrite: true¦ to replace the existing link. ¦unlink¦ removes a link, whichever side stores it.
 
-- **Agent Decisions** — choices made on behalf of the user where the answer was not obvious.
-  Format each as: the question, the choice made, the reasoning, and what to revisit if the
-  choice was wrong.
+Moving an issue to DOING is refused while an issue that blocks it is not DONE, whichever side
+stores the link. xpo treats the other kinds as informational, but a workflow may gate on them too
+(for example on ¦depends_on¦).
 
-**Do not proceed to step 4 until the spec exists and (in interactive mode) the user has confirmed it.**
+@@ Milestones
 
-### 4. Start
+A milestone is a scope-bounded group of issues that are done together, numbered ¦#1¦, ¦#2¦, …
+with an optional label. Current and Next are the first two open milestones, in order. The
+¦milestone¦ tool lists, creates, updates, reorders, completes and deletes them; to complete a
+milestone moves its open issues to the next one. To put an issue in a milestone, set ¦milestone¦
+on ¦add¦ or ¦update¦: a number (¦#7¦), a label, ¦@current¦, ¦@next¦, or ¦none¦. A new child issue
+copies its parent's open milestone.
 
-**Before starting, check these gates:**
+@@ Specs
 
-- Only issues with PLANNED status are eligible. If the issue is in BACKLOG, ask the user before transitioning it.
-- Check the issue's dependencies. If any ` + "`depends_on`" + ` or ` + "`blocked_by`" + ` targets are not DONE, stop and ask the user how to proceed. Do not start multiple issues in a dependency chain simultaneously.
-- If the issue is already in DOING and assigned to someone else, stop and ask the user before taking it over.
+A spec is the design of an issue, written before the code with the ¦spec¦ tool. See
+¦references/spec-guide.md¦ for the template and how to scale it to the task. ¦rationale¦ finds the
+specs and walkthroughs of earlier work in the same area.
 
-Call ` + "`start`" + ` with the issue ID **before touching any file**. This transitions the issue to DOING, assigns it to the person you are working for, and creates an isolated git worktree for it. Never set ` + "`assignee`" + ` to yourself — xpo records that an agent did the work.
+@@ Walkthroughs
 
-All file reads, edits, builds, and test runs must happen inside the worktree path returned by ` + "`start`" + ` — not the main checkout. If you are already working in the issue's worktree (for example in Work Mode), don't call ` + "`start`" + ` again. Use ` + "`force: true`" + ` only to take over an issue someone else is working on, and only after the user approves.
-
-### 5. Implement & Test
-
-Follow the spec — its flow steps, decisions, and edge cases are your requirements.
-
-- If you encounter a decision not covered by the spec, make a reasonable choice and note it when you write the completion comment in step 6. If the decision is significant (would surprise the user or constrain future work), stop and ask.
-- If you realize the spec has a significant gap or is wrong, stop. Explain the issue, propose a spec update, and wait for approval.
-- If you discover bugs or needed work outside the scope of this issue, file them as new issues and link back to the current one. Do not fix them silently or leave TODOs.
-
-### 6. Handoff
-
-Verify your work before handing off:
-
-- Run the project's build and test commands. All tests must pass.
-- Review your own changes against the spec — confirm all acceptance criteria are met.
-
-Then add a brief completion comment using the ` + "`comment`" + ` tool, summarizing what changed and any decisions not in the original spec. Keep it lightweight — the walkthrough (step 8) is where the full explanation lives.
-
-**Stop here and wait.** The user needs to review and test your changes before anything else happens. Do not write the walkthrough, commit, or merge until the user has explicitly approved.
-
-### 7. Revisions
-
-When the user requests changes, update the spec to reflect the corrections **before** modifying
-code. The spec must always match the final implementation. If the user's feedback changes the
-approach, acceptance criteria, or decisions, those changes belong in the spec — not just in the
-code diff. Without this step, the spec drifts from reality and future agents reading it will build
-the wrong thing.
-
-After applying the changes, go back to step 6.
-
-### 8. Walkthrough
-
-**Prerequisite:** the user has explicitly approved the changes. If the user has not responded since
-your completion comment, you are NOT on this step — go back to step 6 (Handoff) and wait.
-
-Write a walkthrough using the xpo MCP server's ` + "`walkthrough`" + ` tool. The walkthrough is the
-**durable implementation record** — written from the perspective of a senior engineer explaining
-the changes to a junior developer:
+A walkthrough is the durable record of what was built, written after the implementation with the
+¦walkthrough¦ tool. Write it as a senior engineer explaining the changes to a junior developer:
 
 - What was built and why
 - How the pieces fit together
 - Key decisions and their rationale (including any that emerged during review)
 - Anything non-obvious that a future reader would need to understand
 
-Write the walkthrough **after** any user-requested corrections are applied, so it reflects the final state.
+Write it from the final state of the code.
 
-### 9. Complete
+@@ Starting Work
 
-**Gate:** do not complete until ALL of the following are true:
+¦start¦ transitions an issue to DOING, assigns it to the person you are working for, and creates an
+isolated git worktree on a new branch for it. Never set ¦assignee¦ to yourself — xpo records that
+an agent did the work. ¦start¦ refuses issues in BACKLOG or BLOCKED, and issues that are blocked
+(see **Linking**). ¦force: true¦ takes over an issue someone else already has in DOING.
 
-1. The user has explicitly approved the changes
-2. Tests pass
-3. The walkthrough is written
-4. All changes are committed on the issue's worktree
+All file reads, edits, builds, and test runs must happen inside the worktree path returned by
+¦start¦ — not the main checkout. If you are already working in the issue's worktree, don't call
+¦start¦ again.
 
-If any are missing, go back to the missing step.
+@@ Merging
 
-Then, in the issue's worktree:
-
-1. If the project's instructions require a changelog entry, add it now.
-2. Run ` + "`git status`" + `. Delete or move scratch files that are not part of the change.
-3. Commit everything: ` + "`git add -A && git commit -m \"<issue-id>: <issue title>\"`" + `.
-4. Call the xpo MCP server's ` + "`merge`" + ` tool without a ` + "`strategy`" + ` (the user may ask for one).
-   It squash-merges the branch into the default
-   branch, records a MERGE event, closes the issue, and removes the worktree and branch.
-   It refuses to run while the worktree has uncommitted or untracked files.
+Commit everything in the issue's worktree first: ¦git add -A && git commit -m "<issue-id>: <issue title>"¦.
+Then call the ¦merge¦ tool without a ¦strategy¦ (the user may ask for one). It squash-merges the
+branch into the default branch, records a MERGE event, closes the issue, and removes the worktree and
+branch. It refuses to run while the worktree has uncommitted or untracked files.
 
 If it fails because the default branch moved on (conflicts), bring the default branch into the
-issue's branch from the worktree (` + "`git rebase <default-branch>`" + `, or ` + "`git merge <default-branch>`" + `),
-resolve any conflicts, re-run the tests, commit, and call ` + "`merge`" + ` again.
+issue's branch from the worktree (¦git rebase <default-branch>¦, or ¦git merge <default-branch>¦),
+resolve any conflicts, re-run the tests, commit, and call ¦merge¦ again.
 
-Committing on the issue's worktree is your job. Merging is ` + "`merge`" + `'s job: never run ` + "`git push`" + `,
+Committing on the issue's worktree is your job. Merging is ¦merge¦'s job: never run ¦git push¦,
 or merge, rebase or commit on the default branch yourself. Rebasing the issue's branch onto the
 default branch (or merging the default branch into it) from the worktree is allowed.
-
----
-
-## Reference
-
-### Status Graph
-
-` + "`BACKLOG → PLANNED → DOING → DONE; DOING ⇄ BLOCKED; any → CANCELED; any → DUPLICATE`" + `
-
-| Status      | Meaning                                           |
-| ----------- | ------------------------------------------------- |
-| ` + "`BACKLOG`" + `   | Captured but not yet prioritised                  |
-| ` + "`PLANNED`" + `   | Prioritised and ready to be worked on             |
-| ` + "`DOING`" + `     | Actively being worked on                          |
-| ` + "`BLOCKED`" + `   | Waiting on something external                     |
-| ` + "`DONE`" + `      | Completed                                         |
-| ` + "`CANCELED`" + `  | Will not be done (obsolete, out of scope, etc.)   |
-| ` + "`DUPLICATE`" + ` | Duplicate of another issue — link to the original |
-
-### Issue Creation
-
-- Always set a primary label (see **Issue Labels**). Add secondary labels for area/domain when useful.
-- Descriptions and comments render as Markdown. Write literal newlines, not ` + "`\\n`" + ` escape sequences.
-- Markdown checklists (` + "`- [ ] Title`" + `) can sub-divide task steps.
-- Keep titles under 100 characters.
-- When a new issue belongs to an epic, set ` + "`parent`" + ` to the epic's ID.
-
-### Issue Labels
-
-Every issue MUST have exactly one **primary label** that classifies the type of work:
-
-| Primary label | When to use                                         |
-| ------------- | --------------------------------------------------- |
-| ` + "`bug`" + `         | Something is broken or behaving incorrectly         |
-| ` + "`feature`" + `     | A new capability that doesn't exist yet             |
-| ` + "`task`" + `        | A concrete piece of work (refactor, migration, etc) |
-| ` + "`epic`" + `        | A high-level goal that will be broken into subtasks |
-
-An issue MAY also carry **secondary labels** for area or domain (e.g. ` + "`backend`" + `, ` + "`frontend`" + `, ` + "`ux`" + `, ` + "`infra`" + `).
-Keep the set small — reuse existing labels before inventing new ones.
-
-### Linking
-
-Use the ` + "`link`" + ` tool to express relationships. Supported types: ` + "`blocks`" + `, ` + "`blocked_by`" + `,
-` + "`depends_on`" + `, ` + "`dependency_of`" + `, ` + "`duplicates`" + `, ` + "`duplicated_by`" + `, ` + "`relates_to`" + `.
-Two issues can have at most one link, so pick the most specific kind. Linking an already-linked
-pair fails; pass ` + "`overwrite: true`" + ` to replace the existing link.
-When a task spawns follow-up work, link the new issue back to the originating one.
-
-### Backlog Review
-
-When the user asks to review the board (not work an issue), this is a **read-only** operation:
-
-1. Check DOING issues — what's actively underway and by whom
-2. Check BLOCKED issues — what's stuck and what it's waiting on
-3. Check PLANNED issues — what's ready to pick up, in priority order
-4. Scan BACKLOG — anything notable worth planning
-
-Flag stale DOING issues (no recent activity). Do NOT change any issue status during a review.
-
-### Prioritisation
-
-When choosing what to work on next (and dependency links do not resolve the order):
-
-1. **Blockers** — issues blocking other work
-2. **Bugs** — correctness problems in existing functionality
-3. **Planned features** — by dependency order, then by story points (smaller first)
-`
+`), "@@ ", level+" ")
 }
 
 func generateMCPToolsBody() string {
@@ -435,20 +350,26 @@ may use different naming conventions). The table uses the base tool names.
 
 | Tool | Description |
 |---|---|
-| ` + "`list`" + ` | List or search issues; use ` + "`match`" + ` for free-text search |
+| ` + "`list`" + ` | List or search issues; use ` + "`match`" + ` for free-text search and ` + "`milestone`" + ` to filter by milestone |
 | ` + "`show`" + ` | Read one issue with details, dependencies, and comments |
 | ` + "`add`" + ` | Create a new issue. Set ` + "`before`" + ` or ` + "`after`" + ` to an issue ID to place it directly above or below that issue |
-| ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE). Reorder with ` + "`before`" + ` or ` + "`after`" + ` set to an issue ID |
+| ` + "`update`" + ` | Update fields including status transitions (BACKLOG/PLANNED/DOING/BLOCKED/DONE/CANCELED/DUPLICATE) and milestone. Reorder with ` + "`before`" + ` or ` + "`after`" + ` set to an issue ID |
 | ` + "`start`" + ` | Start working on an issue: transitions to DOING and creates a git worktree. Returns the worktree path |
 | ` + "`merge`" + ` | Squash-merge an issue branch into the default branch, record a MERGE event, close the issue, and clean up the worktree. All changes must be committed in the worktree first. Call it without a ` + "`strategy`" + ` unless the user asks for one |
 | ` + "`comment`" + ` | Add a markdown comment to an issue |
 | ` + "`link`" + ` | Add a relationship between two issues |
 | ` + "`unlink`" + ` | Remove one relationship between two issues, whichever side stores it |
 | ` + "`history`" + ` | View the audit trail for an issue |
+| ` + "`milestone`" + ` | List, create, update, reorder, complete or delete milestones |
 | ` + "`spec`" + ` | Read, write, or delete the design spec for an issue |
 | ` + "`walkthrough`" + ` | Read, write, or delete the implementation walkthrough for an issue |
 | ` + "`rationale`" + ` | Search across specs and walkthroughs for prior design decisions related to a topic |
 | ` + "`artifact`" + ` | Manage generic artifacts attached to an issue |
+| ` + "`git_status`" + ` | Show an issue branch's ahead/behind state and its worktree's uncommitted files (read-only) |
+| ` + "`git_diff`" + ` | Show what an issue's branch changed, including uncommitted changes (read-only) |
+| ` + "`git_log`" + ` | List the commits of an issue's branch or of the default branch (read-only) |
+| ` + "`git_show`" + ` | Show one commit's metadata, message and patch (read-only) |
+| ` + "`code_history`" + ` | Find the commits and issues that touched a file or a line range (read-only) |
 `
 }
 

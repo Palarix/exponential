@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	initForce  bool
-	initYes    bool
-	initPrefix string
-	initAgents string
+	initForce    bool
+	initYes      bool
+	initPrefix   string
+	initAgents   string
+	initWorkflow string
 )
 
 var initCmd = &cobra.Command{
@@ -27,13 +28,30 @@ var initCmd = &cobra.Command{
 	Long: `Initialize Exponential: create the .xpo directory, configure MCP servers,
 and install agent skills — all in one step.
 
+The first run also asks which workflow agents follow and writes it as the
+xpo-workflow skill. The project owns that skill: re-running xpo init never
+changes it.
+
 Re-running in an initialized project refreshes integration files to the
-current CLI version.`,
+current CLI version. Add --workflow to (re)write the workflow skill from a
+template; existing workflow skills are replaced after you confirm.`,
 	Run: runInit,
 }
 
 func runInit(cmd *cobra.Command, args []string) {
 	interactive := isInteractive() && !initYes
+
+	// "--workflow guided" (with a space) leaves the name as an argument.
+	if initWorkflow == workflowAsk && len(args) > 0 {
+		initWorkflow = args[0]
+	}
+	// Validate --workflow before any prompt or write.
+	if initWorkflow != "" && initWorkflow != workflowAsk {
+		if _, err := workflowFromFlag(initWorkflow); err != nil {
+			fmt.Printf("%s %v\n", ui.ErrorPrefix, err)
+			os.Exit(1)
+		}
+	}
 
 	// Pre-flight
 	alreadyInit := false
@@ -42,7 +60,14 @@ func runInit(cmd *cobra.Command, args []string) {
 	}
 
 	if alreadyInit {
+		if strings.EqualFold(initWorkflow, "none") {
+			fmt.Printf("%s --workflow none: nothing to set up. Delete the xpo-workflow skill folders to remove the workflow.\n", ui.ErrorPrefix)
+			os.Exit(1)
+		}
 		runReinit(interactive)
+		if initWorkflow != "" {
+			runWorkflowSetup(interactive)
+		}
 		return
 	}
 
@@ -73,9 +98,10 @@ func runInit(cmd *cobra.Command, args []string) {
 
 	prefix := resolvePrefix(interactive)
 	agents := resolveAgentSelection(interactive)
+	wf := resolveWorkflowChoice(interactive)
 
 	// Change plan
-	plan := exponential.ComputeInitPlan(agents)
+	plan := exponential.ComputeInitPlan(agents, wf)
 	fmt.Printf("\nChanges\n")
 	if needsGitInit {
 		fmt.Printf("  + .git/\n")
@@ -108,7 +134,7 @@ func runInit(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	applyInit(prefix, agents)
+	applyInit(prefix, agents, wf)
 
 	fmt.Printf("\n%s Exponential is ready\n", ui.OKPrefix)
 	fmt.Printf("\nNext\n")
@@ -245,7 +271,58 @@ func resolveAgentSelection(interactive bool) []exponential.AgentConfig {
 	return result
 }
 
-func applyInit(prefix string, agents []exponential.AgentConfig) {
+// workflowFromFlag resolves a --workflow value. It returns nil for "none".
+func workflowFromFlag(name string) (*exponential.WorkflowTemplate, error) {
+	if strings.EqualFold(name, "none") {
+		return nil, nil
+	}
+	tpl, ok := exponential.LookupWorkflow(name)
+	if !ok {
+		return nil, fmt.Errorf("unknown workflow %q (available: %s)", name, strings.Join(exponential.WorkflowNames(), ", "))
+	}
+	return &tpl, nil
+}
+
+// resolveWorkflowChoice picks the workflow written on first init: the
+// --workflow flag, else a prompt, else the first template. Returns nil for
+// "none".
+func resolveWorkflowChoice(interactive bool) *exponential.WorkflowTemplate {
+	if initWorkflow != "" && initWorkflow != workflowAsk {
+		tpl, _ := workflowFromFlag(initWorkflow) // validated in runInit
+		return tpl
+	}
+	if !interactive {
+		tpl := exponential.WorkflowTemplates[0]
+		return &tpl
+	}
+
+	var options []huh.Option[int]
+	for i, t := range exponential.WorkflowTemplates {
+		options = append(options, huh.NewOption(fmt.Sprintf("%-10s %s", t.Title, ui.MutedStyle.Render(t.Description)), i))
+	}
+	none := len(exponential.WorkflowTemplates)
+	options = append(options, huh.NewOption(fmt.Sprintf("%-10s %s", "None", ui.MutedStyle.Render("No workflow: write your own xpo-workflow skill, or let the agent decide")), none))
+
+	fmt.Printf("\n%s Workflow\n", ui.AccentStyle.Render("?"))
+	selected := 0
+	huh.NewSelect[int]().
+		Title("How should agents work on issues? Written once; edit it freely afterwards").
+		Options(options...).
+		Value(&selected).
+		Run()
+
+	if selected == none {
+		fmt.Printf("  %s None\n", ui.OKPrefix)
+		return nil
+	}
+	tpl := exponential.WorkflowTemplates[selected]
+	fmt.Printf("  %s %s\n", ui.OKPrefix, tpl.Title)
+	return &tpl
+}
+
+// applyInit writes the integration files. wf is the workflow chosen on first
+// init; re-init and doctor pass nil and never touch the workflow.
+func applyInit(prefix string, agents []exponential.AgentConfig, wf *exponential.WorkflowTemplate) {
 	_, err := exponential.InitProject(initForce, prefix)
 	if err != nil {
 		fmt.Printf("%s %v\n", ui.ErrorPrefix, err)
@@ -283,19 +360,37 @@ func applyInit(prefix string, agents []exponential.AgentConfig) {
 		}
 	}
 
+	if wf != nil {
+		for _, agent := range exponential.InlineWorkflowTargets(agents) {
+			if _, err := exponential.AppendInlineWorkflow(agent, wf); err != nil {
+				fmt.Printf("  %s %s: %v\n", ui.ErrorPrefix, agent.File, err)
+			}
+		}
+	}
+
 	for _, agent := range agents {
 		if agent.SkillDir == "" {
 			continue
 		}
 		handleEditedSkills(agent)
+		if _, err := exponential.InstallWorkflow(agent, wf); err != nil {
+			fmt.Printf("  %s %s workflow: %v\n", ui.ErrorPrefix, agent.Name, err)
+		}
 	}
-
 }
 
 // handleEditedSkills writes the agent's skill files. Files with local edits are
 // replaced without asking in non-interactive mode or with --yes, and prompted
 // for otherwise.
 func handleEditedSkills(agent exponential.AgentConfig) {
+	// A skill from before the split held the workflow; the update turns it
+	// into the reference, so point the user at --workflow.
+	defer func(legacy bool) {
+		if legacy {
+			printWorkflowHint()
+		}
+	}(exponential.HadLegacyWorkflow(agent))
+
 	res, err := exponential.WriteAgentSkill(agent, "", initForce)
 	if err != nil {
 		fmt.Printf("  %s %s skill: %v\n", ui.ErrorPrefix, agent.Name, err)
@@ -531,7 +626,7 @@ func runReinit(interactive bool) {
 	}
 
 	// Change plan
-	plan := exponential.ComputeInitPlan(agents)
+	plan := exponential.ComputeInitPlan(agents, nil)
 	fmt.Printf("\nChanges\n")
 	for _, c := range plan.Changes {
 		marker := "~"
@@ -551,13 +646,12 @@ func runReinit(interactive bool) {
 	}
 
 	cleanup()
-	applyInit(prefix, agents)
+	applyInit(prefix, agents, nil)
 
 	fmt.Printf("\n%s Updated integrations to %s\n", ui.OKPrefix, version.CLIVersion)
 	fmt.Printf("\nNext\n")
 	fmt.Printf("  Commit the update:  git commit -am \"Update xpo integrations to %s\"\n\n", version.CLIVersion)
 }
-
 
 func contains(slice []string, val string) bool {
 	for _, s := range slice {
@@ -573,5 +667,89 @@ func init() {
 	initCmd.Flags().BoolVar(&initYes, "yes", false, "Skip confirmation prompts")
 	initCmd.Flags().StringVar(&initPrefix, "prefix", "", "Issue ID prefix (e.g. pay)")
 	initCmd.Flags().StringVar(&initAgents, "agents", "", "Comma-separated list of agent harnesses to set up")
+	initCmd.Flags().StringVar(&initWorkflow, "workflow", "", "Write the workflow skill from a template ("+strings.Join(exponential.WorkflowNames(), ", ")+"); without a value, ask")
+	initCmd.Flags().Lookup("workflow").NoOptDefVal = workflowAsk
 	rootCmd.AddCommand(initCmd)
+}
+
+// workflowAsk is the --workflow value when the flag is given without one.
+const workflowAsk = "ask"
+
+var workflowHintShown bool
+
+// printWorkflowHint tells the user, once per run, how to set up the workflow
+// after the update turned their old combined skill into the reference.
+func printWorkflowHint() {
+	if workflowHintShown || initWorkflow != "" {
+		return
+	}
+	workflowHintShown = true
+	fmt.Printf("%s The workflow is now a separate skill. Run %s to set it up.\n", ui.NotePrefix, ui.AccentStyle.Render("xpo init --workflow"))
+}
+
+// runWorkflowSetup writes the workflow skill in an initialized project
+// (xpo init --workflow). Existing workflow skills are replaced only after the
+// user confirms, or with --yes.
+func runWorkflowSetup(interactive bool) {
+	var tpl *exponential.WorkflowTemplate
+	if initWorkflow == workflowAsk {
+		tpl = promptWorkflowTemplate(interactive)
+	} else {
+		tpl, _ = workflowFromFlag(initWorkflow) // validated in runInit
+	}
+
+	agents := exponential.WorkflowTargets()
+	if len(agents) == 0 {
+		fmt.Printf("%s No agents are set up in this project. Run xpo init first.\n", ui.ErrorPrefix)
+		os.Exit(1)
+	}
+
+	if existing := exponential.ExistingWorkflowDirs(agents); len(existing) > 0 {
+		fmt.Printf("\n%s These workflow skills will be replaced with the %s template:\n", ui.NotePrefix, tpl.Title)
+		for _, dir := range existing {
+			fmt.Printf("  ~ %s/\n", dir)
+		}
+		switch {
+		case initYes:
+		case interactive:
+			if !promptConfirm("Replace them?", false) {
+				fmt.Printf("\nThe workflow was not changed.\n\n")
+				return
+			}
+		default:
+			fmt.Printf("%s Run with --yes to replace them, or run interactively.\n", ui.ErrorPrefix)
+			os.Exit(1)
+		}
+	}
+
+	res, err := exponential.SetupWorkflow(agents, tpl)
+	for _, f := range res.Written {
+		fmt.Printf("%s %s\n", ui.OKPrefix, f)
+	}
+	for _, f := range res.InlineAdded {
+		fmt.Printf("%s %s: workflow added below the xpo section\n", ui.OKPrefix, f)
+	}
+	for _, f := range res.InlineKept {
+		fmt.Printf("%s %s already has a Workflow section; left as it is\n", ui.NotePrefix, f)
+	}
+	if err != nil {
+		fmt.Printf("%s %v\n", ui.ErrorPrefix, err)
+		os.Exit(1)
+	}
+	fmt.Println()
+}
+
+// promptWorkflowTemplate asks which template to write; without a terminal it
+// takes the first.
+func promptWorkflowTemplate(interactive bool) *exponential.WorkflowTemplate {
+	if !interactive || len(exponential.WorkflowTemplates) == 1 {
+		tpl := exponential.WorkflowTemplates[0]
+		return &tpl
+	}
+	var options []string
+	for _, t := range exponential.WorkflowTemplates {
+		options = append(options, fmt.Sprintf("%-10s %s", t.Title, ui.MutedStyle.Render(t.Description)))
+	}
+	tpl := exponential.WorkflowTemplates[promptSelect("Which workflow?", options)]
+	return &tpl
 }

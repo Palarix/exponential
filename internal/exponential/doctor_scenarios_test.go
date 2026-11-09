@@ -425,7 +425,7 @@ func TestDoctor_VersionStamp_InManagedBlock(t *testing.T) {
 func TestDoctor_ChangePlan_SortsDotfilesFirst(t *testing.T) {
 	setupProject(t, "test")
 
-	plan := ComputeInitPlan([]AgentConfig{testClaudeCode})
+	plan := ComputeInitPlan([]AgentConfig{testClaudeCode}, nil)
 
 	if len(plan.Changes) == 0 {
 		t.Fatal("plan should have changes")
@@ -451,7 +451,7 @@ func TestDoctor_ChangePlan_DetectsCreateVsModify(t *testing.T) {
 	defer os.Chdir(orig)
 
 	// Fresh directory — everything should be "create"
-	plan := ComputeInitPlan([]AgentConfig{testClaudeCode})
+	plan := ComputeInitPlan([]AgentConfig{testClaudeCode}, nil)
 	for _, c := range plan.Changes {
 		if c.Action != "create" {
 			t.Fatalf("expected create for %s in empty dir, got %s", c.Path, c.Action)
@@ -462,7 +462,7 @@ func TestDoctor_ChangePlan_DetectsCreateVsModify(t *testing.T) {
 	InitProject(false, "test")
 	EnsureMCPConfigFor(testClaudeCode.MCPConfig)
 
-	plan2 := ComputeInitPlan([]AgentConfig{testClaudeCode})
+	plan2 := ComputeInitPlan([]AgentConfig{testClaudeCode}, nil)
 	actions := map[string]string{}
 	for _, c := range plan2.Changes {
 		actions[c.Path] = c.Action
@@ -580,7 +580,7 @@ func TestDoctor_FullSetup_EditBlock_Detected(t *testing.T) {
 
 	// Edit the managed block
 	content, _ := os.ReadFile("CLAUDE.md")
-	modified := strings.Replace(string(content), "Every code change must", "CUSTOM: every code change must", 1)
+	modified := strings.Replace(string(content), "never shell out", "CUSTOM: never shell out", 1)
 	os.WriteFile("CLAUDE.md", []byte(modified), 0644)
 
 	// Block should be detected as edited

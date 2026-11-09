@@ -87,7 +87,8 @@ var (
 	claudeWorkTools   = []string{"TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "Agent"}
 )
 
-// Skill, in both modes, lets the agent load the project's xpo workflow.
+// Skill, in both modes, lets the agent load the xpo reference and the
+// project's xpo-workflow skill.
 func (p Profile) claudeTools() string {
 	tools := []string{"Read", "Grep", "Glob"}
 	if p.work() {
