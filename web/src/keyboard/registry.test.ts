@@ -138,6 +138,78 @@ describe("KeyboardRegistry", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  describe("conflict warnings", () => {
+    function menu(registry: KeyboardRegistry, id: string, run = vi.fn()) {
+      add(registry, { scope: "menu", priority: "overlay", shortcuts: [{ id, key: "ArrowDown", label: "Next", run }] });
+      return run;
+    }
+
+    function warnSpy() {
+      return vi.spyOn(console, "warn").mockImplementation(() => {});
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("does not warn when the same binding id is stacked at equal priority", () => {
+      const warn = warnSpy();
+      const registry = new KeyboardRegistry();
+      const parent = menu(registry, "menu.ArrowDown");
+      const submenu = menu(registry, "menu.ArrowDown");
+
+      registry.dispatch(keyboardEvent("ArrowDown"));
+
+      expect(submenu).toHaveBeenCalledOnce();
+      expect(parent).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("warns when different binding ids share a key at equal priority", () => {
+      const warn = warnSpy();
+      const registry = new KeyboardRegistry();
+      menu(registry, "other.ArrowDown");
+      menu(registry, "menu.ArrowDown");
+
+      registry.dispatch(keyboardEvent("ArrowDown"));
+
+      expect(warn).toHaveBeenCalledWith("Keyboard shortcut conflict: menu.ArrowDown overrides other.ArrowDown");
+    });
+
+    it("warns about a different binding id behind a stacked copy of the winner", () => {
+      const warn = warnSpy();
+      const registry = new KeyboardRegistry();
+      menu(registry, "other.ArrowDown");
+      menu(registry, "menu.ArrowDown");
+      menu(registry, "menu.ArrowDown");
+
+      registry.dispatch(keyboardEvent("ArrowDown"));
+
+      expect(warn).toHaveBeenCalledWith("Keyboard shortcut conflict: menu.ArrowDown overrides other.ArrowDown");
+    });
+
+    it("does not warn about a lower-priority binding on the same key", () => {
+      const warn = warnSpy();
+      const registry = new KeyboardRegistry();
+      add(registry, {
+        scope: "global",
+        priority: "global",
+        blocksLowerPriorities: false,
+        shortcuts: [{ id: "global.ArrowDown", key: "ArrowDown", label: "Down", run: vi.fn() }],
+      });
+      add(registry, {
+        scope: "menu",
+        priority: "overlay",
+        blocksLowerPriorities: false,
+        shortcuts: [{ id: "menu.ArrowDown", key: "ArrowDown", label: "Next", run: vi.fn() }],
+      });
+
+      registry.dispatch(keyboardEvent("ArrowDown"));
+
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
   it("publishes enabled, visible metadata without callbacks", () => {
     const registry = new KeyboardRegistry();
     add(registry, {

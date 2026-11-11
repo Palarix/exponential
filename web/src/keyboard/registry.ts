@@ -108,8 +108,12 @@ export class KeyboardRegistry {
       (a, b) => PRIORITY[b.priority] - PRIORITY[a.priority] || b.order - a.order,
     );
     const winner = sorted[0];
-    const conflicting = sorted[1];
-    if (conflicting && PRIORITY[conflicting.priority] === PRIORITY[winner.priority] && import.meta.env.DEV) {
+    // A copy of the winner's own binding (e.g. a submenu stacked over its parent menu)
+    // is intentional stacking, not a conflict.
+    const conflicting = sorted.find(
+      (match) => PRIORITY[match.priority] === PRIORITY[winner.priority] && match.binding.id !== winner.binding.id,
+    );
+    if (conflicting && import.meta.env.DEV) {
       console.warn(`Keyboard shortcut conflict: ${winner.binding.id} overrides ${conflicting.binding.id}`);
     }
     if (winner.binding.preventDefault !== false) event.preventDefault();
