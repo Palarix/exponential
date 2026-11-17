@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/identity"
@@ -194,5 +195,66 @@ func TestGenerateAttributesAgentWorkToHumans(t *testing.T) {
 	}
 	if strings.Contains(string(cfg), "agent@") {
 		t.Error("config.yaml contributors include an agent identity")
+	}
+}
+
+func readDemoEvents(t *testing.T, dir string) []model.Event {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, ".xpo", "issues.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var events []model.Event
+	for _, line := range splitLines(data) {
+		if len(line) == 0 {
+			continue
+		}
+		var evt model.Event
+		if err := json.Unmarshal(line, &evt); err != nil {
+			t.Fatalf("invalid JSONL line: %v", err)
+		}
+		events = append(events, evt)
+	}
+	return events
+}
+
+// A seeded event later than now makes stampAfter stamp the next real change
+// with a seeded time. Monday and Tuesday are the days the weekend snap moves
+// events to, so they cover the worst case; the rest of the week is checked too.
+func TestGenerateNoEventsAfterNow(t *testing.T) {
+	monday := time.Date(2026, time.October, 19, 9, 30, 0, 0, time.UTC)
+	for d := range 7 {
+		now := monday.Add(time.Duration(d) * 24 * time.Hour)
+		t.Run(now.Weekday().String(), func(t *testing.T) {
+			dir := t.TempDir()
+			if err := generateAt(dir, now); err != nil {
+				t.Fatalf("generateAt failed: %v", err)
+			}
+			events := readDemoEvents(t, dir)
+
+			for _, e := range events {
+				if e.CreatedAt.After(now) {
+					t.Fatalf("event %s %s at %s is after now %s", e.ID, e.Type, e.CreatedAt, now)
+				}
+			}
+			for i := 1; i < len(events); i++ {
+				if events[i].CreatedAt.Before(events[i-1].CreatedAt) {
+					t.Fatalf("log not sorted at index %d", i)
+				}
+			}
+			last := make(map[string]time.Time)
+			for _, e := range events {
+				if prev, ok := last[e.ID]; ok && !e.CreatedAt.After(prev) {
+					t.Fatalf("issue %s events out of order: %s after %s", e.ID, e.CreatedAt, prev)
+				}
+				last[e.ID] = e.CreatedAt
+			}
+
+			// The last seeded event is before now, so a change made right
+			// after seeding keeps its real time instead of prev+1ns.
+			if tail := events[len(events)-1].CreatedAt; !tail.Before(now) {
+				t.Fatalf("last event %s is not before now %s", tail, now)
+			}
+		})
 	}
 }

@@ -96,6 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Demo board: `xpo demo` no longer seeds events later than the time it runs. Before, the weekend snap could push the last events up to 3 days into the future, and every change made on the new board got a seeded timestamp. (xpo-760e41)
+
 - Agent chat: an event over 4 MiB no longer makes the whole chat fail to open or replay. The board reads a chat's log with no line limit. An approval card stores each tool argument up to 64 KiB and marks a longer one `… [cut: N bytes total]`. The agent still gets the full input. (xpo-f5df49)
 
 - Keyboard shortcuts: a submenu no longer logs "Keyboard shortcut conflict" when its keys override the same shortcuts of its parent menu. Different shortcuts on the same key at the same priority still warn. (xpo-c78c8d)

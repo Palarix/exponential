@@ -95,12 +95,17 @@ func attribute(evt model.Event, actor, principal int) model.Event {
 }
 
 func Generate(outputDir string) error {
+	return generateAt(outputDir, time.Now().UTC())
+}
+
+// generateAt writes the demo board as if it were created at now. No event
+// is later than now.
+func generateAt(outputDir string, now time.Time) error {
 	xpoDir := filepath.Join(outputDir, ".xpo")
 	if err := os.MkdirAll(xpoDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .xpo directory: %w", err)
 	}
 
-	now := time.Now().UTC()
 	anchor := now.Add(-60 * 24 * time.Hour) // project started 60 days ago
 
 	issues := allIssues()
@@ -210,6 +215,7 @@ func Generate(outputDir string) error {
 
 	// Snap to workweek: no weekend work, Mon=planning, Tue-Thu=implementation
 	modelEvents = snapToWorkWeek(modelEvents)
+	capAtNow(modelEvents, now)
 
 	// Write issues.db
 	dbPath := filepath.Join(xpoDir, "issues.db")
@@ -322,6 +328,22 @@ func snapToWorkWeek(events []model.Event) []model.Event {
 	})
 
 	return events
+}
+
+// capAtNow pulls events that snapToWorkWeek pushed past now back to just
+// before now, 1 second apart, keeping their order. Storage stamps a write
+// that is not after the last event with that event's time, so a seeded
+// event in the future would give every new change a seeded timestamp.
+// events must be sorted by CreatedAt.
+func capAtNow(events []model.Event, now time.Time) {
+	limit := now.Add(-time.Second)
+	for i := len(events) - 1; i >= 0; i-- {
+		if !events[i].CreatedAt.After(limit) {
+			return
+		}
+		events[i].CreatedAt = limit
+		limit = limit.Add(-time.Second)
+	}
 }
 
 func writeConfig(xpoDir string) error {
