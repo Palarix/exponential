@@ -336,3 +336,50 @@ func TestStore_NoOnChangeOnFailedDelete(t *testing.T) {
 		t.Fatalf("OnChange = %v", *ids)
 	}
 }
+
+// A line over the old 4 MiB scanner limit must not make the chat unreadable.
+func TestStore_GetReadsEventsOverFourMiB(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	big := strings.Repeat("x", 5<<20)
+	if _, err := s.Append(m.ID, Event{Type: EventUserMessage, Text: "hi"}, Event{Type: EventAssistantText, Text: big}, Event{Type: EventTurnDone}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, events, err := NewStore(s.Dir).Get(m.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if len(events) != 3 || events[0].Text != "hi" || events[1].Text != big || events[2].Type != EventTurnDone {
+		t.Fatalf("got %d events, want 3 intact", len(events))
+	}
+	for i, e := range events {
+		if e.Seq != i+1 {
+			t.Errorf("events[%d].Seq = %d, want %d", i, e.Seq, i+1)
+		}
+	}
+
+	got, err := NewStore(s.Dir).Append(m.ID, Event{Type: EventUserMessage})
+	if err != nil {
+		t.Fatalf("Append after reopen: %v", err)
+	}
+	if got[0].Seq != 4 {
+		t.Errorf("seq after reopen = %d, want 4", got[0].Seq)
+	}
+}
+
+func TestStore_ReadEventsSkipsBadLinesAndKeepsUnterminatedLast(t *testing.T) {
+	s := newTestStore(t)
+	m, _ := s.Create()
+	log := `{"seq":1,"type":"user_message","text":"a"}` + "\n" + "not json\n" + `{"seq":2,"type":"turn_done"}`
+	if err := os.WriteFile(s.eventsPath(m.ID), []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, events, err := s.Get(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 || events[0].Text != "a" || events[1].Type != EventTurnDone {
+		t.Errorf("events = %+v", events)
+	}
+}

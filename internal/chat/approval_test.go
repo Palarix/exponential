@@ -594,3 +594,39 @@ func TestRunner_DeniedApprovalMarksToolCallDenied(t *testing.T) {
 		t.Errorf("tool calls = %+v, want toolu_2 denied", calls)
 	}
 }
+
+// A large Write: the card's stored input is cut, the agent still gets all of it.
+func TestRunner_ApprovalStoresCappedInput(t *testing.T) {
+	content := strings.Repeat("y", maxInputString+1000)
+	request := `{"type":"control_request","request_id":"req-9","request":{"subtype":"can_use_tool","tool_name":"Write","input":{"file_path":"big.txt","content":"` + content + `"},"tool_use_id":"toolu_9"}}`
+	r, store, dir := newApprovalRunner(t, request)
+	m, _ := store.Create()
+	ch := tap(r, m.ID)
+	r.Send(m.ID, SendRequest{Text: "write it"})
+
+	req := waitForEvent(t, ch, EventApprovalRequested)
+	var shown map[string]string
+	if err := json.Unmarshal([]byte(req.Input), &shown); err != nil {
+		t.Fatalf("stored input is not JSON: %v", err)
+	}
+	if shown["file_path"] != "big.txt" || !strings.HasSuffix(shown["content"], "… [cut: 66536 bytes total]") {
+		t.Errorf("stored input: file_path %q, content len %d", shown["file_path"], len(shown["content"]))
+	}
+	if err := r.Decide(m.ID, req.ApprovalID, DecisionAllow); err != nil {
+		t.Fatal(err)
+	}
+	waitDone(t, r)
+
+	resps := recordedResponses(t, dir)
+	if len(resps) != 1 {
+		t.Fatalf("responses = %d", len(resps))
+	}
+	updated, _ := resps[0]["updatedInput"].(map[string]any)
+	if updated["content"] != content {
+		t.Errorf("agent got content of len %d, want %d", len(updated["content"].(string)), len(content))
+	}
+	_, events, _ := store.Get(m.ID)
+	if stored := eventsOfType(events, EventApprovalRequested); len(stored) != 1 || stored[0].Input != req.Input {
+		t.Error("logged input differs from the live event")
+	}
+}

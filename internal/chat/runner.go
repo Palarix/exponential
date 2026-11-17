@@ -829,7 +829,7 @@ func (r *Runner) approver(chatID string) Approver {
 		if t != nil {
 			stopped = t.ctx.Done()
 		}
-		r.settle(chatID, Event{Type: EventApprovalRequested, ApprovalID: approvalID, Name: req.Tool, Arg: req.Detail, Input: req.Input, ToolID: req.ToolID})
+		r.settle(chatID, Event{Type: EventApprovalRequested, ApprovalID: approvalID, Name: req.Tool, Arg: req.Detail, Input: capInput(req.Input), ToolID: req.ToolID})
 
 		var v Verdict
 		select {

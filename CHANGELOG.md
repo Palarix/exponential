@@ -96,6 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Agent chat: an event over 4 MiB no longer makes the whole chat fail to open or replay. The board reads a chat's log with no line limit. An approval card stores each tool argument up to 64 KiB and marks a longer one `… [cut: N bytes total]`. The agent still gets the full input. (xpo-f5df49)
+
 - Keyboard shortcuts: a submenu no longer logs "Keyboard shortcut conflict" when its keys override the same shortcuts of its parent menu. Different shortcuts on the same key at the same priority still warn. (xpo-c78c8d)
 
 - Filter menu: checking a value no longer zeroes the counts of the other values or removes rows from its own list. Each dimension's counts ignore its own selection and follow the selections in the other dimensions, in Issues, My Issues, Inbox and Milestones. (xpo-c5d3ff)

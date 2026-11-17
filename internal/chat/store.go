@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -182,16 +183,25 @@ func (s *Store) readEvents(id string) ([]Event, error) {
 		return nil, err
 	}
 	defer f.Close()
+	// A bufio.Reader has no line limit, unlike a bufio.Scanner: one large
+	// event must not make the whole chat unreadable.
 	events := []Event{}
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
-	for sc.Scan() {
-		var e Event
-		if json.Unmarshal(sc.Bytes(), &e) == nil {
-			events = append(events, e)
+	rd := bufio.NewReaderSize(f, 64*1024)
+	for {
+		line, err := rd.ReadBytes('\n')
+		if len(line) > 0 {
+			var e Event
+			if json.Unmarshal(line, &e) == nil {
+				events = append(events, e)
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			return events, nil
+		}
+		if err != nil {
+			return nil, err
 		}
 	}
-	return events, sc.Err()
 }
 
 // Append stamps events with the next sequence numbers and the current time,
