@@ -776,9 +776,9 @@ func (t *LocalTransport) CompleteMilestone(ref, mode, to string) (*model.Milesto
 				continue
 			}
 			stats.Counts[string(iss.Status)]++
-			stats.Points.Total += iss.Estimate
+			stats.Points.Total += issuePoints(iss)
 			if model.IsCompleted(iss.Status) {
-				stats.Points.Done += iss.Estimate
+				stats.Points.Done += issuePoints(iss)
 			}
 			stats.LeafIDs = append(stats.LeafIDs, iss.ID)
 		}
@@ -896,9 +896,18 @@ func newMilestoneView(r *model.Milestone, slot string, issues map[string]*model.
 	return MilestoneView{Milestone: r, Slot: slot, MilestoneScope: MilestoneCounts(issues, r)}
 }
 
+// issuePoints is what an issue adds to a milestone's story points: its
+// estimate, or 1 when it has none, as the backlog's group headers count.
+func issuePoints(iss *model.Issue) int {
+	if iss.Estimate == 0 {
+		return 1
+	}
+	return iss.Estimate
+}
+
 // MilestoneCounts counts the scope of a milestone (leaf issues, not CANCELED or
-// DUPLICATE) by status and sums its story points. A COMPLETED milestone uses
-// the snapshot stored when it was completed.
+// DUPLICATE) by status and sums its story points, an unestimated issue as 1.
+// A COMPLETED milestone uses the snapshot stored when it was completed.
 func MilestoneCounts(issues map[string]*model.Issue, r *model.Milestone) MilestoneScope {
 	s := MilestoneScope{Counts: map[string]int{}}
 	if r.Stats != nil {
@@ -916,9 +925,9 @@ func MilestoneCounts(issues map[string]*model.Issue, r *model.Milestone) Milesto
 			for _, iss := range issues {
 				if iss.MilestoneID == r.ID && !parents[iss.ID] && inScope(iss.Status) {
 					s.Counts[string(iss.Status)]++
-					s.Points.Total += iss.Estimate
+					s.Points.Total += issuePoints(iss)
 					if model.IsCompleted(iss.Status) {
-						s.Points.Done += iss.Estimate
+						s.Points.Done += issuePoints(iss)
 					}
 				}
 			}

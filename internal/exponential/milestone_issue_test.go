@@ -230,15 +230,33 @@ func TestMilestoneCounts_SumsPointsOfTheScope(t *testing.T) {
 		{ID: "x-epic", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "epic", MilestoneID: rid, Estimate: 8}, CreatedAt: at},
 		{ID: "x-1", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "1", ParentID: "x-epic", MilestoneID: rid, Status: "DONE", Estimate: 3}, CreatedAt: at},
 		{ID: "x-2", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "2", MilestoneID: rid, Status: "DOING", Estimate: 5}, CreatedAt: at},
-		// Unestimated: adds 0.
+		// Unestimated: counts as 1, as in the backlog headers.
 		{ID: "x-3", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "3", MilestoneID: rid}, CreatedAt: at},
 		{ID: "x-4", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "4", MilestoneID: rid, Status: "CANCELED", Estimate: 13}, CreatedAt: at},
 		{ID: "x-5", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "5", Estimate: 21}, CreatedAt: at},
 	}
 	r := ProjectMilestones(events)[0]
 	s := MilestoneCounts(ProjectIssues(events), r)
-	if s.Points == nil || *s.Points != (model.MilestonePoints{Total: 8, Done: 3}) {
-		t.Errorf("points = %+v, want 3/8 (no epic, no canceled, no other milestone)", s.Points)
+	if s.Points == nil || *s.Points != (model.MilestonePoints{Total: 9, Done: 3}) {
+		t.Errorf("points = %+v, want 3/9 (no epic, no canceled, no other milestone, unestimated as 1)", s.Points)
+	}
+}
+
+func TestMilestoneCounts_UnestimatedIssuesCountOnePoint(t *testing.T) {
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	rid := "ms-a"
+	events := []model.Event{
+		relEvent(rid, model.EventTypeMilestoneCreate, at, model.MilestoneCreatePayload{Number: 1}),
+		{ID: "x-1", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "1", MilestoneID: rid, Status: "DONE"}, CreatedAt: at},
+		{ID: "x-2", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "2", MilestoneID: rid, Status: "DOING"}, CreatedAt: at},
+		{ID: "x-3", Type: model.EventTypeCreate, Payload: model.CreatePayload{Title: "3", MilestoneID: rid}, CreatedAt: at},
+	}
+	r := ProjectMilestones(events)[0]
+	if s := MilestoneCounts(ProjectIssues(events), r); s.Points == nil || *s.Points != (model.MilestonePoints{Total: 3, Done: 1}) {
+		t.Errorf("points = %+v, want 1/3", s.Points)
+	}
+	if s := MilestoneCounts(map[string]*model.Issue{}, r); s.Points == nil || *s.Points != (model.MilestonePoints{}) {
+		t.Errorf("a milestone without issues has 0/0 points, got %+v", s.Points)
 	}
 }
 

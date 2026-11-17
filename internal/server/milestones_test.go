@@ -94,7 +94,7 @@ func TestMilestonesAPI_Lifecycle(t *testing.T) {
 	if issue.MilestoneID != created.ID || issue.Milestone != "1.5" {
 		t.Errorf("issue milestone = %q / %q", issue.MilestoneID, issue.Milestone)
 	}
-	if got := getBoard(t, mux).Current; got.Total != 1 || got.Counts["BACKLOG"] != 1 || got.Points == nil || got.Points.Total != 0 {
+	if got := getBoard(t, mux).Current; got.Total != 1 || got.Counts["BACKLOG"] != 1 || got.Points == nil || got.Points.Total != 1 {
 		t.Errorf("current counts = %+v", got)
 	}
 

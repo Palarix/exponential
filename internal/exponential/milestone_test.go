@@ -360,6 +360,23 @@ func addIssueIn(t *testing.T, tr *LocalTransport, title, status, milestone strin
 	return iss
 }
 
+func TestCompleteMilestone_SnapshotCountsUnestimatedIssuesAsOnePoint(t *testing.T) {
+	tr := setupLocalTransport(t)
+	a := mustCreateMilestone(t, tr, "a")
+	mustCreateMilestone(t, tr, "b")
+	if _, err := tr.AddIssue(model.CreatePayload{Title: "estimated", Status: "DONE", MilestoneID: a.ID, Estimate: 5}); err != nil {
+		t.Fatal(err)
+	}
+	addIssueIn(t, tr, "unestimated", "DONE", a.ID)
+	if _, _, err := tr.CompleteMilestone("a", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	got := milestoneByNumber(t, 1)
+	if got.Stats == nil || got.Stats.Points == nil || *got.Stats.Points != (model.MilestonePoints{Total: 6, Done: 6}) {
+		t.Errorf("snapshot points = %+v, want 6/6", got.Stats)
+	}
+}
+
 func TestCompleteMilestone_MovesOpenIssuesToNextAndKeepsDone(t *testing.T) {
 	tr := setupLocalTransport(t)
 	a := mustCreateMilestone(t, tr, "a")
