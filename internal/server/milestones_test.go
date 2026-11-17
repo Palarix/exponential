@@ -108,6 +108,9 @@ func TestMilestonesAPI_Lifecycle(t *testing.T) {
 	if prog.Total != 1 || len(prog.Days) == 0 || prog.Days[len(prog.Days)-1].Open != 1 {
 		t.Errorf("progress = %+v", prog)
 	}
+	if len(prog.Steps) == 0 || prog.Steps[len(prog.Steps)-1].Open != 1 || prog.Steps[len(prog.Steps)-1].OpenPoints != 1 {
+		t.Errorf("progress steps = %+v", prog.Steps)
+	}
 
 	// Reorder: 1.6 before 1.5.
 	w = milestoneReq(t, mux, "POST", "/api/milestones/reorder", map[string]string{"id": "1.6", "before": "1.5"})

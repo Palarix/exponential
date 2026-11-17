@@ -3,15 +3,15 @@ import type { Milestone } from "../../api/types";
 import { useMilestoneProgress, useMilestones } from "../../api/queries";
 import { useAppNav } from "../../app/hooks";
 import { cn } from "../../utils/cn";
-import { BurndownWithLegend, MilestoneDate, MilestoneTitle, TimeBar } from "../Milestones/MilestoneRow";
+import { BurnUpWithLegend, MilestoneDate, MilestoneTitle, TimeBar } from "../Milestones/MilestoneRow";
 import { milestoneFilter, milestoneNameClass, showsOnDashboard, todayISO } from "../Milestones/milestones-utils";
 import { Card, SubProgress } from "../ui";
 import { Section } from "./Section";
 
-/** The Current milestone: name and goal, progress, target date and burndown. */
+/** The Current milestone: name and goal, progress, target date and burn-up. */
 function CurrentMilestoneCard({ milestone, onOpen }: { milestone: Milestone; onOpen: () => void }) {
   const started = !!milestone.started_at;
-  const days = useMilestoneProgress(`#${milestone.number}`, started)?.days ?? [];
+  const progress = useMilestoneProgress(`#${milestone.number}`, started);
   const today = todayISO();
   return (
     <Card variant="elevated" className="px-4 py-3 space-y-3">
@@ -46,7 +46,7 @@ function CurrentMilestoneCard({ milestone, onOpen }: { milestone: Milestone; onO
           <TimeBar milestone={milestone} today={today} />
         </div>
       )}
-      {started && <BurndownWithLegend days={days} />}
+      {started && <BurnUpWithLegend progress={progress} />}
     </Card>
   );
 }

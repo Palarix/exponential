@@ -964,26 +964,214 @@ func (t *LocalTransport) GetMilestone(ref string) (*model.Milestone, error) {
 	return r, err
 }
 
-// MilestoneDay is one point of a milestone burndown.
-type MilestoneDay struct {
-	Date      string `json:"date"`
-	Scope     int    `json:"scope"`
-	Open      int    `json:"open"`
-	Completed int    `json:"completed"`
+// MilestoneTally is the scope of a milestone at one point of its burn-up,
+// in issues and in story points (an unestimated issue counts as 1).
+type MilestoneTally struct {
+	Scope           int `json:"scope"`
+	Open            int `json:"open"`
+	Completed       int `json:"completed"`
+	ScopePoints     int `json:"scope_points"`
+	OpenPoints      int `json:"open_points"`
+	CompletedPoints int `json:"completed_points"`
 }
 
-// MilestoneProgress holds the scope and burndown of a milestone.
+// MilestoneDay is one point of the daily milestone burn-up.
+type MilestoneDay struct {
+	Date string `json:"date"`
+	MilestoneTally
+}
+
+// MilestoneStep is one point of the milestone burn-up by event order: the
+// state after one write that changed the milestone's counts or points.
+type MilestoneStep struct {
+	At time.Time `json:"at"`
+	MilestoneTally
+	Changes []MilestoneChange `json:"changes"`
+}
+
+// MilestoneChange is what one write did to one issue of a milestone.
+type MilestoneChange struct {
+	IssueID string `json:"issue_id"`
+	Title   string `json:"title"`
+	Kind    string `json:"kind"`
+}
+
+// Kinds of MilestoneChange.
+const (
+	ChangeDone      = "done"
+	ChangeReopened  = "reopened"
+	ChangeAdded     = "added"
+	ChangeRemoved   = "removed"
+	ChangeCanceled  = "canceled"
+	ChangeEstimated = "estimated"
+)
+
+// MilestoneProgress holds the scope and burn-up of a milestone.
 type MilestoneProgress struct {
 	Milestone *model.Milestone
 	MilestoneScope
-	Days []MilestoneDay
+	Days  []MilestoneDay
+	Steps []MilestoneStep
 }
 
-// ComputeMilestoneProgress counts the scope of r and replays events into a
-// daily burndown of it, from started_at to completed_at (or now). A
-// milestone that was never Current has no burndown.
+// writeGap is the most time between two events of one write. AppendEvents
+// stamps a batch from one time.Now() and spaces equal times by 1 ns; separate
+// writes are far more than 1 ms apart.
+const writeGap = time.Millisecond
+
+// replayIssue is an issue's state while replaying the log for a burn-up.
+type replayIssue struct {
+	milestone, parent, title string
+	status                   model.IssueStatus
+	estimate                 int
+	deleted                  bool
+}
+
+// scopeIssue is an issue in a milestone's scope at one point of the replay.
+type scopeIssue struct {
+	status model.IssueStatus
+	points int
+	title  string
+}
+
+type progressReplay struct {
+	milestoneID string
+	states      map[string]*replayIssue
+}
+
+func (b *progressReplay) apply(evt model.Event) {
+	switch evt.Type {
+	case model.EventTypeCreate:
+		var c model.CreatePayload
+		decodePayload(evt.Payload, &c)
+		st := model.IssueStatus(c.Status)
+		if st == "" {
+			st = model.StatusBacklog
+		}
+		b.states[evt.ID] = &replayIssue{milestone: c.MilestoneID, parent: c.ParentID, title: c.Title, status: st, estimate: c.Estimate}
+	case model.EventTypeUpdate:
+		s, ok := b.states[evt.ID]
+		if !ok {
+			return
+		}
+		var u model.UpdatePayload
+		decodePayload(evt.Payload, &u)
+		if u.Status != nil {
+			s.status = model.IssueStatus(*u.Status)
+		}
+		if u.MilestoneID != nil {
+			s.milestone = *u.MilestoneID
+		}
+		if u.ParentID != nil {
+			s.parent = *u.ParentID
+		}
+		if u.Title != nil {
+			s.title = *u.Title
+		}
+		if u.Estimate != nil {
+			s.estimate = *u.Estimate
+		}
+	case model.EventTypeMerge:
+		if s, ok := b.states[evt.ID]; ok {
+			s.status = model.StatusDone
+		}
+	case model.EventTypeDelete:
+		if s, ok := b.states[evt.ID]; ok {
+			s.deleted = true
+		}
+	}
+}
+
+// scope returns the milestone's scope now: its leaf issues, not deleted,
+// CANCELED or DUPLICATE.
+func (b *progressReplay) scope() map[string]scopeIssue {
+	parents := make(map[string]bool)
+	for _, s := range b.states {
+		if !s.deleted && s.parent != "" {
+			parents[s.parent] = true
+		}
+	}
+	out := make(map[string]scopeIssue)
+	for id, s := range b.states {
+		if s.deleted || s.milestone != b.milestoneID || parents[id] || !inScope(s.status) {
+			continue
+		}
+		out[id] = scopeIssue{status: s.status, points: issuePoints(&model.Issue{Estimate: s.estimate}), title: s.title}
+	}
+	return out
+}
+
+func tally(scope map[string]scopeIssue) MilestoneTally {
+	var t MilestoneTally
+	for _, s := range scope {
+		t.Scope++
+		t.ScopePoints += s.points
+		switch {
+		case model.IsCompleted(s.status):
+			t.Completed++
+			t.CompletedPoints += s.points
+		case !model.IsTerminal(s.status):
+			t.Open++
+			t.OpenPoints += s.points
+		}
+	}
+	return t
+}
+
+// changeKind says what happened to one issue between two scopes, or "" if
+// nothing did. An issue that leaves the scope but stays in the milestone was
+// canceled (or marked duplicate); one that comes back was reopened.
+func (b *progressReplay) changeKind(id string, before, after map[string]scopeIssue, wasCanceled bool) string {
+	was, inBefore := before[id]
+	now, inAfter := after[id]
+	s := b.states[id]
+	switch {
+	case inBefore && !inAfter:
+		if s != nil && !s.deleted && s.milestone == b.milestoneID && !inScope(s.status) {
+			return ChangeCanceled
+		}
+		return ChangeRemoved
+	case !inBefore && inAfter:
+		if wasCanceled {
+			return ChangeReopened
+		}
+		return ChangeAdded
+	case inBefore && inAfter:
+		switch {
+		case !model.IsCompleted(was.status) && model.IsCompleted(now.status):
+			return ChangeDone
+		case model.IsCompleted(was.status) && !model.IsCompleted(now.status):
+			return ChangeReopened
+		case was.points != now.points:
+			return ChangeEstimated
+		}
+	}
+	return ""
+}
+
+// groupWrites splits time-ordered events into writes: runs of consecutive
+// events by the same actor, less than writeGap apart.
+func groupWrites(ordered []model.Event) [][]model.Event {
+	var writes [][]model.Event
+	for i, evt := range ordered {
+		if i > 0 {
+			prev := ordered[i-1]
+			if evt.CreatedBy == prev.CreatedBy && evt.OnBehalfOf == prev.OnBehalfOf && evt.CreatedAt.Sub(prev.CreatedAt) < writeGap {
+				writes[len(writes)-1] = append(writes[len(writes)-1], evt)
+				continue
+			}
+		}
+		writes = append(writes, []model.Event{evt})
+	}
+	return writes
+}
+
+// ComputeMilestoneProgress counts the scope of r and replays events into its
+// burn-up from started_at to completed_at (or now): one point per UTC day,
+// and one step per write that changed its counts or points once work began. A milestone that
+// was never Current has no burn-up.
 func ComputeMilestoneProgress(events []model.Event, r *model.Milestone, now time.Time) MilestoneProgress {
-	p := MilestoneProgress{Milestone: r, MilestoneScope: MilestoneCounts(ProjectIssues(events), r), Days: []MilestoneDay{}}
+	p := MilestoneProgress{Milestone: r, MilestoneScope: MilestoneCounts(ProjectIssues(events), r), Days: []MilestoneDay{}, Steps: []MilestoneStep{}}
 	if r.StartedAt == nil || r.Placeholder {
 		return p
 	}
@@ -991,91 +1179,126 @@ func ComputeMilestoneProgress(events []model.Event, r *model.Milestone, now time
 	ordered := append([]model.Event(nil), events...)
 	sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].CreatedAt.Before(ordered[j].CreatedAt) })
 
-	type state struct {
-		milestone, parent string
-		status            model.IssueStatus
-		deleted           bool
+	endAt := now
+	if r.CompletedAt != nil {
+		endAt = *r.CompletedAt
 	}
-	states := make(map[string]*state)
-	apply := func(evt model.Event) {
-		switch evt.Type {
-		case model.EventTypeCreate:
-			var c model.CreatePayload
-			decodePayload(evt.Payload, &c)
-			st := model.IssueStatus(c.Status)
-			if st == "" {
-				st = model.StatusBacklog
-			}
-			states[evt.ID] = &state{milestone: c.MilestoneID, parent: c.ParentID, status: st}
-		case model.EventTypeUpdate:
-			s, ok := states[evt.ID]
-			if !ok {
-				return
-			}
-			var u model.UpdatePayload
-			decodePayload(evt.Payload, &u)
-			if u.Status != nil {
-				s.status = model.IssueStatus(*u.Status)
-			}
-			if u.MilestoneID != nil {
-				s.milestone = *u.MilestoneID
-			}
-			if u.ParentID != nil {
-				s.parent = *u.ParentID
-			}
-		case model.EventTypeMerge:
-			if s, ok := states[evt.ID]; ok {
-				s.status = model.StatusDone
-			}
-		case model.EventTypeDelete:
-			if s, ok := states[evt.ID]; ok {
-				s.deleted = true
-			}
-		}
-	}
+	p.Days = milestoneDays(ordered, r, endAt)
+	p.Steps = milestoneSteps(ordered, r, endAt)
+	return p
+}
 
+func milestoneDays(ordered []model.Event, r *model.Milestone, endAt time.Time) []MilestoneDay {
 	day := func(t time.Time) time.Time {
 		t = t.UTC()
 		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 	}
-	end := day(now)
-	if r.CompletedAt != nil {
-		end = day(*r.CompletedAt)
-	}
-
+	replay := &progressReplay{milestoneID: r.ID, states: make(map[string]*replayIssue)}
+	days := []MilestoneDay{}
 	idx := 0
+	end := day(endAt)
 	for d := day(*r.StartedAt); !d.After(end); d = d.AddDate(0, 0, 1) {
 		dayEnd := d.AddDate(0, 0, 1)
 		for idx < len(ordered) && ordered[idx].CreatedAt.Before(dayEnd) {
-			apply(ordered[idx])
+			replay.apply(ordered[idx])
 			idx++
 		}
-		parents := make(map[string]bool)
-		for _, s := range states {
-			if !s.deleted && s.parent != "" {
-				parents[s.parent] = true
+		days = append(days, MilestoneDay{Date: d.Format("2006-01-02"), MilestoneTally: tally(replay.scope())})
+	}
+	return days
+}
+
+// milestoneSteps builds the burn-up by event order. Step 0 is the state at
+// started_at, including the rest of the write that set it (a milestone
+// complete moves issues in and starts the next milestone in one write). The
+// setup that follows folds into step 0 too, until the first write that
+// completes or cancels an issue (none if issues were done at the start):
+// milestones are often filled after they become Current, and that setup
+// would be a run of steps before any work. Scope added once work began is a
+// step.
+func milestoneSteps(ordered []model.Event, r *model.Milestone, endAt time.Time) []MilestoneStep {
+	replay := &progressReplay{milestoneID: r.ID, states: make(map[string]*replayIssue)}
+	writes := groupWrites(ordered)
+	i := 0
+	for ; i < len(writes) && !writes[i][0].CreatedAt.After(*r.StartedAt); i++ {
+		for _, evt := range writes[i] {
+			replay.apply(evt)
+		}
+	}
+	before := replay.scope()
+	steps := []MilestoneStep{{At: *r.StartedAt, MilestoneTally: tally(before), Changes: []MilestoneChange{}}}
+	// A scope with done issues at the start has visibly begun.
+	working := steps[0].Completed > 0
+
+	for ; i < len(writes) && !writes[i][0].CreatedAt.After(endAt); i++ {
+		w := writes[i]
+		// Issues of the milestone that were out of scope as CANCELED or
+		// DUPLICATE before this write: coming back is a reopen.
+		canceled := make(map[string]bool)
+		for _, evt := range w {
+			if s, ok := replay.states[evt.ID]; ok && !s.deleted && s.milestone == r.ID && !inScope(s.status) {
+				canceled[evt.ID] = true
 			}
 		}
-		point := MilestoneDay{Date: d.Format("2006-01-02")}
-		for id, s := range states {
-			if s.deleted || s.milestone != r.ID || parents[id] || !inScope(s.status) {
+		for _, evt := range w {
+			replay.apply(evt)
+		}
+		after := replay.scope()
+		t := tally(after)
+		prev := steps[len(steps)-1].MilestoneTally
+		if t == prev {
+			before = after
+			continue
+		}
+		changes := replay.changes(before, after, canceled)
+		if !working {
+			working = t.Completed > prev.Completed || hasKind(changes, ChangeCanceled)
+			if !working {
+				steps[0].MilestoneTally = t
+				before = after
 				continue
 			}
-			point.Scope++
-			switch {
-			case model.IsCompleted(s.status):
-				point.Completed++
-			case !model.IsTerminal(s.status):
-				point.Open++
-			}
 		}
-		p.Days = append(p.Days, point)
+		steps = append(steps, MilestoneStep{At: w[0].CreatedAt, MilestoneTally: t, Changes: changes})
+		before = after
 	}
-	return p
+	return steps
+}
+
+// changes lists what happened to each issue between two scopes, by issue ID.
+func (b *progressReplay) changes(before, after map[string]scopeIssue, canceled map[string]bool) []MilestoneChange {
+	ids := make(map[string]bool)
+	for id := range before {
+		ids[id] = true
+	}
+	for id := range after {
+		ids[id] = true
+	}
+	sorted := make([]string, 0, len(ids))
+	for id := range ids {
+		sorted = append(sorted, id)
+	}
+	sort.Strings(sorted)
+	changes := []MilestoneChange{}
+	for _, id := range sorted {
+		if kind := b.changeKind(id, before, after, canceled[id]); kind != "" {
+			changes = append(changes, MilestoneChange{IssueID: id, Title: b.states[id].title, Kind: kind})
+		}
+	}
+	return changes
+}
+
+func hasKind(changes []MilestoneChange, kind string) bool {
+	for _, c := range changes {
+		if c.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 // MilestoneProgress computes the progress of the milestone ref names. Archived
-// events are included so a past milestone keeps its burndown.
+// events are included so a past milestone keeps its burn-up.
 func (t *LocalTransport) MilestoneProgress(ref string) (MilestoneProgress, error) {
 	events, err := storage.ReadEvents()
 	if err != nil {

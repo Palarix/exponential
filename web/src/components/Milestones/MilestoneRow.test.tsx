@@ -24,6 +24,14 @@ const current: Milestone = {
   points: { total: 13, done: 5 },
 };
 
+const tally = (date: string, scope: number, open: number) => ({
+  date, scope, open, completed: scope - open, scope_points: scope, open_points: open, completed_points: scope - open,
+});
+const step = (scope: number, open: number) => {
+  const { date, ...t } = tally("2026-10-03", scope, open);
+  return { ...t, at: `${date}T09:00:00Z`, changes: [] };
+};
+
 const render = (el: ReactElement, client?: QueryClient) =>
   renderMarkup(<TooltipPrimitive.Provider>{el}</TooltipPrimitive.Provider>, client);
 
@@ -171,28 +179,40 @@ describe("MilestoneRowBody", () => {
 });
 
 describe("MilestoneSummaryCard", () => {
-  it("breaks the scope down by status, with the target date and the burndown", () => {
+  it("breaks the scope down by status, with the target date and the burn-up", () => {
     const client = new QueryClient();
     client.setQueryData(queryKeys.milestoneProgress("#2"), {
-      days: [
-        { date: "2026-10-03", scope: 5, open: 5, completed: 0 },
-        { date: "2026-10-04", scope: 6, open: 3, completed: 3 },
-      ],
+      days: [tally("2026-10-03", 5, 5), tally("2026-10-04", 6, 3)],
+      steps: [step(5, 5), step(6, 3)],
     });
     const html = render(<MilestoneSummaryCard milestone={current} today="2026-10-20" />, client);
     expect(html).toContain("In progress");
     expect(html).toContain(">3/6 done<");
     expect(html).toMatch(/aria-label="Time to target date"/);
-    expect(html).toMatch(/aria-label="Burndown"/);
+    expect(html).toMatch(/aria-label="Burn-up"/);
+    // A preview: the Order / Time switch is on the full charts only.
+    expect(html).not.toMatch(/aria-label="Burn-up axis"/);
   });
 
-  it("draws the burndown on the first day, as flat lines for open and scope", () => {
+  it("draws the burn-up in story points in points mode", () => {
     const client = new QueryClient();
     client.setQueryData(queryKeys.milestoneProgress("#2"), {
-      days: [{ date: "2026-10-03", scope: 6, open: 4, completed: 2 }],
+      days: [],
+      steps: [{ ...step(8, 4), scope_points: 12, open_points: 3, completed_points: 9 }],
+    });
+    // 48px tall, 3px padding: the done line at 9 of 12 points sits at 3 + 42 × 0.25, at 4 of 8 issues at 3 + 42 × 0.5.
+    expect(render(<MilestoneSummaryCard milestone={current} today="2026-10-20" mode="points" />, client)).toContain('d="M0,13.5 L200,13.5"');
+    expect(render(<MilestoneSummaryCard milestone={current} today="2026-10-20" mode="issues" />, client)).toContain('d="M0,24 L200,24"');
+  });
+
+  it("draws the burn-up on the first day, as flat lines for done and scope", () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.milestoneProgress("#2"), {
+      days: [tally("2026-10-03", 6, 4)],
+      steps: [step(6, 4)],
     });
     const html = render(<MilestoneSummaryCard milestone={current} today="2026-10-03" />, client);
-    expect(html).toMatch(/aria-label="Burndown"/);
+    expect(html).toMatch(/aria-label="Burn-up"/);
     expect(html).not.toContain("Not enough days");
     const lines = [...html.matchAll(/<path d="M0,([\d.]+) L200,([\d.]+)"/g)];
     expect(lines).toHaveLength(2);
@@ -200,17 +220,17 @@ describe("MilestoneSummaryCard", () => {
     expect(lines[0][1]).not.toBe(lines[1][1]);
   });
 
-  it("has no burndown for a milestone that was never Current", () => {
+  it("has no burn-up for a milestone that was never Current", () => {
     const html = render(<MilestoneSummaryCard milestone={{ ...current, slot: "next", started_at: undefined }} today="2026-10-20" />);
-    expect(html).not.toMatch(/aria-label="Burndown"/);
+    expect(html).not.toMatch(/aria-label="Burn-up"/);
     expect(html).toContain("Starts when this milestone becomes Current.");
   });
 
-  it("shows a past milestone's final stats; its burndown is in the expanded row", () => {
+  it("shows a past milestone's final stats; its burn-up is in the expanded row", () => {
     const completed = { ...current, state: "COMPLETED" as const, slot: "past" as const, completed_at: "2026-10-09T10:00:00Z" };
     const html = render(<MilestoneSummaryCard milestone={completed} today="2026-10-20" />);
     expect(html).toContain("In progress");
-    expect(html).not.toContain("Burndown");
+    expect(html).not.toContain("Burn-up");
   });
 
   it("shows only the issue count in issues mode", () => {

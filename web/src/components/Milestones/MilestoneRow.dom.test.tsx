@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { act } from "react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Milestone } from "../../api/types";
 import { KeyboardNavProvider } from "../../keyboard";
 import { mountDom, setupDom } from "../../test-dom";
-import { MilestoneProgress } from "./MilestoneRow";
+import { queryKeys } from "../../api/query-keys";
+import { MilestoneProgress, PastBurnUp } from "./MilestoneRow";
 
 beforeAll(setupDom);
 
@@ -48,5 +49,41 @@ describe("MilestoneProgress", () => {
 
   it("opens no breakdown for a milestone without issues", () => {
     expect(hoverPill({ ...milestone, counts: {}, total: 0 })).toBeNull();
+  });
+});
+
+describe("PastBurnUp", () => {
+  const t = (scope: number, open: number) => ({
+    scope, open, completed: scope - open, scope_points: scope, open_points: open, completed_points: scope - open,
+  });
+  // Completed within one day: one day, three steps.
+  const progress = {
+    days: [{ date: "2026-08-20", ...t(2, 2) }],
+    steps: [
+      { at: "2026-08-20T09:00:00Z", ...t(2, 2), changes: [] },
+      { at: "2026-08-20T10:00:00Z", ...t(2, 1), changes: [] },
+      { at: "2026-08-20T11:00:00Z", ...t(2, 0), changes: [] },
+    ],
+  };
+  const completed: Milestone = { ...milestone, state: "COMPLETED", slot: "past", started_at: "2026-08-20T09:00:00Z", completed_at: "2026-08-20T11:00:00Z" };
+
+  beforeEach(() => localStorage.clear());
+
+  function mount() {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } });
+    client.setQueryData(queryKeys.milestoneProgress("#2"), progress);
+    const mounted = mountDom(<QueryClientProvider client={client}><PastBurnUp milestone={completed} /></QueryClientProvider>);
+    cleanup = mounted.cleanup;
+    return mounted.host;
+  }
+
+  it("keeps the Time rule: no chart under two days, with the switch back to Order", () => {
+    localStorage.setItem("exponential-milestones-burnup-axis", "time");
+    const host = mount();
+    expect(host.querySelector('[aria-label="Burn-up"]')).toBeNull();
+    expect(host.textContent).toContain("Completed within one day");
+    act(() => host.querySelector<HTMLInputElement>('[aria-label="Burn-up axis"] input[value="order"]')!.click());
+    expect(host.querySelector('[aria-label="Burn-up"]')).not.toBeNull();
+    expect(host.textContent).toContain("3 steps");
   });
 });

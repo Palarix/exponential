@@ -255,13 +255,22 @@ describe("MilestoneStack", () => {
   describe("an expanded past milestone", () => {
     const completed = { ...past(1), started_at: "2026-08-20T09:00:00Z" };
     const withCompleted = { ...board, past: [completed] };
-    const days = [
-      { date: "2026-08-20", scope: 2, open: 2, completed: 0 },
-      { date: "2026-09-01", scope: 2, open: 0, completed: 2 },
+    const t = (scope: number, open: number) => ({
+      scope, open, completed: scope - open, scope_points: scope, open_points: open, completed_points: scope - open,
+    });
+    const days = [{ date: "2026-08-20", ...t(2, 2) }, { date: "2026-09-01", ...t(2, 0) }];
+    const steps = [
+      { at: "2026-08-20T09:00:00Z", ...t(2, 2), changes: [] },
+      { at: "2026-09-01T10:00:00Z", ...t(2, 0), changes: [] },
     ];
-    function expanded(b: MilestonesResponse, query = "") {
+    // Completed within one day: two steps, one day.
+    const oneDay = {
+      days: [days[0]],
+      steps: [steps[0], { ...steps[1], at: "2026-08-20T11:00:00Z" }],
+    };
+    function expanded(b: MilestonesResponse, query = "", progress: object = { days, steps }) {
       const client = new QueryClient();
-      client.setQueryData(queryKeys.milestoneProgress("#1"), { days });
+      client.setQueryData(queryKeys.milestoneProgress("#1"), progress);
       return renderMarkup(
         <TooltipPrimitive.Provider>
           <MilestoneStack
@@ -280,32 +289,44 @@ describe("MilestoneStack", () => {
       );
     }
 
-    it("shows its burndown from start to milestone above the delivered issues", () => {
+    it("shows its burn-up from start to milestone above the delivered issues", () => {
       const html = expanded(withCompleted);
-      expect(html).toMatch(/aria-label="Burndown"/);
+      expect(html).toMatch(/aria-label="Burn-up"/);
       expect(html).toContain("Aug 20");
-      expect(html.indexOf('aria-label="Burndown"')).toBeLessThan(html.indexOf("Delivered thing"));
+      expect(html.indexOf('aria-label="Burn-up"')).toBeLessThan(html.indexOf("Delivered thing"));
     });
 
-    it("draws the burndown on the card, outside the issue list's lower surface", () => {
+    it("draws the burn-up on the card, outside the issue list's lower surface", () => {
       const html = expanded(withCompleted);
       const list = html.indexOf("bg-[var(--color-surface)]\"");
       expect(list).toBeGreaterThan(0);
-      expect(html.indexOf('aria-label="Burndown"')).toBeLessThan(list);
+      expect(html.indexOf('aria-label="Burn-up"')).toBeLessThan(list);
       expect(list).toBeLessThan(html.indexOf("Delivered thing"));
     });
 
-    it("shows no burndown for a milestone that was never Current", () => {
-      const html = expanded(board);
-      expect(html).toContain("Delivered thing");
-      expect(html).not.toMatch(/aria-label="Burndown"/);
-      expect(html).not.toContain("no burndown");
+    it("shows the burn-up of a milestone completed within one day in Order mode", () => {
+      const html = expanded(withCompleted, "", oneDay);
+      expect(html).toMatch(/aria-label="Burn-up"/);
+      expect(html).toContain("2 steps");
+      expect(html).toMatch(/aria-label="Burn-up axis"/);
     });
 
-    it("hides the burndown while the search narrows the lists", () => {
+    it("shows no burn-up for a milestone without two steps", () => {
+      const html = expanded(withCompleted, "", { days, steps: [steps[0]] });
+      expect(html).not.toMatch(/aria-label="Burn-up"/);
+    });
+
+    it("shows no burn-up for a milestone that was never Current", () => {
+      const html = expanded(board);
+      expect(html).toContain("Delivered thing");
+      expect(html).not.toMatch(/aria-label="Burn-up"/);
+      expect(html).not.toContain("no burn-up");
+    });
+
+    it("hides the burn-up while the search narrows the lists", () => {
       const html = expanded(withCompleted, "Delivered");
       expect(html).toContain("Delivered thing");
-      expect(html).not.toMatch(/aria-label="Burndown"/);
+      expect(html).not.toMatch(/aria-label="Burn-up"/);
     });
   });
 });

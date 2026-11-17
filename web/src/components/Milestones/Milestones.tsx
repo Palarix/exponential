@@ -19,16 +19,14 @@ import NewMilestoneDialog from "./NewMilestoneDialog";
 import MilestoneActionDialog from "./MilestoneActionDialog";
 import { milestoneMenuItems, type MilestoneAction } from "./milestone-action-utils";
 import {
-  ExpandToggle, PastBurndown, MILESTONE_ROW_GRID, MilestoneRowBody, ROW_BODY, ROW_CELL, ROW_HEADER, ROW_ICON_BUTTON, type ProgressMode,
+  ExpandToggle, PastBurnUp, MILESTONE_ROW_GRID, MilestoneRowBody, ROW_BODY, ROW_CELL, ROW_HEADER, ROW_ICON_BUTTON, type ProgressMode,
 } from "./MilestoneRow";
 import { IssueRow, ListNote, MilestoneIssueList } from "./MilestoneIssues";
+import { useProgressMode } from "./milestone-settings";
 import {
   acceptsIssueDrop, anyMatch, defaultExpanded, dropHighlightClass, headerClickToggles, milestoneFilter, issuesInMilestone, openMilestones,
   orderWarnings, milestoneMemberCounts, parseExpanded, reorderMove, savedOrder, noMilestoneIssues, todayISO, type DropHighlight, type ExpandKey,
 } from "./milestones-utils";
-
-/** Where the progress pills' issues/points choice is saved. */
-const PROGRESS_MODE_KEY = "exponential-milestones-show-points";
 
 /** Where the rows the user expanded are saved. */
 const EXPANDED_KEY = "exponential-milestones-expanded";
@@ -88,14 +86,7 @@ function MilestonesBoard({ board, onOpen }: { board: MilestonesResponse; onOpen:
   const [showNew, setShowNew] = useState(false);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useViewState("exponential-milestones-filters", FILTERS_CODEC);
-  const [progressMode, setProgressMode] = useState<ProgressMode>(
-    () => localStorage.getItem(PROGRESS_MODE_KEY) === "true" ? "points" : "issues",
-  );
-  const toggleProgressMode = () => setProgressMode((mode) => {
-    const next = mode === "points" ? "issues" : "points";
-    localStorage.setItem(PROGRESS_MODE_KEY, String(next === "points"));
-    return next;
-  });
+  const [progressMode, toggleProgressMode] = useProgressMode();
 
   return (
     <>
@@ -493,7 +484,7 @@ function NoMilestoneRow({ expanded, onToggle, issues, listed, query, narrowing, 
 /**
  * Completed milestones, newest first, as faded rows. They are neither dragged
  * nor drop targets, but expand (by the chevron or the title) to their record:
- * the burndown (hidden while the search or filters narrow the lists), then
+ * the burn-up (hidden while the search or filters narrow the lists), then
  * what they delivered. Only the most
  * recent few show until "Show N older".
  */
@@ -530,7 +521,7 @@ function PastMilestones({
             onOpen={() => onToggle(r.number)}
             progressMode={progressMode}
             onToggleProgressMode={onToggleProgressMode}
-            summary={!narrowing && <PastBurndown milestone={r} />}
+            summary={!narrowing && <PastBurnUp milestone={r} />}
           >
             <MilestoneIssueList issues={delivered} all={issues} onIssueClick={onIssueClick} />
           </MilestoneRowBody>

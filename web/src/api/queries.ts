@@ -94,7 +94,7 @@ export function useMilestones() {
 }
 
 /**
- * Counts and burndown of the milestone `ref` names (`#7`, a `ms-` ID or a
+ * Counts and burn-up of the milestone `ref` names (`#7`, a `ms-` ID or a
  * label). Placeholders aren't stored, so pass `enabled: false` for them.
  */
 export function useMilestoneProgress(ref: string, enabled = true) {

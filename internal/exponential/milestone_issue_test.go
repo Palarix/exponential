@@ -299,10 +299,10 @@ func TestComputeMilestoneProgress_CountsLeavesAndBurnsDown(t *testing.T) {
 		t.Errorf("counts = %+v total %d done %d; the epic, canceled and duplicate issues must not count", p.Counts, p.Total, p.Done)
 	}
 	want := []MilestoneDay{
-		{Date: "2026-10-01", Scope: 2, Open: 2, Completed: 0},
-		{Date: "2026-10-02", Scope: 2, Open: 1, Completed: 1},
-		{Date: "2026-10-03", Scope: 4, Open: 3, Completed: 1},
-		{Date: "2026-10-04", Scope: 2, Open: 1, Completed: 1},
+		{Date: "2026-10-01", MilestoneTally: MilestoneTally{Scope: 2, Open: 2, Completed: 0, ScopePoints: 2, OpenPoints: 2}},
+		{Date: "2026-10-02", MilestoneTally: MilestoneTally{Scope: 2, Open: 1, Completed: 1, ScopePoints: 2, OpenPoints: 1, CompletedPoints: 1}},
+		{Date: "2026-10-03", MilestoneTally: MilestoneTally{Scope: 4, Open: 3, Completed: 1, ScopePoints: 4, OpenPoints: 3, CompletedPoints: 1}},
+		{Date: "2026-10-04", MilestoneTally: MilestoneTally{Scope: 2, Open: 1, Completed: 1, ScopePoints: 2, OpenPoints: 1, CompletedPoints: 1}},
 	}
 	if len(p.Days) != len(want) {
 		t.Fatalf("days = %+v", p.Days)
@@ -314,13 +314,13 @@ func TestComputeMilestoneProgress_CountsLeavesAndBurnsDown(t *testing.T) {
 	}
 }
 
-func TestComputeMilestoneProgress_NeverCurrentHasNoBurndown(t *testing.T) {
+func TestComputeMilestoneProgress_NeverCurrentHasNoBurnUp(t *testing.T) {
 	events := []model.Event{
 		relEvent("ms-a", model.EventTypeMilestoneCreate, time.Now(), model.MilestoneCreatePayload{Number: 1}),
 	}
 	p := ComputeMilestoneProgress(events, ProjectMilestones(events)[0], time.Now())
 	if len(p.Days) != 0 {
-		t.Errorf("no started_at, no burndown: %+v", p.Days)
+		t.Errorf("no started_at, no burn-up: %+v", p.Days)
 	}
 }
 

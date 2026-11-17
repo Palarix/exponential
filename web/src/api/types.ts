@@ -108,11 +108,34 @@ export interface MilestonesResponse {
   past: Milestone[];
 }
 
-export interface MilestoneDay {
-  date: string;
+/** The scope of a milestone at one burn-up point, in issues and in story points (unestimated = 1). */
+export interface MilestoneTally {
   scope: number;
   open: number;
   completed: number;
+  scope_points: number;
+  open_points: number;
+  completed_points: number;
+}
+
+/** One point of the daily burn-up. */
+export interface MilestoneDay extends MilestoneTally {
+  date: string;
+}
+
+export type MilestoneChangeKind = 'done' | 'reopened' | 'added' | 'removed' | 'canceled' | 'estimated';
+
+/** What one write did to one issue of the milestone. */
+export interface MilestoneChange {
+  issue_id: string;
+  title: string;
+  kind: MilestoneChangeKind;
+}
+
+/** One point of the burn-up by event order: the state after one write. The first is the state at started_at, with no changes. */
+export interface MilestoneStep extends MilestoneTally {
+  at: string;
+  changes: MilestoneChange[];
 }
 
 export interface MilestoneProgressResponse {
@@ -121,6 +144,7 @@ export interface MilestoneProgressResponse {
   total: number;
   done: number;
   days: MilestoneDay[];
+  steps: MilestoneStep[];
 }
 
 export interface Dependency {

@@ -47,11 +47,12 @@ type MilestonesResponse struct {
 }
 
 type MilestoneProgressResponse struct {
-	Milestone MilestoneResponse          `json:"milestone"`
-	Counts    map[string]int             `json:"counts"`
-	Total     int                        `json:"total"`
-	Done      int                        `json:"done"`
-	Days      []exponential.MilestoneDay `json:"days"`
+	Milestone MilestoneResponse           `json:"milestone"`
+	Counts    map[string]int              `json:"counts"`
+	Total     int                         `json:"total"`
+	Done      int                         `json:"done"`
+	Days      []exponential.MilestoneDay  `json:"days"`
+	Steps     []exponential.MilestoneStep `json:"steps"`
 }
 
 func milestoneToResponse(r *model.Milestone, slot string, scope exponential.MilestoneScope) MilestoneResponse {
@@ -157,7 +158,7 @@ func (s *Server) handleMilestoneProgress(w http.ResponseWriter, r *http.Request)
 		respondMilestoneError(w, err)
 		return
 	}
-	// Archived events keep the burndown of a past milestone whole.
+	// Archived events keep the burn-up of a past milestone whole.
 	archived, err := storage.ReadArchivedEvents()
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to load archived events")
@@ -170,6 +171,7 @@ func (s *Server) handleMilestoneProgress(w http.ResponseWriter, r *http.Request)
 		Total:     p.Total,
 		Done:      p.Done,
 		Days:      p.Days,
+		Steps:     p.Steps,
 	})
 }
 

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Triangle, TriangleAlert } from "lucide-react";
-import type { Milestone, MilestoneDay } from "../../api/types";
+import type { Milestone, MilestoneChangeKind, MilestoneProgressResponse } from "../../api/types";
 import { useMilestoneProgress } from "../../api/queries";
 import { formatShortDate } from "../../utils/format";
 import { cn } from "../../utils/cn";
@@ -8,6 +8,10 @@ import { Popover, PopoverPanel, raisedIndicatorPill, StatusIcon, SubProgress } f
 import Tooltip from "../ui/Tooltip";
 import { createHoverIntent } from "../IssueDetail/hover-intent";
 import { dropHighlightClass, headerClickToggles, milestoneNameClass, timeBar, type DropHighlight } from "./milestones-utils";
+import { burnUpPoints, type BurnUpPoint } from "./burnup-utils";
+import { useBurnUpAxis, useProgressMode, type BurnUpAxis, type ProgressMode } from "./milestone-settings";
+
+export type { ProgressMode } from "./milestone-settings";
 
 const STAT_ORDER = ["DOING", "BLOCKED", "PLANNED", "BACKLOG", "DONE"];
 const STATUS_NAMES: Record<string, string> = {
@@ -72,27 +76,104 @@ export function MilestoneStats({ milestone }: { milestone: Milestone }) {
   );
 }
 
+const CHANGE_NAMES: Record<MilestoneChangeKind, string> = {
+  done: "Done", reopened: "Reopened", added: "Added", removed: "Removed", canceled: "Canceled", estimated: "Estimated",
+};
+
+/** At most this many changes show in a step's hover; the rest are counted. */
+const HOVER_CHANGES = 10;
+
+const formatStepTime = (at: string) =>
+  new Date(at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+/** What the hover shows for one point: the step's time and changes, or the day. */
+function PointDetail({ point, mode }: { point: BurnUpPoint; mode: ProgressMode }) {
+  const unit = mode === "points" ? " pts" : "";
+  const changes = point.step?.changes ?? [];
+  return (
+    <>
+      <div className="flex justify-between gap-3 text-[var(--color-text-muted)] tabular-nums">
+        <span>{point.step ? formatStepTime(point.step.at) : formatShortDate(point.day!.date)}</span>
+        <span>Done {point.done} of {point.scope}{unit}</span>
+      </div>
+      {point.step && changes.length === 0 && <div className="mt-1 text-[var(--color-text-muted)]">Start</div>}
+      {changes.length > 0 && (
+        <ul className="mt-1 space-y-0.5">
+          {changes.slice(0, HOVER_CHANGES).map((c) => (
+            <li key={c.issue_id} className="flex gap-1.5 min-w-0">
+              <span className="shrink-0 text-[var(--color-text-muted)]">{CHANGE_NAMES[c.kind] ?? c.kind}</span>
+              <span className="truncate text-[var(--color-text-secondary)]">{c.title || c.issue_id}</span>
+            </li>
+          ))}
+          {changes.length > HOVER_CHANGES && <li className="text-[var(--color-text-muted)]">and {changes.length - HOVER_CHANGES} more</li>}
+        </ul>
+      )}
+    </>
+  );
+}
+
 /**
- * Open scope per day since started_at, with the scope as a dashed line. The
- * first day has one point, which draws as a flat line across the chart.
+ * A burn-up: done work rising toward the scope, a dashed line; the gap
+ * between them is the open work. Adding scope moves only the scope line, so
+ * a milestone that grows while it is worked on still reads as progress. One point
+ * per step (Order) or per day (Time), evenly spaced. A single point draws as a
+ * flat line across the chart. With `hover`, resting the pointer on a point
+ * shows its time and changes.
  */
-export function Burndown({ days, height = 40 }: { days: MilestoneDay[]; height?: number }) {
-  if (days.length === 0) return null;
-  const points = days.length === 1 ? [days[0], days[0]] : days;
+export function BurnUp({ points, height = 40, mode = "issues", hover = false }: {
+  points: BurnUpPoint[];
+  height?: number;
+  mode?: ProgressMode;
+  hover?: boolean;
+}) {
+  const [active, setActive] = useState<number | null>(null);
+  if (points.length === 0) return null;
+  const drawn = points.length === 1 ? [points[0], points[0]] : points;
   const w = 200;
   const h = height;
   const py = 3;
-  const max = Math.max(1, ...points.map((d) => d.scope));
-  const toX = (i: number) => (i / (points.length - 1)) * w;
+  const max = Math.max(1, ...drawn.map((d) => d.scope));
+  const toX = (i: number) => (i / (drawn.length - 1)) * w;
   const toY = (v: number) => py + (h - py * 2) * (1 - v / max);
-  const line = (pick: (d: MilestoneDay) => number) => points.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(pick(d))}`).join(" ");
-  const open = line((d) => d.open);
+  const line = (pick: (d: BurnUpPoint) => number) => drawn.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(pick(d))}`).join(" ");
+  const done = line((d) => d.done);
+  // Each point owns the band halfway to its neighbours.
+  const band = points.length === 1 ? w : w / (points.length - 1);
+  const pointX = (i: number) => (points.length === 1 ? w / 2 : toX(i));
+  const fraction = active === null ? 0 : pointX(active) / w;
   return (
-    <svg role="img" aria-label="Burndown" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height }}>
-      <path d={line((d) => d.scope)} fill="none" stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5" vectorEffect="non-scaling-stroke" />
-      <path d={`${open} L${w},${h} L0,${h} Z`} fill="var(--color-accent-primary)" opacity="0.08" />
-      <path d={open} fill="none" stroke="var(--color-accent-primary)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div className="relative" onMouseLeave={() => setActive(null)}>
+      <svg role="img" aria-label="Burn-up" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full block" style={{ height }}>
+        <path d={line((d) => d.scope)} fill="none" stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="2 2" opacity="0.5" vectorEffect="non-scaling-stroke" />
+        <path d={`${done} L${w},${h} L0,${h} Z`} fill="var(--color-accent-primary)" opacity="0.12" />
+        <path d={done} fill="none" stroke="var(--color-accent-primary)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+        {active !== null && (
+          <line x1={pointX(active)} x2={pointX(active)} y1={0} y2={h} stroke="var(--color-text-muted)" strokeWidth="1" opacity="0.6" vectorEffect="non-scaling-stroke" />
+        )}
+        {hover && points.map((_, i) => (
+          <rect
+            key={i}
+            data-point={i}
+            x={Math.max(0, pointX(i) - band / 2)}
+            width={Math.min(w, pointX(i) + band / 2) - Math.max(0, pointX(i) - band / 2)}
+            y={0}
+            height={h}
+            fill="transparent"
+            onMouseEnter={() => setActive(i)}
+          />
+        ))}
+      </svg>
+      {active !== null && (
+        <div
+          role="tooltip"
+          className="absolute bottom-full mb-1 z-10 w-64 px-2.5 py-2 text-xs rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-surface-2)] shadow-lg pointer-events-none"
+          // Left at the point, shifted by the same fraction: it stays inside the chart at both ends.
+          style={{ left: `${fraction * 100}%`, transform: `translateX(-${fraction * 100}%)` }}
+        >
+          <PointDetail point={points[active]} mode={mode} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -198,9 +279,6 @@ export function MilestoneDate({ milestone, today }: { milestone: Milestone; toda
   );
 }
 
-/** What the progress pill counts: issues, or story points. */
-export type ProgressMode = "issues" | "points";
-
 const BREAKDOWN_DELAY = 250;
 
 /**
@@ -254,13 +332,15 @@ export function MilestoneProgress({ milestone, today, mode = "issues", onToggleM
 
 /**
  * The full breakdown of a milestone: status counts, target date and, for an
- * open milestone, the burndown. A past milestone's counts are its final snapshot;
- * its burndown is in its expanded row. The header counts what the pill counts
+ * open milestone, the burn-up. A past milestone's counts are its final snapshot;
+ * its burn-up is in its expanded row. The header counts what the pill counts
  * (`mode`): issues done, or story points.
  */
 export function MilestoneSummaryCard({ milestone, today, mode = "issues" }: { milestone: Milestone; today: string; mode?: ProgressMode }) {
   const started = !!milestone.started_at && !milestone.placeholder;
-  const days = useMilestoneProgress(`#${milestone.number}`, started)?.days ?? [];
+  const progress = useMilestoneProgress(`#${milestone.number}`, started);
+  const [axis] = useBurnUpAxis();
+  const points = burnUpPoints(progress, axis, mode);
   const section = "px-3 py-2.5 border-t border-[var(--color-border-subtle)] first:border-t-0";
   return (
     <div className="text-sm">
@@ -283,54 +363,110 @@ export function MilestoneSummaryCard({ milestone, today, mode = "issues" }: { mi
       {milestone.state === "OPEN" && (
         <div className={cn(section, "space-y-1.5")}>
           <div className="flex justify-between text-[var(--color-text-muted)]">
-            <span>Burndown</span>
+            <span>Burn-up</span>
             {started && <span className="tabular-nums">since {formatShortDate(milestone.started_at!)}</span>}
           </div>
           {!started ? (
             <p className="text-[var(--color-text-muted)]">Starts when this milestone becomes Current.</p>
-          ) : <Burndown days={days} height={48} />}
+          ) : <BurnUp points={points} height={48} mode={mode} />}
         </div>
       )}
     </div>
   );
 }
 
-/** The burndown with its legend, between the first date and, from the second day, the last. */
-export function BurndownWithLegend({ days }: { days: MilestoneDay[] }) {
-  if (days.length === 0) return null;
+const AXIS_OPTIONS: { value: BurnUpAxis; label: string }[] = [
+  { value: "order", label: "Order" },
+  { value: "time", label: "Time" },
+];
+
+/** The Order | Time switch of a burn-up, built from native radios so arrow keys move between them. */
+function AxisToggle({ axis, onChange }: { axis: BurnUpAxis; onChange: (axis: BurnUpAxis) => void }) {
+  const name = useId();
+  return (
+    <span role="radiogroup" aria-label="Burn-up axis" className="inline-flex p-px rounded-[var(--radius-sm)] border border-[var(--color-border-subtle)]">
+      {AXIS_OPTIONS.map((opt) => {
+        const checked = axis === opt.value;
+        return (
+          <label
+            key={opt.value}
+            className={cn(
+              "px-1.5 rounded-[3px] cursor-pointer transition-colors",
+              "has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--color-border-focus)]",
+              checked ? "bg-[var(--color-surface-3)] text-[var(--color-text-primary)]" : "hover:text-[var(--color-text-primary)]",
+            )}
+          >
+            <input type="radio" name={name} value={opt.value} checked={checked} onChange={() => onChange(opt.value)} className="sr-only" />
+            {opt.label}
+          </label>
+        );
+      })}
+    </span>
+  );
+}
+
+const pointDate = (p: BurnUpPoint) => (p.step ? p.step.at : p.day!.date);
+
+/**
+ * The burn-up with its legend and the Order | Time switch, between the first
+ * date and, from the second point, the last. Order counts the steps it draws.
+ * It counts what the progress pill counts. With fewer than `minPoints`
+ * points it shows the `empty` note instead of the chart, and keeps the switch
+ * so the other axis stays one click away; without a note it shows nothing.
+ */
+export function BurnUpWithLegend({ progress, minPoints = 1, empty }: {
+  progress: Pick<MilestoneProgressResponse, "days" | "steps"> | undefined;
+  minPoints?: number;
+  empty?: ReactNode;
+}) {
+  const [axis, setAxis] = useBurnUpAxis();
+  const [mode] = useProgressMode();
+  const points = burnUpPoints(progress, axis, mode);
+  const shown = points.length >= Math.max(1, minPoints);
+  if (!shown && !empty) return null;
   return (
     <div>
-      <Burndown days={days} height={96} />
+      {shown && <BurnUp points={points} height={96} mode={mode} hover />}
       <div className="mt-1 flex items-center gap-3 text-xs tabular-nums text-[var(--color-text-muted)]">
-        <span>{formatShortDate(days[0].date)}</span>
+        {shown && <span>{formatShortDate(pointDate(points[0]))}</span>}
         <span className="flex-1 flex items-center justify-center gap-3">
-          <span className="flex items-center gap-1">
-            <span className="w-3 h-0.5 bg-[var(--color-accent-primary)]" />
-            Open
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-3 border-t border-dashed border-[var(--color-text-muted)] opacity-50" />
-            Scope
-          </span>
+          {shown ? (
+            <>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-0.5 bg-[var(--color-accent-primary)]" />
+                Done
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 border-t border-dashed border-[var(--color-text-muted)] opacity-50" />
+                Scope
+              </span>
+              {axis === "order" && <span>{points.length} {points.length === 1 ? "step" : "steps"}</span>}
+            </>
+          ) : (
+            <span>{empty}</span>
+          )}
+          <AxisToggle axis={axis} onChange={setAxis} />
         </span>
-        {days.length >= 2 && <span>{formatShortDate(days[days.length - 1].date)}</span>}
+        {shown && points.length >= 2 && <span>{formatShortDate(pointDate(points[points.length - 1]))}</span>}
       </div>
     </div>
   );
 }
 
 /**
- * A past milestone's burndown from its start to its completion, for the
- * summary slot of its expanded row. Nothing for a milestone that was never Current or completed
- * within a day.
+ * A past milestone's burn-up from its start to its completion, for the
+ * summary slot of its expanded row. Nothing for a milestone that was never
+ * Current. It needs two points: two steps in Order mode, two days in Time
+ * mode (a milestone completed within a day shows only the switch).
  */
-export function PastBurndown({ milestone }: { milestone: Milestone }) {
-  const days = useMilestoneProgress(`#${milestone.number}`, !!milestone.started_at)?.days ?? [];
-  if (!milestone.started_at || days.length < 2) return null;
+export function PastBurnUp({ milestone }: { milestone: Milestone }) {
+  const progress = useMilestoneProgress(`#${milestone.number}`, !!milestone.started_at);
+  const [mode] = useProgressMode();
+  if (!milestone.started_at || burnUpPoints(progress, "order", mode).length < 2) return null;
   return (
     // On the card, its left edge under the milestone name.
     <div className="pl-10 pr-3 pt-1 pb-3">
-      <BurndownWithLegend days={days} />
+      <BurnUpWithLegend progress={progress} minPoints={2} empty="Completed within one day" />
     </div>
   );
 }
@@ -351,7 +487,7 @@ interface MilestoneRowBodyProps {
   /** What the progress pill counts, and the click that switches it. */
   progressMode?: ProgressMode;
   onToggleProgressMode?: () => void;
-  /** Shown on the card while expanded, above the issue list: what sums up the milestone (a past milestone's burndown). */
+  /** Shown on the card while expanded, above the issue list: what sums up the milestone (a past milestone's burn-up). */
   summary?: ReactNode;
   /** The milestone's issues, shown while expanded, one surface below the card. */
   children?: ReactNode;
