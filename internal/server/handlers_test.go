@@ -16,6 +16,7 @@ import (
 	"github.com/palarix/exponential/internal/exponential"
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/model"
+	"github.com/palarix/exponential/internal/registry"
 	"github.com/palarix/exponential/internal/storage"
 )
 
@@ -32,6 +33,8 @@ func setupTestServer(t *testing.T) *Server {
 	origDir, _ := os.Getwd()
 	os.Chdir(tmpDir)
 	t.Cleanup(func() { os.Chdir(origDir) })
+	// Never touch the developer's real board registry.
+	t.Cleanup(registry.SetDirForTesting(filepath.Join(tmpDir, "registry")))
 
 	cfg := &config.Config{
 		Prefix:           "test-",

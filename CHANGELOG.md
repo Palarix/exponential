@@ -96,6 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Board registry: several `xpo board` processes that start or stop at the same moment no longer corrupt the shared `instances.json`. Writes take a file lock and go through a unique tmp file. A corrupt registry is rewritten instead of making `/api/instances` fail on every board, and the server tests no longer read the real registry. (xpo-fb37da)
+
 - Demo board: `xpo demo` no longer seeds events later than the time it runs. Before, the weekend snap could push the last events up to 3 days into the future, and every change made on the new board got a seeded timestamp. (xpo-760e41)
 
 - Agent chat: an event over 4 MiB no longer makes the whole chat fail to open or replay. The board reads a chat's log with no line limit. An approval card stores each tool argument up to 64 KiB and marks a longer one `… [cut: N bytes total]`. The agent still gets the full input. (xpo-f5df49)

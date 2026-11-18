@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/registry"
 )
 
 // --- handleGetArtifact ---
@@ -70,6 +71,53 @@ func TestHandleListInstances(t *testing.T) {
 	var resp []json.RawMessage
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Errorf("expected JSON array, got error: %v", err)
+	}
+	if len(resp) != 0 {
+		t.Errorf("expected an empty test registry, got %d entries", len(resp))
+	}
+}
+
+func TestHandleListInstances_UsesTestRegistry(t *testing.T) {
+	srv := setupTestServer(t)
+	mux := srv.SetupRoutes()
+	if err := registry.Register("test-board", 4321, "/test"); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/instances", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp []struct {
+		Name string `json:"name"`
+		Port int    `json:"port"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp) != 1 || resp[0].Name != "test-board" || resp[0].Port != 4321 {
+		t.Fatalf("instances = %+v, want only test-board", resp)
+	}
+}
+
+func TestHandleListInstances_CorruptRegistry(t *testing.T) {
+	srv := setupTestServer(t)
+	mux := srv.SetupRoutes()
+	regDir := t.TempDir()
+	t.Cleanup(registry.SetDirForTesting(regDir))
+	if err := os.WriteFile(filepath.Join(regDir, "instances.json"), []byte("[]\n]"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/instances", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on a corrupt registry, got %d: %s", w.Code, w.Body.String())
 	}
 }
 
