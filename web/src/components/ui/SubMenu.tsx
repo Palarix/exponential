@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Menu, SubMenuTrigger } from "./Menu";
+import { useMenuOwner } from "./menu-owner";
 import { computePopoverPosition } from "./popover-utils";
 
 interface SubMenuProps {
@@ -22,11 +23,8 @@ interface SubMenuProps {
   maxHeight?: string;
   _menuIndex?: number;
   _focused?: boolean;
-  _onMouseEnter?: (index: number) => void;
   _subMenuOpen?: boolean;
-  _onSubMenuClose?: () => void;
   _ownerId?: string;
-  _onFlyoutEnter?: () => void;
 }
 
 const CLOSE_DELAY = 300;
@@ -42,12 +40,13 @@ export function SubMenu({
   maxHeight,
   _menuIndex = 0,
   _focused,
-  _onMouseEnter,
   _subMenuOpen,
-  _onSubMenuClose,
   _ownerId,
-  _onFlyoutEnter,
 }: SubMenuProps) {
+  const owner = useMenuOwner(_ownerId);
+  const onRowEnter = owner?.onItemMouseEnter;
+  const closeSubMenu = owner?.closeSubMenu;
+  const onFlyoutEnter = owner?.onFlyoutEnter;
   const triggerRef = useRef<HTMLDivElement>(null);
   const flyoutRef = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,9 +62,9 @@ export function SubMenu({
     cancelClose();
     closeTimer.current = setTimeout(() => {
       closeTimer.current = null;
-      _onSubMenuClose?.();
+      closeSubMenu?.();
     }, CLOSE_DELAY);
-  }, [_onSubMenuClose, cancelClose]);
+  }, [closeSubMenu, cancelClose]);
 
   useEffect(() => {
     if (!_subMenuOpen) cancelClose();
@@ -109,8 +108,8 @@ export function SubMenu({
 
   const handleFlyoutMouseEnter = useCallback(() => {
     cancelClose();
-    _onFlyoutEnter?.();
-  }, [cancelClose, _onFlyoutEnter]);
+    onFlyoutEnter?.();
+  }, [cancelClose, onFlyoutEnter]);
 
   const handleFlyoutMouseLeave = useCallback(() => {
     scheduleClose();
@@ -135,12 +134,12 @@ export function SubMenu({
           menuIndex={_menuIndex}
           onMouseEnter={() => {
             cancelClose();
-            _onMouseEnter?.(_menuIndex);
+            onRowEnter?.(_menuIndex);
           }}
-          onClick={() => _onMouseEnter?.(_menuIndex)}
+          onClick={() => onRowEnter?.(_menuIndex)}
         />
       </div>
-      {_subMenuOpen && _onSubMenuClose &&
+      {_subMenuOpen && closeSubMenu &&
         createPortal(
           <div
             ref={flyoutRef}
@@ -157,15 +156,15 @@ export function SubMenu({
           >
             {useMenu ? (
               <Menu
-                onClose={_onSubMenuClose}
-                onParentArrowLeft={_onSubMenuClose}
+                onClose={closeSubMenu}
+                onParentArrowLeft={closeSubMenu}
                 maxHeight={maxHeight}
                 autoFocus
               >
                 {children}
               </Menu>
             ) : (
-              renderPanel!(_onSubMenuClose)
+              renderPanel!(closeSubMenu)
             )}
           </div>,
           document.body,

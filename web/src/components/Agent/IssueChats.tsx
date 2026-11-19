@@ -5,6 +5,7 @@ import { AppNavContext } from "../../app/contexts";
 import { cn } from "../../utils/cn";
 import { formatRelativeTime } from "../../utils/format";
 import { indicatorPill, Menu, MenuDivider, MenuFilter, MenuItem, MenuLabel, Popover } from "../ui";
+import { useMenuOwner } from "../ui/menu-owner";
 import { useOptionalAgentChat } from "./agent-context";
 import { chatState, enterWorkBlocker, filterChats, type IssueChatState } from "./issue-chats";
 import { chatCount, useIssueChats } from "./useIssueChats";
@@ -137,12 +138,12 @@ interface ChatRowProps {
   // Injected by Menu.
   _menuIndex?: number;
   _focused?: boolean;
-  _onMouseEnter?: (index: number) => void;
-  _onClick?: (index: number) => void;
+  _ownerId?: string;
 }
 
 /** One chat in IssueChatsList: a menu row with a ⋯ button for its actions. */
-function ChatRow({ chat, issueId, hasActions, actionsOpen, onToggleActions, _menuIndex = 0, _focused, _onMouseEnter, _onClick }: ChatRowProps) {
+export function ChatRow({ chat, issueId, hasActions, actionsOpen, onToggleActions, _menuIndex = 0, _focused, _ownerId }: ChatRowProps) {
+  const owner = useMenuOwner(_ownerId);
   // Shift+F10 and the context-menu key open the focused row's actions.
   useEffect(() => {
     if (!_focused || !hasActions) return;
@@ -160,7 +161,7 @@ function ChatRow({ chat, issueId, hasActions, actionsOpen, onToggleActions, _men
   return (
     <div
       data-menu-index={_menuIndex}
-      onMouseEnter={() => _onMouseEnter?.(_menuIndex)}
+      onMouseEnter={() => owner?.onItemMouseEnter(_menuIndex)}
       onContextMenu={(e) => {
         if (!hasActions) return;
         e.preventDefault();
@@ -175,7 +176,7 @@ function ChatRow({ chat, issueId, hasActions, actionsOpen, onToggleActions, _men
         type="button"
         role="menuitem"
         tabIndex={_focused ? 0 : -1}
-        onClick={() => _onClick?.(_menuIndex)}
+        onClick={() => owner?.onItemClick(_menuIndex)}
         className="flex flex-1 items-center gap-2 min-w-0 px-2 py-1.5 text-sm text-left outline-none"
       >
         <IssueChatStateIcon state={chatState(chat, issueId)} />

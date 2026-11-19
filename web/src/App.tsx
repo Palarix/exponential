@@ -10,7 +10,7 @@ import TabStatus from './components/Agent/TabStatus';
 import { chatContextFor } from './components/Agent/agent-state-utils';
 import { LabelColorsContext, HideDefaultLabelsContext, DefaultLabelsContext, useToast } from './components/ui';
 import { useLive } from './live/useLive';
-import { useKeyboardShortcuts } from './keyboard';
+import { useKeyboardHandler, useKeyboardShortcuts } from './keyboard';
 import { useConfig, useInbox, useIssueDrafts, useIssueList, useIssues } from './api/queries';
 import type { IssueDraft } from './api/types';
 import { effectiveLabelColors } from './api/query-utils';
@@ -25,6 +25,13 @@ function safeLocalStorage(): Storage | null {
 function sameRoute(a: Route, b: Route): boolean {
   return a.view === b.view && a.issueId === b.issueId && a.cycleId === b.cycleId && a.depFocusId === b.depFocusId && a.chatId === b.chatId && a.chatHistory?.issueId === b.chatHistory?.issueId && !a.chatHistory === !b.chatHistory;
 }
+
+const GO_SHORTCUTS = Object.entries(VIEW_BY_GO_KEY).map(([key, target]) => ({
+  id: `navigate.${target}`,
+  key: ['g', key] as const,
+  label: `Go to ${VIEW_BY_ID[target].title}`,
+  group: 'Global',
+}));
 
 function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
@@ -139,14 +146,16 @@ function App() {
     enabled: !showPalette && !showNewIssue,
     shortcuts: [
       { id: 'issue.create', key: 'c', label: 'Create new issue', group: 'Global', run: () => openNewIssue() },
-      ...Object.entries(VIEW_BY_GO_KEY).map(([key, target]) => ({
-        id: `navigate.${target}`,
-        key: ['g', key] as const,
-        label: `Go to ${VIEW_BY_ID[target].title}`,
-        group: 'Global',
-        run: () => navigate(target),
-      })),
     ],
+  });
+
+  // One handler for all g-keys: the key after `g` names the view.
+  useKeyboardHandler({
+    scope: 'global.go',
+    priority: 'global',
+    enabled: !showPalette && !showNewIssue,
+    shortcuts: GO_SHORTCUTS,
+    handler: (e) => navigate(VIEW_BY_GO_KEY[e.key]),
   });
 
   const labelColors = useMemo(() => effectiveLabelColors(config), [config]);

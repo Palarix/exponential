@@ -8,25 +8,25 @@ import {
   useRef,
   useEffect,
   useLayoutEffect,
+  useMemo,
   type ReactNode,
   type ReactElement,
 } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "../../utils/cn";
 import { useKeyboardHandler } from "../../keyboard";
+import { MenuOwnerContext, useMenuOwner, type MenuOwner } from "./menu-owner";
 import { nextIndex, matchShortcut, movingTowardFlyout, pointInTriangle, scrollMenuPadding, closesOnActivate, menuItemClass, opensOnHover } from "./menu-utils";
 
 // ─── Internal props injected by Menu via cloneElement ──
+// Plain values only; the handlers come from MenuOwnerContext (menu-owner.ts).
 
 interface MenuItemInternalProps {
   _menuIndex?: number;
   _focused?: boolean;
-  _onMouseEnter?: (index: number) => void;
-  _onClick?: (index: number) => void;
   _subMenuOpen?: boolean;
-  _onSubMenuClose?: () => void;
+  /** The Menu this row is a direct child of. */
   _ownerId?: string;
-  _onFlyoutEnter?: () => void;
 }
 
 // ─── Child metadata collected during render ────────────
@@ -406,14 +406,17 @@ export function Menu({
     return cloneElement(child as ReactElement<MenuItemInternalProps>, {
       _menuIndex: i,
       _focused: focusIndex === i,
-      _onMouseEnter: handleItemMouseEnter,
-      _onClick: activateItem,
       _subMenuOpen: openSubMenuIndex === i,
-      _onSubMenuClose: closeSubMenu,
       _ownerId: menuId,
-      _onFlyoutEnter: cancelPendingHover,
     });
   });
+  const owner = useMemo<MenuOwner>(() => ({
+    ownerId: menuId,
+    onItemMouseEnter: handleItemMouseEnter,
+    onItemClick: activateItem,
+    closeSubMenu,
+    onFlyoutEnter: cancelPendingHover,
+  }), [menuId, handleItemMouseEnter, activateItem, closeSubMenu, cancelPendingHover]);
 
   useEffect(() => {
     if (focusIndex < 0) return;
@@ -448,7 +451,7 @@ export function Menu({
         className,
       )}
     >
-      {rendered}
+      <MenuOwnerContext.Provider value={owner}>{rendered}</MenuOwnerContext.Provider>
     </div>
   );
 }
@@ -490,22 +493,22 @@ export function MenuItem({
   truncate,
   _menuIndex = 0,
   _focused,
-  _onMouseEnter,
-  _onClick,
+  _ownerId,
 }: MenuItemProps) {
+  const owner = useMenuOwner(_ownerId);
   const isCheckbox = checked !== undefined;
 
   const handleClick = () => {
     if (disabled) return;
-    if (_onClick) {
-      _onClick(_menuIndex);
+    if (owner) {
+      owner.onItemClick(_menuIndex);
     } else {
       onClick?.();
     }
   };
 
   const handleMouseEnter = () => {
-    _onMouseEnter?.(_menuIndex);
+    owner?.onItemMouseEnter(_menuIndex);
   };
 
   return (

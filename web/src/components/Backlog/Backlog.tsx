@@ -171,6 +171,45 @@ function applyNestDOM(
   }
 }
 
+/** Whether `childId` sits anywhere under `parentId`. */
+function isDescendant(issues: Issue[], parentId: string, childId: string): boolean {
+  for (const i of issues) {
+    if (i.parent_id === parentId) {
+      if (i.id === childId) return true;
+      if (isDescendant(issues, i.id, childId)) return true;
+    }
+  }
+  return false;
+}
+
+/** A tab's expanded groups; by default, its open groups that have issues. */
+function loadExpandedGroups(tab: Tab, issues: Issue[]): Set<string> {
+  const stored = localStorage.getItem(`exponential-backlog-expanded-${tab}`);
+  if (stored) return new Set(JSON.parse(stored) as string[]);
+  const next = new Set<string>();
+  for (const status of TAB_CONFIGS[tab].statuses) {
+    const count = issues.filter((i) => i.status === status).length;
+    if (count > 0 && (!isTerminal(status) || tab === "done")) next.add(status);
+  }
+  return next;
+}
+
+function loadHierarchyMode(tab: Tab): HierarchyMode {
+  try {
+    return (localStorage.getItem(`exponential-backlog-hierarchy-${tab}`) as HierarchyMode) || "nested";
+  } catch {
+    return "nested";
+  }
+}
+
+function loadShowEmptyGroups(tab: Tab): boolean {
+  try {
+    const stored = localStorage.getItem(`exponential-backlog-empty-groups-${tab}`);
+    if (stored !== null) return stored === "true";
+  } catch { /* localStorage unavailable */ }
+  return tab === "all" || tab === "done";
+}
+
 export default function Backlog() {
   const issues = useIssueList();
   const updateIssue = useUpdateIssue();
@@ -189,9 +228,7 @@ export default function Backlog() {
     if (target.filters) onFiltersChange(target.filters);
   });
   const [search, setSearch] = useState("");
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [expandedGroups, setExpandedGroups] = useState(() => loadExpandedGroups(activeTab, issues));
   const [nodeToggleCount, setNodeToggleCount] = useState(0);
   // Node collapses made while a search/filter is active. Scoped to that
   // query (`key`) and never persisted, so matches are never hidden.
@@ -242,17 +279,7 @@ export default function Backlog() {
       return next;
     });
   }, []);
-  const [hierarchyMode, setHierarchyMode] = useState<HierarchyMode>(() => {
-    try {
-      return (
-        (localStorage.getItem(
-          `exponential-backlog-hierarchy-${activeTab}`,
-        ) as HierarchyMode) || "nested"
-      );
-    } catch {
-      return "nested";
-    }
-  });
+  const [hierarchyMode, setHierarchyMode] = useState(() => loadHierarchyMode(activeTab));
   const toggleHierarchy = useCallback(() => {
     setHierarchyMode((prev) => {
       const next = prev === "nested" ? "flat" : "nested";
@@ -265,17 +292,16 @@ export default function Backlog() {
       return next;
     });
   }, [activeTab]);
-  const [showEmptyGroups, setShowEmptyGroups] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem(
-        `exponential-backlog-empty-groups-${activeTab}`,
-      );
-      if (stored !== null) return stored === "true";
-      return activeTab === "all" || activeTab === "done";
-    } catch {
-      return activeTab === "all" || activeTab === "done";
-    }
-  });
+  const [showEmptyGroups, setShowEmptyGroups] = useState(() => loadShowEmptyGroups(activeTab));
+  // Each tab keeps its own view settings: load them as the tab changes, in
+  // the same render, so the first paint of a tab already shows them.
+  const [loadedTab, setLoadedTab] = useState(activeTab);
+  if (loadedTab !== activeTab) {
+    setLoadedTab(activeTab);
+    setExpandedGroups(loadExpandedGroups(activeTab, issues));
+    setHierarchyMode(loadHierarchyMode(activeTab));
+    setShowEmptyGroups(loadShowEmptyGroups(activeTab));
+  }
   const toggleEmptyGroups = useCallback(() => {
     setShowEmptyGroups((prev) => {
       const next = !prev;
@@ -436,7 +462,7 @@ export default function Backlog() {
 
   const visibleStatuses = TAB_CONFIGS[activeTab].statuses;
   const query = search.trim().toLowerCase();
-  const tabFilters = filtersForScope(filters, visibleStatuses);
+  const tabFilters = useMemo(() => filtersForScope(filters, visibleStatuses), [filters, visibleStatuses]);
   const tabIssues = issues.filter((i) => visibleStatuses.includes(i.status) && matchesSearch(i, query));
   const filteredIssues = tabIssues.filter((i) => matchesFilters(i, tabFilters, milestones));
 
@@ -465,41 +491,6 @@ export default function Backlog() {
       filtering,
     });
   }, [childrenByParent, nodeToggleCount, transientCollapsed, filtering]);
-
-  useEffect(() => {
-    const storageKey = `exponential-backlog-expanded-${activeTab}`;
-    const stored = localStorage.getItem(storageKey);
-    let next: Set<string>;
-    if (stored) {
-      next = new Set(JSON.parse(stored) as string[]);
-    } else {
-      next = new Set<string>();
-      for (const status of visibleStatuses) {
-        const count = issues.filter((i) => i.status === status).length;
-        if (count > 0 && (!isTerminal(status) || activeTab === "done"))
-          next.add(status);
-      }
-    }
-    setExpandedGroups(next);
-    try {
-      setHierarchyMode(
-        (localStorage.getItem(
-          `exponential-backlog-hierarchy-${activeTab}`,
-        ) as HierarchyMode) || "nested",
-      );
-    } catch { /* localStorage unavailable */ }
-    try {
-      const emptyStored = localStorage.getItem(
-        `exponential-backlog-empty-groups-${activeTab}`,
-      );
-      setShowEmptyGroups(
-        emptyStored !== null
-          ? emptyStored === "true"
-          : activeTab === "all" || activeTab === "done",
-      );
-    } catch { /* localStorage unavailable */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
 
   const toggleGroup = useCallback(
     (status: string) => {
@@ -586,7 +577,8 @@ export default function Backlog() {
   const dropIndicatorRef = useRef<DropIndicatorValue>(null);
   const dropGroupStatusRef = useRef<string | null>(null);
   const dropNestTargetIdRef = useRef<string | null>(null);
-  const dragBatchRef = useRef<string[]>([]);
+  // The rows that move with the dragged one (a multi-selection).
+  const [dragBatch, setDragBatch] = useState<string[]>([]);
   const modifiersRef = useRef({ alt: false, meta: false, ctrl: false });
   const pointerYRef = useRef<number>(0);
 
@@ -882,6 +874,7 @@ export default function Backlog() {
 
   const resetDropState = useCallback(() => {
     setActiveId(null);
+    setDragBatch([]);
     setIndicator(null);
     setGroup(null);
     setNest(null);
@@ -902,7 +895,7 @@ export default function Backlog() {
       };
       if (typeof (orig as PointerEvent).clientY === "number")
         pointerYRef.current = (orig as PointerEvent).clientY;
-      dragBatchRef.current = getDragGroup(id);
+      setDragBatch(getDragGroup(id));
       wasDraggingRef.current = true;
       setActiveId(id);
       setIndicator(null);
@@ -910,19 +903,6 @@ export default function Backlog() {
       setNest(null);
     },
     [getDragGroup, setIndicator, setGroup, setNest],
-  );
-
-  const isDescendant = useCallback(
-    (parentId: string, childId: string): boolean => {
-      for (const i of issues) {
-        if (i.parent_id === parentId) {
-          if (i.id === childId) return true;
-          if (isDescendant(i.id, childId)) return true;
-        }
-      }
-      return false;
-    },
-    [issues],
   );
 
   const handleDndOver = useCallback(
@@ -1090,7 +1070,7 @@ export default function Backlog() {
         !overRow.issue.parent_id
       ) {
         const alreadyChild = draggedParentId === overRaw;
-        if (!alreadyChild && !isDescendant(draggedId, overRaw)) {
+        if (!alreadyChild && !isDescendant(issues, draggedId, overRaw)) {
           setNest(overRaw);
           setIndicator(null);
           setGroup(null);
@@ -1179,7 +1159,6 @@ export default function Backlog() {
       getRowStatusGroup,
       findAfterTree,
       isSiblingPosition,
-      isDescendant,
       setIndicator,
       setGroup,
       setNest,
@@ -1238,130 +1217,110 @@ export default function Backlog() {
   const [showViewMenu, setShowViewMenu] = useState(false);
   const viewBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Stable refs for keyboard handler
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
-  const focusedIndexRef = useRef(focusedIndex);
-  focusedIndexRef.current = focusedIndex;
-  const expandedGroupsRef = useRef(expandedGroups);
-  expandedGroupsRef.current = expandedGroups;
-  const expandedNodesRef = useRef(expandedNodes);
-  expandedNodesRef.current = expandedNodes;
-  const openPopoverRef = useRef(openPopover);
-  openPopoverRef.current = openPopover;
-  const onIssueClickRef = useRef(onIssueClick);
-  onIssueClickRef.current = onIssueClick;
-  const toggleGroupRef = useRef(toggleGroup);
-  toggleGroupRef.current = toggleGroup;
-  const toggleNodeRef = useRef(toggleNode);
-  toggleNodeRef.current = toggleNode;
-  const expandAllNodesRef = useRef(expandAllNodes);
-  expandAllNodesRef.current = expandAllNodes;
-  const collapseAllNodesRef = useRef(collapseAllNodes);
-  collapseAllNodesRef.current = collapseAllNodes;
-
-  const handleKeyboard = useCallback((e: KeyboardEvent) => {
-      if (openPopoverRef.current) return;
-      if (isEditableTarget(e)) return;
-      if (e.metaKey || e.ctrlKey) return;
-      if (e.key === "}") {
+  // The keyboard registry always runs the handler of the latest render,
+  // so this reads the current rows and state directly.
+  const handleKeyboard = (e: KeyboardEvent) => {
+    if (openPopover) return;
+    if (isEditableTarget(e)) return;
+    if (e.metaKey || e.ctrlKey) return;
+    if (e.key === "}") {
+      e.preventDefault();
+      expandAllNodes();
+      return;
+    }
+    if (e.key === "{") {
+      e.preventDefault();
+      collapseAllNodes();
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "j") {
+      e.preventDefault();
+      setKeyboardNav(true);
+      setFocusedIndex((i) => Math.min(i + 1, rows.length - 1));
+      return;
+    }
+    if (e.key === "ArrowUp" || e.key === "k") {
+      e.preventDefault();
+      setKeyboardNav(true);
+      setFocusedIndex((i) => Math.max(i - 1, 0));
+      return;
+    }
+    const row = rows[focusedIndex];
+    if (!row) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (row.kind === "group" && !row.isEmpty)
+        toggleGroup(row.status);
+      else if (row.kind === "issue") onIssueClick?.(row.issue);
+      return;
+    }
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      if (
+        row.kind === "group" &&
+        !row.isEmpty &&
+        !expandedGroups.has(row.status)
+      )
+        toggleGroup(row.status);
+      else if (
+        row.kind === "issue" &&
+        row.hasVisibleChildren &&
+        !expandedNodes.has(row.issue.id)
+      )
+        toggleNode(row.issue.id);
+      return;
+    }
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      if (row.kind === "group" && expandedGroups.has(row.status))
+        toggleGroup(row.status);
+      else if (
+        row.kind === "issue" &&
+        row.hasVisibleChildren &&
+        expandedNodes.has(row.issue.id)
+      )
+        toggleNode(row.issue.id);
+      return;
+    }
+    if (e.key === "." && row.kind === "issue") {
+      navigator.clipboard.writeText(row.issue.id);
+      showToast("Copied issue ID");
+      return;
+    }
+    if (row.kind === "issue") {
+      const ri = focusedIndex;
+      if (e.key === "s") {
         e.preventDefault();
-        expandAllNodesRef.current();
+        setOpenPopover({ rowIndex: ri, type: "status" });
         return;
       }
-      if (e.key === "{") {
+      if (e.key === "l") {
         e.preventDefault();
-        collapseAllNodesRef.current();
+        setOpenPopover({ rowIndex: ri, type: "labels" });
         return;
       }
-      if (e.key === "ArrowDown" || e.key === "j") {
+      if (e.key === "e") {
         e.preventDefault();
-        setKeyboardNav(true);
-        setFocusedIndex((i) => Math.min(i + 1, rowsRef.current.length - 1));
+        setOpenPopover({ rowIndex: ri, type: "estimate" });
         return;
       }
-      if (e.key === "ArrowUp" || e.key === "k") {
+      if (e.key === "p") {
         e.preventDefault();
-        setKeyboardNav(true);
-        setFocusedIndex((i) => Math.max(i - 1, 0));
+        setOpenPopover({ rowIndex: ri, type: "priority" });
         return;
       }
-      const row = rowsRef.current[focusedIndexRef.current];
-      if (!row) return;
-      if (e.key === "Enter") {
+      if (e.key === "a") {
         e.preventDefault();
-        if (row.kind === "group" && !row.isEmpty)
-          toggleGroupRef.current(row.status);
-        else if (row.kind === "issue") onIssueClickRef.current?.(row.issue);
+        setOpenPopover({ rowIndex: ri, type: "assignee" });
         return;
       }
-      if (e.key === "ArrowRight") {
+      if (e.key === "r") {
         e.preventDefault();
-        if (
-          row.kind === "group" &&
-          !row.isEmpty &&
-          !expandedGroupsRef.current.has(row.status)
-        )
-          toggleGroupRef.current(row.status);
-        else if (
-          row.kind === "issue" &&
-          row.hasVisibleChildren &&
-          !expandedNodesRef.current.has(row.issue.id)
-        )
-          toggleNodeRef.current(row.issue.id);
+        setOpenPopover({ rowIndex: ri, type: "milestone" });
         return;
       }
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        if (row.kind === "group" && expandedGroupsRef.current.has(row.status))
-          toggleGroupRef.current(row.status);
-        else if (
-          row.kind === "issue" &&
-          row.hasVisibleChildren &&
-          expandedNodesRef.current.has(row.issue.id)
-        )
-          toggleNodeRef.current(row.issue.id);
-        return;
-      }
-      if (e.key === "." && row.kind === "issue") {
-        navigator.clipboard.writeText(row.issue.id);
-        showToast("Copied issue ID");
-        return;
-      }
-      if (row.kind === "issue") {
-        const ri = focusedIndexRef.current;
-        if (e.key === "s") {
-          e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "status" });
-          return;
-        }
-        if (e.key === "l") {
-          e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "labels" });
-          return;
-        }
-        if (e.key === "e") {
-          e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "estimate" });
-          return;
-        }
-        if (e.key === "p") {
-          e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "priority" });
-          return;
-        }
-        if (e.key === "a") {
-          e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "assignee" });
-          return;
-        }
-        if (e.key === "r") {
-          e.preventDefault();
-          setOpenPopover({ rowIndex: ri, type: "milestone" });
-          return;
-        }
-      }
-    }, [showToast]);
+    }
+  };
 
   useKeyboardHandler({
     scope: "backlog",
@@ -1383,8 +1342,6 @@ export default function Backlog() {
     ],
   });
 
-  const issuesRef = useRef(issues);
-  issuesRef.current = issues;
   useEffect(() => {
     const container = listRef.current;
     if (!container) return;
@@ -1720,8 +1677,8 @@ export default function Backlog() {
                                 canDrag={isDndEnabled && !isGhostRow}
                                 isDropTarget={isDndEnabled && activeId !== null}
                                 dndId={isGhostRow ? `ghost:${issue.id}` : issue.id}
-                                isDraggedOrBatch={activeId !== null && dragBatchRef.current.includes(issue.id)}
-                                dragBatchCount={activeId === issue.id ? dragBatchRef.current.length : 0}
+                                isDraggedOrBatch={activeId !== null && dragBatch.includes(issue.id)}
+                                dragBatchCount={activeId === issue.id ? dragBatch.length : 0}
                                 popoverType={openPopover?.rowIndex === i ? openPopover.type : null}
                                 allKnownLabels={allKnownLabels}
                                 knownPeople={knownPeople}
@@ -1765,7 +1722,7 @@ export default function Backlog() {
           {draggedIssue ? (
             <DragOverlayCard
               issue={draggedIssue}
-              batchCount={dragBatchRef.current.length}
+              batchCount={dragBatch.length}
             />
           ) : null}
         </DragOverlay>

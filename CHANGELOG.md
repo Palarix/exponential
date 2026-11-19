@@ -94,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Filter chips start with a **Clear filters** text button, which replaces the ✕ icon after the chips. The bottom status bar now lines up with the main card on both sides. (xpo-325f73)
 
+- Frontend: `eslint-plugin-react-hooks` is on 7.1, and its 30 new lint errors are fixed in code, not suppressed. Keyboard shortcuts, menus, the command palette and Backlog drag and drop behave as before; new DOM tests cover them. One visible difference: switching Issues tabs no longer shows one frame with the previous tab's expanded groups. (xpo-09fa6f)
+
 ### Fixed
 
 - Board registry: several `xpo board` processes that start or stop at the same moment no longer corrupt the shared `instances.json`. Writes take a file lock and go through a unique tmp file. A corrupt registry is rewritten instead of making `/api/instances` fail on every board, and the server tests no longer read the real registry. (xpo-fb37da)

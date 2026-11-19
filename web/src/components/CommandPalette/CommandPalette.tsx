@@ -26,7 +26,12 @@ interface CommandPaletteProps {
 }
 
 
-export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect, onViewChange, onNewIssue, cyclesEnabled, contextIssue }: CommandPaletteProps) {
+/** Mounts the palette fresh on each open, so it starts with an empty query. */
+export default function CommandPalette({ isOpen, ...props }: CommandPaletteProps) {
+  return isOpen ? <PaletteBody {...props} /> : null;
+}
+
+function PaletteBody({ onClose, issues, onIssueSelect, onViewChange, onNewIssue, cyclesEnabled, contextIssue }: Omit<CommandPaletteProps, 'isOpen'>) {
   const { openPicker } = useMilestoneAssign();
   const agent = useOptionalAgentChat();
   const chats = agent?.chats;
@@ -37,12 +42,8 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setQuery('');
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
-  }, [isOpen]);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
 
   const items = useMemo(() => {
     const results: CommandItem[] = [];
@@ -124,10 +125,6 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     return Array.from(map.entries());
   }, [items]);
 
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
   // Scroll selected into view
   useEffect(() => {
     const el = listRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
@@ -149,8 +146,6 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
     }
   };
 
-  if (!isOpen) return null;
-
   let flatIndex = 0;
 
   return createPortal(
@@ -166,7 +161,10 @@ export default function CommandPalette({ isOpen, onClose, issues, onIssueSelect,
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
             placeholder="Search issues, chats, actions, navigation..."
             className="flex-1 bg-transparent text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none"
           />

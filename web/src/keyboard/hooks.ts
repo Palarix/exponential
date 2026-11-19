@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useSyncExternalStore } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { KeyboardNavContext } from "./context";
 import type { KeyboardHandlerRegistration, ShortcutRegistration } from "./types";
 
@@ -11,7 +11,10 @@ function useKeyboardRegistry() {
 export function useKeyboardShortcuts(registration: ShortcutRegistration): void {
   const registry = useKeyboardRegistry();
   const registrationRef = useRef(registration);
-  registrationRef.current = registration;
+  // After every render, before the browser can deliver the next key.
+  useLayoutEffect(() => {
+    registrationRef.current = registration;
+  });
   const tokenRef = useRef(Symbol(registration.scope));
   const metadataSignature = JSON.stringify({
     scope: registration.scope,

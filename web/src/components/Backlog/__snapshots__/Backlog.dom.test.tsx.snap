@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Backlog keyboard > lists the groups and nested rows of the All tab 1`] = `
+[
+  "[BACKLOG]",
+  "xpo-p1",
+  "xpo-c1",
+  "xpo-c2",
+  "xpo-b2",
+  "[PLANNED]",
+  "[DOING]",
+  "xpo-d1",
+  "[BLOCKED]",
+  "[DONE]",
+  "[CANCELED]",
+  "[DUPLICATE]",
+]
+`;
+
+exports[`Backlog tabs > loads each tab's expanded groups, hierarchy mode and empty groups from storage > active 1`] = `
+[
+  "[PLANNED]",
+  "[DOING]",
+  "xpo-d1",
+  "[BLOCKED]",
+]
+`;
+
+exports[`Backlog tabs > loads each tab's expanded groups, hierarchy mode and empty groups from storage > all 1`] = `
+[
+  "[BACKLOG]",
+  "xpo-p1",
+  "xpo-c1^",
+  "xpo-c2^",
+  "xpo-b2",
+  "[PLANNED]",
+  "[DOING]",
+  "xpo-d1",
+  "[BLOCKED]",
+  "[DONE]",
+  "[CANCELED]",
+  "[DUPLICATE]",
+]
+`;
+
+exports[`Backlog tabs > loads each tab's expanded groups, hierarchy mode and empty groups from storage > done 1`] = `
+[
+  "[DONE]",
+  "xpo-x1",
+  "[CANCELED]",
+  "[DUPLICATE]",
+]
+`;
