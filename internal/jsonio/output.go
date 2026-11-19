@@ -27,7 +27,10 @@ type IssueSummary struct {
 	MilestoneID      string             `json:"milestone_id,omitempty"`
 	Milestone        string             `json:"milestone,omitempty"`
 	BranchStats      *model.BranchStats `json:"branch_stats,omitempty"`
+	CreatedBy        string             `json:"created_by"`
+	CreatedAt        string             `json:"created_at"`
 	UpdatedAt        string             `json:"updated_at"`
+	CommentCount     int                `json:"comment_count"`
 }
 
 type CommentSummary struct {
@@ -371,7 +374,10 @@ func ToIssueSummary(i *model.Issue) IssueSummary {
 		MilestoneID:      i.MilestoneID,
 		Milestone:        i.MilestoneName,
 		BranchStats:      i.BranchStats,
+		CreatedBy:        i.CreatedBy,
+		CreatedAt:        i.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        i.UpdatedAt.Format(time.RFC3339),
+		CommentCount:     len(i.Comments),
 	}
 }
 

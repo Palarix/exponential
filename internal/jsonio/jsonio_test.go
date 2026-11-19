@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/palarix/exponential/internal/model"
 )
@@ -318,6 +319,36 @@ func TestToCommentSummariesOnBehalfOf(t *testing.T) {
 	}
 	if strings.Count(got, "on_behalf_of") != 1 {
 		t.Errorf("human comment should omit on_behalf_of: %s", got)
+	}
+}
+
+func TestToIssueSummaryCreatedAndCommentCount(t *testing.T) {
+	created := time.Date(2026, 11, 19, 12, 51, 55, 0, time.UTC)
+	s := ToIssueSummary(&model.Issue{
+		ID:        "xpo-abc123",
+		CreatedAt: created,
+		CreatedBy: "Alice <a@x.com>",
+		Comments:  []model.Comment{{ID: "c1"}, {ID: "c2"}},
+	})
+	if s.CreatedAt != "2026-11-19T12:51:55Z" {
+		t.Errorf("CreatedAt: got %q", s.CreatedAt)
+	}
+	if s.CreatedBy != "Alice <a@x.com>" {
+		t.Errorf("CreatedBy: got %q", s.CreatedBy)
+	}
+	if s.CommentCount != 2 {
+		t.Errorf("CommentCount: got %d want 2", s.CommentCount)
+	}
+}
+
+// A count of zero is information, so the fields are never omitted.
+func TestToIssueSummaryZeroCommentsKeepsFields(t *testing.T) {
+	b, _ := json.Marshal(ToIssueSummary(&model.Issue{ID: "xpo-abc123"}))
+	got := string(b)
+	for _, want := range []string{`"comment_count":0`, `"created_at":`, `"created_by":`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected %s in %s", want, got)
+		}
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/palarix/exponential/internal/config"
 	"github.com/palarix/exponential/internal/jsonio"
@@ -160,6 +161,39 @@ func TestList(t *testing.T) {
 	_, bugs, _ := ts.list(context.Background(), nil, jsonio.ListToolInput{Label: "bug"})
 	if len(bugs.Issues) != 2 {
 		t.Errorf("expected 2 bug issues, got %d", len(bugs.Issues))
+	}
+}
+
+func TestListCreatedAndCommentCount(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+
+	_, a, _ := ts.add(context.Background(), nil, jsonio.AddInput{Title: "A"})
+	ts.add(context.Background(), nil, jsonio.AddInput{Title: "B"})
+	for _, body := range []string{"one", "two"} {
+		if _, _, err := ts.comment(context.Background(), nil, jsonio.CommentToolInput{ID: a.ID, Body: body}); err != nil {
+			t.Fatalf("comment failed: %v", err)
+		}
+	}
+
+	_, out, err := ts.list(context.Background(), nil, jsonio.ListToolInput{})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	counts := map[string]int{}
+	for _, i := range out.Issues {
+		counts[i.Title] = i.CommentCount
+		if i.CreatedAt == "" {
+			t.Errorf("%s: empty created_at", i.Title)
+		} else if _, err := time.Parse(time.RFC3339, i.CreatedAt); err != nil {
+			t.Errorf("%s: created_at %q is not RFC 3339", i.Title, i.CreatedAt)
+		}
+		if i.CreatedBy != "Test User <test@test.com>" {
+			t.Errorf("%s: created_by got %q", i.Title, i.CreatedBy)
+		}
+	}
+	if counts["A"] != 2 || counts["B"] != 0 {
+		t.Errorf("comment counts: got %v want A=2 B=0", counts)
 	}
 }
 
