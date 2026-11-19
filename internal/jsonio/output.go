@@ -42,9 +42,10 @@ type CommentSummary struct {
 }
 
 type EventSummary struct {
-	Type      string `json:"type"`
-	CreatedBy string `json:"created_by"`
-	CreatedAt string `json:"created_at"`
+	Type      string                 `json:"type"`
+	CreatedBy string                 `json:"created_by"`
+	CreatedAt string                 `json:"created_at"`
+	Changes   map[string]FieldChange `json:"changes,omitempty"`
 }
 
 type ListOutput struct {
@@ -419,12 +420,14 @@ func ToEventSummaries(es []model.Event) []EventSummary {
 	if len(es) == 0 {
 		return nil
 	}
+	changes := eventChanges(es)
 	out := make([]EventSummary, len(es))
 	for i, e := range es {
 		out[i] = EventSummary{
 			Type:      string(e.Type),
 			CreatedBy: e.CreatedBy,
 			CreatedAt: e.CreatedAt.Format(time.RFC3339),
+			Changes:   changes[i],
 		}
 	}
 	return out

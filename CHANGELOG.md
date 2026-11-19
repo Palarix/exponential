@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Events in `xpo show --json` and the MCP `show` tool (with `include_events`) have a `changes` field. It lists the fields the event changed: `{"from", "to"}` for single values, `{"added", "removed"}` for labels and dependencies. Events that changed nothing shown have no `changes`. (xpo-acf7f4)
+
 - `xpo list --json` and the MCP `list` tool return `created_at` (RFC 3339), `created_by` and `comment_count` for each issue. `xpo blocked --json` and the `children` of `xpo show --json` return them too. (xpo-f2cd2a)
 
 - **Factory workflow template:** `xpo init --workflow factory` writes a workflow for autonomous delivery, one milestone at a time. The human approves the milestone backlog (its issues then go to PLANNED) and tophats the milestone at the end. In between, a sub-agent answers the spec's open questions, a second sub-agent reviews each change, and approved work is merged. The review is calibrated: blockers and majors need a realistic trigger, except in security and data-loss code; "PASS, no findings" is a normal result; the implementer may reject unrealistic findings and lists them at the tophat; only a blocker starts another round, and later rounds check only the fixes (at most 3 rounds). Milestones plan targets; stories of 5 story points or fewer, and epics for bigger ones, decompose the work. The template ships both sub-agent briefs as `references/open-questions.md` and `references/code-review.md`; agents without skills get them inline. It needs an agent that can start sub-agents. Workflow templates can now carry reference files. (xpo-82ee77)

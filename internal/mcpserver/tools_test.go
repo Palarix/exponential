@@ -1018,3 +1018,37 @@ func TestAddUpdateDescriptionsMentionPosition(t *testing.T) {
 		}
 	}
 }
+
+func TestShowEventsIncludeChanges(t *testing.T) {
+	ts, cleanup := setup(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	_, a, _ := ts.add(ctx, nil, jsonio.AddInput{Title: "A", Status: "PLANNED", Labels: []string{"feature"}})
+	doing := "DOING"
+	if _, _, err := ts.update(ctx, nil, jsonio.UpdateToolInput{
+		ID:          a.ID,
+		UpdateInput: jsonio.UpdateInput{Status: &doing, Labels: []string{"bug"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, show, _ := ts.show(ctx, nil, jsonio.ShowToolInput{ID: a.ID, IncludeEvents: true})
+	if len(show.Events) != 2 {
+		t.Fatalf("events = %+v, want 2", show.Events)
+	}
+	if show.Events[0].Changes != nil {
+		t.Errorf("CREATE changes = %+v, want none", show.Events[0].Changes)
+	}
+	got := show.Events[1].Changes
+	if s := got["status"]; s.From != "PLANNED" || s.To != "DOING" {
+		t.Errorf("status change = %+v, want PLANNED -> DOING", s)
+	}
+	l := got["labels"]
+	if added, _ := l.Added.([]string); len(added) != 1 || added[0] != "bug" {
+		t.Errorf("labels added = %+v, want [bug]", l.Added)
+	}
+	if removed, _ := l.Removed.([]string); len(removed) != 1 || removed[0] != "feature" {
+		t.Errorf("labels removed = %+v, want [feature]", l.Removed)
+	}
+}
