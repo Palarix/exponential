@@ -55,11 +55,12 @@ setup:
 stressgen:
 	go run ./tools/stressgen $(or $(OUTPUT),stresstest)
 
-# Cut a release: make release VERSION=x.y.z
-# Releasing is two steps so the xpo workflow does the committing and merging:
+# Cut a release in three steps, so the xpo workflow does the committing and merging:
 #   1. In the release issue's worktree: make release-prep VERSION=x.y.z, then
 #      commit and merge the issue as usual.
-#   2. On main, after the merge: make release-tag VERSION=x.y.z, then push.
+#   2. On main: complete the milestone, then commit .xpo/issues.db, so the
+#      tagged commit records the completed milestone.
+#   3. On main: make release-tag VERSION=x.y.z, push, then check the GitHub release.
 
 release-check-version:
 ifndef VERSION
