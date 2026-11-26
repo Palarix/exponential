@@ -27,4 +27,4 @@ may use different naming conventions). The table uses the base tool names.
 | `git_show` | Show one commit's metadata, message and patch (read-only) |
 | `code_history` | Find the commits and issues that touched a file or a line range (read-only) |
 
-<!-- xpo:skill 1.5.0 sha256:c57d4b533baa -->
+<!-- xpo:skill 1.6.0 sha256:c57d4b533baa -->

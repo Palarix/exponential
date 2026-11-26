@@ -122,4 +122,4 @@ Committing on the issue's worktree is your job. Merging is `merge`'s job: never 
 or merge, rebase or commit on the default branch yourself. Rebasing the issue's branch onto the
 default branch (or merging the default branch into it) from the worktree is allowed.
 
-<!-- xpo:skill 1.5.0 sha256:7f22f47d40f9 -->
+<!-- xpo:skill 1.6.0 sha256:7f22f47d40f9 -->

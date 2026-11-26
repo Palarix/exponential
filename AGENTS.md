@@ -1,4 +1,4 @@
-<!-- xpo:begin 1.5.0 sha256:d976cfa6f6c0 -->
+<!-- xpo:begin 1.6.0 sha256:d976cfa6f6c0 -->
 ## Exponential (xpo)
 
 This project uses `xpo` (Exponential) via the MCP server registered in `.mcp.json`.

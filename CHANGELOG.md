@@ -7,15 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-11-26
+
 ### Added
-
-- Events in `xpo show --json` and the MCP `show` tool (with `include_events`) have a `changes` field. It lists the fields the event changed: `{"from", "to"}` for single values, `{"added", "removed"}` for labels and dependencies. Events that changed nothing shown have no `changes`. (xpo-acf7f4)
-
-- `xpo list --json` and the MCP `list` tool return `created_at` (RFC 3339), `created_by` and `comment_count` for each issue. `xpo blocked --json` and the `children` of `xpo show --json` return them too. (xpo-f2cd2a)
-
-- **Factory workflow template:** `xpo init --workflow factory` writes a workflow for autonomous delivery, one milestone at a time. The human approves the milestone backlog (its issues then go to PLANNED) and tophats the milestone at the end. In between, a sub-agent answers the spec's open questions, a second sub-agent reviews each change, and approved work is merged. The review is calibrated: blockers and majors need a realistic trigger, except in security and data-loss code; "PASS, no findings" is a normal result; the implementer may reject unrealistic findings and lists them at the tophat; only a blocker starts another round, and later rounds check only the fixes (at most 3 rounds). Milestones plan targets; stories of 5 story points or fewer, and epics for bigger ones, decompose the work. The template ships both sub-agent briefs as `references/open-questions.md` and `references/code-review.md`; agents without skills get them inline. It needs an agent that can start sub-agents. Workflow templates can now carry reference files. (xpo-82ee77)
-
-- The running version now identifies the exact build: `1.5.0` on a release tag, `1.5.0-de0d346` past it, with a trailing `!` for uncommitted changes. `xpo version`, `xpo doctor`, the MCP server info and the board footer show it. The footer drops the word "Exponential" to make room. Integration stamps keep plain `x.y.z`. (xpo-c7a4cf)
 
 - Milestones: group issues that are done together, scope-boxed where Cycles are time-boxed. (xpo-f89e55, xpo-9a7a77, xpo-974eba, xpo-325f73, xpo-e6ff99, xpo-88f633, xpo-483245, xpo-df162c, xpo-d12b64, xpo-574cf5, xpo-8995e4, xpo-4cf10a, xpo-60f745)
   - **Model:** milestones are numbered `#1`, `#2`, … (never reused) and may have a label, unique among open milestones. A milestone is OPEN until it is completed (COMPLETED, final) or deleted. Current and Next are the first two open milestones in order. They always exist, as placeholders that the first write saves, and Next is locked while Current is unsaved.
@@ -31,13 +25,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Assigning:** a **Milestone** row in the issue sidebar, a chip on backlog rows and board cards (Lucide's `Milestone` sign-post icon and the name), `r` on the focused row, card or open issue, **Milestone ▸** in the context menu, **Move to milestone…** in the command palette, and a milestone button in the new-issue modal (drafts keep it). Changing an epic's milestone asks whether to move its open sub-issues too. An open issue in a completed milestone shows "In completed milestone 1.5" with **Move to Current**.
   - **Filter:** the Filter menu has **Milestone**, in Issues, My Issues, Inbox and Milestones: No milestone, Current and Next with a badge after the name, then **Upcoming** (nearest first) and **Past** (newest first) submenus. Each row has a count, a submenu row shows how many of its milestones are checked, and the search box finds milestones in all of them. Current and Next are looked up each time, so a saved filter follows them. Clicking an open milestone's name opens Issues with its filter. (xpo-c5d3ff)
   - **API:** `POST /api/draft` takes `with_children` for an UPDATE, issue drafts store `milestone`, and a refused milestone assignment answers 400 with the reason.
-  - **Migration:** boards that used this feature under its earlier name, Releases, need `xpo doctor --fix` once. It rewrites `issues.db`, `archive.db` and issue drafts in place (`RELEASE_*` events, `rel-` IDs, `release_id` and the drafts' `release`), keeps a `.bak` copy of each changed file, and drops the duplicate lines a pre-migration branch leaves after a union merge. Until then, reads fail with "This board has Release data from before 1.6. Run `xpo doctor --fix` to migrate it." Saved Release filters and the points setting reset.
+  - **Migration:** boards that ran a development build with Releases need `xpo doctor --fix` once.
+
+- **Factory workflow template:** `xpo init --workflow factory` writes a workflow for autonomous delivery, one milestone at a time. The human approves the milestone backlog (its issues then go to PLANNED) and tophats the milestone at the end. In between, a sub-agent answers the spec's open questions, a second sub-agent reviews each change, and approved work is merged. The review is calibrated: blockers and majors need a realistic trigger, except in security and data-loss code; "PASS, no findings" is a normal result; the implementer may reject unrealistic findings and lists them at the tophat; only a blocker starts another round, and later rounds check only the fixes (at most 3 rounds). Milestones plan targets; stories of 5 story points or fewer, and epics for bigger ones, decompose the work. The template ships both sub-agent briefs as `references/open-questions.md` and `references/code-review.md`; agents without skills get them inline. It needs an agent that can start sub-agents. Workflow templates can now carry reference files. (xpo-82ee77)
 
 - Agent chat: your messages render as Markdown, and the composer formats Markdown as you type.
   - **Transcript:** your messages, and messages steered into a running turn, show lists, code, links and emphasis, with issue IDs as chips, like the agent's replies.
-  - **Composer:** typing `**bold**`, `` `code` ``, `- `, `1. `, `> ` or `# ` formats as you go, and ⌘B, ⌘I and ⌘E work. "```" (or "```lang") then Enter opens a code block, and a closing "```" then Shift+Enter leaves it. Shift+Enter adds a list item in a list and a new paragraph elsewhere. The agent still receives plain Markdown. Enter, ↑, Esc, drafts, attachments, queue/steer and edit-last-message work as before.
+  - **Composer:** typing `**bold**`, `` `code` ``, `- `, `1. `, `> ` or `# ` formats as you go, and ⌘B, ⌘I and ⌘E work. "```" (or "```lang") then Enter opens a code block, and a closing "```" then Shift+Enter leaves it. Shift+Enter adds a list item in a list and a new paragraph elsewhere. The agent still receives plain Markdown. Enter, ↑, Esc, drafts, attachments, queue/steer and edit-last-message work as before. The composer has focus once the page has loaded, and an existing chat shows "Reply…" right away.
 
-  (xpo-c35d83)
+  (xpo-c35d83, xpo-ea2c99)
+
+- Agent chat: the composer can queue messages, steer a running turn, and edit the last message.
+  - **Queue:** a message sent while a turn runs waits in the chat's queue on the board, shown as chips above the composer in every open client. When the turn ends with a reply, the board sends the queue as one message, even with no browser open. Stop, an error or an interrupted turn keeps the queue. The queue lives in the board's memory; archive, delete and a board restart drop it.
+  - **Steer:** a queued chip's **Steer** button sends the message into the running turn, and the agent changes course without stopping. Claude Code gets it as a mid-turn user message, and Codex through `turn/steer`.
+  - **Edit:** once the chat is idle, the last message has an **Edit** button, and ↑ in an empty composer does the same. Sending the edit replaces that turn in the transcript and in the agent's session (Claude `--resume-session-at`, Codex `thread/revert`). Files the agent changed stay changed. ↑ with queued messages pulls the last one back into the composer instead. Chats from before this release cannot be edited: they lack the rewind points that each turn now records.
+  - **API:** `POST /messages` queues while a turn runs and answers `{ok, queued}`, and takes `edit`. New: `DELETE /api/local/chats/{id}/queue/{qid}` and `POST /api/local/chats/{id}/queue/{qid}/steer`. `GET /api/local/chats/{id}` returns `queue`.
+
+  (xpo-52ec1f)
+
+- Agent chat: a link icon after the chat title, in the Agent view and the chat popup, leads to the issues the chat worked on in Work Mode. With one issue, hovering shows its preview card and a click opens it. With several, a click opens a menu, newest first, with the current Work Mode issue marked "Working". The link stays after the chat leaves Work Mode. (xpo-c53912)
 
 - Command palette (⌘K) finds agent chats. Typing matches a chat's title, any issue ID it worked on in Work Mode, or its linked issue's title; an empty query lists the 5 newest chats. Each row shows the chat's state, title, linked issue ID and last activity, and Enter or click opens the chat. (xpo-0628f4)
 
@@ -49,15 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   (xpo-c80c0d)
 
-- Agent chat: the composer can queue messages, steer a running turn, and edit the last message.
-  - **Queue:** a message sent while a turn runs waits in the chat's queue on the board, shown as chips above the composer in every open client. When the turn ends with a reply, the board sends the queue as one message, even with no browser open. Stop, an error or an interrupted turn keeps the queue. The queue lives in the board's memory; archive, delete and a board restart drop it.
-  - **Steer:** a queued chip's **Steer** button sends the message into the running turn, and the agent changes course without stopping. Claude Code gets it as a mid-turn user message, and Codex through `turn/steer`.
-  - **Edit:** once the chat is idle, the last message has an **Edit** button, and ↑ in an empty composer does the same. Sending the edit replaces that turn in the transcript and in the agent's session (Claude `--resume-session-at`, Codex `thread/revert`). Files the agent changed stay changed. ↑ with queued messages pulls the last one back into the composer instead. Chats from before this release cannot be edited: they lack the rewind points that each turn now records.
-  - **API:** `POST /messages` queues while a turn runs and answers `{ok, queued}`, and takes `edit`. New: `DELETE /api/local/chats/{id}/queue/{qid}` and `POST /api/local/chats/{id}/queue/{qid}/steer`. `GET /api/local/chats/{id}` returns `queue`.
+- The running version now identifies the exact build: `1.5.0` on a release tag, `1.5.0-de0d346` past it, with a trailing `!` for uncommitted changes. `xpo version`, `xpo doctor`, the MCP server info and the board footer show it. The footer drops the word "Exponential" to make room. Integration stamps keep plain `x.y.z`. (xpo-c7a4cf)
 
-  (xpo-52ec1f)
+- Events in `xpo show --json` and the MCP `show` tool (with `include_events`) have a `changes` field. It lists the fields the event changed: `{"from", "to"}` for single values, `{"added", "removed"}` for labels and dependencies. Events that changed nothing shown have no `changes`. (xpo-acf7f4)
 
-- Agent chat: a link icon after the chat title, in the Agent view and the chat popup, leads to the issues the chat worked on in Work Mode. With one issue, hovering shows its preview card and a click opens it. With several, a click opens a menu, newest first, with the current Work Mode issue marked "Working". The link stays after the chat leaves Work Mode. (xpo-c53912)
+- `xpo list --json` and the MCP `list` tool return `created_at` (RFC 3339), `created_by` and `comment_count` for each issue. `xpo blocked --json` and the `children` of `xpo show --json` return them too. (xpo-f2cd2a)
 
 ### Changed
 
@@ -72,71 +74,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Guided workflow:** today's nine steps, with Rules (the former Hard Rules), a **Public by default** rule (no local paths or private project names in issues, specs and walkthroughs), in-scope bugs fixed as part of the issue and out-of-scope bugs filed, and a three-item gate in step 9.
   - **Board chat:** agents load the `xpo` skill, and `xpo-workflow` if the project has one.
 
-- The ⌘K palette's Navigation group lists the sidebar's views, with the sidebar's names and icons: Overview (was Dashboard), Cycles (when enabled), Milestones, Labels and My Issues join the list. (xpo-8995e4)
-
-- View top bars: the search shrinks first, so it no longer overlaps the heading or the buttons, and button labels no longer wrap. **New Label** is a secondary button, 28px high like the other top bar buttons. (xpo-8995e4)
-
-- `make lint` type checks the frontend with `tsc -b`, so `make test` and the pre-commit hook catch type errors, test files included. A commit that stages a Go file or a `web/` source file takes about 5 seconds longer. (xpo-a67011)
-
-- Menus: a mouse move toward an open submenu no longer switches to another submenu row on the way, while a move along the rows still switches at once. Menus can nest a submenu inside a submenu, and a nested one opens on the same side as its parent. (xpo-c5d3ff)
-
 - Agent skill: when `merge` fails because the default branch moved on, the agent brings the default branch into the issue's branch from the worktree (`git rebase <default-branch>` or `git merge <default-branch>`), resolves the conflicts, re-runs the tests, commits, and calls `merge` again. The ban on merging, rebasing and committing now covers only the default branch. (xpo-8e922f)
+
+- Agent chat: each action row shows its verb between the icon and the detail, for example "Read CHANGELOG.md", "Searched for `^### Fixed`" or "Merged xpo-1". A running call reads "Reading CHANGELOG.md", and the collapsed line of an active group stays in that form until the call moves into the list. Shell rows keep their command description, and unknown tools keep their name. The icon is decorative and no longer has a tooltip. Wording changes: Grep reads "Searched for", reading an issue reads "Read xpo-1" instead of "Opened xpo-1", and writing a spec or walkthrough reads "Wrote the walkthrough for xpo-1". (xpo-6c4a1b)
+
+- Agent chat: while the chat follows new output, the view glides to the bottom instead of jumping, and new messages, tool groups, cards and status lines fade in. Opening or switching a chat still lands at the bottom at once, with nothing fading. The glide follows the Motion preference as movement (it jumps under reduced motion or Off); the fade is a fade (it stops only when Motion is Off). A message you send, queue or steer jumps the thread to the bottom at once and follows the reply. The thread stops following only when you wheel up, touch, press a scroll key, press the scrollbar or click the turn rail, not on an upward move that a shrinking composer or shrinking content explains. The thread turns off the browser's scroll anchoring, so content changing height above the view can shift what you're reading. (xpo-50b9d9, xpo-397365, xpo-ea5d6b, xpo-7ffcf5)
+
+- Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)
 
 - One issue hover card everywhere: issue links and chips (in Markdown, chat and the chat title), relation chips and milestone rows. It shows the status icon, ID and assignee avatar, the title (up to two lines), the description as Markdown (up to six lines, fading out when longer), and icons with counts for comments, attachments, spec, walkthrough, sub-issues done, commits and open blockers, each only when there is one. Priority, estimate and labels are no longer on the card. (xpo-73dfc5)
 
 - Dialogs share one frame: a title, a body that scrolls, and buttons at the bottom right, with even 16px spacing and no dividers. Every dialog shows "esc to cancel" (or its own control) at the bottom left, keeps Tab inside, and returns focus to where you were when it closes. New issue, the merge dialogs and the "Update/Move sub-issues?" prompts now match the confirmation dialogs, and Confirm merge closes on Escape. (xpo-c6bb65)
 
-- Bordered dropdowns (the milestone picker and the New issue modal's Label, Status and Estimate pickers) share one field style: a light tint of the text colour with a tint border, so they show on any surface. (xpo-88f633)
+- The ⌘K palette's Navigation group lists the sidebar's views, with the sidebar's names and icons: Overview (was Dashboard), Cycles (when enabled), Milestones, Labels and My Issues join the list. (xpo-8995e4)
 
-- Agent chat: each action row shows its verb between the icon and the detail, for example "Read CHANGELOG.md", "Searched for `^### Fixed`" or "Merged xpo-1". A running call reads "Reading CHANGELOG.md", and the collapsed line of an active group stays in that form until the call moves into the list. Shell rows keep their command description, and unknown tools keep their name. The icon is decorative and no longer has a tooltip. Wording changes: Grep reads "Searched for", reading an issue reads "Read xpo-1" instead of "Opened xpo-1", and writing a spec or walkthrough reads "Wrote the walkthrough for xpo-1". (xpo-6c4a1b)
-
-- Agent chat: while the chat follows new output, the view glides to the bottom instead of jumping, and new messages, tool groups, cards and status lines fade in. Opening or switching a chat still lands at the bottom at once, with nothing fading. The glide follows the Motion preference as movement (it jumps under reduced motion or Off); the fade is a fade (it stops only when Motion is Off). (xpo-50b9d9)
-
-- Agent chat: the approval card's primary button reads "Allow" instead of "Allow once". "Allow for this chat" stays in its menu. Sending a decision no longer shifts the card: the spinner covers the button's label instead of widening the button. (xpo-0f124b)
+- View top bars: the search shrinks first, so it no longer overlaps the heading or the buttons, and button labels no longer wrap. **New Label** is a secondary button, 28px high like the other top bar buttons. (xpo-8995e4)
 
 - Issues view: the tabs share one set of filters, so a filter stays on when you switch between All Issues, Active, Backlog and Completed. Each tab applies only the statuses it shows: in the Filter menu, statuses outside the tab are disabled (the whole Status entry on Backlog), the chip greys them with "Not on this tab", and a Status filter never empties a tab. Filters saved per tab by earlier versions are dropped. (xpo-325f73)
 
 - Filter chips start with a **Clear filters** text button, which replaces the ✕ icon after the chips. The bottom status bar now lines up with the main card on both sides. (xpo-325f73)
 
+- Menus: a mouse move toward an open submenu no longer switches to another submenu row on the way, while a move along the rows still switches at once. Menus can nest a submenu inside a submenu, and a nested one opens on the same side as its parent. (xpo-c5d3ff)
+
+- Bordered dropdowns (the milestone picker and the New issue modal's Label, Status and Estimate pickers) share one field style: a light tint of the text colour with a tint border, so they show on any surface. (xpo-88f633)
+
+- `make lint` type checks the frontend with `tsc -b`, so `make test` and the pre-commit hook catch type errors, test files included. A commit that stages a Go file or a `web/` source file takes about 5 seconds longer. (xpo-a67011)
+
 - Frontend: `eslint-plugin-react-hooks` is on 7.1, and its 30 new lint errors are fixed in code, not suppressed. Keyboard shortcuts, menus, the command palette and Backlog drag and drop behave as before; new DOM tests cover them. One visible difference: switching Issues tabs no longer shows one frame with the previous tab's expanded groups. (xpo-09fa6f)
 
 ### Fixed
 
-- In a worktree of a bare repository, xpo no longer shows an empty board and fails every write with a lock error. It stops with "xpo needs a primary checkout: this is a worktree of a bare repository", which xpo does not support. A hub without a `.xpo` directory is now an error too, not an empty board. The MCP server keeps running and returns the error on each tool call. (xpo-a80c27)
-
-- Board registry: several `xpo board` processes that start or stop at the same moment no longer corrupt the shared `instances.json`. Writes take a file lock and go through a unique tmp file. A corrupt registry is rewritten instead of making `/api/instances` fail on every board, and the server tests no longer read the real registry. (xpo-fb37da)
-
-- Demo board: `xpo demo` no longer seeds events later than the time it runs. Before, the weekend snap could push the last events up to 3 days into the future, and every change made on the new board got a seeded timestamp. (xpo-760e41)
-
 - Agent chat: an event over 4 MiB no longer makes the whole chat fail to open or replay. The board reads a chat's log with no line limit. An approval card stores each tool argument up to 64 KiB and marks a longer one `… [cut: N bytes total]`. The agent still gets the full input. (xpo-f5df49)
 
-- Keyboard shortcuts: a submenu no longer logs "Keyboard shortcut conflict" when its keys override the same shortcuts of its parent menu. Different shortcuts on the same key at the same priority still warn. (xpo-c78c8d)
+- Agent chat: a multi-line question from the agent keeps its line breaks on the question card, on the Review step and in the answered question in the thread. (xpo-f90406)
+
+- Agent chat: a Codex chat records and shows the model each turn actually ran. Before, it showed the default from `~/.codex/config.toml`, for example GPT-6-Luna when GPT-6.1-Sol was picked. Picking Default after another model runs the default again, and a turn Codex moves to another model reports that model. (xpo-804704)
 
 - Filter menu: checking a value no longer zeroes the counts of the other values or removes rows from its own list. Each dimension's counts ignore its own selection and follow the selections in the other dimensions, in Issues, My Issues, Inbox and Milestones. (xpo-c5d3ff)
 
 - Menus: separators are visible on every surface. They use the tint border, a wash of the text colour, in place of a fixed colour almost equal to the menu's background. (xpo-c5d3ff)
 
-- `make frontend` builds again. A test fixture failed the type check. (xpo-8fc8ba)
-
-- `make frontend` fails when the build fails, prints the error, and keeps the existing assets. Before, a failed build with an old `web/dist` copied the old assets and exited 0. (xpo-a67011)
-
-- Agent chat: with Motion "On", the thread again follows new output after you send a message, without scrolling to the bottom by hand. The smooth scroll moves in whole pixels, so the browser rounding its position no longer reads as you scrolling up, and a message you send, queue or steer always brings following back. (xpo-397365)
-
-- Agent chat: with Motion on, a message you send now jumps the thread to the bottom at once and follows the reply, where it could sometimes stay put and stop following. New output during the reply still glides. (xpo-ea5d6b)
-
-- Agent chat: the thread stops following a reply when you wheel up, touch, press a scroll key, press the scrollbar or click the turn rail, not on any upward move. An upward move that a shrinking composer or shrinking content explains no longer stops it. The thread also turns off the browser's scroll anchoring, so content changing height above the view can now shift what you're reading. (xpo-7ffcf5)
-
-- Agent chat: loading or reloading the Agent view no longer sometimes crashes into "Something went wrong" with `[tiptap error]: The editor view is not available`.
-  - **Focus:** the composer has focus once the page has loaded.
-  - **Placeholder:** opening an existing chat shows "Reply…" right away, without first flashing the new-chat placeholder.
-  - **Issue descriptions:** a click into an issue description waits for the editor to be ready before it places the caret.
-
-  (xpo-ea2c99)
-- `xpo start --force` no longer deletes the issue's worktree. It keeps the existing worktree and its uncommitted work, and adds the worktree only if it is missing. Starting your own DOING issue again, without force and from any directory, resumes its worktree. The xpo skill and the Work Mode prompt now tell agents not to call `start` again once they are in the issue's worktree. (xpo-3b48b1)
-- Popovers opened inside a dialog, such as a dropdown, now show above the dialog instead of behind it. (xpo-17f094)
-- Agent chat: a multi-line question from the agent keeps its line breaks on the question card, on the Review step and in the answered question in the thread. (xpo-f90406)
 - Menus: hovering a disabled submenu no longer opens it. (xpo-a71a45)
-- Agent chat: a Codex chat records and shows the model each turn actually ran. Before, it showed the default from `~/.codex/config.toml`, for example GPT-6-Luna when GPT-6.1-Sol was picked. Picking Default after another model runs the default again, and a turn Codex moves to another model reports that model. (xpo-804704)
+
+- Keyboard shortcuts: a submenu no longer logs "Keyboard shortcut conflict" when its keys override the same shortcuts of its parent menu. Different shortcuts on the same key at the same priority still warn. (xpo-c78c8d)
+
+- Popovers opened inside a dialog, such as a dropdown, now show above the dialog instead of behind it. (xpo-17f094)
+
+- In a worktree of a bare repository, xpo no longer shows an empty board and fails every write with a lock error. It stops with "xpo needs a primary checkout: this is a worktree of a bare repository", which xpo does not support. A hub without a `.xpo` directory is now an error too, not an empty board. The MCP server keeps running and returns the error on each tool call. (xpo-a80c27)
+
+- `xpo start --force` no longer deletes the issue's worktree. It keeps the existing worktree and its uncommitted work, and adds the worktree only if it is missing. Starting your own DOING issue again, without force and from any directory, resumes its worktree. The xpo skill and the Work Mode prompt now tell agents not to call `start` again once they are in the issue's worktree. (xpo-3b48b1)
+
+- Board registry: several `xpo board` processes that start or stop at the same moment no longer corrupt the shared `instances.json`. Writes take a file lock and go through a unique tmp file. A corrupt registry is rewritten instead of making `/api/instances` fail on every board, and the server tests no longer read the real registry. (xpo-fb37da)
+
+- Demo board: `xpo demo` no longer seeds events later than the time it runs. Before, the weekend snap could push the last events up to 3 days into the future, and every change made on the new board got a seeded timestamp. (xpo-760e41)
+
+- `make frontend` fails when the build fails, prints the error, and keeps the existing assets. Before, a failed build with an old `web/dist` copied the old assets and exited 0. (xpo-a67011, xpo-8fc8ba)
 
 ## [1.5.0] — 2026-10-18
 

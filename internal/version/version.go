@@ -10,7 +10,7 @@ import (
 // CLIVersion is the release version of the xpo CLI, always plain x.y.z. It
 // stamps integration files and takes part in version comparisons. To show the
 // running version, use Build.
-const CLIVersion = "1.5.0"
+const CLIVersion = "1.6.0"
 
 // gitDescribe holds the raw `git describe --tags --dirty='!'` output. The
 // Makefile sets it with -ldflags -X.

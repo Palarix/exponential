@@ -46,4 +46,4 @@ A spec that merely restates the issue title has failed.
   implementing: ask the user, or record them as Agent Decisions when no user is present.
 - The spec is the source of truth for implementation, so it must match the final code.
 
-<!-- xpo:skill 1.5.0 sha256:20fd2c37de9e -->
+<!-- xpo:skill 1.6.0 sha256:20fd2c37de9e -->
