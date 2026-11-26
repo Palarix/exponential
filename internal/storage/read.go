@@ -14,6 +14,9 @@ import (
 // lock, so they can catch an append halfway through its write: a final line
 // with no newline that doesn't parse is that torn append and is skipped.
 func ReadEvents() ([]model.Event, error) {
+	if err := CheckHub(); err != nil {
+		return nil, err
+	}
 	data, err := os.ReadFile(filepath.Join(XpoDir(), "issues.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil
@@ -44,6 +47,9 @@ func ReadEvents() ([]model.Event, error) {
 // ValidateEvents reads issues.db and checks every line parses as valid JSON.
 // On success it returns (eventCount, nil). On failure it returns (lineNumber, error).
 func ValidateEvents() (int, error) {
+	if err := CheckHub(); err != nil {
+		return 0, err
+	}
 	f, err := os.Open(filepath.Join(XpoDir(), "issues.db"))
 	if os.IsNotExist(err) {
 		return 0, nil
@@ -70,6 +76,9 @@ func ValidateEvents() (int, error) {
 
 // ReadArchivedEvents reads events from the archive database
 func ReadArchivedEvents() ([]model.Event, error) {
+	if err := CheckHub(); err != nil {
+		return nil, err
+	}
 	f, err := os.Open(filepath.Join(XpoDir(), "archive.db"))
 	if os.IsNotExist(err) {
 		return []model.Event{}, nil

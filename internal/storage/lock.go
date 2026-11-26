@@ -25,6 +25,9 @@ const (
 // waits on it. The lock is not reentrant: fn must not call another write
 // function in this package.
 func withEventsLock(fn func() error) error {
+	if err := CheckHub(); err != nil {
+		return err
+	}
 	fl := flock.New(filepath.Join(XpoDir(), "events.lock"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), eventsLockTimeout)

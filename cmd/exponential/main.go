@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/palarix/exponential/internal/config"
+	"github.com/palarix/exponential/internal/storage"
 	"github.com/palarix/exponential/internal/ui"
 	"github.com/palarix/exponential/internal/version"
 	"github.com/spf13/cobra"
@@ -41,6 +43,12 @@ var rootCmd = &cobra.Command{
 		exceptions := []string{"init", "help", "version", "doctor", "migrate", "whoami", "demo"}
 		if commandOrAncestorAllowed(cmd, exceptions) {
 			return nil
+		}
+
+		// The MCP server keeps running: each tool call returns the storage
+		// error, which the agent sees. A server that exits at startup hides it.
+		if err := storage.CheckHub(); errors.Is(err, storage.ErrBareRepository) && !commandOrAncestorAllowed(cmd, []string{"mcp"}) {
+			return err
 		}
 
 		if _, err := os.Stat(".xpo"); os.IsNotExist(err) {

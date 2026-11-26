@@ -28,6 +28,9 @@ type EventOrderViolation struct {
 // across issues.db. File order is authoritative for projection; timestamps
 // that disagree with it mislead any consumer that orders events by time.
 func CheckEventOrder() ([]EventOrderViolation, error) {
+	if err := CheckHub(); err != nil {
+		return nil, err
+	}
 	f, err := os.Open(filepath.Join(XpoDir(), "issues.db"))
 	if os.IsNotExist(err) {
 		return nil, nil

@@ -102,6 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In a worktree of a bare repository, xpo no longer shows an empty board and fails every write with a lock error. It stops with "xpo needs a primary checkout: this is a worktree of a bare repository", which xpo does not support. A hub without a `.xpo` directory is now an error too, not an empty board. The MCP server keeps running and returns the error on each tool call. (xpo-a80c27)
+
 - Board registry: several `xpo board` processes that start or stop at the same moment no longer corrupt the shared `instances.json`. Writes take a file lock and go through a unique tmp file. A corrupt registry is rewritten instead of making `/api/instances` fail on every board, and the server tests no longer read the real registry. (xpo-fb37da)
 
 - Demo board: `xpo demo` no longer seeds events later than the time it runs. Before, the weekend snap could push the last events up to 3 days into the future, and every change made on the new board got a seeded timestamp. (xpo-760e41)
